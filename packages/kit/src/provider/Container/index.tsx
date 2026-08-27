@@ -28,6 +28,7 @@ import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
+import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
@@ -70,6 +71,7 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />
+      <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
       <CloudBackupContainer />
 

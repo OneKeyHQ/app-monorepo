@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
@@ -22,6 +23,7 @@ import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
+import { useLoadedOnce } from '../hooks/useLoadedOnce';
 import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowBonusMetric } from './BorrowBonusMetric';
@@ -120,19 +122,28 @@ export const Overview = ({
   };
   const isNetWorthLoading = reserves.loading && !reserves.data?.overview;
   const isNetApyLoading = reserves.loading && !reserves.data?.overview;
+  const hasLoadedHealthFactorOnce = useLoadedOnce(Boolean(healthFactorData));
   const healthFactorDetail =
     healthFactorData?.healthFactor?.button?.data.healthFactorDetail;
   const healthSummaryProps = {
     detail: healthFactorDetail,
     fallbackText: healthFactorData?.healthFactor?.text,
-    isLoading: isHealthFactorLoading && !healthFactorData,
+    isLoading: isHealthFactorLoading && !hasLoadedHealthFactorOnce,
   };
 
   const pendingCount = pendingTxs.length;
   const historyAction = reserves.data?.overview?.history;
   const historyVisible = !historyAction?.disabled && pendingCount === 0;
-  const showMobileHeaderHistoryAction =
-    !gtMd && (pendingCount > 0 || !historyAction?.disabled);
+  const hasHistoryAction = pendingCount > 0 || !historyAction?.disabled;
+  // Narrow layouts drop the inline entry and let the host hoist it into the
+  // title bar — but only the native BorrowHomePage passes
+  // onBorrowHistoryActionChange, so on web / WebDapp / a narrow desktop window
+  // that left no way at all to reach history or see the pending count. Keep the
+  // inline entry wherever nothing can hoist it.
+  const showMobileHeaderHistoryAction = Boolean(
+    !gtMd && platformEnv.isNative && hasHistoryAction,
+  );
+  const showInlineHistoryTools = gtMd || !platformEnv.isNative;
 
   useEffect(() => {
     if (!onBorrowHistoryActionChange) {
@@ -164,10 +175,10 @@ export const Overview = ({
 
   const historyTools = (
     <XStack ai="center" gap="$3" flexShrink={0}>
-      {gtMd && pendingCount > 0 ? (
+      {showInlineHistoryTools && pendingCount > 0 ? (
         <PendingIndicator num={pendingCount} onPress={handleHistoryPress} />
       ) : null}
-      {gtMd && historyVisible ? (
+      {showInlineHistoryTools && historyVisible ? (
         <XStack testID={BorrowTestIDs.overviewHistoryBtn} ai="center">
           {historyAction ? (
             <EarnActionIcon
@@ -276,10 +287,9 @@ export const Overview = ({
           </XStack>
         </YStack>
       ) : (
-        /* Phones give the three headline numbers the same weight on one row,
-           wrapping onto a second only when they stop fitting, with the tools
-           pinned to the right of that first row. Top-aligned rather than
-           centred so they stay on the net worth line once the numbers wrap. */
+        /* Phones keep the three headline numbers in equal-width columns so
+           staggered loading results cannot move the later metrics. The tools
+           stay pinned to the right and top-aligned with that row. */
         <>
           <XStack ai="flex-start" gap="$2">
             <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
@@ -287,18 +297,18 @@ export const Overview = ({
                 title={{ text: labels.netWorth }}
                 text={netWorthText}
                 isLoading={isNetWorthLoading}
-                widthMode="hug"
+                widthMode="equal"
               />
               <BorrowHealthFactorSummary
                 {...healthSummaryProps}
-                widthMode="hug"
+                widthMode="equal"
               />
               <OverviewMetric
                 testID={BorrowTestIDs.overviewNetApy}
                 title={{ text: labels.netApy }}
                 text={netApyText}
                 isLoading={isNetApyLoading}
-                widthMode="hug"
+                widthMode="equal"
               />
             </XStack>
             {/* Clears the metric cells' own $3 of top padding */}

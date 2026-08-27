@@ -12,12 +12,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAccountPortfolioPnl } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Currency, useCurrency } from '../../../components/Currency';
 import { Token } from '../../../components/Token';
+import { useNetworkLogoUri } from '../../../hooks/useNetworkLogoUri';
 
 interface ISwapProPositionItemProps {
   token: ISwapToken;
@@ -36,16 +36,10 @@ const SwapProPositionItem = ({
 }: ISwapProPositionItemProps) => {
   const currencyInfo = useCurrency();
 
-  const tokenNetworkImageUri = useMemo(() => {
-    if (token.networkLogoURI) {
-      return token.networkLogoURI;
-    }
-    if (token.networkId) {
-      const localNetwork = networkUtils.getLocalNetworkInfo(token.networkId);
-      return localNetwork?.logoURI;
-    }
-    return '';
-  }, [token.networkLogoURI, token.networkId]);
+  const tokenNetworkImageUri = useNetworkLogoUri({
+    logoUri: token.networkLogoURI,
+    networkId: token.networkId,
+  });
 
   const handlePress = useCallback(() => {
     if (!disabled) {

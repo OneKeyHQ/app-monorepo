@@ -62,6 +62,7 @@ function BasicTokenPriceChart({ coinGeckoId, token }: ITokenPriceChartProps) {
       getTradingViewNativeSource({
         fallbackCoinGeckoId: coinGeckoId,
         hyperliquidCoin: '',
+        hyperliquidWhitelistBranch: 'market',
         isNative: marketNetwork?.isNative,
         marketDataSource: undefined,
         networkId: networkId ?? '',

@@ -24,10 +24,10 @@ export enum ESubscriptionType {
   USER_TWAP_HISTORY = 'userTwapHistory',
   USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
+  TRADES = 'trades',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
   ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
-  // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }

@@ -1,10 +1,13 @@
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
+  type ITradingMode,
   getPerpsAccountDisplaySnapshotEntry,
   getPerpsSpotDustingNextState,
   perpsAbstractionModeAtom,
@@ -17,9 +20,43 @@ import {
   perpsComputedAccountValueAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
+  tradingModeAtom,
 } from './perps';
 
+import type { IAtomNameKeys } from '../atomNames';
+import type { IJotaiAtomPro } from '../types';
+
 const now = 1_000_000;
+
+describe('tradingModeAtom', () => {
+  it('persists the selected trading mode across app restarts', () => {
+    expect(
+      (tradingModeAtom.atom() as unknown as IJotaiAtomPro<ITradingMode>)
+        .persist,
+    ).toBe(true);
+  });
+
+  // The persisted write path runs `merge({}, initialValue, nextValue)` unless a
+  // config opts out. lodash spreads a string into a character-indexed object, so
+  // without this the stored mode reads back as {0:'s',1:'p',...} and every
+  // `=== 'spot'` check silently fails.
+  it('opts out of initial-value merging because the value is a bare string', () => {
+    expect(atomsConfig[EAtomNames.tradingModeAtom]?.mergeInitialValue).toBe(
+      false,
+    );
+  });
+});
+
+// Any persisted atom holding a primitive hits the same lodash-merge trap, so the
+// opt-out is asserted for the whole class rather than one atom at a time.
+describe('persisted primitive atoms', () => {
+  it('never merge the initial value into the stored value', () => {
+    const primitiveAtoms: IAtomNameKeys[] = [EAtomNames.tradingModeAtom];
+    for (const name of primitiveAtoms) {
+      expect(atomsConfig[name]?.mergeInitialValue).toBe(false);
+    }
+  });
+});
 
 function buildEntry({
   accountAddress,
@@ -352,6 +389,13 @@ describe('perpsActiveAccountStatusAtom', () => {
 });
 
 describe('perpsActiveAccountEnableTradingModeAtom', () => {
+  beforeEach(() => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
+  });
+
   afterEach(() => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: null,
@@ -383,6 +427,29 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       canAutoEnableInOrderPanel: true,
       requiresEnableTradingDialogInOrderPanel: false,
       requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes software accounts through the dialog when agent password verification is required', () => {
+    jotaiDefaultStore.set(hyperLiquidAgentPasswordStatusAtom.atom(), {
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: true,
+    });
+    jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      indexedAccountId: 'hd-1--0',
+      deriveType: 'default',
+      accountAddress: '0xabc',
+    });
+
+    expect(
+      jotaiDefaultStore.get(perpsActiveAccountEnableTradingModeAtom.atom()),
+    ).toEqual({
+      isSoftwareAccount: true,
+      isHardwareAccount: false,
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
     });
   });
 

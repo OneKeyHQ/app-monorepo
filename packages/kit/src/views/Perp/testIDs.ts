@@ -7,6 +7,9 @@ export const PerpTestIDs = {
   TokenSelector: 'perp-token-selector',
   TokenSelectorMobile: 'perp-token-selector-mobile',
   TokenSelectorSearch: 'perp-token-selector-search',
+  ActiveDexBadge: 'perp-active-dex-badge',
+  TokenSelectorDexBadge: (coin: string) =>
+    `perp-token-selector-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-dex-badge`,
 
   // -- Trading form: margin & leverage --
   MarginModeSelector: 'perp-margin-mode-selector',
@@ -61,6 +64,7 @@ export const PerpTestIDs = {
   PositionCloseLimitButton: 'perp-position-close-limit-button',
   PositionSetTpslButton: 'perp-position-set-tpsl-button',
   PositionShareButton: 'perp-position-share-button',
+  PositionShareRetryButton: 'perp-position-share-retry-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
   PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',

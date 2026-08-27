@@ -69,6 +69,7 @@ unpermitted
 wcm
 perp
 hyperliquid
+UNITREE
 Delisted
 inferrable
 PerpTrade
@@ -800,6 +801,7 @@ sompi
 Sompi
 Sparkline
 splitter
+Stax
 sr25519
 starcoin
 Starcoin
@@ -1582,3 +1584,13 @@ lookback
 
 # @rehookify/datepicker package name
 rehookify
+
+# bStocks (BEP-677 scaled-UI tokens on BSC), lowercase form as it appears in
+# plan doc filenames (e.g. docs/superpowers/plans/2026-08-21-bstocks-*.md)
+bstocks
+
+# Otsu's method (wallpaper black/white threshold algorithm)
+otsu
+Otsu
+OTSU
+binarize

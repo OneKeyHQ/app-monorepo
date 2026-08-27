@@ -17,7 +17,7 @@ import type {
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import type { IMarketStockDetail } from '@onekeyhq/shared/types/marketV2';
 
-export type IPerpFundingHistoryRange = '24h' | '7d' | '30d';
+export type IPerpFundingHistoryRange = '24h' | '7d' | '30d' | '90d';
 
 export type IPerpResolvedMarketDetail = {
   assetMetaKey: string;
@@ -49,7 +49,11 @@ function buildPerpAssetMetaLookupKeys({
 }) {
   const candidateSet = new Set<string>();
 
-  [displayName, coin].forEach((value) => {
+  // Full coin first: the first hit wins, so a bare-symbol entry would otherwise
+  // shadow a dex-scoped one and hand `para:STX` (Seagate) the main DEX `STX`
+  // (Stacks) metadata. Bare stays as the fallback, which keeps every existing
+  // prefix-free config entry working for sub-DEX assets that need no override.
+  [coin, displayName].forEach((value) => {
     addPerpAssetMetaLookupCandidate(candidateSet, value);
   });
 
@@ -159,6 +163,9 @@ function getFundingRangeStart(range: IPerpFundingHistoryRange) {
   }
   if (range === '30d') {
     return now - 30 * 24 * 60 * 60 * 1000;
+  }
+  if (range === '90d') {
+    return now - 90 * 24 * 60 * 60 * 1000;
   }
   return now - 24 * 60 * 60 * 1000;
 }

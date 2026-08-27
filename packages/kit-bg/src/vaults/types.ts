@@ -91,6 +91,7 @@ export enum EVaultKeyringTypes {
 }
 
 export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+export type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
@@ -771,7 +772,7 @@ export interface IBatchSignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
-export interface ISignMessageParams {
+export interface ISignMessageParams extends IPbkdf2KdfParams {
   messages: IUnsignedMessage[];
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;

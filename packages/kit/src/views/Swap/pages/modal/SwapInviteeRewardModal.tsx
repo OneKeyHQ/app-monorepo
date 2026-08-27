@@ -32,7 +32,6 @@ export default function SwapInviteeRewardModal() {
             <SwapInviteeRewardContent
               accountId={route.params?.accountId}
               currentEvmAddress={route.params?.currentEvmAddress}
-              indexedAccountId={route.params?.indexedAccountId}
               isMobile
             />
           </YStack>

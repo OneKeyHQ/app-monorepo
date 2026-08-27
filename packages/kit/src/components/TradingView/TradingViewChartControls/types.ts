@@ -1,3 +1,5 @@
+import type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+
 export interface ITradingViewIntervalOption {
   label: string;
   value: string;
@@ -16,7 +18,14 @@ export interface ITradingViewIndicatorOption {
   active?: boolean;
 }
 
+export interface ITradingViewNativeIndicatorSelection {
+  activeIndicatorValues: ReadonlySet<string>;
+  replaceMainIndicators: boolean;
+  replaceSubIndicators: boolean;
+}
+
 export interface ITradingViewChartTypeOption {
+  id?: ITradingViewNativeChartType;
   label: string;
   value: number;
 }

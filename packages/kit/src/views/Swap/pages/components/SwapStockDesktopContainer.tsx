@@ -170,6 +170,7 @@ import {
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
   shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
@@ -464,6 +465,7 @@ function useCurrentStockMarketDetail() {
     // continues to use activeStockTokenDetail and the fresh channel stage.
     tokenDetail: stockChannel.displayStockTokenDetail,
     currentStockToken,
+    hasCurrentLocaleStockMetadata: stockChannel.hasCurrentLocaleStockMetadata,
     tokenAddress: currentStockToken?.contractAddress,
     networkId: currentStockToken?.networkId,
     isNative: currentStockToken?.isNative,
@@ -1274,7 +1276,7 @@ function StockAmountInput({
                 }
               : undefined,
         }}
-        enableMaxAmount={balanceActionsReady}
+        enableMaxAmount={Boolean(inputToken)}
       />
       {platformEnv.isNativeIOS && balanceActionsReady ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
@@ -1379,6 +1381,8 @@ function StockTradeTicket({
           quoteLoading={quoteLoading}
           quoteResult={quoteResult}
           stockChannel={stockChannel}
+          // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
+          parentGap={compact ? 12 : 16}
         />
         {stockChannel.readyForQuote ? (
           <SwapQuoteResult
@@ -1435,11 +1439,7 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
               <Skeleton h="$5" w="$20" />
               <Skeleton h="$5" w="$5" />
             </XStack>
-            <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-              <Skeleton h="$4" w="$18" />
-              <Skeleton h="$4" w="$5" radius="round" />
-              <Skeleton h="$4" w="$12" />
-            </XStack>
+            <StockMarketTokenLabelsSkeleton />
           </YStack>
         </XStack>
       </XStack>
@@ -1453,6 +1453,16 @@ function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
         <Skeleton h="$6" w="$16" />
         <Skeleton h="$4" w="$12" />
       </YStack>
+    </XStack>
+  );
+}
+
+function StockMarketTokenLabelsSkeleton() {
+  return (
+    <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
+      <Skeleton h="$4" w="$18" />
+      <Skeleton h="$4" w="$5" radius="round" />
+      <Skeleton h="$4" w="$12" />
     </XStack>
   );
 }
@@ -1473,8 +1483,12 @@ function StockMarketTokenHeader({
   proAligned?: boolean;
 }) {
   const intl = useIntl();
-  const { currentStockToken, tokenDetail, networkId } =
-    useCurrentStockMarketDetail();
+  const {
+    currentStockToken,
+    hasCurrentLocaleStockMetadata,
+    tokenDetail,
+    networkId,
+  } = useCurrentStockMarketDetail();
   const stockTokenNetworkId =
     currentStockToken?.networkId ?? tokenDetail?.networkId ?? networkId;
   const stockTokenNetworkLogoUri = useMemo(
@@ -1489,7 +1503,10 @@ function StockMarketTokenHeader({
     logoUri: stockTokenNetworkLogoUri,
     networkId: stockTokenNetworkId,
   });
-  const stock = tokenDetail?.stock;
+  const selectedStock = hasCurrentLocaleStockMetadata
+    ? currentStockToken?.stock
+    : undefined;
+  const stock = tokenDetail?.stock ?? selectedStock;
   const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
   const tokenDisplaySymbol =
     tokenSymbol ??
@@ -1498,11 +1515,19 @@ function StockMarketTokenHeader({
     });
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
+  const priceChange24hPercent = tokenDetail?.priceChange24hPercent;
+  const hasPriceChange24hPercent =
+    priceChange24hPercent !== undefined &&
+    priceChange24hPercent !== null &&
+    priceChange24hPercent !== '';
   const tokenSubtitle = getStockMarketTokenSubtitle({
-    currentStockSubtitle: currentStockToken?.stock?.subtitle,
-    currentTokenName: currentStockToken?.name,
-    hasTokenDetail: Boolean(tokenDetail),
+    currentStockSubtitle: selectedStock?.subtitle,
     tokenDetailStockSubtitle: stock?.subtitle,
+    tokenDetailStockUnderlyingAssetName: stock?.underlyingAssetName,
+  });
+  const showTokenLabelsSkeleton = shouldShowStockMarketTokenLabelsSkeleton({
+    channelStage,
+    hasTokenData: Boolean(stock || tokenSubtitle),
   });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
@@ -1555,7 +1580,8 @@ function StockMarketTokenHeader({
   );
   const tokenLabelsRow = (
     <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-      {tokenSubtitle ? (
+      {showTokenLabelsSkeleton ? <StockMarketTokenLabelsSkeleton /> : null}
+      {!showTokenLabelsSkeleton && tokenSubtitle ? (
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -1565,8 +1591,10 @@ function StockMarketTokenHeader({
           {tokenSubtitle}
         </SizableText>
       ) : null}
-      <StockSourceLogo stock={stock} />
-      <StockMarketStatusBadge stock={stock} />
+      {!showTokenLabelsSkeleton ? <StockSourceLogo stock={stock} /> : null}
+      {!showTokenLabelsSkeleton ? (
+        <StockMarketStatusBadge stock={stock} />
+      ) : null}
     </XStack>
   );
   const tokenInfoContent = (
@@ -1614,8 +1642,8 @@ function StockMarketTokenHeader({
       >
         {tokenInfoContent}
       </XStack>
-      {tokenDetail ? (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        {tokenDetail ? (
           <BaseMarketTokenPrice
             size="$bodyLg"
             color="$text"
@@ -1627,17 +1655,21 @@ function StockMarketTokenHeader({
             lastUpdated={String(tokenDetail.lastUpdated ?? '')}
             currency="$"
           />
-          <PriceChangePercentage size="$bodySm">
-            {tokenDetail.priceChange24hPercent}
-          </PriceChangePercentage>
-        </YStack>
-      ) : (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        ) : (
           <SizableText size="$bodyLg" color="$textSubdued">
             --
           </SizableText>
-        </YStack>
-      )}
+        )}
+        {hasPriceChange24hPercent ? (
+          <PriceChangePercentage size="$bodySm">
+            {priceChange24hPercent}
+          </PriceChangePercentage>
+        ) : (
+          <SizableText size="$bodySm" color="$textSubdued">
+            -
+          </SizableText>
+        )}
+      </YStack>
     </XStack>
   );
 }
@@ -1744,7 +1776,11 @@ function StockPriceChart({
         const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
           normalizedCoinGeckoId,
           days,
-          { requestCurrency: 'usd' },
+          {
+            networkId,
+            requestCurrency: 'usd',
+            tokenAddress,
+          },
         );
         return {
           scope: chartScope,
@@ -1779,8 +1815,10 @@ function StockPriceChart({
       chartRequestReady,
       chartScope,
       coinGeckoIdLoading,
+      networkId,
       normalizedCoinGeckoId,
       range,
+      tokenAddress,
     ],
     {
       initResult: {
@@ -2107,13 +2145,14 @@ function StockMobilePositionsSection({
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
   const {
-    cachedPositionTokenList,
-    hasCachedPositionSnapshot,
-    hasPositionOwner,
-    isLiveTokenListForCurrentOwner,
+    positionLoadError,
+    positionLoading,
+    positionTokenList,
+    swapProLoadSupportNetworksTokenListRun,
   } = useSwapProSupportNetworksTokenList(
     supportNetworksList,
     supportNetworksReady,
+    { stockOnly: true },
   );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
@@ -2142,6 +2181,12 @@ function StockMobilePositionsSection({
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
     'position',
   );
+  const retryPositions = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+      forceRefresh: true,
+      stockOnly: true,
+    });
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
   return (
     <YStack mt="$2">
@@ -2204,10 +2249,10 @@ function StockMobilePositionsSection({
             onTokenPress={handlePositionPress}
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
-            cachedTokenList={cachedPositionTokenList}
-            hasPositionOwner={hasPositionOwner}
-            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+            positionTokenList={positionTokenList}
+            positionLoadError={positionLoadError}
+            positionLoading={positionLoading}
+            onRetry={retryPositions}
             stockOnly
             hideSearch
           />

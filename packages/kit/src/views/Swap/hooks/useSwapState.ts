@@ -27,7 +27,6 @@ import {
   EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
-  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -47,7 +46,6 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
-  useSwapProTradeTypeAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteActionLockAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
@@ -64,7 +62,6 @@ import {
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
-  useSwapSpeedQuoteResultAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -77,6 +74,7 @@ import {
   isSwapOrBridgeQuoteType,
   isSwapQuoteEventFetching,
   isSwapQuoteInputAmountMatched,
+  isSwapQuoteInputAmountValid,
   isSwapQuoteManualRefreshRequired,
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
@@ -107,7 +105,8 @@ function useSwapWarningCheck() {
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapActiveSelectedFromTokenBalanceAtom();
-  const { checkSwapWarning } = useSwapActions().current;
+  const { checkSwapWarning, invalidateSwapWarningCheck } =
+    useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
@@ -181,6 +180,8 @@ function useSwapWarningCheck() {
   );
 
   useEffect(() => {
+    invalidateSwapWarningCheck();
+    checkSwapWarningDeb.cancel();
     if (isFocused) {
       asyncRefContainer();
       checkSwapWarningDeb(
@@ -189,6 +190,10 @@ function useSwapWarningCheck() {
         allowNoConnectWallet,
       );
     }
+    return () => {
+      invalidateSwapWarningCheck();
+      checkSwapWarningDeb.cancel();
+    };
   }, [
     allowNoConnectWallet,
     asyncRefContainer,
@@ -202,6 +207,7 @@ function useSwapWarningCheck() {
     quoteEventError,
     quoteEventTotalCount,
     isFocused,
+    invalidateSwapWarningCheck,
     swapLimitUseRate,
   ]);
 }
@@ -506,6 +512,22 @@ export function useSwapActionState() {
       ),
     [fromToken, quoteCurrentSelect, toToken],
   );
+  const quoteKind =
+    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+    toTokenAmount.isInput &&
+    toTokenAmount.value
+      ? ESwapQuoteKind.BUY
+      : ESwapQuoteKind.SELL;
+  const hasValidQuoteInput = useMemo(
+    () =>
+      isSwapQuoteInputAmountValid({
+        quoteKind,
+        fromTokenAmount,
+        toTokenAmount,
+        hasTokenPair: Boolean(fromToken && toToken),
+      }),
+    [fromToken, fromTokenAmount, quoteKind, toToken, toTokenAmount],
+  );
   const quoteResultNoMatch = useMemo(
     () =>
       Boolean(
@@ -553,12 +575,6 @@ export function useSwapActionState() {
     ],
   );
   const noConnectWallet = alerts.states.some((item) => item.noConnectWallet);
-  const quoteKind =
-    swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
-    toTokenAmount.isInput &&
-    toTokenAmount.value
-      ? ESwapQuoteKind.BUY
-      : ESwapQuoteKind.SELL;
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
@@ -591,6 +607,7 @@ export function useSwapActionState() {
     quoteRequestMatchesCurrentInput,
   });
   const canRefreshQuoteFromAction = shouldOfferSwapQuoteRefresh({
+    hasValidQuoteInput,
     isRefreshQuote,
     quoteResultNoMatch,
     quoteResultNoMatchDebounced: quoteResultNoMatchDebounce,
@@ -621,16 +638,6 @@ export function useSwapActionState() {
       quoteResultPairNoMatch,
     ],
   );
-  const hasValidQuoteInput = useMemo(() => {
-    const amount = new BigNumber(fromTokenAmount.value);
-    return Boolean(
-      fromTokenAmount.isInput &&
-      fromToken &&
-      toToken &&
-      amount.isFinite() &&
-      amount.gt(0),
-    );
-  }, [fromToken, fromTokenAmount, toToken]);
   const isQuoteRequestStarting = Boolean(
     quoteRequestMatchesCurrentInput &&
     quoteActionLock.actionLock &&
@@ -864,18 +871,7 @@ export function useSwapSlippagePercentageModeInfo() {
     useSettingsAtom();
   const [swapSlippageOverride] = useSwapSlippageOverrideAtom();
   const [swapCurrentQuote] = useSwapQuoteCurrentSelectAtom();
-  const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
-  const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const focusSwapPro = useMemo(() => {
-    return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
-  }, [swapTypeSwitch]);
-  const quoteResult = useMemo(() => {
-    if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      return swapProQuoteResult;
-    }
-    return swapCurrentQuote;
-  }, [focusSwapPro, swapProTradeType, swapCurrentQuote, swapProQuoteResult]);
+  const quoteResult = swapCurrentQuote;
   const res = useMemo(() => {
     let autoValue = swapSlippageAutoValue;
     let value = swapSlippageAutoValue;

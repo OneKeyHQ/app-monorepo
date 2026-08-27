@@ -274,6 +274,14 @@ const SwapQuoteResult = ({
   const isWaitingForQuote =
     quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
   const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  // OK-58690: a quote event error without any displayable result used to
+  // render nothing at all here, which removed the manual refresh entry and
+  // made this row pop in/out around auto refreshes. Keep the row mounted;
+  // with no rate available it falls into the "failed to fetch the quote"
+  // copy — an event failure is not a liquidity problem, so it must not
+  // reuse the no-provider presentation.
+  const isQuoteEventErrorWithoutResult =
+    quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay;
   const showNoProvider =
     quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
     !hasQuoteResultForDisplay;
@@ -331,9 +339,6 @@ const SwapQuoteResult = ({
       </XStack>
     );
   }
-  if (quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay) {
-    return null;
-  }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (
       quoteResultForDisplay?.protocol === EProtocolOfExchange.LIMIT &&
@@ -350,7 +355,6 @@ const SwapQuoteResult = ({
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResultForDisplay?.allowanceResult}
             percentageFee={quoteResultForDisplay?.fee?.percentageFee}
             percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={
@@ -390,7 +394,8 @@ const SwapQuoteResult = ({
   if (
     (swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       quoteResultForDisplay?.isWrapped ||
-      showNoProvider) &&
+      showNoProvider ||
+      isQuoteEventErrorWithoutResult) &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
@@ -439,7 +444,6 @@ const SwapQuoteResult = ({
             isLoading={isQuotePresentationLoading}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResultForDisplay?.allowanceResult}
             percentageFee={quoteResultForDisplay?.fee?.percentageFee}
             percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={

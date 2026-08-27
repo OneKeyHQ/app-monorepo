@@ -21,6 +21,7 @@ export enum EModalSettingRoutes {
   SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
+  SettingDevPro2FirmwareUpdateModal = 'SettingDevPro2FirmwareUpdateModal',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
@@ -35,6 +36,7 @@ export enum EModalSettingRoutes {
   SettingDevLocalSecretEnvelopeSelfTestModal = 'SettingDevLocalSecretEnvelopeSelfTestModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
+  SettingOfficialChannels = 'SettingOfficialChannels',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
@@ -56,16 +58,26 @@ export enum ESettingsTabNames {
   OneKeyID = 'OneKeyID',
   Backup = 'Backup',
   Preferences = 'Preferences',
+  AppData = 'AppData',
   Wallet = 'Wallet',
   Security = 'Security',
   Network = 'Network',
+  // Desktop-only link tabs derived from promoted setting items.
+  Notifications = 'Notifications',
+  Connections = 'Connections',
   About = 'About',
   Search = 'Search',
   Dev = 'Dev',
 }
 
 export type IModalSettingParamList = {
-  [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
+  [EModalSettingRoutes.SettingListModal]:
+    | {
+        flag?: string;
+        /** Nested tab-navigator target (tab-navigator layouts only). */
+        screen?: ESettingsTabNames;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingListSubModal]:
     | {
         name: ESettingsTabNames | string;
@@ -97,6 +109,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
@@ -112,6 +125,7 @@ export type IModalSettingParamList = {
   };
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
+  [EModalSettingRoutes.SettingOfficialChannels]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;

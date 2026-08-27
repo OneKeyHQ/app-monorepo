@@ -136,6 +136,9 @@ export function useSwapTxHistoryActions() {
             socketBridgeScanUrl:
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
+            isFreeNetworkFee:
+              swapTxInfo.isNetworkFeeSponsored ??
+              swapTxInfo.swapBuildResData.result?.fee?.isFreeNetworkFee,
             protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
             hideProtocolFee: true,
             otherFeeInfos:

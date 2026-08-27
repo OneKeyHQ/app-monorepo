@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Divider,
+  Page,
   SizableText,
   Skeleton,
   XStack,
@@ -14,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -167,6 +169,8 @@ const ManageSectionShell = ({
   // gap deterministically here (a single wrapping YStack means the parent gap
   // can't apply to us), so the tab→input spacing matches the loaded state
   // exactly and doesn't jump on load.
+  const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
+
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
       {hideTypeSwitch ? null : (
@@ -208,8 +212,24 @@ const ManageSectionShell = ({
           <XStack h="$11" ai="center" jc="space-between">
             <Skeleton h="$6" w="$24" borderRadius="$2" />
             <XStack ai="center" gap="$1.5">
-              <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
-              <SizableText size="$headingXl">{symbol}</SizableText>
+              {/* Everything else in this frame is a Skeleton, but the token
+                  icon was rendered straight away — entries that carry no
+                  tokenImageUri route param (e.g. a banner deep link) then drew
+                  Token's empty placeholder and popped the real logo in once
+                  tokenInfo resolved. Skeleton it at the same size instead so
+                  the swap costs no layout shift (OK-59961). */}
+              {fallbackTokenImageUri ? (
+                <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+              ) : (
+                <Skeleton w="$6" h="$6" radius="round" />
+              )}
+              {/* The symbol is the one real string this frame used to draw, and
+                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
+                  a full-width name sitting among skeleton bars reads worse than
+                  no name at all, and the page title already carries it. Skeleton
+                  it like everything else and let the real symbol land with the
+                  rest of the data. */}
+              <Skeleton h="$6" w="$20" borderRadius="$2" />
             </XStack>
           </XStack>
           <XStack jc="space-between" ai="center">
@@ -349,6 +369,17 @@ const ManageSectionShell = ({
           </Button>
         )}
       </YStack>
+      {isInModalContext ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirmText={activeLabel}
+            confirmButtonProps={{ disabled: true }}
+          />
+          <PercentageStageOnKeyboard
+            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+          />
+        </Page.Footer>
+      ) : null}
     </YStack>
   );
 };

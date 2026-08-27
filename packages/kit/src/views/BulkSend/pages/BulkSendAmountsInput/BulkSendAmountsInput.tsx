@@ -23,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -407,10 +408,16 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             });
 
           if (!allowanceResponse?.isApproved) {
+            // Stamp the same snapshot multiplier the transfers carry so the
+            // review card re-derives the display-basis approve amount and
+            // the approve editors keep failing closed on scaled tokens.
             const baseTokenInfo = {
               ...tokenInfo,
               isNative: !!tokenInfo.isNative,
               name: tokenInfo.name ?? tokenInfo.symbol,
+              ...(tokenRebaseUtils.isValidBalanceMultiplier(rebaseMultiplier)
+                ? { balanceMultiplier: rebaseMultiplier }
+                : {}),
             };
 
             // USDT-like tokens require reset approval first
@@ -911,6 +918,7 @@ function BulkSendAmountsInputContent({
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
@@ -1471,9 +1479,9 @@ function BulkSendAmountsInputContent({
           ...prev,
           isRefreshing: true,
         }));
-        const [checkInscriptionProtectionEnabled, vaultSettings] =
+        const [effectiveInscriptionProtection, vaultSettings] =
           await Promise.all([
-            backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
               {
                 networkId,
                 accountId,
@@ -1484,7 +1492,7 @@ function BulkSendAmountsInputContent({
             }),
           ]);
         const withCheckInscription =
-          checkInscriptionProtectionEnabled && vaultSettings.hasFrozenBalance;
+          effectiveInscriptionProtection && vaultSettings.hasFrozenBalance;
 
         try {
           const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
@@ -1534,7 +1542,16 @@ function BulkSendAmountsInputContent({
         }
       }
     },
-    [networkId, accountId, tokenInfo, bulkSendMode],
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      networkId,
+      accountId,
+      tokenInfo,
+      bulkSendMode,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
+    ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -1569,7 +1586,7 @@ function BulkSendAmountsInputContent({
               try {
                 const withCheckInscription =
                   vaultSettings.hasFrozenBalance &&
-                  (await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+                  (await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
                     {
                       networkId,
                       accountId: sender.accountId,
@@ -1722,6 +1739,8 @@ function BulkSendAmountsInputContent({
         setSenderBalancesLoading(false);
       }
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       networkId,
       tokenInfo,
@@ -1729,6 +1748,8 @@ function BulkSendAmountsInputContent({
       senders,
       accountId,
       buildSenderBalanceAddressKey,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

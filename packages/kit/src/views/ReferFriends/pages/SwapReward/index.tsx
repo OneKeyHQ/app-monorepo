@@ -60,6 +60,22 @@ interface ISwapOverviewState {
   hasCumulativeError: boolean;
 }
 
+interface ISwapDashboardQuerySnapshot {
+  activeTab: ISwapRecordsTab;
+  hideZeroVolume: boolean;
+  inviteQuery: ISwapInvitesParams;
+  listDatasetSignature: string;
+  listQuerySignature: string;
+  overviewQuerySignature: string;
+  recordQuery: ISwapRecordQuery;
+  totalCountQuerySignature: string;
+}
+
+interface ILoadingMoreRequest {
+  cursor: string;
+  listGeneration: number;
+}
+
 const PAGE_SIZE = 20;
 
 function SwapRewardPageWrapper() {
@@ -81,12 +97,18 @@ function SwapRewardPageWrapper() {
   const [cursor, setCursor] = useState<string>();
 
   const refreshRequestIdRef = useRef(0);
-  const loadingRequestIdRef = useRef(0);
   const listGenerationRef = useRef(0);
   const cursorRef = useRef<string | undefined>(undefined);
-  const loadingMoreCursorRef = useRef<string | undefined>(undefined);
-  const hasListDataRef = useRef(false);
+  const loadingMoreRequestRef = useRef<ILoadingMoreRequest | undefined>(
+    undefined,
+  );
   const hasOverviewDataRef = useRef(false);
+  const displayedInviteQueryRef = useRef<ISwapInvitesParams | undefined>(
+    undefined,
+  );
+  const displayedListDatasetSignatureRef = useRef<string | undefined>(
+    undefined,
+  );
 
   const {
     filterState,
@@ -168,15 +190,24 @@ function SwapRewardPageWrapper() {
     [activeTab, hideZeroVolume, recordQuery, sortBy, sortOrder],
   );
 
-  const querySignature = useMemo(
-    () => getSwapQuerySignature(inviteQuery),
-    [inviteQuery],
-  );
-
   const overviewQuerySignature = useMemo(
     () => getSwapQuerySignature(recordQuery),
     [recordQuery],
   );
+
+  const listQuerySignature = useMemo(
+    () => getSwapQuerySignature(inviteQuery),
+    [inviteQuery],
+  );
+
+  const listDatasetSignature = useMemo(() => {
+    // Sorting can retain current rows on failure; tab and filter changes cannot.
+    return getSwapQuerySignature({
+      ...recordQuery,
+      tab: activeTab,
+      hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
+    });
+  }, [activeTab, hideZeroVolume, recordQuery]);
 
   const totalCountQuerySignature = useMemo(
     () =>
@@ -186,6 +217,31 @@ function SwapRewardPageWrapper() {
       }),
     [hideZeroVolume, recordQuery],
   );
+
+  const listControlSignature = useMemo(
+    () =>
+      getSwapQuerySignature({
+        activeTab,
+        hideZeroVolume: activeTab === 'total' ? hideZeroVolume : undefined,
+        sortBy,
+        sortOrder,
+      }),
+    [activeTab, hideZeroVolume, sortBy, sortOrder],
+  );
+
+  const dashboardQuerySnapshot: ISwapDashboardQuerySnapshot = {
+    activeTab,
+    hideZeroVolume,
+    inviteQuery,
+    listDatasetSignature,
+    listQuerySignature,
+    overviewQuerySignature,
+    recordQuery,
+    totalCountQuerySignature,
+  };
+  const dashboardQuerySnapshotRef = useRef(dashboardQuerySnapshot);
+  dashboardQuerySnapshotRef.current = dashboardQuerySnapshot;
+  const previousListControlSignatureRef = useRef(listControlSignature);
 
   const hasCurrentOverview =
     overviewState?.overviewQuerySignature === overviewQuerySignature;
@@ -208,189 +264,335 @@ function SwapRewardPageWrapper() {
     setCursor(nextCursor);
   }, []);
 
+  const isLatestListRequest = useCallback(
+    (generation: number, querySignature: string) =>
+      listGenerationRef.current === generation &&
+      dashboardQuerySnapshotRef.current.listQuerySignature === querySignature,
+    [],
+  );
+
+  const commitListResult = useCallback(
+    ({
+      inviteQuery: resultInviteQuery,
+      listDatasetSignature: resultListDatasetSignature,
+      result,
+    }: {
+      inviteQuery: ISwapInvitesParams;
+      listDatasetSignature: string;
+      result: ISwapInvitesResponse;
+    }) => {
+      displayedInviteQueryRef.current = resultInviteQuery;
+      displayedListDatasetSignatureRef.current = resultListDatasetSignature;
+      setHasListError(false);
+      setCurrentInvites(result);
+      updateCursor(result.cursor ?? undefined);
+    },
+    [updateCursor],
+  );
+
   useEffect(() => {
     refreshRequestIdRef.current += 1;
     listGenerationRef.current += 1;
-    loadingMoreCursorRef.current = undefined;
+    loadingMoreRequestRef.current = undefined;
     updateCursor(undefined);
-    hasListDataRef.current = false;
+    hasOverviewDataRef.current = false;
+    displayedInviteQueryRef.current = undefined;
+    displayedListDatasetSignatureRef.current = undefined;
     setCurrentInvites(undefined);
     setHasListError(false);
-  }, [querySignature, updateCursor]);
+  }, [overviewQuerySignature, updateCursor]);
 
   useEffect(() => {
-    hasOverviewDataRef.current = false;
-  }, [overviewQuerySignature]);
+    const hasReusableListData =
+      displayedListDatasetSignatureRef.current === listDatasetSignature;
+    listGenerationRef.current += 1;
+    loadingMoreRequestRef.current = undefined;
+    if (!hasReusableListData) {
+      updateCursor(undefined);
+    }
+    setHasListError(false);
+  }, [listControlSignature, listDatasetSignature, updateCursor]);
 
-  const refreshDashboard = useCallback(
-    async ({ showLoading }: { showLoading: boolean }) => {
-      refreshRequestIdRef.current += 1;
-      listGenerationRef.current += 1;
-      const requestId = refreshRequestIdRef.current;
-      const listGeneration = listGenerationRef.current;
-      loadingMoreCursorRef.current = undefined;
-      loadingRequestIdRef.current = requestId;
-      setIsLoadingMore(false);
+  const refreshDashboard = useCallback(async () => {
+    const querySnapshot = dashboardQuerySnapshotRef.current;
+    const {
+      activeTab: requestActiveTab,
+      hideZeroVolume: requestHideZeroVolume,
+      inviteQuery: requestInviteQuery,
+      listDatasetSignature: requestListDatasetSignature,
+      listQuerySignature: requestListQuerySignature,
+      overviewQuerySignature: requestOverviewQuerySignature,
+      recordQuery: requestRecordQuery,
+      totalCountQuerySignature: requestTotalCountQuerySignature,
+    } = querySnapshot;
+    refreshRequestIdRef.current += 1;
+    listGenerationRef.current += 1;
+    const requestId = refreshRequestIdRef.current;
+    const listGeneration = listGenerationRef.current;
+    loadingMoreRequestRef.current = undefined;
+    setIsLoadingMore(false);
+    setIsLoading(true);
+    setIsTabLoading(true);
 
-      if (showLoading) {
-        setIsLoading(true);
-        setIsTabLoading(true);
-      }
+    const inactiveTab: ISwapRecordsTab =
+      requestActiveTab === 'undistributed' ? 'total' : 'undistributed';
+    const hadReusableListData =
+      displayedListDatasetSignatureRef.current === requestListDatasetSignature;
+    const hadDisplayedData = hadReusableListData || hasOverviewDataRef.current;
+    const [cumulativeResult, listResult, inactiveCountResult] =
+      await Promise.allSettled([
+        backgroundApiProxy.serviceReferralCode.getSwapCumulativeRewards(
+          requestRecordQuery,
+        ),
+        backgroundApiProxy.serviceReferralCode.getSwapInvites({
+          ...requestInviteQuery,
+          disableAutoToast: true,
+        }),
+        backgroundApiProxy.serviceReferralCode.getSwapInvites({
+          ...requestRecordQuery,
+          tab: inactiveTab,
+          disableAutoToast: true,
+          hideZeroVolume:
+            inactiveTab === 'total' ? requestHideZeroVolume : undefined,
+          limit: 1,
+        }),
+      ]);
 
-      const inactiveTab: ISwapRecordsTab =
-        activeTab === 'undistributed' ? 'total' : 'undistributed';
-      const hadDisplayedData =
-        hasListDataRef.current || hasOverviewDataRef.current;
-      const [cumulativeResult, listResult, inactiveCountResult] =
-        await Promise.allSettled([
-          backgroundApiProxy.serviceReferralCode.getSwapCumulativeRewards(
-            recordQuery,
-          ),
-          backgroundApiProxy.serviceReferralCode.getSwapInvites({
-            ...inviteQuery,
-            disableAutoToast: true,
-          }),
-          backgroundApiProxy.serviceReferralCode.getSwapInvites({
-            ...recordQuery,
-            tab: inactiveTab,
-            disableAutoToast: true,
-            hideZeroVolume:
-              inactiveTab === 'total' ? hideZeroVolume : undefined,
-            limit: 1,
-          }),
-        ]);
+    const latestQuerySnapshot = dashboardQuerySnapshotRef.current;
+    const isLatestRequest =
+      refreshRequestIdRef.current === requestId &&
+      latestQuerySnapshot.overviewQuerySignature ===
+        requestOverviewQuerySignature;
+    const isLatestList = isLatestListRequest(
+      listGeneration,
+      requestListQuerySignature,
+    );
 
-      const isLatestRequest = refreshRequestIdRef.current === requestId;
-      const isLatestList =
-        isLatestRequest && listGenerationRef.current === listGeneration;
-
-      if (isLatestRequest) {
-        if (
-          cumulativeResult.status === 'fulfilled' ||
-          inactiveCountResult.status === 'fulfilled'
-        ) {
-          hasOverviewDataRef.current = true;
-        }
-        setOverviewState((previous) => {
-          const previousOverview =
-            previous?.overviewQuerySignature === overviewQuerySignature
-              ? previous
-              : undefined;
-          const previousTotalCount =
-            previous?.totalCountQuerySignature === totalCountQuerySignature
-              ? previous.totalCount
-              : undefined;
-          let nextUndistributedCount = previousOverview?.undistributedCount;
-          let nextTotalCount = previousTotalCount;
-
-          if (inactiveCountResult.status === 'fulfilled') {
-            if (inactiveTab === 'undistributed') {
-              nextUndistributedCount = inactiveCountResult.value.total;
-            } else {
-              nextTotalCount = inactiveCountResult.value.total;
-            }
-          }
-          if (isLatestList && listResult.status === 'fulfilled') {
-            if (activeTab === 'undistributed') {
-              nextUndistributedCount = listResult.value.total;
-            } else {
-              nextTotalCount = listResult.value.total;
-            }
-          }
-
-          return {
-            overviewQuerySignature,
-            totalCountQuerySignature,
-            cumulativeRewards:
-              cumulativeResult.status === 'fulfilled'
-                ? cumulativeResult.value
-                : previousOverview?.cumulativeRewards,
-            undistributedCount: nextUndistributedCount,
-            totalCount: nextTotalCount,
-            hasCumulativeError: cumulativeResult.status === 'rejected',
-          };
-        });
-      }
-      if (isLatestList) {
-        if (listResult.status === 'fulfilled') {
-          hasListDataRef.current = true;
-          setHasListError(false);
-          setCurrentInvites(listResult.value);
-          updateCursor(listResult.value.cursor ?? undefined);
-        } else if (!hasListDataRef.current) {
-          setHasListError(true);
-        }
-      }
-
-      // Once any dashboard data is on screen, a failed refresh keeps stale
-      // values visible. Every request here has its auto error toast muted, so
-      // this toast is the only signal that the refresh did not go through.
+    if (isLatestRequest) {
+      const canApplyTotalCount =
+        latestQuerySnapshot.totalCountQuerySignature ===
+        requestTotalCountQuerySignature;
       if (
-        isLatestRequest &&
-        hadDisplayedData &&
-        (cumulativeResult.status === 'rejected' ||
-          listResult.status === 'rejected' ||
-          inactiveCountResult.status === 'rejected')
+        cumulativeResult.status === 'fulfilled' ||
+        inactiveCountResult.status === 'fulfilled'
       ) {
+        hasOverviewDataRef.current = true;
+      }
+      setOverviewState((previous) => {
+        const previousOverview =
+          previous?.overviewQuerySignature === requestOverviewQuerySignature
+            ? previous
+            : undefined;
+        const previousTotalCount =
+          canApplyTotalCount &&
+          previous?.totalCountQuerySignature === requestTotalCountQuerySignature
+            ? previous.totalCount
+            : undefined;
+        let nextUndistributedCount = previousOverview?.undistributedCount;
+        let nextTotalCount = canApplyTotalCount
+          ? previousTotalCount
+          : previous?.totalCount;
+        const nextTotalCountQuerySignature = canApplyTotalCount
+          ? requestTotalCountQuerySignature
+          : (previous?.totalCountQuerySignature ??
+            requestTotalCountQuerySignature);
+
+        if (inactiveCountResult.status === 'fulfilled') {
+          if (inactiveTab === 'undistributed') {
+            nextUndistributedCount = inactiveCountResult.value.total;
+          } else if (canApplyTotalCount) {
+            nextTotalCount = inactiveCountResult.value.total;
+          }
+        }
+        if (isLatestList && listResult.status === 'fulfilled') {
+          if (requestActiveTab === 'undistributed') {
+            nextUndistributedCount = listResult.value.total;
+          } else if (canApplyTotalCount) {
+            nextTotalCount = listResult.value.total;
+          }
+        }
+
+        return {
+          overviewQuerySignature: requestOverviewQuerySignature,
+          totalCountQuerySignature: nextTotalCountQuerySignature,
+          cumulativeRewards:
+            cumulativeResult.status === 'fulfilled'
+              ? cumulativeResult.value
+              : previousOverview?.cumulativeRewards,
+          undistributedCount: nextUndistributedCount,
+          totalCount: nextTotalCount,
+          hasCumulativeError: cumulativeResult.status === 'rejected',
+        };
+      });
+    }
+    if (isLatestList) {
+      if (listResult.status === 'fulfilled') {
+        commitListResult({
+          inviteQuery: requestInviteQuery,
+          listDatasetSignature: requestListDatasetSignature,
+          result: listResult.value,
+        });
+      } else if (!hadReusableListData) {
+        setHasListError(true);
+      }
+    }
+
+    // Keep current-query data visible after partial refresh failures. Every
+    // request here has its auto error toast muted, so surface the failure once.
+    if (
+      isLatestRequest &&
+      ((hadDisplayedData &&
+        (cumulativeResult.status === 'rejected' ||
+          inactiveCountResult.status === 'rejected')) ||
+        (isLatestList &&
+          hadReusableListData &&
+          listResult.status === 'rejected'))
+    ) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_failed }),
+      });
+    }
+
+    if (isLatestRequest) {
+      setIsLoading(false);
+    }
+    if (isLatestList) {
+      setIsTabLoading(false);
+    }
+  }, [commitListResult, intl, isLatestListRequest]);
+
+  const refreshCurrentList = useCallback(async () => {
+    const querySnapshot = dashboardQuerySnapshotRef.current;
+    const {
+      activeTab: requestActiveTab,
+      inviteQuery: requestInviteQuery,
+      listDatasetSignature: requestListDatasetSignature,
+      listQuerySignature: requestListQuerySignature,
+      overviewQuerySignature: requestOverviewQuerySignature,
+      totalCountQuerySignature: requestTotalCountQuerySignature,
+    } = querySnapshot;
+    listGenerationRef.current += 1;
+    const listGeneration = listGenerationRef.current;
+    const hadReusableListData =
+      displayedListDatasetSignatureRef.current === requestListDatasetSignature;
+    loadingMoreRequestRef.current = undefined;
+    if (!hadReusableListData) {
+      updateCursor(undefined);
+    }
+    setIsLoadingMore(false);
+    setHasListError(false);
+    setIsTabLoading(true);
+
+    try {
+      const result =
+        await backgroundApiProxy.serviceReferralCode.getSwapInvites({
+          ...requestInviteQuery,
+          disableAutoToast: true,
+        });
+
+      if (!isLatestListRequest(listGeneration, requestListQuerySignature)) {
+        return;
+      }
+
+      commitListResult({
+        inviteQuery: requestInviteQuery,
+        listDatasetSignature: requestListDatasetSignature,
+        result,
+      });
+      setOverviewState((previous) => {
+        const previousOverview =
+          previous?.overviewQuerySignature === requestOverviewQuerySignature
+            ? previous
+            : undefined;
+        const previousTotalCount =
+          previous?.totalCountQuerySignature === requestTotalCountQuerySignature
+            ? previous.totalCount
+            : undefined;
+
+        return {
+          overviewQuerySignature: requestOverviewQuerySignature,
+          totalCountQuerySignature: requestTotalCountQuerySignature,
+          cumulativeRewards: previousOverview?.cumulativeRewards,
+          undistributedCount:
+            requestActiveTab === 'undistributed'
+              ? result.total
+              : previousOverview?.undistributedCount,
+          totalCount:
+            requestActiveTab === 'total' ? result.total : previousTotalCount,
+          hasCumulativeError: previousOverview?.hasCumulativeError ?? false,
+        };
+      });
+    } catch {
+      if (!isLatestListRequest(listGeneration, requestListQuerySignature)) {
+        return;
+      }
+      if (hadReusableListData) {
         Toast.error({
           title: intl.formatMessage({ id: ETranslations.global_failed }),
         });
+      } else {
+        setHasListError(true);
       }
-
-      if (isLatestRequest && loadingRequestIdRef.current === requestId) {
-        setIsLoading(false);
+    } finally {
+      if (isLatestListRequest(listGeneration, requestListQuerySignature)) {
         setIsTabLoading(false);
       }
-    },
-    [
-      activeTab,
-      hideZeroVolume,
-      intl,
-      inviteQuery,
-      overviewQuerySignature,
-      recordQuery,
-      totalCountQuerySignature,
-      updateCursor,
-    ],
-  );
+    }
+  }, [commitListResult, intl, isLatestListRequest, updateCursor]);
 
   useEffect(() => {
     if (!isRouteFocused) {
       return undefined;
     }
 
-    void refreshDashboard({ showLoading: true });
+    void refreshDashboard();
 
     return () => {
       refreshRequestIdRef.current += 1;
       listGenerationRef.current += 1;
     };
-  }, [isRouteFocused, refreshDashboard]);
+  }, [isRouteFocused, overviewQuerySignature, refreshDashboard]);
 
-  const onRefresh = useCallback(
-    () => refreshDashboard({ showLoading: true }),
-    [refreshDashboard],
-  );
-
-  const onLoadMore = useCallback(async () => {
-    const requestedCursor = cursorRef.current;
-    if (!requestedCursor || loadingMoreCursorRef.current === requestedCursor) {
+  useEffect(() => {
+    if (!isRouteFocused) {
+      previousListControlSignatureRef.current = listControlSignature;
+      return;
+    }
+    if (previousListControlSignatureRef.current === listControlSignature) {
       return;
     }
 
-    const listGeneration = listGenerationRef.current;
-    loadingMoreCursorRef.current = requestedCursor;
+    previousListControlSignatureRef.current = listControlSignature;
+    void refreshCurrentList();
+  }, [isRouteFocused, listControlSignature, refreshCurrentList]);
+
+  const onLoadMore = useCallback(async () => {
+    const requestedCursor = cursorRef.current;
+    const requestedInviteQuery = displayedInviteQueryRef.current;
+    if (
+      !requestedCursor ||
+      !requestedInviteQuery ||
+      loadingMoreRequestRef.current
+    ) {
+      return;
+    }
+
+    const loadingMoreRequest: ILoadingMoreRequest = {
+      cursor: requestedCursor,
+      listGeneration: listGenerationRef.current,
+    };
+    loadingMoreRequestRef.current = loadingMoreRequest;
     setIsLoadingMore(true);
     try {
       const result =
         await backgroundApiProxy.serviceReferralCode.getSwapInvites({
-          ...inviteQuery,
+          ...requestedInviteQuery,
           disableAutoToast: true,
           cursor: requestedCursor,
         });
 
       if (
-        listGenerationRef.current !== listGeneration ||
+        listGenerationRef.current !== loadingMoreRequest.listGeneration ||
         cursorRef.current !== requestedCursor
       ) {
         return;
@@ -414,12 +616,12 @@ function SwapRewardPageWrapper() {
     } catch {
       // Keep the current page visible; the next scroll can retry this cursor.
     } finally {
-      if (loadingMoreCursorRef.current === requestedCursor) {
-        loadingMoreCursorRef.current = undefined;
+      if (loadingMoreRequestRef.current === loadingMoreRequest) {
+        loadingMoreRequestRef.current = undefined;
         setIsLoadingMore(false);
       }
     }
-  }, [inviteQuery, updateCursor]);
+  }, [updateCursor]);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -428,11 +630,11 @@ function SwapRewardPageWrapper() {
       const isCloseToBottom =
         contentOffset.y + layoutMeasurement.height >= contentSize.height - 100;
 
-      if (isCloseToBottom && cursor && !isLoadingMore) {
+      if (isCloseToBottom && cursor && !isLoadingMore && !isTabLoading) {
         void onLoadMore();
       }
     },
-    [cursor, isLoadingMore, onLoadMore],
+    [cursor, isLoadingMore, isTabLoading, onLoadMore],
   );
 
   const handleSort = useCallback(
@@ -500,7 +702,7 @@ function SwapRewardPageWrapper() {
     <Page>
       <ReferFriendsDetailHeader
         title={intl.formatMessage({
-          id: ETranslations.global_trade,
+          id: ETranslations.swap_referral_link__title,
         })}
         toolbar={toolbar}
       />
@@ -523,7 +725,10 @@ function SwapRewardPageWrapper() {
             <ScrollView
               flex={1}
               refreshControl={
-                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+                <RefreshControl
+                  refreshing={isLoading}
+                  onRefresh={refreshDashboard}
+                />
               }
               contentContainerStyle={{ pb: '$5' }}
               onScroll={handleScroll}
@@ -533,11 +738,10 @@ function SwapRewardPageWrapper() {
                 data={cumulativeRewards}
                 hasError={hasCumulativeError}
                 isLoading={isLoading}
-                onRefresh={onRefresh}
+                onRefresh={refreshDashboard}
               />
               <SwapDetailsSection
                 records={currentInvites?.items ?? []}
-                recordQuery={recordQuery}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 undistributedCount={undistributedCount}
@@ -551,7 +755,7 @@ function SwapRewardPageWrapper() {
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
                 hasError={hasListError}
-                onRetry={onRefresh}
+                onRetry={refreshCurrentList}
               />
             </ScrollView>
           )}

@@ -50,6 +50,10 @@ type IReadonlySharedValue<T> = { readonly value: T };
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
 const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
+const TAB_LIST_FILL_AVAILABLE_SPACE_STYLE = {
+  flexGrow: 1,
+  flexShrink: 1,
+} as const;
 const TAB_CONTENT_CONTAINER_STYLE = { pr: 16 } as const;
 const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
@@ -155,6 +159,7 @@ function AnimatedTabBarItemText({
 
 export function TabBarItem({
   name,
+  label,
   isFocused,
   onPress,
   tabItemStyle,
@@ -166,6 +171,7 @@ export function TabBarItem({
   index: tabIndex,
   testID,
 }: ITabBarItemProps) {
+  const displayLabel = label ?? name;
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
@@ -217,7 +223,7 @@ export function TabBarItem({
       >
         {useAnimatedText ? (
           <AnimatedTabBarItemText
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
           />
@@ -227,7 +233,7 @@ export function TabBarItem({
             color={isFocused ? '$textInverse' : '$text'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -260,7 +266,7 @@ export function TabBarItem({
         {useAnimatedText ? (
           <AnimatedTabBarItemText
             variant="text"
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
             isFocused={isFocused}
@@ -274,7 +280,7 @@ export function TabBarItem({
             color={isFocused || isHovered ? '$text' : '$textSubdued'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -299,7 +305,7 @@ export function TabBarItem({
         size={resolvedTextSize}
         color={isFocused ? '$text' : '$textSubdued'}
       >
-        {name}
+        {displayLabel}
       </SizableText>
       {isFocused ? (
         <YStack
@@ -629,10 +635,15 @@ export interface ITabBarProps extends TabBarProps<string> {
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
   /** Aligns the selected item within a horizontal scrollable tab bar. */
   keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
+  /** Fills the row space before an optional toolbar. */
+  fillAvailableSpace?: boolean;
 }
 
 export interface ITabBarItemProps {
   name: string;
+  /** Optional display label. `name` remains the stable tab identity. */
+  label?: string;
   isFocused: boolean;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
@@ -754,6 +765,8 @@ export function TabBar({
   directTabPressAnimation = false,
   directTabPressAnimationMode = 'timing',
   keepFocusedTabVisible = false,
+  showsHorizontalScrollIndicator = false,
+  fillAvailableSpace = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -769,6 +782,7 @@ export function TabBar({
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
   keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1363,7 +1377,11 @@ export function TabBar({
     >
       <XStack alignItems="center" gap="$2" justifyContent="space-between">
         <ListView
-          style={TAB_LIST_VIEW_STYLE}
+          style={
+            fillAvailableSpace
+              ? TAB_LIST_FILL_AVAILABLE_SPACE_STYLE
+              : TAB_LIST_VIEW_STYLE
+          }
           useFlashList
           data={tabNames}
           ref={listViewRef}
@@ -1371,7 +1389,7 @@ export function TabBar({
           pr="$4"
           contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
           renderItem={handleRenderItem as any}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         />
         {renderToolbar ? (
           <XStack>{renderToolbar({ focusedTab: currentTab })}</XStack>

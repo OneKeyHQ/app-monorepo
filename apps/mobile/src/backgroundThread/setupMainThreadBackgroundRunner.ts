@@ -963,6 +963,7 @@ function handleBackgroundThreadResponse(
     stack?: string;
     autoToast?: boolean;
     className?: string;
+    $isHardwareError?: boolean;
     code?: string | number;
     key?: string;
     requestId?: string;
@@ -984,6 +985,9 @@ function handleBackgroundThreadResponse(
   }
   if (typeof errorInfo?.className === 'string') {
     error.className = errorInfo.className;
+  }
+  if (errorInfo?.$isHardwareError === true) {
+    error.$isHardwareError = true;
   }
   if (
     typeof errorInfo?.code === 'string' ||

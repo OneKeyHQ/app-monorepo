@@ -11,7 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HardwareSalesReward } from '../HardwareSalesReward';
 import { OnChainReward } from '../OnChainReward';
-import { PerpsReward, usePerpsCumulativeRewards } from '../PerpsReward';
+import { PerpsReward } from '../PerpsReward';
 import { SectionHeader } from '../SectionHeader';
 import { SwapReward } from '../SwapReward';
 
@@ -21,6 +21,9 @@ import { useInviteCodeList } from './hooks/useInviteCodeList';
 import { EInvitationDetailsTab } from './types';
 
 import type { IInvitationDetailsSectionProps } from './types';
+import type { IPerpsRewardBalances } from '../PerpsReward/types';
+
+const EMPTY_PERPS_REWARDS: IPerpsRewardBalances = [];
 
 export function InvitationDetailsSection({
   summaryInfo,
@@ -34,9 +37,6 @@ export function InvitationDetailsSection({
 
   // Fetch invite code list data
   const { codeListData, isLoading, refetch } = useInviteCodeList();
-
-  // Fetch Perps cumulative rewards
-  const { perpsCumulativeRewards } = usePerpsCumulativeRewards();
 
   const handleCodeCreated = useCallback(() => {
     void refetch();
@@ -75,7 +75,8 @@ export function InvitationDetailsSection({
     return null;
   }
 
-  const { HardwareSales, Onchain, cumulativeRewards, inviteUrl } = summaryInfo;
+  const { HardwareSales, Onchain, Perp, cumulativeRewards, inviteUrl } =
+    summaryInfo;
 
   return (
     <YStack gap="$4" pb="$6" $md={{ flexDirection: 'column' }}>
@@ -115,7 +116,9 @@ export function InvitationDetailsSection({
             />
           }
           secondColumn={
-            <PerpsReward perpsCumulativeRewards={perpsCumulativeRewards} />
+            <PerpsReward
+              perpsRewards={Perp?.available ?? EMPTY_PERPS_REWARDS}
+            />
           }
           thirdColumn={<SwapReward swapRewards={Onchain.swap ?? []} />}
           fourthColumn={<OnChainReward onChain={Onchain} />}

@@ -13,6 +13,7 @@ import {
   Skia,
   StrokeCap,
   StrokeJoin,
+  TileMode,
   createPicture,
 } from '@shopify/react-native-skia';
 
@@ -26,15 +27,66 @@ import {
   type ITradingViewNativeChartSceneCommand,
   type ITradingViewNativeChartSceneFont,
   type ITradingViewNativeChartScenePaint,
+  type ITradingViewNativeChartScenePaintStyle,
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from '../utils/chartScene';
 
 export interface ITradingViewNativeSkiaResources {
+  customPaintSignatures: Record<string, string>;
+  customPaints: Record<string, SkPaint>;
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
+}
+
+export function getTradingViewNativeSkiaPaintStyleSignature(
+  style: ITradingViewNativeChartScenePaintStyle,
+): string {
+  'worklet';
+
+  const dash = style.dash
+    ? `${style.dash[0].toString()}:${style.dash[1].toString()}`
+    : '';
+  return [
+    `${style.color.length.toString()}:${style.color}`,
+    dash,
+    style.drawStyle ?? 'fill',
+    style.opacity.toString(),
+    style.strokeCap ?? 'butt',
+    style.strokeJoin ?? 'miter',
+    (style.strokeWidth ?? 1).toString(),
+  ].join('|');
+}
+
+function createTradingViewNativeSkiaPaint(
+  style: ITradingViewNativeChartScenePaintStyle,
+): SkPaint {
+  'worklet';
+
+  const paint = Skia.Paint();
+  paint.setAntiAlias(true);
+  paint.setColor(Skia.Color(style.color));
+  paint.setAlphaf(paint.getAlphaf() * style.opacity);
+  paint.setStrokeWidth(style.strokeWidth ?? 1);
+  if (style.drawStyle === 'stroke') {
+    paint.setStyle(PaintStyle.Stroke);
+  }
+  if (style.strokeCap === 'round') {
+    paint.setStrokeCap(StrokeCap.Round);
+  } else if (style.strokeCap === 'square') {
+    paint.setStrokeCap(StrokeCap.Square);
+  }
+  if (style.strokeJoin === 'round') {
+    paint.setStrokeJoin(StrokeJoin.Round);
+  } else if (style.strokeJoin === 'bevel') {
+    paint.setStrokeJoin(StrokeJoin.Bevel);
+  }
+  if (style.dash) {
+    paint.setPathEffect(Skia.PathEffect.MakeDash(style.dash, 0));
+  }
+  return paint;
 }
 
 export function createTradingViewNativeSkiaResources({
@@ -63,31 +115,12 @@ export function createTradingViewNativeSkiaResources({
     paintStyles,
   ) as ITradingViewNativeChartScenePaint[]) {
     const style = paintStyles[paintName];
-    const paint = Skia.Paint();
-    paint.setAntiAlias(true);
-    paint.setColor(Skia.Color(style.color));
-    paint.setAlphaf(paint.getAlphaf() * style.opacity);
-    paint.setStrokeWidth(style.strokeWidth ?? 1);
-    if (style.drawStyle === 'stroke') {
-      paint.setStyle(PaintStyle.Stroke);
-    }
-    if (style.strokeCap === 'round') {
-      paint.setStrokeCap(StrokeCap.Round);
-    } else if (style.strokeCap === 'square') {
-      paint.setStrokeCap(StrokeCap.Square);
-    }
-    if (style.strokeJoin === 'round') {
-      paint.setStrokeJoin(StrokeJoin.Round);
-    } else if (style.strokeJoin === 'bevel') {
-      paint.setStrokeJoin(StrokeJoin.Bevel);
-    }
-    if (style.dash) {
-      paint.setPathEffect(Skia.PathEffect.MakeDash(style.dash, 0));
-    }
-    paints[paintName] = paint;
+    paints[paintName] = createTradingViewNativeSkiaPaint(style);
   }
 
   return {
+    customPaintSignatures: {},
+    customPaints: {},
     fonts: {
       axis: axisFont,
       legend: Skia.Font(typeface, TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE),
@@ -99,16 +132,74 @@ export function createTradingViewNativeSkiaResources({
   };
 }
 
+function synchronizeTradingViewNativeSkiaCustomPaints({
+  customPaintStyles,
+  resources,
+}: {
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  resources: ITradingViewNativeSkiaResources;
+}) {
+  'worklet';
+
+  const nextCustomPaints: Record<string, SkPaint> = {};
+  const nextCustomPaintSignatures: Record<string, string> = {};
+  for (const customPaintId of Object.keys(customPaintStyles)) {
+    const style = customPaintStyles[customPaintId];
+    const signature = getTradingViewNativeSkiaPaintStyleSignature(style);
+    if (
+      resources.customPaints[customPaintId] &&
+      resources.customPaintSignatures[customPaintId] === signature
+    ) {
+      nextCustomPaints[customPaintId] = resources.customPaints[customPaintId];
+    } else {
+      resources.customPaints[customPaintId]?.dispose();
+      nextCustomPaints[customPaintId] = createTradingViewNativeSkiaPaint(style);
+    }
+    nextCustomPaintSignatures[customPaintId] = signature;
+  }
+  for (const customPaintId of Object.keys(resources.customPaints)) {
+    if (!nextCustomPaints[customPaintId]) {
+      resources.customPaints[customPaintId].dispose();
+    }
+  }
+  resources.customPaints = nextCustomPaints;
+  resources.customPaintSignatures = nextCustomPaintSignatures;
+}
+
+function getTradingViewNativeSkiaCommandPaint({
+  customPaintId,
+  fallbackPaint,
+  resources,
+}: {
+  customPaintId?: string;
+  fallbackPaint: ITradingViewNativeChartScenePaint;
+  resources: ITradingViewNativeSkiaResources;
+}): SkPaint {
+  'worklet';
+
+  return (
+    (customPaintId ? resources.customPaints[customPaintId] : undefined) ??
+    resources.paints[fallbackPaint]
+  );
+}
+
 function drawTradingViewNativeSkiaCommands({
   canvas,
   commands,
+  customPaintStyles,
   resources,
 }: {
   canvas: SkCanvas;
   commands: ITradingViewNativeChartSceneCommand[];
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   resources: ITradingViewNativeSkiaResources;
 }) {
   'worklet';
+
+  synchronizeTradingViewNativeSkiaCustomPaints({
+    customPaintStyles,
+    resources,
+  });
 
   for (const command of commands) {
     switch (command.kind) {
@@ -117,7 +208,11 @@ function drawTradingViewNativeSkiaCommands({
           command.cx,
           command.cy,
           command.radius,
-          resources.paints[command.paint],
+          getTradingViewNativeSkiaCommandPaint({
+            customPaintId: command.customPaintId,
+            fallbackPaint: command.paint,
+            resources,
+          }),
         );
         break;
       case 'clip':
@@ -139,9 +234,40 @@ function drawTradingViewNativeSkiaCommands({
           command.y1,
           command.x2,
           command.y2,
-          resources.paints[command.paint],
+          getTradingViewNativeSkiaCommandPaint({
+            customPaintId: command.customPaintId,
+            fallbackPaint: command.paint,
+            resources,
+          }),
         );
         break;
+      case 'linearGradientRect': {
+        const paint = Skia.Paint();
+        const shader = Skia.Shader.MakeLinearGradient(
+          { x: command.rect.x, y: command.rect.y },
+          {
+            x: command.rect.x,
+            y: command.rect.y + command.rect.height,
+          },
+          command.colors.map((color) => Skia.Color(color)),
+          null,
+          TileMode.Clamp,
+        );
+        paint.setShader(shader);
+        canvas.drawRect(
+          Skia.XYWHRect(
+            command.rect.x,
+            command.rect.y,
+            command.rect.width,
+            command.rect.height,
+          ),
+          paint,
+        );
+        shader.dispose();
+        paint.dispose();
+        break;
+      }
+      case 'polygon':
       case 'polyline': {
         const firstPoint = command.points[0];
         if (!firstPoint) {
@@ -153,14 +279,28 @@ function drawTradingViewNativeSkiaCommands({
           const point = command.points[index];
           path.lineTo(point.x, point.y);
         }
-        canvas.drawPath(path, resources.paints[command.paint]);
+        if (command.kind === 'polygon') {
+          path.close();
+        }
+        canvas.drawPath(
+          path,
+          getTradingViewNativeSkiaCommandPaint({
+            customPaintId: command.customPaintId,
+            fallbackPaint: command.paint,
+            resources,
+          }),
+        );
         path.dispose();
         break;
       }
       case 'rect':
         canvas.drawRect(
           Skia.XYWHRect(command.x, command.y, command.width, command.height),
-          resources.paints[command.paint],
+          getTradingViewNativeSkiaCommandPaint({
+            customPaintId: command.customPaintId,
+            fallbackPaint: command.paint,
+            resources,
+          }),
         );
         break;
       case 'restore':
@@ -171,7 +311,11 @@ function drawTradingViewNativeSkiaCommands({
           command.text,
           command.x,
           command.y,
-          resources.paints[command.paint],
+          getTradingViewNativeSkiaCommandPaint({
+            customPaintId: command.customPaintId,
+            fallbackPaint: command.paint,
+            resources,
+          }),
           resources.fonts[command.font],
         );
         break;
@@ -224,6 +368,7 @@ export function createTradingViewNativeSkiaPicture({
     drawTradingViewNativeSkiaCommands({
       canvas,
       commands: scene.commands,
+      customPaintStyles: scene.customPaintStyles,
       resources,
     });
   }, pictureSize);

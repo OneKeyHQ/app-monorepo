@@ -11,8 +11,12 @@ import {
 } from '../chartConstants';
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
+import { getTradingViewNativePrimarySeriesModel } from './chartType';
 
-import type { ITradingViewNativeChartType } from '../types';
+import type {
+  ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartType,
+} from '../types';
 
 export interface ITradingViewNativeLegendItem {
   label: string;
@@ -221,6 +225,7 @@ export function getTradingViewNativeVolumeAxisLabel(
 
 export function getTradingViewNativeChartLegend(
   point: IMarketTokenKLineDataPoint,
+  candleLabels: ITradingViewNativeCandleLabels,
   chartType: ITradingViewNativeChartType = 'candlestick',
   previousClose?: number,
 ): ITradingViewNativeChartLegend {
@@ -237,16 +242,17 @@ export function getTradingViewNativeChartLegend(
     }),
     valueColorRole: 'trend',
   };
+  const primarySeries = getTradingViewNativePrimarySeriesModel(chartType);
   return {
     isUp: point.c >= changeReference,
     priceItems:
-      chartType === 'line'
+      primarySeries.priceSource === 'close'
         ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
         : [
-            { label: 'O', value: formatPrice(point.o) },
-            { label: 'H', value: formatPrice(point.h) },
-            { label: 'L', value: formatPrice(point.l) },
-            { label: 'C', value: formatPrice(point.c) },
+            { label: candleLabels.open, value: formatPrice(point.o) },
+            { label: candleLabels.high, value: formatPrice(point.h) },
+            { label: candleLabels.low, value: formatPrice(point.l) },
+            { label: candleLabels.close, value: formatPrice(point.c) },
             priceChangeItem,
           ],
     volumeItem: {

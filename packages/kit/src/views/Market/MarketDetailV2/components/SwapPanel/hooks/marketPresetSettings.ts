@@ -38,6 +38,30 @@ export enum EMarketPresetPriorityFeeType {
   CUSTOM = 'custom',
 }
 
+export function isMarketPresetAutoSlippage(
+  presetKey: EMarketPresetKey,
+): boolean {
+  return presetKey === EMarketPresetKey.AUTO;
+}
+
+export function resolveMarketQuoteSlippageMode({
+  presetEnabled,
+  selectedPresetKey,
+  nonPresetMode,
+}: {
+  presetEnabled: boolean;
+  selectedPresetKey: EMarketPresetKey;
+  nonPresetMode: ESwapSlippageSegmentKey;
+}) {
+  if (!presetEnabled) {
+    return nonPresetMode;
+  }
+
+  return isMarketPresetAutoSlippage(selectedPresetKey)
+    ? ESwapSlippageSegmentKey.AUTO
+    : ESwapSlippageSegmentKey.CUSTOM;
+}
+
 export type IMarketPresetItem = {
   key: EMarketPresetKey;
   // Static technical label for P1/P2/P3. AUTO has no static label and is
@@ -752,6 +776,22 @@ export function getMarketPresetSlippageValue({
     settings.slippage.value !== undefined
   ) {
     return settings.slippage.value;
+  }
+
+  return defaultSlippage;
+}
+
+export function getMarketNonPresetSlippageValue({
+  mode,
+  customValue,
+  defaultSlippage,
+}: {
+  mode: ESwapSlippageSegmentKey;
+  customValue?: number;
+  defaultSlippage?: number;
+}) {
+  if (mode === ESwapSlippageSegmentKey.CUSTOM && customValue !== undefined) {
+    return customValue;
   }
 
   return defaultSlippage;

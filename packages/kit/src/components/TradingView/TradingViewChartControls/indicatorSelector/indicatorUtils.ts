@@ -1,6 +1,28 @@
-import type { ITradingViewIndicatorOption } from '../types';
+import {
+  isTradingViewNativeIndicator,
+  isTradingViewNativeSubIndicator,
+  resolveTradingViewNativeIndicatorId,
+} from '../../TradingViewNative/utils/chartIndicators/indicatorCatalog';
 
-const MAIN_CHART_INDICATOR_LABEL_SET = new Set(['MA', 'EMA', 'BOLL', 'SAR']);
+import type {
+  ITradingViewIndicatorOption,
+  ITradingViewNativeIndicatorSelection,
+} from '../types';
+
+function getCanonicalIndicatorId(indicator: ITradingViewIndicatorOption) {
+  return resolveTradingViewNativeIndicatorId(indicator.value, indicator.label);
+}
+
+function hasActiveIndicatorValue(
+  activeIndicatorValues: ReadonlySet<string>,
+  indicator: ITradingViewIndicatorOption,
+  canonicalIndicatorId: string,
+) {
+  return (
+    activeIndicatorValues.has(canonicalIndicatorId) ||
+    activeIndicatorValues.has(indicator.value)
+  );
+}
 
 export function getIndicatorSections(
   indicators: ITradingViewIndicatorOption[],
@@ -9,9 +31,10 @@ export function getIndicatorSections(
   const subIndicators: ITradingViewIndicatorOption[] = [];
 
   indicators.forEach((indicator) => {
-    if (MAIN_CHART_INDICATOR_LABEL_SET.has(indicator.label)) {
+    const indicatorId = getCanonicalIndicatorId(indicator);
+    if (indicatorId && isTradingViewNativeIndicator(indicatorId)) {
       mainIndicators.push(indicator);
-    } else {
+    } else if (indicatorId && isTradingViewNativeSubIndicator(indicatorId)) {
       subIndicators.push(indicator);
     }
   });
@@ -19,16 +42,12 @@ export function getIndicatorSections(
   return { mainIndicators, subIndicators };
 }
 
-function isSubIndicator(indicatorValue: string) {
-  return !MAIN_CHART_INDICATOR_LABEL_SET.has(indicatorValue);
-}
-
 export function getTradingViewNativeSubIndicatorCount(
   activeIndicatorValues: ReadonlySet<string>,
 ) {
   let count = 0;
   activeIndicatorValues.forEach((indicatorValue) => {
-    if (isSubIndicator(indicatorValue)) {
+    if (isTradingViewNativeSubIndicator(indicatorValue)) {
       count += 1;
     }
   });
@@ -38,21 +57,21 @@ export function getTradingViewNativeSubIndicatorCount(
 export function canToggleTradingViewNativeIndicatorOn({
   indicatorValue,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
 }: {
   indicatorValue: string;
   activeIndicatorValues: ReadonlySet<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
 }) {
-  const normalizedMaxSubIndicatorCount =
-    typeof maxSubIndicatorCount === 'number' &&
-    Number.isFinite(maxSubIndicatorCount)
-      ? Math.max(0, Math.floor(maxSubIndicatorCount))
+  const normalizedMaxSelectableSubIndicatorCount =
+    typeof maxSelectableSubIndicatorCount === 'number' &&
+    Number.isFinite(maxSelectableSubIndicatorCount)
+      ? Math.max(0, Math.floor(maxSelectableSubIndicatorCount))
       : undefined;
 
   if (
-    normalizedMaxSubIndicatorCount === undefined ||
-    !isSubIndicator(indicatorValue) ||
+    normalizedMaxSelectableSubIndicatorCount === undefined ||
+    !isTradingViewNativeSubIndicator(indicatorValue) ||
     activeIndicatorValues.has(indicatorValue)
   ) {
     return true;
@@ -60,7 +79,7 @@ export function canToggleTradingViewNativeIndicatorOn({
 
   return (
     getTradingViewNativeSubIndicatorCount(activeIndicatorValues) <
-    normalizedMaxSubIndicatorCount
+    normalizedMaxSelectableSubIndicatorCount
   );
 }
 
@@ -72,26 +91,77 @@ export function getNativeIndicatorSelectionUpdates({
   indicators: ITradingViewIndicatorOption[];
   originalActiveIndicatorValues: ReadonlySet<string>;
   nextActiveIndicatorValues: ReadonlySet<string>;
-}): Array<[indicatorName: string, desiredActive: boolean]> {
-  const removedIndicators = indicators.filter(
-    (indicator) =>
-      originalActiveIndicatorValues.has(indicator.value) &&
-      !nextActiveIndicatorValues.has(indicator.value),
+}): Array<[indicatorId: string, desiredActive: boolean]> {
+  const removedIndicators = indicators.flatMap<[string, boolean]>(
+    (indicator) => {
+      const indicatorId = getCanonicalIndicatorId(indicator);
+      return indicatorId !== null &&
+        hasActiveIndicatorValue(
+          originalActiveIndicatorValues,
+          indicator,
+          indicatorId,
+        ) &&
+        !hasActiveIndicatorValue(
+          nextActiveIndicatorValues,
+          indicator,
+          indicatorId,
+        )
+        ? [[indicatorId, false]]
+        : [];
+    },
   );
-  const addedIndicators = indicators.filter(
-    (indicator) =>
-      !originalActiveIndicatorValues.has(indicator.value) &&
-      nextActiveIndicatorValues.has(indicator.value),
-  );
+  const addedIndicators = indicators.flatMap<[string, boolean]>((indicator) => {
+    const indicatorId = getCanonicalIndicatorId(indicator);
+    return indicatorId !== null &&
+      !hasActiveIndicatorValue(
+        originalActiveIndicatorValues,
+        indicator,
+        indicatorId,
+      ) &&
+      hasActiveIndicatorValue(nextActiveIndicatorValues, indicator, indicatorId)
+      ? [[indicatorId, true]]
+      : [];
+  });
 
-  return [
-    ...removedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      false,
-    ]),
-    ...addedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      true,
-    ]),
-  ];
+  return [...removedIndicators, ...addedIndicators];
+}
+
+export function commitNativeIndicatorSelection({
+  indicators,
+  nextActiveIndicatorValues,
+  onSelect,
+  onSelectionConfirm,
+  originalActiveIndicatorValues,
+}: {
+  indicators: ITradingViewIndicatorOption[];
+  nextActiveIndicatorValues: ReadonlySet<string>;
+  onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
+  originalActiveIndicatorValues: ReadonlySet<string>;
+}) {
+  const selectionUpdates = getNativeIndicatorSelectionUpdates({
+    indicators,
+    originalActiveIndicatorValues,
+    nextActiveIndicatorValues,
+  });
+  if (selectionUpdates.length === 0) {
+    return;
+  }
+  if (onSelectionConfirm) {
+    onSelectionConfirm({
+      activeIndicatorValues: new Set(nextActiveIndicatorValues),
+      replaceMainIndicators: selectionUpdates.some(([indicatorId]) =>
+        isTradingViewNativeIndicator(indicatorId),
+      ),
+      replaceSubIndicators: selectionUpdates.some(([indicatorId]) =>
+        isTradingViewNativeSubIndicator(indicatorId),
+      ),
+    });
+    return;
+  }
+  selectionUpdates.forEach(([indicatorName, desiredActive]) => {
+    onSelect(indicatorName, desiredActive);
+  });
 }

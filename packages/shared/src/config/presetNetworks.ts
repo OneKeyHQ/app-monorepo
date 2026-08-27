@@ -983,7 +983,7 @@ const katana: IServerNetwork = {
   'logoURI':
     'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
   'defaultEnabled': true,
-  'backendIndex': true,
+  'backendIndex': false,
 };
 const aurora: IServerNetwork = {
   'impl': 'evm',

@@ -88,7 +88,6 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapInviteeReward]: {
     accountId?: string;
     currentEvmAddress?: string;
-    indexedAccountId?: string;
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;

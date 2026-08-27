@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,7 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useNavigateToPerpsReward } from '../../../PerpsReward/hooks/useNavigateToPerpsReward';
 import { Card } from '../RewardCard';
-import { NoRewardYet } from '../shared/NoRewardYet';
+import { UndistributedReward } from '../shared/UndistributedReward';
 
 import type { IPerpsRewardProps } from './types';
 
@@ -62,7 +61,7 @@ function ZeroFeeBadge() {
   );
 }
 
-export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
+export function PerpsReward({ perpsRewards }: IPerpsRewardProps) {
   const intl = useIntl();
   const navigateToPerpsReward = useNavigateToPerpsReward();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
@@ -72,10 +71,6 @@ export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
       setBuilderFeeRate(config.hyperliquidMaxBuilderFee);
     });
   }, []);
-
-  const hasReward =
-    perpsCumulativeRewards &&
-    new BigNumber(perpsCumulativeRewards.undistributedReward).isGreaterThan(0);
 
   const handlePress = () => {
     void navigateToPerpsReward();
@@ -89,24 +84,7 @@ export function PerpsReward({ perpsCumulativeRewards }: IPerpsRewardProps) {
         onPress={handlePress}
         badge={builderFeeRate === 0 ? <ZeroFeeBadge /> : undefined}
       />
-      {hasReward ? (
-        <Card.Item
-          label={intl.formatMessage({
-            id: ETranslations.referral_undistributed,
-          })}
-          value={
-            <Card.TokenValue
-              tokenImageUri={perpsCumulativeRewards.token?.logoURI}
-              amount={perpsCumulativeRewards.undistributedReward}
-              symbol={perpsCumulativeRewards.token?.symbol}
-            />
-          }
-        />
-      ) : (
-        <NoRewardYet />
-      )}
+      <UndistributedReward rewards={perpsRewards} />
     </Card.Container>
   );
 }
-
-export { usePerpsCumulativeRewards } from './hooks/usePerpsCumulativeRewards';

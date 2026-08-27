@@ -2,11 +2,7 @@
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import { cloneDeep } from 'lodash';
 
-import type {
-  IDialogLoadingProps,
-  IQrcodeDrawType,
-} from '@onekeyhq/components';
-import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
+import type { IDialogLoadingProps } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
@@ -64,6 +60,7 @@ import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { IStorageFullDiagnostics } from '../storageChecker/types';
 import type { IWalletConnectSession } from '../walletConnect/types';
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -102,6 +99,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  // hardware device the error came from, when the error carries one
+  connectId?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
@@ -134,6 +133,10 @@ export type IEventBusPayloadAccountDataUpdate =
       isManualRefresh?: boolean;
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
+
+// The item shape is owned by kit's settings config; it stays opaque here so
+// shared never depends on kit types or its search-results presentation.
+export type ISettingsSearchResultItem = FuseResult<unknown>;
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: {
@@ -237,10 +240,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
-    drawType: IQrcodeDrawType;
     promiseId?: number;
-    value?: string;
-    valueUr?: IAirGapUrJson;
+    valueUr: IAirGapUrJson;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
@@ -356,6 +357,27 @@ export interface IAppEventBusPayload {
     riskyTokens: IAccountToken[];
     riskyMap: Record<string, ITokenFiat>;
     storeData: IJotaiContextStoreData;
+  };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    deviceConnectId?: string;
+    deviceDbId?: string;
+    indexedAccountId?: string;
+    indexedAccountIndex?: number;
+    indexedAccountName?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    totalFiat: string;
+    totalFiatCurrency: string;
+    totalTokenCount: number;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
   };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
@@ -520,6 +542,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
+  [EAppEventBusNames.HardwareDeviceStateUpdate]: DeviceStateEvent;
+  [EAppEventBusNames.HardwareConnectionStateUpdate]: undefined;
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
@@ -532,11 +556,7 @@ export interface IAppEventBusPayload {
     sourceId: string;
   };
   [EAppEventBusNames.SettingsSearchResult]: {
-    list: {
-      title: string;
-      icon: string;
-      configs: FuseResult<ISubSettingConfig>[];
-    }[];
+    list: ISettingsSearchResultItem[];
     searchText: string;
   };
   [EAppEventBusNames.DesktopBleRepairRequired]: {
@@ -561,6 +581,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpsUnifoldDepositTerminalDelivery]: {
     deliveryId: string;
   };
+  [EAppEventBusNames.PerpsSubscriptionsRecovered]: undefined;
   [EAppEventBusNames.PerpSwitchActiveInstrument]: {
     mode: 'perp' | 'spot';
     coin: string;
@@ -568,6 +589,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
     tab: 'Positions' | 'Balances';
   };
+  [EAppEventBusNames.PerpShowFundingHistory]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -590,6 +612,7 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

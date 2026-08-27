@@ -1,66 +1,52 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useCalendars } from 'expo-localization';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  TRADING_VIEW_URL,
-  TRADING_VIEW_URL_TEST,
-} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TRADING_VIEW_DISABLED_FEATURES_URL_PARAM } from '../constants';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
+import { getTradingViewBaseUrl } from '../utils/tradingViewUrl';
 
 import type { ITradingViewDisabledFeature } from '../constants';
 
 interface IUseTradingViewUrlOptions {
   additionalParams?: Record<string, string>;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
+  theme: 'light' | 'dark';
 }
 
-export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
-  const { additionalParams, disabledFeatures } = options;
+export function useTradingViewUrl(options: IUseTradingViewUrlOptions) {
+  const { additionalParams, disabledFeatures, theme } = options;
 
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
-  const theme = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
 
-  const baseUrl = useMemo(() => {
-    if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
-      return localTradingViewUrl;
-    }
-
-    if (devSettings.enabled) {
-      return TRADING_VIEW_URL_TEST;
-    }
-
-    return TRADING_VIEW_URL;
-  }, [
-    devSettings.enabled,
-    devSettings.settings?.useLocalTradingViewUrl,
-    localTradingViewUrl,
-  ]);
+  const baseUrl = useMemo(
+    () => getTradingViewBaseUrl({ devSettings, localTradingViewUrl }),
+    [devSettings, localTradingViewUrl],
+  );
 
   const timezone = useMemo(
     () => getTradingViewTimezone(calendars),
     [calendars],
   );
 
-  const finalUrl = useMemo(() => {
+  const finalUrlWithoutTheme = useMemo(() => {
     const locale = systemLocale;
 
     const url = new URL(baseUrl);
     url.searchParams.set('timezone', timezone);
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
-    url.searchParams.set('theme', theme);
     if (platformEnv.version) {
       url.searchParams.set('appVersion', platformEnv.version);
     }
@@ -85,14 +71,17 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     }
 
     return url.toString();
-  }, [
-    additionalParams,
-    baseUrl,
-    disabledFeatures,
-    systemLocale,
-    theme,
-    timezone,
-  ]);
+  }, [additionalParams, baseUrl, disabledFeatures, systemLocale, timezone]);
+
+  // Desktop/native update the loaded chart in place. Keeping the URL stable
+  // prevents a theme-only change from navigating or recreating the WebView.
+  const urlTheme =
+    platformEnv.isDesktop || platformEnv.isNative ? undefined : theme;
+  const finalUrl = useMemo(() => {
+    const url = new URL(finalUrlWithoutTheme);
+    url.searchParams.set('theme', urlTheme ?? latestThemeRef.current);
+    return url.toString();
+  }, [finalUrlWithoutTheme, urlTheme]);
 
   return {
     baseUrl,

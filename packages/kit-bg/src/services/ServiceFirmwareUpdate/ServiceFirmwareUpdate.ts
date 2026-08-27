@@ -1,10 +1,16 @@
-import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  type EFirmwareType,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 import { get, isArray, isNil } from 'lodash';
 import semver from 'semver';
 
 import {
+  type IBackgroundMethodWithDevOnlyPassword,
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -28,16 +34,19 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -55,6 +64,8 @@ import type {
   IFirmwareUpdateV3VersionParams,
   IHardwareBridgeReleasePayload,
   IOneKeyDeviceFeatures,
+  IPro2FirmwareUpdateTarget,
+  IProtocolV2FirmwareVersionInfo,
   IResourceUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -71,6 +82,7 @@ import {
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
+  hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
@@ -81,7 +93,18 @@ import {
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
+import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
+import type {
+  IFirmwareArtifactSelfTestScenario,
+  IFirmwareArtifactSelfTestState,
+} from './FirmwareArtifactSelfTest';
+import type {
+  IFirmwareExecutionArtifacts,
+  IFirmwareWorkflowArtifacts,
+} from './FirmwarePreparedArtifactController';
+import type { IFirmwareUpdateRuntimeHost } from './FirmwareUpdateRuntime';
+import type { IFirmwareUpdateTraceInputMode } from './FirmwareUpdateTrace';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
   IPromiseContainerCallbackCreate,
@@ -92,12 +115,21 @@ import type {
   AllFirmwareRelease,
   CoreApi,
   Success as CoreSuccess,
+  DeviceSuccess,
   DeviceUploadResourceParams,
+  FirmwareUpdatePlanForceTarget,
+  FirmwareUpdateV4Target,
   IDeviceType,
   IVersionArray,
 } from '@onekeyfe/hd-core';
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features, Success } from '@onekeyfe/hd-transport';
+import type { Success } from '@onekeyfe/hd-transport';
+
+let firmwareUpdateRuntimeModulePromise:
+  | Promise<typeof import('./FirmwareUpdateRuntime')>
+  | undefined;
+
+const loadFirmwareUpdateRuntime = () =>
+  (firmwareUpdateRuntimeModulePromise ??= import('./FirmwareUpdateRuntime'));
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -116,11 +148,141 @@ export type IStartUpdateWorkflowV2Result = {
   backgroundTaskStarted: true;
 };
 
+export type IDetectActiveAccountFirmwareUpdatesResult =
+  | {
+      status: 'busy' | 'throttled';
+      retryAfterMs: number;
+    }
+  | {
+      status: 'finished' | 'skipped';
+    };
+
+const FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 5,
+});
+
+const PRO2_APP_FIRMWARE_UPDATE_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
+  'app_v1',
+  'app_v2',
+]);
+
+const PROTOCOL_V2_SAFE_OS_TARGETS = new Set<IPro2FirmwareUpdateTarget>([
+  'app_v1',
+  'app_v2',
+]);
+
+export function buildPro2TargetsToUpdate({
+  sdkTargets,
+  forceTargets = [],
+}: {
+  sdkTargets: readonly FirmwareUpdateV4Target[] | undefined;
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+}) {
+  return Array.from(
+    new Set<IPro2FirmwareUpdateTarget>([
+      ...(sdkTargets ?? []).map((target) =>
+        target === 'boot_resources' ? 'resource' : target,
+      ),
+      ...forceTargets,
+    ]),
+  );
+}
+
+export function buildProtocolV2PlanForceTargets({
+  forceTargets = [],
+  forceOnceTargets = [],
+}: {
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
+}) {
+  return buildPro2TargetsToUpdate({
+    sdkTargets: [],
+    forceTargets: [...forceTargets, ...forceOnceTargets],
+  });
+}
+
+export function shouldForceProtocolV2ResourceUpdate({
+  targetsToUpdate,
+  legacyForceResource,
+  forceTargets = [],
+  forceOnceTargets = [],
+}: {
+  targetsToUpdate: readonly FirmwareUpdateV4Target[];
+  legacyForceResource?: boolean;
+  forceTargets?: readonly IPro2FirmwareUpdateTarget[];
+  forceOnceTargets?: readonly IPro2FirmwareUpdateTarget[];
+}) {
+  return (
+    targetsToUpdate.some(
+      (target) => target === 'resource' || target === 'boot_resources',
+    ) &&
+    (legacyForceResource === true ||
+      forceTargets.includes('resource') ||
+      forceOnceTargets.includes('resource'))
+  );
+}
+
+export function buildProtocolV2FirmwareVersionInfo({
+  releaseInfo,
+  targetsToUpdate,
+}: {
+  releaseInfo: Pick<
+    AllFirmwareRelease,
+    'components' | 'currentVersions' | 'release'
+  >;
+  targetsToUpdate: readonly IPro2FirmwareUpdateTarget[];
+}): IProtocolV2FirmwareVersionInfo {
+  const selectedComponentTargets = targetsToUpdate.filter(
+    (target): target is Exclude<IPro2FirmwareUpdateTarget, 'resource'> =>
+      target !== 'resource',
+  );
+  const components = selectedComponentTargets.map((target) => {
+    const component = releaseInfo.components?.find(
+      (item) => item.updateTarget === target,
+    );
+    return {
+      target,
+      currentVersion: component?.currentVersion ?? null,
+      targetVersion: component?.targetVersion ?? null,
+    };
+  });
+  const hasSafeOSUpdate = targetsToUpdate.some((target) =>
+    PROTOCOL_V2_SAFE_OS_TARGETS.has(target),
+  );
+  const safeOSComponentTargetVersion = components.find(
+    (component) =>
+      component.target === 'app_v1' || component.target === 'app_v2',
+  )?.targetVersion;
+
+  return {
+    safeOS: {
+      currentVersion:
+        releaseInfo.currentVersions?.firmware ??
+        releaseInfo.currentVersions?.applicationP1 ??
+        null,
+      targetVersion: hasSafeOSUpdate
+        ? (releaseInfo.release?.version?.join('.') ??
+          safeOSComponentTargetVersion ??
+          null)
+        : null,
+    },
+    components,
+  };
+}
+
+export function supportsFirmwareUpdateWorkflowV2(
+  deviceType: IDeviceType | string | null | undefined,
+): boolean {
+  // Workflow V2 is the app's second-generation update flow, not the device's Protocol V2.
+  // Pro uses this flow, while Protocol V2 devices such as Pro2 and Neo enter through it too.
+  return deviceType === EDeviceType.Pro || isProtocolV2ProductType(deviceType);
+}
+
 export type IUpdateFirmwareTaskFn = ({
   id,
 }: {
   id: number;
-}) => Promise<Success | undefined>; // return Success | undefined go to next task, throw error to retry
+}) => Promise<DeviceSuccess | undefined>; // return DeviceSuccess | undefined go to next task, throw error to retry
 
 type IUpdateFirmwareTask = {
   fn: IUpdateFirmwareTaskFn;
@@ -133,31 +295,85 @@ interface IFirmwareUpdateResult {
   bootloaderVersion?: string;
 }
 
+type IFirmwareUpdateV4AppParams = IFirmwareUpdateV3VersionParams & {
+  requirePreparedArtifacts: boolean;
+  targetsToUpdate: FirmwareUpdateV4Target[];
+};
+
 @backgroundClass()
 class ServiceFirmwareUpdate extends ServiceBase {
+  private firmwareUpdateRuntimeHost?: Promise<IFirmwareUpdateRuntimeHost>;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
-  async getSDKInstance({
-    connectId,
-  }: {
-    connectId: string | undefined;
-  }): Promise<CoreApi> {
-    const hardwareSDK = await this.backgroundApi.serviceHardware.getSDKInstance(
-      {
-        connectId,
-      },
-    );
-    return hardwareSDK;
+  private async getActiveTransportType(): Promise<EHardwareTransportType> {
+    const serviceHardware = this.backgroundApi.serviceHardware;
+    if (typeof serviceHardware?.getCurrentTransportType === 'function') {
+      return serviceHardware.getCurrentTransportType();
+    }
+    return this.backgroundApi.serviceSetting.getHardwareTransportType();
   }
 
-  async clearOnceUpdateDevSettings() {
-    await this.backgroundApi.serviceDevSetting.updateFirmwareUpdateDevSettings({
-      forceUpdateOnceFirmware: false,
-      forceUpdateOnceBle: false,
-      forceUpdateOnceBootloader: false,
+  private getFirmwareUpdateRuntimeHost(): Promise<IFirmwareUpdateRuntimeHost> {
+    return (this.firmwareUpdateRuntimeHost ??= loadFirmwareUpdateRuntime().then(
+      ({ createFirmwareUpdateRuntimeHost }) =>
+        createFirmwareUpdateRuntimeHost({
+          getHardwareTransportType: () => this.getActiveTransportType(),
+          getSDKInstance: (connectId?: string) =>
+            this.getSDKInstance({ connectId }),
+        }),
+    ));
+  }
+
+  @backgroundMethodForDev()
+  startFirmwareArtifactSelfTest({
+    scenario,
+  }: IBackgroundMethodWithDevOnlyPassword & {
+    scenario: IFirmwareArtifactSelfTestScenario;
+  }): Promise<IFirmwareArtifactSelfTestState> {
+    return this.getFirmwareUpdateRuntimeHost().then((runtime) =>
+      runtime.selfTest.start(scenario),
+    );
+  }
+
+  @backgroundMethodForDev()
+  getFirmwareArtifactSelfTestState(
+    _params: IBackgroundMethodWithDevOnlyPassword,
+  ): Promise<IFirmwareArtifactSelfTestState | undefined> {
+    return Promise.resolve(this.firmwareUpdateRuntimeHost).then((runtime) =>
+      runtime?.selfTest.getState(),
+    );
+  }
+
+  getSDKInstance({
+    connectId,
+    hardwareTransportType,
+    forceFirmwareManifestRefresh,
+  }: {
+    connectId: string | undefined;
+    hardwareTransportType?: EHardwareTransportType;
+    forceFirmwareManifestRefresh?: boolean;
+  }): Promise<CoreApi> {
+    return this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+      hardwareTransportType,
+      ...(forceFirmwareManifestRefresh
+        ? { forceFirmwareManifestRefresh: true }
+        : {}),
     });
+  }
+
+  clearOnceUpdateDevSettings(): Promise<void> {
+    return this.backgroundApi.serviceDevSetting.updateFirmwareUpdateDevSettings(
+      {
+        forceUpdateOnceFirmware: false,
+        forceUpdateOnceBle: false,
+        forceUpdateOnceBootloader: false,
+        pro2ForceUpdateOnceTargets: [],
+      },
+    );
   }
 
   @backgroundMethod()
@@ -171,7 +387,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async rebootToBoardloader(connectId: string): Promise<Success> {
+  async rebootToBoardloader(connectId: string): Promise<DeviceSuccess> {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -185,10 +401,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId,
     allowEmptyConnectId,
     featuresCache,
+    forceProtocolDetection,
+    hardwareTransportType,
   }: {
     connectId: string | undefined;
     allowEmptyConnectId?: boolean | undefined;
     featuresCache?: IOneKeyDeviceFeatures;
+    forceProtocolDetection?: boolean;
+    hardwareTransportType?: EHardwareTransportType;
   }) {
     let features: IOneKeyDeviceFeatures | undefined;
     let error: IOneKeyError | undefined;
@@ -208,8 +428,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
               // do not prompt web device permission
               skipWebDevicePrompt: true,
               allowEmptyConnectId,
+              forceProtocolDetection,
+              ...(forceProtocolDetection
+                ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+                : {}),
             },
             silentMode: true,
+            hardwareTransportType,
           });
       }
       isBootloaderMode = await deviceUtils.isBootloaderModeByFeatures({
@@ -310,59 +535,88 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId,
   }: {
     connectId: string;
-  }) {
+  }): Promise<IDetectActiveAccountFirmwareUpdatesResult> {
     // detect certain account device firmware update, so connectId is required
     if (!connectId) {
-      return;
+      return { status: 'skipped' };
     }
     const dbDevice = await localDb.getDeviceByQuery({ connectId });
     const vendorProfile = dbDevice?.vendor
       ? getVendorProfile(dbDevice.vendor)
       : undefined;
     if (vendorProfile?.isThirdParty) {
-      return;
+      return { status: 'skipped' };
     }
-    const showBootloaderUpdateModal = () => {
-      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, {
-        connectId,
-      });
-    };
-    if (!this.detectMap.shouldDetect({ connectId })) {
-      return;
+    const exclusiveResult =
+      await this.backgroundApi.serviceHardwareUI.tryRunExclusiveOneKeyOperation(
+        async (): Promise<IDetectActiveAccountFirmwareUpdatesResult> => {
+          const showBootloaderUpdateModal = () => {
+            appEventBus.emit(
+              EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+              {
+                connectId,
+              },
+            );
+          };
+          if (!this.detectMap.shouldDetect({ connectId })) {
+            return {
+              status: 'throttled',
+              retryAfterMs: Math.max(
+                1,
+                this.detectMap.getNextDetectDelay({ connectId }),
+              ),
+            };
+          }
+          this.detectMap.updateLastDetectAt({
+            connectId,
+          });
+
+          const compatibleConnectId =
+            await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+              hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+              connectId,
+            });
+
+          const { isBootloaderMode, features, error } =
+            await this.checkDeviceIsBootloaderMode({
+              connectId: compatibleConnectId || connectId,
+            });
+
+          serviceHardwareUtils.hardwareLog(
+            'checkFirmwareUpdateStatus',
+            features,
+          );
+
+          if (error) {
+            if (
+              isHardwareErrorByCode({
+                error,
+                code: [HardwareErrorCode.DeviceNotFound],
+              })
+            ) {
+              // ignore
+              return { status: 'finished' };
+            }
+            throw error;
+          }
+
+          if (isBootloaderMode) {
+            showBootloaderUpdateModal();
+          }
+          return { status: 'finished' };
+        },
+        {
+          deviceKey:
+            dbDevice?.id || dbDevice?.deviceId || dbDevice?.uuid || connectId,
+        },
+      );
+    if (!exclusiveResult.acquired) {
+      return {
+        status: 'busy',
+        retryAfterMs: FIRMWARE_UPDATE_DETECT_BUSY_RETRY_DELAY,
+      };
     }
-    this.detectMap.updateLastDetectAt({
-      connectId,
-    });
-
-    const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
-        connectId,
-      });
-
-    const { isBootloaderMode, features, error } =
-      await this.checkDeviceIsBootloaderMode({
-        connectId: compatibleConnectId || connectId,
-      });
-
-    serviceHardwareUtils.hardwareLog('checkFirmwareUpdateStatus', features);
-
-    if (error) {
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [HardwareErrorCode.DeviceNotFound],
-        })
-      ) {
-        // ignore
-        return;
-      }
-      throw error;
-    }
-
-    if (isBootloaderMode) {
-      showBootloaderUpdateModal();
-    }
+    return exclusiveResult.result;
   }
 
   private _checkCacheMeetExpectations({
@@ -381,6 +635,30 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return undefined;
   }
 
+  private async getFirmwareUpdateDevForceTargets(): Promise<
+    FirmwareUpdatePlanForceTarget[]
+  > {
+    const settings =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettingsSnapshot();
+    const targets: FirmwareUpdatePlanForceTarget[] = [];
+    if (settings?.forceUpdateFirmware || settings?.forceUpdateOnceFirmware) {
+      targets.push('firmware');
+      if (settings.forceUpdateResEvenSameVersion) {
+        targets.push('resource');
+      }
+    }
+    if (settings?.forceUpdateBle || settings?.forceUpdateOnceBle) {
+      targets.push('ble');
+    }
+    if (
+      settings?.forceUpdateBootloader ||
+      settings?.forceUpdateOnceBootloader
+    ) {
+      targets.push('bootloader');
+    }
+    return targets;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async checkAllFirmwareRelease({
@@ -388,19 +666,47 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareType,
     skipCancel,
     baseReleaseInfoCache,
+    checkFirmwareHash,
+    resolvedTransportType,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     skipCancel?: boolean;
     baseReleaseInfoCache?: AllFirmwareRelease;
+    checkFirmwareHash?: boolean;
+    resolvedTransportType?: EHardwareTransportType;
   }): Promise<ICheckAllFirmwareReleaseResult> {
-    const { getDeviceUUID } = await CoreSDKLoader();
+    const hardwareSdk = await CoreSDKLoader();
+    const getDeviceSerialNo =
+      (
+        hardwareSdk as typeof hardwareSdk & {
+          getDeviceSerialNo?: typeof hardwareSdk.getDeviceUUID;
+        }
+      ).getDeviceSerialNo ?? hardwareSdk.getDeviceUUID;
+    const forceUpdateTargets = await this.getFirmwareUpdateDevForceTargets();
 
-    const releaseInfoCache = this._checkCacheMeetExpectations({
-      baseReleaseInfo: baseReleaseInfoCache,
-    });
+    const releaseInfoCache =
+      !checkFirmwareHash && forceUpdateTargets.length === 0
+        ? this._checkCacheMeetExpectations({
+            baseReleaseInfo: baseReleaseInfoCache,
+          })
+        : undefined;
 
-    const originalConnectId = connectId;
+    let resolvedTransport:
+      | {
+          connectId: string;
+          transportType: EHardwareTransportType;
+        }
+      | undefined;
+    if (connectId) {
+      resolvedTransport = resolvedTransportType
+        ? { connectId, transportType: resolvedTransportType }
+        : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
+            connectId,
+            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+          });
+    }
+    const originalConnectId = resolvedTransport?.connectId ?? connectId;
     // Skip cancel when using cached data since device state was already verified
     const needSkipCancel = skipCancel || !!releaseInfoCache;
 
@@ -417,8 +723,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateRetryAtom.set(undefined);
     serviceHardwareUtils.hardwareLog('checkAllFirmwareRelease');
 
+    // transport 与 connectId 已在上方成对解析；这里不能再从持久化设置推导，
+    // 因为持久化值可能仍描述上一轮操作，而本轮已经选择了 BLE。
+    const currentTransportType =
+      resolvedTransport?.transportType ?? (await this.getActiveTransportType());
     const sdk = await this.getSDKInstance({
       connectId: originalConnectId,
+      hardwareTransportType: currentTransportType,
+      forceFirmwareManifestRefresh: true,
     });
     try {
       if (!needSkipCancel) {
@@ -432,8 +744,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await timerUtils.wait(1000);
     }
 
-    const currentTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     const updatingConnectId = deviceUtils.getUpdatingConnectId({
       connectId: originalConnectId,
       currentTransportType,
@@ -451,9 +761,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        featuresCache: releaseInfoCache?.features,
+        forceProtocolDetection:
+          currentTransportType === EHardwareTransportType.DesktopWebBle,
+        hardwareTransportType: currentTransportType,
+        featuresCache: releaseInfoCache?.features as unknown as
+          | IOneKeyDeviceFeatures
+          | undefined,
       });
-    let features: Features = initialFeatures as Features;
+    let features: IOneKeyDeviceFeatures =
+      initialFeatures as IOneKeyDeviceFeatures;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
     if (isBootloaderMode || !features) {
@@ -462,20 +778,56 @@ class ServiceFirmwareUpdate extends ServiceBase {
           connectId: isBootloaderMode ? updatingConnectId : originalConnectId,
           params: {
             allowEmptyConnectId: true,
+            forceProtocolDetection:
+              currentTransportType === EHardwareTransportType.DesktopWebBle,
+            ...(currentTransportType === EHardwareTransportType.DesktopWebBle
+              ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+              : {}),
           },
+          hardwareTransportType: currentTransportType,
         });
     }
 
+    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    const protocolV2DevSettings = isProtocolV2ProductType(deviceType)
+      ? await Promise.all([
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateTargets',
+          ),
+          this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+            'pro2ForceUpdateOnceTargets',
+          ),
+        ])
+      : undefined;
+    const pro2ForceTargets = protocolV2DevSettings
+      ? buildProtocolV2PlanForceTargets({
+          forceTargets: protocolV2DevSettings[0] ?? [],
+          forceOnceTargets: protocolV2DevSettings[1] ?? [],
+        })
+      : undefined;
+    const forceUpdateTargetsForDevice = isProtocolV2ProductType(deviceType)
+      ? []
+      : forceUpdateTargets;
+
     const releaseInfo =
-      releaseInfoCache ??
-      (await this.baseCheckAllFirmwareRelease({
-        connectId: originalConnectId,
-        firmwareType,
-        skipChangeTransportType: true,
-      }));
+      releaseInfoCache?.firmwareUpdatePlan && !pro2ForceTargets?.length
+        ? releaseInfoCache
+        : await this.loadBaseFirmwareRelease({
+            connectId: originalConnectId,
+            firmwareType,
+            skipChangeTransportType: true,
+            checkFirmwareHash,
+            resolvedTransportType: currentTransportType,
+            forceUpdateTargets: forceUpdateTargetsForDevice,
+            protocolV2ForceUpdateTargets: pro2ForceTargets,
+          });
 
     const currentFirmwareType = await deviceUtils.getFirmwareType({
-      features: releaseInfo.features,
+      features: releaseInfo.features as unknown as
+        | IOneKeyDeviceFeatures
+        | undefined,
     });
 
     const firmware = await this.checkFirmwareRelease({
@@ -484,6 +836,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareReleasePayload:
         releaseInfo.firmware as unknown as IFirmwareReleasePayload,
       saveUpdateInfo: currentFirmwareType === firmwareType,
+      forceUpdate: forceUpdateTargetsForDevice.includes('firmware'),
     });
 
     let ble;
@@ -500,17 +853,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
         // TODO mock bridge?.shouldUpdate
         bridge.shouldUpdate = true;
       }
-
-      // TODO only check bootloader upgrade？
-      if (!bridge?.shouldUpdate && releaseInfo.bootloader) {
-        bootloader = await this.checkBootloaderRelease({
-          connectId: updatingConnectId,
-          features,
-          firmwareUpdateInfo: firmware,
-          bootloaderReleasePayload:
-            releaseInfo.bootloader as unknown as IBootloaderReleasePayload,
-        });
-      }
+    }
+    const shouldCheckProtocolV2Bootloader =
+      isProtocolV2ProductType(deviceType) && Boolean(releaseInfo.bootloader);
+    if (
+      !bridge?.shouldUpdate &&
+      releaseInfo.bootloader &&
+      (shouldCheckProtocolV2Bootloader ||
+        (firmware?.toVersion &&
+          (firmware.hasUpgrade ||
+            forceUpdateTargetsForDevice.includes('bootloader'))))
+    ) {
+      bootloader = await this.checkBootloaderRelease({
+        connectId: updatingConnectId,
+        features,
+        firmwareUpdateInfo: firmware,
+        bootloaderReleasePayload:
+          releaseInfo.bootloader as unknown as IBootloaderReleasePayload,
+        forceUpdate:
+          forceUpdateTargetsForDevice.includes('bootloader') ||
+          pro2ForceTargets?.includes('boot'),
+        currentVersion: releaseInfo.currentVersions?.bootloader,
+      });
     }
 
     if (!bridge?.shouldUpdate) {
@@ -519,6 +883,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         features,
         bleReleasePayload:
           releaseInfo.ble as unknown as IBleFirmwareReleasePayload,
+        forceUpdate:
+          forceUpdateTargetsForDevice.includes('ble') ||
+          pro2ForceTargets?.includes('coprocessor'),
+        currentVersion: releaseInfo.currentVersions?.ble,
       });
     }
 
@@ -557,11 +925,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    // TODO boot mode device uuid is empty
-    const deviceUUID = getDeviceUUID(features);
-    const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-      features,
-    });
+    // TODO boot mode device serial number is empty
+    const deviceSerialNo = getDeviceSerialNo(features);
     const deviceName = await deviceUtils.buildDeviceName({ features });
     const deviceBleName = deviceUtils.buildDeviceBleName({ features });
 
@@ -608,11 +973,23 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    let device: IDBDevice | undefined;
+    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
+      ? buildPro2TargetsToUpdate({
+          sdkTargets: releaseInfo.targetsToUpdate,
+          forceTargets: pro2ForceTargets,
+        })
+      : undefined;
+    const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
+      ? buildProtocolV2FirmwareVersionInfo({
+          releaseInfo,
+          targetsToUpdate: pro2TargetsToUpdate,
+        })
+      : undefined;
+
     let fixedUpdatingConnectId = updatingConnectId;
     try {
       if (platformEnv.isSupportDesktopBle) {
-        device = await localDb.getDeviceByQuery({
+        const device: IDBDevice | undefined = await localDb.getDeviceByQuery({
           connectId: originalConnectId,
         });
         fixedUpdatingConnectId = deviceUtils.getFixedUpdatingConnectId({
@@ -622,18 +999,46 @@ class ServiceFirmwareUpdate extends ServiceBase {
         });
       }
     } catch (_error) {
-      // ignore
+      // Keep the transport-derived connect ID when the local device is absent.
     }
 
-    return {
+    const effectiveHasUpgrade =
+      hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
+    const executableFirmwareUpdatePlan =
+      releaseInfo.firmwareUpdatePlan?.artifacts.length &&
+      releaseInfo.firmwareUpdatePlan.targetsToUpdate.length
+        ? releaseInfo.firmwareUpdatePlan
+        : undefined;
+    const firmwareUpdatePlanDigest = await (
+      await this.getFirmwareUpdateRuntimeHost()
+    ).artifacts.cachePlanDigestIfPreparedSupported({
+      hasUpgrade: effectiveHasUpgrade,
+      plan: executableFirmwareUpdatePlan,
+      connectId: updatingConnectId,
+      transportType: currentTransportType,
+      expectedTargets: isProtocolV2ProductType(deviceType)
+        ? pro2TargetsToUpdate
+        : [
+            ...new Set<FirmwareUpdatePlanForceTarget>([
+              ...forceUpdateTargetsForDevice,
+              ...(firmware?.hasUpgrade ? (['firmware'] as const) : []),
+              ...(ble?.hasUpgrade ? (['ble'] as const) : []),
+              ...(bootloader?.hasUpgrade ? (['bootloader'] as const) : []),
+            ]),
+          ],
+      requirePreparedPlan: isProtocolV2ProductType(deviceType),
+    });
+
+    const result = {
       updatingConnectId: fixedUpdatingConnectId,
       originalConnectId,
       features,
       deviceType,
       deviceName,
       deviceBleName,
-      deviceUUID,
-      hasUpgrade,
+      deviceUUID: deviceSerialNo,
+      firmwareUpdatePlanDigest,
+      hasUpgrade: effectiveHasUpgrade,
       isBootloaderMode: features
         ? (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
           EOneKeyDeviceMode.bootloader
@@ -645,7 +1050,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge,
       },
       totalPhase: totalPhase.filter(Boolean),
+      pro2TargetsToUpdate,
+      pro2ResourceArchive: releaseInfo.resourceArchive
+        ? {
+            archiveSha256: releaseInfo.resourceArchive.archiveSha256,
+            archiveSize: releaseInfo.resourceArchive.archiveSize,
+          }
+        : undefined,
+      protocolV2FirmwareVersionInfo,
     };
+
+    // Firmware-check interactions such as PIN entry are complete at this point.
+    // Close only the UI without cancelling the device request used by the update.
+    if (originalConnectId) {
+      await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
+        connectId: originalConnectId,
+        skipDeviceCancel: true,
+        deviceResetToHome: false,
+        skipDelayClose: true,
+        reason: 'checkAllFirmwareRelease completed',
+      });
+    }
+
+    return result;
   }
 
   @backgroundMethod()
@@ -654,11 +1081,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     features,
     firmwareReleasePayload,
     saveUpdateInfo = true,
+    forceUpdate,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
     firmwareReleasePayload: IFirmwareReleasePayload;
     saveUpdateInfo?: boolean;
+    forceUpdate?: boolean;
   }): Promise<IFirmwareUpdateInfo> {
     const releasePayload: IFirmwareReleasePayload = {
       ...firmwareReleasePayload,
@@ -669,50 +1098,86 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // TODO check releaseInfo.version with current version
     // 1. manual check here
     // 2. auto check by event: FIRMWARE_EVENT (event emit by method calling like sdk.getFeatures())
-    return this.setFirmwareUpdateInfo(releasePayload, saveUpdateInfo);
+    return this.setFirmwareUpdateInfo(
+      releasePayload,
+      saveUpdateInfo,
+      forceUpdate,
+    );
   }
 
-  @backgroundMethod()
-  async baseCheckAllFirmwareRelease({
+  private async loadBaseFirmwareRelease({
     connectId,
     firmwareType,
     skipChangeTransportType,
     retryCount,
     silentMode,
+    checkFirmwareHash,
+    resolvedTransportType,
+    forceUpdateTargets,
+    protocolV2ForceUpdateTargets,
+    forceFirmwareManifestRefresh,
   }: {
     connectId: string | undefined;
     firmwareType: EFirmwareType | undefined;
     skipChangeTransportType?: boolean;
     retryCount?: number;
     silentMode?: boolean;
+    checkFirmwareHash?: boolean;
+    resolvedTransportType?: EHardwareTransportType;
+    forceUpdateTargets?: FirmwareUpdatePlanForceTarget[];
+    protocolV2ForceUpdateTargets?: IPro2FirmwareUpdateTarget[];
+    forceFirmwareManifestRefresh?: boolean;
   }) {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
+      hardwareTransportType: resolvedTransportType,
+      forceFirmwareManifestRefresh,
     });
     const checkBridgeRelease = await this._hasUseBridge();
     let currentConnectId = connectId;
     if (!skipChangeTransportType) {
       const currentTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+        resolvedTransportType ?? (await this.getActiveTransportType());
       currentConnectId = deviceUtils.getUpdatingConnectId({
         connectId,
         currentTransportType,
       });
     }
+    const checkReleaseParams = {
+      checkBridgeRelease,
+      firmwareType,
+      platform: platformEnv.symbol ?? 'web',
+      retryCount,
+      checkFirmwareHash,
+      forceUpdateTargets,
+      protocolV2ForceUpdateTargets,
+    };
     const result = await convertDeviceResponse(
       () =>
         // method fail if device on boot mode
-        hardwareSDK.checkAllFirmwareRelease(currentConnectId, {
-          checkBridgeRelease,
-          firmwareType,
-          retryCount,
-        }),
+        hardwareSDK.checkAllFirmwareRelease(
+          currentConnectId,
+          checkReleaseParams,
+        ),
       {
         silentMode,
       },
     );
 
     return result;
+  }
+
+  @backgroundMethod()
+  baseCheckAllFirmwareRelease(
+    params: Parameters<ServiceFirmwareUpdate['loadBaseFirmwareRelease']>[0],
+  ) {
+    return this.loadBaseFirmwareRelease({
+      ...params,
+      forceFirmwareManifestRefresh: true,
+    }).then((result) => ({
+      ...result,
+      firmwareUpdatePlan: undefined,
+    }));
   }
 
   @backgroundMethod()
@@ -741,10 +1206,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId,
     features,
     bleReleasePayload,
+    forceUpdate,
+    currentVersion,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
     bleReleasePayload: IBleFirmwareReleasePayload;
+    forceUpdate?: boolean;
+    currentVersion?: string | null;
   }): Promise<IBleFirmwareUpdateInfo> {
     const releasePayload: IBleFirmwareReleasePayload = {
       ...bleReleasePayload,
@@ -755,7 +1224,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // TODO check releaseInfo.version with current version
     // 1. manual check here
     // 2. auto check by event: FIRMWARE_EVENT (event emit by method calling like sdk.getFeatures())
-    return this.setBleFirmwareUpdateInfo(releasePayload);
+    return this.setBleFirmwareUpdateInfo(
+      releasePayload,
+      forceUpdate,
+      currentVersion,
+    );
   }
 
   // TODO only for classic and mini?
@@ -765,25 +1238,32 @@ class ServiceFirmwareUpdate extends ServiceBase {
     features,
     firmwareUpdateInfo,
     bootloaderReleasePayload,
+    forceUpdate,
+    currentVersion,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
     firmwareUpdateInfo: IFirmwareUpdateInfo;
     bootloaderReleasePayload: IBootloaderReleasePayload;
+    forceUpdate?: boolean;
+    currentVersion?: string | null;
   }): Promise<IBootloaderUpdateInfo> {
     const usedReleasePayload = bootloaderReleasePayload;
 
-    const { bootloaderVersion } = await deviceUtils.getDeviceVersion({
-      features,
-      device: undefined,
-    });
+    const { bootloaderVersion: detectedBootloaderVersion } =
+      await deviceUtils.getDeviceVersion({
+        features,
+        device: undefined,
+      });
+    const bootloaderVersion = currentVersion || detectedBootloaderVersion;
     let toVersion = '';
     let changelog: IFirmwareChangeLog | undefined;
     // boot releaseInfo?.release may be string of resource download url
     const versionFromReleaseInfo =
-      usedReleasePayload?.release?.displayBootloaderVersion;
+      usedReleasePayload?.release?.displayBootloaderVersion ??
+      usedReleasePayload?.release?.version;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
-      toVersion = this.arrayVersionToString(versionFromReleaseInfo as any);
+      toVersion = this.arrayVersionToString(versionFromReleaseInfo);
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
@@ -805,6 +1285,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         toVersion,
         fromFirmwareType: undefined,
         toFirmwareType: undefined,
+        forceUpdate,
       });
 
     const updateInfo: IBootloaderUpdateInfo = {
@@ -829,6 +1310,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     toVersion,
     fromFirmwareType,
     toFirmwareType,
+    forceUpdate,
   }: {
     releasePayload:
       | IFirmwareReleasePayload
@@ -839,6 +1321,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     toVersion: string;
     fromFirmwareType: EFirmwareType | undefined;
     toFirmwareType: EFirmwareType | undefined;
+    forceUpdate?: boolean;
   }) {
     let hasUpgradeForce = false;
     let hasUpgrade = false;
@@ -896,44 +1379,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = false;
     }
 
-    const mockUpdateFirmware =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateFirmware',
-      );
-    const mockUpdateOnceFirmware =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateOnceFirmware',
-      );
-    const mockUpdateBle =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateBle',
-      );
-    const mockUpdateOnceBle =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateOnceBle',
-      );
-    const mockUpdateBootloader =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateBootloader',
-      );
-    const mockUpdateOnceBootloader =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateOnceBootloader',
-      );
-    if (
-      firmwareType === 'firmware' &&
-      (mockUpdateFirmware || mockUpdateOnceFirmware)
-    ) {
+    if (forceUpdate === true) {
       hasUpgrade = true;
-    }
-    if (firmwareType === 'ble' && (mockUpdateBle || mockUpdateOnceBle)) {
-      hasUpgrade = true;
-    }
-    if (
-      firmwareType === 'bootloader' &&
-      (mockUpdateBootloader || mockUpdateOnceBootloader)
-    ) {
-      hasUpgrade = true;
+    } else if (forceUpdate === undefined) {
+      const forceUpdateTargets = await this.getFirmwareUpdateDevForceTargets();
+      if (forceUpdateTargets.includes(firmwareType)) {
+        hasUpgrade = true;
+      }
     }
 
     return {
@@ -987,6 +1439,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async setFirmwareUpdateInfo(
     payload: IFirmwareReleasePayload,
     saveUpdateInfo = true,
+    forceUpdate?: boolean,
   ): Promise<IFirmwareUpdateInfo> {
     serviceHardwareUtils.hardwareLog('_checkFirmwareUpdate', payload);
     if (!payload?.features) {
@@ -1015,6 +1468,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         toVersion,
         fromFirmwareType,
         toFirmwareType,
+        forceUpdate,
       });
 
     const updateInfo: IFirmwareUpdateInfo = {
@@ -1043,7 +1497,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBleFirmwareUpdateInfo(payload: IBleFirmwareReleasePayload) {
+  async setBleFirmwareUpdateInfo(
+    payload: IBleFirmwareReleasePayload,
+    forceUpdate?: boolean,
+    currentVersion?: string | null,
+  ) {
     serviceHardwareUtils.hardwareLog('showBleFirmwareReleaseInfo', payload);
     if (!payload.features) {
       throw new OneKeyLocalError(
@@ -1051,11 +1509,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
-    const { bleVersion } = await deviceUtils.getDeviceVersion({
-      device: undefined,
-      features: payload.features,
-    });
-    const fromVersion = bleVersion || '';
+    const { bleVersion: detectedBleVersion } =
+      await deviceUtils.getDeviceVersion({
+        device: undefined,
+        features: payload.features,
+      });
+    const fromVersion = currentVersion || detectedBleVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
     const { hasUpgrade, hasUpgradeForce } =
       await this.getFirmwareHasUpgradeStatus({
@@ -1065,6 +1524,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         toVersion,
         fromFirmwareType: undefined,
         toFirmwareType: undefined,
+        forceUpdate,
       });
 
     const updateInfo: IBleFirmwareUpdateInfo = {
@@ -1088,12 +1548,40 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return updateInfo;
   }
 
-  async withFirmwareUpdateEvents<T>(fn: () => Promise<T>): Promise<T> {
+  async withFirmwareUpdateEvents<T>(
+    fn: () => Promise<T>,
+    executionArtifacts?: IFirmwareExecutionArtifacts,
+  ): Promise<T> {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
+    const transactionId =
+      executionArtifacts?.preparedArtifacts?.transactionId ??
+      executionArtifacts?.bridgeBinaries?.transactionId;
+    const executor =
+      executionArtifacts?.preparedArtifacts?.plan.executor ??
+      executionArtifacts?.bridgeBinaries?.executor;
+    let inputMode: IFirmwareUpdateTraceInputMode = 'sdk-managed';
+    if (executionArtifacts?.preparedArtifacts) {
+      inputMode = 'artifact-reader';
+    } else if (executionArtifacts?.bridgeBinaries) {
+      inputMode = 'bridge-binary';
+    }
     const listener = (data: any) => {
       serviceHardwareUtils.hardwareLog('autoUpdateFirmware', data);
+      const tipMessage =
+        get(data, 'data.message') ??
+        get(data, 'payload.data.message') ??
+        get(data, 'message');
+      if (transactionId && typeof tipMessage === 'string') {
+        firmwareUpdateTrace({
+          transactionId,
+          stage: 'sdk-tip',
+          executor,
+          inputMode,
+          tipMessage,
+        });
+      }
       // dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
     };
     hardwareSDK.on(EHardwareUiStateAction.FIRMWARE_TIP, listener);
@@ -1147,7 +1635,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async updatingBootloader(
     params: IUpdateFirmwareWorkflowParams,
     updateInfo: IBootloaderUpdateInfo,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
   ): Promise<undefined | Success> {
+    const preparedArtifactController = (
+      await this.getFirmwareUpdateRuntimeHost()
+    ).artifacts;
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'bootloaderUpdate',
+    );
+    const {
+      executePreparedDeviceUpdateBootloader,
+      executePreparedFirmwareUpdateV2Bootloader,
+    } = await loadFirmwareUpdateRuntime();
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.releaseResult.updatingConnectId,
     });
@@ -1177,11 +1677,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
             },
           },
         });
-        const result = convertDeviceResponse(async () =>
-          hardwareSDK.firmwareUpdateV2(params.releaseResult.updatingConnectId, {
-            updateType: 'firmware',
+        const result = convertDeviceResponse(() =>
+          executePreparedFirmwareUpdateV2Bootloader({
+            sdk: hardwareSDK,
+            connectId: params.releaseResult.updatingConnectId,
+            ...executionArtifacts,
             platform: platformEnv.symbol ?? 'web',
-            isUpdateBootloader: true,
           }),
         );
         return result;
@@ -1197,15 +1698,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
             },
           },
         });
-        return convertDeviceResponse(async () =>
-          // TODO connectId can be undefined
-          hardwareSDK.deviceUpdateBootloader(
-            params.releaseResult.updatingConnectId as string,
-            {},
-          ),
+        return convertDeviceResponse(() =>
+          executePreparedDeviceUpdateBootloader({
+            sdk: hardwareSDK,
+            connectId: params.releaseResult.updatingConnectId as string,
+            ...executionArtifacts,
+          }),
         );
       }
-    });
+    }, executionArtifacts);
   }
 
   updatingBootloaderForTouchAndProLegacy(
@@ -1266,7 +1767,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
     { connectId, version, firmwareType, deviceType }: IAutoUpdateFirmwareParams,
     updateInfo: IBleFirmwareUpdateInfo | IFirmwareUpdateInfo,
     workflowParams: IUpdateFirmwareWorkflowParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
   ): Promise<Success> {
+    const preparedArtifactController = (
+      await this.getFirmwareUpdateRuntimeHost()
+    ).artifacts;
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV2',
+    );
+    const { executePreparedFirmwareUpdateV2 } =
+      await loadFirmwareUpdateRuntime();
     // const { dispatch } = this.backgroundApi;
     // dispatch(setUpdateFirmwareStep(''));
 
@@ -1284,9 +1795,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
       const forceUpdateResEvenIfSameVersion =
-        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        executionArtifacts.preparedArtifacts?.plan.targetsToUpdate.includes(
+          'resource',
+        ) ??
+        (await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
           'forceUpdateResEvenSameVersion',
-        );
+        ));
       const versionArr = version.split('.').map((v) => parseInt(v, 10)); // TODO move to utils
       await firmwareUpdateStepInfoAtom.set({
         step: EFirmwareUpdateSteps.installing,
@@ -1299,23 +1813,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
       });
 
-      const currentTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const currentTransportType = await this.getActiveTransportType();
 
-      const result = await convertDeviceResponse(async () =>
-        hardwareSDK.firmwareUpdateV2(
-          deviceUtils.getUpdatingConnectId({ connectId, currentTransportType }),
-          {
-            updateType: firmwareType as any,
-            // update res is always enabled when firmware version changed
-            // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-            forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
-            version: versionArr,
-            platform: platformEnv.symbol ?? 'web',
-            firmwareType: updateInfo.toFirmwareType,
-          },
-        ),
-      );
+      const updateType = firmwareType === 'ble' ? 'ble' : 'firmware';
+      const result = await convertDeviceResponse(async () => {
+        const updatingConnectId = deviceUtils.getUpdatingConnectId({
+          connectId,
+          currentTransportType,
+        });
+        return executePreparedFirmwareUpdateV2({
+          sdk: hardwareSDK,
+          connectId: updatingConnectId,
+          ...executionArtifacts,
+          updateType,
+          forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
+          version: versionArr,
+          platform: platformEnv.symbol ?? 'web',
+          firmwareType: updateInfo.toFirmwareType,
+        });
+      });
       if (
         result &&
         deviceType === EDeviceType.Touch &&
@@ -1326,7 +1842,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
       // TODO handleErrors UpdatingModal
       return result;
-    });
+    }, executionArtifacts);
   }
 
   @backgroundMethod()
@@ -1364,8 +1880,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async _hasUseBridge() {
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const hardwareTransportType = await this.getActiveTransportType();
     if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
       return false;
     }
@@ -1400,7 +1915,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     updateFlow: 'v1' | 'v2';
     releaseResult: ICheckAllFirmwareReleaseResult;
   }) {
-    const workflowId = (this.updateWorkflowSequence += 1);
+    this.updateWorkflowSequence += 1;
+    const workflowId = this.updateWorkflowSequence;
     this.updateWorkflowTracking = {
       workflowId,
       acceptsTaskResults: true,
@@ -1505,11 +2021,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ) {
         return;
       }
-      const attempt = (tracking.attemptCount += 1);
+      tracking.attemptCount += 1;
+      const attempt = tracking.attemptCount;
       const err =
         error === undefined ? undefined : toPlainErrorObject(error as any);
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       defaultLogger.update.firmware.firmwareUpdateAttemptResult({
         deviceType: tracking.releaseResult.deviceType,
         transportType: hardwareTransportType,
@@ -1578,8 +2094,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   async exitUpdateWorkflow() {
     this.closeUpdateWorkflowTracking();
-    await this.updateTasksClear('exitUpdateWorkflow');
-    await firmwareUpdateWorkflowRunningAtom.set(false);
+    try {
+      const { cancelFirmwareArtifactPreparations } =
+        await loadFirmwareUpdateRuntime();
+      await cancelFirmwareArtifactPreparations();
+    } finally {
+      await this.updateTasksClear('exitUpdateWorkflow');
+      await firmwareUpdateWorkflowRunningAtom.set(false);
+    }
   }
 
   async cancelUpdateWorkflowIfExit() {
@@ -1603,8 +2125,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     //     allowEmptyConnectId: true,
     //   },
     // );
-    const hardwareTransportType =
-      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    const hardwareTransportType = await this.getActiveTransportType();
     if (actionType === 'nextPhase') {
       const isWebUsb = hardwareTransportType === EHardwareTransportType.WEBUSB;
       await timerUtils.wait(isWebUsb ? 20 * 1000 : 15 * 1000);
@@ -1650,158 +2171,184 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!dbDevice) {
       // throw new OneKeyLocalError('device not found');
     }
-    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
-        appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
-        // await other hardware task stop processing
-        await timerUtils.wait(3000);
+    await firmwareUpdateWorkflowRunningAtom.set(true);
+    try {
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          try {
+            appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
+            // await other hardware task stop processing
+            await timerUtils.wait(3000);
 
-        // Lock transport type during firmware update to prevent auto-switching
-        // This prevents the system from switching to BLE when USB device is temporarily
-        // unavailable during device reboot
-        const currentTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
-        await this.backgroundApi.serviceHardware.setForceTransportType({
-          forceTransportType: currentTransportType,
-        });
-        serviceHardwareUtils.hardwareLog(
-          'startUpdateWorkflow: locked transport type',
-          currentTransportType,
-        );
-
-        try {
-          // TODO verify current device is matched with params.connectId\params.updateFirmware\params.updateBle
-          // pre checking
-          await this.validateMnemonicBackuped(params);
-          await this.validateUSBConnection(params);
-          // must before validateMinVersionAllowed, go to https://help.onekey.so/
-          await this.validateShouldUpdateFullResource(params);
-          // go to https://firmware.onekey.so/
-          await this.validateMinVersionAllowed(params);
-          await this.validateDeviceBattery(params);
-          await this.validateShouldUpdateBridge(params);
-
-          // ** clear all retry tasks
-          await this.updateTasksClear('startUpdateWorkflow');
-
-          let shouldRebootAfterUpdate = false;
-
-          const waitRebootDelayForNextPhase = async () => {
-            if (shouldRebootAfterUpdate) {
-              await this.waitDeviceRestart({
-                actionType: 'nextPhase',
-                releaseResult: params.releaseResult,
-              });
-              shouldRebootAfterUpdate = false;
-            }
-          };
-
-          // ** bootloader update
-          await this.cancelUpdateWorkflowIfExit();
-          if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
-            await waitRebootDelayForNextPhase();
-            await this.startUpdateBootloaderTask(params);
-
-            shouldRebootAfterUpdate = true;
-
-            // await hardware boot install and reboot
-            // move sdk
-            await this.waitDeviceRestart({
-              actionType: 'boot-done',
-              releaseResult: params.releaseResult,
+            // Lock transport type during firmware update to prevent auto-switching
+            // This prevents the system from switching to BLE when USB device is temporarily
+            // unavailable during device reboot
+            const currentTransportType = await this.getActiveTransportType();
+            await this.backgroundApi.serviceHardware.setForceTransportType({
+              forceTransportType: currentTransportType,
             });
-          }
+            serviceHardwareUtils.hardwareLog(
+              'startUpdateWorkflow: locked transport type',
+              currentTransportType,
+            );
 
-          // TODO cancel workflow if modal closed or back
+            // TODO verify current device is matched with params.connectId\params.updateFirmware\params.updateBle
+            // pre checking
+            await this.validateMnemonicBackuped(params);
+            await this.validateUSBConnection(params);
+            // must before validateMinVersionAllowed, go to https://help.onekey.so/
+            await this.validateShouldUpdateFullResource(params);
+            // go to https://firmware.onekey.so/
+            await this.validateMinVersionAllowed(params);
+            await this.validateDeviceBattery(params);
+            await this.validateShouldUpdateBridge(params);
 
-          // ** firmware update (including res update)
-          if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
-            await waitRebootDelayForNextPhase();
+            await this.setFirmwareArtifactDownloadState(true);
+            await (
+              await this.getFirmwareUpdateRuntimeHost()
+            ).artifacts.withWorkflowArtifacts(
+              params.releaseResult,
+              async (firmwareArtifacts) => {
+                await this.setFirmwareArtifactDownloadState(false);
+                // ** clear all retry tasks
+                await this.updateTasksClear('startUpdateWorkflow');
 
-            const deviceType = params?.releaseResult?.deviceType;
-            // TODO recheck release if match with current connect device
-            // TODO check update version gt current version
-            // TODO check features matched
-            await this.cancelUpdateWorkflowIfExit();
-            await this.startUpdateFirmwareTaskBase(
-              {
-                connectId: params?.releaseResult?.updatingConnectId,
-                version:
-                  params?.releaseResult?.updateInfos?.firmware?.toVersion,
-                firmwareType: 'firmware',
-                deviceType,
+                let shouldRebootAfterUpdate = false;
+
+                const waitRebootDelayForNextPhase = async () => {
+                  if (shouldRebootAfterUpdate) {
+                    await this.waitDeviceRestart({
+                      actionType: 'nextPhase',
+                      releaseResult: params.releaseResult,
+                    });
+                    shouldRebootAfterUpdate = false;
+                  }
+                };
+
+                // ** bootloader update
+                await this.cancelUpdateWorkflowIfExit();
+                if (
+                  params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade
+                ) {
+                  await waitRebootDelayForNextPhase();
+                  await this.startUpdateBootloaderTask(
+                    params,
+                    firmwareArtifacts,
+                  );
+
+                  shouldRebootAfterUpdate = true;
+
+                  // await hardware boot install and reboot
+                  // move sdk
+                  await this.waitDeviceRestart({
+                    actionType: 'boot-done',
+                    releaseResult: params.releaseResult,
+                  });
+                }
+
+                // TODO cancel workflow if modal closed or back
+
+                // ** firmware update (including res update)
+                if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
+                  await waitRebootDelayForNextPhase();
+
+                  const deviceType = params?.releaseResult?.deviceType;
+                  // TODO recheck release if match with current connect device
+                  // TODO check update version gt current version
+                  // TODO check features matched
+                  await this.cancelUpdateWorkflowIfExit();
+                  await this.startUpdateFirmwareTaskBase(
+                    {
+                      connectId: params?.releaseResult?.updatingConnectId,
+                      version:
+                        params?.releaseResult?.updateInfos?.firmware?.toVersion,
+                      firmwareType: 'firmware',
+                      deviceType,
+                    },
+                    params?.releaseResult?.updateInfos?.firmware,
+                    params,
+                    firmwareArtifacts,
+                  );
+
+                  shouldRebootAfterUpdate = true;
+                }
+
+                //  ble update
+                if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
+                  await waitRebootDelayForNextPhase();
+
+                  const deviceType = params?.releaseResult?.deviceType;
+
+                  // TODO recheck release if match with current connect device
+                  await this.cancelUpdateWorkflowIfExit();
+                  await this.startUpdateFirmwareTaskBase(
+                    {
+                      connectId: params?.releaseResult?.updatingConnectId,
+                      version:
+                        params?.releaseResult?.updateInfos?.ble?.toVersion,
+                      firmwareType: 'ble',
+                      deviceType,
+                    },
+                    params?.releaseResult?.updateInfos?.ble,
+                    params,
+                    firmwareArtifacts,
+                  );
+
+                  shouldRebootAfterUpdate = true;
+
+                  await this.waitDeviceRestart({
+                    actionType: 'ble-done',
+                    releaseResult: params.releaseResult,
+                  });
+                }
+
+                serviceHardwareUtils.hardwareLog(
+                  'startUpdateWorkflow DONE',
+                  params,
+                );
+
+                await firmwareUpdateRetryAtom.set(undefined);
+                if (params.releaseResult.originalConnectId) {
+                  await this.waitDeviceRestart({
+                    actionType: 'done',
+                    releaseResult: params.releaseResult,
+                  });
+                  await this.detectMap.deleteUpdateInfo({
+                    connectId: params.releaseResult.originalConnectId,
+                  });
+                  await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                    params,
+                  );
+                  await this.clearOnceUpdateDevSettings();
+                  appEventBus.emit(
+                    EAppEventBusNames.FinishFirmwareUpdate,
+                    undefined,
+                  );
+                }
               },
-              params?.releaseResult?.updateInfos?.firmware,
-              params,
             );
-
-            shouldRebootAfterUpdate = true;
-          }
-
-          //  ble update
-          if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
-            await waitRebootDelayForNextPhase();
-
-            const deviceType = params?.releaseResult?.deviceType;
-
-            // TODO recheck release if match with current connect device
-            await this.cancelUpdateWorkflowIfExit();
-            await this.startUpdateFirmwareTaskBase(
-              {
-                connectId: params?.releaseResult?.updatingConnectId,
-                version: params?.releaseResult?.updateInfos?.ble?.toVersion,
-                firmwareType: 'ble',
-                deviceType,
-              },
-              params?.releaseResult?.updateInfos?.ble,
-              params,
+          } finally {
+            // Always clear transport type lock when firmware update completes (success or failure)
+            await this.backgroundApi.serviceHardware.clearForceTransportType();
+            serviceHardwareUtils.hardwareLog(
+              'startUpdateWorkflow: cleared transport type lock',
             );
-
-            shouldRebootAfterUpdate = true;
-
-            await this.waitDeviceRestart({
-              actionType: 'ble-done',
-              releaseResult: params.releaseResult,
-            });
           }
-
-          serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
-
-          await firmwareUpdateRetryAtom.set(undefined);
-          if (params.releaseResult.originalConnectId) {
-            await this.waitDeviceRestart({
-              actionType: 'done',
-              releaseResult: params.releaseResult,
-            });
-            await this.detectMap.deleteUpdateInfo({
-              connectId: params.releaseResult.originalConnectId,
-            });
-            await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
-              params,
-            );
-            await this.clearOnceUpdateDevSettings();
-            appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
-          }
-        } finally {
-          // Always clear transport type lock when firmware update completes (success or failure)
-          await this.backgroundApi.serviceHardware.clearForceTransportType();
-          serviceHardwareUtils.hardwareLog(
-            'startUpdateWorkflow: cleared transport type lock',
-          );
-          // Reset workflow running state at service level to prevent lock-screen bypass
-          // This ensures the atom is reset even if the UI component has unmounted
-          await firmwareUpdateWorkflowRunningAtom.set(false);
-        }
-      },
-      {
-        deviceParams: {
-          dbDevice: dbDevice || ({} as any),
         },
-        skipDeviceCancel: true,
-        hideCheckingDeviceLoading: true,
-        debugMethodName: 'startUpdateWorkflow',
-      },
-    );
+        {
+          deviceParams: {
+            dbDevice: dbDevice || ({} as any),
+          },
+          allowDuringFirmwareUpdate: true,
+          skipDeviceCancel: true,
+          hideCheckingDeviceLoading: true,
+          debugMethodName: 'startUpdateWorkflow',
+        },
+      );
+    } finally {
+      // The bg guard outlives the UI and must cover lock acquisition failures too.
+      await firmwareUpdateWorkflowRunningAtom.set(false);
+    }
   }
 
   @backgroundMethod()
@@ -1811,6 +2358,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       connectId: '',
       payload: {} as any,
     });
+    await hardwareUiStateCompletedAtom.set(undefined);
     await firmwareUpdateResultVerifyAtom.set(undefined);
   }
 
@@ -1835,8 +2383,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -1866,13 +2413,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     error: unknown;
   }) {
     const err = toPlainErrorObject(error as any);
+    const displayError = toUserFacingFirmwareUpdateError(err);
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
     await firmwareUpdateStepInfoAtom.set({
       step: EFirmwareUpdateSteps.error,
       payload: {
-        error: err,
+        error: displayError,
       },
     });
 
@@ -1887,8 +2435,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     try {
-      const hardwareTransportType =
-        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      const hardwareTransportType = await this.getActiveTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -1912,6 +2459,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
   }
 
+  private async setFirmwareArtifactDownloadState(
+    isDownloadingArtifacts: boolean,
+  ) {
+    const stepInfo = await firmwareUpdateStepInfoAtom.get();
+    if (stepInfo.step !== EFirmwareUpdateSteps.updateStart) {
+      return;
+    }
+    await firmwareUpdateStepInfoAtom.set({
+      step: EFirmwareUpdateSteps.updateStart,
+      payload: {
+        ...stepInfo.payload,
+        isDownloadingArtifacts,
+      },
+    });
+  }
+
   async runUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
     try {
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1923,9 +2486,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // await other hardware task stop processing
             await timerUtils.wait(3000);
 
-            // Lock transport type during firmware update to prevent auto-switching
-            const currentTransportType =
-              await this.backgroundApi.serviceSetting.getHardwareTransportType();
+            // Desktop firmware updates must use the same USB-only product flow as x.
+            // Resolve again at execution time so Pro2 and Neo cannot retain a BLE route.
+            let currentTransportType = await this.getActiveTransportType();
+            if (platformEnv.isDesktop) {
+              const resolvedTransport =
+                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
+                  {
+                    connectId:
+                      params.releaseResult.originalConnectId ??
+                      params.releaseResult.updatingConnectId,
+                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+                  },
+                );
+              currentTransportType = resolvedTransport.transportType;
+              params.releaseResult.updatingConnectId =
+                deviceUtils.getUpdatingConnectId({
+                  connectId: resolvedTransport.connectId,
+                  currentTransportType,
+                });
+              if (
+                currentTransportType === EHardwareTransportType.DesktopWebBle
+              ) {
+                throw new OneKeyLocalError(
+                  'Desktop firmware updates require a USB transport',
+                );
+              }
+            }
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
@@ -1945,50 +2532,72 @@ class ServiceFirmwareUpdate extends ServiceBase {
             await this.validateDeviceBattery(params);
             await this.validateShouldUpdateBridge(params);
 
-            // ** clear all retry tasks
-            await this.updateTasksClear('startUpdateWorkflow');
+            await this.setFirmwareArtifactDownloadState(true);
+            try {
+              const runtimeHost = await this.getFirmwareUpdateRuntimeHost();
+              await runtimeHost.artifacts.withWorkflowArtifacts(
+                params.releaseResult,
+                async (firmwareArtifacts) => {
+                  await this.setFirmwareArtifactDownloadState(false);
+                  // ** clear all retry tasks
+                  await this.updateTasksClear('startUpdateWorkflow');
 
-            await this.cancelUpdateWorkflowIfExit();
+                  await this.cancelUpdateWorkflowIfExit();
 
-            const deviceType = params?.releaseResult?.deviceType;
-            if (deviceType !== EDeviceType.Pro) {
-              throw new OneKeyLocalError(
-                'Do not support update firmware for this device',
+                  const deviceType = params?.releaseResult?.deviceType;
+                  if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
+                    serviceHardwareUtils.hardwareLog(
+                      'startUpdateWorkflowV2: unsupported device type',
+                      {
+                        deviceType: deviceType ?? 'unknown',
+                        isProtocolV2Product:
+                          isProtocolV2ProductType(deviceType),
+                      },
+                    );
+                    throw new OneKeyLocalError(
+                      'Do not support update firmware for this device',
+                    );
+                  }
+                  const updateResult =
+                    await this.startUpdateFirmwareTaskForNewBootVersion(
+                      params,
+                      firmwareArtifacts,
+                    );
+                  console.log(
+                    'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
+                    updateResult,
+                  );
+
+                  serviceHardwareUtils.hardwareLog(
+                    'startUpdateWorkflow DONE',
+                    params,
+                  );
+
+                  await firmwareUpdateRetryAtom.set(undefined);
+                  if (params.releaseResult.originalConnectId) {
+                    await this.waitDeviceRestart({
+                      actionType: 'done',
+                      releaseResult: params.releaseResult,
+                    });
+                    await this.detectMap.deleteUpdateInfo({
+                      connectId: params.releaseResult.originalConnectId,
+                    });
+                    await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                      params,
+                    );
+                    await this.clearOnceUpdateDevSettings();
+                    appEventBus.emit(
+                      EAppEventBusNames.FinishFirmwareUpdate,
+                      undefined,
+                    );
+                  }
+                  // wait verify
+                  await timerUtils.wait(2000);
+                },
               );
+            } finally {
+              await this.setFirmwareArtifactDownloadState(false);
             }
-
-            const updateResult =
-              await this.startUpdateFirmwareTaskForNewBootVersion(params);
-            console.log(
-              'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
-              updateResult,
-            );
-
-            serviceHardwareUtils.hardwareLog(
-              'startUpdateWorkflow DONE',
-              params,
-            );
-
-            await firmwareUpdateRetryAtom.set(undefined);
-            if (params.releaseResult.originalConnectId) {
-              await this.waitDeviceRestart({
-                actionType: 'done',
-                releaseResult: params.releaseResult,
-              });
-              await this.detectMap.deleteUpdateInfo({
-                connectId: params.releaseResult.originalConnectId,
-              });
-              await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
-                params,
-              );
-              await this.clearOnceUpdateDevSettings();
-              appEventBus.emit(
-                EAppEventBusNames.FinishFirmwareUpdate,
-                undefined,
-              );
-            }
-            // wait verify
-            await timerUtils.wait(2000);
           } finally {
             if (shouldClearForceTransportType) {
               // Always clear transport type lock when firmware update completes
@@ -2003,6 +2612,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           deviceParams: {
             dbDevice: {} as any,
           },
+          allowDuringFirmwareUpdate: true,
           skipDeviceCancel: true,
           hideCheckingDeviceLoading: true,
           debugMethodName: 'startUpdateWorkflowV2',
@@ -2046,7 +2656,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return { backgroundTaskStarted: true };
   }
 
-  async startUpdateBootloaderTask(params: IUpdateFirmwareWorkflowParams) {
+  async startUpdateBootloaderTask(
+    params: IUpdateFirmwareWorkflowParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
+  ) {
     const firmwareUpdateInfo = params?.releaseResult?.updateInfos?.firmware;
     const firmwareToVersion = firmwareUpdateInfo?.toVersion;
     if (!firmwareUpdateInfo || !firmwareToVersion) {
@@ -2061,7 +2674,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       });
 
     // TODO move to fn
-    const releaseInfo = await this.baseCheckAllFirmwareRelease({
+    const releaseInfo = await this.loadBaseFirmwareRelease({
       connectId: params?.releaseResult?.updatingConnectId,
       firmwareType:
         params?.releaseResult?.updateInfos?.firmware?.toFirmwareType,
@@ -2085,7 +2698,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // TODO check update version gt current version
     if (updateInfo?.hasUpgrade || mockUpdateBootloader) {
       return this.createRunTaskWithRetry({
-        fn: async () => this.updatingBootloader(params, updateInfo),
+        fn: async () =>
+          this.updatingBootloader(params, updateInfo, firmwareArtifacts),
       });
     }
   }
@@ -2094,9 +2708,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     params: IAutoUpdateFirmwareParams,
     updateInfo: IBleFirmwareUpdateInfo | IFirmwareUpdateInfo,
     workflowParams: IUpdateFirmwareWorkflowParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
   ) {
     return this.createRunTaskWithRetry({
-      fn: async () => this.updatingFirmware(params, updateInfo, workflowParams),
+      fn: async () =>
+        this.updatingFirmware(
+          params,
+          updateInfo,
+          workflowParams,
+          firmwareArtifacts,
+        ),
     });
   }
 
@@ -2167,9 +2788,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
+      const stepInfo = await firmwareUpdateStepInfoAtom.get();
+      if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
+        await firmwareUpdateStepInfoAtom.set({
+          step: EFirmwareUpdateSteps.installing,
+          payload: {},
+        });
+      }
       await firmwareUpdateRetryAtom.set({
         id,
-        error: toPlainErrorObject(error as any),
+        error: toUserFacingFirmwareUpdateError(
+          toPlainErrorObject(error as any),
+        ),
       });
 
       await this.backgroundApi.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -2218,6 +2848,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // Re-block lock screen before resuming hardware communication
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
+    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     await firmwareUpdateRetryAtom.set(undefined);
 
     await this.waitDeviceRestart({
@@ -2302,9 +2933,23 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async startUpdateFirmwareTaskForNewBootVersion(
     params: IUpdateFirmwareWorkflowParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
   ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
+    // Keep the legacy field name while routing every Protocol V2 product through V4.
+    const isPro2Device = isProtocolV2ProductType(releaseResult.deviceType);
+    const plan = releaseResult.firmwareUpdatePlanDigest
+      ? (await this.getFirmwareUpdateRuntimeHost()).artifacts.getPlan(
+          releaseResult,
+        )
+      : undefined;
+    if (isPro2Device && !plan) {
+      throw new OneKeyLocalError(
+        'Firmware update plan is required for Protocol V2 updates',
+      );
+    }
+    const executor = plan?.executor ?? 'v3';
 
     const updateParams: IFirmwareUpdateV3VersionParams = {
       connectId: releaseResult.updatingConnectId,
@@ -2318,17 +2963,174 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? updateInfos.bootloader?.toVersion
         : undefined,
       firmwareType: updateInfos.firmware?.toFirmwareType,
+      isPro2Device,
+      pro2TargetsToUpdate: releaseResult.pro2TargetsToUpdate,
     };
+    if (plan?.executor === 'v4') {
+      const targetsToUpdate = (
+        await loadFirmwareUpdateRuntime()
+      ).getFirmwareUpdateV4Targets(plan.targetsToUpdate);
+      return this.createRunTaskWithRetry({
+        fn: async () =>
+          this.updatingFirmwareV4(
+            {
+              ...updateParams,
+              requirePreparedArtifacts: Boolean(
+                platformEnv.isNative || platformEnv.isDesktop,
+              ),
+              targetsToUpdate,
+            },
+            firmwareArtifacts,
+          ),
+      }) as Promise<IFirmwareUpdateResult>;
+    }
+    if (executor !== 'v3') {
+      throw new OneKeyLocalError(
+        'Firmware update plan selected an incompatible executor',
+      );
+    }
     return this.createRunTaskWithRetry({
-      fn: async () => this.updatingFirmwareV3(updateParams),
+      fn: async () => this.updatingFirmwareV3(updateParams, firmwareArtifacts),
     }) as Promise<IFirmwareUpdateResult>;
+  }
+
+  async updatingFirmwareV4(
+    params: IFirmwareUpdateV4AppParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
+  ): Promise<Success> {
+    const preparedArtifactController = (
+      await this.getFirmwareUpdateRuntimeHost()
+    ).artifacts;
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV4',
+    );
+    const { assertFirmwareUpdateV4Artifacts, executePreparedFirmwareUpdateV4 } =
+      await loadFirmwareUpdateRuntime();
+    if (params.requirePreparedArtifacts) {
+      assertFirmwareUpdateV4Artifacts(executionArtifacts);
+    }
+    const currentTransportType = await this.getActiveTransportType();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: params.connectId,
+      hardwareTransportType: currentTransportType,
+    });
+
+    return this.withFirmwareUpdateEvents(async () => {
+      await firmwareUpdateStepInfoAtom.set({
+        step: EFirmwareUpdateSteps.installing,
+        payload: {
+          installingTarget: {} as any,
+        },
+      });
+      if (params.requirePreparedArtifacts) {
+        assertFirmwareUpdateV4Artifacts(
+          executionArtifacts,
+          currentTransportType,
+        );
+      }
+      const updatingConnectId = deviceUtils.getUpdatingConnectId({
+        connectId: params.connectId,
+        currentTransportType,
+      });
+      const [
+        legacyForceResource,
+        protocolV2ForceTargets,
+        protocolV2ForceOnceTargets,
+      ] = await Promise.all([
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'forceUpdateResEvenSameVersion',
+        ),
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'pro2ForceUpdateTargets',
+        ),
+        this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'pro2ForceUpdateOnceTargets',
+        ),
+      ]);
+      const forceUpdateResEvenIfSameVersion =
+        shouldForceProtocolV2ResourceUpdate({
+          targetsToUpdate: params.targetsToUpdate,
+          legacyForceResource,
+          forceTargets: protocolV2ForceTargets,
+          forceOnceTargets: protocolV2ForceOnceTargets,
+        });
+      const updateResult = await convertDeviceResponse(() =>
+        executePreparedFirmwareUpdateV4({
+          sdk: hardwareSDK,
+          connectId: updatingConnectId,
+          ...executionArtifacts,
+          platform: platformEnv.symbol ?? 'web',
+          firmwareType: params.firmwareType,
+          targetsToUpdate: params.targetsToUpdate,
+          forcedUpdateRes: forceUpdateResEvenIfSameVersion,
+        }),
+      );
+
+      await firmwareUpdateResultVerifyAtom.set({
+        finalBleVersion: updateResult?.bleVersion || '',
+        finalFirmwareVersion: updateResult?.firmwareVersion || '',
+        finalBootloaderVersion: updateResult?.bootloaderVersion || '',
+      });
+
+      const versionMismatches: string[] = [];
+      const verifyVersion = (
+        expectedVersion: string | undefined,
+        actualVersion: string | undefined,
+      ) => {
+        if (
+          expectedVersion &&
+          semver.valid(expectedVersion) &&
+          (!actualVersion ||
+            !semver.valid(actualVersion) ||
+            !semver.eq(actualVersion, expectedVersion))
+        ) {
+          versionMismatches.push(expectedVersion);
+        }
+      };
+
+      if (
+        params.targetsToUpdate.some(
+          (target) => target === 'app_v1' || target === 'app_v2',
+        )
+      ) {
+        verifyVersion(params.firmwareVersion, updateResult?.firmwareVersion);
+      }
+      if (params.targetsToUpdate.includes('boot')) {
+        verifyVersion(
+          params.bootloaderVersion,
+          updateResult?.bootloaderVersion,
+        );
+      }
+      if (params.targetsToUpdate.includes('coprocessor')) {
+        verifyVersion(params.bleVersion, updateResult?.bleVersion);
+      }
+
+      if (versionMismatches.length > 0) {
+        throw new FirmwareUpdateVersionMismatchError();
+      }
+
+      return { message: 'success', ...updateResult };
+    }, executionArtifacts);
   }
 
   async updatingFirmwareV3(
     params: IFirmwareUpdateV3VersionParams,
+    firmwareArtifacts?: IFirmwareWorkflowArtifacts,
   ): Promise<Success> {
+    const preparedArtifactController = (
+      await this.getFirmwareUpdateRuntimeHost()
+    ).artifacts;
+    const executionArtifacts = preparedArtifactController.getExecutionArtifacts(
+      firmwareArtifacts,
+      'firmwareUpdateV3',
+    );
+    const { executePreparedFirmwareUpdateV3 } =
+      await loadFirmwareUpdateRuntime();
+    const currentTransportType = await this.getActiveTransportType();
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.connectId,
+      hardwareTransportType: currentTransportType,
     });
 
     return this.withFirmwareUpdateEvents(async () => {
@@ -2351,24 +3153,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const toBleVersion = convertVersion(params.bleVersion);
       const toBootloaderVersion = convertVersion(params.bootloaderVersion);
       const versionMismatches: string[] = [];
+      const shouldVerifyFirmwareVersion =
+        !params.isPro2Device ||
+        !params.pro2TargetsToUpdate?.length ||
+        params.pro2TargetsToUpdate.some((target) =>
+          PRO2_APP_FIRMWARE_UPDATE_TARGETS.has(target),
+        );
 
       try {
-        const currentTransportType =
-          await this.backgroundApi.serviceSetting.getHardwareTransportType();
-        const updateResult = await convertDeviceResponse(async () =>
-          hardwareSDK.firmwareUpdateV3(
-            deviceUtils.getUpdatingConnectId({
-              connectId,
-              currentTransportType,
-            }),
-            {
-              platform: platformEnv.symbol ?? 'web',
-              bleVersion: toBleVersion,
-              firmwareVersion: toFirmwareVersion,
-              bootloaderVersion: toBootloaderVersion,
-              firmwareType: params.firmwareType,
-            },
-          ),
+        const updatingConnectId = deviceUtils.getUpdatingConnectId({
+          connectId,
+          currentTransportType,
+        });
+        const updateResult = await convertDeviceResponse(() =>
+          executePreparedFirmwareUpdateV3({
+            sdk: hardwareSDK,
+            connectId: updatingConnectId,
+            ...executionArtifacts,
+            platform: platformEnv.symbol ?? 'web',
+            bleVersion: toBleVersion,
+            firmwareVersion: toFirmwareVersion,
+            bootloaderVersion: toBootloaderVersion,
+            firmwareType: params.firmwareType,
+          }),
         );
 
         // verify final version
@@ -2393,10 +3200,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }
         };
 
-        verifyVersion(
-          toFirmwareVersion?.join('.'),
-          updateResult?.firmwareVersion,
-        );
+        if (shouldVerifyFirmwareVersion) {
+          verifyVersion(
+            toFirmwareVersion?.join('.'),
+            updateResult?.firmwareVersion,
+          );
+        }
         verifyVersion(toBleVersion?.join('.'), updateResult?.bleVersion);
         verifyVersion(
           toBootloaderVersion?.join('.'),
@@ -2415,7 +3224,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         console.log('updatingFirmwareV3 error: ', error);
         throw error;
       }
-    });
+    }, executionArtifacts);
   }
 
   async validateShouldUpdateFullResource(
@@ -2532,7 +3341,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const { features: deviceFeatures } = params.releaseResult;
 
-    let batteryLevel: number | undefined = deviceFeatures?.battery_level;
+    const legacyDeviceFeatures = deviceFeatures as
+      | (IOneKeyDeviceFeatures & {
+          battery_level?: number;
+        })
+      | undefined;
+    let batteryLevel: number | undefined = legacyDeviceFeatures?.battery_level;
 
     const mockLowBattery =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(

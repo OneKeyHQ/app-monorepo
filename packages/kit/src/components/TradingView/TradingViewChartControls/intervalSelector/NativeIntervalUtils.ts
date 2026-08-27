@@ -7,14 +7,6 @@ import type { IntlShape } from 'react-intl';
 export const MAX_VISIBLE_INTERVAL_COUNT = 4;
 export const MAX_PREFERRED_INTERVAL_COUNT = 4;
 export const INTERVAL_GRID_COLUMN_COUNT = 4;
-export const INTERVAL_GRID_ITEM_LAYOUT_PROPS = {
-  flex: 1,
-  flexBasis: 0,
-  h: 32,
-  minWidth: 0,
-  px: '$3',
-  borderWidth: 1,
-} as const;
 
 const PREFERRED_INTERVAL_STORAGE_KEY =
   'trading_view_native_preferred_intervals_v1';
@@ -152,7 +144,14 @@ export function formatIntervalOptionDisplayLabel(
   return label;
 }
 
-export function getAllIntervalOptions(options: ITradingViewIntervalOption[]) {
+/**
+ * Orders the intervals the chart reported by the canonical template order and
+ * appends anything it reported outside that list. The chart owns the interval
+ * list, so a resolution it never reported is never surfaced.
+ */
+export function getOrderedIntervalOptions(
+  options: ITradingViewIntervalOption[],
+) {
   const optionsByLabel = new Map<string, ITradingViewIntervalOption>();
   const optionsByValue = new Map<string, ITradingViewIntervalOption>();
   options.forEach((option) => {
@@ -170,27 +169,23 @@ export function getAllIntervalOptions(options: ITradingViewIntervalOption[]) {
 
   const seenValues = new Set<string>();
   const seenLabels = new Set<string>();
-  const allOptions: ITradingViewIntervalOption[] =
-    ALL_INTERVAL_OPTION_TEMPLATES.map((template) => {
-      const normalizedLabel = normalizeIntervalLabel(template.label);
-      const matchedOption =
-        optionsByLabel.get(normalizedLabel) ??
-        optionsByValue.get(template.fallbackValue);
-      const option = matchedOption
-        ? {
-            ...matchedOption,
-            label: template.label,
-          }
-        : {
-            label: template.label,
-            value: template.fallbackValue,
-            disabled: true,
-          };
+  const allOptions: ITradingViewIntervalOption[] = [];
+  ALL_INTERVAL_OPTION_TEMPLATES.forEach((template) => {
+    const normalizedLabel = normalizeIntervalLabel(template.label);
+    const matchedOption =
+      optionsByLabel.get(normalizedLabel) ??
+      optionsByValue.get(template.fallbackValue);
+    if (!matchedOption) {
+      return;
+    }
 
-      seenLabels.add(normalizedLabel);
-      seenValues.add(option.value);
-      return option;
+    seenLabels.add(normalizedLabel);
+    seenValues.add(matchedOption.value);
+    allOptions.push({
+      ...matchedOption,
+      label: template.label,
     });
+  });
 
   options.forEach((option) => {
     const normalizedLabel = normalizeIntervalLabel(option.label);

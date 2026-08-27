@@ -110,7 +110,7 @@ export const DotMapBase = ({
     <KeyTagPlateFrame>
       <XStack gap={KEYTAG_GRID_GAP}>
         {/* left column: brand mark + row labels */}
-        <YStack width={ROW_LABEL_W}>
+        <YStack width={ROW_LABEL_W} flexShrink={0}>
           <Stack height={HEADER_H} alignItems="center" justifyContent="center">
             <KeyTagBrandMark line={line} />
           </Stack>
@@ -126,6 +126,7 @@ export const DotMapBase = ({
               <SizableText
                 size="$headingXs"
                 color={hover?.row === index ? '$text' : '$textDisabled'}
+                numberOfLines={1}
               >
                 {row.label}
               </SizableText>

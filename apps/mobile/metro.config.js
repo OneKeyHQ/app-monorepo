@@ -299,10 +299,21 @@ if (process.env.RN_HARNESS === 'true') {
         }
       }
     }
-    // Replace react-native-mmkv with an in-memory mock during harness tests.
-    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
-    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
-    if (moduleName === 'react-native-mmkv') {
+    const normalizedOriginModulePath = context.originModulePath?.replaceAll(
+      '\\',
+      '/',
+    );
+    const isLocalSecretEnvelopeNativeMmkvStorage =
+      normalizedOriginModulePath?.includes(
+        '/packages/kit-bg/src/dbs/local/localSecretEnvelope/mmkvProfileKeyStorage.native.',
+      );
+    // Most harness tests use an in-memory MMKV facade because appStorage is
+    // mocked. The native LSE storage adapter is the deliberate exception: its
+    // restart suite must exercise the real JSI-backed persistent MMKV instance.
+    if (
+      moduleName === 'react-native-mmkv' &&
+      !isLocalSecretEnvelopeNativeMmkvStorage
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),

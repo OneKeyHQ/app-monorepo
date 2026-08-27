@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,6 +30,15 @@ type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
   return remoteEnabled === true;
+}
+
+export function usePreloadPerpsUnifoldDepositModals(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    void loadPerpsUnifoldDepositModals().catch(() => undefined);
+  }, [enabled]);
 }
 
 export function useUnifoldDepositTrackerAvailability() {

@@ -30,6 +30,8 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
+
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
@@ -571,6 +573,9 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
+    const { requiresPasswordSetupOrVerify } = get(
+      hyperLiquidAgentPasswordStatusAtom.atom(),
+    );
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
@@ -589,15 +594,17 @@ export const {
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
     const shouldUseOrderPanelEnableTradingDialog =
-      isHardwareAccount || !isSoftwareAccount;
+      isHardwareAccount || !isSoftwareAccount || requiresPasswordSetupOrVerify;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
-      canAutoEnableInOrderPanel: isSoftwareAccount,
+      canAutoEnableInOrderPanel:
+        isSoftwareAccount && !requiresPasswordSetupOrVerify,
       requiresEnableTradingDialogInOrderPanel:
         shouldUseOrderPanelEnableTradingDialog,
-      requiresExplicitEnableTrading: !isSoftwareAccount,
+      requiresExplicitEnableTrading:
+        !isSoftwareAccount || requiresPasswordSetupOrVerify,
     };
   },
 });
@@ -793,6 +800,7 @@ export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
   globalAtom<ITradingMode>({
     name: EAtomNames.tradingModeAtom,
+    persist: true,
     initialValue: 'perp',
   });
 // #endregion
@@ -1072,6 +1080,7 @@ export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
@@ -1085,6 +1094,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },

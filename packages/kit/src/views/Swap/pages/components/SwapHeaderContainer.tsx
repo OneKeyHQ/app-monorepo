@@ -22,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -32,11 +33,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
+  ESwapProAnalyticsEnterFrom,
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarryOptions } from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -144,10 +147,14 @@ const SwapHeaderContainer = ({
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProEntryIntent] = useSwapProJumpTokenAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapProTokenCarryOptions = useSwapProTokenCarryOptions({
+    enabled: Boolean(platformEnv.isNative && showSwapPro),
+  });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -158,6 +165,48 @@ const SwapHeaderContainer = ({
   const hasPendingSwapProEntry = Boolean(
     platformEnv.isNative && pageType !== 'modal' && swapProEntryIntent.token,
   );
+  const isSwapProCategory = Boolean(platformEnv.isNative && showSwapPro);
+  const isSwapProActive = Boolean(
+    isSwapProCategory && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+  );
+  const swapProEntryFromRef = useRef<ESwapProAnalyticsEnterFrom | undefined>(
+    hasPendingSwapProEntry
+      ? ESwapProAnalyticsEnterFrom.MARKET_DETAIL
+      : undefined,
+  );
+  const wasSwapProActiveRef = useRef<boolean | undefined>(undefined);
+  if (hasPendingSwapProEntry) {
+    swapProEntryFromRef.current = ESwapProAnalyticsEnterFrom.MARKET_DETAIL;
+  }
+  useEffect(() => {
+    if (!isSwapProActive) {
+      wasSwapProActiveRef.current = false;
+      return;
+    }
+    if (wasSwapProActiveRef.current && !hasPendingSwapProEntry) {
+      return;
+    }
+    const token = swapProEntryIntent.token ?? swapProSelectToken;
+    if (!token) {
+      return;
+    }
+    defaultLogger.swap.swapPro.enterSwapPro({
+      enterFrom:
+        swapProEntryFromRef.current ??
+        (wasSwapProActiveRef.current === false
+          ? ESwapProAnalyticsEnterFrom.TRADE_TAB
+          : ESwapProAnalyticsEnterFrom.DEFAULT),
+      tokenSymbol: token.symbol,
+      network: token.networkId,
+    });
+    wasSwapProActiveRef.current = true;
+    swapProEntryFromRef.current = undefined;
+  }, [
+    isSwapProActive,
+    hasPendingSwapProEntry,
+    swapProEntryIntent.token,
+    swapProSelectToken,
+  ]);
   const hadPendingSwapProEntryOnMountRef = useRef(hasPendingSwapProEntry);
   useEffect(() => {
     if (hasPendingSwapProEntry) {
@@ -216,14 +265,23 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromCategory: getSwapAnalyticsCategoryFromSwapType(swapTypeSwitch),
-        toCategory: getSwapAnalyticsCategoryFromSwapType(newType),
+        fromCategory: getSwapAnalyticsCategoryFromSwapType(
+          swapTypeSwitch,
+          isSwapProCategory,
+        ),
+        toCategory: getSwapAnalyticsCategoryFromSwapType(
+          newType,
+          isSwapProCategory,
+        ),
         enterFrom: getSwapAnalyticsEnterFrom(enterFrom),
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
         syncRouteTabParam(newType);
-        await swapTypeSwitchAction(newType, networkId);
+        await swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
         return;
       }
 
@@ -233,12 +291,27 @@ const SwapHeaderContainer = ({
         newType === ESwapTabSwitchType.LIMIT ||
         newType === ESwapTabSwitchType.STOCK
       ) {
-        void swapTypeSwitchAction(newType, networkId);
+        void swapTypeSwitchAction(newType, networkId, {
+          carryTargetToken: true,
+          ...swapProTokenCarryOptions,
+        });
       } else {
-        if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-          await updateSelectedAccountNetworkAction(fromToken?.networkId);
+        const settledFromToken = await swapTypeSwitchAction(
+          newType,
+          fromToken?.networkId || networkId,
+          {
+            carryTargetToken: true,
+            ...swapProTokenCarryOptions,
+          },
+        );
+        // Leave the Pro owner before awaiting account synchronization so its
+        // network effect cannot switch the account back while this is in flight.
+        // Cross-network carry can replace From with the target network's
+        // native token, so synchronize from the settled pair.
+        const settledFromNetworkId = settledFromToken?.networkId;
+        if (settledFromNetworkId && settledFromNetworkId !== networkId) {
+          await updateSelectedAccountNetworkAction(settledFromNetworkId);
         }
-        void swapTypeSwitchAction(newType, fromToken?.networkId || networkId);
       }
     },
     [
@@ -249,6 +322,8 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      isSwapProCategory,
+      swapProTokenCarryOptions,
     ],
   );
 
@@ -404,6 +479,7 @@ const SwapHeaderContainer = ({
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
         />
       ) : null}
