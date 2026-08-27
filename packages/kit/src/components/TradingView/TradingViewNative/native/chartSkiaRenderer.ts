@@ -7,6 +7,7 @@ import {
   PaintStyle,
   type SkCanvas,
   type SkFont,
+  type SkFontMgr,
   type SkPaint,
   type SkPicture,
   type SkSVG,
@@ -36,6 +37,79 @@ export interface ITradingViewNativeSkiaResources {
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
+}
+
+const REGULAR_FONT_STYLE = {
+  slant: FontSlant.Upright,
+  weight: FontWeight.Normal,
+  width: FontWidth.Normal,
+} as const;
+
+function doesTradingViewNativeSkiaFontSupportText(
+  font: SkFont,
+  text: string,
+): boolean {
+  'worklet';
+
+  return !text || font.getGlyphIDs(text).every((glyphId) => glyphId !== 0);
+}
+
+function createTradingViewNativeSkiaFont({
+  fontFamily,
+  fontManager,
+  fontSize,
+}: {
+  fontFamily: string;
+  fontManager: SkFontMgr;
+  fontSize: number;
+}): SkFont {
+  'worklet';
+
+  const typeface = fontManager.matchFamilyStyle(fontFamily, REGULAR_FONT_STYLE);
+  return Skia.Font(typeface, fontSize);
+}
+
+function createTradingViewNativeSkiaFontForText({
+  fontFamily,
+  fontManager,
+  fontSize,
+  requiredText,
+}: {
+  fontFamily: string;
+  fontManager: SkFontMgr;
+  fontSize: number;
+  requiredText: string;
+}): SkFont {
+  'worklet';
+
+  const primaryFont = createTradingViewNativeSkiaFont({
+    fontFamily,
+    fontManager,
+    fontSize,
+  });
+  if (doesTradingViewNativeSkiaFontSupportText(primaryFont, requiredText)) {
+    return primaryFont;
+  }
+
+  for (let index = 0; index < fontManager.countFamilies(); index += 1) {
+    const fallbackFontFamily = fontManager.getFamilyName(index);
+    if (fallbackFontFamily && fallbackFontFamily !== fontFamily) {
+      const fallbackFont = createTradingViewNativeSkiaFont({
+        fontFamily: fallbackFontFamily,
+        fontManager,
+        fontSize,
+      });
+      if (
+        doesTradingViewNativeSkiaFontSupportText(fallbackFont, requiredText)
+      ) {
+        primaryFont.dispose();
+        return fallbackFont;
+      }
+      fallbackFont.dispose();
+    }
+  }
+
+  return primaryFont;
 }
 
 export function getTradingViewNativeSkiaPaintStyleSignature(
@@ -89,6 +163,7 @@ function createTradingViewNativeSkiaPaint(
 export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
+  legendText,
   priceAxisFont,
   priceAxisFontSize,
   timeAxisFontSize,
@@ -97,6 +172,7 @@ export function createTradingViewNativeSkiaResources({
 }: {
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
+  legendText: string;
   priceAxisFont: SkFont | null;
   priceAxisFontSize: number;
   timeAxisFontSize: number;
@@ -109,13 +185,23 @@ export function createTradingViewNativeSkiaResources({
     timeAxisBorderWidth,
   });
   const paints = {} as Record<ITradingViewNativeChartScenePaint, SkPaint>;
-  const typeface = Skia.FontMgr.System().matchFamilyStyle(fontFamily, {
-    slant: FontSlant.Upright,
-    weight: FontWeight.Normal,
-    width: FontWidth.Normal,
+  const fontManager = Skia.FontMgr.System();
+  const axisFont = createTradingViewNativeSkiaFont({
+    fontFamily,
+    fontManager,
+    fontSize: timeAxisFontSize,
   });
-  const axisFont = Skia.Font(typeface, timeAxisFontSize);
-  const priceAxisFallbackFont = Skia.Font(typeface, priceAxisFontSize);
+  const legendFont = createTradingViewNativeSkiaFontForText({
+    fontFamily,
+    fontManager,
+    fontSize: TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+    requiredText: legendText,
+  });
+  const priceAxisFallbackFont = createTradingViewNativeSkiaFont({
+    fontFamily,
+    fontManager,
+    fontSize: priceAxisFontSize,
+  });
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -129,7 +215,7 @@ export function createTradingViewNativeSkiaResources({
     customPaints: {},
     fonts: {
       axis: axisFont,
-      legend: Skia.Font(typeface, TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE),
+      legend: legendFont,
       priceAxis: priceAxisFont ?? priceAxisFallbackFont,
     },
     paints,

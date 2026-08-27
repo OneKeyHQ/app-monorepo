@@ -207,6 +207,7 @@ export const TradingViewNativeChart = memo(
     );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+    const legendText = `${candleLabels.open}${candleLabels.high}${candleLabels.low}${candleLabels.close}`;
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
@@ -220,6 +221,7 @@ export const TradingViewNativeChart = memo(
             up: chartSettings.candles.body.upColor,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
+          legendText,
           priceAxisFont,
           priceAxisFontSize,
           timeAxisFontSize,
@@ -232,6 +234,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.candles.body.downColor,
         chartSettings.candles.body.upColor,
         grid,
+        legendText,
         line,
         priceAxisFont,
         priceAxisFontSize,

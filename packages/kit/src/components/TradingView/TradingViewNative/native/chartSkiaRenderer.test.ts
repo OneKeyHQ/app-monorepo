@@ -34,6 +34,23 @@ const mockPath = {
   moveTo: jest.fn(),
 };
 const mockGradientShader = { dispose: jest.fn() };
+let mockFontGlyphsByFamily: Record<string, string> = {};
+let mockSystemFontFamilies: string[] = [];
+const mockSkiaFont = jest.fn(
+  (typeface: { fontFamily: string }, fontSize: number) => ({
+    dispose: jest.fn(),
+    fontFamily: typeface.fontFamily,
+    fontSize,
+    getGlyphIDs: (text: string) =>
+      Array.from(text).map((character) =>
+        character.charCodeAt(0) <= 127 ||
+        mockFontGlyphsByFamily[typeface.fontFamily]?.includes(character)
+          ? 1
+          : 0,
+      ),
+    measureText: (text: string) => ({ width: text.length }),
+  }),
+);
 const mockCanvas = {
   clipRect: jest.fn(),
   drawCircle: jest.fn(),
@@ -67,9 +84,14 @@ jest.mock('@shopify/react-native-skia', () => ({
   PaintStyle: { Stroke: 1 },
   Skia: {
     Color: (color: string) => color,
-    Font: () => ({ measureText: () => ({ width: 0 }) }),
+    Font: (typeface: { fontFamily: string }, fontSize: number) =>
+      mockSkiaFont(typeface, fontSize),
     FontMgr: {
-      System: () => ({ matchFamilyStyle: () => ({}) }),
+      System: () => ({
+        countFamilies: () => mockSystemFontFamilies.length,
+        getFamilyName: (index: number) => mockSystemFontFamilies[index],
+        matchFamilyStyle: (fontFamily: string) => ({ fontFamily }),
+      }),
     },
     Paint: () => mockCreatePaint(),
     Path: { Make: () => mockPath },
@@ -114,7 +136,11 @@ function createScene(
   };
 }
 
-function createResources() {
+function createResources({
+  legendText = '',
+}: {
+  legendText?: string;
+} = {}) {
   return createTradingViewNativeSkiaResources({
     colors: {
       axisText: '#999999',
@@ -123,6 +149,7 @@ function createResources() {
       line: '#ffffff',
     },
     fontFamily: 'System',
+    legendText,
     priceAxisFont: null,
     priceAxisFontSize: 12,
     timeAxisFontSize: 12,
@@ -159,7 +186,40 @@ function createPicture(
 describe('TradingViewNative Skia scene renderer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFontGlyphsByFamily = {};
+    mockSystemFontFamilies = [];
   });
+
+  it.each([
+    {
+      expectedFontFamily: 'PingFang SC',
+      legendText: '开高低收',
+    },
+    {
+      expectedFontFamily: 'PingFang TC',
+      legendText: '開高低收',
+    },
+    {
+      expectedFontFamily: 'Noto Sans CJK JP',
+      legendText: '始高安終',
+    },
+    {
+      expectedFontFamily: 'Noto Sans CJK KR',
+      legendText: '시고저종',
+    },
+  ])(
+    'uses $expectedFontFamily for localized legend glyphs',
+    ({ expectedFontFamily, legendText }) => {
+      mockSystemFontFamilies = [expectedFontFamily];
+      mockFontGlyphsByFamily[expectedFontFamily] = legendText;
+
+      const resources = createResources({ legendText });
+
+      expect(resources.fonts.legend).toEqual(
+        expect.objectContaining({ fontFamily: expectedFontFamily }),
+      );
+    },
+  );
 
   it('creates one cached SkPaint per stable custom style', () => {
     const resources = createResources();
