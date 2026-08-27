@@ -31,6 +31,7 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
@@ -2709,6 +2710,55 @@ describe('LocalDbBase local secret envelope credentials', () => {
     );
   });
 
+  it('wraps online HLP credentials directly in LSE in Web DApp mode', async () => {
+    const originalIsWebDappMode = platformEnv.isWebDappMode;
+    platformEnv.isWebDappMode = true;
+    try {
+      const db = new TestLocalDb();
+      db.context.localPasswordKdfUpgraded = true;
+      db.context.localPasswordKdfUpgradedTargetIterations =
+        PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+      db.context.localSecretEnvelopeCredentialMigrated = true;
+      db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+      const credential = {
+        userAddress: '0x1111111111111111111111111111111111111111',
+        agentName: EHyperLiquidAgentName.OneKeyAgent1,
+        privateKey:
+          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        agentAddress: '0x2222222222222222222222222222222222222222',
+        validUntil: 1_900_000_000_000,
+      };
+      const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      });
+      db.credentials = [
+        {
+          id: credentialId,
+          credential: encryptHyperLiquidAgentCredential({ credential }),
+        },
+      ];
+      const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+      jest
+        .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+        .mockResolvedValue({
+          layerAdapters: [adapter],
+          strength: 'profile-bound',
+        });
+
+      await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+      expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(db.credentials[0].credential).innerPrefix,
+      ).toBe('|HLP|');
+    } finally {
+      platformEnv.isWebDappMode = originalIsWebDappMode;
+    }
+  });
+
   it('does not scan LSE credentials after the persistent migration marker is set', async () => {
     const db = new TestLocalDb();
     db.context.localPasswordKdfUpgraded = true;
@@ -2726,8 +2776,63 @@ describe('LocalDbBase local secret envelope credentials', () => {
 });
 
 describe('LocalDbBase HyperLiquid agent password session', () => {
+  const originalIsWebDappMode = platformEnv.isWebDappMode;
+
   afterEach(async () => {
+    platformEnv.isWebDappMode = originalIsWebDappMode;
     await hyperLiquidAgentSecretSession.clear();
+  });
+
+  it('stores and reads Web DApp credentials as LSE(HLP) without a password session', async () => {
+    platformEnv.isWebDappMode = true;
+    const db = new TestLocalDb();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const sessionEncryptSpy = jest.spyOn(
+      hyperLiquidAgentSecretSession,
+      'encryptCredential',
+    );
+    const credential = {
+      userAddress: '0x3333333333333333333333333333333333333333',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x4444444444444444444444444444444444444444',
+      validUntil: 2_000_000_000_000,
+    };
+
+    try {
+      const { credentialId } = await db.addHyperLiquidAgentCredential({
+        credential,
+      });
+      const storedCredential = await db.getCredentialRaw(credentialId);
+      const updateSpy = jest.spyOn(db, 'updateHyperLiquidAgentCredential');
+
+      expect(isLocalSecretEnvelopeString(storedCredential.credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(storedCredential.credential).innerPrefix,
+      ).toBe('|HLP|');
+      expect(storedCredential.credential).not.toContain(credential.privateKey);
+      expect(sessionEncryptSpy).not.toHaveBeenCalled();
+      expect(db.getCachedPasswordMock).not.toHaveBeenCalled();
+      expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+      await expect(
+        db.getHyperLiquidAgentCredential({
+          userAddress: credential.userAddress,
+          agentName: credential.agentName,
+        }),
+      ).resolves.toEqual(credential);
+      expect(updateSpy).not.toHaveBeenCalled();
+    } finally {
+      sessionEncryptSpy.mockRestore();
+    }
   });
 
   it('migrates an online HLP credential directly to LSE(HLE) on unlock', async () => {

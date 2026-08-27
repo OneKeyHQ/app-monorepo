@@ -594,11 +594,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       payload: {
         num: number;
         selectedAccount: IAccountSelectorSelectedAccount;
+        forceReload?: boolean;
       },
     ): Promise<IAccountSelectorActiveAccountInfo> =>
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount } = payload;
+        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
@@ -611,6 +612,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         };
         if (
+          !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
             storageInitDone: get(accountSelectorStorageInitDoneAtom()),
             selectedAccount,
@@ -650,11 +652,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return currentActiveAccount;
         }
-        const newActiveAccounts = {
+        set(activeAccountsAtom(), {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
-        };
-        set(activeAccountsAtom(), newActiveAccounts);
+        });
         markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
@@ -671,19 +672,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, focusedWallet } = payload;
-      const focusedWalletFixed = focusedWallet;
-      if (
-        focusedWalletFixed &&
-        accountUtils.isOthersWallet({ walletId: focusedWalletFixed })
-      ) {
-        // **** focus to grouped Others Tab
-        // focusedWalletFixed = '$$others';
-      }
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          focusedWallet: focusedWalletFixed,
+          focusedWallet,
         }),
       });
     },
@@ -1194,22 +1187,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount,
         });
 
-        if (
-          oldSelectedAccount.walletId &&
-          oldSelectedAccount.indexedAccountId &&
-          !newSelectedAccount.walletId &&
-          !newSelectedAccount.indexedAccountId
-        ) {
-          // debugger;
-        }
-
-        if (
-          sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-          oldSelectedAccount?.walletId?.startsWith('watching') &&
-          newSelectedAccount?.walletId?.startsWith('hw-')
-        ) {
-          // debugger;
-        }
         // if (
         //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
         //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
@@ -1945,12 +1922,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 deriveType: failedAccount.deriveType,
               });
             if (
-              accountUtils.isQrWallet({
+              !accountUtils.isQrWallet({
                 walletId: wallet.id,
               })
             ) {
-              // mute error toast for qr wallet
-            } else {
               Toast.error({
                 // eslint-disable-next-line onekey/no-app-locale-main-thread
                 title: appLocale.intl.formatMessage(
@@ -3013,9 +2988,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount())) {
-          console.error(
-            'AccountSelector.saveToStorage skip, selectedAccount is default',
-          );
           return;
         }
         // Identity-less selections (e.g. network-only cold-start snapshots)
@@ -3125,19 +3097,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // **** emit event
         if (!eventEmitDisabled) {
-          if (
-            networkUtils.isAllNetwork({
-              networkId: payload.selectedAccount?.networkId,
-            })
-          ) {
-            // debugger;
-          }
-          if (sceneName === EAccountSelectorSceneName.discover) {
-            if (payload?.selectedAccount?.indexedAccountId === 'hd-1--0') {
-              // alert('AccountSelectorSelectedAccountUpdate');
-              // debugger;
-            }
-          }
           appEventBus.emit(
             EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
             fixedPayload,
@@ -3864,6 +3823,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneUrl,
             num,
           });
+
+          if (
+            isSelectedWalletRemoved &&
+            isSelectedAccountIdentityIncomplete(selectedAccountNew)
+          ) {
+            // A network-only selection is the final empty state after removing
+            // the last wallet, so it must replace the stale active account.
+            await this.reloadActiveAccountInfo.call(set, {
+              num,
+              selectedAccount: selectedAccountNew,
+              forceReload: true,
+            });
+          }
 
           if (
             selectedAccount.walletId !== selectedAccountNew.walletId &&
