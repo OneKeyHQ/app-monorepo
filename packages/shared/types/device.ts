@@ -54,7 +54,6 @@ export type IFirmwareUpdatesDetectResult = {
   lastDetectAt?: number;
   detectResultResolved?: boolean;
   updateInfo?: {
-    hasUpgrade?: boolean;
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
   };

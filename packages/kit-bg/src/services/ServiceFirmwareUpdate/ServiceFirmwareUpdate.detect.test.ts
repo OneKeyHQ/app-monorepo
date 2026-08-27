@@ -617,7 +617,6 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
       connectId: 'DEVICE_BLE',
       usbConnectId: 'DEVICE_USB',
       bleConnectId: 'DEVICE_BLE',
-      hasUpgrade: false,
     });
 
     expect(service.detectMap.detectMapCache.DEVICE_USB).toBeUndefined();
@@ -751,14 +750,19 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     });
   });
 
-  it('removes a stale persisted update after a resolved no-update result', async () => {
+  it('removes a stale persisted update when firmware and BLE are current', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
 
     await service.detectMap.resolveUpdateInfo({
       connectId: 'DEVICE_USB',
-      hasUpgrade: false,
+      firmware: {
+        hasUpgrade: false,
+      } as IFirmwareUpdateInfo,
+      ble: {
+        hasUpgrade: false,
+      } as IBleFirmwareUpdateInfo,
     });
 
     expect(

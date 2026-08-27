@@ -692,7 +692,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
               ...detectIdentity,
               firmware,
               ble,
-              hasUpgrade: firmware.hasUpgrade || ble.hasUpgrade,
             });
             this.detectMap.updateLastDetectAt({
               connectId: detectConnectId,
@@ -1057,7 +1056,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
           ...identity,
           firmware,
           ble,
-          hasUpgrade: Boolean(hasUpgrade),
         });
       } else {
         await this.detectMap.deleteUpdateInfo(identity);

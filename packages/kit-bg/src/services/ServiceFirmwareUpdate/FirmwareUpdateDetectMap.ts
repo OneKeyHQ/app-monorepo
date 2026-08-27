@@ -114,8 +114,7 @@ export class FirmwareUpdateDetectMap {
     return {
       connectId,
       hasUpgrade: Boolean(
-        updateInfo.hasUpgrade ??
-        (updateInfo.firmware?.hasUpgrade || updateInfo.ble?.hasUpgrade),
+        updateInfo.firmware?.hasUpgrade || updateInfo.ble?.hasUpgrade,
       ),
       toVersion: updateInfo.firmware?.hasUpgrade
         ? updateInfo.firmware.toVersion
@@ -262,23 +261,21 @@ export class FirmwareUpdateDetectMap {
     connectId,
     usbConnectId,
     bleConnectId,
-    hasUpgrade,
     firmware,
     ble,
   }: {
     connectId: string;
     usbConnectId?: string | null;
     bleConnectId?: string | null;
-    hasUpgrade: boolean;
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
   }) {
+    const hasUpgrade = Boolean(firmware?.hasUpgrade || ble?.hasUpgrade);
     this.detectMapCache[connectId] = {
       ...this.detectMapCache[connectId],
       detectResultResolved: true,
       updateInfo: hasUpgrade
         ? {
-            hasUpgrade,
             firmware,
             ble,
           }
