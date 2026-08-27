@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsOverlayPage } from '@onekeyhq/components';
+import { rootNavigationRef, useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useSettingsAtom,
@@ -15,6 +15,7 @@ import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/sce
 import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapQuote';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -73,6 +74,10 @@ export function isSwapQuoteTabEffectivelyVisible({
   isHiddenModel: boolean;
 }) {
   return isFocus && !isHiddenModel;
+}
+
+export function shouldKeepSwapQuoteAliveOnFocusLoss(routeName?: string) {
+  return routeName === EModalSwapRoutes.SwapProviderSelect;
 }
 
 export function handleSwapQuoteTabVisibilityChange({
@@ -983,6 +988,14 @@ export function useSwapQuote() {
     setSwapQuoteResultList,
   ]);
 
+  const isProviderSelectRouteActive = useCallback(
+    () =>
+      shouldKeepSwapQuoteAliveOnFocusLoss(
+        rootNavigationRef.current?.getCurrentRoute()?.name,
+      ),
+    [],
+  );
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
@@ -1007,18 +1020,19 @@ export function useSwapQuote() {
       if (isFocused) {
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
-      } else {
+      } else if (!isProviderSelectRouteActive()) {
         pauseQuoteOnFocusLoss();
       }
     }
     return () => {
-      if (isModalPage) {
+      if (isModalPage && !isProviderSelectRouteActive()) {
         unsubscribeQuoteEvents();
       }
     };
   }, [
     isFocused,
     isModalPage,
+    isProviderSelectRouteActive,
     pauseQuoteOnFocusLoss,
     refreshPreservedInputQuoteOnFocus,
     subscribeQuoteEvents,
