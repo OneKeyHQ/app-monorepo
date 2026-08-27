@@ -25,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -578,7 +579,10 @@ export function useDeviceConnect({
             deviceType: device.deviceType ?? undefined,
             deviceName: device.name ?? undefined,
           });
-        if (platformEnv.isNativeIOS) {
+        // The iOS wait is for the legacy Sheet's mount acknowledgement —
+        // with the stage owning the surface no Sheet mounts, so waiting
+        // can only time out and kill the flow (OK-59934).
+        if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
           await hardwareUiStateDialogLifecycle.openAndWait(
             showCheckingDeviceDialog,
           );
@@ -1043,7 +1047,9 @@ export function useDeviceConnect({
         backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
           connectId: currentDevice.connectId ?? '',
         });
-      if (platformEnv.isNativeIOS) {
+      // Same gate as the checking dialog above: the mount wait belongs to
+      // the legacy Sheet alone (OK-59934).
+      if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
         await hardwareUiStateDialogLifecycle.openAndWait(
           showDeviceProcessLoadingDialog,
         );
