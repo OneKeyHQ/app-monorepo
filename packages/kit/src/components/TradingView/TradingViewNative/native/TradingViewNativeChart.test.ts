@@ -2,6 +2,7 @@ import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
+  shouldReplaceTradingViewNativeChartPoints,
   shouldReplaceTradingViewNativeIndicatorSeries,
 } from './chartRuntimeData';
 
@@ -74,20 +75,75 @@ function createPane({
 }
 
 function createPictureInput({
-  chartPictureVersion = 1,
   panes,
   pointCount = 3,
+  renderDataRevision = '1:identity',
 }: {
-  chartPictureVersion?: number;
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   pointCount?: number;
+  renderDataRevision?: string;
 }) {
   return {
-    chartPictureVersion,
     pointCount,
+    renderDataRevision,
     structureKey: getTradingViewNativeSubIndicatorPanesStructureKey(panes),
   };
 }
+
+describe('TradingViewNativeChart point-derived data updates', () => {
+  const previous = {
+    pointCount: 100,
+    renderDataRevision: '1:identity',
+  };
+
+  it('keeps the constant-time latest-point path for unchanged data semantics', () => {
+    expect(
+      shouldReplaceTradingViewNativeChartPoints({
+        current: previous,
+        previous,
+      }),
+    ).toBe(false);
+  });
+
+  it('fully replaces points and indicators after a point transform change', () => {
+    const current = {
+      ...previous,
+      renderDataRevision: '1:heikinAshi',
+    };
+    expect(
+      shouldReplaceTradingViewNativeChartPoints({ current, previous }),
+    ).toBe(true);
+    expect(
+      shouldReplaceTradingViewNativeIndicatorSeries({
+        current: {
+          ...current,
+          seriesKey: 'ma-1',
+          settingsKey: 'ma-settings',
+        },
+        previous: {
+          ...previous,
+          seriesKey: 'ma-1',
+          settingsKey: 'ma-settings',
+        },
+      }),
+    ).toBe(true);
+
+    const panes = [createPane()];
+    expect(
+      getTradingViewNativeSubIndicatorPanesUpdate({
+        current: createPictureInput({
+          panes,
+          renderDataRevision: current.renderDataRevision,
+        }),
+        panes,
+        previous: createPictureInput({
+          panes,
+          renderDataRevision: previous.renderDataRevision,
+        }),
+      }).replacementPanes,
+    ).toBe(panes);
+  });
+});
 
 describe('TradingViewNativeChart sub-indicator realtime updates', () => {
   it('transfers and applies only latest values for an unchanged structure', () => {
@@ -183,8 +239,8 @@ describe('TradingViewNativeChart sub-indicator realtime updates', () => {
 
 describe('TradingViewNativeChart main-indicator updates', () => {
   const previous = {
-    chartPictureVersion: 1,
     pointCount: 100,
+    renderDataRevision: '1:identity',
     seriesKey: 'ma-1|ma-2',
     settingsKey: '{"MA":{"period":5}}',
   };
