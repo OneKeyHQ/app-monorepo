@@ -496,6 +496,7 @@ isXprvt
 itms
 izari
 jane
+jetpack
 jotai
 Jotai
 jpeg

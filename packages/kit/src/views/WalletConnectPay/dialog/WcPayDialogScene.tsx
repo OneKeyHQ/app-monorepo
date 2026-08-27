@@ -288,7 +288,12 @@ function WcPayNoticeCard({ children }: { children: ReactNode }) {
 
 function WcPayBannerCard({ banner }: { banner: IWcPaySceneBanner }) {
   return (
-    <YStack p="$3" borderRadius="$3" borderCurve="continuous" bg="$bgCriticalSubdued">
+    <YStack
+      p="$3"
+      borderRadius="$3"
+      borderCurve="continuous"
+      bg="$bgCriticalSubdued"
+    >
       <SizableText size="$bodyMd" color="$textCritical">
         {banner.guidance}
       </SizableText>
@@ -309,17 +314,20 @@ function WcPayFooter({
   onPress,
   disabled,
   loading,
+  testID,
   variant = 'primary',
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  testID: string;
   variant?: 'primary' | 'destructive' | 'secondary';
 }) {
   return (
     <YStack pt="$8">
       <Button
+        testID={testID}
         variant={variant}
         size="large"
         disabled={disabled}
@@ -349,7 +357,11 @@ export function WcPayFetchFailedStep({ onRetry }: { onRetry: () => void }) {
       <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
         <WcPayHeaderLine>Fetch payment info failed</WcPayHeaderLine>
       </WcPayHeader>
-      <WcPayFooter label="Retry" onPress={onRetry} />
+      <WcPayFooter
+        testID="wc-pay-dialog-fetch-retry"
+        label="Retry"
+        onPress={onRetry}
+      />
     </>
   );
 }
@@ -362,7 +374,11 @@ export function WcPayUnsupportedStep({ onClose }: { onClose: () => void }) {
           This account type is not supported by WalletConnect Pay
         </WcPayHeaderLine>
       </WcPayHeader>
-      <WcPayFooter label="Close" onPress={onClose} />
+      <WcPayFooter
+        testID="wc-pay-dialog-unsupported-close"
+        label="Close"
+        onPress={onClose}
+      />
     </>
   );
 }
@@ -407,7 +423,9 @@ export function WcPayOptionsStep({
       >
         <WcPayHeaderLine>Pay</WcPayHeaderLine>
         <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
-        {merchantText ? <WcPayHeaderLine>{merchantText}</WcPayHeaderLine> : null}
+        {merchantText ? (
+          <WcPayHeaderLine>{merchantText}</WcPayHeaderLine>
+        ) : null}
       </WcPayHeader>
       {banner ? (
         <YStack pb="$3">
@@ -442,13 +460,18 @@ export function WcPayOptionsStep({
       ) : null}
       {hasOptions ? (
         <WcPayFooter
+          testID="wc-pay-dialog-pay"
           label={payButtonText}
           onPress={onPay}
           disabled={payDisabled}
           loading={payLoading}
         />
       ) : (
-        <WcPayFooter label="Close" onPress={onClose} />
+        <WcPayFooter
+          testID="wc-pay-dialog-empty-close"
+          label="Close"
+          onPress={onClose}
+        />
       )}
     </>
   );
@@ -474,7 +497,13 @@ export function WcPaySubmittedStep({
       <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
         <WcPayHeaderLine>Confirming your payment...</WcPayHeaderLine>
       </WcPayHeader>
-      {canClose ? <WcPayFooter label="Done" onPress={onDone} /> : null}
+      {canClose ? (
+        <WcPayFooter
+          testID="wc-pay-dialog-submitted-done"
+          label="Done"
+          onPress={onDone}
+        />
+      ) : null}
     </>
   );
 }
@@ -493,9 +522,15 @@ export function WcPaySuccessStep({
       <WcPayHeader visual={SUCCESS_BADGE_VISUAL} spacing="regular">
         <WcPayHeaderLine>You’ve paid</WcPayHeaderLine>
         <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
-        {merchantText ? <WcPayHeaderLine>{merchantText}</WcPayHeaderLine> : null}
+        {merchantText ? (
+          <WcPayHeaderLine>{merchantText}</WcPayHeaderLine>
+        ) : null}
       </WcPayHeader>
-      <WcPayFooter label="Done" onPress={onDone} />
+      <WcPayFooter
+        testID="wc-pay-dialog-success-done"
+        label="Done"
+        onPress={onDone}
+      />
     </>
   );
 }
@@ -547,6 +582,7 @@ export function WcPayTerminalStep({
         <WcPayHeaderDetail>{detailText ?? copy.detail}</WcPayHeaderDetail>
       </WcPayHeader>
       <WcPayFooter
+        testID="wc-pay-dialog-terminal-action"
         label={isRetry ? 'Retry' : 'Close'}
         onPress={isRetry ? onRetry : onClose}
       />
@@ -577,6 +613,7 @@ export function WcPayDamagedStep({
       </WcPayHeader>
       <YStack pt="$8" gap="$2.5">
         <Button
+          testID="wc-pay-dialog-damaged-discard"
           variant="destructive"
           size="large"
           loading={discardLoading}
@@ -584,7 +621,12 @@ export function WcPayDamagedStep({
         >
           Discard and start over
         </Button>
-        <Button size="large" disabled={discardLoading} onPress={onClose}>
+        <Button
+          testID="wc-pay-dialog-damaged-close"
+          size="large"
+          disabled={discardLoading}
+          onPress={onClose}
+        >
           Close
         </Button>
       </YStack>

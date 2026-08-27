@@ -1,7 +1,10 @@
+import {
+  closeWcPayDialog,
+  getWcPayDialogState,
+} from '@onekeyhq/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
-  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -9,10 +12,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { handleDeepLinkUrl } from '..';
-import {
-  closeWcPayDialog,
-  getWcPayDialogState,
-} from '../../../../views/WalletConnectPay/dialog/wcPayDialogStore';
 import {
   handleReferralLandingUrl,
   navigateToReferralLanding,

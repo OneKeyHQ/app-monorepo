@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { RNHostView } from '@expo/ui';
 import { ModalBottomSheet } from '@expo/ui/jetpack-compose';
@@ -69,6 +69,19 @@ export function BottomSheet({
   const containerColor = background ?? theme.bgApp.val;
   const { width: windowWidth } = useWindowDimensions();
 
+  const handleDismissRequest = useCallback(() => {
+    if (dismissible) {
+      onOpenChange(false);
+    }
+  }, [dismissible, onOpenChange]);
+  const windowProperties = useMemo(
+    () => ({
+      shouldDismissOnBackPress: dismissible,
+      shouldDismissOnClickOutside: dismissible,
+    }),
+    [dismissible],
+  );
+
   if (!mounted) {
     return null;
   }
@@ -76,17 +89,10 @@ export function BottomSheet({
   return (
     <ModalBottomSheet
       ref={sheetRef}
-      onDismissRequest={() => {
-        if (dismissible) {
-          onOpenChange(false);
-        }
-      }}
+      onDismissRequest={handleDismissRequest}
       showDragHandle={dismissible}
       sheetGesturesEnabled={dismissible}
-      properties={{
-        shouldDismissOnBackPress: dismissible,
-        shouldDismissOnClickOutside: dismissible,
-      }}
+      properties={windowProperties}
       containerColor={containerColor}
     >
       <RNHostView matchContents>
