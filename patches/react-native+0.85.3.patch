@@ -1,0 +1,659 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+index cccc623..1b6e1ab 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+@@ -83,6 +83,10 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
+     topContentSizeChange: {
+       registrationName: 'onContentSizeChange',
+     },
++    // OneKey patch: native onPaste event (clipboard clear on mnemonic paste)
++    topPaste: {
++      registrationName: 'onPaste',
++    },
+     topChangeSync: {
+       registrationName: 'onChangeSync',
+     },
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+index cbda377..be2f85b 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+@@ -13,6 +13,11 @@
+ #import <React/RCTBackedTextInputDelegateAdapter.h>
+ #import <React/RCTTextAttributes.h>
+ 
++// OneKey patch: image/text paste handling
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextView {
+   UILabel *_placeholderView;
+   UITextView *_detachedTextView;
+@@ -22,6 +27,8 @@ @implementation RCTUITextView {
+   NSArray<UIBarButtonItemGroup *> *_initialValueTrailingBarButtonGroups;
+   NSArray<NSString *> *_acceptDragAndDropTypes;
+   BOOL _disableKeyboardShortcuts;
++  // OneKey patch: prevent concurrent image paste operations
++  BOOL _isProcessingImagePaste;
+ }
+ 
+ static UIFont *defaultPlaceholderFont(void)
+@@ -216,10 +223,103 @@ - (void)scrollRangeToVisible:(NSRange)range
+ 
+ - (void)paste:(id)sender
+ {
++  // OneKey patch: emit the onPaste event (text and image) so JS can react to
++  // system-menu pastes — e.g. clearing the clipboard after a mnemonic paste.
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
++  }
++
++  // Handle text paste
+   _textWasPasted = YES;
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
+ }
+ 
++// OneKey patch: super-call trampoline usable from completion blocks
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
++// OneKey patch: async image paste — writes clipboard image to a temp file and
++// reports it through didPaste as a file URL; falls back to text paste on error.
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  // Prevent concurrent image paste operations from rapid taps
++  if (_isProcessingImagePaste) {
++    return YES;
++  }
++
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      _isProcessingImagePaste = YES;
++      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
++      BOOL clipboardHasStrings = clipboard.hasStrings;
++      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
++      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
++        if (error || !data) {
++          dispatch_async(dispatch_get_main_queue(), ^{
++            self->_isProcessingImagePaste = NO;
++            // Fallback to text paste on failure
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          });
++          return;
++        }
++
++        // Perform file I/O on background queue to avoid main thread jank
++        NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++        if (!MIMEType) {
++          MIMEType = @"application/octet-stream";
++        }
++        NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++        if (!fileExtension) {
++          fileExtension = @"bin";
++        }
++        NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++        NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
++
++        dispatch_async(dispatch_get_main_queue(), ^{
++          self->_isProcessingImagePaste = NO;
++
++          if (writeSuccess) {
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++          } else {
++            // Fallback when file write fails
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          }
++        });
++      }];
++      return YES;
++    }
++  }
++  return NO;
++}
++
+ // Turn off scroll animation to fix flaky scrolling.
+ // This is only necessary for iOS < 14.
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED < 140000
+@@ -309,6 +409,11 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
+ 
++  // OneKey patch: offer Paste in the edit menu when the clipboard holds an image
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
++
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+index 7187177..0cb1e1a 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+@@ -37,6 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)textInputDidChangeSelection;
+ 
++// OneKey patch: paste event forwarding (see RCTUITextView/RCTUITextField paste:)
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data;
++
+ @optional
+ 
+ - (void)scrollViewDidScroll:(UIScrollView *)scrollView;
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+index f1c32e6..bca6829 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+@@ -20,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
+ - (void)selectedTextRangeWasSet;
++// OneKey patch: paste event forwarding
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
+ 
+ @end
+ 
+@@ -31,6 +33,9 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
+ 
++// OneKey patch: paste event forwarding
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
++
+ @end
+ 
+ NS_ASSUME_NONNULL_END
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+index 8db8703..bb5c6e0 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+@@ -156,6 +156,12 @@ - (void)selectedTextRangeWasSet
+   [self textFieldProbablyDidChangeSelection];
+ }
+ 
++// OneKey patch: paste event forwarding
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textFieldProbablyDidChangeSelection
+@@ -350,6 +356,12 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
+   _previousSelectedTextRange = textRange;
+ }
+ 
++// OneKey patch: paste event forwarding
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textViewProbablyDidChangeSelection
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+index 228d9ca..e568984 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+@@ -40,6 +40,8 @@ __attribute__((deprecated("This API will be removed along with the legacy archit
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onChange;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onChangeSync;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onScroll;
++// OneKey patch: paste event
++@property (nonatomic, copy, nullable) RCTDirectEventBlock onPaste;
+ 
+ @property (nonatomic, assign) NSInteger mostRecentEventCount;
+ @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+index 9fa7b92..56a8997 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+@@ -585,6 +585,54 @@ - (void)textInputDidChange
+   }
+ }
+ 
++// OneKey patch: onPaste payload guard
++BOOL isBlankString(NSString *string)
++{
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass:[NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++// OneKey patch: forward native paste to the JS onPaste event
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (!_onPaste) {
++    return;
++  }
++
++  if (isBlankString(type) || isBlankString(data)) {
++    return;
++  }
++
++  NSMutableArray *items = [NSMutableArray new];
++  [items addObject:@{
++    @"type" : type,
++    @"data" : data,
++  }];
++
++  NSDictionary *payload = @{
++    @"target" : self.reactTag,
++    @"items" : items,
++  };
++
++  _onPaste(payload);
++}
++
+ - (void)textInputDidChangeSelection
+ {
+   if (!_onSelectionChange) {
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+index 3503ccf..6843067 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+@@ -72,6 +72,8 @@ @implementation RCTBaseTextInputViewManager {
+ RCT_EXPORT_VIEW_PROPERTY(onChangeSync, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onSelectionChange, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onScroll, RCTDirectEventBlock)
++// OneKey patch: paste event
++RCT_EXPORT_VIEW_PROPERTY(onPaste, RCTDirectEventBlock)
+ 
+ RCT_EXPORT_SHADOW_PROPERTY(text, NSString)
+ RCT_EXPORT_SHADOW_PROPERTY(placeholder, NSString)
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+index 052c003..8d48de8 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+@@ -12,12 +12,19 @@
+ #import <React/RCTUtils.h>
+ #import <React/UIView+React.h>
+ 
++// OneKey patch: image/text paste handling
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextField {
+   RCTBackedTextFieldDelegateAdapter *_textInputDelegateAdapter;
+   NSDictionary<NSAttributedStringKey, id> *_defaultTextAttributes;
+   NSArray<UIBarButtonItemGroup *> *_initialValueLeadingBarButtonGroups;
+   NSArray<UIBarButtonItemGroup *> *_initialValueTrailingBarButtonGroups;
+   NSArray<NSString *> *_acceptDragAndDropTypes;
++  // OneKey patch: prevent concurrent image paste operations
++  BOOL _isProcessingImagePaste;
+ }
+ 
+ // This should not be needed but internal build were failing without it.
+@@ -180,6 +187,11 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
+ 
++  // OneKey patch: offer Paste in the edit menu when the clipboard holds an image
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
++
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+@@ -260,12 +272,105 @@ - (void)scrollRangeToVisible:(NSRange)range
+   // Singleline TextInput does not require scrolling after calling setSelectedTextRange (PR 38679).
+ }
+ 
++// OneKey patch: super-call trampoline usable from completion blocks
++- (void)_superPaste:(id)sender
++{
++  [super paste:sender];
++}
++
+ - (void)paste:(id)sender
+ {
++  // OneKey patch: emit the onPaste event (text and image) so JS can react to
++  // system-menu pastes — e.g. clearing the clipboard after a mnemonic paste.
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++
++  // Handle image paste
++  if (clipboard.hasImages && [self processImagePaste:clipboard]) {
++    return;
++  }
++
++  // Handle text paste
+   _textWasPasted = YES;
++  if (clipboard.hasStrings) {
++    [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++  }
+   [super paste:sender];
+ }
+ 
++// OneKey patch: async image paste — writes clipboard image to a temp file and
++// reports it through didPaste as a file URL; falls back to text paste on error.
++- (BOOL)processImagePaste:(UIPasteboard *)clipboard
++{
++  // Prevent concurrent image paste operations from rapid taps
++  if (_isProcessingImagePaste) {
++    return YES;
++  }
++
++  for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++    if (![itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++      continue;
++    }
++
++    for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++      if (!UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++        continue;
++      }
++
++      _isProcessingImagePaste = YES;
++      // Snapshot clipboard text before async to avoid stale/changed clipboard reads later
++      BOOL clipboardHasStrings = clipboard.hasStrings;
++      NSString *clipboardString = clipboardHasStrings ? clipboard.string : nil;
++      // Capture self directly — the block temporarily retains self until the async
++      // operation completes, which is safe (no permanent retain cycle).
++      [itemProvider loadDataRepresentationForTypeIdentifier:identifier completionHandler:^(NSData *data, NSError *error) {
++        if (error || !data) {
++          dispatch_async(dispatch_get_main_queue(), ^{
++            self->_isProcessingImagePaste = NO;
++            // Fallback to text paste on failure
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          });
++          return;
++        }
++
++        // Perform file I/O on background queue to avoid main thread jank
++        NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++        if (!MIMEType) {
++          MIMEType = @"application/octet-stream";
++        }
++        NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++        if (!fileExtension) {
++          fileExtension = @"bin";
++        }
++        NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++        NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++        BOOL writeSuccess = [data writeToFile:filePath atomically:YES];
++
++        dispatch_async(dispatch_get_main_queue(), ^{
++          self->_isProcessingImagePaste = NO;
++
++          if (writeSuccess) {
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            [self->_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++          } else {
++            // Fallback when file write fails
++            self->_textWasPasted = YES;
++            if (clipboardHasStrings && clipboardString) {
++              [self->_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboardString];
++            }
++            [self _superPaste:nil];
++          }
++        });
++      }];
++      return YES;
++    }
++  }
++  return NO;
++}
++
+ #pragma mark - Layout
+ 
+ - (CGSize)contentSize
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+index 226781f..63e7065 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
+@@ -103,46 +103,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+ 
+ + (BOOL)isSupported:(NSString *)componentName
+ {
+-  // Step 1: check if ViewManager with specified name is supported.
+-  BOOL isComponentNameSupported =
+-      [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
+-  if (isComponentNameSupported) {
+-    return YES;
+-  }
++  // OneKey patch: this method mutates a shared static NSMutableDictionary and
++  // is called concurrently from multiple JS runtimes (main + background
++  // thread). @synchronized ensures thread-safe access to the shared state.
++  @synchronized([RCTLegacyViewManagerInteropComponentView class]) {
++    // Step 1: check if ViewManager with specified name is supported.
++    BOOL isComponentNameSupported =
++        [[RCTLegacyViewManagerInteropComponentView supportedViewManagers] containsObject:componentName];
++    if (isComponentNameSupported) {
++      return YES;
++    }
+ 
+-  // Step 2: check if component has supported prefix.
+-  for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
+-    if ([componentName hasPrefix:item]) {
++    // Step 2: check if component has supported prefix.
++    for (NSString *item in [RCTLegacyViewManagerInteropComponentView supportedViewManagersPrefixes]) {
++      if ([componentName hasPrefix:item]) {
++        return YES;
++      }
++    }
++
++    // Step 3: check if the module has been registered
++    // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
++    NSArray<Class> *registeredModules = RCTGetModuleClasses();
++    NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
++        [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
++    if (supportedLegacyViewComponents[componentName] != NULL) {
+       return YES;
+     }
+-  }
+ 
+-  // Step 3: check if the module has been registered
+-  // TODO(T174674274): Implement lazy loading of legacy view managers in the new architecture.
+-  NSArray<Class> *registeredModules = RCTGetModuleClasses();
+-  NSMutableDictionary<NSString *, Class> *supportedLegacyViewComponents =
+-      [RCTLegacyViewManagerInteropComponentView _supportedLegacyViewComponents];
+-  if (supportedLegacyViewComponents[componentName] != NULL) {
+-    return YES;
+-  }
++    for (Class moduleClass in registeredModules) {
++      id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
++      NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
++          ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
++          : [bridgeModule moduleName];
+ 
+-  for (Class moduleClass in registeredModules) {
+-    id<RCTBridgeModule> bridgeModule = (id<RCTBridgeModule>)moduleClass;
+-    NSString *moduleName = [[bridgeModule moduleName] isEqualToString:@""]
+-        ? [NSStringFromClass(moduleClass) stringByReplacingOccurrencesOfString:@"Manager" withString:@""]
+-        : [bridgeModule moduleName];
++      if (supportedLegacyViewComponents[moduleName] == NULL) {
++        supportedLegacyViewComponents[moduleName] = moduleClass;
++      }
+ 
+-    if (supportedLegacyViewComponents[moduleName] == NULL) {
+-      supportedLegacyViewComponents[moduleName] = moduleClass;
++      if ([moduleName isEqualToString:componentName] ||
++          [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
++        return YES;
++      }
+     }
+ 
+-    if ([moduleName isEqualToString:componentName] ||
+-        [moduleName isEqualToString:[@"RCT" stringByAppendingString:componentName]]) {
+-      return YES;
+-    }
++    return NO;
+   }
+-
+-  return NO;
+ }
+ 
+ + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+index cbbc402..6e8c318 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+@@ -390,6 +390,41 @@ - (void)prepareForRecycle
+   [_backedTextInputView resignFirstResponder];
+ }
+ 
++// OneKey patch: onPaste payload guard
++BOOL checkIsBlankString(NSString *string)
++{
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass:[NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++// OneKey patch: forward native paste to the Fabric onPaste event
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (checkIsBlankString(type) || checkIsBlankString(data)) {
++    return;
++  }
++  if (_eventEmitter) {
++    static_cast<const TextInputEventEmitter &>(*_eventEmitter)
++        .onPaste(std::string([type UTF8String]), std::string([data UTF8String]));
++  }
++}
++
+ #pragma mark - RCTBackedTextInputDelegate
+ 
+ - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
+index 8b43194..472f735 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
+@@ -72,6 +72,11 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
+           index,
+       )
+       update()
++      // OneKey patch: update() set this.drawingOrderIndices to null, so we must
++      // also null the local variable; otherwise the rebuild branch below is
++      // skipped and we return a stale, out-of-bounds index
++      // (Sentry REACT-NATIVE-48W / 4AM).
++      currentDrawingOrderIndices = null
+     }
+ 
+     if (currentDrawingOrderIndices == null) {
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
+index 44aeba9..7e2062d 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
+@@ -879,7 +879,15 @@ public open class ReactViewGroup public constructor(context: Context?) :
+     if (_overflow != Overflow.VISIBLE || getTag(R.id.filter) != null) {
+       clipToPaddingBox(this, canvas)
+     }
+-    super.dispatchDraw(canvas)
++    // OneKey patch: race condition — a child view can be removed during the
++    // draw cycle by a reanimated mount transaction. The hierarchy is re-drawn
++    // correctly on the next frame.
++    // Tracking: https://github.com/software-mansion/react-native-reanimated/issues/8422
++    try {
++      super.dispatchDraw(canvas)
++    } catch (e: NullPointerException) {
++      // swallowed on purpose, see above
++    }
+   }
+ 
+   override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
+index 2982b12..4c2c1b2 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.cpp
+@@ -131,6 +131,21 @@ static jsi::Value keyPressMetricsPayload(
+   return payload;
+ };
+ 
++// OneKey patch: paste event emitter
++void TextInputEventEmitter::onPaste(const std::string& type, const std::string& data)
++    const {
++  dispatchEvent("paste", [type, data](jsi::Runtime& runtime) {
++    auto payload = jsi::Object(runtime);
++    auto items = jsi::Array(runtime, 1);
++    auto item = jsi::Object(runtime);
++    item.setProperty(runtime, "type", type);
++    item.setProperty(runtime, "data", data);
++    items.setValueAtIndex(runtime, 0, item);
++    payload.setProperty(runtime, "items", items);
++    return payload;
++  });
++}
++
+ void TextInputEventEmitter::onFocus(const Metrics& textInputMetrics) const {
+   dispatchTextInputEvent("focus", textInputMetrics);
+ }
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
+index a3f2e01..cce4093 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/TextInputEventEmitter.h
+@@ -44,6 +44,8 @@ class TextInputEventEmitter : public ViewEventEmitter {
+   void onSubmitEditing(const Metrics &textInputMetrics) const;
+   void onKeyPress(const KeyPressMetrics &keyPressMetrics) const;
+   void onScroll(const Metrics &textInputMetrics) const;
++  // OneKey patch: paste event
++  void onPaste(const std::string &type, const std::string &data) const;
+ 
+  private:
+   void dispatchTextInputEvent(

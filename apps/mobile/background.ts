@@ -68,6 +68,9 @@ const emptyExpoNativeModule = new Proxy(
     has: () => true,
   },
 );
+// installExpoGlobalPolyfill() defines `globalThis.expo` today, but this block
+// exists precisely because such contracts shift between SDKs — never assume it.
+(globalThis as any).expo ??= {};
 (globalThis as any).expo.modules = new Proxy(
   {},
   { get: () => emptyExpoNativeModule, has: () => true },

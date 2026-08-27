@@ -1,7 +1,156 @@
+diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
+index c712e48..999ea88 100644
+--- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
++++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
+@@ -8,6 +8,8 @@ import com.facebook.react.ReactInstanceEventListener
+ import com.facebook.react.ReactPackage
+ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
+ import com.facebook.react.bridge.JSBundleLoader
++// OneKey patch: split-bundle sequential loader needs the loader delegate + File
++import com.facebook.react.bridge.JSBundleLoaderDelegate
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.common.annotations.UnstableReactNativeAPI
+ import com.facebook.react.common.build.ReactBuildConfig
+@@ -20,11 +22,108 @@ import com.facebook.react.runtime.ReactHostDelegate
+ import com.facebook.react.runtime.ReactHostImpl
+ import com.facebook.react.runtime.hermes.HermesInstance
+ import expo.modules.core.interfaces.ReactNativeHostHandler
++// OneKey patch: split-bundle sequential loader needs java.io.File
++import java.io.File
+ import java.lang.ref.WeakReference
+ 
+ object ExpoReactHostFactory {
+   private var reactHost: ReactHost? = null
+ 
++  // OneKey patch: sequential split-bundle loading. The production Android
++  // build ships a Metro-prelude-carrying common.bundle plus an entry bundle
++  // without the prelude (build-android-bundle.js); the entry bundle can only
++  // evaluate after common.bundle defined __d/__r, so the loader must chain
++  // them. Ported from the SDK 54 patch onto SDK 56's jsBundleLoader getter.
++
++  /**
++   * Check if common.bundle exists in the Android assets directory.
++   */
++  private fun hasCommonBundleInAssets(context: Context): Boolean {
++    return try {
++      context.assets.open("common.bundle").close()
++      true
++    } catch (e: Exception) {
++      false
++    }
++  }
++
++  /**
++   * Resolve the common bundle path for OTA (file-based) loading.
++   * Looks for common.bundle in the same directory as the entry bundle.
++   */
++  private fun resolveCommonBundlePath(entryBundlePath: String): String? {
++    val entryFile = File(entryBundlePath)
++    val parentDir = entryFile.parentFile ?: return null
++    val commonFile = File(parentDir, "common.bundle")
++    return if (commonFile.exists()) commonFile.absolutePath else null
++  }
++
++  /**
++   * Creates a JSBundleLoader that loads two bundles sequentially from Android assets:
++   * first the common bundle (polyfills + shared modules), then the
++   * entry-specific bundle (entry-only modules + require(entryId)).
++   */
++  private fun createSequentialAssetBundleLoader(
++    context: Context,
++    commonAssetName: String,
++    entryAssetName: String
++  ): JSBundleLoader {
++    return object : JSBundleLoader() {
++      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        val commonStart = System.nanoTime()
++        delegate.loadScriptFromAssets(context.assets, "assets://$commonAssetName", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from assets in ${String.format("%.1f", commonMs)}ms: $commonAssetName")
++
++        val entryStart = System.nanoTime()
++        delegate.loadScriptFromAssets(context.assets, "assets://$entryAssetName", false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from assets in ${String.format("%.1f", entryMs)}ms: $entryAssetName")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential asset load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++
++        return "assets://$entryAssetName"
++      }
++    }
++  }
++
++  /**
++   * Creates a JSBundleLoader that loads two bundles sequentially from local files:
++   * first the common bundle, then the entry-specific bundle.
++   */
++  private fun createSequentialFileBundleLoader(
++    commonPath: String,
++    entryPath: String
++  ): JSBundleLoader {
++    return object : JSBundleLoader() {
++      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        val commonFile = File(commonPath)
++        android.util.Log.i("SplitBundle", "main common bundle file: ${commonFile.length() / 1024}KB")
++        val commonStart = System.nanoTime()
++        delegate.loadScriptFromFile(commonPath, "common.bundle", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from file in ${String.format("%.1f", commonMs)}ms: $commonPath")
++
++        val entryFile = File(entryPath)
++        android.util.Log.i("SplitBundle", "main entry bundle file: ${entryFile.length() / 1024}KB")
++        val entryStart = System.nanoTime()
++        delegate.loadScriptFromFile(entryPath, entryPath, false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from file in ${String.format("%.1f", entryMs)}ms: $entryPath")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential file load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++
++        return entryPath
++      }
++    }
++  }
++
+   @UnstableReactNativeAPI
+   private class ExpoReactHostDelegate(
+     private val weakContext: WeakReference<Context>,
+@@ -69,11 +168,25 @@ object ExpoReactHostFactory {
+           ?: throw IllegalStateException("Unable to get concrete Context")
+         hostDelegateJsBundleFilePath?.let { jsBundleFile ->
+           if (jsBundleFile.startsWith("assets://")) {
++            // OneKey patch: sequential split-bundle loading (common.bundle first)
++            val entryAssetName = jsBundleFile.removePrefix("assets://")
++            if (hasCommonBundleInAssets(context)) {
++              return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
++            }
+             return JSBundleLoader.createAssetLoader(context, jsBundleFile, true)
+           }
++          // OneKey patch: file-based (OTA) bundle path — check for common bundle in same directory
++          val commonPath = resolveCommonBundlePath(jsBundleFile)
++          if (commonPath != null) {
++            return createSequentialFileBundleLoader(commonPath, jsBundleFile)
++          }
+           return JSBundleLoader.createFileLoader(jsBundleFile)
+         }
+ 
++        // OneKey patch: default asset path — load common.bundle first when present
++        if (hasCommonBundleInAssets(context)) {
++          return createSequentialAssetBundleLoader(context, "common.bundle", hostDelegateJSBundleAssetPath ?: "index")
++        }
+         return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
+       }
+ 
 diff --git a/node_modules/expo/src/async-require/asyncRequireModule.ts b/node_modules/expo/src/async-require/asyncRequireModule.ts
+index 7c183bd..fca09d0 100644
 --- a/node_modules/expo/src/async-require/asyncRequireModule.ts
 +++ b/node_modules/expo/src/async-require/asyncRequireModule.ts
-@@ -109,14 +109,29 @@
+@@ -109,14 +109,29 @@ function asyncRequire<T>(
        then(resolve, reject) {
          return Promise.resolve(ret).then(resolve, reject);
        },

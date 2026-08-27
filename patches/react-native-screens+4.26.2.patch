@@ -1,0 +1,39 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+index 0fcccb3..0d4a4ad 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+@@ -2,6 +2,8 @@ package com.swmansion.rnscreens
+ 
+ import android.content.Context
+ import android.content.ContextWrapper
++// OneKey patch: logging for the deferred fragment-removal fallback below
++import android.util.Log
+ import android.view.Choreographer
+ import android.view.View
+ import android.view.ViewGroup
+@@ -291,7 +293,24 @@ open class ScreenContainer(
+         }
+ 
+         if (hasFragments) {
+-            transaction.commitNowAllowingStateLoss()
++            // OneKey patch: Guard against "FragmentManager is already executing transactions".
++            // This race occurs when onDetachedFromWindow triggers removeMyFragments while
++            // performUpdates -> onUpdate is already committing a transaction on the same
++            // FragmentManager within the same UI frame (e.g. during rapid navigation).
++            // On catch, defer the removal to the next frame where the FragmentManager
++            // is no longer mid-transaction.
++            // See: https://github.com/software-mansion/react-native-screens/issues/2318
++            // See: https://github.com/software-mansion/react-native-screens/issues/1506
++            try {
++                transaction.commitNowAllowingStateLoss()
++            } catch (e: IllegalStateException) {
++                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
++                post {
++                    if (!fragmentManager.isDestroyed) {
++                        removeMyFragments(fragmentManager)
++                    }
++                }
++            }
+         }
+     }
+ 
