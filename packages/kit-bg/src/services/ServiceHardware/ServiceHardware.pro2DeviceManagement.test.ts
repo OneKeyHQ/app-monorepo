@@ -87,6 +87,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getDeviceByQuery: jest.fn(),
     updateDevice: jest.fn(),
     updateDeviceState: jest.fn(),
+    updateDeviceVersionInfo: jest.fn(),
   },
 }));
 
@@ -612,58 +613,65 @@ describe('ServiceHardware.getDeviceState', () => {
     });
   });
 
-  it('persists a V1 firmware snapshot even when the SDK emits no state event', async () => {
-    const { service, getDeviceState, state } = createService({
-      unlocked: false,
-    });
-    const v1State = {
-      ...state,
-      protocol: 'V1' as const,
-      versions: {
-        firmware: '4.21.0',
-        bluetooth: '2.3.7',
-        bootloader: '2.8.4',
-      },
-    };
-    jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
-      id: 'db-device-1',
-      connectId: 'PRO_USB',
-      connectProtocol: 'V1',
-      deviceStateInfo: {
-        ...v1State,
+  it.each(['V1', 'V2'] as const)(
+    'persists a %s firmware snapshot even when the SDK emits no state event',
+    async (protocol) => {
+      const { service, getDeviceState, state } = createService({
+        unlocked: false,
+      });
+      const firmwareState = {
+        ...state,
+        protocol,
         versions: {
-          firmware: '4.16.1',
-          bluetooth: '2.3.4',
-          bootloader: '2.8.2',
+          firmware: '4.21.0',
+          bluetooth: '2.3.7',
+          bootloader: '2.8.4',
         },
-      },
-    } as never);
-    getDeviceState.mockResolvedValue({
-      success: true,
-      payload: v1State,
-    });
-    jest.mocked(localDb.updateDeviceState).mockResolvedValue({
-      kind: 'updated',
-      state: v1State,
-    } as never);
+      };
+      jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'PRO_USB',
+        connectProtocol: protocol,
+        deviceStateInfo: {
+          ...firmwareState,
+          versions: {
+            firmware: '4.16.1',
+            bluetooth: '2.3.4',
+            bootloader: '2.8.2',
+          },
+        },
+      } as never);
+      getDeviceState.mockResolvedValue({
+        success: true,
+        payload: firmwareState,
+      });
+      jest.mocked(localDb.updateDeviceState).mockResolvedValue({
+        kind: 'updated',
+        state: firmwareState,
+      } as never);
 
-    await service.getDeviceState({
-      connectId: 'PRO_USB',
-      params: { scope: 'firmware' },
-    });
+      await service.getDeviceState({
+        connectId: 'PRO_USB',
+        params: { scope: 'firmware' },
+      });
 
-    expect(localDb.updateDeviceState).toHaveBeenCalledWith({
-      changedKeys: [],
-      connectId: 'PRO2_USB',
-      revision: v1State.revision,
-      source: 'device-info',
-      state: v1State,
-    });
-    expect(appEventBus.emit).toHaveBeenCalledWith(
-      EAppEventBusNames.HardwareDeviceStateUpdate,
-      expect.objectContaining({ state: v1State }),
-    );
-  });
+      expect(localDb.updateDeviceState).toHaveBeenCalledWith({
+        changedKeys: [
+          'versions.firmware',
+          'versions.bluetooth',
+          'versions.bootloader',
+        ],
+        connectId: 'PRO2_USB',
+        revision: firmwareState.revision,
+        source: 'device-info',
+        state: firmwareState,
+      });
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        expect.objectContaining({ state: firmwareState }),
+      );
+    },
+  );
 
   it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
     const { service, getDeviceState } = createService({ unlocked: true });
@@ -793,6 +801,35 @@ describe('ServiceHardware.getDeviceState', () => {
         params: { detectBootloaderDevice: true },
       }),
     ).rejects.toBeDefined();
+  });
+});
+
+describe('ServiceHardware.updateDeviceVersionAfterFirmwareUpdate', () => {
+  it('refreshes live firmware state before updating compatibility data', async () => {
+    const { service, state } = createService({ unlocked: false });
+    const getDeviceState = jest
+      .spyOn(service, 'getDeviceState')
+      .mockResolvedValue(state as never);
+    jest
+      .mocked(localDb.updateDeviceVersionInfo)
+      .mockResolvedValue(undefined as never);
+
+    await service.updateDeviceVersionAfterFirmwareUpdate({
+      releaseResult: {
+        originalConnectId: 'PRO2_USB',
+        updateInfos: {},
+      },
+    } as never);
+
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+      params: { scope: 'firmware' },
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      silentMode: true,
+    });
+    expect(getDeviceState.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(localDb.updateDeviceVersionInfo).mock.invocationCallOrder[0],
+    );
   });
 });
 

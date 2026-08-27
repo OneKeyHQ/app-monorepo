@@ -56,6 +56,7 @@ export type IFirmwareUpdatesDetectResult = {
   updateInfo?: {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
+    targetsToUpdate?: IPro2FirmwareUpdateTarget[];
   };
 };
 

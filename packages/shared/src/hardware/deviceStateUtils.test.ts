@@ -169,7 +169,7 @@ describe('deviceStateUtils', () => {
 
     expect(merged.settings.brightness).toBe(70);
     expect(merged.settings.autoLockDelayMs).toBe(300_000);
-    // settings-read 只对 settings 范围权威，不能覆盖其他缓存区段。
+    // A settings read is authoritative only for the settings section.
     expect(merged.status.unlocked).toBe(false);
   });
 
@@ -242,28 +242,59 @@ describe('deviceStateUtils', () => {
     expect(merged.settings.language).toBe('en');
   });
 
-  it('uses V1 device-info versions as an authoritative snapshot', () => {
+  it.each(['V1', 'V2'] as const)(
+    'uses %s device-info versions as an authoritative snapshot',
+    (protocol) => {
+      const currentState = createState({ revision: 1, updatedAt: 1 });
+      currentState.protocol = protocol;
+      currentState.identity.firmwareType = EFirmwareType.Universal;
+      currentState.versions.firmware = '4.16.1';
+      currentState.versions.ble = '2.3.4';
+      currentState.versions.bootloader = '2.8.2';
+      currentState.securityElements = {
+        se01: { type: 'old-type', state: 'old-state' },
+      };
+      currentState.verification = { firmwareHash: 'old-firmware-hash' };
+
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.identity.firmwareType = EFirmwareType.BitcoinOnly;
+      incomingState.versions.firmware = '4.21.0';
+      incomingState.versions.ble = '2.3.7';
+      incomingState.versions.bootloader = '2.8.4';
+      incomingState.securityElements = {
+        se01: { type: 'new-type', state: 'new-state' },
+      };
+      incomingState.verification = { firmwareHash: 'new-firmware-hash' };
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys:
+          protocol === 'V1'
+            ? ['status.unlocked']
+            : [
+                'status.unlocked',
+                'versions.firmware',
+                'versions.ble',
+                'versions.bootloader',
+              ],
+        source: 'device-info',
+      });
+
+      expect(merged.versions).toEqual(incomingState.versions);
+      expect(merged.identity.firmwareType).toBe(EFirmwareType.Universal);
+      expect(merged.securityElements).toEqual(currentState.securityElements);
+      expect(merged.verification).toEqual(currentState.verification);
+    },
+  );
+
+  it('keeps sparse V2 device-info events from replacing unmarked versions', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
-    currentState.protocol = 'V1';
-    currentState.identity.firmwareType = EFirmwareType.Universal;
-    currentState.versions.firmware = '4.16.1';
-    currentState.versions.ble = '2.3.4';
-    currentState.versions.bootloader = '2.8.2';
-    currentState.securityElements = {
-      se01: { type: 'old-type', state: 'old-state' },
-    };
-    currentState.verification = { firmwareHash: 'old-firmware-hash' };
+    currentState.versions.firmware = '1.1.0';
 
     const incomingState = createState({ revision: 2, updatedAt: 2 });
-    incomingState.protocol = 'V1';
-    incomingState.identity.firmwareType = EFirmwareType.BitcoinOnly;
-    incomingState.versions.firmware = '4.21.0';
-    incomingState.versions.ble = '2.3.7';
-    incomingState.versions.bootloader = '2.8.4';
-    incomingState.securityElements = {
-      se01: { type: 'new-type', state: 'new-state' },
-    };
-    incomingState.verification = { firmwareHash: 'new-firmware-hash' };
+    incomingState.versions.firmware = '1.2.0';
 
     const merged = mergeDeviceStateEvent({
       currentState,
@@ -272,10 +303,7 @@ describe('deviceStateUtils', () => {
       source: 'device-info',
     });
 
-    expect(merged.versions).toEqual(incomingState.versions);
-    expect(merged.identity.firmwareType).toBe(EFirmwareType.Universal);
-    expect(merged.securityElements).toEqual(currentState.securityElements);
-    expect(merged.verification).toEqual(currentState.verification);
+    expect(merged.versions.firmware).toBe('1.1.0');
   });
 
   it('uses V1 initialize versions as authoritative without replacing other sections', () => {

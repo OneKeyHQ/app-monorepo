@@ -39,7 +39,17 @@ export function hasDeviceStateIdentityMismatch({
   );
 }
 
-export function hasAuthoritativeV1DeviceInfoVersionChange({
+export function getValidDeviceStateVersionKeys(
+  state: IOneKeyDeviceState,
+): string[] {
+  return Object.entries(state.versions).flatMap(([field, value]) =>
+    typeof value === 'string' && value && value !== '0.0.0'
+      ? [`versions.${field}`]
+      : [],
+  );
+}
+
+export function hasAuthoritativeDeviceInfoVersionChange({
   currentState,
   incomingState,
   changedKeys,
@@ -50,18 +60,20 @@ export function hasAuthoritativeV1DeviceInfoVersionChange({
   changedKeys: string[];
   source?: string;
 }) {
+  const validVersionKeys = getValidDeviceStateVersionKeys(incomingState);
+  const authoritativeVersionKeys = validVersionKeys.filter(
+    (key) => changedKeys.includes('versions') || changedKeys.includes(key),
+  );
   return Boolean(
     currentState &&
-    incomingState.protocol === 'V1' &&
     source === 'device-info' &&
-    changedKeys.length === 0 &&
-    Object.entries(incomingState.versions).some(
-      ([field, value]) =>
-        typeof value === 'string' &&
-        value.length > 0 &&
-        value !== '0.0.0' &&
-        (currentState.versions as Record<string, unknown>)[field] !== value,
-    ),
+    authoritativeVersionKeys.some((key) => {
+      const field = key.slice('versions.'.length);
+      return (
+        (currentState.versions as Record<string, unknown>)[field] !==
+        (incomingState.versions as Record<string, unknown>)[field]
+      );
+    }),
   );
 }
 
@@ -102,16 +114,12 @@ export function mergeDeviceStateEvent({
   const isAuthoritativeV1DeviceSnapshot =
     incomingState.protocol === 'V1' &&
     (source === 'initialize' || source === 'device-info');
-  const authoritativeV1VersionKeys = isAuthoritativeV1DeviceSnapshot
-    ? Object.entries(incomingState.versions ?? {}).flatMap(([field, value]) =>
-        typeof value === 'string' && value && value !== '0.0.0'
-          ? [`versions.${field}`]
-          : [],
-      )
+  const authoritativeVersionKeys = isAuthoritativeV1DeviceSnapshot
+    ? getValidDeviceStateVersionKeys(incomingState)
     : [];
   const authoritativeKeys = [
     ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
-    ...authoritativeV1VersionKeys,
+    ...authoritativeVersionKeys,
   ];
   const mergeKeys = Array.from(new Set([...changedKeys, ...authoritativeKeys]));
   for (const changedKey of mergeKeys) {

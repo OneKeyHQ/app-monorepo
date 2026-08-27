@@ -6,7 +6,6 @@ import { useMedia } from '@onekeyhq/components';
 import {
   useCurrentWalletIdAtom,
   useDeviceConnectIdAtom,
-  useDeviceMetaStaticAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,7 +26,6 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   const [deviceConnectId] = useDeviceConnectIdAtom();
   const [deviceType] = useDeviceTypeAtom();
-  const [deviceMetaStatic] = useDeviceMetaStaticAtom();
   const deviceDetectStatus = useFirmwareUpdateDetectStatus(deviceConnectId);
 
   const actions = useFirmwareUpdateActions();
@@ -55,8 +53,7 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   let message = 'New firmware is available';
   if (isProtocolV2ProductType(deviceType)) {
-    const safeOSVersion =
-      detectResult.detectInfo?.toVersion ?? deviceMetaStatic.firmwareVersion;
+    const safeOSVersion = detectResult.detectInfo?.toVersion;
     message =
       safeOSVersion && safeOSVersion !== '0.0.0'
         ? intl.formatMessage(

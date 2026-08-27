@@ -1,7 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
-  hasAuthoritativeV1DeviceInfoVersionChange,
+  hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
@@ -41,7 +41,7 @@ export function getDeviceStateSnapshotFromEvent({
     // SDK cache without advancing its metadata.
     const acceptsEqualMetadata =
       event.source === 'settings-read' ||
-      hasAuthoritativeV1DeviceInfoVersionChange({
+      hasAuthoritativeDeviceInfoVersionChange({
         currentState,
         incomingState: event.state,
         changedKeys: event.changedKeys,

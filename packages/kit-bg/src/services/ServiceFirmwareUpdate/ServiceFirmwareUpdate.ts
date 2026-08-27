@@ -688,10 +688,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
               currentVersion: releaseInfo.currentVersions?.ble,
               saveUpdateInfo: false,
             });
+            const targetsToUpdate = buildPro2TargetsToUpdate({
+              sdkTargets: releaseInfo.targetsToUpdate,
+            });
             await this.detectMap.resolveUpdateInfo({
               ...detectIdentity,
               firmware,
               ble,
+              targetsToUpdate,
             });
             this.detectMap.updateLastDetectAt({
               connectId: detectConnectId,
@@ -1048,7 +1052,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble?.hasUpgrade ? 'ble' : undefined,
     ];
 
-    if (originalConnectId && (shouldResolveDetectStatus || !hasUpgrade)) {
+    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
+      ? buildPro2TargetsToUpdate({
+          sdkTargets: releaseInfo.targetsToUpdate,
+          forceTargets: pro2ForceTargets,
+        })
+      : undefined;
+    const effectiveHasUpgrade =
+      hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
+
+    if (
+      originalConnectId &&
+      (shouldResolveDetectStatus || !effectiveHasUpgrade)
+    ) {
       const identity =
         await this.getFirmwareUpdateDetectIdentity(originalConnectId);
       if (shouldResolveDetectStatus) {
@@ -1056,6 +1072,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           ...identity,
           firmware,
           ble,
+          targetsToUpdate: pro2TargetsToUpdate,
         });
       } else {
         await this.detectMap.deleteUpdateInfo(identity);
@@ -1093,12 +1110,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
-      ? buildPro2TargetsToUpdate({
-          sdkTargets: releaseInfo.targetsToUpdate,
-          forceTargets: pro2ForceTargets,
-        })
-      : undefined;
     const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
       ? buildProtocolV2FirmwareVersionInfo({
           releaseInfo,
@@ -1122,8 +1133,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // Keep the transport-derived connect ID when the local device is absent.
     }
 
-    const effectiveHasUpgrade =
-      hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
     const executableFirmwareUpdatePlan =
       releaseInfo.firmwareUpdatePlan?.artifacts.length &&
       releaseInfo.firmwareUpdatePlan.targetsToUpdate.length
@@ -2439,19 +2448,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     actionType: 'done',
                     releaseResult: params.releaseResult,
                   });
-                  try {
-                    await this.backgroundApi.serviceHardware.getDeviceState({
-                      connectId: params.releaseResult.originalConnectId,
-                      params: { scope: 'firmware' },
-                      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-                      silentMode: true,
-                    });
-                  } catch (error) {
-                    serviceHardwareUtils.hardwareLog(
-                      'refresh firmware state after update ERROR',
-                      error,
-                    );
-                  }
                   await this.deleteFirmwareUpdateDetectInfo(
                     params.releaseResult.originalConnectId,
                   );

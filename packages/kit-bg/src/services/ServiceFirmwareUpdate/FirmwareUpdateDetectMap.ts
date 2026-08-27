@@ -10,6 +10,7 @@ import type {
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectMap,
   IFirmwareUpdatesDetectStatus,
+  IPro2FirmwareUpdateTarget,
 } from '@onekeyhq/shared/types/device';
 
 import { firmwareUpdatesDetectStatusPersistAtom } from '../../states/jotai/atoms';
@@ -114,7 +115,9 @@ export class FirmwareUpdateDetectMap {
     return {
       connectId,
       hasUpgrade: Boolean(
-        updateInfo.firmware?.hasUpgrade || updateInfo.ble?.hasUpgrade,
+        updateInfo.firmware?.hasUpgrade ||
+        updateInfo.ble?.hasUpgrade ||
+        updateInfo.targetsToUpdate?.length,
       ),
       toVersion: updateInfo.firmware?.hasUpgrade
         ? updateInfo.firmware.toVersion
@@ -263,14 +266,18 @@ export class FirmwareUpdateDetectMap {
     bleConnectId,
     firmware,
     ble,
+    targetsToUpdate,
   }: {
     connectId: string;
     usbConnectId?: string | null;
     bleConnectId?: string | null;
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
+    targetsToUpdate?: IPro2FirmwareUpdateTarget[];
   }) {
-    const hasUpgrade = Boolean(firmware?.hasUpgrade || ble?.hasUpgrade);
+    const hasUpgrade = Boolean(
+      firmware?.hasUpgrade || ble?.hasUpgrade || targetsToUpdate?.length,
+    );
     this.detectMapCache[connectId] = {
       ...this.detectMapCache[connectId],
       detectResultResolved: true,
@@ -278,6 +285,7 @@ export class FirmwareUpdateDetectMap {
         ? {
             firmware,
             ble,
+            targetsToUpdate,
           }
         : undefined,
     };
