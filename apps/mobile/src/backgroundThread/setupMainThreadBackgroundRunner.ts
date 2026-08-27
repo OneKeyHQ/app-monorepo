@@ -7,6 +7,7 @@ import {
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -17,6 +18,7 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   type IAsyncStorageWriteArgs,
   type IAsyncStorageWriteForwarderRequestStatus,
@@ -39,8 +41,10 @@ import {
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
+  MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
   buildBackgroundThreadRequestKey,
+  buildMainNativeUtilsResponseKey,
   buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
   parseBackgroundThreadBridgeSendPayload,
@@ -1158,6 +1162,84 @@ async function handleWebEmbedBridgeRequest(
   }
 }
 
+// Allowlisted native utilities the background runtime may execute on this
+// (main) runtime, where the real expo native modules live. Anything outside
+// this table is rejected — the channel must not become an open proxy.
+const mainNativeUtilsHandlers: Record<
+  string,
+  Record<string, (...params: any[]) => Promise<unknown>>
+> = {
+  secureStorage: {
+    setSecureItem: (key: string, data: string) =>
+      appStorage.secureStorage.setSecureItem(key, data),
+    getSecureItem: (key: string) => appStorage.secureStorage.getSecureItem(key),
+    removeSecureItem: (key: string) =>
+      appStorage.secureStorage.removeSecureItem(key),
+    hasSecureItem: async (key: string) =>
+      appStorage.secureStorage.hasSecureItem
+        ? appStorage.secureStorage.hasSecureItem(key)
+        : !!(await appStorage.secureStorage.getSecureItem(key)),
+    supportSecureStorage: () => appStorage.secureStorage.supportSecureStorage(),
+  },
+  biologyAuth: {
+    isSupportBiologyAuth: () => biologyAuth.isSupportBiologyAuth(),
+    getBiologyAuthType: () =>
+      biologyAuth.getBiologyAuthType() as Promise<unknown>,
+    // Presents the system biometric prompt over this (UI) runtime — the only
+    // runtime it can present from.
+    biologyAuthenticate: () => biologyAuth.biologyAuthenticate(),
+  },
+};
+
+async function handleMainNativeUtilsRequest(
+  sharedRPC: ISharedRPC,
+  key: string,
+  value: string | number | boolean,
+) {
+  const callId = key.slice(MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX.length);
+  const responseKey = buildMainNativeUtilsResponseKey(callId);
+
+  try {
+    const request =
+      typeof value === 'string'
+        ? (JSON.parse(value) as {
+            module?: string;
+            method?: string;
+            params?: unknown[];
+          })
+        : undefined;
+    const handler =
+      request?.module && request?.method
+        ? mainNativeUtilsHandlers[request.module]?.[request.method]
+        : undefined;
+    if (!handler) {
+      sharedRPC.write(
+        responseKey,
+        JSON.stringify({
+          ok: false,
+          error: {
+            message: `native-utils method not allowed: ${String(
+              request?.module,
+            )}.${String(request?.method)}`,
+          },
+        }),
+      );
+      return;
+    }
+
+    const result = await handler(...(request?.params ?? []));
+    sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
+  } catch (error) {
+    sharedRPC.write(
+      responseKey,
+      JSON.stringify({
+        ok: false,
+        error: { message: String((error as Error)?.message || error) },
+      }),
+    );
+  }
+}
+
 function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   if (!observerInstalled) {
     observerInstalled = true;
@@ -1178,6 +1260,8 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
           onBridgeSend: (_callId, v) => handleBackgroundThreadBridgeSend(v),
           onWebEmbedRequest: (callIdKey, v) =>
             void handleWebEmbedBridgeRequest(sharedRPC, callIdKey, v),
+          onMainNativeUtilsRequest: (callIdKey, v) =>
+            void handleMainNativeUtilsRequest(sharedRPC, callIdKey, v),
         },
         callId,
         value,

@@ -123,6 +123,14 @@ export const BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX = 'onekey:bg:event:';
 export const BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX = 'onekey:bg:bridge:';
 export const WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX = 'onekey:webembed:req:';
 export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
+// Reverse RPC (background → main) for native utilities that only exist on the
+// main runtime: expo-secure-store keychain access and expo-local-authentication
+// biometrics. The expo native modules are inert stubs on the background
+// runtime (see apps/mobile/background.ts), and a biometric prompt must present
+// from the UI thread anyway, so these calls forward to main over SharedRPC
+// with the same request/response key shape as the webEmbed bridge channel.
+export const MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX = 'onekey:main-utils:req:';
+export const MAIN_NATIVE_UTILS_RESPONSE_KEY_PREFIX = 'onekey:main-utils:resp:';
 
 // Static (single-slot) key the main runtime writes once on observer install
 // to advertise which optional wire protocols it understands. The bg runtime
@@ -199,6 +207,14 @@ export function buildWebEmbedBridgeRequestKey(callId: string) {
 
 export function buildWebEmbedBridgeResponseKey(callId: string) {
   return `${WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX}${callId}`;
+}
+
+export function buildMainNativeUtilsRequestKey(callId: string) {
+  return `${MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX}${callId}`;
+}
+
+export function buildMainNativeUtilsResponseKey(callId: string) {
+  return `${MAIN_NATIVE_UTILS_RESPONSE_KEY_PREFIX}${callId}`;
 }
 
 export function parseBackgroundThreadCallId(

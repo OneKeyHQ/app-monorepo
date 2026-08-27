@@ -4,6 +4,7 @@ import {
   BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
+  MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
 } from './rpcProtocol';
 import { BACKGROUND_THREAD_READY_WAKE_KEY } from './runtimeReady';
@@ -34,6 +35,10 @@ export type IBackgroundMessageRouterHandlers = {
   onAppEvent: (callId: string, value: IBackgroundMessageRouterValue) => void;
   onBridgeSend: (callId: string, value: IBackgroundMessageRouterValue) => void;
   onWebEmbedRequest: (
+    callId: string,
+    value: IBackgroundMessageRouterValue,
+  ) => void;
+  onMainNativeUtilsRequest: (
     callId: string,
     value: IBackgroundMessageRouterValue,
   ) => void;
@@ -77,6 +82,11 @@ export function routeBackgroundMessage(
 
   if (callId.startsWith(BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX)) {
     handlers.onBridgeSend(callId, value);
+    return;
+  }
+
+  if (callId.startsWith(MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX)) {
+    handlers.onMainNativeUtilsRequest(callId, value);
     return;
   }
 

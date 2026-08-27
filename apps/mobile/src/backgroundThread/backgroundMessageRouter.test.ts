@@ -8,6 +8,7 @@ import {
   BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
+  MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
 } from './rpcProtocol';
 import { BACKGROUND_THREAD_READY_WAKE_KEY } from './runtimeReady';
@@ -21,6 +22,7 @@ function makeHandlers(): jest.Mocked<IBackgroundMessageRouterHandlers> {
     onAppEvent: jest.fn(),
     onBridgeSend: jest.fn(),
     onWebEmbedRequest: jest.fn(),
+    onMainNativeUtilsRequest: jest.fn(),
   };
 }
 
@@ -96,6 +98,23 @@ describe('routeBackgroundMessage', () => {
       callId,
       '{"type":"bridge-call"}',
     );
+  });
+
+  it('routes a main-native-utils request to onMainNativeUtilsRequest with the inline value', () => {
+    const handlers = makeHandlers();
+    const callId = `${MAIN_NATIVE_UTILS_REQUEST_KEY_PREFIX}7`;
+
+    routeBackgroundMessage(
+      handlers,
+      callId,
+      '{"module":"secureStorage","method":"getSecureItem","params":["k"]}',
+    );
+
+    expect(handlers.onMainNativeUtilsRequest).toHaveBeenCalledWith(
+      callId,
+      '{"module":"secureStorage","method":"getSecureItem","params":["k"]}',
+    );
+    expect(handlers.onWebEmbedRequest).not.toHaveBeenCalled();
   });
 
   it('routes the bg-ready wake ping to onReadySignal (payload is ignored)', () => {
