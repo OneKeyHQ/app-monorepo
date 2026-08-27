@@ -203,7 +203,9 @@ function HeaderView({
 
   const innerGtMd = useMemo(
     () =>
-      !isModelScreen && !platformEnv.isNativeAndroid ? GT_MD_FLEX_1 : undefined,
+      !platformEnv.isNativeAndroid && (platformEnv.isNative || !isModelScreen)
+        ? GT_MD_FLEX_1
+        : undefined,
     [isModelScreen],
   );
 
