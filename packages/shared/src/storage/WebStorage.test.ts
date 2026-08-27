@@ -1,9 +1,15 @@
 import { OneKeyLocalError, SystemDiskFullError } from '../errors';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { IndexedDBPromised } from '../IndexedDBPromised';
 import storageChecker from '../storageChecker/storageChecker';
 import resetUtils from '../utils/resetUtils';
 
-import WebStorage from './WebStorage';
+import WebStorage, { EWebStorageKeyPrefix } from './WebStorage';
+
+jest.mock('../IndexedDBPromised', () => ({
+  __esModule: true,
+  IndexedDBPromised: jest.fn(),
+}));
 
 describe('WebStorage.checkDiskFull', () => {
   const callCheckDiskFull = (payload?: {
@@ -73,6 +79,36 @@ describe('WebStorage.checkDiskFull', () => {
     // actually retries rather than replaying the failure.
     await expect(getIndexed()).resolves.toBe('indexed-instance');
     expect(initIndexed).toHaveBeenCalledTimes(2);
+  });
+
+  it('closes the opened connection when init fails after a successful open', async () => {
+    // Retryable init re-runs on every storage access. If the migration step
+    // fails after `open()` succeeded, the opened native connection must be
+    // closed before the failure propagates — otherwise each retry leaks one
+    // more unreferenced connection, which also blocks later `versionchange`
+    // upgrades.
+    const open = jest.fn().mockResolvedValue(undefined);
+    const close = jest.fn();
+    const getAllKeys = jest
+      .fn()
+      .mockRejectedValue(new OneKeyLocalError('migration failed'));
+    (IndexedDBPromised as unknown as jest.Mock).mockImplementation(() => ({
+      name: 'test-db',
+      open,
+      close,
+      getAllKeys,
+    }));
+
+    const storage = new WebStorage({
+      dbName: 'test-db',
+      bucketName: 'test-bucket',
+      tableName: 'test-table',
+      legacyKeyPrefix: EWebStorageKeyPrefix.SimpleDB,
+    });
+
+    await expect(storage.indexed).rejects.toThrow('migration failed');
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('delegates to storageChecker so a blocked write schedules a re-measurement', () => {

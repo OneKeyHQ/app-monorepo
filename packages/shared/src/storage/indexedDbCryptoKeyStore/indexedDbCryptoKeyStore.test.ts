@@ -121,4 +121,24 @@ describe('indexedDbCryptoKeyStore quota reporting', () => {
     expect(reportSpy).toHaveBeenCalled();
     expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
   });
+
+  it('records the failing factory so recovery probes the same owner', async () => {
+    // Without the factory, `lastFailedIndexedDBFactory` keeps whatever bucket
+    // failed earlier (it is never cleared), so the recovery probe would test a
+    // stale owner and could clear the guard while this store stays broken.
+    const reportSpy = jest.spyOn(storageChecker, 'handleDiskFullError');
+    const failingFactory = createQuotaFailingIndexedDB();
+
+    await expect(
+      writeCryptoKeyRecord({
+        indexedDBInstance: failingFactory,
+        key: {} as CryptoKey,
+        keyRef: 'test-key-ref',
+      }),
+    ).rejects.toBeDefined();
+
+    expect(reportSpy).toHaveBeenCalledWith(expect.anything(), {
+      indexedDBFactory: failingFactory,
+    });
+  });
 });

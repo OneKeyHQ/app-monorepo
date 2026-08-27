@@ -346,6 +346,75 @@ describe('storageChecker', () => {
       expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
     });
 
+    it('does not let a probe that predates a new write failure clear the guard', async () => {
+      // A write failure landing while a measurement is awaiting its probe is
+      // fresh evidence that measurement knows nothing about. The 1 KB probe
+      // may well commit while the failed write's size class cannot, so its
+      // success must not clear the guard — that would re-open the raise/clear
+      // oscillation and silently lose the writes allowed through the gap.
+      let heldProbeTx: Record<string, unknown> | undefined;
+      let releaseProbeStarted: (() => void) | undefined;
+      const probeStarted = new Promise<void>((resolve) => {
+        releaseProbeStarted = resolve;
+      });
+      let transactionCalls = 0;
+      const probeDb = {
+        objectStoreNames: { contains: () => true },
+        close: () => undefined,
+        transaction: () => {
+          transactionCalls += 1;
+          if (transactionCalls === 1) {
+            heldProbeTx = {
+              objectStore: () => ({ put: () => undefined }),
+            };
+            releaseProbeStarted?.();
+            return heldProbeTx;
+          }
+          // Sentinel cleanup transaction; commits on its own.
+          return { objectStore: () => ({ clear: () => undefined }) };
+        },
+      };
+      Object.defineProperty(globalThis, 'indexedDB', {
+        value: {
+          open: () => {
+            const request: Record<string, unknown> = { result: probeDb };
+            setTimeout(
+              () => (request.onsuccess as (() => void) | undefined)?.(),
+              0,
+            );
+            return request;
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+      mockEstimate(40 * GB, 10 * GB);
+
+      const measurement = storageChecker.checkIfDiskIsFull();
+      // Let the probe open its database and start its transaction.
+      await probeStarted;
+
+      // New failure while the probe is still in flight.
+      storageChecker.handleDiskFullError(
+        new DOMException('The quota has been exceeded.', 'QuotaExceededError'),
+      );
+
+      // The held probe now commits successfully.
+      (heldProbeTx?.oncomplete as (() => void) | undefined)?.();
+      await measurement;
+
+      expect(globalThis.$onekeySystemDiskIsFull).toBe(true);
+      expect(storageChecker.getLastDiagnostics()?.reason).toBe(
+        EStorageFullReason.WriteFailed,
+      );
+
+      Reflect.deleteProperty(globalThis, 'indexedDB');
+    });
+
     it('ignores a stale measurement that finishes after a newer one', async () => {
       // Overlapping measurements can complete out of order. An older healthy
       // result must not clear a guard a newer low-quota result just raised.

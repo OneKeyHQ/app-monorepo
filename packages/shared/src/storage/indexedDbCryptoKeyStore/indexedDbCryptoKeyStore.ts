@@ -275,6 +275,8 @@ export async function writeCryptoKeyRecord({
     );
     const store = transaction.objectStore(INDEXED_DB_CRYPTO_KEY_STORE_NAME);
     const now = Date.now();
+    // Pass the factory in use so recovery probes the owner that failed here,
+    // not a previously failed bucket left in the state machine.
     await reportStorageWriteFailure(async () => {
       await requestToPromise(
         store.put({
@@ -285,7 +287,7 @@ export async function writeCryptoKeyRecord({
         } satisfies IIndexedDbCryptoKeyRecord),
       );
       await transactionDone(transaction);
-    });
+    }, getIndexedDBInstance(indexedDBInstance));
   } finally {
     db.close();
   }
@@ -383,6 +385,7 @@ export async function getOrCreateCryptoKey({
       return existingRecord.key;
     }
     const now = Date.now();
+    // Same owner-recording contract as writeCryptoKeyRecord above.
     await reportStorageWriteFailure(async () => {
       await requestToPromise(
         store.put({
@@ -393,7 +396,7 @@ export async function getOrCreateCryptoKey({
         } satisfies IIndexedDbCryptoKeyRecord),
       );
       await transactionDone(transaction);
-    });
+    }, getIndexedDBInstance(indexedDBInstance));
     return candidateKey;
   } finally {
     db.close();

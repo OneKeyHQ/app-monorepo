@@ -144,11 +144,19 @@ class WebStorage implements AsyncStorageStatic {
         },
       });
       await indexed.open();
-      await migrateFromLegacyStorage({
-        indexed,
-        legacyKeyPrefix,
-        tableName,
-      });
+      try {
+        await migrateFromLegacyStorage({
+          indexed,
+          legacyKeyPrefix,
+          tableName,
+        });
+      } catch (error) {
+        // `getIndexed` drops the cached promise on failure so init can retry;
+        // without this close every failed attempt would leak the connection
+        // opened above and block later `versionchange` upgrades.
+        indexed.close();
+        throw error;
+      }
       return indexed;
     };
   }

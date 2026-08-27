@@ -305,6 +305,12 @@ function handleDiskFullError(
   if (options?.indexedDBFactory) {
     lastFailedIndexedDBFactory = options.indexedDBFactory;
   }
+  // New failure evidence invalidates any in-flight measurement. A measurement
+  // that started before this failure proves nothing about it — its 1 KB probe
+  // may well commit while the write that just failed cannot — so letting it
+  // finish would clear the guard this failure raises and re-open the
+  // raise/clear oscillation the probe exists to prevent.
+  measurementGeneration += 1;
   raiseDiskFull({
     reason: EStorageFullReason.WriteFailed,
     errorMessage: errorText,
