@@ -398,6 +398,9 @@
     "yaml": "^2.8.0"
   },
   "resolutions": {
+    "@expo/metro@~56.0.0": "56.0.0",
+    "agent-cli-detector@^0.1.2": "0.1.6",
+    "reselect@^5.2.0": "5.2.0",
     "@cspell/dict-data-science": "2.0.13",
     "lodash": "4.18.1",
     "@alephium/get-extension-wallet": "3.0.4",
