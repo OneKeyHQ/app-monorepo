@@ -886,3 +886,74 @@ index 3873632..6c0683f 100644
  
              infoPlistFiles.each do |infoPlistFile|
                  # If infoPlistFile contains Pods or tests, skip it
+diff --git a/node_modules/react-native/Libraries/Utilities/HMRClient.js b/node_modules/react-native/Libraries/Utilities/HMRClient.js
+index 5911eaa..6804d8d 100644
+--- a/node_modules/react-native/Libraries/Utilities/HMRClient.js
++++ b/node_modules/react-native/Libraries/Utilities/HMRClient.js
+@@ -53,2 +53,3 @@ export type HMRClientNativeInterface = {
+     scheme?: string,
++    fullBundleUrlOverride?: ?string,
+   ): void,
+@@ -158,2 +159,3 @@ const HMRClient: HMRClientNativeInterface = {
+     scheme?: string = 'http',
++    fullBundleUrlOverride?: ?string,
+   ) {
+@@ -184,3 +186,4 @@ const HMRClient: HMRClientNativeInterface = {
+       // `setup()`'s arguments.
+-      fullBundleUrl ??
++      fullBundleUrlOverride ??
++        fullBundleUrl ??
+         `${serverScheme}://${serverHost}/hot?bundleEntry=${bundleEntry}&platform=${platform}`,
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
+index 286dcb6..04f3459 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
+@@ -30,2 +30,3 @@ public interface HMRClient : JavaScriptModule {
+    *   http).
++   * @param fullBundleUrlOverride The exact bundle request whose graph should receive HMR updates.
+    */
+@@ -38,2 +39,3 @@ public interface HMRClient : JavaScriptModule {
+       scheme: String?,
++      fullBundleUrlOverride: String?,
+   )
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
+index 0608c07..e17eff2 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
+@@ -702,4 +702,12 @@ public abstract class DevSupportManagerBase(
+       try {
+-        val sourceUrl = URL(sourceUrl)
+-        var path = sourceUrl.path
++        val liveSourceUrl = reactContext.sourceURL?.let(::URL)
++        val isNativeDevVendorSource =
++            (liveSourceUrl?.protocol == "http" || liveSourceUrl?.protocol == "https") &&
++                liveSourceUrl
++                    ?.query
++                    ?.split('&')
++                    ?.contains("resolver.devVendorNative=true") == true
++        val hmrSourceUrl =
++            if (isNativeDevVendorSource) checkNotNull(liveSourceUrl) else URL(sourceUrl)
++        var path = hmrSourceUrl.path
+         if (path != null) {
+@@ -707,8 +715,17 @@ public abstract class DevSupportManagerBase(
+         }
+-        val host = sourceUrl.host
+-        val scheme = sourceUrl.protocol
+-        val port = if (sourceUrl.port != -1) sourceUrl.port else sourceUrl.defaultPort
++        val host = hmrSourceUrl.host
++        val scheme = hmrSourceUrl.protocol
++        val port =
++            if (hmrSourceUrl.port != -1) hmrSourceUrl.port else hmrSourceUrl.defaultPort
+         reactContext
+             .getJSModule(HMRClient::class.java)
+-            .setup("android", path, host, port, devSettings.isHotModuleReplacementEnabled, scheme)
++            .setup(
++                "android",
++                path,
++                host,
++                port,
++                devSettings.isHotModuleReplacementEnabled,
++                scheme,
++                if (isNativeDevVendorSource) hmrSourceUrl.toString() else null,
++            )
+       } catch (e: MalformedURLException) {

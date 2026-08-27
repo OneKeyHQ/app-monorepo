@@ -43,20 +43,34 @@ index 2cdbbb9..f1f78d7 100644
        `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
      );
 diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
-index f8eb36c..e1066b1 100644
+index f8eb36c..1dd18c7 100644
 --- a/node_modules/metro/src/Server.js
 +++ b/node_modules/metro/src/Server.js
-@@ -939,6 +939,13 @@ class Server {
-       );
-       bundlePerfLogger.point("serializingBundle_end");
+@@ -5,3 +5,3 @@ Object.defineProperty(exports, "__esModule", {
+ });
+-exports.default = void 0;
++exports.shouldRetainModulesOnlyGraphForHmr = exports.default = void 0;
+ var _Assets = require("./Assets");
+@@ -61,2 +61,11 @@ var _perf_hooks = require("perf_hooks");
+ var _querystring = _interopRequireDefault(require("querystring"));
++function shouldRetainModulesOnlyGraphForHmr(resolverOptions) {
++  const customResolverOptions = resolverOptions.customResolverOptions;
++  return (
++    customResolverOptions?.devVendorNative === "true" &&
++    customResolverOptions.runtimeTarget === "main"
++  );
++}
++exports.shouldRetainModulesOnlyGraphForHmr =
++  shouldRetainModulesOnlyGraphForHmr;
+ function _interopRequireWildcard(e, t) {
+@@ -941,2 +950,10 @@ class Server {
        const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
-+      // Release the dependency graph for modulesOnly bundles (e.g. harness
-+      // test files) immediately after serialization.  These one-shot bundles
-+      // are never requested again, so keeping their graph in memory only
-+      // causes linear memory growth until OOM.
-+      if (serializerOptions.modulesOnly) {
++      // Keep the native dev-vendor main graph for HMR. Other modulesOnly
++      // bundles are one-shot and should release their graph to avoid OOM.
++      if (
++        serializerOptions.modulesOnly &&
++        !shouldRetainModulesOnlyGraphForHmr(resolverOptions)
++      ) {
 +        await this._bundler.endGraph(graphId);
 +      }
        return {
-         numModifiedFiles: delta.reset
-           ? delta.added.size + revision.prepend.length

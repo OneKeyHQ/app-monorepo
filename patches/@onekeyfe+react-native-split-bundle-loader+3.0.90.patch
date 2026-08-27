@@ -13,7 +13,7 @@ index e3178b9..1987bea 100644
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..46e2436 100644
+index 7ec0db3..d409fce 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -62,9 +62,8 @@ index 7ec0db3..46e2436 100644
 +  }
 +  RCTDevSettings *devSettings =
 +      (RCTDevSettings *)[reactHost.moduleRegistry moduleForName:"DevSettings"];
-+  if (!devSettings || !devSettings.callableJSModules || path.length == 0 ||
-+      hostName.length == 0 || scheme.length == 0 || port.integerValue <= 0 ||
-+      port.integerValue > 65535) {
++  if (!devSettings || path.length == 0 || hostName.length == 0 ||
++      scheme.length == 0 || port.integerValue <= 0 || port.integerValue > 65535) {
 +    NSError *configurationError = [NSError errorWithDomain:@"SplitBundleLoader"
 +                                                       code:3
 +                                                   userInfo:@{
@@ -96,8 +95,8 @@ index 7ec0db3..46e2436 100644
 +  // Queue this before RCTHost starts/restarts surfaces. The executor remains
 +  // buffered until common.hbc completes, then waits only for Metro I/O. This
 +  // preserves common -> delta -> runApplication ordering without blocking the
-+  // main thread. Keep bundleManager on the local common HBC because RCTInstance
-+  // still reads its initial bundle after hostDidStart returns.
++  // main thread. Keep bundleManager on the local common HBC until this buffered
++  // executor proves RCTInstance completed the initial read.
 +  [instance callFunctionOnBufferedRuntimeExecutor:^(facebook::jsi::Runtime &runtime) {
 +    dispatch_time_t deadline = dispatch_time(
 +        DISPATCH_TIME_NOW, kDevVendorLoadTimeoutSeconds * NSEC_PER_SEC);
@@ -135,6 +134,9 @@ index 7ec0db3..46e2436 100644
 +      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(loadError); });
 +      return;
 +    }
++    // NativeSourceCode must expose the real live graph URL before HMRClient.setup.
++    // Reload resets this through RCTHost's bundleURLProvider back to common HBC.
++    strongHost.bundleManager.bundleURL = bundleURL;
 +    NSData *data = source.data;
 +    NSString *sourceURL = bundleURL.absoluteString;
 +    try {
@@ -164,19 +166,17 @@ index 7ec0db3..46e2436 100644
 +  // Queue exactly one setup call after the common+delta executor but before
 +  // RCTHost queues surface startup. Full reload creates a new runtime and runs
 +  // this path again; Fast Refresh reuses the existing HMR client.
-+  [devSettings.callableJSModules
-+      invokeModule:@"HMRClient"
-+            method:@"setup"
-+          withArgs:@[
-+            @"ios",
-+            path,
-+            hostName,
-+            port,
-+            @(devSettings.isHotLoadingEnabled),
-+            scheme
-+          ]
-+        onComplete:^{
-+          [SBLLogger info:@"[DevVendor] main HMR client initialized"];
-+        }];
++  [reactHost callFunctionOnJSModule:@"HMRClient"
++                             method:@"setup"
++                               args:@[
++                                 @"ios",
++                                 path,
++                                 hostName,
++                                 port,
++                                 @(devSettings.isHotLoadingEnabled),
++                                 scheme,
++                                 bundleURL.absoluteString
++                               ]];
++  [SBLLogger info:@"[DevVendor] main HMR client setup queued"];
 +}
  // MARK: - loadSegment

@@ -2,6 +2,25 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+jest.mock('@rozenite/metro', () => ({
+  withRozenite: (config) => config,
+}));
+jest.mock('@storybook/react-native/metro/withStorybook', () => ({
+  withStorybook: (config) => config,
+}));
+
+const repoRoot = path.resolve(__dirname, '../../../..');
+const metroRoot = path.join(repoRoot, 'node_modules/metro/src');
+const parseBundleOptions = require(
+  path.join(metroRoot, 'lib/parseBundleOptionsFromBundleRequestUrl'),
+).default;
+const splitBundleOptions = require(
+  path.join(metroRoot, 'lib/splitBundleOptions'),
+).default;
+const { shouldRetainModulesOnlyGraphForHmr } = require(
+  path.join(metroRoot, 'Server'),
+);
+
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   assertNativeDevVendorResolverContract,
@@ -259,6 +278,94 @@ describe('devVendor', () => {
         platform: 'ios',
       }),
     ).not.toThrow();
+  });
+
+  it('registers the native main HMR client against the live Metro graph', async () => {
+    const fingerprint = 'a'.repeat(64);
+    const query = new URLSearchParams({
+      app: 'so.onekey.app.wallet',
+      dev: 'true',
+      excludeSource: 'true',
+      lazy: 'false',
+      minify: 'false',
+      modulesOnly: 'true',
+      platform: 'ios',
+      'resolver.devVendor': 'true',
+      'resolver.devVendorFingerprint': fingerprint,
+      'resolver.devVendorNative': 'true',
+      'resolver.runtimeTarget': 'main',
+      runModule: 'true',
+      sourcePaths: 'url-server',
+      unstable_transformProfile: 'hermes-stable',
+    }).toString();
+    const liveUrl = `http://localhost:8081/.expo/.virtual-metro-entry.bundle?${query}`;
+    const fallbackHmrUrl =
+      `http://localhost:8081/hot?bundleEntry=.expo/.virtual-metro-entry.bundle` +
+      `&${query}&platform=ios`;
+    const metroConfigExport = require('../../metro.config');
+    const metroConfig =
+      typeof metroConfigExport === 'function'
+        ? await metroConfigExport()
+        : metroConfigExport;
+    const rewrittenLiveUrl = metroConfig.server.rewriteRequestUrl(liveUrl);
+    const rewrittenFallbackUrl =
+      metroConfig.server.rewriteRequestUrl(fallbackHmrUrl);
+    const liveOptions = splitBundleOptions(
+      parseBundleOptions(rewrittenLiveUrl, new Set(['android', 'ios'])),
+    );
+
+    expect(fs.existsSync(path.join(repoRoot, 'apps/mobile/index.ts'))).toBe(
+      true,
+    );
+    expect(rewrittenLiveUrl).toContain('/apps/mobile/index.bundle?');
+    expect(rewrittenLiveUrl).toContain('transform.routerRoot=app');
+    expect(rewrittenLiveUrl).toContain('transform.engine=hermes');
+    expect(rewrittenFallbackUrl).toContain(
+      'bundleEntry=.expo/.virtual-metro-entry.bundle',
+    );
+    expect(rewrittenFallbackUrl).not.toContain('transform.routerRoot=app');
+    expect(liveOptions.entryFile).toBe('./apps/mobile/index');
+    expect(liveOptions.transformOptions.customTransformOptions).toEqual({
+      bytecode: '1',
+      engine: 'hermes',
+      routerRoot: 'app',
+    });
+    expect(
+      shouldRetainModulesOnlyGraphForHmr(liveOptions.resolverOptions),
+    ).toBe(true);
+    expect(
+      shouldRetainModulesOnlyGraphForHmr({
+        customResolverOptions: {
+          devVendorNative: 'true',
+          runtimeTarget: 'background',
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      fs.readFileSync(
+        path.join(
+          repoRoot,
+          'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90.patch',
+        ),
+        'utf8',
+      ),
+    ).toContain('bundleURL.absoluteString');
+    const reactNativePatch = fs.readFileSync(
+      path.join(repoRoot, 'patches/react-native+0.86.2.patch'),
+      'utf8',
+    );
+    expect(reactNativePatch).toContain('fullBundleUrlOverride ??');
+    expect(reactNativePatch).toContain('resolver.devVendorNative=true');
+    expect(reactNativePatch).not.toContain(
+      'contains("resolver.devVendor=true")',
+    );
+    expect(
+      fs.readFileSync(
+        path.join(repoRoot, 'patches/metro+0.84.4.patch'),
+        'utf8',
+      ),
+    ).toContain('!shouldRetainModulesOnlyGraphForHmr(resolverOptions)');
   });
 
   it('rejects native requests when the Metro experiment is disabled', () => {
