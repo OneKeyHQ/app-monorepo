@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/createMMKVSyncStorage';
 import {
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+  NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   getNativeStorageMigrationLedger,
   setNativeStorageMigrationLedger,
@@ -160,6 +161,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       if (
         ledger !== null &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
+        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
       ) {
         throw new OneKeyLocalError(
@@ -194,6 +196,20 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
 
       const entries = await this.getLegacyAsyncStorage().multiGet(expectedKeys);
       const valuesByKey = new Map(entries);
+      expectedKeys.forEach((key) => {
+        if (!valuesByKey.has(key)) {
+          throw new OneKeyLocalError(
+            `Jotai migration returned an incomplete batch for key=${key}`,
+          );
+        }
+      });
+
+      if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING) {
+        await setNativeStorageMigrationLedger(
+          JOTAI_MIGRATION_LEDGER_KEY,
+          NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
+        );
+      }
 
       // A killed process may leave only part of a previous copy behind.
       expectedKeys.forEach((key) => {
@@ -202,11 +218,6 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
 
       let migratedCount = 0;
       for (const key of expectedKeys) {
-        if (!valuesByKey.has(key)) {
-          throw new OneKeyLocalError(
-            `Jotai migration returned an incomplete batch for key=${key}`,
-          );
-        }
         const value = valuesByKey.get(key);
         if (typeof value === 'string') {
           void this.store.set(key as any, value);

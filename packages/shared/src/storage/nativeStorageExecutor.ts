@@ -12,6 +12,7 @@ import {
 import { getLegacyAsyncStorageForMigration } from './legacyAsyncStorageMigration';
 import {
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+  NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   acknowledgeNativeStorageRecoveryAction,
   getNativeStorageMigrationCapacity,
@@ -348,6 +349,7 @@ async function migrateAppStorageFromLegacy() {
   if (
     ledger !== null &&
     ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
+    ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING &&
     ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
   ) {
     throw new OneKeyLocalError(
@@ -382,6 +384,13 @@ async function migrateAppStorageFromLegacy() {
   await assertAppStorageMigrationCapacity(mmkv);
   const legacyKeys = getMigratableLegacyKeys(await legacy.getAllKeys());
   logMigration(`start keyCount=${legacyKeys.length}`);
+
+  if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING) {
+    await setNativeStorageMigrationLedger(
+      APP_STORAGE_MIGRATION_LEDGER_KEY,
+      NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
+    );
+  }
 
   // A previous process may have died after copying only part of the dataset.
   // Start from an empty user namespace and publish the marker only after every

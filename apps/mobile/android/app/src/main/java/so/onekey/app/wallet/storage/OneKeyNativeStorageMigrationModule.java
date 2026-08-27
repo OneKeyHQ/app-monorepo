@@ -45,6 +45,7 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
     );
     private static final List<String> VALID_LEDGER_VALUES = Arrays.asList(
         "complete-v1",
+        "migrating-v1",
         "resetting-v1"
     );
     private static final List<String> VALID_RECOVERY_ACTIONS = Arrays.asList(

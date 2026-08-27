@@ -34,6 +34,7 @@ jest.mock('@onekeyhq/shared/src/storage/legacyAsyncStorageMigration', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/storage/nativeStorageMigrationModule', () => ({
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE: 'complete-v1',
+  NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING: 'migrating-v1',
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING: 'resetting-v1',
   getNativeStorageMigrationLedger: jest.fn(
     async (key: string) => migrationLedger.get(key) ?? null,
@@ -157,6 +158,59 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     await storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY);
     expect(await storage.getItem('g_states_v5:aAtom', null)).toBe('fresh');
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
+  });
+
+  it('validates the legacy snapshot before publishing the migration gate', async () => {
+    legacyData.set('g_states_v5:aAtom', '"fresh"');
+    mmkvInstance.set('g_states_v5:aAtom', '"partial"');
+    legacyStorage.multiGet.mockResolvedValueOnce([]);
+    const storage = createStorage();
+
+    await expect(
+      storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY),
+    ).rejects.toThrow('incomplete batch for key=g_states_v5:aAtom');
+    expect(mockSetMigrationLedger).not.toHaveBeenCalled();
+    expect(migrationLedger.get('jotai-storage-v1')).toBeUndefined();
+    expect(mmkvInstance.getString('g_states_v5:aAtom')).toBe('"partial"');
+  });
+
+  it('publishes the OTA gate before MMKV mutation and recovers after marker write', async () => {
+    legacyData.set('g_states_v5:aAtom', '"fresh"');
+    mmkvInstance.set('g_states_v5:aAtom', '"partial"');
+    const removeSpy = jest.spyOn(mmkvInstance, 'remove');
+    mockSetMigrationLedgerComplete.mockRejectedValueOnce(
+      new OneKeyLocalError('process killed before ledger completion'),
+    );
+    const storage = createStorage();
+
+    await expect(
+      storage.migrateFromAsyncStorage(['g_states_v5:aAtom'], PROBE_KEY),
+    ).rejects.toThrow('process killed before ledger completion');
+    const migrationGateOrder =
+      mockSetMigrationLedger.mock.invocationCallOrder[0];
+    const firstMMKVMutationOrder = removeSpy.mock.invocationCallOrder[0];
+    removeSpy.mockRestore();
+
+    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
+      'jotai-storage-v1',
+      'migrating-v1',
+    );
+    expect(migrationGateOrder).toBeLessThan(firstMMKVMutationOrder);
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('migrating-v1');
+    expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
+    expect(mmkvInstance.getString('g_states_v5:aAtom')).toBe('"fresh"');
+
+    legacyStorage.multiGet.mockClear();
+    const recoveredStorage = createStorage();
+    await recoveredStorage.migrateFromAsyncStorage(
+      ['g_states_v5:aAtom'],
+      PROBE_KEY,
+    );
+    expect(legacyStorage.multiGet).not.toHaveBeenCalled();
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+    expect(await recoveredStorage.getItem('g_states_v5:aAtom', null)).toBe(
+      'fresh',
+    );
   });
 
   it('does not reopen legacy storage after the marker exists', async () => {

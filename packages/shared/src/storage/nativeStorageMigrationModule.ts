@@ -4,6 +4,7 @@ import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 
 export const NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE = 'complete-v1';
+export const NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING = 'migrating-v1';
 export const NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING = 'resetting-v1';
 
 export type INativeStorageMigrationLedgerKey =
@@ -14,6 +15,7 @@ export type INativeStorageRecoveryAction = 'auto_repair' | 'try_again';
 
 export type INativeStorageMigrationLedgerValue =
   | typeof NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE
+  | typeof NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING
   | typeof NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING;
 
 export type INativeStorageMMKVId =

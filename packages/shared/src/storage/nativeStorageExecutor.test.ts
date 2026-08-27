@@ -93,6 +93,7 @@ jest.mock('./legacyAsyncStorageMigration', () => ({
 }));
 jest.mock('./nativeStorageMigrationModule', () => ({
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE: 'complete-v1',
+  NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING: 'migrating-v1',
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING: 'resetting-v1',
   acknowledgeNativeStorageRecoveryAction: mockAcknowledgeRecoveryAction,
   getNativeStorageMigrationCapacity: mockGetMigrationStorageCapacity,
@@ -233,6 +234,7 @@ describe('nativeStorageExecutor', () => {
       }),
     ).rejects.toThrow('disk error');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('migrating-v1');
 
     await expect(
       executeNativeStorageRequest({
@@ -242,6 +244,52 @@ describe('nativeStorageExecutor', () => {
       }),
     ).resolves.toBe('fresh');
     expect(mockAppMMKV.getString('app:key')).toBe('fresh');
+  });
+
+  it('publishes the OTA gate before MMKV mutation and recovers after marker write', async () => {
+    mockLegacyData.set('key', 'fresh');
+    mockAppMMKV.set('app:key', 'partial');
+    const removeSpy = jest.spyOn(mockAppMMKV, 'remove');
+    mockSetMigrationLedgerComplete.mockRejectedValueOnce(
+      new Error('process killed before ledger completion'),
+    );
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'key',
+      }),
+    ).rejects.toThrow('process killed before ledger completion');
+    const migrationGateOrder =
+      mockSetMigrationLedger.mock.invocationCallOrder[0];
+    const firstMMKVMutationOrder = removeSpy.mock.invocationCallOrder[0];
+    removeSpy.mockRestore();
+
+    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
+      'app-storage-v1',
+      'migrating-v1',
+    );
+    expect(migrationGateOrder).toBeLessThan(firstMMKVMutationOrder);
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('migrating-v1');
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockAppMMKV.getString('app:key')).toBe('fresh');
+
+    mockLegacyStorage.getAllKeys.mockClear();
+    mockLegacyStorage.multiGet.mockClear();
+    jest.resetModules();
+    const recoveredExecutor = loadExecutor();
+    await expect(
+      recoveredExecutor.executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'key',
+      }),
+    ).resolves.toBe('fresh');
+    expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
+    expect(mockLegacyStorage.multiGet).not.toHaveBeenCalled();
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
   });
 
   it('checks free disk before clearing or copying legacy data', async () => {
