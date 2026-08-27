@@ -63,4 +63,35 @@ describe('getTradingViewBaseUrl', () => {
       }),
     ).toBe(TRADING_VIEW_URL);
   });
+
+  it('selects the runtime origin from a release-pinned embed manifest', () => {
+    expect(
+      getTradingViewBaseUrl({
+        devSettings: {
+          enabled: false,
+          settings: {},
+        },
+        localTradingViewUrl,
+        pinnedEmbedManifestUrl:
+          'https://tradingview.onekeytest.com/test-release/embed/embed-manifest.json',
+      }),
+    ).toBe(TRADING_VIEW_URL_TEST);
+  });
+
+  it.each([
+    'https://tradingview.onekeytest.com/embed/latest.json',
+    'https://evil.example/test-release/embed/embed-manifest.json',
+    'https://tradingview.onekeytest.com/test-release/embed/embed-manifest.json?next=1',
+  ])('ignores an unpinned or untrusted embed manifest URL: %s', (url) => {
+    expect(
+      getTradingViewBaseUrl({
+        devSettings: {
+          enabled: false,
+          settings: {},
+        },
+        localTradingViewUrl,
+        pinnedEmbedManifestUrl: url,
+      }),
+    ).toBe(TRADING_VIEW_URL);
+  });
 });

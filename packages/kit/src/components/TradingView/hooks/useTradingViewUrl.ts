@@ -30,7 +30,12 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions) {
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
   const baseUrl = useMemo(
-    () => getTradingViewBaseUrl({ devSettings, localTradingViewUrl }),
+    () =>
+      getTradingViewBaseUrl({
+        devSettings,
+        localTradingViewUrl,
+        pinnedEmbedManifestUrl: process.env.TRADINGVIEW_EMBED_MANIFEST_URL,
+      }),
     [devSettings, localTradingViewUrl],
   );
 

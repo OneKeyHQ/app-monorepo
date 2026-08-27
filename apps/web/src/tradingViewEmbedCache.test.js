@@ -35,7 +35,7 @@ describe('putTradingViewResponseInCache', () => {
 
 describe('cacheTradingViewCompletionMarker', () => {
   const manifestRequest = new Request(
-    'https://tradingview.onekey.so/embed/latest.json',
+    'https://tradingview.onekey.so/v1/embed/embed-manifest.json',
   );
 
   test('does not mark an incomplete release as offline-ready', async () => {

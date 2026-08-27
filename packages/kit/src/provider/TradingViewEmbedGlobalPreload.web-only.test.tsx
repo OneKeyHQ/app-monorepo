@@ -51,7 +51,7 @@ describe('TradingViewEmbedGlobalPreload', () => {
     jest.clearAllMocks();
   });
 
-  test('starts migration and first-detail preloads immediately', async () => {
+  test('finishes migration before preloading the DOM runtime', async () => {
     let resolveEmbedModule:
       | ((
           value: Awaited<ReturnType<typeof loadTradingViewEmbedModule>>,
@@ -85,11 +85,7 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     render(<TradingViewEmbedGlobalPreload />);
 
-    await waitFor(() => {
-      expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
-        'http://localhost:5173/?locale=zh-CN',
-      );
-    });
+    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
     expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
     expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',
@@ -97,6 +93,16 @@ describe('TradingViewEmbedGlobalPreload', () => {
     expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',
     );
+
+    await act(async () => {
+      resolveLegacyMigration?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
+        'http://localhost:5173/?locale=zh-CN',
+      );
+    });
 
     await act(async () => {
       resolveEmbedModule?.({
@@ -108,7 +114,6 @@ describe('TradingViewEmbedGlobalPreload', () => {
       });
       resolveMarketTradingView?.();
       resolveBootstrapAssets?.();
-      resolveLegacyMigration?.();
       await Promise.resolve();
     });
   });

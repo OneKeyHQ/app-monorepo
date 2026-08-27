@@ -39,13 +39,16 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
         `[TradingViewEmbedPreload] Invalid runtime URL: ${String(error)}`,
       );
     }
-    const immediatePreloads = [
-      runImmediatePreload('LegacyTradingViewStorageMigration', () =>
-        migrateLegacyTradingViewStorage(finalUrl),
-      ),
+    const runtimePreload = runImmediatePreload(
+      'LegacyTradingViewStorageMigration',
+      () => migrateLegacyTradingViewStorage(finalUrl),
+    ).then(() =>
       runImmediatePreload('TradingViewEmbedModule', () =>
         loadTradingViewEmbedModule(finalUrl),
       ),
+    );
+    const immediatePreloads = [
+      runtimePreload,
       runImmediatePreload('MarketTradingView', preloadMarketTradingView),
       ...(isLocalRuntime
         ? [

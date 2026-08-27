@@ -63,6 +63,8 @@ on:
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
+  TRADINGVIEW_EMBED_TEST_MANIFEST_URL: 'https://tradingview.onekeytest.com/d4420a44a008b14c29ffb38918a63bcafa1213a6/embed/embed-manifest.json'
+  TRADINGVIEW_EMBED_PRODUCTION_MANIFEST_URL: 'https://tradingview.onekey.so/226518fa1963068267f1d96e661b85989a7f0f87/embed/embed-manifest.json'
 
 jobs:
   test-web:
@@ -198,7 +200,7 @@ jobs:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
           MARKET_HOME_TOKEN_SEED_ENV: 'test'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
-          TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekeytest.com/embed/latest.json'
+          TRADINGVIEW_EMBED_MANIFEST_URL: ${{ env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
@@ -413,7 +415,7 @@ jobs:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
           MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
-          TRADINGVIEW_EMBED_MANIFEST_URL: 'https://tradingview.onekey.so/embed/latest.json'
+          TRADINGVIEW_EMBED_MANIFEST_URL: ${{ env.TRADINGVIEW_EMBED_PRODUCTION_MANIFEST_URL }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build

@@ -153,7 +153,7 @@ describe('TradingViewRuntimeView web fallback', () => {
     expect(createTradingViewEmbedReadyMonitor).toHaveBeenCalledTimes(1);
   });
 
-  it('does not wait for legacy storage migration before loading the DOM embed', async () => {
+  it('waits for legacy storage migration before loading the DOM embed', async () => {
     let resolveMigration: (() => void) | undefined;
     const mountTradingView = jest.fn(() =>
       Promise.resolve({ postMessage: jest.fn(), unmount: jest.fn() }),
@@ -178,12 +178,14 @@ describe('TradingViewRuntimeView web fallback', () => {
         'https://tradingview.onekeytest.com',
       );
     });
-    await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
+    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
+    expect(mountTradingView).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveMigration?.();
       await Promise.resolve();
     });
+    await waitFor(() => expect(mountTradingView).toHaveBeenCalledTimes(1));
   });
 
   it('does not fall back when legacy storage migration fails', async () => {
