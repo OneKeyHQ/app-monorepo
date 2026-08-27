@@ -44,6 +44,10 @@ export type IHardwareUiEventReduction = {
   action?: EHardwareUiStateAction;
   connectId?: string;
   shouldClearUiState?: boolean;
+  /** The ask this event ends was answered on the device — the reduction
+   * renders as plain progress, so without this flag nothing downstream can
+   * tell it apart from the ticks that merely refresh a wait. */
+  askCompleted?: boolean;
 };
 
 const REQUEST_PHASES: Partial<
@@ -209,6 +213,7 @@ export const reduceHardwareUiEventState = (
       applied: true,
       action: EHardwareUiStateAction.ProcessLoading,
       connectId,
+      askCompleted: true,
     };
   }
 
