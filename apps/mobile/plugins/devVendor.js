@@ -355,6 +355,14 @@ function assertNativeDevVendorResolverContract({
   }
 }
 
+function assertNativeDevVendorServerEnabled(customResolverOptions, enabled) {
+  if (customResolverOptions?.devVendorNative === 'true' && !enabled) {
+    throw new Error(
+      '[devVendor] Native dev-vendor request reached a Metro server without ONEKEY_DEV_VENDOR=true.',
+    );
+  }
+}
+
 function getRuntimeTarget(entryPoint, projectRoot) {
   const resolvedEntryPoint = path.resolve(entryPoint);
   if (resolvedEntryPoint === path.resolve(projectRoot, 'index.ts')) {
@@ -425,7 +433,16 @@ function serializeDefault(entryPoint, prepend, graph, bundleOptions) {
 }
 
 function applyDevVendorConfig(config, projectRoot) {
-  if (!isDevVendorEnabled()) {
+  const enabled = isDevVendorEnabled();
+  if (!enabled) {
+    const previousResolveRequest = config.resolver.resolveRequest;
+    config.resolver.resolveRequest = (context, moduleName, platform) => {
+      assertNativeDevVendorServerEnabled(
+        context.customResolverOptions,
+        enabled,
+      );
+      return previousResolveRequest(context, moduleName, platform);
+    };
     return config;
   }
 
@@ -519,6 +536,7 @@ module.exports = {
   SUPPORTED_PLATFORMS,
   SUPPORTED_RUNTIME_TARGETS,
   applyDevVendorConfig,
+  assertNativeDevVendorServerEnabled,
   assertNativeDevVendorResolverContract,
   assertSortedUniqueModules,
   computeConfigInputsDigest,

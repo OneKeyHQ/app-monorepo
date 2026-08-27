@@ -1,34 +1,30 @@
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
-index 63c295b..a85013d 100644
+index 63c295b..09fe502 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
 +++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
-@@ -1,6 +1,7 @@
- package com.backgroundthread
- 
+@@ -3,2 +3,3 @@ package com.backgroundthread
  import android.app.Activity
 +import android.content.Context
  import android.content.Intent
- import android.net.Uri
- import android.os.Handler
-@@ -18,6 +19,7 @@ import com.facebook.react.defaults.DefaultComponentsRegistry
- import com.facebook.react.defaults.DefaultReactHostDelegate
- import com.facebook.react.defaults.DefaultTurboModuleManagerDelegate
+@@ -20,2 +21,3 @@ import com.facebook.react.defaults.DefaultTurboModuleManagerDelegate
  import com.facebook.react.fabric.ComponentFactory
 +import com.facebook.react.interfaces.TaskInterface
  import com.facebook.react.runtime.ReactHostImpl
- import com.facebook.react.runtime.hermes.HermesInstance
- import com.facebook.react.shell.MainReactPackage
-@@ -25,6 +27,7 @@ import java.io.File
- import java.lang.ref.WeakReference
- import java.util.concurrent.TimeUnit
+@@ -27,2 +29,3 @@ import java.util.concurrent.TimeUnit
  import java.util.concurrent.atomic.AtomicBoolean
 +import java.util.concurrent.atomic.AtomicReference
  
- /**
-  * Singleton manager for the background React Native runtime.
-@@ -59,7 +62,18 @@ class BackgroundThreadManager private constructor() {
-     // full process restart in that case.
-     @Volatile
+@@ -38,3 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean
+ class BackgroundThreadManager private constructor() {
+-
++    // OneKey patch: background uses the same local dev-vendor HBC as main,
++    // then evaluates its own modulesOnly Metro delta in the isolated runtime.
++    private data class DevVendorConfig(
++        val commonAssetName: String,
++        val fingerprint: String,
++    )
+     private var bgReactHost: ReactHostImpl? = null
+@@ -61,3 +69,14 @@ class BackgroundThreadManager private constructor() {
      private var mainReactHost: ReactHost? = null
 -    private var isStarted = false
 +    private val runnerState = AtomicReference(BackgroundRunnerState.IDLE)
@@ -44,11 +40,78 @@ index 63c295b..a85013d 100644
 +        DESTROYING,
 +    }
  
-     companion object {
-         private const val MODULE_NAME = "background"
-@@ -347,115 +361,183 @@ class BackgroundThreadManager private constructor() {
-         }
+@@ -334,3 +353,69 @@ class BackgroundThreadManager private constructor() {
      }
+-
++    private fun createDevVendorBundleLoader(
++        appContext: android.content.Context,
++        entryURL: String,
++        config: DevVendorConfig,
++    ): JSBundleLoader {
++        return object : JSBundleLoader() {
++            override fun loadScript(delegate: com.facebook.react.bridge.JSBundleLoaderDelegate): String {
++                val totalStart = System.nanoTime()
++                delegate.loadScriptFromAssets(
++                    appContext.assets,
++                    "assets://${config.commonAssetName}",
++                    false,
++                )
++                val assertionFile = File(appContext.cacheDir, "onekey-dev-vendor-assert-background.js")
++                assertionFile.writeText(
++                    "if(globalThis.__ONEKEY_DEV_VENDOR_FINGERPRINT__!==\"${config.fingerprint}\")" +
++                        "{throw new Error(\"Dev-vendor common fingerprint mismatch\");}",
++                )
++                delegate.loadScriptFromFile(
++                    assertionFile.absolutePath,
++                    "onekey-dev-vendor-assert-background.js",
++                    false,
++                )
++                val deltaFile = File(
++                    appContext.cacheDir,
++                    "onekey-dev-vendor-background-${config.fingerprint.take(12)}.bundle",
++                )
++                val temporaryFile = File.createTempFile(
++                    ".${deltaFile.name}-",
++                    ".tmp",
++                    deltaFile.parentFile,
++                )
++                try {
++                    val connection = java.net.URL(entryURL).openConnection() as java.net.HttpURLConnection
++                    try {
++                        connection.connectTimeout = 15_000
++                        connection.readTimeout = 60_000
++                        val statusCode = connection.responseCode
++                        if (statusCode !in 200..299) {
++                            throw IllegalStateException(
++                                "Dev-vendor background delta returned HTTP $statusCode",
++                            )
++                        }
++                        connection.inputStream.use { input ->
++                            temporaryFile.outputStream().use { output -> input.copyTo(output) }
++                        }
++                    } finally {
++                        connection.disconnect()
++                    }
++                    android.system.Os.rename(
++                        temporaryFile.absolutePath,
++                        deltaFile.absolutePath,
++                    )
++                } catch (error: Exception) {
++                    temporaryFile.delete()
++                    throw RuntimeException("Failed to download dev-vendor background delta", error)
++                }
++                delegate.loadScriptFromFile(deltaFile.absolutePath, entryURL, false)
++                val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++                BTLogger.info(
++                    "[DevVendor] background common.hbc + Metro delta loaded in " +
++                        "${String.format("%.1f", totalMs)}ms",
++                )
++                return entryURL
++            }
++        }
++    }
+     private fun createLocalFileBundleLoader(localPath: String, sourceURL: String): JSBundleLoader {
+@@ -349,8 +434,37 @@ class BackgroundThreadManager private constructor() {
  
 -    @OptIn(UnstableReactNativeAPI::class)
      fun startBackgroundRunnerWithEntryURL(context: ReactApplicationContext, entryURL: String) {
@@ -60,6 +123,29 @@ index 63c295b..a85013d 100644
 +
 +    @OptIn(UnstableReactNativeAPI::class)
 +    fun ensureBackgroundRunnerWithEntryURL(context: Context, entryURL: String): Boolean {
++        return ensureBackgroundRunner(context, entryURL, null)
++    }
++
++    @OptIn(UnstableReactNativeAPI::class)
++    fun ensureBackgroundRunnerWithDevVendor(
++        context: Context,
++        entryURL: String,
++        commonAssetName: String,
++        fingerprint: String,
++    ): Boolean {
++        return ensureBackgroundRunner(
++            context,
++            entryURL,
++            DevVendorConfig(commonAssetName, fingerprint),
++        )
++    }
++
++    @OptIn(UnstableReactNativeAPI::class)
++    private fun ensureBackgroundRunner(
++        context: Context,
++        entryURL: String,
++        devVendorConfig: DevVendorConfig?,
++    ): Boolean {
 +        if (!runnerState.compareAndSet(BackgroundRunnerState.IDLE, BackgroundRunnerState.STARTING)) {
 +            BTLogger.info("Background runner start coalesced: state=${getBackgroundRunnerState()}")
 +            return false
@@ -67,8 +153,7 @@ index 63c295b..a85013d 100644
 +
 +        runnerStartFailureMessage = null
          val bgStartTime = System.nanoTime()
-         BTLogger.info("[SplitBundle] background runner starting with entryURL: $entryURL")
- 
+@@ -359,101 +473,166 @@ class BackgroundThreadManager private constructor() {
          val appContext = context.applicationContext
 -        val packages =
 -            if (reactPackages.isNotEmpty()) {
@@ -104,6 +189,9 @@ index 63c295b..a85013d 100644
 +            val localBundlePath = resolveLocalBundlePath(entryURL)
 +            val bundleLoader =
 +                when {
++                    devVendorConfig != null && isRemoteBundleUrl(entryURL) ->
++                        createDevVendorBundleLoader(appContext, entryURL, devVendorConfig)
++
 +                    // Debug mode: remote URL — use single bundle (Metro dev server)
 +                    isRemoteBundleUrl(entryURL) -> createDownloadedBundleLoader(appContext, entryURL)
 +
@@ -316,20 +404,12 @@ index 63c295b..a85013d 100644
 +            BTLogger.error("Failed to destroy faulted background runner: ${destroyError.message}")
 +        }
      }
- 
-     /**
-@@ -541,7 +623,7 @@ class BackgroundThreadManager private constructor() {
-         path: String,
-         onComplete: (code: String?, message: String?) -> Unit
+@@ -543,3 +722,3 @@ class BackgroundThreadManager private constructor() {
      ) {
 -        if (!isStarted) {
 +        if (!isBackgroundStarted) {
              // Bg runtime not started yet → retryable (the loader will re-attempt
-             // once the bg host is up).
-             onComplete("SPLIT_BUNDLE_NO_RUNTIME", "Background runtime not started")
-@@ -1097,9 +1179,24 @@ class BackgroundThreadManager private constructor() {
- 
-     // ── Lifecycle ───────────────────────────────────────────────────────────
+@@ -1099,5 +1278,20 @@ class BackgroundThreadManager private constructor() {
  
 -    val isBackgroundStarted: Boolean get() = isStarted
 +    val isBackgroundStarted: Boolean
@@ -351,25 +431,303 @@ index 63c295b..a85013d 100644
      fun destroy() {
 +        runnerState.set(BackgroundRunnerState.DESTROYING)
          nativeDestroy()
-         bgRuntimePtr = 0
-         mainRuntimePtr = 0
-@@ -1107,7 +1204,8 @@ class BackgroundThreadManager private constructor() {
-         mainReactHost = null
-         bgReactHost?.destroy("BackgroundThreadManager destroyed", null)
+@@ -1109,3 +1303,4 @@ class BackgroundThreadManager private constructor() {
          bgReactHost = null
 -        isStarted = false
 +        runnerStartFailureMessage = null
 +        runnerState.set(BackgroundRunnerState.IDLE)
          lastResumedActivityRef = WeakReference(null)
-     }
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.h b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.h
+index 0b7c882..bb890e5 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.h
++++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.h
+@@ -32,3 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
+ - (instancetype)init;
+-
++/// Configure debug startup as local common HBC followed by a remote
++/// modules-only background entry bundle.
++- (void)configureDevVendorCommonBundlePath:(NSString *)commonBundlePath
++                                  entryURL:(NSURL *)entryURL
++                               fingerprint:(NSString *)fingerprint;
+ /**
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
+index 4cadac6..8a6c54c 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
++++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
+@@ -14,4 +14,5 @@
+ #import <React/RCTBridge.h>
++#import <React/RCTAssert.h>
+ #import <React/RCTBundleURLProvider.h>
+-
++#import <React/RCTJavaScriptLoader.h>
+ #if __has_include(<react/utils/FollyConvert.h>)
+@@ -44,3 +45,29 @@
+ using namespace facebook::react;
+-
++namespace {
++constexpr int64_t kDevVendorLoadTimeoutSeconds = 60;
++class BackgroundNSDataJSIBuffer : public facebook::jsi::Buffer {
++ public:
++  explicit BackgroundNSDataJSIBuffer(NSData *data) : data_(data) {}
++  size_t size() const override { return data_.length; }
++  const uint8_t *data() const override {
++    return static_cast<const uint8_t *>(data_.bytes);
++  }
++ private:
++  NSData *data_;
++};
++}  // namespace
++@interface BTDevVendorDownloadState : NSObject
++@property (nonatomic, strong, nullable) NSData *data;
++@property (nonatomic, strong, nullable) NSError *error;
++@property (nonatomic, strong) dispatch_semaphore_t ready;
++@end
++@implementation BTDevVendorDownloadState
++- (instancetype)init
++{
++  if (self = [super init]) {
++    _ready = dispatch_semaphore_create(0);
++  }
++  return self;
++}
++@end
+ static void stubJsiFunction(jsi::Runtime &runtime, jsi::Object &object, const char *name)
+@@ -165,2 +192,5 @@ @interface BackgroundReactNativeDelegate () {
+   std::string _jsBundleSource;
++  NSString *_devVendorCommonBundlePath;
++  NSURL *_devVendorEntryURL;
++  NSString *_devVendorFingerprint;
+   // YES when `bundleURL` observed an active OTA main bundle on its most
+@@ -184,3 +214,7 @@ - (void)cleanupResources;
+ - (void)setupErrorHandler:(jsi::Runtime &)runtime;
+-
++- (void)finishHostStartWithBundleData:(NSData * _Nullable)bundleData
++                            sourceURL:(NSString * _Nullable)sourceURL
++                          fingerprint:(NSString * _Nullable)fingerprint
++                       evaluateEntry:(BOOL)evaluateEntry
++                        downloadState:(BTDevVendorDownloadState * _Nullable)downloadState;
+ @end
+@@ -223,3 +257,10 @@ - (void)setJsBundleSource:(std::string)jsBundleSource
  }
+-
++- (void)configureDevVendorCommonBundlePath:(NSString *)commonBundlePath
++                                  entryURL:(NSURL *)entryURL
++                               fingerprint:(NSString *)fingerprint
++{
++  _devVendorCommonBundlePath = [commonBundlePath copy];
++  _devVendorEntryURL = [entryURL copy];
++  _devVendorFingerprint = [fingerprint copy];
++}
+ - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
+@@ -234,3 +275,5 @@ - (NSURL *)bundleURL
+   _otaActiveAtBundleResolve = NO;
+-
++  if (_devVendorCommonBundlePath.length > 0) {
++    return [NSURL fileURLWithPath:_devVendorCommonBundlePath];
++  }
+   // When _jsBundleSource is set (dev mode or explicit override), use it as-is.
+@@ -325,3 +368,20 @@ - (void)hostDidStart:(RCTHost *)host
+   }
+-
++  if (_devVendorEntryURL) {
++    NSURL *entryURL = _devVendorEntryURL;
++    NSString *fingerprint = _devVendorFingerprint;
++    BTDevVendorDownloadState *downloadState = [[BTDevVendorDownloadState alloc] init];
++    [RCTJavaScriptLoader loadBundleAtURL:entryURL
++        onProgress:nil
++        onComplete:^(NSError *error, RCTSource *source) {
++          downloadState.error = error;
++          downloadState.data = source.data;
++          dispatch_semaphore_signal(downloadState.ready);
++        }];
++    [self finishHostStartWithBundleData:nil
++                               sourceURL:entryURL.absoluteString
++                             fingerprint:fingerprint
++                          evaluateEntry:YES
++                           downloadState:downloadState];
++    return;
++  }
+   // When _jsBundleSource is set, the bundle loaded in bundleURL was already
+@@ -361,45 +421,102 @@ - (void)hostDidStart:(RCTHost *)host
+   }
+-
++  [self finishHostStartWithBundleData:bgBundleData
++                             sourceURL:bgBundleSourceURL
++                           fingerprint:nil
++                        evaluateEntry:isSplitBundle
++                         downloadState:nil];
++}
++- (void)finishHostStartWithBundleData:(NSData * _Nullable)bundleData
++                            sourceURL:(NSString * _Nullable)sourceURL
++                          fingerprint:(NSString * _Nullable)fingerprint
++                       evaluateEntry:(BOOL)evaluateEntry
++                        downloadState:(BTDevVendorDownloadState * _Nullable)downloadState
++{
++  RCTInstance *instance = _rctInstance;
++  if (!instance) {
++    return;
++  }
+   CFAbsoluteTime bgStartTime = CFAbsoluteTimeGetCurrent();
+-
+-  [_rctInstance callFunctionOnBufferedRuntimeExecutor:[=](jsi::Runtime &runtime) {
+-    [self setupErrorHandler:runtime];
+-
+-    // Install SharedStore into background runtime
+-    SharedStore::install(runtime);
+-
+-    // Install SharedRPC with executor for cross-runtime notifications.
+-    // Capture the bg RCTInstance __weak so executor lambdas still in flight
+-    // when the bg host is torn down (BackgroundThread.restart mode=all,
+-    // OTA bundle install) no-op cleanly instead of dispatching onto a
+-    // freed instance and crashing.
+-    __weak RCTInstance *weakBgInstance = _rctInstance;
+-    RPCRuntimeExecutor bgExecutor = [weakBgInstance](std::function<void(jsi::Runtime &)> work) {
+-        RCTInstance *strongBgInstance = weakBgInstance;
+-        if (!strongBgInstance) {
+-            return;
++  __weak RCTInstance *weakBgInstance = instance;
++
++  [instance callFunctionOnBufferedRuntimeExecutor:[=](jsi::Runtime &runtime) {
++    try {
++      NSData *entryData = bundleData;
++      if (downloadState) {
++        // Queue this executor before the background surface starts. Once the
++        // local common HBC completes, wait for Metro without blocking main.
++        dispatch_time_t deadline = dispatch_time(
++            DISPATCH_TIME_NOW, kDevVendorLoadTimeoutSeconds * NSEC_PER_SEC);
++        if (dispatch_semaphore_wait(downloadState.ready, deadline) != 0) {
++          NSError *timeoutError = [NSError errorWithDomain:@"BackgroundThread"
++                                                      code:21
++                                                  userInfo:@{
++                                                    NSLocalizedDescriptionKey:
++                                                        @"Timed out loading dev-vendor background delta"
++                                                  }];
++          [BTLogger error:@"Dev-vendor background delta timed out after 60 seconds"];
++          dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(timeoutError); });
++          return;
+         }
+-        [strongBgInstance callFunctionOnBufferedRuntimeExecutor:[work](jsi::Runtime &rt) {
+-            work(rt);
+-        }];
+-    };
+-    SharedRPC::install(runtime, std::move(bgExecutor), "background");
+-    [BTLogger info:@"SharedStore and SharedRPC installed in background runtime"];
+-
+-    // In split-bundle mode, evaluate the background entry bundle now.
+-    // This must happen BEFORE invokeOptionalGlobalFunction since the entry
+-    // bundle defines __setupBackgroundRPCHandler.
+-    if (isSplitBundle && bgBundleData && bgBundleData.length > 0) {
+-      CFAbsoluteTime bgEvalStart = CFAbsoluteTimeGetCurrent();
+-      auto buffer = std::make_shared<jsi::StringBuffer>(
+-        std::string(static_cast<const char *>(bgBundleData.bytes), bgBundleData.length));
+-      runtime.evaluateJavaScript(std::move(buffer), [bgBundleSourceURL UTF8String]);
+-      double bgEvalMs = (CFAbsoluteTimeGetCurrent() - bgEvalStart) * 1000.0;
+-      [BTLogger info:[NSString stringWithFormat:@"[SplitBundle] bg entry evaluated in %.1fms", bgEvalMs]];
++        if (downloadState.error || downloadState.data.length == 0) {
++          NSError *loadError = downloadState.error ?: [NSError errorWithDomain:@"BackgroundThread"
++                                                                           code:20
++                                                                       userInfo:@{
++                                                                         NSLocalizedDescriptionKey:
++                                                                             @"Dev-vendor background delta is empty"
++                                                                       }];
++          [BTLogger error:[NSString stringWithFormat:
++              @"Dev-vendor background delta failed: %@", loadError.localizedDescription]];
++          dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(loadError); });
++          return;
++        }
++        entryData = downloadState.data;
++      }
++
++      if (fingerprint.length > 0) {
++        jsi::Value marker = runtime.global().getProperty(
++            runtime, "__ONEKEY_DEV_VENDOR_FINGERPRINT__");
++        if (!marker.isString() ||
++            marker.asString(runtime).utf8(runtime) != std::string(fingerprint.UTF8String)) {
++          throw std::runtime_error("Dev-vendor common fingerprint mismatch");
++        }
++      }
++
++      [self setupErrorHandler:runtime];
++      SharedStore::install(runtime);
++
++      RPCRuntimeExecutor bgExecutor = [weakBgInstance](std::function<void(jsi::Runtime &)> work) {
++          RCTInstance *strongBgInstance = weakBgInstance;
++          if (!strongBgInstance) {
++              return;
++          }
++          [strongBgInstance callFunctionOnBufferedRuntimeExecutor:[work](jsi::Runtime &rt) {
++              work(rt);
++          }];
++      };
++      SharedRPC::install(runtime, std::move(bgExecutor), "background");
++      [BTLogger info:@"SharedStore and SharedRPC installed in background runtime"];
++
++      // The entry defines __setupBackgroundRPCHandler, so it must execute
++      // before the runtime is reported ready.
++      if (evaluateEntry && entryData.length > 0 && sourceURL.length > 0) {
++        CFAbsoluteTime bgEvalStart = CFAbsoluteTimeGetCurrent();
++        auto buffer = std::make_shared<BackgroundNSDataJSIBuffer>(entryData);
++        runtime.evaluateJavaScript(buffer, sourceURL.UTF8String);
++        double bgEvalMs = (CFAbsoluteTimeGetCurrent() - bgEvalStart) * 1000.0;
++        [BTLogger info:[NSString stringWithFormat:@"[SplitBundle] bg entry evaluated in %.1fms", bgEvalMs]];
++      }
++
++      double bgTotalMs = (CFAbsoluteTimeGetCurrent() - bgStartTime) * 1000.0;
++      [BTLogger info:[NSString stringWithFormat:@"[SplitBundle] bg hostDidStart total setup in %.1fms", bgTotalMs]];
++      invokeOptionalGlobalFunction(runtime, "__setupBackgroundRPCHandler");
++    } catch (const std::exception &exception) {
++      NSString *message = [NSString stringWithUTF8String:exception.what()];
++      NSError *evaluationError = [NSError errorWithDomain:@"BackgroundThread"
++                                                      code:21
++                                                  userInfo:@{
++                                                    NSLocalizedDescriptionKey:
++                                                        message ?: @"Dev-vendor background evaluation failed"
++                                                  }];
++      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(evaluationError); });
+     }
+-
+-    double bgTotalMs = (CFAbsoluteTimeGetCurrent() - bgStartTime) * 1000.0;
+-    [BTLogger info:[NSString stringWithFormat:@"[SplitBundle] bg hostDidStart total setup in %.1fms", bgTotalMs]];
+-
+-    invokeOptionalGlobalFunction(runtime, "__setupBackgroundRPCHandler");
+   }];
+diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.h b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.h
+index bccbf78..ed0c23e 100644
+--- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.h
++++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.h
+@@ -78,3 +78,6 @@ typedef NS_ENUM(NSInteger, EBgMgrSegmentEvalError) {
+   thenStartBackgroundRunnerWithEntryURL:(NSString *)entryURL;
+-
++/// Install the main-runtime bridge and start a background runtime from a
++/// local common HBC followed by a remote modules-only entry bundle.
+++ (void)installSharedBridgeInMainRuntime:(RCTHost *)host
++  thenStartBackgroundRunnerWithDevVendorConfig:(NSDictionary<NSString *, NSString *> *)config;
+ /// Start background runner with default entry URL
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
-index 3bebe7b..02c3cf8 100644
+index 3bebe7b..b91e4ea 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
 +++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundThreadManager.mm
-@@ -210,15 +210,30 @@ + (void)installSharedBridgeInMainRuntime:(RCTHost *)host
-         // see a nil strong reference and bail out — instead of dispatching
-         // callFunctionOnBufferedRuntimeExecutor on a freed instance and
+@@ -144,3 +144,5 @@ @interface BackgroundThreadManager ()
+ @property (atomic, copy) NSString *lastEntryURL;
+-
++// Debug-only dev-vendor bootstrap contract. Retained across mode='all'
++// reloads so the self-heal path cannot fall back to a monolithic bundle.
++@property (atomic, copy, nullable) NSDictionary<NSString *, NSString *> *lastDevVendorConfig;
+ // Forward declaration so restartWithMode: can call it; definition lives
+@@ -152,2 +154,5 @@ - (void)scheduleHealthCheckForRestart:(NSString *)mode
+                               retried:(BOOL)retried;
++- (void)startBackgroundRunnerWithDevVendorConfig:(NSDictionary<NSString *, NSString *> *)config;
++- (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL
++                          devVendorConfig:(NSDictionary<NSString *, NSString *> * _Nullable)devVendorConfig;
+ @end
+@@ -166,3 +171,5 @@ @implementation BackgroundThreadManager
+ static NSString *const MODULE_DEBUG_URL = @"http://localhost:8082/apps/mobile/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server&app=so.onekey.wallet&transform.routerRoot=app&transform.engine=hermes&transform.bytecode=1&unstable_transformProfile=hermes-stable";
+-
++static NSString *const DEV_VENDOR_COMMON_PATH_KEY = @"commonBundlePath";
++static NSString *const DEV_VENDOR_ENTRY_URL_KEY = @"entryURL";
++static NSString *const DEV_VENDOR_FINGERPRINT_KEY = @"fingerprint";
+ #pragma mark - Singleton
+@@ -212,11 +219,26 @@ + (void)installSharedBridgeInMainRuntime:(RCTHost *)host
          // crashing (EXC_BAD_ACCESS / use-after-free).
 +        __weak RCTHost *weakHost = host;
          __weak id weakInstance = instance;
@@ -404,5 +762,76 @@ index 3bebe7b..02c3cf8 100644
 +                }];
 +            });
          };
-         SharedRPC::install(runtime, std::move(mainExecutor), "main");
-         // Set the integration-health flag from inside the JS-thread lambda so
+@@ -245,3 +267,9 @@ + (void)installSharedBridgeInMainRuntime:(RCTHost *)host
+ }
+-
+++ (void)installSharedBridgeInMainRuntime:(RCTHost *)host
++  thenStartBackgroundRunnerWithDevVendorConfig:(NSDictionary<NSString *, NSString *> *)config {
++    [self installSharedBridgeInMainRuntime:host completion:^{
++        [[BackgroundThreadManager sharedInstance]
++            startBackgroundRunnerWithDevVendorConfig:config];
++    }];
++}
+ #pragma mark - Public Methods
+@@ -258,2 +286,28 @@ - (void)startBackgroundRunner {
+ - (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL {
++    [self startBackgroundRunnerWithEntryURL:entryURL devVendorConfig:nil];
++}
++
++- (void)startBackgroundRunnerWithDevVendorConfig:(NSDictionary<NSString *, NSString *> *)config {
++    NSString *commonBundlePath = config[DEV_VENDOR_COMMON_PATH_KEY];
++    NSString *entryURL = config[DEV_VENDOR_ENTRY_URL_KEY];
++    NSString *fingerprint = config[DEV_VENDOR_FINGERPRINT_KEY];
++    NSURL *parsedEntryURL = [NSURL URLWithString:entryURL];
++    NSRegularExpression *fingerprintPattern =
++        [NSRegularExpression regularExpressionWithPattern:@"^[0-9a-f]{64}$"
++                                                  options:0
++                                                    error:nil];
++    if (commonBundlePath.length == 0 ||
++        ![[NSFileManager defaultManager] fileExistsAtPath:commonBundlePath] ||
++        parsedEntryURL.host.length == 0 ||
++        [fingerprintPattern numberOfMatchesInString:fingerprint
++                                            options:0
++                                              range:NSMakeRange(0, fingerprint.length)] != 1) {
++        [BTLogger error:@"Invalid dev-vendor background bootstrap config"];
++        return;
++    }
++    [self startBackgroundRunnerWithEntryURL:entryURL devVendorConfig:config];
++}
++
++- (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL
++                          devVendorConfig:(NSDictionary<NSString *, NSString *> * _Nullable)devVendorConfig {
+     if (self.isStarted) {
+@@ -280,2 +334,3 @@ - (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL {
+     self.lastEntryURL = entryURL;
++    self.lastDevVendorConfig = devVendorConfig;
+     [BTLogger info:[NSString stringWithFormat:@"Starting background runner with entryURL: %@", entryURL]];
+@@ -287,3 +342,8 @@ - (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL {
+         self.reactNativeFactory = CreateBackgroundReactNativeFactory(self.reactNativeFactoryDelegate);
+-
++        if (devVendorConfig) {
++            [self.reactNativeFactoryDelegate
++                configureDevVendorCommonBundlePath:devVendorConfig[DEV_VENDOR_COMMON_PATH_KEY]
++                entryURL:[NSURL URLWithString:devVendorConfig[DEV_VENDOR_ENTRY_URL_KEY]]
++                fingerprint:devVendorConfig[DEV_VENDOR_FINGERPRINT_KEY]];
++        }
+         // Only set jsBundleSource for debug HTTP URLs or explicit OTA overrides.
+@@ -291,3 +351,3 @@ - (void)startBackgroundRunnerWithEntryURL:(NSString *)entryURL {
+         // delegate fall back to split-bundle mode (common.bundle + entry).
+-        if (![entryURL isEqualToString:@"background.bundle"]) {
++        if (!devVendorConfig && ![entryURL isEqualToString:@"background.bundle"]) {
+             [self.reactNativeFactoryDelegate setJsBundleSource:std::string([entryURL UTF8String])];
+@@ -636,2 +696,3 @@ - (void)scheduleHealthCheckForRestart:(NSString *)mode
+             NSString *cachedURL = strongSelf.lastEntryURL;
++            NSDictionary<NSString *, NSString *> *devVendorConfig = strongSelf.lastDevVendorConfig;
+             // Treat the bundled default name as "no real cache" so the
+@@ -643,3 +704,8 @@ - (void)scheduleHealthCheckForRestart:(NSString *)mode
+                 && ![cachedURL isEqualToString:@"background.bundle"];
+-            if (hasCustomCachedURL) {
++            if (devVendorConfig) {
++                [BTLogger info:[NSString stringWithFormat:
++                    @"restart(%@): bg not respawned by host AppDelegate; replaying dev-vendor common + delta",
++                    mode]];
++                [strongSelf startBackgroundRunnerWithDevVendorConfig:devVendorConfig];
++            } else if (hasCustomCachedURL) {
+                 // Preferred path: replay the host's last entry URL. On OTA

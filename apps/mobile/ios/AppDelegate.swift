@@ -76,6 +76,26 @@ private enum BackgroundThreadBridge {
 
     cls.perform(selector, with: host, with: entryURL)
   }
+
+  static func installSharedBridgeInMainRuntime(
+    _ host: AnyObject,
+    thenStartBackgroundRunnerWithDevVendorConfig config: [String: String]
+  ) {
+    guard let cls = managerClass() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip dev-vendor startup")
+      return
+    }
+
+    let selector = NSSelectorFromString(
+      "installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithDevVendorConfig:"
+    )
+    guard cls.responds(to: selector) else {
+      NitroModuleBridge.logInfo("BackgroundThread", "dev-vendor startup selector unavailable, skip")
+      return
+    }
+
+    cls.perform(selector, with: host, with: config as NSDictionary)
+  }
 }
 
 /// Single flag controlling HBC + segment profile on native side. Read from
@@ -102,7 +122,13 @@ private func isStartupProfileEnabled() -> Bool {
 private enum InitialBundleKind {
   case none
   case common
+  case devVendorCommon
   case main
+}
+
+private struct DevVendorBundleInfo {
+  let commonBundleURL: URL
+  let fingerprint: String
 }
 
 @UIApplicationMain
@@ -308,6 +334,109 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
   private var initialBundleKind: InitialBundleKind = .none
+  private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
+
+  private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
+#if DEBUG
+    let commonURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-common",
+      withExtension: "hbc"
+    )
+    let manifestURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-manifest",
+      withExtension: "json"
+    )
+    if commonURL == nil && manifestURL == nil {
+      return nil
+    }
+    guard let commonURL, let manifestURL else {
+      fatalError("Dev-vendor common HBC and manifest must be embedded together")
+    }
+
+    do {
+      let manifestData = try Data(contentsOf: manifestURL)
+      guard
+        let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
+        (manifest["schemaVersion"] as? NSNumber)?.intValue == 2,
+        (manifest["strategyVersion"] as? NSNumber)?.intValue == 1,
+        manifest["platform"] as? String == "ios",
+        let fingerprint = manifest["fingerprint"] as? String,
+        fingerprint.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        let common = manifest["common"] as? [String: Any],
+        let bytecode = common["bytecode"] as? [String: Any],
+        bytecode["file"] as? String == "common.hbc",
+        let expectedBytes = bytecode["bytes"] as? NSNumber,
+        let actualBytes = try FileManager.default.attributesOfItem(
+          atPath: commonURL.path
+        )[.size] as? NSNumber,
+        expectedBytes.int64Value > 0,
+        actualBytes.int64Value == expectedBytes.int64Value
+      else {
+        fatalError("Dev-vendor iOS manifest or common HBC is invalid")
+      }
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "native cache enabled platform=ios fingerprint=\(fingerprint)"
+      )
+      return DevVendorBundleInfo(
+        commonBundleURL: commonURL,
+        fingerprint: fingerprint
+      )
+    } catch {
+      fatalError("Unable to validate dev-vendor iOS artifacts: \(error)")
+    }
+#else
+    return nil
+#endif
+  }
+
+  private func devVendorEntryBundleURL(
+    runtimeTarget: String,
+    fingerprint: String
+  ) -> URL? {
+    let fallbackPath = runtimeTarget == "background"
+      ? "background.bundle"
+      : ".expo/.virtual-metro-entry.bundle"
+    let fallbackURL = URL(string: "http://localhost:8081/\(fallbackPath)")
+    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
+      forBundleRoot: ".expo/.virtual-metro-entry"
+    ) ?? fallbackURL
+    guard var components = metroURL.flatMap({
+      URLComponents(url: $0, resolvingAgainstBaseURL: false)
+    }) else {
+      return nil
+    }
+    if runtimeTarget == "background" {
+      components.path = "/background.bundle"
+    }
+
+    let values = [
+      "platform": "ios",
+      "dev": "true",
+      "lazy": "false",
+      "minify": "false",
+      "inlineSourceMap": "false",
+      "modulesOnly": "true",
+      "runModule": "true",
+      "resolver.devVendor": "true",
+      "resolver.devVendorNative": "true",
+      "resolver.devVendorFingerprint": fingerprint,
+      "resolver.runtimeTarget": runtimeTarget,
+      "unstable_transformProfile": "hermes-stable",
+    ]
+    let overriddenNames = Set(values.keys)
+    var queryItems = (components.queryItems ?? []).filter {
+      !overriddenNames.contains($0.name)
+    }
+    queryItems.append(contentsOf: values.keys.sorted().map {
+      URLQueryItem(name: $0, value: values[$0])
+    })
+    components.queryItems = queryItems
+    return components.url
+  }
 
   private func isNativeBackgroundThreadEnabled() -> Bool {
 #if DEBUG
@@ -371,6 +500,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
+    if let devVendorBundleInfo {
+      initialBundleKind = .devVendorCommon
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "bundleURL(DEBUG): loading local common HBC"
+      )
+      return devVendorBundleInfo.commonBundleURL
+    }
     let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
@@ -474,6 +611,57 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
+#if DEBUG
+    if initialBundleKind == .devVendorCommon {
+      guard
+        let devVendorBundleInfo,
+        let mainEntryURL = devVendorEntryBundleURL(
+          runtimeTarget: "main",
+          fingerprint: devVendorBundleInfo.fingerprint
+        )
+      else {
+        fatalError("Unable to construct the dev-vendor main entry URL")
+      }
+
+      if isNativeBackgroundThreadEnabled() {
+        guard
+          let backgroundEntryURL = devVendorEntryBundleURL(
+            runtimeTarget: "background",
+            fingerprint: devVendorBundleInfo.fingerprint
+          )
+        else {
+          fatalError("Unable to construct the dev-vendor background entry URL")
+        }
+        NitroModuleBridge.logInfo(
+          "BackgroundThread",
+          "hostDidStart: start background runner (dev-vendor) entryURL=\(backgroundEntryURL.absoluteString)"
+        )
+        // Queue SharedBridge first. Its runtime executor starts the background
+        // host after common.hbc is ready, before the main delta waits on Metro.
+        BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+          host,
+          thenStartBackgroundRunnerWithDevVendorConfig: [
+            "commonBundlePath": devVendorBundleInfo.commonBundleURL.path,
+            "entryURL": backgroundEntryURL.absoluteString,
+            "fingerprint": devVendorBundleInfo.fingerprint,
+          ]
+        )
+      } else {
+        NitroModuleBridge.logInfo(
+          "BackgroundThread",
+          "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD"
+        )
+      }
+
+      SplitBundleLoader.loadDevVendorEntryBundle(
+        mainEntryURL,
+        fingerprint: devVendorBundleInfo.fingerprint,
+        inHost: host
+      )
+      return
+    }
+#endif
+
 #if !DEBUG
     // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
     // (single-bundle Release: no common.bundle shipped, or legacy OTA pushed a
@@ -541,11 +729,12 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     }
 
 #if DEBUG
-    // Dev: pass the Metro URL directly (single bundle served by the dev server).
-    let entryURL = backgroundBundleEntryURL()
-    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     let bgStartAtDebug = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios, debug)")
+    // Standard development mode keeps the existing single-bundle path. The
+    // dev-vendor path returned above after ordering background before main.
+    let entryURL = backgroundBundleEntryURL()
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     BackgroundThreadBridge.installSharedBridgeInMainRuntime(
       host,
       thenStartBackgroundRunnerWithEntryURL: entryURL

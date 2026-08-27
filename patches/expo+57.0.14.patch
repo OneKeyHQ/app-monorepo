@@ -1,25 +1,98 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index c712e48..017823f 100644
+index c712e48..9a65bce 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-@@ -8,6 +8,7 @@ import com.facebook.react.ReactInstanceEventListener
- import com.facebook.react.ReactPackage
- import com.facebook.react.ReactPackageTurboModuleManagerDelegate
+@@ -10,2 +10,3 @@ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
  import com.facebook.react.bridge.JSBundleLoader
 +import com.facebook.react.bridge.JSBundleLoaderDelegate
  import com.facebook.react.bridge.ReactContext
- import com.facebook.react.common.annotations.UnstableReactNativeAPI
- import com.facebook.react.common.build.ReactBuildConfig
-@@ -20,11 +21,77 @@ import com.facebook.react.runtime.ReactHostDelegate
- import com.facebook.react.runtime.ReactHostImpl
- import com.facebook.react.runtime.hermes.HermesInstance
+@@ -22,3 +23,6 @@ import com.facebook.react.runtime.hermes.HermesInstance
  import expo.modules.core.interfaces.ReactNativeHostHandler
 +import java.io.File
  import java.lang.ref.WeakReference
++import java.net.HttpURLConnection
++import java.net.URL
  
- object ExpoReactHostFactory {
-   private var reactHost: ReactHost? = null
+@@ -27,2 +31,145 @@ object ExpoReactHostFactory {
  
++  // OneKey patch: load a stable local HBC before the live Metro delta while
++  // keeping ReactHost dev support enabled for Fast Refresh and full reloads.
++  private data class DevVendorConfig(
++    val commonAssetName: String,
++    val entryUrl: String,
++    val fingerprint: String
++  )
++
++  private fun createDevVendorBundleLoader(
++    context: Context,
++    config: DevVendorConfig
++  ): JSBundleLoader {
++    return object : JSBundleLoader() {
++      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++        delegate.loadScriptFromAssets(
++          context.assets,
++          "assets://${config.commonAssetName}",
++          false
++        )
++
++        val assertionFile = File(context.cacheDir, "onekey-dev-vendor-assert-main.js")
++        assertionFile.writeText(
++          "if(globalThis.__ONEKEY_DEV_VENDOR_FINGERPRINT__!==\"${config.fingerprint}\")" +
++            "{throw new Error(\"Dev-vendor common fingerprint mismatch\");}"
++        )
++        delegate.loadScriptFromFile(
++          assertionFile.absolutePath,
++          "onekey-dev-vendor-assert-main.js",
++          false
++        )
++
++        val deltaFile = File(
++          context.cacheDir,
++          "onekey-dev-vendor-main-${config.fingerprint.take(12)}.bundle"
++        )
++        val temporaryFile = File.createTempFile(
++          ".${deltaFile.name}-",
++          ".tmp",
++          deltaFile.parentFile
++        )
++        try {
++          val connection = URL(config.entryUrl).openConnection() as HttpURLConnection
++          try {
++            connection.connectTimeout = 15_000
++            connection.readTimeout = 60_000
++            val statusCode = connection.responseCode
++            if (statusCode !in 200..299) {
++              throw IllegalStateException(
++                "Dev-vendor main delta returned HTTP $statusCode"
++              )
++            }
++            connection.inputStream.use { input ->
++              temporaryFile.outputStream().use { output -> input.copyTo(output) }
++            }
++          } finally {
++            connection.disconnect()
++          }
++          android.system.Os.rename(
++            temporaryFile.absolutePath,
++            deltaFile.absolutePath
++          )
++        } catch (error: Exception) {
++          temporaryFile.delete()
++          throw RuntimeException("Failed to download dev-vendor main delta", error)
++        }
++
++        delegate.loadScriptFromFile(deltaFile.absolutePath, config.entryUrl, false)
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i(
++          "DevVendor",
++          "main common.hbc + Metro delta loaded in ${String.format("%.1f", totalMs)}ms"
++        )
++        return config.entryUrl
++      }
++    }
++  }
++
 +  private fun hasCommonBundleInAssets(context: Context): Boolean {
 +    return try {
 +      context.assets.open("common.bundle").close()
@@ -86,10 +159,13 @@ index c712e48..017823f 100644
 +  }
 +
    @UnstableReactNativeAPI
-   private class ExpoReactHostDelegate(
-     private val weakContext: WeakReference<Context>,
-@@ -69,11 +136,22 @@ object ExpoReactHostFactory {
+@@ -35,2 +182,3 @@ object ExpoReactHostFactory {
+     private val useDevSupport: Boolean,
++    private val devVendorConfig: DevVendorConfig? = null,
+     override val bindingsInstaller: BindingsInstaller? = null,
+@@ -69,6 +217,14 @@ object ExpoReactHostFactory {
            ?: throw IllegalStateException("Unable to get concrete Context")
++        devVendorConfig?.let { return createDevVendorBundleLoader(context, it) }
          hostDelegateJsBundleFilePath?.let { jsBundleFile ->
            if (jsBundleFile.startsWith("assets://")) {
 +            val entryAssetName = jsBundleFile.removePrefix("assets://")
@@ -102,31 +178,60 @@ index c712e48..017823f 100644
 +            return createSequentialFileBundleLoader(commonPath, jsBundleFile)
 +          }
            return JSBundleLoader.createFileLoader(jsBundleFile)
-         }
+@@ -76,2 +232,6 @@ object ExpoReactHostFactory {
  
 +        if (hasCommonBundleInAssets(context)) {
 +          val entryAssetName = hostDelegateJSBundleAssetPath ?: jsBundleAssetPath ?: "index.android.bundle"
 +          return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
 +        }
          return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
-       }
+@@ -105,3 +265,6 @@ object ExpoReactHostFactory {
+     useDevSupport: Boolean = ReactBuildConfig.DEBUG,
+-    bindingsInstaller: BindingsInstaller? = null
++    bindingsInstaller: BindingsInstaller? = null,
++    devVendorCommonAssetName: String? = null,
++    devVendorEntryUrl: String? = null,
++    devVendorFingerprint: String? = null
+   ): ReactHost {
+@@ -111,2 +274,17 @@ object ExpoReactHostFactory {
  
++      val devVendorConfig =
++        if (
++          useDevSupport &&
++          !devVendorCommonAssetName.isNullOrEmpty() &&
++          !devVendorEntryUrl.isNullOrEmpty() &&
++          !devVendorFingerprint.isNullOrEmpty()
++        ) {
++          DevVendorConfig(
++            devVendorCommonAssetName,
++            devVendorEntryUrl,
++            devVendorFingerprint
++          )
++        } else {
++          null
++        }
+       val reactHostDelegate = ExpoReactHostDelegate(
+@@ -118,3 +296,4 @@ object ExpoReactHostFactory {
+         useDevSupport,
+-        bindingsInstaller,
++        devVendorConfig = devVendorConfig,
++        bindingsInstaller = bindingsInstaller,
+         hostHandlers = hostHandlers
+@@ -133,3 +312,5 @@ object ExpoReactHostFactory {
+           componentFactory = componentFactory,
+-          allowPackagerServerAccess = true,
++          // Keep DevSupportManager active. Its ReactContext listener performs
++          // HMRClient.setup once for every new runtime; Fast Refresh reuses it.
++          allowPackagerServerAccess = devVendorConfig == null,
+           useDevSupport = useDevSupport
 diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
+index ed88404..cf05527 100644
 --- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
 +++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-@@ -42 +42,10 @@
+@@ -41,28 +41,35 @@ - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtim
+ {
 -  _appContext = [[EXAppContext alloc] init];
-+  // A reload command is delivered to every RCTHost in the process. Apps with
-+  // a foreground and background runtime can therefore initialize multiple
-+  // Expo module registries at once, and rapid reload requests can add another
-+  // overlapping foreground host. Expo module definitions and shared native
-+  // managers are not safe to register concurrently, so serialize this short
-+  // initialization phase across factories. Normal cold start is unaffected
-+  // because the foreground host starts the background host only after its own
-+  // initialization completes.
-+  @synchronized ([EXReactNativeFactory class]) {
-+    _appContext = [[EXAppContext alloc] init];
-@@ -44,17 +53,17 @@
+-
 -  // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
 -  // the JS thread. Doing it here (rather than inside the xcframework) keeps
 -  // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
@@ -144,6 +249,23 @@ diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node
 -  auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
 -  auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
 -  void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
+-
+-  [_appContext setRuntime:&runtime
+-                scheduler:schedulerHandle
+-                 dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
+-  [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
+-
+-  [_appContext registerNativeModules];
++  // A reload command is delivered to every RCTHost in the process. Apps with
++  // a foreground and background runtime can therefore initialize multiple
++  // Expo module registries at once, and rapid reload requests can add another
++  // overlapping foreground host. Expo module definitions and shared native
++  // managers are not safe to register concurrently, so serialize this short
++  // initialization phase across factories. Normal cold start is unaffected
++  // because the foreground host starts the background host only after its own
++  // initialization completes.
++  @synchronized ([EXReactNativeFactory class]) {
++    _appContext = [[EXAppContext alloc] init];
 +    // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
 +    // the JS thread. Doing it here (rather than inside the xcframework) keeps
 +    // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
@@ -161,16 +283,10 @@ diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node
 +    auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
 +    auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
 +    void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
-@@ -62,4 +71,4 @@
--  [_appContext setRuntime:&runtime
--                scheduler:schedulerHandle
--                 dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
--  [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
 +    [_appContext setRuntime:&runtime
 +                  scheduler:schedulerHandle
 +                   dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
 +    [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
-@@ -67 +76,2 @@
--  [_appContext registerNativeModules];
 +    [_appContext registerNativeModules];
 +  }
+ }

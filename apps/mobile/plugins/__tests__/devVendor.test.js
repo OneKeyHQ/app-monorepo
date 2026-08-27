@@ -5,6 +5,7 @@ const path = require('path');
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   assertNativeDevVendorResolverContract,
+  assertNativeDevVendorServerEnabled,
   assertSortedUniqueModules,
   computeConfigInputsDigest,
   computeFingerprint,
@@ -257,6 +258,15 @@ describe('devVendor', () => {
         manifest: { fingerprint: 'fingerprint-ios' },
         platform: 'ios',
       }),
+    ).not.toThrow();
+  });
+
+  it('rejects native requests when the Metro experiment is disabled', () => {
+    expect(() =>
+      assertNativeDevVendorServerEnabled({ devVendorNative: 'true' }, false),
+    ).toThrow('without ONEKEY_DEV_VENDOR=true');
+    expect(() =>
+      assertNativeDevVendorServerEnabled({ devVendor: 'true' }, false),
     ).not.toThrow();
   });
 });
