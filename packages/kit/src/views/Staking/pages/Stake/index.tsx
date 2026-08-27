@@ -398,7 +398,8 @@ function BasicStakePage() {
       onStepChange,
     }: IApproveConfirmFnParams) => {
       if (!token) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
       return handleStake({

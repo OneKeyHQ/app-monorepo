@@ -102,8 +102,10 @@ import { act, renderHook } from '@testing-library/react-native';
 import { Toast } from '@onekeyhq/components';
 
 import {
+  useUniversalBorrowRepay,
   useUniversalBorrowRepayWithCollateral,
   useUniversalBorrowSupply,
+  useUniversalBorrowWithdraw,
 } from './useUniversalBorrowHooks';
 
 // In the harness, Metro's export * creates non-configurable getters so
@@ -602,5 +604,58 @@ describe('one-time DeFi risk disclaimer gate (OK-59196)', () => {
       backgroundMock.serviceStaking.borrowBuildSupplyTransaction,
     ).not.toHaveBeenCalled();
     expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('rejected disclaimer stays observable to the caller', () => {
+  beforeEach(() => {
+    signatureConfirmMock.navigationToTxConfirm.mockReset();
+    mockEnsureRiskAccepted.mockReset();
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+  });
+
+  // The lending action dialog takes its submit guard before calling and
+  // releases it from these callbacks, so "no callback + no throw" is exactly
+  // the contract it relies on to know it must release the guard itself.
+  it.each([
+    ['withdraw', useUniversalBorrowWithdraw],
+    ['repay', useUniversalBorrowRepay],
+  ])('%s returns false without firing any callback', async (_name, useHook) => {
+    const onSuccess = jest.fn();
+    const onFail = jest.fn();
+    const onCancel = jest.fn();
+    const onSettleResult = jest.fn();
+    const onBeforeNavigate = jest.fn();
+
+    const { result } = renderHook(() =>
+      useHook({ networkId: 'evm--1', accountId: 'hd-1--m/44' }),
+    );
+
+    let started: boolean | undefined;
+    await act(async () => {
+      started = await result.current({
+        amount: '1',
+        provider: 'aave',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        onBeforeNavigate,
+        onSettleResult,
+        onSuccess,
+        onFail,
+        onCancel,
+      });
+    });
+
+    expect(started).toBe(false);
+    expect(signatureConfirmMock.navigationToTxConfirm).not.toHaveBeenCalled();
+    for (const callback of [
+      onSuccess,
+      onFail,
+      onCancel,
+      onSettleResult,
+      onBeforeNavigate,
+    ]) {
+      expect(callback).not.toHaveBeenCalled();
+    }
   });
 });

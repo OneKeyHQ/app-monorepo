@@ -449,7 +449,9 @@ type IUniversalStakeProps = {
   approveType?: EApproveType;
   // Resolves false when the flow never started (risk disclaimer rejected, a
   // pre-flight check failed), so the form keeps the amount the user typed.
-  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean | void>;
+  // Deliberately not `boolean | void`: a caller that forgets to return the
+  // hook's result would silently reset the form.
+  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;

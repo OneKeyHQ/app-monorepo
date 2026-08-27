@@ -142,6 +142,13 @@ const syncBorrowOrder = async ({
 // Buffer after RPC finalization to allow all RPC nodes to sync the LUT state
 const LUT_PROPAGATION_BUFFER_MS = 5000;
 
+/**
+ * Resolves true once the flow has been handed to the transaction confirm page,
+ * false when it never started — today only a declined risk disclaimer, but the
+ * point is that no callback fires and nothing throws on that path. A caller
+ * that took a lock (submit guard, spinner) before calling MUST release it on
+ * false; `onSuccess` / `onFail` / `onCancel` are never invoked.
+ */
 export function useUniversalBorrowSupply({
   networkId,
   accountId,
@@ -165,7 +172,7 @@ export function useUniversalBorrowSupply({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -216,6 +223,13 @@ export function useUniversalBorrowSupply({
   );
 }
 
+/**
+ * Resolves true once the flow has been handed to the transaction confirm page,
+ * false when it never started — today only a declined risk disclaimer, but the
+ * point is that no callback fires and nothing throws on that path. A caller
+ * that took a lock (submit guard, spinner) before calling MUST release it on
+ * false; `onSuccess` / `onFail` / `onCancel` are never invoked.
+ */
 export function useUniversalBorrowBorrow({
   networkId,
   accountId,
@@ -240,7 +254,7 @@ export function useUniversalBorrowBorrow({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -555,6 +569,13 @@ type IBorrowClaimTxParams = {
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 };
 
+/**
+ * Resolves true once the flow has been handed to the transaction confirm page,
+ * false when it never started — today only a declined risk disclaimer, but the
+ * point is that no callback fires and nothing throws on that path. A caller
+ * that took a lock (submit guard, spinner) before calling MUST release it on
+ * false; `onSuccess` / `onFail` / `onCancel` are never invoked.
+ */
 export function useUniversalBorrowClaim({
   networkId,
   accountId,
@@ -577,7 +598,7 @@ export function useUniversalBorrowClaim({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowClaimTxParams) => {
+    }: IBorrowClaimTxParams): Promise<boolean> => {
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses.
       if (

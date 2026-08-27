@@ -822,6 +822,9 @@ export function useEModeNeedActionFlow({
       : '1';
   const approval = useBorrowApproval({
     action: 'repay',
+    // Same reason as the lending action dialog: the approve step gates the
+    // one-time risk disclaimer and needs the provider to do it.
+    providerName: provider,
     amountValue: engineAmount,
     repayAll: repayApprovalScope
       ? shouldRepayAllForEModeStep(repayApprovalScope.step)

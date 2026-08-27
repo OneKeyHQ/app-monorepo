@@ -19,6 +19,7 @@ import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/us
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
@@ -791,6 +792,15 @@ export function useBorrowApproval({
     // calling this, so a rejection just leaves the form as it was.
     const riskGateProvider =
       borrowDelegationApproveTarget?.provider ?? providerName;
+    if (!riskGateProvider && platformEnv.isDev) {
+      // Fail open in production — a broken gate must not block a trade — but a
+      // new call site that forgets `providerName` has to be loud, otherwise the
+      // disclaimer is skipped here and nobody notices (that is exactly how the
+      // lending action dialog and the eMode flow shipped without it).
+      console.error(
+        '[useBorrowApproval] risk disclaimer skipped: pass providerName from the call site',
+      );
+    }
     if (riskGateProvider) {
       const riskAccepted = await ensureRiskAccepted({
         provider: riskGateProvider,

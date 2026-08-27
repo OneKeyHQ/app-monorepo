@@ -167,9 +167,11 @@ type IUniversalWithdrawProps = {
     onStepChange?: (step: number) => void;
     onEthenaCooldownUnstakeReady?: () => void;
     withdrawType?: IEarnWithdrawType;
-    // Resolves false when the flow never started (risk disclaimer rejected),
-    // so the form keeps the amount the user typed.
-  }) => Promise<boolean | void>;
+    // Resolves false when the flow never started (risk disclaimer rejected), so
+    // the form keeps the amount the user typed. Deliberately not
+    // `boolean | void`: a caller that forgets to return the hook's result would
+    // silently reset the form, which is how this shipped half-wired once.
+  }) => Promise<boolean>;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
