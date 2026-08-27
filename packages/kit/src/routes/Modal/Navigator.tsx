@@ -6,6 +6,7 @@ import {
   EPageType,
   Theme,
   setGlassHeaderUIStyle,
+  setSystemBarsOverride,
   useThemeName,
 } from '@onekeyhq/components';
 import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
@@ -63,6 +64,17 @@ export function OnboardingNavigator() {
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);
   }
+  // Android's system bars have the same foreground problem the glass
+  // header does: they are painted globally from the app theme (see
+  // useAppearanceTheme), so a light-themed app shows white bars around
+  // this dark-locked content. Same focus-driven fix — pin the bars dark
+  // while onboarding is foreground, hand them back on blur. The pin
+  // lives as an override slot inside the bars' own module, so an app
+  // theme change mid-onboarding repaints through the same effective
+  // value instead of racing this write (no stale-capture ref needed).
+  if (platformEnv.isNativeAndroid) {
+    setSystemBarsOverride(isFocused ? 'dark' : null);
+  }
   // The render-time write above already handles focus AND blur (useIsFocused
   // re-renders on both, relinquishing to appGlassStyle when not focused). The
   // ONLY case it can't reach is unmount-without-blur (onboarding replaced by
@@ -78,6 +90,17 @@ export function OnboardingNavigator() {
     }
     return () => {
       setGlassHeaderUIStyle(appGlassStyleRef.current);
+    };
+  }, []);
+  // The bars' own unmount-without-blur cover, same shape as the glass
+  // cleanup above; `null` reads the live app variant inside the module,
+  // so no ref ride-along is needed here.
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return undefined;
+    }
+    return () => {
+      setSystemBarsOverride(null);
     };
   }, []);
   return (
