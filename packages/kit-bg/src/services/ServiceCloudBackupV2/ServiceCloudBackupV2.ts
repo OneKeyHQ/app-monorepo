@@ -474,6 +474,33 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async deleteAllBackups(): Promise<{
+    deletedCount: number;
+    failedCount: number;
+  }> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
+    const data = await this.getAllBackups();
+    const items = data?.items ?? [];
+    let deletedCount = 0;
+    let failedCount = 0;
+    for (const item of items) {
+      try {
+        await this.deleteSilently({
+          recordId: item.recordID,
+          skipManifestUpdate: false,
+        });
+        deletedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return { deletedCount, failedCount };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async getAllBackups() {
     const provider = this.getProvider();
     return provider.getAllBackups();

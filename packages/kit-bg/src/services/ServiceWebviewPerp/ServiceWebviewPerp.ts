@@ -1355,6 +1355,7 @@ class ServiceWebviewPerp extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
   async getUserBuilderFeeStatus({
     userAddress,
   }: {
