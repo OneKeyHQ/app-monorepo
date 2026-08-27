@@ -53,6 +53,20 @@ class DesktopApiSecurity {
     | IDesktopHyperLiquidAgentSessionPayload
     | undefined;
 
+  // Electron main-process memory survives renderer reloads but resets on restart.
+  private appSessionUnlocked: boolean | undefined;
+
+  async setAppSessionUnlocked(unlocked: boolean): Promise<void> {
+    if (typeof unlocked !== 'boolean') {
+      throw new OneKeyLocalError('Invalid Desktop app session state');
+    }
+    this.appSessionUnlocked = unlocked;
+  }
+
+  async getAppSessionUnlocked(): Promise<boolean | undefined> {
+    return this.appSessionUnlocked;
+  }
+
   async setHyperLiquidAgentSession(
     payload: IDesktopHyperLiquidAgentSessionPayload,
   ): Promise<void> {

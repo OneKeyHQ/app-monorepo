@@ -537,6 +537,7 @@ export const StakeSection = ({
             accountId,
             networkId,
             spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              networkId,
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
             }),

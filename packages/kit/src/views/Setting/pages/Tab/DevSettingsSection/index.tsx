@@ -61,7 +61,6 @@ import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
-  TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -485,9 +484,6 @@ const BaseDevSettingsSection = () => {
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
-  const remoteTradingViewUrl = devSettings.settings?.useTradingViewTestUrl
-    ? TRADING_VIEW_URL_TEST
-    : TRADING_VIEW_URL;
   const mockTradingViewKLineEmptyEnabled =
     devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
   const rawMockTradingViewKLineEmptyIntervals =
@@ -887,7 +883,7 @@ const BaseDevSettingsSection = () => {
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
         keywords:
-          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL 使用TradingView测试域名 TradingViewNative 事件日志 event log',
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL TradingViewNative 事件日志 event log',
       },
       {
         key: 'galleries',
@@ -2233,23 +2229,12 @@ const BaseDevSettingsSection = () => {
 
                       <SectionFieldItem
                         icon="TradeOutline"
-                        name="useTradingViewTestUrl"
-                        title="使用 TradingView 测试域名"
-                        subtitle={remoteTradingViewUrl}
-                      >
-                        <Switch
-                          testID="dev-settings-use-tradingview-test-url"
-                          size={ESwitchSize.small}
-                        />
-                      </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
                         name="useLocalTradingViewUrl"
                         title="使用本地 TradingView URL"
                         subtitle={
                           devSettings.settings?.useLocalTradingViewUrl
                             ? localTradingViewUrlSubtitle
-                            : remoteTradingViewUrl
+                            : TRADING_VIEW_URL_TEST
                         }
                       >
                         <Switch size={ESwitchSize.small} />

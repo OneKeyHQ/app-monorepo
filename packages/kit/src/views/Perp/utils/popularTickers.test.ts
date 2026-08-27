@@ -45,4 +45,28 @@ describe('pickPopularPerpTickers', () => {
       }).map((item) => item.coinName),
     ).toEqual(['ETH', 'BTC']);
   });
+
+  it('does not limit the number of matching hot tab tokens', () => {
+    const items = Array.from({ length: 12 }, (_, index) =>
+      createTicker(`TOKEN_${index}`, index + 1),
+    );
+    const hotTabTokens = items.map((item) => item.coinName).toReversed();
+
+    expect(
+      pickPopularPerpTickers({
+        items,
+        hotTabTokens,
+      }).map((item) => item.coinName),
+    ).toEqual(hotTabTokens);
+  });
+
+  it('does not limit the number of fallback hot score results', () => {
+    const items = Array.from({ length: 12 }, (_, index) =>
+      createTicker(`TOKEN_${index}`, index + 1),
+    );
+
+    expect(
+      pickPopularPerpTickers({ items }).map((item) => item.coinName),
+    ).toHaveLength(items.length);
+  });
 });

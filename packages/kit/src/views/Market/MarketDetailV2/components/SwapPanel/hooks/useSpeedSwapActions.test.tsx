@@ -16,6 +16,7 @@ import {
   swapQuoteEventCompletedAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
+  swapShouldRefreshQuoteAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import type {
   ISwapReviewGasInfoEntry,
@@ -36,6 +37,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapQuoteSource,
+  ESwapSlippageSegmentKey,
   ESwapStepType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -101,6 +103,7 @@ const mockCancelFetchQuoteEvents: jest.MockedFunction<
 const mockSetInAppNotificationAtom = jest.fn();
 const mockNavigationToTxConfirm = jest.fn();
 const mockNetAccountRun = jest.fn();
+const mockReceivingAccountRun = jest.fn();
 const mockMarketDeriveInfoRun = jest.fn();
 const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
   jest.fn();
@@ -111,6 +114,16 @@ const mockSendMarketDirectUnsignedTxs: jest.MockedFunction<
 let mockUsePromiseResultCallCount = 0;
 let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
 let mockNetAccountPromiseResult: {
+  result?: {
+    id: string;
+    addressDetail: {
+      address: string;
+      networkId: string;
+    };
+  };
+  run: jest.Mock;
+};
+let mockReceivingAccountPromiseResult: {
   result?: {
     id: string;
     addressDetail: {
@@ -166,10 +179,13 @@ jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => {
+    const promiseResults = [
+      mockNetAccountPromiseResult,
+      mockReceivingAccountPromiseResult,
+      mockMarketDeriveInfoPromiseResult,
+    ];
     const nextResult =
-      mockUsePromiseResultCallCount % 2 === 0
-        ? mockNetAccountPromiseResult
-        : mockMarketDeriveInfoPromiseResult;
+      promiseResults[mockUsePromiseResultCallCount % promiseResults.length];
     mockUsePromiseResultCallCount += 1;
     return nextResult;
   },
@@ -309,6 +325,14 @@ const btcToken: ISwapToken = {
   isNative: false,
 };
 
+const nativeBtcToken: ISwapToken = {
+  networkId: 'btc--0',
+  contractAddress: '',
+  symbol: 'BTC',
+  decimals: 8,
+  isNative: true,
+};
+
 const ethToken: ISwapToken = {
   networkId: 'evm--1',
   contractAddress: '',
@@ -377,7 +401,10 @@ function createHookProps({
     },
     tradeType: ESwapDirection.BUY,
     fromTokenAmount: '0',
-    slippage: 0.5,
+    slippageItem: {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 0.5,
+    },
     antiMEV: false,
   };
 }
@@ -447,6 +474,7 @@ describe('useSpeedSwapActions', () => {
     mockSetInAppNotificationAtom.mockReset();
     mockNavigationToTxConfirm.mockReset();
     mockNetAccountRun.mockReset();
+    mockReceivingAccountRun.mockReset();
     mockMarketDeriveInfoRun.mockReset();
     mockUsePaymentTokenPrice.mockReset();
     mockSendMarketDirectUnsignedTxs.mockReset();
@@ -494,6 +522,16 @@ describe('useSpeedSwapActions', () => {
         },
       },
       run: mockNetAccountRun,
+    };
+    mockReceivingAccountPromiseResult = {
+      result: {
+        id: 'receiving-account-1',
+        addressDetail: {
+          address: '0xuser',
+          networkId: 'evm--1',
+        },
+      },
+      run: mockReceivingAccountRun,
     };
     mockMarketDeriveInfoPromiseResult = {
       result: undefined,
@@ -621,6 +659,173 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it.each([
+    {
+      autoSlippage: true,
+      key: ESwapSlippageSegmentKey.AUTO,
+    },
+    {
+      autoSlippage: false,
+      key: ESwapSlippageSegmentKey.CUSTOM,
+    },
+  ])(
+    'quotes Market with $key slippage semantics',
+    async ({ autoSlippage, key }) => {
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+      renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          slippageItem: {
+            key,
+            value: 0.5,
+          },
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+          expect.objectContaining({
+            autoSlippage,
+            slippagePercentage: 0.5,
+            source: ESwapQuoteSource.MARKET,
+          }),
+        );
+      });
+    },
+  );
+
+  it('preserves automatic slippage when manually refreshing Market quotes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteNeedsRefresh).toBe(true);
+    });
+    act(() => {
+      result.current.refreshMarketQuote();
+    });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        autoSlippage: true,
+        slippagePercentage: 0.5,
+        source: ESwapQuoteSource.MARKET,
+      }),
+    );
+  });
+
+  it.each([
+    {
+      direction: 'EVM to native BTC',
+      tradeType: ESwapDirection.BUY,
+      fromAccountId: 'evm-account',
+      fromAddress: '0xevm-user',
+      fromNetworkId: usdcToken.networkId,
+      receivingAccountId: 'btc-account',
+      receivingAddress: 'bc1qreceiver',
+      receivingNetworkId: nativeBtcToken.networkId,
+      requestSource: ESwapQuoteSource.MARKET,
+    },
+    {
+      direction: 'native BTC to EVM',
+      tradeType: ESwapDirection.SELL,
+      fromAccountId: 'btc-account',
+      fromAddress: 'bc1qsender',
+      fromNetworkId: nativeBtcToken.networkId,
+      receivingAccountId: 'evm-account',
+      receivingAddress: '0xevm-receiver',
+      receivingNetworkId: usdcToken.networkId,
+      requestSource: ESwapQuoteSource.MARKET,
+    },
+  ])(
+    'quotes $direction with independent network addresses',
+    async ({
+      tradeType,
+      fromAccountId,
+      fromAddress,
+      fromNetworkId,
+      receivingAccountId,
+      receivingAddress,
+      receivingNetworkId,
+      requestSource,
+    }) => {
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+      mockNetAccountPromiseResult = {
+        result: {
+          id: fromAccountId,
+          addressDetail: { address: fromAddress, networkId: fromNetworkId },
+        },
+        run: mockNetAccountRun,
+      };
+      mockReceivingAccountPromiseResult = {
+        result: {
+          id: receivingAccountId,
+          addressDetail: {
+            address: receivingAddress,
+            networkId: receivingNetworkId,
+          },
+        },
+        run: mockReceivingAccountRun,
+      };
+
+      renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps({ marketToken: nativeBtcToken }),
+          tradeType,
+          fromTokenAmount: '1',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+      });
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          accountId: fromAccountId,
+          userAddress: fromAddress,
+          receivingAddress,
+          fromToken: expect.objectContaining({
+            networkId: fromNetworkId,
+          }),
+          toToken: expect.objectContaining({
+            networkId: receivingNetworkId,
+          }),
+          source: requestSource,
+        }),
+      );
+    },
+  );
+
   it('pauses Market quotes while review is open and resumes after close', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([]);
 
@@ -672,6 +877,10 @@ describe('useSpeedSwapActions', () => {
       useSpeedSwapActions({
         ...createHookProps(),
         fromTokenAmount: '1',
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
       }),
     );
 
@@ -691,6 +900,7 @@ describe('useSpeedSwapActions', () => {
       toTokenInfo: quoteRequest.toToken ?? btcToken,
       fromAmount: '1',
       toAmount: '0.00001',
+      autoSuggestedSlippage: 1.25,
       swapShouldSignedData: {
         unSignedInfo: {
           origin: 'https://app.onekey.so',
@@ -727,6 +937,7 @@ describe('useSpeedSwapActions', () => {
     expect(reviewState?.steps.map((step) => step.type)).toEqual([
       ESwapStepType.SIGN_MESSAGE,
     ]);
+    expect(reviewState?.preSwapData.slippage).toBe(1.25);
 
     mockFetchBuildTx.mockResolvedValue({
       result: {

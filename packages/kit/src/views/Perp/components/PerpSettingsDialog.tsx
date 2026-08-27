@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -26,6 +27,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsLayoutStateAtom,
   usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,10 +35,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowGuide } from '../hooks/useShowGuide';
+import { resetPerpDesktopLeftSplit } from '../layouts/perpLayoutUtils';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
 import { PerpGuideContent } from './Guide/PerpGuideContent';
+import {
+  PerpLayoutSettingsEntry,
+  showPerpLayoutSettingsDialog,
+} from './PerpLayoutSettings';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -157,6 +164,7 @@ interface IPerpSettingsPopoverContentProps {
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }
 
@@ -345,16 +353,32 @@ function SpotDustingOptOutSetting() {
 
 function PerpSettingsMainContent({
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
   onOpenActivityCenter,
+  onOpenLayoutSettings,
   onOpenGuide,
 }: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
   onOpenActivityCenter: () => void;
+  onOpenLayoutSettings: () => void;
   onOpenGuide: () => void;
 }) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
+  const [, setPerpsLayoutState] = usePerpsLayoutStateAtom();
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  // The resizable split layout is used by every non-native large-screen target.
+  const showResetLayoutEntry = gtMd && !platformEnv.isNative;
+
+  const handleResetLayout = useCallback(() => {
+    setPerpsLayoutState(resetPerpDesktopLeftSplit);
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.perps_layout_reset__msg,
+      }),
+    });
+  }, [intl, setPerpsLayoutState]);
 
   return (
     <YStack py="$3" px="$2">
@@ -432,6 +456,13 @@ function PerpSettingsMainContent({
         />
       </ListItem>
 
+      {showChartPositionSetting ? (
+        <PerpLayoutSettingsEntry
+          onPress={onOpenLayoutSettings}
+          showFeatureDot={platformEnv.isNative || !gtMd}
+        />
+      ) : null}
+
       {showActivityCenterEntry ? (
         <ListItem
           testID={PerpTestIDs.ActivityCenterButton}
@@ -464,6 +495,20 @@ function PerpSettingsMainContent({
         </ListItem>
       ) : null}
 
+      {showResetLayoutEntry ? (
+        <ListItem
+          testID={PerpTestIDs.ResetLayoutButton}
+          mx="$0"
+          px="$3"
+          titleProps={{ size: '$bodyMdMedium' }}
+          title={intl.formatMessage({
+            id: ETranslations.perps_back_to_default_layout__action,
+          })}
+          onPress={handleResetLayout}
+          cursor="default"
+        />
+      ) : null}
+
       <DevAbstractionModeSelector />
     </YStack>
   );
@@ -474,6 +519,7 @@ function PerpSettingsPopoverContent({
   onOpenActivityCenter,
   onOpenGuide,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: IPerpSettingsPopoverContentProps) {
   const intl = useIntl();
@@ -521,6 +567,16 @@ function PerpSettingsPopoverContent({
     navigate('activityCenter');
   }, [closePopover, navigate, onOpenActivityCenter]);
 
+  const handleOpenLayoutSettings = useCallback(() => {
+    void Promise.resolve(closePopover()).then(() => {
+      showPerpLayoutSettingsDialog({
+        title: intl.formatMessage({
+          id: ETranslations.perps_layout_settings__title,
+        }),
+      });
+    });
+  }, [closePopover, intl]);
+
   const handleOpenGuide = useCallback(() => {
     if (onOpenGuide) {
       void Promise.resolve(closePopover()).then(onOpenGuide);
@@ -539,8 +595,10 @@ function PerpSettingsPopoverContent({
       return (
         <PerpSettingsMainContent
           showActivityCenterEntry={showActivityCenterEntry}
+          showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
           onOpenActivityCenter={handleOpenActivityCenter}
+          onOpenLayoutSettings={handleOpenLayoutSettings}
           onOpenGuide={handleOpenGuide}
         />
       );
@@ -574,9 +632,11 @@ function PerpSettingsPopoverContent({
     back,
     closePopover,
     handleOpenActivityCenter,
+    handleOpenLayoutSettings,
     handleOpenGuide,
     intl,
     showActivityCenterEntry,
+    showChartPositionSetting,
     showGuideEntry,
     view,
   ]);
@@ -612,6 +672,7 @@ function PerpSettingsPopoverContent({
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }
 
@@ -620,12 +681,14 @@ export function showPerpSettingsDialog({
   onOpenActivityCenter,
   onOpenGuide,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: {
   title: string;
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
+  showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
 }) {
   const dialogInstanceRef: {
@@ -653,6 +716,7 @@ export function showPerpSettingsDialog({
           onOpenActivityCenter={onOpenActivityCenter}
           onOpenGuide={onOpenGuide}
           showActivityCenterEntry={showActivityCenterEntry}
+          showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}
         />
       </PerpsProviderMirror>
@@ -666,6 +730,7 @@ export function showPerpSettingsDialog({
 export function PerpSettingsPopover({
   renderTrigger,
   showActivityCenterEntry = false,
+  showChartPositionSetting = false,
   showGuideEntry = false,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
@@ -681,6 +746,7 @@ export function PerpSettingsPopover({
           <PerpSettingsPopoverContent
             closePopover={closePopover}
             showActivityCenterEntry={showActivityCenterEntry}
+            showChartPositionSetting={showChartPositionSetting}
             showGuideEntry={showGuideEntry}
           />
         )}

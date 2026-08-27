@@ -232,7 +232,7 @@ const baseResolve = ({
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
 // explicit/build-derived keys. Collapsing all three into one map; overlapping
 // keys are resolved by spread order — `explicitDefines` is spread LAST so the
-// pinned build-derived values win (parity with the previous hand-written map:
+// explicit build-derived values win (parity with the previous hand-written map:
 // e.g. NODE_ENV stays pinned to `nodeEnv`, not the raw process.env value).
 function buildDefineMap(
   platform: string,

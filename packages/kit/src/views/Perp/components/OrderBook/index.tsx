@@ -951,6 +951,7 @@ export function OrderBook({
     horizontal || !verticalLayout
       ? maxLevelsPerSide
       : verticalLayout.levelsPerSide;
+  const verticalExtraBidLevels = verticalLayout?.extraBidLevels ?? 0;
   const verticalRowHeight = verticalLayout?.rowHeight ?? rowHeight;
   const verticalSpreadControlHeight = Math.max(
     20,
@@ -977,26 +978,19 @@ export function OrderBook({
     selectedTickOption,
     priceDecimals,
     sizeDecimals,
+    verticalExtraBidLevels,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const verticalEmptyLevels = useMemo<IFormattedOBLevel[]>(
     () =>
       !horizontal && isEmpty
         ? Array.from(
-            { length: resolvedMaxLevelsPerSide },
+            { length: resolvedMaxLevelsPerSide + verticalExtraBidLevels },
             () => EMPTY_FORMATTED_ORDER_BOOK_LEVEL,
           )
         : [],
-    [horizontal, isEmpty, resolvedMaxLevelsPerSide],
+    [horizontal, isEmpty, resolvedMaxLevelsPerSide, verticalExtraBidLevels],
   );
-  let verticalAsks: IFormattedOBLevel[] = [];
-  let verticalBids: IFormattedOBLevel[] = [];
-  if (!horizontal) {
-    verticalAsks = isEmpty
-      ? verticalEmptyLevels
-      : aggregatedData.asks.toReversed();
-    verticalBids = isEmpty ? verticalEmptyLevels : aggregatedData.bids;
-  }
   const depthEpoch = useOrderBookEpoch(
     _symbol,
     selectedTickOption?.value,
@@ -1018,6 +1012,7 @@ export function OrderBook({
 
   const isMobileVariant =
     variant === 'mobileHorizontal' || variant === 'mobileVertical';
+
   const traceInnerLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
       if (!isMobileVariant) {
@@ -1074,42 +1069,83 @@ export function OrderBook({
     () => new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0'),
     [aggregatedData.asks],
   );
+  // The extra visual bid row must not skew the B/S ratio, so compare depths
+  // over the same number of levels on both sides.
+  const ratioBidDepth = useMemo(
+    () =>
+      new BigNumber(
+        aggregatedData.bids[
+          Math.min(resolvedMaxLevelsPerSide, aggregatedData.bids.length) - 1
+        ]?.cumSize ?? '0',
+      ),
+    [aggregatedData.bids, resolvedMaxLevelsPerSide],
+  );
 
   // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
   // change (useMemo) instead of inside JSX on every render, then frame-coalesce
   // them (useRafCoalesced) so high-frequency L2 ticks collapse to ~one Nitro
-  // prop write per displayed frame. Only the depth-bar *visual* data is gated
-  // here — the price/size ladder text below still reads `aggregatedData`
-  // directly, so the numbers the user reads stay maximally fresh.
-  const bidPercentsRaw = useMemo(
-    () =>
-      aggregatedData.bids.map((item) =>
+  // prop write per displayed frame.
+  //
+  // Bars and the rows drawn over them must come from one snapshot: coalescing
+  // only the percents left a stale depth block behind an updated row, which the
+  // native bar's CADisplayLink easing stretches into a visible skew.
+  const bidLadderRaw = useMemo(
+    () => ({
+      percents: aggregatedData.bids.map((item) =>
         calculatePercentage(item.cumSize, bidDepth),
       ),
+      levels: aggregatedData.bids,
+    }),
     [aggregatedData.bids, bidDepth],
   );
-  const askPercentsRaw = useMemo(
-    () =>
-      aggregatedData.asks.map((item) =>
+  const askLadderRaw = useMemo(
+    () => ({
+      percents: aggregatedData.asks.map((item) =>
         calculatePercentage(item.cumSize, askDepth),
       ),
+      levels: aggregatedData.asks,
+    }),
     [aggregatedData.asks, askDepth],
   );
   // Vertical layout draws asks top-to-bottom reversed; keep its own derived
-  // array so the reversal isn't recomputed in JSX each render.
-  const reversedAskPercentsRaw = useMemo(
-    () =>
-      aggregatedData.asks
-        .toReversed()
-        .map((item) => calculatePercentage(item.cumSize, askDepth)),
-    [aggregatedData.asks, askDepth],
-  );
-  const bidPercents = useRafCoalesced(bidPercentsRaw, depthEpoch);
-  const askPercents = useRafCoalesced(askPercentsRaw, depthEpoch);
-  const reversedAskPercents = useRafCoalesced(
-    reversedAskPercentsRaw,
+  // arrays so the reversal isn't recomputed in JSX each render. `levels` rides
+  // along for the same reason the horizontal ladders carry it: the rows drawn
+  // over these bars, and the tap that resolves against them, have to come from
+  // the frame the user is looking at.
+  const reversedAskLadderRaw = useMemo(() => {
+    const levels = aggregatedData.asks.toReversed();
+    return {
+      percents: levels.map((item) =>
+        calculatePercentage(item.cumSize, askDepth),
+      ),
+      levels,
+    };
+  }, [aggregatedData.asks, askDepth]);
+  // Mobile is already throttled to 200ms upstream, so coalescing to the frame
+  // can merge nothing and only adds latency. Desktop has no such snapshot —
+  // bursts still land within a frame there, which REACT-NATIVE-1JZ was about.
+  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch, !isMobileVariant);
+  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch, !isMobileVariant);
+  const bidPercents = bidLadder.percents;
+  const askPercents = askLadder.percents;
+  // Vertical-only, and vertical never renders on a mobile variant.
+  const reversedAskLadder = useRafCoalesced(
+    reversedAskLadderRaw,
     depthEpoch,
+    !isMobileVariant,
   );
+  const reversedAskPercents = reversedAskLadder.percents;
+  // Drawn from the same snapshot as the bars behind them: reading the live
+  // arrays here let a row show a price whose bar had not caught up, and could
+  // put a level the user never pressed into the order form.
+  let verticalAsks: IFormattedOBLevel[] = [];
+  let verticalBids: IFormattedOBLevel[] = [];
+  if (!horizontal) {
+    verticalAsks = isEmpty
+      ? verticalEmptyLevels.slice(0, resolvedMaxLevelsPerSide)
+      : reversedAskLadder.levels;
+    verticalBids = isEmpty ? verticalEmptyLevels : bidLadder.levels;
+  }
 
   const blockColors = useBlockColors();
   const textColor = useTextColor();
@@ -1367,7 +1403,7 @@ export function OrderBook({
               <View style={styles.absoluteContainer}>
                 <View style={styles.levelListContainer}>
                   <View style={styles.levelList}>
-                    {aggregatedData.bids.map((item, index) => (
+                    {bidLadder.levels.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('bid', item, index)}
@@ -1401,7 +1437,7 @@ export function OrderBook({
                     ))}
                   </View>
                   <View style={styles.levelList}>
-                    {aggregatedData.asks.map((item, index) => (
+                    {askLadder.levels.map((item, index) => (
                       <Pressable
                         key={index}
                         onPress={() => handleSelectLevel('ask', item, index)}
@@ -1524,7 +1560,7 @@ export function OrderBook({
         </View>
         <View style={styles.absoluteContainer}>
           {verticalAsks.map((itemData, index) => {
-            const originalIndex = aggregatedData.asks.length - 1 - index;
+            const originalIndex = verticalAsks.length - 1 - index;
             const isInHoverRange =
               hoverSummary?.side === 'ask' &&
               originalIndex <= hoverSummary.index;
@@ -1709,7 +1745,7 @@ export function OrderBook({
           ) : null}
         </View>
       </View>
-      <OrderBookSideRatio bidDepth={bidDepth} askDepth={askDepth} />
+      <OrderBookSideRatio bidDepth={ratioBidDepth} askDepth={askDepth} />
     </View>
   );
 }
@@ -2304,24 +2340,30 @@ export function OrderBookMobile({
   // prices/sizes still showed frame N-1, briefly separating the bar fill from
   // its own price/size text (PR review r3363420755). The raw arrays keep their
   // own useMemo identities so this wrapper only changes when real data changes.
+  // `levels` rides along so a tap resolves against the frame the user sees;
+  // reading live arrays could put a price they never pressed into the form.
   const askLadderRaw = useMemo(
     () => ({
       percents: askPercentsRaw,
       prices: askPricesRaw,
       sizes: askSizesRaw,
+      levels: reversedAsks,
     }),
-    [askPercentsRaw, askPricesRaw, askSizesRaw],
+    [askPercentsRaw, askPricesRaw, askSizesRaw, reversedAsks],
   );
   const bidLadderRaw = useMemo(
     () => ({
       percents: bidPercentsRaw,
       prices: bidPricesRaw,
       sizes: bidSizesRaw,
+      levels: aggregatedData.bids,
     }),
-    [bidPercentsRaw, bidPricesRaw, bidSizesRaw],
+    [aggregatedData.bids, bidPercentsRaw, bidPricesRaw, bidSizesRaw],
   );
-  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
-  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
+  // Mobile-only, and mobile is already throttled to 200ms upstream
+  // (`enableVisualSnapshot`), so frame coalescing can merge nothing here.
+  const askLadder = useRafCoalesced(askLadderRaw, depthEpoch, false);
+  const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch, false);
   // Spacers reserve the height of each rendered depth column so the foreground
   // spread row stays aligned. Each side can be empty independently, and
   // DepthBarColumn falls back to its placeholder rows for that side.
@@ -2386,25 +2428,22 @@ export function OrderBookMobile({
   );
   const handleAskRowPress = useCallback(
     (rowIndex: number) => {
-      const item = reversedAsks[rowIndex];
+      const levels = askLadder.levels;
+      const item = levels[rowIndex];
       if (item) {
-        handleSelectLevel(
-          'ask',
-          item,
-          aggregatedData.asks.length - 1 - rowIndex,
-        );
+        handleSelectLevel('ask', item, levels.length - 1 - rowIndex);
       }
     },
-    [aggregatedData.asks.length, handleSelectLevel, reversedAsks],
+    [askLadder.levels, handleSelectLevel],
   );
   const handleBidRowPress = useCallback(
     (rowIndex: number) => {
-      const item = aggregatedData.bids[rowIndex];
+      const item = bidLadder.levels[rowIndex];
       if (item) {
         handleSelectLevel('bid', item, rowIndex);
       }
     },
-    [aggregatedData.bids, handleSelectLevel],
+    [bidLadder.levels, handleSelectLevel],
   );
 
   return (

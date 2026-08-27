@@ -47,6 +47,8 @@ export type ISpotlightViewProps = PropsWithChildren<{
   content: ReactElement;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
+  showHighlightBackground?: boolean;
+  highlightBackgroundOpacity?: number;
   floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
@@ -76,6 +78,9 @@ export type ISpotlightProps = PropsWithChildren<{
   floatingOffset?: number;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
+  showHighlightBackground?: boolean;
+  highlightBackgroundOpacity?: number;
+  replaceChildren?: ReactElement;
 }>;
 
 function SpotlightContent({
@@ -150,6 +155,8 @@ function SpotlightContent({
     floatingOffset,
     childrenPaddingHorizontal = 8,
     childrenPaddingVertical = 8,
+    showHighlightBackground = true,
+    highlightBackgroundOpacity = 1,
   } = props;
 
   const isRendered = floatingPosition.width > 0;
@@ -208,13 +215,21 @@ function SpotlightContent({
         <Stack
           position="absolute"
           pointerEvents="none"
-          bg="$bg"
           top={floatingPosition.y - childrenPaddingVertical}
           left={floatingPosition.x - childrenPaddingHorizontal}
           borderRadius="$3"
           px={childrenPaddingHorizontal}
           py={childrenPaddingVertical}
+          overflow="hidden"
         >
+          {showHighlightBackground ? (
+            <Stack
+              position="absolute"
+              inset={0}
+              bg="$bg"
+              opacity={highlightBackgroundOpacity}
+            />
+          ) : null}
           {children}
         </Stack>
         <YStack
@@ -256,6 +271,8 @@ export function SpotlightView({
   content,
   childrenPaddingVertical,
   childrenPaddingHorizontal,
+  showHighlightBackground,
+  highlightBackgroundOpacity,
   floatingOffset = 12,
   visible = false,
   onConfirm,
@@ -281,6 +298,8 @@ export function SpotlightView({
         floatingOffset,
         childrenPaddingVertical,
         childrenPaddingHorizontal,
+        showHighlightBackground,
+        highlightBackgroundOpacity,
       });
     });
   }, [
@@ -293,6 +312,8 @@ export function SpotlightView({
     visible,
     childrenPaddingVertical,
     childrenPaddingHorizontal,
+    showHighlightBackground,
+    highlightBackgroundOpacity,
   ]);
 
   return (
@@ -315,6 +336,8 @@ export function SpotlightView({
               floatingOffset,
               childrenPaddingVertical,
               childrenPaddingHorizontal,
+              showHighlightBackground,
+              highlightBackgroundOpacity,
               triggerRef: triggerRef as any,
             }}
           />
@@ -326,7 +349,7 @@ export function SpotlightView({
 
 export const useSpotlight = (tourName: ESpotlightTour) => {
   const [{ data }] = useSpotlightPersistAtom();
-  const times = data[tourName];
+  const times = data[tourName] ?? 0;
   const tourVisited = useCallback(
     async (manualTimes?: number) => {
       void backgroundApiProxy.serviceSpotlight.updateTourTimes({
@@ -357,6 +380,9 @@ export function Spotlight(props: ISpotlightProps) {
     floatingOffset,
     childrenPaddingVertical,
     childrenPaddingHorizontal,
+    showHighlightBackground,
+    highlightBackgroundOpacity,
+    replaceChildren,
   } = props;
   const [isLocked] = useAppIsLockedAtom();
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
@@ -381,6 +407,9 @@ export function Spotlight(props: ISpotlightProps) {
       floatingOffset={floatingOffset}
       childrenPaddingVertical={childrenPaddingVertical}
       childrenPaddingHorizontal={childrenPaddingHorizontal}
+      showHighlightBackground={showHighlightBackground}
+      highlightBackgroundOpacity={highlightBackgroundOpacity}
+      replaceChildren={replaceChildren}
     >
       {children}
     </SpotlightView>

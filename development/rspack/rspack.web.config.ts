@@ -34,7 +34,6 @@ export function createWebConfig({
     basePath,
     removeFirstPartyConsole: true,
   });
-
   switch (nodeEnv) {
     case 'production':
       return merge(baseConfig, createProductionConfig({ platform, basePath }), {
