@@ -152,6 +152,24 @@ index de6e2c3..688ba97 100644
          if let image {
            continuation.resume(returning: image)
          } else {
+diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
+index 6aa92cc..a49a922 100644
+--- a/node_modules/expo-image/ios/ImageModule.swift
++++ b/node_modules/expo-image/ios/ImageModule.swift
+@@ -283,7 +283,12 @@ public final class ImageModule: Module {
+     SDImageCodersManager.shared.addCoder(WebPCoder.shared)
+     SDImageCodersManager.shared.addCoder(PSDCoder.shared)
+     SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
+-    SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
++    // OneKey patch: keep the SVG coder unregistered — SDWebImageSVGCoder
++    // ~> 1.7.0 crashes with NSInternalInconsistencyException
++    // (UIGraphicsBeginImageContext() failed to allocate CGBitmapContext) on
++    // remote SVG sources (DApp icons, NFT metadata, token logos), and there
++    // is no Podfile switch for it unlike AVIF's disable-libdav1d.
++    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
+     SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
+   }
+ 
 diff --git a/node_modules/expo-image/ios/ImageView.swift b/node_modules/expo-image/ios/ImageView.swift
 index cccedd7..6dbc413 100644
 --- a/node_modules/expo-image/ios/ImageView.swift
