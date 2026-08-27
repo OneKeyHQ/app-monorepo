@@ -56,7 +56,11 @@ import ServiceBase from './ServiceBase';
 const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
-const PERPS_ASSET_TYPE_VERSION = 2;
+// Bumped per dex registration so the server can keep a new dex out of responses
+// to clients that predate it: an unregistered prefix is dropped by search, but
+// the market list renders whatever `token-list` returns and would navigate to a
+// coin this build cannot resolve. v3 adds `io` (Entropy).
+const PERPS_ASSET_TYPE_VERSION = 3;
 // Every market's search aliases include its pair notations (`btc-usdc`), so
 // `usdc` returns every USDC settled market. Only short ASCII tickers are held
 // to a literal match: a longer query is where the index's description hits

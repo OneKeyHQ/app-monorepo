@@ -68,7 +68,7 @@ describe('ServiceUniversalSearch perps asset capability', () => {
       {
         params: {
           query: 'unitree',
-          assetTypeVersion: 2,
+          assetTypeVersion: 3,
         },
       },
     );
