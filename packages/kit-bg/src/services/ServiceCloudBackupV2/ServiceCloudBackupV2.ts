@@ -446,28 +446,21 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async delete(params: {
     recordId: string;
-    skipPasswordVerify?: boolean;
     skipManifestUpdate?: boolean;
   }): Promise<void> {
-    const provider = this.getProvider();
-    if (!params?.skipPasswordVerify) {
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-    }
-    await provider.deleteBackup({
-      recordId: params.recordId,
-      skipManifestUpdate: params?.skipManifestUpdate,
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
     });
+    await this.deleteSilently(params);
   }
 
   async deleteSilently(params: {
     recordId: string;
-    skipManifestUpdate: boolean | undefined;
+    skipManifestUpdate?: boolean;
   }): Promise<void> {
-    return this.delete({
+    const provider = this.getProvider();
+    await provider.deleteBackup({
       recordId: params.recordId,
-      skipPasswordVerify: true,
       skipManifestUpdate: params?.skipManifestUpdate,
     });
   }

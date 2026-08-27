@@ -17,6 +17,7 @@ const BACKGROUND_API_PROXY_FILE =
 const SIMPLE_DB_FILE = 'packages/kit-bg/src/dbs/simple/base/SimpleDb.ts';
 const SIMPLE_DB_PROXY_FILE =
   'packages/kit-bg/src/dbs/simple/base/SimpleDbProxy.ts';
+const BACKGROUND_DECORATORS_SUFFIX = '/background/backgroundDecorators';
 const EXPOSED_DECORATORS = new Set([
   'backgroundMethod',
   'backgroundMethodForDev',
@@ -50,8 +51,61 @@ function getRepositorySourceFiles(rootDir) {
     .split('\0')
     .filter(
       (filePath) =>
-        SOURCE_FILE_RE.test(filePath) && !isIgnoredSourceFile(filePath),
+        SOURCE_FILE_RE.test(filePath) &&
+        !isIgnoredSourceFile(filePath) &&
+        fs.existsSync(path.join(rootDir, filePath)),
     );
+}
+
+function getMatchingSourceFiles(
+  rootDir,
+  repositoryFiles,
+  pattern,
+  sourcePrefixes,
+) {
+  const result = spawnSync(
+    'git',
+    [
+      'grep',
+      '--untracked',
+      '--exclude-standard',
+      '--files-with-matches',
+      '--fixed-strings',
+      '--null',
+      pattern,
+      '--',
+      ...sourcePrefixes,
+    ],
+    {
+      cwd: rootDir,
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024 * 50,
+    },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(
+      result.stderr || `Unable to find source pattern: ${pattern}`,
+    );
+  }
+  const repositoryFileSet = new Set(repositoryFiles);
+  return result.stdout
+    .split('\0')
+    .filter(
+      (filePath) =>
+        repositoryFileSet.has(filePath) && !isIgnoredSourceFile(filePath),
+    );
+}
+
+function getReferenceSourceFiles(rootDir, repositoryFiles) {
+  return getMatchingSourceFiles(
+    rootDir,
+    repositoryFiles,
+    'backgroundApiProxy',
+    REFERENCE_SOURCE_PREFIXES,
+  );
 }
 
 function readSources(rootDir, filePaths) {
@@ -192,7 +246,34 @@ function getMemberChain(node) {
   return undefined;
 }
 
-function getDecoratorName(decorator) {
+function collectExposedDecoratorBindings(ast) {
+  const named = new Map();
+  const namespaces = new Set();
+  for (const statement of ast.program.body) {
+    if (
+      statement.type !== 'ImportDeclaration' ||
+      !statement.source.value.endsWith(BACKGROUND_DECORATORS_SUFFIX)
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (specifier.type === 'ImportNamespaceSpecifier') {
+        namespaces.add(specifier.local.name);
+        continue;
+      }
+      if (specifier.type !== 'ImportSpecifier') {
+        continue;
+      }
+      const importedName = specifier.imported.name ?? specifier.imported.value;
+      if (EXPOSED_DECORATORS.has(importedName)) {
+        named.set(specifier.local.name, importedName);
+      }
+    }
+  }
+  return { named, namespaces };
+}
+
+function getDecoratorName(decorator, bindings) {
   let expression = decorator?.expression;
   while (
     expression &&
@@ -200,7 +281,18 @@ function getDecoratorName(decorator) {
   ) {
     expression = expression.callee;
   }
-  return getMemberChain(expression)?.at(-1);
+  const chain = getMemberChain(expression);
+  if (chain?.length === 1) {
+    return bindings.named.get(chain[0]);
+  }
+  if (
+    chain?.length === 2 &&
+    bindings.namespaces.has(chain[0]) &&
+    EXPOSED_DECORATORS.has(chain[1])
+  ) {
+    return chain[1];
+  }
+  return undefined;
 }
 
 function getClassElementName(element) {
@@ -220,6 +312,7 @@ function collectClassIndex(backgroundFiles, getAst) {
   const classIndex = new Map();
   for (const filePath of backgroundFiles) {
     const ast = getAst(filePath);
+    const decoratorBindings = collectExposedDecoratorBindings(ast);
     walkAst(ast, (node) => {
       if (
         !['ClassDeclaration', 'ClassExpression'].includes(node.type) ||
@@ -247,7 +340,7 @@ function collectClassIndex(backgroundFiles, getAst) {
           continue;
         }
         const decoratorNames = (element.decorators ?? [])
-          .map(getDecoratorName)
+          .map((decorator) => getDecoratorName(decorator, decoratorBindings))
           .filter(Boolean);
         const existing = methods.get(methodName);
         methods.set(methodName, {
@@ -396,10 +489,229 @@ function isServiceName(value) {
   return value === 'walletConnect' || /^service[A-Z]/u.test(value);
 }
 
+const LEXICAL_SCOPE_NODE_TYPES = new Set([
+  'ArrowFunctionExpression',
+  'BlockStatement',
+  'CatchClause',
+  'ClassExpression',
+  'ClassDeclaration',
+  'ClassMethod',
+  'ClassPrivateMethod',
+  'ForInStatement',
+  'ForOfStatement',
+  'ForStatement',
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ObjectMethod',
+  'SwitchStatement',
+]);
+const FUNCTION_NODE_TYPES = new Set([
+  'ArrowFunctionExpression',
+  'ClassMethod',
+  'ClassPrivateMethod',
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ObjectMethod',
+]);
+
+function forEachAstChild(node, callback) {
+  for (const [key, value] of Object.entries(node)) {
+    if (SKIPPED_AST_KEYS.has(key)) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const child of value) {
+        if (child?.type) {
+          callback(child);
+        }
+      }
+    } else if (value?.type) {
+      callback(value);
+    }
+  }
+}
+
+function collectPatternBindings(pattern, callback, propertyPath = []) {
+  if (!pattern) {
+    return;
+  }
+  if (pattern.type === 'Identifier') {
+    callback(pattern, propertyPath);
+    return;
+  }
+  if (pattern.type === 'AssignmentPattern') {
+    collectPatternBindings(pattern.left, callback, propertyPath);
+    return;
+  }
+  if (pattern.type === 'TSParameterProperty') {
+    collectPatternBindings(pattern.parameter, callback, propertyPath);
+    return;
+  }
+  if (pattern.type === 'RestElement') {
+    collectPatternBindings(pattern.argument, callback);
+    return;
+  }
+  if (pattern.type === 'ObjectPattern') {
+    for (const property of pattern.properties) {
+      if (property.type === 'RestElement') {
+        collectPatternBindings(property.argument, callback);
+        continue;
+      }
+      const propertyName = getClassElementName(property);
+      collectPatternBindings(
+        property.value,
+        callback,
+        typeof propertyName === 'string' ? [...propertyPath, propertyName] : [],
+      );
+    }
+    return;
+  }
+  if (pattern.type === 'ArrayPattern') {
+    pattern.elements.forEach((element, index) => {
+      collectPatternBindings(element, callback, [
+        ...propertyPath,
+        String(index),
+      ]);
+    });
+  }
+}
+
+function createLexicalIndex(ast) {
+  const scopeByNode = new WeakMap();
+  const parentByNode = new WeakMap();
+  const rootScope = { bindings: new Map(), parent: undefined };
+
+  const setUnknownBinding = (scope, identifier) => {
+    if (identifier?.type === 'Identifier') {
+      scope.bindings.set(identifier.name, { kind: 'unknown' });
+    }
+  };
+
+  const visit = (node, parent, inheritedScope) => {
+    if (parent) {
+      parentByNode.set(node, parent);
+    }
+    if (
+      ['ClassDeclaration', 'FunctionDeclaration'].includes(node.type) &&
+      node.id
+    ) {
+      setUnknownBinding(inheritedScope, node.id);
+    }
+
+    const scope =
+      node.type !== 'Program' && LEXICAL_SCOPE_NODE_TYPES.has(node.type)
+        ? { bindings: new Map(), parent: inheritedScope }
+        : inheritedScope;
+    scopeByNode.set(node, scope);
+
+    if (node.type === 'ImportDeclaration') {
+      for (const specifier of node.specifiers) {
+        scope.bindings.set(specifier.local.name, {
+          kind:
+            specifier.type === 'ImportDefaultSpecifier' &&
+            isProxyImport(node.source.value)
+              ? 'proxy'
+              : 'unknown',
+        });
+      }
+    }
+
+    if (node.type === 'VariableDeclarator') {
+      collectPatternBindings(node.id, (identifier, propertyPath) => {
+        scope.bindings.set(identifier.name, {
+          assumeProxy:
+            propertyPath.length === 0 &&
+            /^(?:backgroundApiProxy|bgApiProxy)$/iu.test(identifier.name),
+          init: node.init,
+          kind: 'variable',
+          propertyPath,
+          scope,
+        });
+      });
+    }
+
+    if (FUNCTION_NODE_TYPES.has(node.type)) {
+      if (node.type === 'FunctionExpression' && node.id) {
+        setUnknownBinding(scope, node.id);
+      }
+      node.params.forEach((parameter, parameterIndex) => {
+        collectPatternBindings(parameter, (identifier) => {
+          scope.bindings.set(identifier.name, {
+            functionNode: node,
+            kind: 'parameter',
+            parameterIndex,
+          });
+        });
+      });
+    }
+
+    if (node.type === 'CatchClause') {
+      collectPatternBindings(node.param, (identifier) => {
+        setUnknownBinding(scope, identifier);
+      });
+    }
+
+    forEachAstChild(node, (child) => visit(child, node, scope));
+  };
+
+  visit(ast.program, undefined, rootScope);
+  return { parentByNode, scopeByNode };
+}
+
+function findLexicalBinding(scope, name) {
+  let currentScope = scope;
+  while (currentScope) {
+    if (currentScope.bindings.has(name)) {
+      return currentScope.bindings.get(name);
+    }
+    currentScope = currentScope.parent;
+  }
+  return undefined;
+}
+
+function appendDescriptorProperty(descriptor, propertyName) {
+  if (!descriptor) {
+    return undefined;
+  }
+  if (descriptor.kind === 'proxy') {
+    if (isServiceName(propertyName)) {
+      return { kind: 'service', owner: propertyName };
+    }
+    if (propertyName === 'simpleDb') {
+      return { kind: 'simpleDb' };
+    }
+    return undefined;
+  }
+  if (descriptor.kind === 'proxyModule') {
+    return propertyName === 'default' ? { kind: 'proxy' } : undefined;
+  }
+  if (descriptor.kind === 'service') {
+    return {
+      kind: 'reference',
+      method: propertyName,
+      owner: descriptor.owner,
+      referenceKind: 'service',
+    };
+  }
+  if (descriptor.kind === 'simpleDb') {
+    return { kind: 'entity', owner: propertyName };
+  }
+  if (descriptor.kind === 'entity') {
+    return {
+      kind: 'reference',
+      method: propertyName,
+      owner: descriptor.owner,
+      referenceKind: 'simpleDb',
+    };
+  }
+  return undefined;
+}
+
 function collectUiReferences(referenceFiles, getAst) {
   const references = [];
   const dynamicAccesses = [];
   const referenceKeys = new Set();
+  const dynamicAccessKeys = new Set();
 
   function addReference(reference) {
     const key = [
@@ -415,238 +727,163 @@ function collectUiReferences(referenceFiles, getAst) {
     }
   }
 
+  function addDynamicAccess(access) {
+    const key = `${access.filePath}:${access.line}`;
+    if (!dynamicAccessKeys.has(key)) {
+      dynamicAccessKeys.add(key);
+      dynamicAccesses.push(access);
+    }
+  }
+
   for (const filePath of referenceFiles) {
     const ast = getAst(filePath);
-    const proxyIdentifiers = new Set();
-    const serviceAliases = new Map();
-    const simpleDbAliases = new Set();
-    const entityAliases = new Map();
+    const { parentByNode, scopeByNode } = createLexicalIndex(ast);
 
-    for (const statement of ast.program.body) {
-      if (statement.type !== 'ImportDeclaration') {
-        continue;
+    const resolveExpression = (
+      expression,
+      scope = scopeByNode.get(expression),
+      visitedBindings = new Set(),
+    ) => {
+      const current = unwrapExpression(expression);
+      if (!current) {
+        return undefined;
       }
-      if (isProxyImport(statement.source.value)) {
-        for (const specifier of statement.specifiers) {
-          if (specifier.type === 'ImportDefaultSpecifier') {
-            proxyIdentifiers.add(specifier.local.name);
+
+      const rawChain = getMemberChain(current);
+      const globalProxyIndex = rawChain?.indexOf('$backgroundApiProxy') ?? -1;
+      if (globalProxyIndex >= 0) {
+        let descriptor = { kind: 'proxy' };
+        for (const propertyName of rawChain.slice(globalProxyIndex + 1)) {
+          descriptor = appendDescriptorProperty(descriptor, propertyName);
+          if (!descriptor) {
+            return undefined;
           }
         }
+        return descriptor;
       }
-    }
 
-    walkAst(ast, (node) => {
-      if (
-        node.type === 'VariableDeclarator' &&
-        node.id.type === 'Identifier' &&
-        /^(?:backgroundApiProxy|bgApiProxy)$/iu.test(node.id.name)
-      ) {
-        proxyIdentifiers.add(node.id.name);
-      }
-    });
-
-    const isProxyChain = (chain) =>
-      Boolean(
-        chain &&
-        (proxyIdentifiers.has(chain[0]) ||
-          chain.includes('$backgroundApiProxy')),
-      );
-
-    const getProxyAnchorIndex = (chain) => {
-      if (!chain) {
-        return -1;
-      }
-      if (proxyIdentifiers.has(chain[0])) {
-        return 0;
-      }
-      return chain.indexOf('$backgroundApiProxy');
-    };
-
-    const findDirectServiceIndex = (chain) => {
-      if (!chain) {
-        return -1;
-      }
-      const index = chain.findIndex(isServiceName);
-      const proxyAnchorIndex = getProxyAnchorIndex(chain);
-      return proxyAnchorIndex >= 0 && index === proxyAnchorIndex + 1
-        ? index
-        : -1;
-    };
-
-    const resolveExactService = (chain) => {
-      if (!chain) {
+      if (current.type === 'Identifier') {
+        const binding = findLexicalBinding(scope, current.name);
+        if (!binding || binding.kind === 'unknown') {
+          return undefined;
+        }
+        if (binding.kind === 'proxy') {
+          return { kind: 'proxy' };
+        }
+        if (visitedBindings.has(binding)) {
+          return undefined;
+        }
+        const nextVisitedBindings = new Set(visitedBindings);
+        nextVisitedBindings.add(binding);
+        if (binding.kind === 'variable') {
+          let descriptor = binding.assumeProxy
+            ? { kind: 'proxy' }
+            : resolveExpression(
+                binding.init,
+                binding.scope,
+                nextVisitedBindings,
+              );
+          for (const propertyName of binding.propertyPath) {
+            descriptor = appendDescriptorProperty(descriptor, propertyName);
+          }
+          return descriptor;
+        }
+        if (binding.kind === 'parameter' && binding.parameterIndex === 0) {
+          const callExpression = parentByNode.get(binding.functionNode);
+          const callee = unwrapExpression(callExpression?.callee);
+          if (
+            callExpression?.type === 'CallExpression' &&
+            ['MemberExpression', 'OptionalMemberExpression'].includes(
+              callee?.type,
+            ) &&
+            getStaticPropertyName(callee) === 'then'
+          ) {
+            return resolveExpression(
+              callee.object,
+              scopeByNode.get(callee.object),
+              nextVisitedBindings,
+            );
+          }
+        }
         return undefined;
       }
-      if (serviceAliases.has(chain[0]) && chain.length === 1) {
-        return serviceAliases.get(chain[0]);
-      }
-      const serviceIndex = findDirectServiceIndex(chain);
-      return serviceIndex >= 0 && serviceIndex === chain.length - 1
-        ? chain[serviceIndex]
-        : undefined;
-    };
 
-    const resolveExactSimpleDb = (chain) => {
-      if (!chain) {
-        return false;
+      if (current.type === 'AwaitExpression') {
+        return resolveExpression(
+          current.argument,
+          scopeByNode.get(current.argument),
+          visitedBindings,
+        );
       }
-      if (simpleDbAliases.has(chain[0]) && chain.length === 1) {
-        return true;
-      }
-      const simpleDbIndex = chain.indexOf('simpleDb');
-      return (
-        simpleDbIndex === getProxyAnchorIndex(chain) + 1 &&
-        simpleDbIndex === chain.length - 1 &&
-        getProxyAnchorIndex(chain) >= 0
-      );
-    };
 
-    const resolveExactEntity = (chain) => {
-      if (!chain) {
-        return undefined;
-      }
-      if (entityAliases.has(chain[0]) && chain.length === 1) {
-        return entityAliases.get(chain[0]);
-      }
-      if (simpleDbAliases.has(chain[0]) && chain.length === 2) {
-        return chain[1];
-      }
-      const simpleDbIndex = chain.indexOf('simpleDb');
-      return simpleDbIndex === getProxyAnchorIndex(chain) + 1 &&
-        simpleDbIndex === chain.length - 2 &&
-        getProxyAnchorIndex(chain) >= 0
-        ? chain[simpleDbIndex + 1]
-        : undefined;
-    };
-
-    const collectAliases = (node) => {
-      if (node.type !== 'VariableDeclarator' || !node.init) {
-        return;
-      }
-      const initChain = getMemberChain(node.init);
-      if (node.id.type === 'Identifier') {
+      if (['CallExpression', 'OptionalCallExpression'].includes(current.type)) {
+        const callee = unwrapExpression(current.callee);
         if (
-          initChain &&
-          isProxyChain(initChain) &&
-          (initChain.length === 1 ||
-            initChain.at(-1) === '$backgroundApiProxy') &&
-          !proxyIdentifiers.has(node.id.name)
+          callee?.type === 'Identifier' &&
+          callee.name === 'getBackgroundApiProxy'
         ) {
-          proxyIdentifiers.add(node.id.name);
+          return { kind: 'proxy' };
         }
-        const serviceName = resolveExactService(initChain);
-        if (serviceName && !serviceAliases.has(node.id.name)) {
-          serviceAliases.set(node.id.name, serviceName);
-        }
+        const firstArgument = unwrapExpression(current.arguments[0]);
         if (
-          resolveExactSimpleDb(initChain) &&
-          !simpleDbAliases.has(node.id.name)
+          callee?.type === 'Identifier' &&
+          callee.name === 'require' &&
+          ['Literal', 'StringLiteral'].includes(firstArgument?.type) &&
+          typeof firstArgument.value === 'string' &&
+          isProxyImport(firstArgument.value)
         ) {
-          simpleDbAliases.add(node.id.name);
+          return { kind: 'proxyModule' };
         }
-        const entityName = resolveExactEntity(initChain);
-        if (entityName && !entityAliases.has(node.id.name)) {
-          entityAliases.set(node.id.name, entityName);
-        }
-        return;
-      }
-      if (node.id.type !== 'ObjectPattern' || !isProxyChain(initChain)) {
-        return;
-      }
-      for (const property of node.id.properties) {
-        if (property.type !== 'ObjectProperty' || property.computed) {
-          continue;
-        }
-        const propertyName = getClassElementName(property);
-        const localName =
-          property.value.type === 'Identifier'
-            ? property.value.name
-            : undefined;
-        if (!localName || typeof propertyName !== 'string') {
-          continue;
-        }
-        if (isServiceName(propertyName) && !serviceAliases.has(localName)) {
-          serviceAliases.set(localName, propertyName);
-        }
-        if (propertyName === 'simpleDb' && !simpleDbAliases.has(localName)) {
-          simpleDbAliases.add(localName);
-        }
-      }
-    };
-
-    let previousAliasCount = -1;
-    while (
-      previousAliasCount !==
-      proxyIdentifiers.size +
-        serviceAliases.size +
-        simpleDbAliases.size +
-        entityAliases.size
-    ) {
-      previousAliasCount =
-        proxyIdentifiers.size +
-        serviceAliases.size +
-        simpleDbAliases.size +
-        entityAliases.size;
-      walkAst(ast, collectAliases);
-    }
-
-    const getReferenceFromChain = (chain, node) => {
-      if (!chain) {
         return undefined;
       }
-      if (serviceAliases.has(chain[0]) && chain.length >= 2) {
-        return {
-          filePath,
-          kind: 'service',
-          line: node.loc?.start.line ?? 1,
-          method: chain[1],
-          owner: serviceAliases.get(chain[0]),
-        };
+
+      if (current.type === 'NewExpression') {
+        const calleeName = getMemberChain(current.callee)?.at(-1);
+        return calleeName === 'BackgroundApiProxy'
+          ? { kind: 'proxy' }
+          : undefined;
       }
-      const serviceIndex = findDirectServiceIndex(chain);
-      if (serviceIndex >= 0 && chain[serviceIndex + 1]) {
-        return {
-          filePath,
-          kind: 'service',
-          line: node.loc?.start.line ?? 1,
-          method: chain[serviceIndex + 1],
-          owner: chain[serviceIndex],
-        };
-      }
-      if (entityAliases.has(chain[0]) && chain.length >= 2) {
-        return {
-          filePath,
-          kind: 'simpleDb',
-          line: node.loc?.start.line ?? 1,
-          method: chain[1],
-          owner: entityAliases.get(chain[0]),
-        };
-      }
-      if (simpleDbAliases.has(chain[0]) && chain.length >= 3) {
-        return {
-          filePath,
-          kind: 'simpleDb',
-          line: node.loc?.start.line ?? 1,
-          method: chain[2],
-          owner: chain[1],
-        };
-      }
-      const simpleDbIndex = chain.indexOf('simpleDb');
+
       if (
-        simpleDbIndex === getProxyAnchorIndex(chain) + 1 &&
-        chain[simpleDbIndex + 1] &&
-        chain[simpleDbIndex + 2] &&
-        getProxyAnchorIndex(chain) >= 0
+        ['MemberExpression', 'OptionalMemberExpression'].includes(current.type)
       ) {
-        return {
-          filePath,
-          kind: 'simpleDb',
-          line: node.loc?.start.line ?? 1,
-          method: chain[simpleDbIndex + 2],
-          owner: chain[simpleDbIndex + 1],
-        };
+        const propertyName = getStaticPropertyName(current);
+        if (!propertyName) {
+          return undefined;
+        }
+        return appendDescriptorProperty(
+          resolveExpression(
+            current.object,
+            scopeByNode.get(current.object),
+            visitedBindings,
+          ),
+          propertyName,
+        );
       }
+
+      if (current.type === 'SequenceExpression') {
+        const lastExpression = current.expressions.at(-1);
+        return resolveExpression(
+          lastExpression,
+          scopeByNode.get(lastExpression),
+          visitedBindings,
+        );
+      }
+
       return undefined;
+    };
+
+    const addReferenceDescriptor = (descriptor, node) => {
+      if (descriptor?.kind !== 'reference') {
+        return;
+      }
+      addReference({
+        filePath,
+        kind: descriptor.referenceKind,
+        line: node.loc?.start.line ?? 1,
+        method: descriptor.method,
+        owner: descriptor.owner,
+      });
     };
 
     walkAst(ast, (node, parent) => {
@@ -663,10 +900,25 @@ function collectUiReferences(referenceFiles, getAst) {
       ) {
         return;
       }
-      const reference = getReferenceFromChain(getMemberChain(node), node);
-      if (reference) {
-        addReference(reference);
+      if (node.computed && !getStaticPropertyName(node)) {
+        const descriptor = resolveExpression(
+          node.object,
+          scopeByNode.get(node.object),
+        );
+        if (
+          ['entity', 'proxy', 'service', 'simpleDb'].includes(descriptor?.kind)
+        ) {
+          addDynamicAccess({
+            filePath,
+            line: node.loc?.start.line ?? 1,
+          });
+        }
+        return;
       }
+      addReferenceDescriptor(
+        resolveExpression(node, scopeByNode.get(node)),
+        node,
+      );
     });
 
     walkAst(ast, (node) => {
@@ -677,83 +929,103 @@ function collectUiReferences(referenceFiles, getAst) {
       ) {
         return;
       }
-      const initChain = getMemberChain(node.init);
-      const serviceName = resolveExactService(initChain);
-      const entityName = resolveExactEntity(initChain);
-      if (!serviceName && !entityName) {
-        return;
-      }
-      for (const property of node.id.properties) {
-        if (property.type !== 'ObjectProperty' || property.computed) {
-          continue;
+      const descriptor = resolveExpression(
+        node.init,
+        scopeByNode.get(node.init),
+      );
+      collectPatternBindings(node.id, (identifier, propertyPath) => {
+        let propertyDescriptor = descriptor;
+        for (const propertyName of propertyPath) {
+          propertyDescriptor = appendDescriptorProperty(
+            propertyDescriptor,
+            propertyName,
+          );
         }
-        const methodName = getClassElementName(property);
-        if (typeof methodName === 'string') {
-          addReference({
-            filePath,
-            kind: serviceName ? 'service' : 'simpleDb',
-            line: property.loc?.start.line ?? 1,
-            method: methodName,
-            owner: serviceName ?? entityName,
-          });
-        }
-      }
-    });
-
-    walkAst(ast, (node) => {
-      if (
-        !['MemberExpression', 'OptionalMemberExpression'].includes(node.type) ||
-        !node.computed ||
-        getStaticPropertyName(node)
-      ) {
-        return;
-      }
-      const objectChain = getMemberChain(node.object);
-      if (
-        isProxyChain(objectChain) ||
-        resolveExactService(objectChain) ||
-        resolveExactSimpleDb(objectChain) ||
-        resolveExactEntity(objectChain)
-      ) {
-        dynamicAccesses.push({
-          filePath,
-          line: node.loc?.start.line ?? 1,
-        });
-      }
+        addReferenceDescriptor(propertyDescriptor, identifier);
+      });
     });
   }
 
   return { dynamicAccesses, references };
 }
 
-function resolveClassRecord(classIndex, className) {
+function getPlatformVariant(filePath) {
+  return filePath.match(
+    /\.(android|desktop|ext|ios|native|web|web-only)\.(?:js|jsx|ts|tsx)$/u,
+  )?.[1];
+}
+
+function getParentClassRecords(classIndex, className, childRecord) {
   const records = classIndex.get(className) ?? [];
-  if (records.length === 1) {
-    return { record: records[0] };
+  if (records.length <= 1) {
+    return records;
   }
-  return records.length
-    ? { error: `class ${className} is ambiguous` }
-    : { error: `class ${className} was not found` };
+  const childPlatform = getPlatformVariant(childRecord.filePath);
+  if (childPlatform) {
+    const matchingPlatformRecords = records.filter(
+      (record) => getPlatformVariant(record.filePath) === childPlatform,
+    );
+    if (matchingPlatformRecords.length) {
+      return matchingPlatformRecords;
+    }
+  }
+  const platformNeutralRecords = records.filter(
+    (record) => !getPlatformVariant(record.filePath),
+  );
+  return platformNeutralRecords.length ? platformNeutralRecords : records;
+}
+
+function resolveRecordMethodExposure(
+  classIndex,
+  record,
+  methodName,
+  visitedRecords,
+) {
+  const recordKey = `${record.filePath}:${record.name}`;
+  if (visitedRecords.has(recordKey)) {
+    return { error: `circular inheritance detected at ${recordKey}` };
+  }
+  const declaration = record.methods.get(methodName);
+  if (declaration) {
+    return declaration.decorated
+      ? { declaration, exposed: true }
+      : { declaration, exposed: false };
+  }
+  if (!record.parentName) {
+    return {
+      error: `method ${record.name}.${methodName} was not found in ${record.filePath}`,
+    };
+  }
+  const parentRecords = getParentClassRecords(
+    classIndex,
+    record.parentName,
+    record,
+  );
+  if (!parentRecords.length) {
+    return { error: `class ${record.parentName} was not found` };
+  }
+  const nextVisitedRecords = new Set(visitedRecords);
+  nextVisitedRecords.add(recordKey);
+  const results = parentRecords.map((parentRecord) =>
+    resolveRecordMethodExposure(
+      classIndex,
+      parentRecord,
+      methodName,
+      nextVisitedRecords,
+    ),
+  );
+  return results.find((result) => !result.exposed) ?? results[0];
 }
 
 function resolveMethodExposure(classIndex, className, methodName) {
-  const visitedClasses = new Set();
-  let currentName = className;
-  while (currentName && !visitedClasses.has(currentName)) {
-    visitedClasses.add(currentName);
-    const resolved = resolveClassRecord(classIndex, currentName);
-    if (!resolved.record) {
-      return { error: resolved.error };
-    }
-    const declaration = resolved.record.methods.get(methodName);
-    if (declaration) {
-      return declaration.decorated
-        ? { declaration, exposed: true }
-        : { declaration, exposed: false };
-    }
-    currentName = resolved.record.parentName;
+  const records = classIndex.get(className) ?? [];
+  if (!records.length) {
+    return { error: `class ${className} was not found` };
   }
-  return { error: `method ${className}.${methodName} was not found` };
+  const results = records.map((record) =>
+    resolveRecordMethodExposure(classIndex, record, methodName, new Set()),
+  );
+  return results.find((result) => !result.exposed) ?? results[0];
 }
 
 function findContractViolations({
@@ -809,18 +1081,15 @@ function findContractViolations({
 
 function analyzeRepository(rootDir = process.cwd()) {
   const filePaths = getRepositorySourceFiles(rootDir);
-  const backgroundFiles = filePaths.filter((filePath) =>
-    filePath.startsWith(BACKGROUND_SOURCE_PREFIX),
+  const backgroundClassFiles = getMatchingSourceFiles(
+    rootDir,
+    filePaths,
+    'class',
+    [BACKGROUND_SOURCE_PREFIX],
   );
-  const referenceFiles = filePaths.filter(
-    (filePath) =>
-      REFERENCE_SOURCE_PREFIXES.some((prefix) => filePath.startsWith(prefix)) &&
-      fs
-        .readFileSync(path.join(rootDir, filePath), 'utf8')
-        .includes('backgroundApiProxy'),
-  );
+  const referenceFiles = getReferenceSourceFiles(rootDir, filePaths);
   const requiredFiles = new Set([
-    ...backgroundFiles,
+    ...backgroundClassFiles,
     ...referenceFiles,
     BACKGROUND_API_PROXY_FILE,
     SIMPLE_DB_FILE,
@@ -828,7 +1097,7 @@ function analyzeRepository(rootDir = process.cwd()) {
   ]);
   const sources = readSources(rootDir, [...requiredFiles]);
   const getAst = createAstCache(sources);
-  const classIndex = collectClassIndex(backgroundFiles, getAst);
+  const classIndex = collectClassIndex(backgroundClassFiles, getAst);
   const serviceTypes = collectServiceTypes(getAst(BACKGROUND_API_PROXY_FILE));
   const simpleDbTypes = collectSimpleDbTypes(getAst(SIMPLE_DB_FILE));
   const immediateMethods = collectSimpleDbImmediateMethods(
@@ -899,6 +1168,7 @@ module.exports = {
   collectClassIndex,
   collectUiReferences,
   findContractViolations,
+  getRepositorySourceFiles,
   parseSource,
   resolveMethodExposure,
 };
