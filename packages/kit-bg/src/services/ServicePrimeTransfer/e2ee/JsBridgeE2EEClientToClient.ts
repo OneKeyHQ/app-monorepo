@@ -11,7 +11,6 @@ import type {
 import type { Socket } from 'socket.io';
 
 const RATE_LIMIT_INTERVAL_MS = 3500;
-const lastRequestTime: Map<string, number> = new Map();
 
 // Rate limiting whitelist - methods that are exempt from rate limiting
 const RATE_LIMIT_WHITELIST = new Set([
@@ -42,6 +41,18 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   isProxySide: boolean;
 
+  // Rate limit state held per bridge instance instead of a module-level map.
+  // The old map was keyed by socket.id and never pruned, so every socket.io
+  // reconnect (which mints a fresh id) leaked one entry per method for the
+  // lifetime of the process. Dropping socket.id from the key keeps the map
+  // bounded by method name and stable across reconnects, and the map is freed
+  // with the instance. We deliberately do NOT attach a socket 'disconnect'
+  // listener to clear it (as the server does): the client socket is long-lived
+  // and this bridge is re-created on it (e.g. QR refresh -> joinRoom), where
+  // setup() detaches the superseded instance's c2c listener so it can be GC'd -
+  // a disconnect listener would pin that old instance and reintroduce a leak.
+  private rateLimitState = new Map<string, number>();
+
   override sendAsString = false;
 
   checkIsRateLimited({
@@ -61,17 +72,18 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       return false;
     }
 
-    const rateLimitKey = `${this.socket.id}:${eventName}:${req.method}`;
+    // no socket id in the key: this map already belongs to this connection
+    const rateLimitKey = `${eventName}:${req.method}`;
 
     const now = Date.now();
-    const lastTime = lastRequestTime.get(rateLimitKey) || 0;
+    const lastTime = this.rateLimitState.get(rateLimitKey) || 0;
 
     if (now - lastTime < RATE_LIMIT_INTERVAL_MS) {
       sendErrorResponse();
       return true;
     }
 
-    lastRequestTime.set(rateLimitKey, now);
+    this.rateLimitState.set(rateLimitKey, now);
     return false;
   }
 
