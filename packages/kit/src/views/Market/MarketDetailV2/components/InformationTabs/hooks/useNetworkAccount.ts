@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 
 export function useNetworkAccount(networkId: string) {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -20,12 +21,17 @@ export function useNetworkAccount(networkId: string) {
   // Prioritize atom derive type (user selection) over network default derive type
   const effectiveDeriveType = useMemo(() => {
     return (
-      selectedDeriveType ??
+      getSelectedDeriveTypeForNetwork(selectedDeriveType, networkId) ??
       networkDefaultDeriveType ??
       activeAccount?.deriveType ??
       'default'
     );
-  }, [selectedDeriveType, networkDefaultDeriveType, activeAccount?.deriveType]);
+  }, [
+    selectedDeriveType,
+    networkId,
+    networkDefaultDeriveType,
+    activeAccount?.deriveType,
+  ]);
 
   const { result: networkAccount } = usePromiseResult(async () => {
     if (!networkId) {

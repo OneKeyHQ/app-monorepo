@@ -165,6 +165,79 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
+  it('forwards the compact mobile toolbar layout', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        compactMobileLayout
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+  });
+
+  it('replaces the mobile indicator control with a close action', () => {
+    const handleChartClose = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={handleChartClose}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      hasVisibleIndicators: boolean;
+      rightControl: ReactElement<{
+        name: string;
+        size: string;
+      }>;
+      rightControlLabel: string;
+      onRightControlPress: () => void;
+    };
+    expect(controlsProps.hasVisibleIndicators).toBe(false);
+    expect(controlsProps.rightControl.props.name).toBe(
+      'ChevronDownSmallOutline',
+    );
+    expect(controlsProps.rightControl.props.size).toBe('$5');
+    expect(controlsProps.rightControlLabel).toBe('global.close');
+
+    controlsProps.onRightControlPress();
+    expect(handleChartClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('can suppress the close action without restoring indicator controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={jest.fn()}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+        showChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        onRightControlPress: undefined,
+        rightControl: null,
+        rightControlLabel: undefined,
+      }),
+    );
+  });
+
   it('opens chart settings from opted-in desktop controls', () => {
     render(
       <TradingViewNativeChartControlsContainer

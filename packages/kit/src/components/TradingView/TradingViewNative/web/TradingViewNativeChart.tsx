@@ -13,6 +13,7 @@ import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
@@ -111,10 +112,17 @@ export const TradingViewNativeChart = memo(
     chartComponents,
     chartSettings,
     chartType,
+    extendTimeAxisBorderToCanvasEdge = false,
     hasVolume,
     indicatorSeries,
     initialRightOffset,
     isSwitchingInterval,
+    priceAxisFontSize = AXIS_FONT_SIZE,
+    priceAxisTickCount,
+    showLegend = true,
+    timeAxisFontSize = AXIS_FONT_SIZE,
+    timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    timeAxisBorderWidth,
     currentPriceLabel,
     onChartWidthChange,
     onSubIndicatorSettingsPress,
@@ -216,6 +224,9 @@ export const TradingViewNativeChart = memo(
     const themeName = useThemeName();
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
+    const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
+      ? theme.border.val
+      : undefined;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const watermarkOpacity =
@@ -274,6 +285,7 @@ export const TradingViewNativeChart = memo(
           canvas,
           priceAxisLabels,
           priceScaleModelRef.current,
+          priceAxisFontSize,
         );
         const scene = drawTradingViewNativeCanvasChart({
           candleIntervalSeconds,
@@ -287,18 +299,26 @@ export const TradingViewNativeChart = memo(
             down: chartSettings.candles.body.downColor,
             grid,
             line,
+            timeAxisBorder,
             up: chartSettings.candles.body.upColor,
           },
+          extendTimeAxisBorderToCanvasEdge,
           hasVolume,
           candleLabels,
           currentPriceLabel,
           indicatorSeries,
           points,
+          priceAxisFontSize,
           priceAxisWidth,
+          priceAxisTickCount,
           priceRangeScale: priceScaleModelRef.current.rangeScale,
           priceScaleMode: priceScaleModelRef.current.mode,
           runtimeState: nextRuntimeState,
+          showLegend,
           subIndicatorPanes,
+          timeAxisFontSize,
+          timeAxisHeight,
+          timeAxisBorderWidth,
           watermarkImage,
           watermarkOpacity,
         });
@@ -323,14 +343,22 @@ export const TradingViewNativeChart = memo(
         chartSettings,
         chartType,
         currentPriceLabel,
+        extendTimeAxisBorderToCanvasEdge,
         grid,
         hasVolume,
         indicatorSeries,
         line,
         candleLabels,
         points,
+        priceAxisFontSize,
         priceAxisLabels,
+        priceAxisTickCount,
+        showLegend,
         subIndicatorPanes,
+        timeAxisFontSize,
+        timeAxisHeight,
+        timeAxisBorder,
+        timeAxisBorderWidth,
         watermarkImage,
         watermarkOpacity,
       ],
@@ -351,6 +379,7 @@ export const TradingViewNativeChart = memo(
         canvas,
         priceAxisLabels,
         priceScaleModelRef.current,
+        priceAxisFontSize,
       );
       const runtimeAfterInitialMeasure = reduceTradingViewNativeChartRuntime(
         runtimeStateRef.current,
@@ -404,7 +433,7 @@ export const TradingViewNativeChart = memo(
           ? currentState
           : nextRuntimeState.viewport,
       );
-    }, [pointCount, points, priceAxisLabels]);
+    }, [pointCount, points, priceAxisFontSize, priceAxisLabels]);
 
     useLayoutEffect(() => {
       if (
@@ -509,11 +538,13 @@ export const TradingViewNativeChart = memo(
           canvas,
           priceAxisLabels,
           priceScaleModelRef.current,
+          priceAxisFontSize,
         );
         const nextChartWidth = getTradingViewNativeCanvasChartWidth(
           canvas,
           priceAxisLabels,
           priceScaleModelRef.current,
+          priceAxisFontSize,
         );
         setMeasuredChartWidth((currentWidth) =>
           currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
@@ -542,6 +573,7 @@ export const TradingViewNativeChart = memo(
       };
     }, [
       panOffset,
+      priceAxisFontSize,
       priceAxisLabels,
       renderChart,
       visibleSubIndicatorPaneCount,
@@ -625,6 +657,7 @@ export const TradingViewNativeChart = memo(
           event.currentTarget,
           priceAxisLabels,
           priceScaleModelRef.current,
+          priceAxisFontSize,
         );
         const canvasRect = event.currentTarget.getBoundingClientRect();
         const subIndicatorSettingsTarget =
@@ -658,7 +691,7 @@ export const TradingViewNativeChart = memo(
           zoomScale: nextRuntimeState.viewport.zoomScale,
         };
       },
-      [pointCount, priceAxisLabels, renderChart],
+      [pointCount, priceAxisFontSize, priceAxisLabels, renderChart],
     );
 
     const handlePointerMove = useCallback(
@@ -690,6 +723,7 @@ export const TradingViewNativeChart = memo(
             event.currentTarget,
             priceAxisLabels,
             priceScaleModelRef.current,
+            priceAxisFontSize,
           );
           const nextRuntimeState = reduceTradingViewNativeChartRuntime(
             runtimeStateRef.current,
@@ -735,9 +769,11 @@ export const TradingViewNativeChart = memo(
               event.currentTarget,
               priceAxisLabels,
               priceScaleModelRef.current,
+              priceAxisFontSize,
             ),
             height: canvasRect.height,
             pointCount,
+            timeAxisHeight,
             type: 'crosshairMoved',
             x: event.clientX - canvasRect.left,
             y: event.clientY - canvasRect.top,
@@ -750,8 +786,10 @@ export const TradingViewNativeChart = memo(
         chartSettings.options.crossLine,
         handlePriceScalePointerLeave,
         pointCount,
+        priceAxisFontSize,
         priceAxisLabels,
         renderChart,
+        timeAxisHeight,
       ],
     );
 
@@ -940,6 +978,7 @@ export const TradingViewNativeChart = memo(
             clientY: event.clientY,
             labels: priceAxisLabels,
             paneCount: visibleSubIndicatorPaneCount,
+            priceAxisFontSize,
             priceScale: priceScaleModelRef.current,
           })
         ) {
@@ -952,6 +991,7 @@ export const TradingViewNativeChart = memo(
           canvas,
           priceAxisLabels,
           priceScaleModelRef.current,
+          priceAxisFontSize,
         );
         const currentRuntimeState = runtimeStateRef.current;
         let nextRuntimeState = currentRuntimeState;
@@ -1002,6 +1042,7 @@ export const TradingViewNativeChart = memo(
       [
         handlePriceScaleWheel,
         pointCount,
+        priceAxisFontSize,
         priceAxisLabels,
         visibleSubIndicatorPaneCount,
       ],

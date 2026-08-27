@@ -1,0 +1,11 @@
+export const PERP_DESKTOP_TABLE_ROW_PADDING_LEFT = 20;
+export const PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT = 12;
+
+export const PERP_DESKTOP_TABLE_ROW_HORIZONTAL_PADDING =
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT + PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT;
+
+export function getPerpDesktopTableFixedSectionWidth(
+  fixedColumnsMinWidth: number,
+) {
+  return fixedColumnsMinWidth + PERP_DESKTOP_TABLE_ROW_HORIZONTAL_PADDING;
+}
