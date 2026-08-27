@@ -13,7 +13,7 @@ index e3178b9..1987bea 100644
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..1db5654 100644
+index 7ec0db3..211b098 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -96,8 +96,8 @@ index 7ec0db3..1db5654 100644
 +  // Queue this before RCTHost starts/restarts surfaces. The executor remains
 +  // buffered until common.hbc completes, then waits only for Metro I/O. This
 +  // preserves common -> delta -> runApplication ordering without blocking the
-+  // main thread.
-+  reactHost.bundleManager.bundleURL = bundleURL;
++  // main thread. Keep bundleManager on the local common HBC because RCTInstance
++  // still reads its initial bundle after hostDidStart returns.
 +  [instance callFunctionOnBufferedRuntimeExecutor:^(facebook::jsi::Runtime &runtime) {
 +    dispatch_time_t deadline = dispatch_time(
 +        DISPATCH_TIME_NOW, kDevVendorLoadTimeoutSeconds * NSEC_PER_SEC);
