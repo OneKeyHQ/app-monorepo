@@ -35,6 +35,12 @@ export type IHyperlinkTextProps = {
    * effects immediately, instead of returning parsed data for the caller.
    */
   autoExecuteParsedAction?: boolean;
+  /**
+   * Awaited before a url/urlInApp link opens. For a link inside a dialog that
+   * has to get out of the way first: `onAction` fires in a detached timeout, so
+   * a dismissal started there races the navigation instead of preceding it.
+   */
+  onBeforeOpenUrl?: () => void | Promise<void>;
   urlTextProps?: ISizableTextProps;
   actionTextProps?: ISizableTextProps;
   underlineTextProps?: ISizableTextProps;
@@ -63,6 +69,7 @@ export function HyperlinkText({
   values,
   // HyperlinkText is action-oriented, so auto execution is enabled by default.
   autoExecuteParsedAction = true,
+  onBeforeOpenUrl,
   urlTextProps,
   actionTextProps,
   underlineTextProps,
@@ -123,19 +130,22 @@ export function HyperlinkText({
               onAction?.(isLinkString ? link : '');
             }, 0);
             if (isLinkString) {
-              void parseQRCode.parse(link, {
-                handlers: [
-                  EQRCodeHandlerNames.marketDetail,
-                  EQRCodeHandlerNames.sendProtection,
-                  EQRCodeHandlerNames.rewardCenter,
-                  EQRCodeHandlerNames.updatePreview,
-                ],
-                qrWalletScene: false,
-                autoExecuteParsedAction,
-                // OneKey deeplinks still resolve natively above; only a plain
-                // web link reaches this.
-                defaultHandler: openWith,
-              });
+              void (async () => {
+                await onBeforeOpenUrl?.();
+                await parseQRCode.parse(link, {
+                  handlers: [
+                    EQRCodeHandlerNames.marketDetail,
+                    EQRCodeHandlerNames.sendProtection,
+                    EQRCodeHandlerNames.rewardCenter,
+                    EQRCodeHandlerNames.updatePreview,
+                  ],
+                  qrWalletScene: false,
+                  autoExecuteParsedAction,
+                  // OneKey deeplinks still resolve natively above; only a plain
+                  // web link reaches this.
+                  defaultHandler: openWith,
+                });
+              })();
             }
           }}
         >
@@ -148,6 +158,7 @@ export function HyperlinkText({
       inlineTextProps,
       urlTextProps,
       onAction,
+      onBeforeOpenUrl,
       parseQRCode,
       autoExecuteParsedAction,
     ],

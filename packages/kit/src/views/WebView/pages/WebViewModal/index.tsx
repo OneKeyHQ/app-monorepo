@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { useRoute } from '@react-navigation/core';
@@ -19,10 +19,12 @@ import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebVie
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -32,6 +34,10 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { WebViewTestIDs } from '../../testIDs';
+import {
+  EDappWebViewNavigationDecision,
+  resolveDappWebViewNavigation,
+} from '../../utils/dappWebViewNavigationPolicy';
 
 import type {
   IJsBridgeMessagePayload,
@@ -175,7 +181,14 @@ export default function WebViewModal() {
       // Guard against events after unmount started
       if (isUnmounting.current) return;
 
-      if (!title) {
+      if (enableDappBridge) {
+        // Never show the page's own document.title in a dApp session: it is
+        // attacker-controlled chrome right where the user decides whether to
+        // connect. Track the live URL instead, so a cross-origin hop is visible.
+        setNavigationTitle(
+          uriUtils.getHostNameFromUrl({ url: newUrl || currentUrl || url }),
+        );
+      } else if (!title) {
         setNavigationTitle(webTitle);
       }
       // Update current URL when navigation occurs
@@ -183,7 +196,7 @@ export default function WebViewModal() {
         setCurrentUrl(newUrl);
       }
     },
-    [title, setNavigationTitle],
+    [enableDappBridge, currentUrl, url, title, setNavigationTitle],
   );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
@@ -236,6 +249,42 @@ export default function WebViewModal() {
     !!redirectExternalNavigation,
   );
 
+  // The entry URL was checked once before this modal opened, but the page can
+  // navigate the top frame anywhere while keeping the wallet bridge, so every
+  // navigation is re-checked here — the same guard the Discovery browser runs.
+  const onDappShouldStartLoadWithRequest = useCallback(
+    ({ url: navUrl, isTopFrame }: { url: string; isTopFrame?: boolean }) => {
+      const decision = resolveDappWebViewNavigation({
+        url: navUrl,
+        isTopFrame,
+      });
+      if (decision === EDappWebViewNavigationDecision.Deeplink) {
+        handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      if (decision === EDappWebViewNavigationDecision.Deny) {
+        defaultLogger.discovery.browser.logRejectUrl(navUrl);
+        return false;
+      }
+      return true;
+    },
+    [],
+  );
+
+  const shouldStartLoadWithRequestHandler = useMemo(() => {
+    if (enableDappBridge) {
+      return onDappShouldStartLoadWithRequest;
+    }
+    return redirectExternalNavigation
+      ? onShouldStartLoadWithRequest
+      : undefined;
+  }, [
+    enableDappBridge,
+    onDappShouldStartLoadWithRequest,
+    onShouldStartLoadWithRequest,
+    redirectExternalNavigation,
+  ]);
+
   // Same inpage provider either way; the wrapper only adds the account/network
   // change notifications a live dApp session needs.
   const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
@@ -260,11 +309,7 @@ export default function WebViewModal() {
             mediaPermissionWhitelist={fiatPaySiteWhitelist}
             allowpopups={!!redirectExternalNavigation}
             onNavigationStateChange={onNavigationStateChange}
-            onShouldStartLoadWithRequest={
-              redirectExternalNavigation
-                ? onShouldStartLoadWithRequest
-                : undefined
-            }
+            onShouldStartLoadWithRequest={shouldStartLoadWithRequestHandler}
             onOpenWindow={redirectExternalNavigation ? onOpenWindow : undefined}
             {...(enableDappBridge
               ? // important: without this the dApp is never told about the

@@ -401,7 +401,7 @@ function BasicStakePage() {
         return;
       }
       const effectiveStakeType = confirmStakeType ?? nativeStakeType;
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,

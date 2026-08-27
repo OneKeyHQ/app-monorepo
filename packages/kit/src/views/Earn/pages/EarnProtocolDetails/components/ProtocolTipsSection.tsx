@@ -3,11 +3,22 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Dialog, Divider, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Divider,
+  SizableText,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+
+// Same caps the protocol intro dialog uses, so every Earn dialog scrolls at the
+// same height instead of growing until the sheet swallows the screen.
+const DIALOG_CONTENT_MAX_HEIGHT = 512;
+const COMPACT_DIALOG_CONTENT_HEIGHT = 260;
 
 type IProtocolTips = NonNullable<IStakeEarnDetail['protocolTips']>;
 type IProtocolTipItem = IProtocolTips['tips'][number];
@@ -21,19 +32,23 @@ function pickInlineTip(tips: IProtocolTipItem[]): IProtocolTipItem {
 
 function ProtocolTipRow({
   tip,
-  onLinkPress,
+  onBeforeOpenUrl,
 }: {
   tip: IProtocolTipItem;
-  onLinkPress?: () => void;
+  onBeforeOpenUrl?: () => Promise<void>;
 }) {
   return (
     <YStack gap="$1">
-      <EarnText text={tip.title} size="$bodyMdMedium" onAction={onLinkPress} />
+      <EarnText
+        text={tip.title}
+        size="$bodyMdMedium"
+        onBeforeOpenUrl={onBeforeOpenUrl}
+      />
       <EarnText
         text={tip.description}
         size="$bodyMd"
         color="$textSubdued"
-        onAction={onLinkPress}
+        onBeforeOpenUrl={onBeforeOpenUrl}
       />
     </YStack>
   );
@@ -46,19 +61,30 @@ function ProtocolTipRow({
 // under the browser the whole time.
 function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
   const dialogInstance = useDialogInstance();
-  const handleLinkPress = useCallback(() => {
-    void dialogInstance.close();
+  const { md } = useMedia();
+  // Await the dismissal: the in-app browser is pushed onto the navigation modal
+  // stack while this dialog lives in its own overlay, so opening it mid-exit
+  // leaves the two animating over each other (and the dialog waiting behind the
+  // page when the user comes back).
+  const handleBeforeOpenUrl = useCallback(async () => {
+    await dialogInstance.close();
   }, [dialogInstance]);
 
   return (
-    <YStack gap="$4" pb="$2">
-      {tips.map((tip, index) => (
-        <YStack key={index} gap="$4">
-          {index > 0 ? <Divider /> : null}
-          <ProtocolTipRow tip={tip} onLinkPress={handleLinkPress} />
-        </YStack>
-      ))}
-    </YStack>
+    <Dialog.ScrollView
+      height={md ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
+      maxHeight={md ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
+      nestedScrollEnabled
+    >
+      <YStack gap="$4" pb="$2">
+        {tips.map((tip, index) => (
+          <YStack key={index} gap="$4">
+            {index > 0 ? <Divider /> : null}
+            <ProtocolTipRow tip={tip} onBeforeOpenUrl={handleBeforeOpenUrl} />
+          </YStack>
+        ))}
+      </YStack>
+    </Dialog.ScrollView>
   );
 }
 

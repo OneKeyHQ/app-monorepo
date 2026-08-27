@@ -167,7 +167,9 @@ type IUniversalWithdrawProps = {
     onStepChange?: (step: number) => void;
     onEthenaCooldownUnstakeReady?: () => void;
     withdrawType?: IEarnWithdrawType;
-  }) => Promise<void>;
+    // Resolves false when the flow never started (risk disclaimer rejected),
+    // so the form keeps the amount the user typed.
+  }) => Promise<boolean | void>;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
@@ -1034,7 +1036,7 @@ export function UniversalWithdraw({
         }
       }
 
-      await onConfirm?.({
+      const started = await onConfirm?.({
         amount: isCancelWithdrawal ? '0' : amountValue,
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
@@ -1060,6 +1062,9 @@ export function UniversalWithdraw({
             }
           : undefined,
       });
+      if (started === false) {
+        return;
+      }
       if (shouldUseEthenaCooldown) {
         if (ethenaCooldownCompletedRef.current) {
           resetAmount();

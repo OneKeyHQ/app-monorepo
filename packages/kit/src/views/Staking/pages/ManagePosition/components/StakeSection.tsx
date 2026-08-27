@@ -584,7 +584,7 @@ export const StakeSection = ({
 
       if (borrowApiCtx.isBorrow) return;
 
-      await handleStake({
+      return handleStake({
         amount,
         approveType,
         permitSignature,
@@ -712,7 +712,8 @@ export const StakeSection = ({
         !borrowApiCtx.isBorrow ||
         unsupportedAaveNativeReserve
       ) {
-        return;
+        // Nothing was started, so the form keeps what the user typed.
+        return false;
       }
 
       const token = tokenInfo?.token as IToken;
@@ -743,7 +744,7 @@ export const StakeSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
+      return (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
         provider,
         marketAddress,
