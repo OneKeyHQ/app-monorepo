@@ -9876,7 +9876,7 @@ __metadata:
     react-dom: "npm:19.2.3"
     react-mobile-cropper: "npm:^0.10.0"
     react-native: "npm:0.86.2"
-    react-native-confirmation-code-field: "npm:^7.4.0"
+    react-native-confirmation-code-field: "npm:9.0.0"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.3"
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@3.0.90"
@@ -41844,18 +41844,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-confirmation-code-field@npm:^7.4.0":
-  version: 7.4.0
-  resolution: "react-native-confirmation-code-field@npm:7.4.0"
+"react-native-confirmation-code-field@npm:9.0.0":
+  version: 9.0.0
+  resolution: "react-native-confirmation-code-field@npm:9.0.0"
   peerDependencies:
-    react: ">=16.4.0"
-    react-native: ">=0.64.0"
+    react: ">=19.0.0"
+    react-native: ">=0.78.0"
   peerDependenciesMeta:
     react:
       optional: true
     react-native:
       optional: true
-  checksum: 10/ababeeb36067574f57c907f15d6c9ac6831e06076ed2882f382053ccf7c9912377787a6a56876cc6b63b2e8bab9ba179845046e8eed2cd9e2bf59bc00347ade5
+  checksum: 10/2c752e84d0a3e753ed837c0181ba4d8b30f8d75dad7b3d1f83f9d1f4af5f5bf8abd7d730aca95bf2c47689e77f968d3b688a3eccb4fa188171456c57ececf695
   languageName: node
   linkType: hard
 

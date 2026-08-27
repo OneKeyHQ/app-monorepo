@@ -241,7 +241,7 @@
     "react-dom": "19.2.3",
     "react-mobile-cropper": "^0.10.0",
     "react-native": "0.86.2",
-    "react-native-confirmation-code-field": "^7.4.0",
+    "react-native-confirmation-code-field": "9.0.0",
     "react-native-draggable-flatlist": "4.0.3",
     "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.90",
     "react-native-reanimated": "4.5.1",
