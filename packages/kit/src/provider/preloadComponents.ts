@@ -9,10 +9,12 @@ const IDLE_PRELOAD_TIMEOUT_MS = 3000;
 const SHIM_IDLE_PRELOAD_DELAY_MS = 3000;
 
 // Keep this list limited to common UI chunks that are likely needed soon after boot.
-const componentPreloadTasks: Array<{
+export interface IIdlePreloadTask {
   name: string;
   preload: () => Promise<unknown>;
-}> = [
+}
+
+const componentPreloadTasks: IIdlePreloadTask[] = [
   { name: 'DialogForm', preload: () => Dialog.preloadForm() },
   {
     name: 'LazyTooltip',
@@ -40,13 +42,14 @@ function formatPreloadError(error: unknown) {
 }
 
 async function runComponentPreloadTask(
-  task: (typeof componentPreloadTasks)[number],
+  task: IIdlePreloadTask,
+  logPrefix: string,
 ) {
   try {
     await task.preload();
   } catch (error) {
     defaultLogger.app.error.log(
-      `[PreloadComponents] ${task.name} failed: ${formatPreloadError(error)}`,
+      `[${logPrefix}] ${task.name} failed: ${formatPreloadError(error)}`,
     );
   }
 }
@@ -73,7 +76,10 @@ function isRequestIdleCallbackShim() {
   );
 }
 
-export function preloadComponentsOnIdle() {
+export function preloadTasksOnIdle(
+  tasks: IIdlePreloadTask[],
+  logPrefix = 'PreloadComponents',
+) {
   if (typeof requestIdleCallback !== 'function') {
     return undefined;
   }
@@ -106,7 +112,7 @@ export function preloadComponentsOnIdle() {
     if (cancelled) {
       return;
     }
-    if (taskIndex >= componentPreloadTasks.length) {
+    if (taskIndex >= tasks.length) {
       return;
     }
     if (!getCurrentVisibilityState()) {
@@ -122,7 +128,7 @@ export function preloadComponentsOnIdle() {
     if (cancelled) {
       return;
     }
-    if (taskIndex >= componentPreloadTasks.length) {
+    if (taskIndex >= tasks.length) {
       return;
     }
     if (!getCurrentVisibilityState()) {
@@ -144,7 +150,7 @@ export function preloadComponentsOnIdle() {
     if (cancelled) {
       return;
     }
-    if (taskIndex >= componentPreloadTasks.length) {
+    if (taskIndex >= tasks.length) {
       return;
     }
     if (!getCurrentVisibilityState()) {
@@ -155,9 +161,9 @@ export function preloadComponentsOnIdle() {
       scheduleIdlePreload();
       return;
     }
-    const task = componentPreloadTasks[taskIndex];
+    const task = tasks[taskIndex];
     taskIndex += 1;
-    void runComponentPreloadTask(task).then(() => {
+    void runComponentPreloadTask(task, logPrefix).then(() => {
       scheduleIdlePreload();
     });
   }
@@ -174,4 +180,8 @@ export function preloadComponentsOnIdle() {
     }
     clearVisibilityChangeSubscription();
   };
+}
+
+export function preloadComponentsOnIdle() {
+  return preloadTasksOnIdle(componentPreloadTasks);
 }

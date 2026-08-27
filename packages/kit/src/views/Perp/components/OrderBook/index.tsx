@@ -951,6 +951,7 @@ export function OrderBook({
     horizontal || !verticalLayout
       ? maxLevelsPerSide
       : verticalLayout.levelsPerSide;
+  const verticalExtraBidLevels = verticalLayout?.extraBidLevels ?? 0;
   const verticalRowHeight = verticalLayout?.rowHeight ?? rowHeight;
   const verticalSpreadControlHeight = Math.max(
     20,
@@ -977,17 +978,18 @@ export function OrderBook({
     selectedTickOption,
     priceDecimals,
     sizeDecimals,
+    verticalExtraBidLevels,
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const verticalEmptyLevels = useMemo<IFormattedOBLevel[]>(
     () =>
       !horizontal && isEmpty
         ? Array.from(
-            { length: resolvedMaxLevelsPerSide },
+            { length: resolvedMaxLevelsPerSide + verticalExtraBidLevels },
             () => EMPTY_FORMATTED_ORDER_BOOK_LEVEL,
           )
         : [],
-    [horizontal, isEmpty, resolvedMaxLevelsPerSide],
+    [horizontal, isEmpty, resolvedMaxLevelsPerSide, verticalExtraBidLevels],
   );
   const depthEpoch = useOrderBookEpoch(
     _symbol,
@@ -1067,6 +1069,17 @@ export function OrderBook({
     () => new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0'),
     [aggregatedData.asks],
   );
+  // The extra visual bid row must not skew the B/S ratio, so compare depths
+  // over the same number of levels on both sides.
+  const ratioBidDepth = useMemo(
+    () =>
+      new BigNumber(
+        aggregatedData.bids[
+          Math.min(resolvedMaxLevelsPerSide, aggregatedData.bids.length) - 1
+        ]?.cumSize ?? '0',
+      ),
+    [aggregatedData.bids, resolvedMaxLevelsPerSide],
+  );
 
   // REACT-NATIVE-1JZ: build the native depth-bar `percents` arrays once per data
   // change (useMemo) instead of inside JSX on every render, then frame-coalesce
@@ -1128,7 +1141,9 @@ export function OrderBook({
   let verticalAsks: IFormattedOBLevel[] = [];
   let verticalBids: IFormattedOBLevel[] = [];
   if (!horizontal) {
-    verticalAsks = isEmpty ? verticalEmptyLevels : reversedAskLadder.levels;
+    verticalAsks = isEmpty
+      ? verticalEmptyLevels.slice(0, resolvedMaxLevelsPerSide)
+      : reversedAskLadder.levels;
     verticalBids = isEmpty ? verticalEmptyLevels : bidLadder.levels;
   }
 
@@ -1730,7 +1745,7 @@ export function OrderBook({
           ) : null}
         </View>
       </View>
-      <OrderBookSideRatio bidDepth={bidDepth} askDepth={askDepth} />
+      <OrderBookSideRatio bidDepth={ratioBidDepth} askDepth={askDepth} />
     </View>
   );
 }

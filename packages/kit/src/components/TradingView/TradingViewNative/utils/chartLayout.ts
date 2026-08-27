@@ -925,6 +925,8 @@ export function getTradingViewNativeChartLayout({
   minimumTimeTickIndexSpacing,
   points,
   priceAxisWidth,
+  priceAxisTickCount,
+  timeAxisHeight,
   priceRangeScale = 1,
   priceScaleMode = 'linear',
   visiblePointRange,
@@ -942,6 +944,8 @@ export function getTradingViewNativeChartLayout({
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   priceAxisWidth: number;
+  priceAxisTickCount?: number;
+  timeAxisHeight?: number;
   priceRangeScale?: number;
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
@@ -949,9 +953,15 @@ export function getTradingViewNativeChartLayout({
 }): ITradingViewNativeChartLayout | null {
   'worklet';
 
+  // Imported constants used in default parameters are not captured by the
+  // Native worklet serializer. Resolve them inside the worklet body instead.
+  const resolvedPriceAxisTickCount =
+    priceAxisTickCount ?? TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
+  const resolvedTimeAxisHeight =
+    timeAxisHeight ?? TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
   const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
   const priceAxisX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
-  const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  const timeAxisY = height - resolvedTimeAxisHeight;
   const normalizedContentBottomInset = Number.isFinite(contentBottomInset)
     ? Math.max(contentBottomInset, 0)
     : 0;
@@ -1005,6 +1015,10 @@ export function getTradingViewNativeChartLayout({
     mainChartBottom - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const volumeTop = volumeBottom - volumeHeight;
   const priceRange = maxPrice - minPrice;
+  const normalizedPriceAxisTickCount = Math.max(
+    Math.floor(resolvedPriceAxisTickCount),
+    1,
+  );
   const priceTickCount =
     priceRange === 0
       ? 1
@@ -1016,7 +1030,7 @@ export function getTradingViewNativeChartLayout({
             ) + 1,
             1,
           ),
-          TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
+          normalizedPriceAxisTickCount,
         );
   const priceTicks = Array.from(
     { length: priceTickCount },
