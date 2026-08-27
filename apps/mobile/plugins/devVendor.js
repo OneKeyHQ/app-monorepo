@@ -140,7 +140,7 @@ function getStubPath(projectRoot, platform, moduleId) {
   return path.join(getStubRoot(projectRoot, platform), `${moduleId}.js`);
 }
 
-function getDevVendorStubModuleId(filePath, projectRoot) {
+function getDevVendorStubInfo(filePath, projectRoot) {
   const outputRoot = path.resolve(devVendorConfig.outputRoot(projectRoot));
   const relativePath = path.relative(outputRoot, path.resolve(filePath));
   if (
@@ -149,12 +149,18 @@ function getDevVendorStubModuleId(filePath, projectRoot) {
   ) {
     return undefined;
   }
-  const match = relativePath.match(/^(?:android|ios)[\\/]stubs[\\/](\d+)\.js$/);
+  const match = relativePath.match(/^(android|ios)[\\/]stubs[\\/](\d+)\.js$/);
   if (!match) {
     return undefined;
   }
-  const moduleId = Number(match[1]);
-  return Number.isSafeInteger(moduleId) && moduleId > 0 ? moduleId : undefined;
+  const moduleId = Number(match[2]);
+  return Number.isSafeInteger(moduleId) && moduleId > 0
+    ? { moduleId, platform: match[1] }
+    : undefined;
+}
+
+function getDevVendorStubModuleId(filePath, projectRoot) {
+  return getDevVendorStubInfo(filePath, projectRoot)?.moduleId;
 }
 
 function assertSortedUniqueModules(modules) {
@@ -323,12 +329,68 @@ function isDevVendorRequest(bundleOptions) {
   }
 }
 
-function shouldPrependCommon(bundleOptions) {
+function getRuntimeTarget(entryPoint, projectRoot) {
+  const resolvedEntryPoint = path.resolve(entryPoint);
+  if (resolvedEntryPoint === path.resolve(projectRoot, 'index.ts')) {
+    return 'main';
+  }
+  if (resolvedEntryPoint === path.resolve(projectRoot, 'background.ts')) {
+    return 'background';
+  }
+  return undefined;
+}
+
+function inspectDevVendorGraph({ entryPoint, graph, projectRoot }) {
+  const stubInfos = [...graph.dependencies.keys()]
+    .map((modulePath) => getDevVendorStubInfo(modulePath, projectRoot))
+    .filter(Boolean);
+  if (stubInfos.length === 0) return undefined;
+
+  const platform = graph.transformOptions?.platform;
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(
+      `[devVendor] External stubs found for unsupported platform: ${String(platform)}.`,
+    );
+  }
+  const mismatchedStub = stubInfos.find(
+    (stubInfo) => stubInfo.platform !== platform,
+  );
+  if (mismatchedStub) {
+    throw new Error(
+      `[devVendor] ${mismatchedStub.platform} external stub found in ${platform} graph.`,
+    );
+  }
+  const runtimeTarget = getRuntimeTarget(entryPoint, projectRoot);
+  if (!runtimeTarget) {
+    throw new Error(
+      `[devVendor] External stubs found for unsupported runtime entry: ${entryPoint}.`,
+    );
+  }
+  return { platform, runtimeTarget, stubCount: stubInfos.length };
+}
+
+function shouldPrependCommon(bundleOptions, devVendorGraph) {
   return (
     bundleOptions.dev &&
     !bundleOptions.modulesOnly &&
-    isDevVendorRequest(bundleOptions)
+    devVendorGraph !== undefined
   );
+}
+
+function composeDevVendorBundle({
+  bundleOptions,
+  commonSourceCode,
+  devVendorGraph,
+  serializedDelta,
+}) {
+  if (!shouldPrependCommon(bundleOptions, devVendorGraph)) {
+    return serializedDelta;
+  }
+  const deltaCode =
+    typeof serializedDelta === 'string'
+      ? serializedDelta
+      : serializedDelta.code;
+  return `${commonSourceCode}\n${deltaCode}`;
 }
 
 function serializeDefault(entryPoint, prepend, graph, bundleOptions) {
@@ -377,13 +439,15 @@ function applyDevVendorConfig(config, projectRoot) {
     graph,
     bundleOptions,
   ) => {
-    if (!bundleOptions.dev || !isDevVendorRequest(bundleOptions)) {
+    const devVendorGraph = bundleOptions.dev
+      ? inspectDevVendorGraph({ entryPoint, graph, projectRoot })
+      : undefined;
+    if (!devVendorGraph) {
       return previousCustomSerializer
         ? previousCustomSerializer(entryPoint, prepend, graph, bundleOptions)
         : serializeDefault(entryPoint, prepend, graph, bundleOptions);
     }
-    const platform = graph.transformOptions?.platform;
-    const runtime = loadRuntime(projectRoot, platform);
+    const runtime = loadRuntime(projectRoot, devVendorGraph.platform);
     const deltaBundleOptions = {
       ...bundleOptions,
       modulesOnly: true,
@@ -400,18 +464,16 @@ function applyDevVendorConfig(config, projectRoot) {
       typeof serializedDelta === 'string'
         ? serializedDelta
         : serializedDelta.code;
-    const stubCount = [...graph.dependencies.keys()].filter(
-      (modulePath) =>
-        getDevVendorStubModuleId(modulePath, projectRoot) !== undefined,
-    ).length;
-    const deltaModuleCount = graph.dependencies.size - stubCount;
+    const deltaModuleCount = graph.dependencies.size - devVendorGraph.stubCount;
     console.log(
-      `[devVendor] serialize platform=${platform} graph=${graph.dependencies.size} externalStubs=${stubCount} deltaModules=${deltaModuleCount} deltaBytes=${Buffer.byteLength(deltaCode)}`,
+      `[devVendor] serialize platform=${devVendorGraph.platform} runtime=${devVendorGraph.runtimeTarget} graph=${graph.dependencies.size} externalStubs=${devVendorGraph.stubCount} deltaModules=${deltaModuleCount} deltaBytes=${Buffer.byteLength(deltaCode)}`,
     );
-    if (!shouldPrependCommon(bundleOptions)) {
-      return serializedDelta;
-    }
-    return `${runtime.sourceCode}\n${deltaCode}`;
+    return composeDevVendorBundle({
+      bundleOptions,
+      commonSourceCode: runtime.sourceCode,
+      devVendorGraph,
+      serializedDelta,
+    });
   };
 
   return config;
@@ -429,6 +491,7 @@ module.exports = {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  composeDevVendorBundle,
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
   getManifestPath,
@@ -437,6 +500,7 @@ module.exports = {
   hashRepoFiles,
   isDevVendorEnabled,
   isDevVendorRequest,
+  inspectDevVendorGraph,
   resetRuntimeCacheForTests,
   sha256,
   shouldPrependCommon,

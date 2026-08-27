@@ -8,9 +8,11 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  composeDevVendorBundle,
   getDevVendorStubModuleId,
   isDevVendorEnabled,
   isDevVendorRequest,
+  inspectDevVendorGraph,
   sha256,
   shouldPrependCommon,
   verifyManifest,
@@ -137,7 +139,62 @@ describe('devVendor', () => {
     }
   });
 
-  it('recognizes rewritten Metro URLs and keeps modulesOnly responses as deltas', () => {
+  it('uses external stubs when serializer sourceUrl lacks resolver options', () => {
+    const projectRoot = path.resolve('/tmp/onekey/apps/mobile');
+    const entryPoint = path.join(projectRoot, 'background.ts');
+    const graph = {
+      dependencies: new Map([
+        [
+          path.join(projectRoot, 'out-dir-bundle/dev-vendor/ios/stubs/4319.js'),
+          {},
+        ],
+        [entryPoint, {}],
+      ]),
+      transformOptions: { platform: 'ios' },
+    };
+    const fullBundleOptions = {
+      dev: true,
+      modulesOnly: false,
+      sourceUrl: 'http://localhost:8081/background.bundle?platform=ios',
+    };
+    const devVendorGraph = inspectDevVendorGraph({
+      entryPoint,
+      graph,
+      projectRoot,
+    });
+
+    expect(isDevVendorRequest(fullBundleOptions)).toBe(false);
+    expect(devVendorGraph).toEqual({
+      platform: 'ios',
+      runtimeTarget: 'background',
+      stubCount: 1,
+    });
+    expect(shouldPrependCommon(fullBundleOptions, devVendorGraph)).toBe(true);
+    expect(
+      composeDevVendorBundle({
+        bundleOptions: fullBundleOptions,
+        commonSourceCode: 'common',
+        devVendorGraph,
+        serializedDelta: 'delta',
+      }),
+    ).toBe('common\ndelta');
+    expect(
+      composeDevVendorBundle({
+        bundleOptions: { ...fullBundleOptions, modulesOnly: true },
+        commonSourceCode: 'common',
+        devVendorGraph,
+        serializedDelta: { code: 'delta', map: 'delta-map' },
+      }),
+    ).toEqual({ code: 'delta', map: 'delta-map' });
+    expect(
+      shouldPrependCommon(
+        { ...fullBundleOptions, modulesOnly: true },
+        devVendorGraph,
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps rewritten URL detection as diagnostics only', () => {
     const fullBundleOptions = {
       dev: true,
       modulesOnly: false,
@@ -146,10 +203,6 @@ describe('devVendor', () => {
     };
 
     expect(isDevVendorRequest(fullBundleOptions)).toBe(true);
-    expect(shouldPrependCommon(fullBundleOptions)).toBe(true);
-    expect(
-      shouldPrependCommon({ ...fullBundleOptions, modulesOnly: true }),
-    ).toBe(false);
     expect(
       isDevVendorRequest({
         ...fullBundleOptions,
