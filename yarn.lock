@@ -9956,7 +9956,8 @@ __metadata:
     "@swc/core": "npm:^1.5.25"
     "@swc/helpers": "npm:0.5.23"
     "@swc/jest": "npm:^0.2.37"
-    "@tamagui/animations-moti": "npm:2.7.7"
+    "@tamagui/animations-css": "npm:2.7.7"
+    "@tamagui/animations-reanimated": "npm:2.7.7"
     "@tamagui/babel-plugin": "npm:2.7.7"
     "@tamagui/config": "npm:2.7.7"
     "@tamagui/static": "npm:2.7.7"
@@ -17753,18 +17754,6 @@ __metadata:
     react: ">=19"
     react-dom: "*"
   checksum: 10/332f3f64899bc4cd3e22521c7829a8c76308eb61c0fc8c6591fe561e9213f31864b120cea80485c95aa943d8e9fa88fddf823c7e0aa0b2290a097f126ecf8990
-  languageName: node
-  linkType: hard
-
-"@tamagui/animations-moti@npm:2.7.7":
-  version: 2.7.7
-  resolution: "@tamagui/animations-moti@npm:2.7.7"
-  dependencies:
-    "@tamagui/core": "npm:2.7.7"
-    "@tamagui/use-presence": "npm:2.7.7"
-  peerDependencies:
-    react: ">=19"
-  checksum: 10/e09a9d49c0c0f99bab79fae0233f8eecb731934b51547ae94e0ab63a5e81088b63e39995481bcf91f20d32094230ba7ebb0bfc9f25eb758c199bd7f0065f4793
   languageName: node
   linkType: hard
 

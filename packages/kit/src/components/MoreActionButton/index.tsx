@@ -1691,11 +1691,7 @@ function Dot({
   );
 }
 
-function MoreButtonWithDot({
-  onPress: _onPress,
-}: {
-  onPress?: IButtonProps['onPress'];
-}) {
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
@@ -1747,7 +1743,12 @@ function MoreButtonWithDot({
 
   if (isDesktopMode) {
     return (
-      <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
+      <YStack
+        p="$2"
+        borderRadius="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+        onPress={onPress}
+      >
         <Stack position="relative">
           <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
@@ -1779,6 +1780,7 @@ function MoreActionButtonCmp() {
 
   const trigger = (
     <Tooltip
+      triggerAsChild
       placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({

@@ -23,7 +23,6 @@ declare module '@tamagui/web' {
 
 // Core exports (only exports not available in web)
 export {
-  View as Stack,
   TamaguiProvider as OGProvider,
   useComposedRefs,
   themeable,
@@ -83,7 +82,8 @@ export type StackProps = import('@tamagui/web').GetProps<
 export type UseThemeResult = ReturnType<typeof import('@tamagui/web').useTheme>;
 
 // Stacks
-export { ThemeableStack, YStack, XStack, ZStack } from '@tamagui/stacks';
+export { Stack, ThemeableStack, YStack, XStack } from './stacks';
+export { ZStack } from '@tamagui/stacks';
 export type {
   ThemeableStackProps,
   YStackProps,

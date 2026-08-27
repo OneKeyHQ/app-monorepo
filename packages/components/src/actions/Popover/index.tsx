@@ -1,3 +1,4 @@
+/* cspell:ignore hoverable */
 import type {
   ComponentType,
   PropsWithChildren,
@@ -6,6 +7,7 @@ import type {
 } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { Dimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -260,6 +262,7 @@ function RawPopover({
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   const triggerRef = useRef<View | null>(null);
+  const contentRef = useRef<View | null>(null);
   const placement = getPlacement(placementProp, triggerRef);
   const transformOrigin = useMemo(() => {
     switch (placement) {
@@ -362,6 +365,7 @@ function RawPopover({
         <PopoverContent
           isOpen={isOpen}
           closePopover={handleClosePopover}
+          hoverable={Boolean(props.hoverable)}
           keepChildrenMounted={keepChildrenMounted}
         >
           {RenderContent
@@ -381,20 +385,36 @@ function RawPopover({
     platformEnv.isNative && keepChildrenMounted;
   const maxScrollViewHeight = getMaxScrollViewHeight();
   const transformOriginStyle = useMemo(
-    () =>
-      shouldUseWebKeepMountedTransition
-        ? {
-            transformOrigin,
-            opacity: isOpen ? 1 : 0,
-            transform: `scale(${isOpen ? 1 : 0.95})`,
-            visibility: isOpen ? ('visible' as const) : ('hidden' as const),
-            transition: isOpen
-              ? WEB_KEEP_MOUNTED_TRANSITION
-              : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`,
-          }
-        : { transformOrigin },
-    [isOpen, shouldUseWebKeepMountedTransition, transformOrigin],
+    () => ({ transformOrigin }),
+    [transformOrigin],
   );
+  useIsomorphicLayoutEffect(() => {
+    if (!shouldUseWebKeepMountedTransition) {
+      return;
+    }
+    const popperElement = contentRef.current as unknown as HTMLElement;
+    if (!popperElement) {
+      return;
+    }
+    const contentElement = popperElement.hasAttribute('data-state')
+      ? popperElement
+      : (popperElement.firstElementChild as HTMLElement | null);
+    if (!contentElement) {
+      return;
+    }
+    if (contentElement !== popperElement) {
+      popperElement.style.removeProperty('transition');
+      popperElement.style.removeProperty('opacity');
+      popperElement.style.removeProperty('transform');
+      popperElement.style.removeProperty('visibility');
+    }
+    contentElement.style.transition = isOpen
+      ? WEB_KEEP_MOUNTED_TRANSITION
+      : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
+    contentElement.style.opacity = isOpen ? '1' : '0';
+    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
+    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
+  }, [isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
@@ -422,19 +442,22 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
+          ref={contentRef}
           trapFocus={false}
           unstyled
-          enterStyle={shouldAnimateContent ? POPOVER_ENTER_STYLE : undefined}
-          exitStyle={shouldAnimateContent ? POPOVER_EXIT_STYLE : undefined}
           w="$96"
           bg="$bg"
           borderRadius="$3"
           $platform-web={POPOVER_PLATFORM_WEB_STYLE}
           $platform-native={POPOVER_PLATFORM_NATIVE}
-          transition={shouldAnimateContent ? 'popoverQuick' : undefined}
-          animateOnly={
-            shouldAnimateContent ? ANIMATE_ONLY_OPACITY_TRANSFORM : undefined
-          }
+          {...(shouldAnimateContent
+            ? {
+                enterStyle: POPOVER_ENTER_STYLE,
+                exitStyle: POPOVER_EXIT_STYLE,
+                transition: 'popoverQuick' as const,
+                animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
+              }
+            : {})}
           {...floatingPanelProps}
           style={contentStyle}
         >
@@ -630,8 +653,9 @@ function BasicPopover({
     <RawPopover
       open={isOpen}
       // On the web platform of md size,
-      //  the sheet needs to use the onOpenChange function to close the popover
-      onOpenChange={md ? onOpenChange : undefined}
+      //  the sheet needs to use the onOpenChange function to close the popover.
+      // Hoverable popovers also need it to propagate Tamagui's hover state.
+      onOpenChange={md || rest.hoverable ? onOpenChange : undefined}
       openPopover={openPopover}
       closePopover={closePopover}
       sheetProps={webSheetProps}

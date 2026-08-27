@@ -35,7 +35,7 @@ function createGroupWithSeparator(
 ) {
   const GroupWithSeparator = forwardRef<TamaguiElement, IGroupProps>(
     ({ children, separator, ...props }, ref) => (
-      <BaseGroup ref={ref} {...props}>
+      <BaseGroup ref={ref} {...props} position={props.position ?? 'relative'}>
         {renderChildrenWithSeparators(children, separator)}
       </BaseGroup>
     ),
