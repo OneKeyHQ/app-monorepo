@@ -37,7 +37,6 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
-  EModalWalletConnectPayRoutes,
   EOnboardingPagesV2,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -50,6 +49,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
+import { openWcPayDialog } from '../../WalletConnectPay/dialog/wcPayDialogStore';
 import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../utils/parseOnChainAmount';
 
@@ -348,12 +348,8 @@ export async function parseQRCodeWithDeps(
           Toast.error({ title: WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE });
           break;
         }
-        navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
-          screen: EModalWalletConnectPayRoutes.PaymentOptions,
-          params: {
-            paymentLink: wcPayValue.paymentLink,
-          },
-        });
+        // the pay flow is a global dialog, not a navigation route
+        openWcPayDialog({ paymentLink: wcPayValue.paymentLink });
       }
       break;
     case EQRCodeHandlerType.ANIMATION_CODE: {

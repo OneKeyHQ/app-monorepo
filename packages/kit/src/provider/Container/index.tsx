@@ -43,6 +43,7 @@ import { TableSplitViewContainer } from './TableSplitViewContainer';
 import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
+import { WalletConnectPayDialogContainer } from './WalletConnectPayDialogContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 function GlobalRootAppNavigationUpdate() {
@@ -86,6 +87,7 @@ function DetailRouter() {
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
+      <WalletConnectPayDialogContainer />
     </NavigationContainer>
   );
 }

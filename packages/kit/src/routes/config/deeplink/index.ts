@@ -32,7 +32,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EModalRoutes,
-  EModalWalletConnectPayRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
@@ -51,6 +50,7 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
+import { openWcPayDialog } from '../../../views/WalletConnectPay/dialog/wcPayDialogStore';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
@@ -469,34 +469,13 @@ const getUniversalLink = async () => {
     : ONEKEY_UNIVERSAL_LINK_HOST;
 };
 
-// Desktop cold start drains cached deep links synchronously at registration
-// time, before GlobalRootAppNavigationUpdate has assigned $rootAppNavigation;
-// a one-shot optional-chained pushModal would silently drop the payment link
-// with no way to retry. Keep the link alive and retry (same pattern as
-// processOneKeyAppUniversalLink) until root navigation exists.
-function openWalletConnectPayModal({
-  paymentLink,
-  times = 0,
-}: {
-  paymentLink: string;
-  times?: number;
-}) {
-  const navigation = appGlobals.$rootAppNavigation;
-  if (!navigation) {
-    if (times > 10) {
-      return;
-    }
-    setTimeout(() => {
-      openWalletConnectPayModal({ paymentLink, times: times + 1 });
-    }, 1500);
-    return;
-  }
-  navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
-    screen: EModalWalletConnectPayRoutes.PaymentOptions,
-    params: {
-      paymentLink,
-    },
-  });
+// The pay flow is a global dialog driven by wcPayDialogStore, not a
+// navigation route. The store holds state (not an event), so a deep link
+// drained at desktop cold start — before the dialog container has mounted —
+// is not lost: the container reads the current state on mount. No
+// navigation-retry loop needed anymore.
+function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
+  openWcPayDialog({ paymentLink });
 }
 
 async function processDeepLinkWalletConnect({

@@ -2,7 +2,6 @@ import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EModalRoutes,
-  EModalWalletConnectPayRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -10,6 +9,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import { handleDeepLinkUrl } from '..';
+import {
+  closeWcPayDialog,
+  getWcPayDialogState,
+} from '../../../../views/WalletConnectPay/dialog/wcPayDialogStore';
 import {
   handleReferralLandingUrl,
   navigateToReferralLanding,
@@ -392,39 +395,32 @@ describe('walletconnect pay deep links', () => {
     mockedIsPaymentLink.mockResolvedValue(true);
     mockedSupportsDurableProgress.mockResolvedValue(true);
     appGlobals.$rootAppNavigation = undefined;
+    closeWcPayDialog();
   });
 
   afterEach(() => {
     jest.useRealTimers();
     appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    closeWcPayDialog();
   });
 
-  it('pushes the pay modal immediately when root navigation is ready', async () => {
-    const pushModal = jest.fn();
-    appGlobals.$rootAppNavigation = {
-      pushModal,
-    } as unknown as typeof appGlobals.$rootAppNavigation;
-
+  it('opens the pay dialog for a recognized pay link', async () => {
     handleDeepLinkUrl({ url: payUrl });
     await flushDeepAsyncTasks();
 
-    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.WalletConnectPayModal, {
-      screen: EModalWalletConnectPayRoutes.PaymentOptions,
-      params: { paymentLink: payUrl },
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
     });
   });
 
   it('refuses the pay link with an explicit toast when durable progress is unsupported', async () => {
-    const pushModal = jest.fn();
-    appGlobals.$rootAppNavigation = {
-      pushModal,
-    } as unknown as typeof appGlobals.$rootAppNavigation;
     mockedSupportsDurableProgress.mockResolvedValue(false);
 
     handleDeepLinkUrl({ url: payUrl });
     await flushDeepAsyncTasks();
 
-    expect(pushModal).not.toHaveBeenCalled();
+    expect(getWcPayDialogState().isOpen).toBe(false);
     // the recognized pay URI must be consumed here, never handed to dapp
     // pairing (pair() rejects pay URIs silently)
     expect(mockedConnectToDapp).not.toHaveBeenCalled();
@@ -434,46 +430,18 @@ describe('walletconnect pay deep links', () => {
     expect(Toast.error).toHaveBeenCalled();
   });
 
-  it('retries a cold-start pay link until root navigation is ready', async () => {
-    jest.useFakeTimers();
-    const pushModal = jest.fn();
+  it('opens the pay dialog even before root navigation exists (cold start)', async () => {
+    // cold start: the link arrives before $rootAppNavigation is assigned.
+    // The dialog store holds state, not a navigation call, so nothing is
+    // dropped — the container renders from the store once it mounts.
+    expect(appGlobals.$rootAppNavigation).toBeUndefined();
 
-    // cold start: the link arrives before $rootAppNavigation is assigned
     handleDeepLinkUrl({ url: payUrl });
     await flushDeepAsyncTasks();
-    expect(pushModal).not.toHaveBeenCalled();
 
-    // navigation becomes ready after the first retry interval elapses
-    appGlobals.$rootAppNavigation = {
-      pushModal,
-    } as unknown as typeof appGlobals.$rootAppNavigation;
-    jest.advanceTimersByTime(1500);
-    await flushDeepAsyncTasks();
-
-    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.WalletConnectPayModal, {
-      screen: EModalWalletConnectPayRoutes.PaymentOptions,
-      params: { paymentLink: payUrl },
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
     });
-  });
-
-  it('gives up after the retry cap without navigation', async () => {
-    jest.useFakeTimers();
-    const pushModal = jest.fn();
-
-    handleDeepLinkUrl({ url: payUrl });
-    await flushDeepAsyncTasks();
-
-    // exhaust all retries with navigation still missing
-    for (let i = 0; i < 12; i += 1) {
-      jest.advanceTimersByTime(1500);
-      await flushDeepAsyncTasks();
-    }
-    appGlobals.$rootAppNavigation = {
-      pushModal,
-    } as unknown as typeof appGlobals.$rootAppNavigation;
-    jest.advanceTimersByTime(1500);
-    await flushDeepAsyncTasks();
-
-    expect(pushModal).not.toHaveBeenCalled();
   });
 });
