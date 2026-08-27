@@ -46,15 +46,31 @@ export function BottomSheet({
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   // ModalBottomSheet presents by being mounted; keep the native view alive
   // through the exit animation (hide() resolves after it) before unmounting.
+  //
+  // Re-present while hiding: the ref exposes hide()/expand() only — nothing
+  // can reverse a dispatched hide. If `open` flips back to true inside the
+  // dismiss-animation window (the flow's hide→fast-settle→reveal path),
+  // merely staying mounted would leave the sheet invisible forever while
+  // React believes it is presented. `presentEpoch` keys the native sheet, so
+  // reopening mid-hide retires the hiding instance and mounts a fresh one,
+  // which presents cleanly.
   const [mounted, setMounted] = useState(open);
+  const [presentEpoch, setPresentEpoch] = useState(0);
+  const isHidingRef = useRef(false);
   useEffect(() => {
     if (open) {
+      if (isHidingRef.current) {
+        isHidingRef.current = false;
+        setPresentEpoch((epoch) => epoch + 1);
+      }
       setMounted(true);
       return undefined;
     }
     let cancelled = false;
+    isHidingRef.current = true;
     void sheetRef.current?.hide().then(() => {
       if (!cancelled) {
+        isHidingRef.current = false;
         setMounted(false);
       }
     });
@@ -88,6 +104,7 @@ export function BottomSheet({
 
   return (
     <ModalBottomSheet
+      key={presentEpoch}
       ref={sheetRef}
       onDismissRequest={handleDismissRequest}
       showDragHandle={dismissible}
