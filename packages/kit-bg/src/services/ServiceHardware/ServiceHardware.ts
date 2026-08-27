@@ -415,6 +415,48 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async persistProtocolV1FirmwareSnapshot({
+    connectId,
+    state,
+  }: {
+    connectId: string | undefined;
+    state: IOneKeyDeviceState;
+  }) {
+    if (state.protocol !== 'V1' || !connectId) {
+      return;
+    }
+    const syncConnectIds = [
+      connectId,
+      state.identity.serialNo,
+      state.identity.deviceId,
+    ];
+    await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+    const event: DeviceStateEvent = {
+      changedKeys: [],
+      connectId,
+      revision: state.revision,
+      source: 'device-info',
+      state,
+    };
+    try {
+      const persistResult = await localDb.updateDeviceState(event);
+      await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+      serviceHardwareUtils.hardwareLog('v1 firmware read-back', {
+        kind: persistResult.kind,
+        revision: state.revision,
+        firmwareVersion: state.versions.firmware,
+      });
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'v1 firmware read-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
+    }
+  }
+
   private deviceProtocolByConnectId = new Map<string, 'V1' | 'V2'>();
 
   private connectProtocolMigrationPromise: Promise<void> | undefined;
@@ -3063,11 +3105,18 @@ class ServiceHardware extends ServiceBase {
           hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
-    return this._getDeviceStateWithMutex({
+    const state = await this._getDeviceStateWithMutex({
       ...options,
       connectId: compatibleConnectId,
       hardwareCallContext,
     });
+    if (options.params?.scope === 'firmware') {
+      await this.persistProtocolV1FirmwareSnapshot({
+        connectId: compatibleConnectId,
+        state,
+      });
+    }
+    return state;
   }
 
   @backgroundMethod()

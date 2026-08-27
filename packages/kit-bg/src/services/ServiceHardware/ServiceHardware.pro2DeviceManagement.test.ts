@@ -619,6 +619,59 @@ describe('ServiceHardware.getDeviceState', () => {
     });
   });
 
+  it('persists a V1 firmware snapshot even when the SDK emits no state event', async () => {
+    const { service, getDeviceState, state } = createService({
+      unlocked: false,
+    });
+    const v1State = {
+      ...state,
+      protocol: 'V1' as const,
+      versions: {
+        firmware: '4.21.0',
+        bluetooth: '2.3.7',
+        bootloader: '2.8.4',
+      },
+    };
+    jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO_USB',
+      connectProtocol: 'V1',
+      deviceStateInfo: {
+        ...v1State,
+        versions: {
+          firmware: '4.16.1',
+          bluetooth: '2.3.4',
+          bootloader: '2.8.2',
+        },
+      },
+    } as never);
+    getDeviceState.mockResolvedValue({
+      success: true,
+      payload: v1State,
+    });
+    jest.mocked(localDb.updateDeviceState).mockResolvedValue({
+      kind: 'updated',
+      state: v1State,
+    } as never);
+
+    await service.getDeviceState({
+      connectId: 'PRO_USB',
+      params: { scope: 'firmware' },
+    });
+
+    expect(localDb.updateDeviceState).toHaveBeenCalledWith({
+      changedKeys: [],
+      connectId: 'PRO2_USB',
+      revision: v1State.revision,
+      source: 'device-info',
+      state: v1State,
+    });
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      expect.objectContaining({ state: v1State }),
+    );
+  });
+
   it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
     const { service, getDeviceState } = createService({ unlocked: true });
 
@@ -2117,6 +2170,12 @@ describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
       .mockResolvedValue([]);
 
     await expect(
+      service.hardwareVerifyManager.shouldAuthenticateFirmwareByHash({
+        deviceType: EDeviceType.Pro,
+        onekeyFeatures,
+      }),
+    ).resolves.toBe(true);
+    await expect(
       service.hardwareVerifyManager.verifyFirmwareHash({
         deviceType: EDeviceType.Pro,
         onekeyFeatures,
@@ -2124,7 +2183,7 @@ describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('rejects duplicate component records even when three records are returned', async () => {
+  it('keeps hash verification enabled when component records are incomplete', async () => {
     const service = createVerifyService();
     jest
       .spyOn(service.hardwareVerifyManager, 'fetchFirmwareVerifyHash')
@@ -2139,7 +2198,13 @@ describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
         deviceType: EDeviceType.Pro,
         onekeyFeatures,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
+    await expect(
+      service.hardwareVerifyManager.verifyFirmwareHash({
+        deviceType: EDeviceType.Pro,
+        onekeyFeatures,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('compares a complete matching response from the same version snapshot', async () => {

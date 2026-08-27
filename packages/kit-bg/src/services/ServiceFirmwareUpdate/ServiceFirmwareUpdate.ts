@@ -991,13 +991,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
         | IOneKeyDeviceFeatures
         | undefined,
     });
+    const shouldResolveDetectStatus =
+      firmwareType === undefined || currentFirmwareType === firmwareType;
 
     const firmware = await this.checkFirmwareRelease({
       connectId: updatingConnectId,
       features,
       firmwareReleasePayload:
         releaseInfo.firmware as unknown as IFirmwareReleasePayload,
-      saveUpdateInfo: currentFirmwareType === firmwareType,
+      saveUpdateInfo: false,
       forceUpdate: forceUpdateTargetsForDevice.includes('firmware'),
     });
 
@@ -1049,6 +1051,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           forceUpdateTargetsForDevice.includes('ble') ||
           pro2ForceTargets?.includes('coprocessor'),
         currentVersion: releaseInfo.currentVersions?.ble,
+        saveUpdateInfo: !shouldResolveDetectStatus,
       });
     }
 
@@ -1109,7 +1112,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
       protocolV2Targets: pro2TargetsToUpdate,
     });
 
-    if (!effectiveHasUpgrade && originalConnectId) {
+    if (originalConnectId && shouldResolveDetectStatus) {
+      const identity =
+        await this.getFirmwareUpdateDetectIdentity(originalConnectId);
+      await this.detectMap.resolveUpdateInfo({
+        ...identity,
+        firmware,
+        ble,
+        hasUpgrade: effectiveHasUpgrade,
+      });
+    } else if (!effectiveHasUpgrade && originalConnectId) {
       await this.deleteFirmwareUpdateDetectInfo(originalConnectId);
     }
 

@@ -335,14 +335,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     if (!verifyVersions) {
       return false;
     }
-    const result = await this.fetchFirmwareVerifyHash(verifyVersions);
-    const isValid = hasCompleteFirmwareVerifyResult({
-      result,
-      verifyVersions,
-    });
-
-    console.log('shouldAuthenticateFirmwareByHash isValid: ', isValid);
-    return isValid;
+    return true;
   }
 
   @backgroundMethod()

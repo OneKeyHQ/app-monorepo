@@ -5,6 +5,7 @@ import {
 } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -555,6 +556,140 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(
       service.detectMap.detectMapCache.ONEKEY_USB_ID?.lastDetectAt,
     ).toBeUndefined();
+  });
+});
+
+describe('ServiceFirmwareUpdate.checkAllFirmwareRelease detect status', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('atomically persists a Protocol V2 target-only update', async () => {
+    const features = {
+      device_id: 'PRO2_DEVICE_ID',
+      onekey_serial_no: 'PRO2_SERIAL',
+    } as IOneKeyDeviceFeatures;
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      cancel: jest.fn(),
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(undefined),
+        },
+        serviceHardware: {
+          getSDKInstance,
+          hardwareVerifyManager: {
+            fetchFirmwareVerifyHash: jest.fn().mockResolvedValue([]),
+          },
+        },
+        serviceHardwareUI: {
+          closeHardwareUiStateDialog: jest.fn().mockResolvedValue(undefined),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.mocked(CoreSDKLoader).mockResolvedValue({
+      getDeviceSerialNo: jest.fn().mockReturnValue('PRO2_SERIAL'),
+      getDeviceUUID: jest.fn().mockReturnValue('PRO2_SERIAL'),
+    } as never);
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_USB_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateDevForceTargets: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateDevForceTargets',
+      )
+      .mockResolvedValue([]);
+    jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
+      isBootloaderMode: false,
+      features,
+      error: undefined,
+    });
+    jest
+      .spyOn(
+        service as unknown as {
+          loadBaseFirmwareRelease: () => Promise<unknown>;
+        },
+        'loadBaseFirmwareRelease',
+      )
+      .mockResolvedValue({
+        features,
+        firmware: {},
+        ble: {},
+        currentVersions: { ble: '2.3.7' },
+        targetsToUpdate: ['resource'],
+      });
+    const checkFirmwareRelease = jest
+      .spyOn(service, 'checkFirmwareRelease')
+      .mockResolvedValue({
+        hasUpgrade: false,
+      } as IFirmwareUpdateInfo);
+    const checkBLEFirmwareRelease = jest
+      .spyOn(service, 'checkBLEFirmwareRelease')
+      .mockResolvedValue({
+        hasUpgrade: false,
+      } as IBleFirmwareUpdateInfo);
+    jest
+      .spyOn(deviceUtils, 'getFirmwareType')
+      .mockResolvedValue(EFirmwareType.Universal);
+    jest
+      .spyOn(deviceUtils, 'getDeviceTypeFromFeatures')
+      .mockResolvedValue(EDeviceType.Pro2);
+    jest
+      .spyOn(deviceUtils, 'buildDeviceName')
+      .mockResolvedValue('OneKey Pro 2');
+    jest.spyOn(deviceUtils, 'buildDeviceBleName').mockReturnValue('Pro2');
+    jest
+      .spyOn(deviceUtils, 'getDeviceModeFromFeatures')
+      .mockResolvedValue('normal' as never);
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({
+        artifacts: {
+          cachePlanDigestIfPreparedSupported: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+      });
+    const resolveUpdateInfo = jest
+      .spyOn(service.detectMap, 'resolveUpdateInfo')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.checkAllFirmwareRelease({
+        connectId: 'PRO2_USB_ID',
+        firmwareType: undefined,
+        resolvedTransportType: EHardwareTransportType.WEBUSB,
+        skipCancel: true,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ hasUpgrade: true }));
+
+    expect(checkFirmwareRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ saveUpdateInfo: false }),
+    );
+    expect(checkBLEFirmwareRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ saveUpdateInfo: false }),
+    );
+    expect(resolveUpdateInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: 'PRO2_USB_ID',
+        hasUpgrade: true,
+      }),
+    );
   });
 });
 
