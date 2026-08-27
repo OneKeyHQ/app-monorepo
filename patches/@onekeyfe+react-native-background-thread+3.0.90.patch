@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
-index 63c295b..09fe502 100644
+index 63c295b..10ded09 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
 +++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
 @@ -3,2 +3,3 @@ package com.backgroundthread
@@ -40,7 +40,7 @@ index 63c295b..09fe502 100644
 +        DESTROYING,
 +    }
  
-@@ -334,3 +353,69 @@ class BackgroundThreadManager private constructor() {
+@@ -334,3 +353,71 @@ class BackgroundThreadManager private constructor() {
      }
 -
 +    private fun createDevVendorBundleLoader(
@@ -57,9 +57,11 @@ index 63c295b..09fe502 100644
 +                    false,
 +                )
 +                val assertionFile = File(appContext.cacheDir, "onekey-dev-vendor-assert-background.js")
++                val quotedEntryURL = org.json.JSONObject.quote(entryURL)
 +                assertionFile.writeText(
 +                    "if(globalThis.__ONEKEY_DEV_VENDOR_FINGERPRINT__!==\"${config.fingerprint}\")" +
-+                        "{throw new Error(\"Dev-vendor common fingerprint mismatch\");}",
++                        "{throw new Error(\"Dev-vendor common fingerprint mismatch\");}" +
++                        "globalThis.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryURL;",
 +                )
 +                delegate.loadScriptFromFile(
 +                    assertionFile.absolutePath,
@@ -111,7 +113,7 @@ index 63c295b..09fe502 100644
 +        }
 +    }
      private fun createLocalFileBundleLoader(localPath: String, sourceURL: String): JSBundleLoader {
-@@ -349,8 +434,37 @@ class BackgroundThreadManager private constructor() {
+@@ -349,8 +436,37 @@ class BackgroundThreadManager private constructor() {
  
 -    @OptIn(UnstableReactNativeAPI::class)
      fun startBackgroundRunnerWithEntryURL(context: ReactApplicationContext, entryURL: String) {
@@ -153,7 +155,7 @@ index 63c295b..09fe502 100644
 +
 +        runnerStartFailureMessage = null
          val bgStartTime = System.nanoTime()
-@@ -359,101 +473,166 @@ class BackgroundThreadManager private constructor() {
+@@ -359,101 +475,166 @@ class BackgroundThreadManager private constructor() {
          val appContext = context.applicationContext
 -        val packages =
 -            if (reactPackages.isNotEmpty()) {
@@ -404,12 +406,12 @@ index 63c295b..09fe502 100644
 +            BTLogger.error("Failed to destroy faulted background runner: ${destroyError.message}")
 +        }
      }
-@@ -543,3 +722,3 @@ class BackgroundThreadManager private constructor() {
+@@ -543,3 +724,3 @@ class BackgroundThreadManager private constructor() {
      ) {
 -        if (!isStarted) {
 +        if (!isBackgroundStarted) {
              // Bg runtime not started yet → retryable (the loader will re-attempt
-@@ -1099,5 +1278,20 @@ class BackgroundThreadManager private constructor() {
+@@ -1099,5 +1280,20 @@ class BackgroundThreadManager private constructor() {
  
 -    val isBackgroundStarted: Boolean get() = isStarted
 +    val isBackgroundStarted: Boolean
@@ -431,7 +433,7 @@ index 63c295b..09fe502 100644
      fun destroy() {
 +        runnerState.set(BackgroundRunnerState.DESTROYING)
          nativeDestroy()
-@@ -1109,3 +1303,4 @@ class BackgroundThreadManager private constructor() {
+@@ -1109,3 +1305,4 @@ class BackgroundThreadManager private constructor() {
          bgReactHost = null
 -        isStarted = false
 +        runnerStartFailureMessage = null
@@ -451,7 +453,7 @@ index 0b7c882..bb890e5 100644
 +                               fingerprint:(NSString *)fingerprint;
  /**
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
-index 4cadac6..4d15619 100644
+index 4cadac6..c447f12 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
 +++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
 @@ -14,4 +14,5 @@
@@ -548,7 +550,7 @@ index 4cadac6..4d15619 100644
 +    return;
 +  }
    // When _jsBundleSource is set, the bundle loaded in bundleURL was already
-@@ -361,45 +421,102 @@ - (void)hostDidStart:(RCTHost *)host
+@@ -361,45 +421,106 @@ - (void)hostDidStart:(RCTHost *)host
    }
 -
 +  [self finishHostStartWithBundleData:bgBundleData
@@ -645,6 +647,10 @@ index 4cadac6..4d15619 100644
 +            marker.asString(runtime).utf8(runtime) != std::string(fingerprint.UTF8String)) {
 +          throw std::runtime_error("Dev-vendor common fingerprint mismatch");
 +        }
++        runtime.global().setProperty(
++            runtime,
++            "__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__",
++            jsi::String::createFromUtf8(runtime, sourceURL.UTF8String));
 +      }
 +
 +      [self setupErrorHandler:runtime];

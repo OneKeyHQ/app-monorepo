@@ -13,7 +13,7 @@ index e3178b9..1987bea 100644
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..49fce27 100644
+index 7ec0db3..edd324f 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -147,7 +147,7 @@ index 7ec0db3..49fce27 100644
 +      }
 +      runtime.global().setProperty(
 +          runtime,
-+          "__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__",
++          "__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__",
 +          facebook::jsi::String::createFromUtf8(runtime, sourceURL.UTF8String));
 +      auto buffer = std::make_shared<NSDataJSIBuffer>(data);
 +      runtime.evaluateJavaScript(buffer, sourceURL.UTF8String);

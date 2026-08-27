@@ -386,9 +386,7 @@ describe('devVendor', () => {
       'utf8',
     );
     expect(splitBundlePatch).toContain('bundleURL.absoluteString');
-    expect(splitBundlePatch).toContain(
-      '__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__',
-    );
+    expect(splitBundlePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
     expect(
       splitBundlePatch.indexOf('runtime.global().setProperty('),
     ).toBeLessThan(
@@ -400,10 +398,10 @@ describe('devVendor', () => {
     );
     expect(reactNativePatch).toContain('fullBundleUrlOverride ??');
     expect(reactNativePatch).toContain('resolver.devVendorNative=true');
-    expect(reactNativePatch).toContain('resolver\\.runtimeTarget=main');
     expect(reactNativePatch).toContain(
-      '__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__',
+      'resolver\\.runtimeTarget=(?:main|background)',
     );
+    expect(reactNativePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
     expect(reactNativePatch).not.toContain(
       'contains("resolver.devVendor=true")',
     );
@@ -413,9 +411,38 @@ describe('devVendor', () => {
         'utf8',
       ),
     ).toContain('!shouldRetainModulesOnlyGraphForHmr(resolverOptions)');
+    const backgroundThreadPatch = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'patches/@onekeyfe+react-native-background-thread+3.0.90.patch',
+      ),
+      'utf8',
+    );
+    const backgroundOverrideIndex = backgroundThreadPatch.indexOf(
+      '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__',
+    );
+    expect(backgroundOverrideIndex).toBeGreaterThan(-1);
+    expect(backgroundThreadPatch).toContain(
+      'org.json.JSONObject.quote(entryURL)',
+    );
+    expect(backgroundThreadPatch).not.toContain('HMRClient');
+    expect(
+      backgroundThreadPatch.indexOf(
+        'runtime.evaluateJavaScript(buffer',
+        backgroundOverrideIndex,
+      ),
+    ).toBeGreaterThan(backgroundOverrideIndex);
+    const expoPatch = fs.readFileSync(
+      path.join(repoRoot, 'patches/expo+57.0.14.patch'),
+      'utf8',
+    );
+    expect(expoPatch).toContain('org.json.JSONObject.quote(config.entryUrl)');
+    expect(expoPatch).toContain(
+      '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryUrl',
+    );
   });
 
-  it('refreshes the cached dev server from the native main delta URL', () => {
+  it('refreshes the cached dev server from native runtime delta URLs', () => {
     const { getDevServer, runtimeGlobal } = loadGetDevServer(
       'file:///tmp/onekey-dev-vendor-common.hbc',
     );
@@ -428,7 +455,7 @@ describe('devVendor', () => {
     const firstMainURL =
       'http://localhost:8081/.expo/.virtual-metro-entry.bundle' +
       '?resolver.devVendorNative=true&resolver.runtimeTarget=main';
-    runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ = firstMainURL;
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ = firstMainURL;
     expect(getDevServer()).toEqual({
       bundleLoadedFromServer: true,
       fullBundleUrl: firstMainURL,
@@ -436,7 +463,7 @@ describe('devVendor', () => {
     });
 
     const reloadedMainURL = firstMainURL.replace('localhost', '127.0.0.1');
-    runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ = reloadedMainURL;
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ = reloadedMainURL;
     expect(getDevServer()).toEqual({
       bundleLoadedFromServer: true,
       fullBundleUrl: reloadedMainURL,
@@ -446,9 +473,24 @@ describe('devVendor', () => {
     const backgroundRuntime = loadGetDevServer(
       'file:///tmp/onekey-dev-vendor-common.hbc',
     );
-    backgroundRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ =
-      firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=background');
-    expect(backgroundRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
+    const backgroundURL = firstMainURL.replace(
+      'runtimeTarget=main',
+      'runtimeTarget=background',
+    );
+    backgroundRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ =
+      backgroundURL;
+    expect(backgroundRuntime.getDevServer()).toEqual({
+      bundleLoadedFromServer: true,
+      fullBundleUrl: backgroundURL,
+      url: 'http://localhost:8081/',
+    });
+
+    const invalidRuntime = loadGetDevServer(
+      'file:///tmp/onekey-dev-vendor-common.hbc',
+    );
+    invalidRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ =
+      firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=worker');
+    expect(invalidRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
   });
 
   it('rejects native requests when the Metro experiment is disabled', () => {
