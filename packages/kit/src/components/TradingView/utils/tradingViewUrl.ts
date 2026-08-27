@@ -67,7 +67,7 @@ export function getTradingViewBaseUrl({
     return localTradingViewUrl;
   }
 
-  if (devSettings.enabled && devSettings.settings?.useTradingViewTestUrl) {
+  if (devSettings.enabled) {
     return TRADING_VIEW_URL_TEST;
   }
 
