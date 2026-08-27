@@ -62,7 +62,7 @@ describe('TradingViewNative chart legend', () => {
   });
 
   it('shows close price and price change for a line series', () => {
-    expect(
+    const buildLegend = (chartType: 'area' | 'line') =>
       getTradingViewNativeChartLegend(
         {
           c: 9,
@@ -73,16 +73,19 @@ describe('TradingViewNative chart legend', () => {
           v: 500,
         },
         CANDLE_LABELS,
-        'line',
-      ),
-    ).toEqual({
+        chartType,
+      );
+    const expectedLegend = {
       isUp: false,
       priceItems: [
         { label: 'Price', value: '9.00' },
         { label: '', value: '-1 (-10%)', valueColorRole: 'trend' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
-    });
+    };
+
+    expect(buildLegend('line')).toEqual(expectedLegend);
+    expect(buildLegend('area')).toEqual(expectedLegend);
   });
 
   it('uses the previous close for the TradingView bar-change value and color', () => {

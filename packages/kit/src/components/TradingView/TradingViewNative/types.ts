@@ -4,8 +4,9 @@ import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tr
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
+export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
-export type ITradingViewNativeChartType = 'candlestick' | 'line';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {

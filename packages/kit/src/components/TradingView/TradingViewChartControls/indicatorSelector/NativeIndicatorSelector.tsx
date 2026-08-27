@@ -15,7 +15,12 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
+import {
+  HEADER_ICON_BUTTON_STYLE_PROPS,
+  NATIVE_CHART_OPTION_GRID_GAP,
+  NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS,
+  getNativeChartOptionPillColors,
+} from '../utils/NativeChartControlsShared';
 
 import {
   canToggleTradingViewNativeIndicatorOn,
@@ -30,32 +35,11 @@ import type {
 } from '../types';
 
 const INDICATOR_GRID_COLUMN_COUNT = 4;
-const INDICATOR_GRID_ITEM_LAYOUT_PROPS = {
-  flex: 1,
-  flexBasis: 0,
-  h: 32,
-  minWidth: 0,
-  px: '$2',
-  borderWidth: 1,
-} as const;
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
     .replace(/[^a-zA-Z0-9_-]/g, '-')
     .slice(0, 80)}`;
-}
-
-function getIndicatorTextColor({
-  isActive,
-  isDisabled,
-}: {
-  isActive: boolean;
-  isDisabled: boolean;
-}) {
-  if (isDisabled) {
-    return '$textDisabled';
-  }
-  return isActive ? '$text' : '$textSubdued';
 }
 
 function IndicatorPill({
@@ -69,17 +53,19 @@ function IndicatorPill({
   isDisabled: boolean;
   onPress?: () => void;
 }) {
+  const { color: textColor, ...pillColors } = getNativeChartOptionPillColors({
+    isHighlighted: isActive,
+    isDisabled,
+  });
+
   return (
     <XStack
       key={indicator.value}
       testID={buildIndicatorItemTestID(indicator.value)}
-      {...INDICATOR_GRID_ITEM_LAYOUT_PROPS}
-      borderRadius="$full"
-      borderCurve="continuous"
-      borderColor={isActive ? '$bgReverse' : 'transparent'}
+      {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+      {...pillColors}
       alignItems="center"
       justifyContent="center"
-      bg="$bgStrong"
       hoverStyle={{
         bg: '$bgStrongHover',
       }}
@@ -91,13 +77,7 @@ function IndicatorPill({
       userSelect="none"
       onPress={isDisabled ? undefined : onPress}
     >
-      <SizableText
-        size="$bodyMdMedium"
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-        color={getIndicatorTextColor({ isActive, isDisabled })}
-      >
+      <SizableText size="$bodyMdMedium" numberOfLines={1} color={textColor}>
         {indicator.label}
       </SizableText>
     </XStack>
@@ -128,11 +108,14 @@ function IndicatorGrid({
   }, [indicators]);
 
   return (
-    <YStack gap="$2">
+    <YStack gap={NATIVE_CHART_OPTION_GRID_GAP}>
       {rows.map((row, rowIndex) => {
         const placeholderCount = INDICATOR_GRID_COLUMN_COUNT - row.length;
         return (
-          <XStack key={`indicator-row-${rowIndex}`} gap="$2">
+          <XStack
+            key={`indicator-row-${rowIndex}`}
+            gap={NATIVE_CHART_OPTION_GRID_GAP}
+          >
             {row.map((indicator) => {
               const isDisabled = !canToggleTradingViewNativeIndicatorOn({
                 indicatorValue: indicator.value,
@@ -153,8 +136,8 @@ function IndicatorGrid({
             {Array.from({ length: placeholderCount }).map((_, index) => (
               <Stack
                 key={`indicator-placeholder-${rowIndex}-${index}`}
-                {...INDICATOR_GRID_ITEM_LAYOUT_PROPS}
-                borderColor="transparent"
+                {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+                borderColor="$transparent"
                 opacity={0}
                 pointerEvents="none"
               />
@@ -355,7 +338,7 @@ function IndicatorListPopoverContent({
   );
 
   return (
-    <YStack p="$3" gap="$5">
+    <YStack p="$5" gap="$5">
       <IndicatorSection
         title={intl.formatMessage({
           id: ETranslations.market_main_chart_indicators,
@@ -403,7 +386,7 @@ export function IndicatorPopover({
       }}
       showHeader={false}
       usingSheet={false}
-      placement="bottom-end"
+      placement="bottom-start"
       floatingPanelProps={{
         width: 360,
       }}

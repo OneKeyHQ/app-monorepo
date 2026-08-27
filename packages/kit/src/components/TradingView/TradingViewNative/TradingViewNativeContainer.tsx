@@ -52,6 +52,10 @@ import {
   resolveTradingViewNativeSubIndicatorThemeColors,
 } from './utils/chartThemeColors';
 import {
+  getTradingViewNativePrimarySeriesPoints,
+  resolveTradingViewNativeChartType,
+} from './utils/chartType';
+import {
   buildTradingViewNativeSubIndicatorRenderPanes,
   calculateTradingViewNativeSubIndicatorsWithCache,
   createTradingViewNativeSubIndicatorCalculationCache,
@@ -60,6 +64,7 @@ import {
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 import type {
+  ITradingViewNativeChartType,
   ITradingViewNativeDataState,
   ITradingViewNativeProps,
 } from './types';
@@ -167,7 +172,7 @@ export const TradingViewNativeContainer = memo(
   }: ITradingViewNativeProps) => {
     const intl = useIntl();
     const themeColors = useTradingViewSettingsThemeColors();
-    const [storedChartSettings] =
+    const [storedChartSettings, setStoredChartSettings] =
       useMarketTradingViewChartSettingsPersistAtom();
     const [indicatorSettings, setIndicatorSettings] =
       useMarketTradingViewIndicatorSettingsPersistAtom();
@@ -304,7 +309,7 @@ export const TradingViewNativeContainer = memo(
     const {
       calendarAvailableTimeRange,
       candleIntervalSeconds,
-      chartType,
+      chartType: automaticChartType,
       chartPictureVersion,
       dataProviderKey,
       dataState,
@@ -323,14 +328,26 @@ export const TradingViewNativeContainer = memo(
       onRealtimePoint: handleRealtimePoint,
       source,
     });
+    const chartType = useMemo(
+      () =>
+        resolveTradingViewNativeChartType({
+          automaticChartType,
+          preference: normalizedChartSettings.chartType,
+        }),
+      [automaticChartType, normalizedChartSettings.chartType],
+    );
+    const primarySeriesPoints = useMemo(
+      () => getTradingViewNativePrimarySeriesPoints({ chartType, points }),
+      [chartType, points],
+    );
     const indicatorSeries = useMemo(
       () =>
         buildTradingViewNativeIndicatorSeries({
           activeIndicatorValues: activeMainIndicatorValues,
           indicatorSettings: mainIndicatorSettings,
-          points,
+          points: primarySeriesPoints,
         }),
-      [activeMainIndicatorValues, mainIndicatorSettings, points],
+      [activeMainIndicatorValues, mainIndicatorSettings, primarySeriesPoints],
     );
     const visibleSubIndicatorInstances = useMemo(
       () =>
@@ -344,9 +361,13 @@ export const TradingViewNativeContainer = memo(
         calculateTradingViewNativeSubIndicatorsWithCache({
           cache: subIndicatorCalculationCache,
           instances: visibleSubIndicatorInstances,
-          points,
+          points: primarySeriesPoints,
         }),
-      [points, subIndicatorCalculationCache, visibleSubIndicatorInstances],
+      [
+        primarySeriesPoints,
+        subIndicatorCalculationCache,
+        visibleSubIndicatorInstances,
+      ],
     );
     const subIndicatorPanes = useMemo(
       () =>
@@ -386,8 +407,8 @@ export const TradingViewNativeContainer = memo(
     const sourceTokenAddress =
       source.kind === 'market' ? source.tokenAddress : undefined;
     const currentPriceLabel = useMemo(
-      () => getTradingViewNativeCurrentPriceLabel(points),
-      [points],
+      () => getTradingViewNativeCurrentPriceLabel(primarySeriesPoints),
+      [primarySeriesPoints],
     );
     const chartComponentRenderNodes = useTradingViewNativeChartComponents({
       chartComponents,
@@ -522,6 +543,23 @@ export const TradingViewNativeContainer = memo(
         changeChartInterval(interval);
       },
       [changeChartInterval],
+    );
+
+    const handleChartTypeChange = useCallback(
+      (nextChartType: ITradingViewNativeChartType) => {
+        void setStoredChartSettings((currentSettings) => {
+          const normalizedCurrentSettings =
+            normalizeTradingViewNativeChartSettings(currentSettings);
+          if (normalizedCurrentSettings.chartType === nextChartType) {
+            return currentSettings;
+          }
+          return {
+            ...normalizedCurrentSettings,
+            chartType: nextChartType,
+          };
+        });
+      },
+      [setStoredChartSettings],
     );
 
     const handleIndicatorChange = useCallback(
@@ -670,6 +708,7 @@ export const TradingViewNativeContainer = memo(
     return (
       <Stack flex={1} w="100%" h="100%" bg="$transparent">
         <TradingViewNativeChartControlsContainer
+          activeChartType={chartType}
           calendarAvailableTimeRange={calendarAvailableTimeRange}
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
@@ -681,6 +720,7 @@ export const TradingViewNativeContainer = memo(
           fullscreenHeader={nativeChartFullscreenHeader}
           isChartSwitchDisabled={isChartSwitchDisabled}
           onChartSwitch={onChartSwitch}
+          onChartTypeChange={handleChartTypeChange}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
           onIndicatorSettingsPress={handleIndicatorSettingsPress}
@@ -710,7 +750,7 @@ export const TradingViewNativeContainer = memo(
             onViewportRequestApplied={handleViewportRequestApplied}
             onVisiblePointRangeChange={handleVisiblePointRangeChange}
             candleLabels={candleLabels}
-            points={points}
+            points={primarySeriesPoints}
             subIndicatorPanes={subIndicatorPanes}
             testID={testID}
             viewportRequest={viewportRequest}
