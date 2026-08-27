@@ -18,8 +18,23 @@ import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
-const COMPANY_COLUMN_WIDTH = '19.736842105263158%';
-const METRIC_COLUMN_WIDTH = '16.05263157894737%';
+// Column widths follow the 760px design grid: a 150px company column plus 122px
+// metric columns. Widths are derived from those units so that hiding a metric
+// column redistributes the freed space instead of leaving a gap in the row.
+const COMPANY_COLUMN_UNITS = 150;
+const METRIC_COLUMN_UNITS = 122;
+
+function getStockColumnWidths(metricColumnCount: number): {
+  companyColumnWidth: `${number}%`;
+  metricColumnWidth: `${number}%`;
+} {
+  const totalUnits =
+    COMPANY_COLUMN_UNITS + METRIC_COLUMN_UNITS * metricColumnCount;
+  return {
+    companyColumnWidth: `${(COMPANY_COLUMN_UNITS / totalUnits) * 100}%`,
+    metricColumnWidth: `${(METRIC_COLUMN_UNITS / totalUnits) * 100}%`,
+  };
+}
 
 function MissingValue() {
   return (
@@ -34,9 +49,17 @@ const metricColumnProps = {
   px: '$2',
 } as const;
 
-export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] {
-  return useMemo(
-    () => [
+export function useMarketStockColumns({
+  showSparkline = true,
+}: {
+  /** Compact surfaces such as the token selector dropdown hide the sparkline. */
+  showSparkline?: boolean;
+} = {}): ITableColumn<IMarketStockPublicItem>[] {
+  return useMemo(() => {
+    const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
+      showSparkline ? 5 : 4,
+    );
+    const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
           <XStack alignItems="center" gap="$1.5">
@@ -54,7 +77,7 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
           </XStack>
         ),
         dataIndex: 'company',
-        columnWidth: COMPANY_COLUMN_WIDTH,
+        columnWidth: companyColumnWidth,
         columnProps: { flexShrink: 0, px: '$2' },
         render: (_: unknown, record: IMarketStockPublicItem) => (
           <XStack alignItems="center" gap="$1.5" minWidth={0}>
@@ -102,7 +125,7 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
       {
         title: 'Price',
         dataIndex: 'price',
-        columnWidth: METRIC_COLUMN_WIDTH,
+        columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
         titleProps: { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
@@ -124,7 +147,7 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
       {
         title: '24h Change',
         dataIndex: 'priceChange24hPercent',
-        columnWidth: METRIC_COLUMN_WIDTH,
+        columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.priceChange24hPercent);
@@ -150,7 +173,7 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
       {
         title: 'MCap',
         dataIndex: 'marketCap',
-        columnWidth: METRIC_COLUMN_WIDTH,
+        columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.marketCap);
@@ -171,7 +194,7 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
       {
         title: '24h Volume',
         dataIndex: 'volume24h',
-        columnWidth: METRIC_COLUMN_WIDTH,
+        columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.volume24h);
@@ -189,10 +212,12 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
         },
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
-      {
+    ];
+    if (showSparkline) {
+      columns.push({
         title: '24h price range',
         dataIndex: 'sparkline',
-        columnWidth: METRIC_COLUMN_WIDTH,
+        columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
         render: (_: unknown, record: IMarketStockPublicItem) =>
           record.sparkline?.length ? (
@@ -204,8 +229,8 @@ export function useMarketStockColumns(): ITableColumn<IMarketStockPublicItem>[] 
             <MissingValue />
           ),
         renderSkeleton: () => <Skeleton width={132} height={40} />,
-      },
-    ],
-    [],
-  );
+      });
+    }
+    return columns;
+  }, [showSparkline]);
 }

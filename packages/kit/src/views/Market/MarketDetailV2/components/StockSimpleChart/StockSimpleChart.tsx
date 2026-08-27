@@ -8,8 +8,12 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import {
+  type IStockPriceLineChartHoverPoint,
+  StockPriceLineChart,
+} from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -33,9 +37,13 @@ type IStockSimpleChartState = {
 export function StockSimpleChart({
   range,
   priceMode,
+  onHoverChange,
 }: {
   range: IStockSimpleChartRange;
-  priceMode: 'share' | 'token';
+  priceMode: IMarketPriceSource;
+  // Forwarded to the line chart so the price header above can follow the
+  // crosshair; called with undefined once the pointer leaves the plot.
+  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const intl = useIntl();
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
@@ -140,6 +148,10 @@ export function StockSimpleChart({
         stockDetail?.marketStatus?.isOpen === true ||
         tokenDetail?.stock?.isOpen === true
       }
+      // The stock detail page redirects its own price header to the hovered
+      // point, so a price inside the crosshair label would repeat it.
+      hoverLabelShowsPrice={false}
+      onHoverChange={onHoverChange}
     />
   );
 }

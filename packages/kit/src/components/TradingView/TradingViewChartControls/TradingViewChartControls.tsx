@@ -64,6 +64,10 @@ export interface ITradingViewChartControlsProps {
   isControlsReady: boolean;
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
+  // Drops the desktop row's own horizontal inset so its first control lines up
+  // with the plot's leading edge. Only assemblies that lay the row directly on
+  // the chart want this; the standalone chart keeps the inset.
+  flushDesktopControls?: boolean;
   chartTimezone: string;
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
@@ -120,6 +124,7 @@ export const TradingViewChartControls = memo(
     isControlsReady,
     intervalControlMode,
     layoutMode,
+    flushDesktopControls,
     chartTimezone,
     calendarAvailableTimeRange,
     isFullscreen,
@@ -150,6 +155,12 @@ export const TradingViewChartControls = memo(
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const desktopFullscreenHeader =
       isDesktopLayout && isFullscreen ? fullscreenHeader : null;
+    let desktopControlsPaddingX = '$4';
+    if (desktopFullscreenHeader) {
+      desktopControlsPaddingX = '$2';
+    } else if (flushDesktopControls) {
+      desktopControlsPaddingX = '$0';
+    }
 
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
@@ -428,7 +439,7 @@ export const TradingViewChartControls = memo(
       return (
         <Stack
           bg={backgroundColor}
-          px={desktopFullscreenHeader ? '$2' : '$4'}
+          px={desktopControlsPaddingX}
           py="$1"
           h={
             desktopFullscreenHeader

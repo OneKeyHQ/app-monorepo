@@ -11,6 +11,7 @@ import {
   Divider,
   Heading,
   Icon,
+  IconButton,
   Input,
   NumberSizeableText,
   ScrollView,
@@ -1609,8 +1610,10 @@ export function MarketPresetSelector({
   }
 
   if (settingsButtonOnly) {
+    // Figma 25672:54914 - see SlippageSetting's header variant: icon-only
+    // action with a 20 glyph and a circular hover background.
     return (
-      <Button
+      <IconButton
         testID="market-stock-preset-settings"
         size="small"
         variant="tertiary"

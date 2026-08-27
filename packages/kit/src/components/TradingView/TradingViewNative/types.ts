@@ -107,6 +107,12 @@ export interface ITradingViewNativeProps {
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  /**
+   * Drops the desktop controls row's own horizontal inset so its first control
+   * lines up with the leading edge of the plot below it. For assemblies that
+   * embed the widget flush in their own layout; off by default.
+   */
+  nativeControlsFlushHorizontalInset?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;

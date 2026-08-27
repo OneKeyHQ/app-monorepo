@@ -29,7 +29,9 @@ const MarketStockSelectorList = memo(
     onItemPress: (stockId: string) => void;
   }) => {
     const intl = useIntl();
-    const columns = useMarketStockColumns();
+    // The selector dropdown is a picker, not the full Market Stocks table, so
+    // it drops the 24h price range sparkline column.
+    const columns = useMarketStockColumns({ showSparkline: false });
     const normalizedQuery = query?.trim() ?? '';
     const {
       result = { items: [] },

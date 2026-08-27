@@ -33,7 +33,7 @@ export function StockTokenOverview() {
   const { stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const stock = stockDetail
-    ? buildStockInfoFromPublicDetail(stockDetail)
+    ? buildStockInfoFromPublicDetail(stockDetail, tokenDetail?.stock)
     : tokenDetail?.stock;
   const { assetAnalysisRows, tradingActivityRows, descriptionRows } =
     useStockSecurityStats(stock);

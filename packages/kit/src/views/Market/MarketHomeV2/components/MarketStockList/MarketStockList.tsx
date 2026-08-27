@@ -28,11 +28,9 @@ import type {
   IMarketStockPublicListSortBy,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
-import {
-  DESKTOP_MARKET_CONTENT_WIDTH,
-  DesktopStickyHeaderContext,
-} from '../../layouts/DesktopStickyHeaderContext';
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -161,12 +159,7 @@ function MarketStockListImpl({
     }
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack
-          width={DESKTOP_MARKET_CONTENT_WIDTH}
-          alignSelf="center"
-          mx="auto"
-          bg="$bgApp"
-        >
+        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp">
           {CategorySelector}
           <Stack px="$3" overflow="hidden">
             <Table.HeaderRow
@@ -268,14 +261,13 @@ function MarketStockListImpl({
     <Stack flex={1} width="100%" testID={MarketTestIDs.stockList}>
       {portalContent}
       {useDesktopPortal ? null : (
-        <YStack width={DESKTOP_MARKET_CONTENT_WIDTH} alignSelf="center">
+        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
           {CategorySelector}
         </YStack>
       )}
       <Stack
+        {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
         flex={1}
-        width={DESKTOP_MARKET_CONTENT_WIDTH}
-        alignSelf="center"
         className="normal-scrollbar"
         style={{ overflowX: 'auto', overflowY: 'hidden' }}
       >

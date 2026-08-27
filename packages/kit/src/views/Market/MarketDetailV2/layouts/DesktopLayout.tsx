@@ -19,6 +19,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { MARKET_DESKTOP_CONTENT_MAX_WIDTH } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -270,6 +271,34 @@ export function DesktopLayout({
       tokenDetail?.symbol,
     ],
   );
+  // The stock detail layout has no toolbar row of its own in Pro: it lays the
+  // Simple/Pro switch over the trailing edge of this widget's control row
+  // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
+  // own trailing controls — the chart-source dropdown and the expand toggle —
+  // are dropped there to make room for it. Every other assembly keeps both.
+  // The expand toggle is not lost: the overlay renders its own copy of it and
+  // drives it through onEnterChartFullscreen below, so the switch can stay
+  // pinned to the trailing edge in both modes instead of stepping aside for a
+  // control that only exists in Pro.
+  // Gated on the same condition that renders StockDesktopLayout, minus
+  // fullscreen: only that layout overlays the switch, and in fullscreen the
+  // expand toggle is the way back out, so it has to stay.
+  const hideChartTrailingControls =
+    shouldUseStockDesktopLayout && !isChartFullscreen;
+  const stockAwareChartSwitch = hideChartTrailingControls
+    ? undefined
+    : onChartSwitch;
+  const stockAwareFullscreenChange = hideChartTrailingControls
+    ? undefined
+    : handleChartFullscreenChange;
+  // Handed to the stock layout's own expand button, which stands in for the
+  // control row's hidden one. Routed through the same handler the row's toggle
+  // reaches, so both buttons enter fullscreen by exactly one path. Exiting is
+  // untouched: fullscreen restores the row, and its toggle is the way out.
+  const handleEnterChartFullscreen = useCallback(
+    () => handleChartFullscreenChange(true),
+    [handleChartFullscreenChange],
+  );
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ? (
@@ -284,8 +313,12 @@ export function DesktopLayout({
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
           isChartSwitchDisabled={!marketTradingViewParams}
-          onChartSwitch={onChartSwitch}
-          onNativeChartFullscreenChange={handleChartFullscreenChange}
+          // The stock layout embeds the widget flush in its own chart block, so
+          // the control row's inset would push the first interval clear of the
+          // plot's leading edge instead of sitting over it.
+          nativeControlsFlushHorizontalInset={hideChartTrailingControls}
+          onChartSwitch={stockAwareChartSwitch}
+          onNativeChartFullscreenChange={stockAwareFullscreenChange}
         />
       ) : null;
     }
@@ -310,19 +343,20 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
-        onChartSwitch={onChartSwitch}
-        onNativeChartFullscreenChange={handleChartFullscreenChange}
+        onChartSwitch={stockAwareChartSwitch}
+        onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
     );
   }, [
-    handleChartFullscreenChange,
     handleTradingViewTouchScroll,
+    hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
     shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
-    onChartSwitch,
+    stockAwareChartSwitch,
+    stockAwareFullscreenChange,
     tradingViewNativeSource,
   ]);
 
@@ -340,6 +374,7 @@ export function DesktopLayout({
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
+          onEnterChartFullscreen={handleEnterChartFullscreen}
         />
       </Stack>
     );
@@ -352,7 +387,17 @@ export function DesktopLayout({
       flex={1}
       style={SCROLL_CONTAINER_STYLE}
     >
-      <XStack>
+      {/* Centered 1240 frame, shared with the market list and stock detail
+          pages. Fullscreen drops the cap so the chart still fills the viewport:
+          the chart itself is `position: fixed` and escapes the frame anyway,
+          but the columns behind it must not reflow to a narrower band. */}
+      <XStack
+        width="100%"
+        maxWidth={
+          isChartFullscreen ? undefined : MARKET_DESKTOP_CONTENT_MAX_WIDTH
+        }
+        alignSelf="center"
+      >
         {/* Left column */}
         <YStack
           flex={1}

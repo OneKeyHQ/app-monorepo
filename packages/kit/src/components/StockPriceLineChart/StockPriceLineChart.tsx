@@ -1,16 +1,32 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@tamagui/core';
 
-import { SizableText, Stack, YStack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
 
-const TOOLTIP_WIDTH = 112;
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+// Kept in sync with `priceScaleMinimumWidth` below, so the time label can be
+// clamped to the plot area instead of drifting over the price axis.
+const PRICE_SCALE_WIDTH = 64;
+// The point under the crosshair is pinned to the top of the plot and only
+// tracks the pointer horizontally. Fixed widths so the label can be clamped
+// before it is drawn: the narrow one is the "when" alone, for hosts whose own
+// header already reports the price; the wide one also carries the formatted
+// price on a second line and has to fit figures like "$123,456.78".
+const TIME_ONLY_LABEL_WIDTH = 108;
+const TIME_AND_PRICE_LABEL_WIDTH = 120;
+const TIME_LABEL_EDGE_INSET = 8;
+// Distance from the top of the plot area, so the label reads as part of the
+// chart frame instead of floating with the cursor.
+const TIME_LABEL_TOP_INSET = 6;
+// lightweight-charts stacks its canvases above the container's own
+// z-index:auto children, so the label has to opt into a layer above them.
+const TIME_LABEL_Z_INDEX = 5;
 
 type IChartHoverData = {
   time: number;
@@ -19,19 +35,40 @@ type IChartHoverData = {
   y: number;
 };
 
+/**
+ * Point under the crosshair, reported so the price header above the chart can
+ * follow the cursor. `changeValue` / `changePercent` are measured against the
+ * first point of the range, so the header reads "what this range has done up to
+ * the point under the cursor" rather than switching to an unrelated 24h figure.
+ */
+export type IStockPriceLineChartHoverPoint = {
+  time: number;
+  price: number;
+  changeValue?: string;
+  changePercent?: string;
+};
+
 export function StockPriceLineChart({
   data,
   height,
   pulseLastPoint,
   testID,
+  hoverLabelShowsPrice = true,
+  onHoverChange,
 }: {
   data: IMarketTokenChart;
   height: number;
   pulseLastPoint?: boolean;
   testID?: string;
+  // The crosshair label answers "when" and, by default, "how much" — scrubbing
+  // has to show a price somewhere. Hosts that mirror `onHoverChange` into their
+  // own price header pass false so the figure is not printed twice.
+  hoverLabelShowsPrice?: boolean;
+  // Called with undefined when the pointer leaves the plot, and on unmount.
+  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
-  const { format } = useFormatDate();
   const theme = useTheme();
+  const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
@@ -67,33 +104,79 @@ export function StockPriceLineChart({
     },
     [],
   );
-  const tooltipPosition = useMemo(() => {
+  // A fresh series (range switch, refetch) invalidates whatever the crosshair
+  // was pointing at.
+  useEffect(() => {
+    setHoverData(null);
+  }, [data]);
+
+  const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
+    if (!hoverData) {
+      return undefined;
+    }
+    const base = data[0]?.[1];
+    if (base === undefined || !Number.isFinite(base) || base === 0) {
+      return { time: hoverData.time, price: hoverData.price };
+    }
+    const difference = hoverData.price - base;
+    return {
+      time: hoverData.time,
+      price: hoverData.price,
+      changeValue: String(difference),
+      changePercent: String((difference / base) * 100),
+    };
+  }, [data, hoverData]);
+
+  // Held in a ref so an inline parent callback cannot make the reporting effect
+  // fire on every render.
+  const onHoverChangeRef = useRef(onHoverChange);
+  onHoverChangeRef.current = onHoverChange;
+  useEffect(() => {
+    onHoverChangeRef.current?.(hoverPoint);
+  }, [hoverPoint]);
+  // Unmounting mid-scrub (range skeleton, Pro mode) has to release the header
+  // back to the live figures.
+  useEffect(
+    () => () => {
+      onHoverChangeRef.current?.(undefined);
+    },
+    [],
+  );
+
+  // Both centering and clamping key off the width the label will actually be
+  // drawn at, so the price variant is not pushed off the plot at either end.
+  const labelWidth = hoverLabelShowsPrice
+    ? TIME_AND_PRICE_LABEL_WIDTH
+    : TIME_ONLY_LABEL_WIDTH;
+  // Horizontally centered on the crosshair and clamped to the plot, so the
+  // label stays readable at both ends of the range instead of hanging off the
+  // edge. Vertically it stays parked at the top of the plot.
+  const timeLabelPosition = useMemo(() => {
     if (!hoverData || !chartWidth) {
       return null;
     }
-
-    const offset = 10;
-    const edge = 8;
-    const isLeftHalf = hoverData.x < chartWidth / 2;
-    const translateX = isLeftHalf ? 0 : -TOOLTIP_WIDTH;
-    const desiredLeft = isLeftHalf
-      ? hoverData.x + offset
-      : hoverData.x - offset;
-    const clampedLeft = Math.min(
-      Math.max(desiredLeft + translateX, edge),
-      chartWidth - TOOLTIP_WIDTH - edge,
+    const plotRight = chartWidth - PRICE_SCALE_WIDTH;
+    const maxLeft = Math.max(
+      TIME_LABEL_EDGE_INSET,
+      plotRight - labelWidth - TIME_LABEL_EDGE_INSET,
     );
-
     return {
-      left: clampedLeft - translateX,
-      top: Math.max(8, hoverData.y - 56),
-      translateX,
+      left: Math.min(
+        Math.max(hoverData.x - labelWidth / 2, TIME_LABEL_EDGE_INSET),
+        maxLeft,
+      ),
+      top: TIME_LABEL_TOP_INSET,
     };
-  }, [chartWidth, hoverData]);
+  }, [chartWidth, hoverData, labelWidth]);
   const hoverTimeText = useMemo(
     () =>
       hoverData ? format(new Date(hoverData.time * 1000), 'MMM d, HH:mm') : '',
     [format, hoverData],
+  );
+  const hoverPriceText = useMemo(
+    () =>
+      hoverData && hoverLabelShowsPrice ? priceFormatter(hoverData.price) : '',
+    [hoverData, hoverLabelShowsPrice, priceFormatter],
   );
 
   return (
@@ -108,30 +191,6 @@ export function StockPriceLineChart({
         }
       }}
     >
-      {hoverData && tooltipPosition ? (
-        <YStack
-          position="absolute"
-          top={tooltipPosition.top}
-          left={tooltipPosition.left}
-          transform={[{ translateX: tooltipPosition.translateX }]}
-          bg="$bg"
-          borderRadius="$2"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          px="$2"
-          py="$1.5"
-          zIndex={100}
-          pointerEvents="none"
-          width={TOOLTIP_WIDTH}
-        >
-          <SizableText size="$bodyXs" color="$textDisabled">
-            {hoverTimeText}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-            {priceFormatter(hoverData.price)}
-          </SizableText>
-        </YStack>
-      ) : null}
       <LightweightChart
         data={data}
         height={height}
@@ -148,12 +207,50 @@ export function StockPriceLineChart({
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
-        priceScaleMinimumWidth={64}
+        priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
         priceFormatter={priceFormatter}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}
       />
+      {timeLabelPosition ? (
+        <Stack
+          testID="stock-price-line-chart-hover-label"
+          position="absolute"
+          left={timeLabelPosition.left}
+          top={timeLabelPosition.top}
+          width={labelWidth}
+          bg="$bg"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          px="$2"
+          py="$1"
+          pointerEvents="none"
+          zIndex={TIME_LABEL_Z_INDEX}
+        >
+          <SizableText
+            size="$bodyXs"
+            color="$textSubdued"
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {hoverTimeText}
+          </SizableText>
+          {hoverLabelShowsPrice ? (
+            <SizableText
+              testID="stock-price-line-chart-hover-label-price"
+              size="$bodySmMedium"
+              color="$text"
+              textAlign="center"
+              numberOfLines={1}
+            >
+              {hoverPriceText}
+            </SizableText>
+          ) : null}
+        </Stack>
+      ) : null}
     </Stack>
   );
 }

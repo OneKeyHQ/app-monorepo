@@ -806,6 +806,20 @@ export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
   introduction?: string;
   analystRatings?: IMarketStockAnalystRatings;
   about?: IMarketStockAbout;
+  // Pending backend support; see stock-detail backend requirements (2026-08-26)
+  netIncomeFy?: string;
+  revenueFy?: string;
+  sharesFloat?: string;
+  beta1y?: string;
+  // Raw provider payload the endpoint passes through untouched. Only the
+  // analyst rating buckets are typed here; everything else stays opaque.
+  underlyingMeta?: {
+    analystRatingsStrongBuy?: string;
+    analystRatingsBuy?: string;
+    analystRatingsHold?: string;
+    analystRatingsSell?: string;
+    analystRatingsStrongSell?: string;
+  } & Record<string, unknown>;
 }
 
 export type IMarketStockPublicChartPeriod = '1h' | '1d' | '1w' | '1y' | 'all';

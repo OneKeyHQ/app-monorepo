@@ -9,16 +9,27 @@ import { STAT_FALLBACK_VALUE } from './statValue';
 
 export const STOCK_ABOUT_IPO_DATE_LABEL = 'IPO Date';
 
+/**
+ * The public stock endpoint describes the underlying listing, not the token
+ * that wraps it, so it carries no issuer. `source` and `isPaused` have to be
+ * threaded in from the token variant the page is showing — without a source
+ * `resolveUSMarketStatusVariant` resolves to undefined and the market status
+ * badge silently renders nothing.
+ */
 export function buildStockInfoFromPublicDetail(
   detail: IMarketStockPublicDetail,
+  tokenStockInfo?: Pick<IMarketStockInfo, 'source' | 'isPaused'>,
 ): IMarketStockInfo {
   return {
     title: detail.symbol,
     subtitle: detail.name,
+    source: tokenStockInfo?.source,
+    isPaused: tokenStockInfo?.isPaused,
     sourceLogoUri: detail.logoUrl,
     isOpen: detail.marketStatus?.isOpen,
-    description:
-      detail.marketStatus?.reason ?? detail.marketStatus?.session ?? undefined,
+    // `session` is a raw backend enum (e.g. PRE_MARKET); the badge resolves the
+    // session itself, so only the localized reason belongs in the tooltip.
+    description: detail.marketStatus?.reason ?? undefined,
     assetAnalysis: {
       volume24h: detail.volume24h,
       volumeShares: detail.volumeShares,
