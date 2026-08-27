@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const webDir = path.resolve(__dirname, '..');
+const envVersionFile = path.resolve(webDir, '../..', '.env.version');
 const defaultBootstrapDataOutFile = path.join(
   webDir,
   '.generated/bootstrap-data.json',
@@ -45,6 +46,20 @@ const maxBootstrapDataBytes = Number(
 );
 
 class MarketHomeTokenSeedError extends Error {}
+
+function readAppVersion() {
+  const envVersion = fs.readFileSync(envVersionFile, 'utf8');
+  const versionLine = envVersion
+    .split(/\r?\n/)
+    .find((line) => line.trim().startsWith('VERSION='));
+  const version = versionLine?.slice(versionLine.indexOf('=') + 1).trim();
+  if (!version) {
+    throw new MarketHomeTokenSeedError(
+      `VERSION is missing from ${envVersionFile}.`,
+    );
+  }
+  return version;
+}
 
 const TOKEN_STRING_FIELDS = [
   'address',
@@ -366,9 +381,11 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const appVersion = readAppVersion();
     const response = await fetch(url, {
       headers: {
         Accept: 'application/json',
+        'X-Onekey-Request-Version': appVersion,
       },
       signal: controller.signal,
     });
@@ -421,13 +438,20 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  removeGeneratedBootstrapData();
-  const message = error instanceof Error ? error.message : String(error);
-  if (seedRequired) {
-    console.error(`[fetch-market-home-token-seed] failed: ${message}`);
-    process.exitCode = 1;
-    return;
-  }
-  warnAndSkip(message);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    removeGeneratedBootstrapData();
+    const message = error instanceof Error ? error.message : String(error);
+    if (seedRequired) {
+      console.error(`[fetch-market-home-token-seed] failed: ${message}`);
+      process.exitCode = 1;
+      return;
+    }
+    warnAndSkip(message);
+  });
+}
+
+module.exports = {
+  fetchJson,
+  readAppVersion,
+};
