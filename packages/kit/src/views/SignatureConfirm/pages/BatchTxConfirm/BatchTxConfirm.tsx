@@ -46,7 +46,6 @@ import type {
   IBatchTxSignProgress,
 } from '@onekeyhq/shared/types/batchTxSign';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -58,7 +57,12 @@ import { SecurityCheckCard } from '../../components/SecurityCheckCard';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import { BatchSigningProgress, SummaryRow, TransactionRow } from './components';
-import { MINUS_SIGN, formatRecipientLine, normalizeNativePrice } from './utils';
+import {
+  MINUS_SIGN,
+  computeSignExitGate,
+  formatRecipientLine,
+  normalizeNativePrice,
+} from './utils';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { NavigationAction } from '@react-navigation/routers';
@@ -90,13 +94,30 @@ function BatchTxConfirm() {
     setContinueOperate,
   } = useRiskDetection({
     origin: sourceInfo?.origin ?? '',
+    // BTC signPsbts cannot arrive via WalletConnect today (no BTC namespace
+    // in ProviderApiWalletConnect), so this is always undefined for now —
+    // passed for parity with TxConfirm/MessageConfirm so a future WC BTC
+    // route inherits the isScam/INVALID → High escalation instead of
+    // silently dropping Reown's attestation.
+    walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
   });
-  const isBlockingRisk = urlSecurityInfo?.level === EHostSecurityLevel.High;
-  // Mirrors TxConfirm's `showTakeRiskAlert && !continueOperate` gate: a
-  // flagged (High/Medium) origin keeps every signing exit disabled until the
-  // user explicitly ticks "Proceed at my own risk". High-risk origins stay
-  // hard-blocked via isBlockingRisk even after ticking.
-  const isRiskUnacknowledged = showContinueOperate && !continueOperate;
+  // Full decision table lives in computeSignExitGate — including the
+  // "risk query still pending" state that keeps every signing exit disabled
+  // until checkUrlSecurity settles (it always does; failures fall back to
+  // Unknown, so this cannot deadlock the page).
+  const { isSignExitBlocked } = computeSignExitGate({
+    origin: sourceInfo?.origin ?? '',
+    urlSecurityInfo,
+    showContinueOperate,
+    continueOperate,
+  });
+  // Execution-time recheck for every signing exit: portal Dialogs (the
+  // Sign-all confirmation) capture their onConfirm closure at open time and
+  // outlive this page's re-renders, so the disabled state of the buttons
+  // underneath cannot protect them — a High verdict landing after the
+  // dialog opened must still block at confirm time.
+  const isSignExitBlockedRef = useRef(isSignExitBlocked);
+  isSignExitBlockedRef.current = isSignExitBlocked;
 
   const [settings] = useSettingsPersistAtom();
   const [atomProgress] = useBatchTxSignAtom();
@@ -334,12 +355,21 @@ function BatchTxConfirm() {
 
   const handleRowPress = useCallback(
     async (item: IBatchTxSignItemSummary) => {
+      if (isSignExitBlockedRef.current) {
+        return;
+      }
       try {
         const unsignedTx =
           await backgroundApiProxy.serviceBatchTxSign.getBatchItemUnsignedTx({
             batchId,
             index: item.index,
           });
+        // Re-check after the await: the risk verdict may have landed while
+        // the unsignedTx round-trip was in flight, and the drill-down
+        // TxConfirm (no sourceInfo) can never show this origin's warning.
+        if (isSignExitBlockedRef.current) {
+          return;
+        }
         // Backfill the top-level txSize the same way the legacy single-psbt
         // dapp flow gets it (BTC Vault._buildUnsignedTxFromEncodedTx, run by
         // serviceSend.prepareSendConfirmUnsignedTx via SendConfirmFromDApp).
@@ -412,6 +442,13 @@ function BatchTxConfirm() {
   );
 
   const startSigning = useCallback(() => {
+    // Runs as a portal Dialog's onConfirm, which may fire long after the
+    // risk verdict flipped to blocked (see isSignExitBlockedRef). The
+    // dialog auto-closes on confirm, landing back on the page whose
+    // SecurityCheckCard + disabled buttons explain the refusal.
+    if (isSignExitBlockedRef.current) {
+      return;
+    }
     void backgroundApiProxy.serviceBatchTxSign
       // sourceInfo lets the background loop record each signature into the
       // signature history under the requesting dapp's origin, matching the
@@ -569,6 +606,9 @@ function BatchTxConfirm() {
       if (isDoneInFlightRef.current || hasSettledRef.current) {
         return;
       }
+      if (isSignExitBlockedRef.current) {
+        return;
+      }
       isDoneInFlightRef.current = true;
       setIsDoneLoading(true);
       // Freeze the currently-rendered (Complete) stage so any atom change
@@ -580,7 +620,12 @@ function BatchTxConfirm() {
           await backgroundApiProxy.serviceBatchTxSign.takeFinalizedResults({
             batchId,
           });
-        await dappApprove.resolve({ result: results });
+        // awaitAck: on split-runtime targets (mobile / ext side panel) the
+        // default resolve fire-and-forgets its UI→bg RPC — this catch would
+        // never see a bridge failure and the page would close with the dapp
+        // callback still pending and the signatures unrecoverable. Awaiting
+        // the ack routes that failure into the retry path below.
+        await dappApprove.resolve({ result: results, awaitAck: true });
         // Mark this close as an already-resolved success so handlePageClose
         // does not fire a redundant reject() for the same (now-settled) id —
         // see the comment on handlePageClose for why that is unsafe.
@@ -764,16 +809,12 @@ function BatchTxConfirm() {
                   })
             }
             confirmButtonProps={{
-              // isBlockingRisk / isRiskUnacknowledged gate EVERY path that
-              // hands signatures back to the dapp — Sign all, per-row
-              // drill-down and this Done — so a flagged origin cannot be
+              // isSignExitBlocked gates EVERY path that hands signatures
+              // back to the dapp — Sign all, per-row drill-down and this
+              // Done — so a flagged (or not-yet-checked) origin cannot be
               // worked around by signing items one at a time or by reaching
               // the Complete stage without accepting the risk.
-              disabled:
-                !isComplete ||
-                isDoneLoading ||
-                isBlockingRisk ||
-                isRiskUnacknowledged,
+              disabled: !isComplete || isDoneLoading || isSignExitBlocked,
               loading: isDoneLoading,
             }}
             onConfirm={(_close, closePageStack) => {
@@ -866,16 +907,14 @@ function BatchTxConfirm() {
                 fiatText={formatFiat(item.amountValue)}
                 signed={item.status === EBatchTxSignItemStatus.Signed}
                 failed={item.status === EBatchTxSignItemStatus.Failed}
-                // isBlockingRisk / isRiskUnacknowledged: the drill-down
-                // TxConfirm intentionally gets no sourceInfo (so it can never
-                // resolve the dapp request), which also means it can't show
-                // this origin's risk warning — so per-item signing must be
-                // gated here, alongside the Sign all and Done buttons, or a
-                // flagged site could have every item signed one at a time
-                // with no warning shown and no risk accepted.
-                disabled={
-                  isSigningNow || isBlockingRisk || isRiskUnacknowledged
-                }
+                // isSignExitBlocked: the drill-down TxConfirm intentionally
+                // gets no sourceInfo (so it can never resolve the dapp
+                // request), which also means it can't show this origin's
+                // risk warning — so per-item signing must be gated here,
+                // alongside the Sign all and Done buttons, or a flagged site
+                // could have every item signed one at a time with no warning
+                // shown and no risk accepted.
+                disabled={isSigningNow || isSignExitBlocked}
                 onPress={() => void handleRowPress(item)}
               />
             ))}
@@ -901,11 +940,7 @@ function BatchTxConfirm() {
             // Destructive styling mirrors TxConfirmActions' showTakeRiskAlert
             // treatment for flagged origins.
             variant: showContinueOperate ? 'destructive' : 'primary',
-            disabled:
-              isSigningNow ||
-              isBlockingRisk ||
-              isRiskUnacknowledged ||
-              remainingCount === 0,
+            disabled: isSigningNow || isSignExitBlocked || remainingCount === 0,
           }}
           onConfirm={showSigningNotice}
           onCancelText={

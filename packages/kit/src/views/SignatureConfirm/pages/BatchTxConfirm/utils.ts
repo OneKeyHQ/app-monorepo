@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import type { IntlShape } from 'react-intl';
 
@@ -57,4 +59,47 @@ export function normalizeNativePrice(
     return undefined;
   }
   return priceBn.toFixed();
+}
+
+// Single decision table for whether ANY signing exit (Sign all, per-row
+// drill-down, Complete-stage Done) may proceed. Mirrors TxConfirm's
+// `showTakeRiskAlert && !continueOperate` gate and adds the "risk query
+// still pending" state TxConfirm gets for free from its fee/decode init
+// gating: useRiskDetection's urlSecurityInfo is undefined until
+// checkUrlSecurity settles, and in that window riskLevel falls back to
+// Unknown — which auto-ticks continueOperate and would leave every exit
+// enabled before the verdict arrives. checkUrlSecurity ALWAYS settles
+// (ServiceDiscovery falls back to an Unknown-level result on any
+// error/timeout), so treating pending as blocked can never lock the page
+// permanently.
+export function computeSignExitGate({
+  origin,
+  urlSecurityInfo,
+  showContinueOperate,
+  continueOperate,
+}: {
+  origin: string;
+  urlSecurityInfo: IHostSecurity | undefined;
+  showContinueOperate: boolean;
+  continueOperate: boolean;
+}): {
+  isRiskCheckPending: boolean;
+  isBlockingRisk: boolean;
+  isRiskUnacknowledged: boolean;
+  isSignExitBlocked: boolean;
+} {
+  // No origin → useRiskDetection never queries, so there is no verdict to
+  // wait for (its empty-origin early return yields an empty info object).
+  const isRiskCheckPending = !!origin && !urlSecurityInfo;
+  // High stays hard-blocked even after the user ticks "Proceed at my own
+  // risk" — the checkbox only unblocks Medium (and risky-method) origins.
+  const isBlockingRisk = urlSecurityInfo?.level === EHostSecurityLevel.High;
+  const isRiskUnacknowledged = showContinueOperate && !continueOperate;
+  return {
+    isRiskCheckPending,
+    isBlockingRisk,
+    isRiskUnacknowledged,
+    isSignExitBlocked:
+      isRiskCheckPending || isBlockingRisk || isRiskUnacknowledged,
+  };
 }

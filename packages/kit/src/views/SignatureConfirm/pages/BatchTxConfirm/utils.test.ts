@@ -1,8 +1,14 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
 import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
-import { formatRecipientLine, normalizeNativePrice } from './utils';
+import {
+  computeSignExitGate,
+  formatRecipientLine,
+  normalizeNativePrice,
+} from './utils';
 
 const intl = createIntl(
   {
@@ -79,5 +85,84 @@ describe('normalizeNativePrice', () => {
   it('rejects negative prices', () => {
     expect(normalizeNativePrice(-1)).toBeUndefined();
     expect(normalizeNativePrice('-0.5')).toBeUndefined();
+  });
+});
+
+describe('computeSignExitGate', () => {
+  const securityInfo = (level: EHostSecurityLevel): IHostSecurity =>
+    ({ level }) as IHostSecurity;
+
+  it('blocks every exit while the risk query is still pending', () => {
+    // urlSecurityInfo stays undefined until checkUrlSecurity settles; in
+    // that window riskLevel falls back to Unknown and continueOperate is
+    // auto-ticked, so without an explicit pending state every signing exit
+    // would be enabled before the verdict arrives.
+    const gate = computeSignExitGate({
+      origin: 'https://dapp.example',
+      urlSecurityInfo: undefined,
+      showContinueOperate: false,
+      continueOperate: true,
+    });
+    expect(gate.isRiskCheckPending).toBe(true);
+    expect(gate.isSignExitBlocked).toBe(true);
+  });
+
+  it('does not treat a missing origin as a pending query', () => {
+    // useRiskDetection skips checkUrlSecurity entirely for an empty origin,
+    // so there is no verdict to wait for.
+    const gate = computeSignExitGate({
+      origin: '',
+      urlSecurityInfo: undefined,
+      showContinueOperate: false,
+      continueOperate: true,
+    });
+    expect(gate.isRiskCheckPending).toBe(false);
+    expect(gate.isSignExitBlocked).toBe(false);
+  });
+
+  it('unblocks Security and Unknown origins once the verdict lands', () => {
+    for (const level of [
+      EHostSecurityLevel.Security,
+      EHostSecurityLevel.Unknown,
+    ]) {
+      const gate = computeSignExitGate({
+        origin: 'https://dapp.example',
+        urlSecurityInfo: securityInfo(level),
+        showContinueOperate: false,
+        continueOperate: true,
+      });
+      expect(gate.isRiskCheckPending).toBe(false);
+      expect(gate.isSignExitBlocked).toBe(false);
+    }
+  });
+
+  it('hard-blocks High origins even after the risk checkbox is ticked', () => {
+    const gate = computeSignExitGate({
+      origin: 'https://scam.example',
+      urlSecurityInfo: securityInfo(EHostSecurityLevel.High),
+      showContinueOperate: true,
+      continueOperate: true,
+    });
+    expect(gate.isBlockingRisk).toBe(true);
+    expect(gate.isSignExitBlocked).toBe(true);
+  });
+
+  it('blocks Medium origins until the risk checkbox is ticked', () => {
+    const unacknowledged = computeSignExitGate({
+      origin: 'https://sus.example',
+      urlSecurityInfo: securityInfo(EHostSecurityLevel.Medium),
+      showContinueOperate: true,
+      continueOperate: false,
+    });
+    expect(unacknowledged.isRiskUnacknowledged).toBe(true);
+    expect(unacknowledged.isSignExitBlocked).toBe(true);
+
+    const acknowledged = computeSignExitGate({
+      origin: 'https://sus.example',
+      urlSecurityInfo: securityInfo(EHostSecurityLevel.Medium),
+      showContinueOperate: true,
+      continueOperate: true,
+    });
+    expect(acknowledged.isSignExitBlocked).toBe(false);
   });
 });
