@@ -1,5 +1,6 @@
 const {
   addObservedModulePaths,
+  normalizeFullSourceMapsForBundle,
   parseArgs,
   selectClosedVendorModules,
 } = require('../build-dev-vendor');
@@ -71,6 +72,43 @@ describe('build-dev-vendor', () => {
       '/repo/shared.js',
       '__prelude__',
     ]);
+  });
+
+  it('clones every full-map JS module without changing code or graph data', () => {
+    const firstFullMap = { mappings: 'AAAA', version: 3 };
+    const secondFullMap = { mappings: 'BBBB', version: 3 };
+    const rawMap = [[1, 0, 1, 0]];
+    const first = createModule('first\nsecond');
+    first.path = '/repo/first.js';
+    first.output[0].data.lineCount = 2;
+    first.output[0].data.map = firstFullMap;
+    const second = createModule('second');
+    second.path = '/repo/second.js';
+    second.output[0].data.lineCount = 1;
+    second.output[0].data.map = rawMap;
+    const third = createModule('third');
+    third.path = '/repo/third.js';
+    third.output[0].data.lineCount = 1;
+    third.output[0].data.map = secondFullMap;
+    const originalModules = [first, second, third];
+
+    const normalized = normalizeFullSourceMapsForBundle(originalModules);
+
+    expect(normalized.fullMapModulePaths).toEqual([
+      '/repo/first.js',
+      '/repo/third.js',
+    ]);
+    expect(normalized.modules[0]).not.toBe(first);
+    expect(normalized.modules[0].output[0]).not.toBe(first.output[0]);
+    expect(normalized.modules[0].output[0].data).toMatchObject({
+      code: 'first\nsecond',
+      lineCount: 2,
+      map: null,
+    });
+    expect(normalized.modules[1]).toBe(second);
+    expect(normalized.modules[1].output[0].data.map).toBe(rawMap);
+    expect(first.output[0].data.map).toBe(firstFullMap);
+    expect(third.output[0].data.map).toBe(secondFullMap);
   });
 
   it('keeps only equivalent static vendor modules with a closed sync graph', () => {

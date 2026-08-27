@@ -96,6 +96,36 @@ function addObservedModulePaths(observedModulePaths, graph, prepend) {
   }
 }
 
+function normalizeFullSourceMapsForBundle(modules) {
+  const fullMapModulePaths = [];
+  const normalizedModules = modules.map((moduleData) => {
+    let changed = false;
+    const output = moduleData.output.map((outputData) => {
+      const sourceMap = outputData.data?.map;
+      if (
+        !outputData.type.startsWith('js/') ||
+        sourceMap === null ||
+        sourceMap === undefined ||
+        Array.isArray(sourceMap)
+      ) {
+        return outputData;
+      }
+      changed = true;
+      return {
+        ...outputData,
+        data: {
+          ...outputData.data,
+          map: null,
+        },
+      };
+    });
+    if (!changed) return moduleData;
+    fullMapModulePaths.push(moduleData.path);
+    return { ...moduleData, output };
+  });
+  return { fullMapModulePaths, modules: normalizedModules };
+}
+
 function isJsModule(moduleData) {
   return Boolean(
     moduleData?.output?.some(({ type }) =>
@@ -383,15 +413,21 @@ async function writePlatformOutput({
   const selectedGraphModules = [...selectedModules]
     .map((absolutePath) => graph.dependencies.get(absolutePath))
     .filter(Boolean);
-  const sourceMap = await sourceMapStringNonBlocking(
-    [...prepend, ...selectedGraphModules],
-    {
-      excludeSource: false,
-      getSourceUrl: (moduleData) => moduleData.path,
-      processModuleFilter: () => true,
-      shouldAddToIgnoreList: () => false,
-    },
-  );
+  const sourceMapInput = normalizeFullSourceMapsForBundle([
+    ...prepend,
+    ...selectedGraphModules,
+  ]);
+  if (sourceMapInput.fullMapModulePaths.length > 0) {
+    console.log(
+      `[devVendor] source map omitted full-map mappings count=${sourceMapInput.fullMapModulePaths.length} modules=${sourceMapInput.fullMapModulePaths.join(',')}`,
+    );
+  }
+  const sourceMap = await sourceMapStringNonBlocking(sourceMapInput.modules, {
+    excludeSource: false,
+    getSourceUrl: (moduleData) => moduleData.path,
+    processModuleFilter: () => true,
+    shouldAddToIgnoreList: () => false,
+  });
 
   const commonSourcePath = path.join(
     temporaryDirectory,
@@ -596,6 +632,7 @@ module.exports = {
   addObservedModulePaths,
   hasAsyncDependency,
   isJsModule,
+  normalizeFullSourceMapsForBundle,
   parseArgs,
   selectClosedVendorModules,
 };
