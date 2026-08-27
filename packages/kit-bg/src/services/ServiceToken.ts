@@ -872,8 +872,26 @@ class ServiceToken extends ServiceBase {
     const buildSearchTokenKey = (info: IToken) =>
       `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
 
+    // Defense-in-depth (OK-60860): the backend search index may still return
+    // tokens on delisted networks (dropped from getAllNetworks via status
+    // TRASH) or on networks this app version does not know at all. Such rows
+    // render without a resolvable network and cannot receive funds, so drop
+    // them here. Tokens without their own networkId belong to the request's
+    // scoped networkId and pass through.
+    const { networks: availableNetworks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    const availableNetworkIds = new Set(
+      availableNetworks.map((network) => network.id),
+    );
+
     return uniqBy(
-      fulfilledResponses.flatMap((resp) => resp.data.data),
+      fulfilledResponses
+        .flatMap((resp) => resp.data.data)
+        .filter(
+          (item) =>
+            !item.info.networkId ||
+            availableNetworkIds.has(item.info.networkId),
+        ),
       (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,
