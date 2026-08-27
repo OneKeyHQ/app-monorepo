@@ -34,6 +34,7 @@ import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceE
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -1091,7 +1092,10 @@ function ConnectYourDevicePage({
               deviceName: item.device?.name ?? undefined,
             });
           checkingDialogOpened = true;
-          if (platformEnv.isNativeIOS) {
+          // The iOS wait is for the legacy Sheet's mount acknowledgement.
+          // With the stage owning the surface no Sheet ever mounts, so the
+          // wait can only time out and kill the preflight (OK-59934).
+          if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
             await hardwareUiStateDialogLifecycle.openAndWait(
               showCheckingDeviceDialog,
             );
