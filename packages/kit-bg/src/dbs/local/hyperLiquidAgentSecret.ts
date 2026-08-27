@@ -17,6 +17,10 @@ import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
 export const HYPERLIQUID_AGENT_PASSWORD_ENCRYPTED_PREFIX = '|HLE|';
 
+export function shouldUseHyperLiquidAgentPasswordEncryption(): boolean {
+  return !platformEnv.isNative && !platformEnv.isWebDappMode;
+}
+
 const HYPERLIQUID_AGENT_SECRET_VERSION = 1;
 const HYPERLIQUID_AGENT_SECRET_KEY_BITS = 256;
 const HYPERLIQUID_AGENT_SECRET_NONCE_BYTES = 12;

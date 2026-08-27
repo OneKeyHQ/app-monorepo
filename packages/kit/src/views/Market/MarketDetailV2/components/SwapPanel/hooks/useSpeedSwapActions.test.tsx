@@ -16,6 +16,7 @@ import {
   swapQuoteEventCompletedAtom,
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
+  swapShouldRefreshQuoteAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import type {
   ISwapReviewGasInfoEntry,
@@ -36,6 +37,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapQuoteSource,
+  ESwapSlippageSegmentKey,
   ESwapStepType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -399,7 +401,10 @@ function createHookProps({
     },
     tradeType: ESwapDirection.BUY,
     fromTokenAmount: '0',
-    slippage: 0.5,
+    slippageItem: {
+      key: ESwapSlippageSegmentKey.CUSTOM,
+      value: 0.5,
+    },
     antiMEV: false,
   };
 }
@@ -656,6 +661,91 @@ describe('useSpeedSwapActions', () => {
 
   it.each([
     {
+      autoSlippage: true,
+      key: ESwapSlippageSegmentKey.AUTO,
+    },
+    {
+      autoSlippage: false,
+      key: ESwapSlippageSegmentKey.CUSTOM,
+    },
+  ])(
+    'quotes Market with $key slippage semantics',
+    async ({ autoSlippage, key }) => {
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+      renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          slippageItem: {
+            key,
+            value: 0.5,
+          },
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+          expect.objectContaining({
+            autoSlippage,
+            slippagePercentage: 0.5,
+            source: ESwapQuoteSource.MARKET,
+          }),
+        );
+      });
+    },
+  );
+
+  it('preserves automatic slippage when manually refreshing Market quotes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteNeedsRefresh).toBe(true);
+    });
+    act(() => {
+      result.current.refreshMarketQuote();
+    });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        autoSlippage: true,
+        slippagePercentage: 0.5,
+        source: ESwapQuoteSource.MARKET,
+      }),
+    );
+  });
+
+  it.each([
+    {
       direction: 'EVM to native BTC',
       tradeType: ESwapDirection.BUY,
       fromAccountId: 'evm-account',
@@ -787,6 +877,10 @@ describe('useSpeedSwapActions', () => {
       useSpeedSwapActions({
         ...createHookProps(),
         fromTokenAmount: '1',
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
       }),
     );
 
@@ -806,6 +900,7 @@ describe('useSpeedSwapActions', () => {
       toTokenInfo: quoteRequest.toToken ?? btcToken,
       fromAmount: '1',
       toAmount: '0.00001',
+      autoSuggestedSlippage: 1.25,
       swapShouldSignedData: {
         unSignedInfo: {
           origin: 'https://app.onekey.so',
@@ -842,6 +937,7 @@ describe('useSpeedSwapActions', () => {
     expect(reviewState?.steps.map((step) => step.type)).toEqual([
       ESwapStepType.SIGN_MESSAGE,
     ]);
+    expect(reviewState?.preSwapData.slippage).toBe(1.25);
 
     mockFetchBuildTx.mockResolvedValue({
       result: {

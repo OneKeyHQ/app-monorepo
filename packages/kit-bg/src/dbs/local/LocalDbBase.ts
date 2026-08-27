@@ -157,6 +157,7 @@ import {
   encryptHyperLiquidAgentCredentialWithSessionKey,
   hyperLiquidAgentSecretSession,
   isHyperLiquidAgentPasswordEncryptedCredential,
+  shouldUseHyperLiquidAgentPasswordEncryption,
 } from './hyperLiquidAgentSecret';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -1506,7 +1507,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         candidate.canMigrate &&
         !shouldDeferHyperLiquidPlaintextLseMigration({
           candidate,
-          isNative: platformEnv.isNative === true,
+          usePasswordEncryption: shouldUseHyperLiquidAgentPasswordEncryption(),
         })
       );
     });
@@ -1732,7 +1733,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const shouldDeferToHyperLiquidPasswordMigration =
         shouldDeferHyperLiquidPlaintextLseMigration({
           candidate,
-          isNative: platformEnv.isNative === true,
+          usePasswordEncryption: shouldUseHyperLiquidAgentPasswordEncryption(),
         });
       if (!candidate.canMigrate || shouldDeferToHyperLiquidPasswordMigration) {
         nextLastScannedCredentialId = credential.id;
@@ -2098,7 +2099,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     replaceSessionKey?: boolean;
     skipWhenNoCredentials?: boolean;
   }): Promise<void> {
-    if (platformEnv.isNative) {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
       return;
     }
     if (
@@ -2131,7 +2132,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   private async ensureHyperLiquidAgentSecretSessionReadyBestEffort(): Promise<void> {
-    if (platformEnv.isNative || hyperLiquidAgentSecretSession.isReady()) {
+    if (
+      !shouldUseHyperLiquidAgentPasswordEncryption() ||
+      hyperLiquidAgentSecretSession.isReady()
+    ) {
       return;
     }
     try {
@@ -2166,6 +2170,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return hyperLiquidAgentSecretSession.restorePersistedSession();
   }
 
+  isHyperLiquidAgentSecretSessionReady(): boolean {
+    return hyperLiquidAgentSecretSession.isReady();
+  }
+
   async setHyperLiquidAgentSecretSessionUnlocked(
     unlocked: boolean,
   ): Promise<void> {
@@ -2183,7 +2191,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     password: string;
   }): Promise<void> {
-    if (platformEnv.isNative) {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
       return;
     }
     const credentials = await this.getAllHyperLiquidAgentCredentials();
@@ -2247,15 +2255,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       agentName: credential.agentName,
     });
     let serializedCredential: string;
-    if (platformEnv.isNative) {
-      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
-    } else {
+    if (shouldUseHyperLiquidAgentPasswordEncryption()) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
       serializedCredential =
         await hyperLiquidAgentSecretSession.encryptCredential({
           credential,
           recordId: credentialId,
         });
+    } else {
+      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
     }
     const credentialToAddInfo =
       await this.buildCredentialForLocalSecretEnvelopeWrite({
@@ -2305,15 +2313,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       agentName: credential.agentName,
     });
     let serializedCredential: string;
-    if (platformEnv.isNative) {
-      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
-    } else {
+    if (shouldUseHyperLiquidAgentPasswordEncryption()) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
       serializedCredential =
         await hyperLiquidAgentSecretSession.encryptCredential({
           credential,
           recordId: credentialId,
         });
+    } else {
+      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
     }
     const originalCredential = await this.getCredentialRaw(credentialId);
     const compareAndSwapCredential =
@@ -2414,7 +2422,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         })
       : rawCredential;
     const isSessionEncryptedCredential =
-      !platformEnv.isNative &&
+      shouldUseHyperLiquidAgentPasswordEncryption() &&
       isHyperLiquidAgentPasswordEncryptedCredential(credential.credential);
     if (isSessionEncryptedCredential) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
@@ -2431,7 +2439,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (
       credentialDecrypt &&
       (!isLocalSecretEnvelopeString(rawCredential.credential) ||
-        (!platformEnv.isNative &&
+        (shouldUseHyperLiquidAgentPasswordEncryption() &&
           !isHyperLiquidAgentPasswordEncryptedCredential(
             credential.credential,
           )))

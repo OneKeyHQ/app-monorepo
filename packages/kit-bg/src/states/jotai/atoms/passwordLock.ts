@@ -32,6 +32,23 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     },
   });
 
+export type IHyperLiquidAgentPasswordStatusAtom = {
+  isPasswordSet: boolean;
+  requiresPasswordSetupOrVerify: boolean;
+};
+export const {
+  target: hyperLiquidAgentPasswordStatusAtom,
+  use: useHyperLiquidAgentPasswordStatusAtom,
+} = globalAtom<IHyperLiquidAgentPasswordStatusAtom>({
+  persist: false,
+  name: EAtomNames.hyperLiquidAgentPasswordStatusAtom,
+  initialValue: {
+    isPasswordSet: false,
+    requiresPasswordSetupOrVerify:
+      !platformEnv.isNative && !platformEnv.isWebDappMode,
+  },
+});
+
 // this atom is used to trigger password prompt not add other state
 export type IPasswordPromptPromiseTriggerAtom = {
   passwordPromptPromiseTriggerData:
