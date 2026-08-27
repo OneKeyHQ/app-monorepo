@@ -42,7 +42,7 @@ const {
   verifyManifest,
 } = require('../devVendor');
 
-function loadGetDevServer(scriptURL) {
+function loadGetDevServer(scriptURL, runtimeGlobal = {}) {
   const filename = path.join(
     repoRoot,
     'node_modules/react-native/Libraries/Core/Devtools/getDevServer.js',
@@ -56,7 +56,6 @@ function loadGetDevServer(scriptURL) {
       '@babel/plugin-transform-modules-commonjs',
     ],
   });
-  const runtimeGlobal = {};
   const module = { exports: {} };
   vm.runInNewContext(code, {
     exports: module.exports,
@@ -73,6 +72,65 @@ function loadGetDevServer(scriptURL) {
     },
   });
   return { getDevServer: module.exports.default, runtimeGlobal };
+}
+
+function loadResolveAssetSource(scriptURL) {
+  const filename = path.join(
+    repoRoot,
+    'node_modules/react-native/Libraries/Image/resolveAssetSource.js',
+  );
+  const source = fs.readFileSync(filename, 'utf8');
+  const { code } = babel.transformSync(source, {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      '@babel/plugin-transform-flow-strip-types',
+      '@babel/plugin-transform-modules-commonjs',
+    ],
+  });
+  const runtimeGlobal = {};
+  const { getDevServer } = loadGetDevServer(scriptURL, runtimeGlobal);
+  const module = { exports: {} };
+  class TestAssetSourceResolver {
+    constructor(serverURL, scriptBundleURL) {
+      this.serverURL = serverURL;
+      this.scriptBundleURL = scriptBundleURL;
+    }
+
+    defaultAsset() {
+      return {
+        scriptBundleURL: this.scriptBundleURL,
+        serverURL: this.serverURL,
+      };
+    }
+  }
+  vm.runInNewContext(code, {
+    exports: module.exports,
+    global: runtimeGlobal,
+    module,
+    require: (request) => {
+      if (request === './AssetSourceResolver') {
+        return { default: TestAssetSourceResolver };
+      }
+      if (request === './AssetUtils') {
+        return { pickScale: () => 1 };
+      }
+      if (request === '@react-native/assets-registry/registry') {
+        return { getAssetByID: () => ({ name: 'test', type: 'png' }) };
+      }
+      if (request === '../Core/Devtools/getDevServer') {
+        return { __esModule: true, default: getDevServer };
+      }
+      if (request === '../NativeModules/specs/NativeSourceCode') {
+        return {
+          __esModule: true,
+          default: { getConstants: () => ({ scriptURL }) },
+        };
+      }
+      throw new Error(`Unexpected resolveAssetSource dependency: ${request}`);
+    },
+  });
+  return { resolveAssetSource: module.exports.default, runtimeGlobal };
 }
 
 describe('devVendor', () => {
@@ -420,6 +478,10 @@ describe('devVendor', () => {
       'resolver\\.runtimeTarget=(?:main|background)',
     );
     expect(reactNativePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
+    expect(reactNativePatch).toContain('Libraries/Image/resolveAssetSource.js');
+    expect(reactNativePatch).toContain(
+      'resolve live dev-vendor assets from Metro',
+    );
     expect(reactNativePatch).not.toContain(
       'contains("resolver.devVendor=true")',
     );
@@ -540,6 +602,32 @@ describe('devVendor', () => {
     invalidRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ =
       firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=worker');
     expect(invalidRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
+  });
+
+  it('resolves background assets from Metro after local common startup', () => {
+    const { resolveAssetSource, runtimeGlobal } = loadResolveAssetSource(
+      'onekey-dev-vendor-assert-background.js',
+    );
+    expect(resolveAssetSource(1)).toEqual({
+      scriptBundleURL: 'file://',
+      serverURL: null,
+    });
+
+    const backgroundURL =
+      'http://localhost:8081/background.bundle' +
+      '?resolver.devVendorNative=true&resolver.runtimeTarget=background';
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ = backgroundURL;
+    expect(resolveAssetSource(1)).toEqual({
+      scriptBundleURL: 'file://',
+      serverURL: 'http://localhost:8081/',
+    });
+
+    const reloadedURL = backgroundURL.replace('localhost', '127.0.0.1');
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ = reloadedURL;
+    expect(resolveAssetSource(1)).toEqual({
+      scriptBundleURL: 'file://',
+      serverURL: 'http://127.0.0.1:8081/',
+    });
   });
 
   it('rejects native requests when the Metro experiment is disabled', () => {

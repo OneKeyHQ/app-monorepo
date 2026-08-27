@@ -994,3 +994,16 @@ index a158d98..bd961d9 100644
 +    _cachedFullBundleURL = match ? devVendorFullBundleURL : null;
 +  } else if (_cachedDevServerURL === undefined) {
      const scriptUrl = NativeSourceCode.getConstants().scriptURL;
+diff --git a/node_modules/react-native/Libraries/Image/resolveAssetSource.js b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
+index e08a6c8..de078a2 100644
+--- a/node_modules/react-native/Libraries/Image/resolveAssetSource.js
++++ b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
+@@ -16,0 +17 @@ import type {ImageSource} from './ImageSource';
++import getDevServer from '../Core/Devtools/getDevServer';
+@@ -42,0 +44,6 @@ function getDevServerURL(): ?string {
++  // OneKey patch: resolve live dev-vendor assets from Metro after local common HBC startup.
++  const devServer = getDevServer();
++  if (devServer.bundleLoadedFromServer) {
++    return devServer.url;
++  }
++
