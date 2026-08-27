@@ -167,8 +167,23 @@ if (!__DEV__) {
 
 const apiProxyStart = Date.now();
 bgEntryLog(`importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`);
-const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-  require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+let backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+try {
+  backgroundApiProxy =
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+} catch (error) {
+  // The import above executes the whole kit-bg module graph; without this
+  // catch a throw inside it dies invisibly (no global handler is installed
+  // on this runtime yet) and the only symptom is the transport going
+  // remote-broken. Persist the failure to app-latest.log before rethrowing.
+  const err = error as Error | undefined;
+  bgEntryLog(
+    `backgroundApiProxy import FAILED: ${err?.message ?? String(error)}\n${
+      err?.stack?.slice(0, 2000) ?? ''
+    }`,
+  );
+  throw error;
+}
 
 bgEntryLog(
   `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${
