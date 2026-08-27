@@ -96,6 +96,16 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
 /** How long the third-party ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
 
+/** How long the authenticity ✓ rests before its narrative is retired —
+ * the same beat the third-party ✓ takes, one hold for both endings.
+ *
+ * Unlike every other authored beat, `authSuccess` has no reader: the
+ * runner returns on it and nothing downstream writes the stage again.
+ * Without a hold of its own the ✓ stands until the burst happens to end —
+ * seven seconds behind the firmware release check, and indefinitely where
+ * nothing holds a burst at all. */
+const AUTH_SUCCESS_HOLD_MS = DONE_HOLD_MS;
+
 /** How long begin() waits before painting its own `connecting` beat. A
  * flow that opens straight into a real step (the genuine check above all)
  * supersedes it within this window — without it the replica flashes the
@@ -218,6 +228,13 @@ export class DeviceStageBurstScope {
    */
   private authoredAuthStep: IDeviceStageStepValue | undefined;
 
+  private authHoldTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Bumped on every arm and every clear. The handover reads the atom
+   * before it decides, so clearing the timer alone cannot stop a callback
+   * already past its await — the generation can. */
+  private authHoldSeq = 0;
+
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
   ) {
@@ -244,6 +261,60 @@ export class DeviceStageBurstScope {
     this.pendingOpen = undefined;
   }
 
+  private clearAuthHold() {
+    clearTimeout(this.authHoldTimer);
+    this.authHoldTimer = undefined;
+    this.authHoldSeq += 1;
+  }
+
+  /**
+   * Arms the ✓'s handover.
+   *
+   * Armed from `noteStep` only, never from `setStep`: a call end inside an
+   * authored flow re-asserts the same step through `setStep` — three times
+   * over during the firmware release check, one per call — and arming
+   * there would push the hold out again every time, so it would never
+   * expire.
+   */
+  private armAuthSuccessHold() {
+    this.clearAuthHold();
+    const seq = this.authHoldSeq;
+    this.authHoldTimer = setTimeout(() => {
+      void this.handoverFromAuthSuccess(seq);
+    }, AUTH_SUCCESS_HOLD_MS);
+  }
+
+  /** The ✓ has been read: retire the narrative and land the stage on what
+   * the burst is actually doing. */
+  private async handoverFromAuthSuccess(seq: number) {
+    if (this.authHoldSeq !== seq) {
+      return;
+    }
+    this.authHoldTimer = undefined;
+    const prev = await deviceStageAtom.get();
+    // Re-checked after the await: a beat that landed meanwhile owns the
+    // stage now, and it brought its own ending.
+    if (this.authHoldSeq !== seq) {
+      return;
+    }
+    // Never resurrect a stage that has left, and never overwrite whatever
+    // replaced the ✓ — an ask, an error notice, a newer burst's opening.
+    if (!prev || prev.step !== 'authSuccess') {
+      return;
+    }
+    // Retiring the narrative is the point, not a side effect: from here a
+    // call end falls through to the ordinary processing beat instead of
+    // re-pinning the ✓ this handover just collapsed.
+    this.authoredAuthStep = undefined;
+    if (this.depth > 0) {
+      await this.setStep('processing', { connectId: prev.connectId });
+      return;
+    }
+    // No burst left to speak for — and noteStep dropped the pending exit
+    // when it wrote the ✓. This is that burst's one exit.
+    this.scheduleOff();
+  }
+
   async begin(params: IDeviceStageBurstBeginParams = {}) {
     if (!(await this.isEnabled())) {
       return;
@@ -256,6 +327,9 @@ export class DeviceStageBurstScope {
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
       this.authoredAuthStep = undefined;
+      // A new burst owns the stage; a nested wrapper joining mid-dwell
+      // (depth >= 2) is not a new narrative and must not disarm it.
+      this.clearAuthHold();
       const prev = await deviceStageAtom.get();
       const stageStillOn = prev && prev.step !== 'off';
       // A follow-up wrapper inside the grace window rejoins the visible
@@ -364,6 +438,8 @@ export class DeviceStageBurstScope {
     }
     this.confirmContent = undefined;
     this.authoredAuthStep = undefined;
+    // The burst's own exit owns the beat from here.
+    this.clearAuthHold();
     this.clearPendingOpen();
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
@@ -434,7 +510,18 @@ export class DeviceStageBurstScope {
       if (this.authoredAuthStep) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
-        await this.setStep(this.authoredAuthStep, { connectId });
+        await this.setStep(this.authoredAuthStep, {
+          connectId,
+          // The re-assert carries no extras of its own, and a step keeps
+          // only what it declares — so without this the first call end
+          // after a failure blanks the reason, the card falls back to the
+          // generic one, and a verdict that may only be taken to Support
+          // grows a "continue anyway" button it must never offer.
+          authFailureReason:
+            this.authoredAuthStep === 'authFailure'
+              ? current?.authFailureReason
+              : undefined,
+        });
         return;
       }
       if (this.depth > 0) {
@@ -645,6 +732,9 @@ export class DeviceStageBurstScope {
       return;
     }
     this.clearOffTimer();
+    // Any newer beat cancels a pending handover: a Retry's authFailure,
+    // an error notice, the loading beat a flow shows next.
+    this.clearAuthHold();
     // An ask plays OVER a narrative rather than ending it — the app-side
     // PIN handing itself to the device (`sendEnterPinOnDeviceEvent`) is
     // one, and forgetting there leaves the ButtonRequest that follows
@@ -654,6 +744,13 @@ export class DeviceStageBurstScope {
       this.authoredAuthStep = step;
     } else if (!ASK_STEPS.has(step)) {
       this.authoredAuthStep = undefined;
+    }
+    // The ✓ is the authored run's last word — nothing downstream is
+    // scheduled to move the stage off it. Armed before the write, so a
+    // second note interleaving at the await disarms this one rather than
+    // leaving a stale hold behind a newer beat.
+    if (step === 'authSuccess') {
+      this.armAuthSuccessHold();
     }
     await this.setStep(step, extras);
   }
@@ -681,6 +778,8 @@ export class DeviceStageBurstScope {
     this.confirmContent = undefined;
     this.activeVendor = undefined;
     this.authoredAuthStep = undefined;
+    // The person's own exit wins outright.
+    this.clearAuthHold();
     await this.forceOff({ force: true });
   }
 
