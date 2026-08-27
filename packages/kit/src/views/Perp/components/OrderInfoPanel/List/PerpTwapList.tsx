@@ -53,6 +53,7 @@ import type {
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
 import { PerpTestIDs } from '../../../testIDs';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
@@ -1229,6 +1230,7 @@ function PerpTwapList({
   enabledTabs,
 }: IPerpTwapListProps) {
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [
     { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
@@ -1609,7 +1611,7 @@ function PerpTwapList({
   const handleTerminate = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.state.coin,
@@ -1639,7 +1641,7 @@ function PerpTwapList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
   );
 
   const refreshTwapData = useCallback(async () => {

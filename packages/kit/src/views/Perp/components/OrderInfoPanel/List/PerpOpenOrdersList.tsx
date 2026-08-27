@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpTestIDs } from '../../../testIDs';
 import {
@@ -230,6 +231,7 @@ function PerpOpenOrdersList({
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const [currentListPage, setCurrentListPage] = useState(1);
   const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
     useChasingOrderTask();
@@ -413,7 +415,7 @@ function PerpOpenOrdersList({
   const handleCancelOrder = useCallback(
     async (order: IPerpsFrontendOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.coin,
@@ -444,13 +446,13 @@ function PerpOpenOrdersList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
   );
 
   const handleCancelTwapOrder = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.state.coin,
@@ -480,7 +482,7 @@ function PerpOpenOrdersList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
   );
 
   const resolveChaseTargetPrice = useCallback(
@@ -555,7 +557,7 @@ function PerpOpenOrdersList({
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          await actions.current.ensureTradingEnabled();
+          await ensureTradingEnabled();
           const targetPrice =
             preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
 
@@ -601,6 +603,7 @@ function PerpOpenOrdersList({
       actions,
       canMutateScopedOrders,
       currentUser?.accountAddress,
+      ensureTradingEnabled,
       intl,
       isChasingOrder,
       resolveChaseTargetPrice,
