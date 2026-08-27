@@ -36,6 +36,7 @@
     "module-id:reconcile": "node scripts/module-id-registry.js reconcile",
     "dev-vendor:build": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js",
     "dev-vendor:check": "node scripts/build-dev-vendor.js --check",
+    "dev-vendor:registry:update": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js --update-registry --platform all",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
     "android:clean": "./android/gradlew clean -p ./android",

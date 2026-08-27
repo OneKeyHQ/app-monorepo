@@ -22,6 +22,10 @@ const {
   toModuleKey,
 } = require('../plugins/moduleIdRegistry');
 
+const {
+  updateRegistryFromModulePaths,
+  writeRegistry,
+} = require('./module-id-registry');
 const { buildModuleSignature } = require('./unionBuildHelpers');
 
 const metroRoot = path.resolve(__dirname, '../../../node_modules/metro/src');
@@ -69,10 +73,27 @@ function parseArgs(argv = process.argv.slice(2)) {
       `[devVendor] --platform must be android, ios, or all; received ${platform}`,
     );
   }
+  const check = argv.includes('--check');
+  const registryUpdate = argv.includes('--update-registry');
+  if (check && registryUpdate) {
+    throw new Error(
+      '[devVendor] --check and --update-registry cannot be used together.',
+    );
+  }
   return {
-    check: argv.includes('--check'),
+    check,
     platforms: platform === 'all' ? ['ios', 'android'] : [platform],
+    registryUpdate,
   };
+}
+
+function addObservedModulePaths(observedModulePaths, graph, prepend) {
+  for (const absolutePath of graph.dependencies.keys()) {
+    observedModulePaths.add(absolutePath);
+  }
+  for (const moduleData of prepend) {
+    observedModulePaths.add(moduleData.path);
+  }
 }
 
 function isJsModule(moduleData) {
@@ -268,7 +289,7 @@ function createModuleRecords(selectedModules, registry) {
       const moduleId = registry.modules[moduleKey];
       if (!Number.isSafeInteger(moduleId) || moduleId <= 0) {
         throw new Error(
-          `[devVendor] Common module has no stable registry ID: ${moduleKey}`,
+          `[devVendor] Common module has no stable registry ID: ${moduleKey}. Run \`yarn workspace @onekeyhq/mobile dev-vendor:registry:update\`, review and commit the registry, then retry the build.`,
         );
       }
       return { id: moduleId, path: moduleKey };
@@ -432,7 +453,7 @@ async function writePlatformOutput({
   );
 }
 
-async function buildPlatform(platform) {
+async function buildPlatform(platform, { writeOutput = true } = {}) {
   console.log(`[devVendor] building platform=${platform}`);
   const config = await loadConfig({ cwd: mobileDirPath });
   config.cacheVersion = `${config.cacheVersion || 'default'}:dev-vendor-build-v1`;
@@ -451,6 +472,7 @@ async function buildPlatform(platform) {
       { lazy: false, onProgress: null, shallow: false },
     );
     const backgroundModuleCount = backgroundGraph.dependencies.size;
+    const observedModulePaths = new Set();
     const backgroundSignatures = new Map(
       [...backgroundGraph.dependencies].map(([absolutePath, moduleData]) => [
         absolutePath,
@@ -464,6 +486,11 @@ async function buildPlatform(platform) {
       resolverOptions: backgroundResolverOptions,
     });
     const backgroundPrependSignature = getPrependSignature(backgroundPrepend);
+    addObservedModulePaths(
+      observedModulePaths,
+      backgroundGraph,
+      backgroundPrepend,
+    );
     console.log(
       `[devVendor] background graph modules=${backgroundModuleCount} durationMs=${Date.now() - backgroundStartedAt}`,
     );
@@ -485,6 +512,7 @@ async function buildPlatform(platform) {
       resolverOptions: mainResolverOptions,
     });
     assertEquivalentPrepends(mainPrepend, backgroundPrependSignature);
+    addObservedModulePaths(observedModulePaths, mainGraph, mainPrepend);
     const selectedModules = selectClosedVendorModules({
       backgroundSignatures,
       mainGraph,
@@ -495,18 +523,21 @@ async function buildPlatform(platform) {
     if (selectedModules.size === 0) {
       throw new Error('[devVendor] Closed common module set is empty.');
     }
-    await writePlatformOutput({
-      backgroundModuleCount,
-      config,
-      graph: mainGraph,
-      mainModuleCount,
-      metroServer,
-      platform,
-      prepend: mainPrepend,
-      selectedModules,
-    });
+    if (writeOutput) {
+      await writePlatformOutput({
+        backgroundModuleCount,
+        config,
+        graph: mainGraph,
+        mainModuleCount,
+        metroServer,
+        platform,
+        prepend: mainPrepend,
+        selectedModules,
+      });
+    }
+    return observedModulePaths;
   } finally {
-    metroServer.end();
+    await metroServer.end();
   }
 }
 
@@ -528,12 +559,29 @@ function checkPlatform(platform) {
 async function main() {
   ensureBuildEnvironment();
   const args = parseArgs();
+  const observedModulePaths = new Set();
   for (const platform of args.platforms) {
     if (args.check) {
       checkPlatform(platform);
     } else {
-      await buildPlatform(platform);
+      const platformModulePaths = await buildPlatform(platform, {
+        writeOutput: !args.registryUpdate,
+      });
+      for (const modulePath of platformModulePaths) {
+        observedModulePaths.add(modulePath);
+      }
+      if (globalThis.gc) globalThis.gc();
     }
+  }
+  if (args.registryUpdate) {
+    const result = updateRegistryFromModulePaths(
+      loadRegistry(),
+      observedModulePaths,
+    );
+    writeRegistry(result.registry);
+    console.log(
+      `[devVendor] registry updated observedModules=${observedModulePaths.size} activeModules=${Object.keys(result.registry.modules).length} added=${result.added}. Review and commit apps/mobile/bundle-registry/module-id-registry.json, then run the strict dev-vendor build.`,
+    );
   }
 }
 
@@ -545,6 +593,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  addObservedModulePaths,
   hasAsyncDependency,
   isJsModule,
   parseArgs,

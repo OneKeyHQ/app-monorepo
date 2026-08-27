@@ -4,6 +4,7 @@ const {
   createEmptyRegistry,
   reconcileRegistries,
   updateRegistry,
+  updateRegistryFromModulePaths,
 } = require('../module-id-registry');
 
 function createRegistry({ modules = {}, tombstones = {} } = {}) {
@@ -87,6 +88,30 @@ describe('module ID registry CLI helpers', () => {
       'packages/removed.ts': 7,
     });
     expect(result.added).toBe(2);
+  });
+
+  it('appends graph paths deterministically without changing existing IDs', () => {
+    const initial = createRegistry({
+      modules: { 'node_modules/react/index.js': 7 },
+    });
+    const result = updateRegistryFromModulePaths(
+      initial,
+      [
+        '/repo/node_modules/z/index.js',
+        '/repo/node_modules/react/cjs/react.development.js',
+        '/repo/node_modules/a/index.js',
+        '/repo/node_modules/react/index.js',
+      ],
+      '/repo',
+    );
+
+    expect(result.registry.modules).toEqual({
+      'node_modules/a/index.js': 8,
+      'node_modules/react/cjs/react.development.js': 9,
+      'node_modules/react/index.js': 7,
+      'node_modules/z/index.js': 10,
+    });
+    expect(result.added).toBe(3);
   });
 
   it('does not automatically reactivate a tombstoned path', () => {

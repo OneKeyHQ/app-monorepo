@@ -1,4 +1,8 @@
-const { parseArgs, selectClosedVendorModules } = require('../build-dev-vendor');
+const {
+  addObservedModulePaths,
+  parseArgs,
+  selectClosedVendorModules,
+} = require('../build-dev-vendor');
 const { buildModuleSignature } = require('../unionBuildHelpers');
 
 function createModule(code, dependencies = []) {
@@ -22,14 +26,51 @@ describe('build-dev-vendor', () => {
     expect(parseArgs(['--platform', 'all', '--check'])).toEqual({
       check: true,
       platforms: ['ios', 'android'],
+      registryUpdate: false,
     });
-    expect(parseArgs(['--platform', 'android'])).toEqual({
+    expect(parseArgs(['--platform', 'android', '--update-registry'])).toEqual({
       check: false,
       platforms: ['android'],
+      registryUpdate: true,
     });
     expect(() => parseArgs(['--platform', 'web'])).toThrow(
       '--platform must be android, ios, or all',
     );
+    expect(() => parseArgs(['--check', '--update-registry'])).toThrow(
+      '--check and --update-registry cannot be used together',
+    );
+  });
+
+  it('collects every main/background graph and prepend path', () => {
+    const observed = new Set();
+    addObservedModulePaths(
+      observed,
+      {
+        dependencies: new Map([
+          ['/repo/background.js', createModule('background')],
+          ['/repo/shared.js', createModule('shared')],
+        ]),
+      },
+      [{ path: '__prelude__' }, { path: '/repo/polyfill.js' }],
+    );
+    addObservedModulePaths(
+      observed,
+      {
+        dependencies: new Map([
+          ['/repo/main.js', createModule('main')],
+          ['/repo/shared.js', createModule('shared')],
+        ]),
+      },
+      [{ path: '__prelude__' }],
+    );
+
+    expect([...observed].toSorted()).toEqual([
+      '/repo/background.js',
+      '/repo/main.js',
+      '/repo/polyfill.js',
+      '/repo/shared.js',
+      '__prelude__',
+    ]);
   });
 
   it('keeps only equivalent static vendor modules with a closed sync graph', () => {

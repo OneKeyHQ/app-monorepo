@@ -121,6 +121,23 @@ function updateRegistry(registry, moduleMaps, repoRoot = REPO_ROOT) {
     }
   }
 
+  return updateRegistryFromModuleKeys(registry, moduleKeys);
+}
+
+function updateRegistryFromModulePaths(
+  registry,
+  modulePaths,
+  repoRoot = REPO_ROOT,
+) {
+  const moduleKeys = new Set(
+    [...modulePaths].map((modulePath) => toModuleKey(modulePath, repoRoot)),
+  );
+  return updateRegistryFromModuleKeys(registry, moduleKeys);
+}
+
+function updateRegistryFromModuleKeys(registry, moduleKeys) {
+  assertValidRegistry(registry);
+
   const modules = { ...registry.modules };
   const tombstones = { ...registry.tombstones };
   const reservedIds = [...Object.values(modules), ...Object.values(tombstones)];
@@ -422,5 +439,6 @@ module.exports = {
   reconcileRegistries,
   run,
   updateRegistry,
+  updateRegistryFromModulePaths,
   writeRegistry,
 };
