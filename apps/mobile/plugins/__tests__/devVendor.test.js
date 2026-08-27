@@ -4,6 +4,7 @@ const path = require('path');
 
 const devVendorConfig = require('../../dev-vendor.config');
 const {
+  assertNativeDevVendorResolverContract,
   assertSortedUniqueModules,
   computeConfigInputsDigest,
   computeFingerprint,
@@ -209,5 +210,53 @@ describe('devVendor', () => {
         sourceUrl: 'http://localhost:8081/index.bundle?platform=ios',
       }),
     ).toBe(false);
+  });
+
+  it('strictly validates native fingerprint and runtime requests', () => {
+    const manifest = { fingerprint: 'fingerprint-ios' };
+
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          devVendorNative: 'true',
+          devVendorFingerprint: 'fingerprint-ios',
+          runtimeTarget: 'main',
+        },
+        manifest,
+        platform: 'ios',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          devVendorNative: 'true',
+          devVendorFingerprint: 'stale',
+          runtimeTarget: 'main',
+        },
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('cache fingerprint mismatch');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          devVendorNative: 'true',
+          devVendorFingerprint: 'fingerprint-ios',
+          runtimeTarget: 'worker',
+        },
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('invalid runtime target');
+  });
+
+  it('keeps non-native dev-vendor requests backward compatible', () => {
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { devVendor: 'true' },
+        manifest: { fingerprint: 'fingerprint-ios' },
+        platform: 'ios',
+      }),
+    ).not.toThrow();
   });
 });

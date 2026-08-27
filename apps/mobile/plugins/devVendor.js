@@ -21,6 +21,7 @@ const {
 
 const MANIFEST_NAME = 'manifest.json';
 const SUPPORTED_PLATFORMS = new Set(['android', 'ios']);
+const SUPPORTED_RUNTIME_TARGETS = new Set(['main', 'background']);
 const runtimeCache = new Map();
 
 function sha256(content) {
@@ -329,6 +330,31 @@ function isDevVendorRequest(bundleOptions) {
   }
 }
 
+function assertNativeDevVendorResolverContract({
+  customResolverOptions,
+  manifest,
+  platform,
+}) {
+  if (customResolverOptions?.devVendorNative !== 'true') {
+    return;
+  }
+  const requestedFingerprint = customResolverOptions.devVendorFingerprint;
+  if (
+    typeof requestedFingerprint !== 'string' ||
+    requestedFingerprint !== manifest.fingerprint
+  ) {
+    throw new Error(
+      `[devVendor] Native ${platform} cache fingerprint mismatch. Rebuild the dev-vendor cache and native app.`,
+    );
+  }
+  const runtimeTarget = customResolverOptions.runtimeTarget;
+  if (!SUPPORTED_RUNTIME_TARGETS.has(runtimeTarget)) {
+    throw new Error(
+      `[devVendor] Native ${platform} request has an invalid runtime target: ${String(runtimeTarget)}.`,
+    );
+  }
+}
+
 function getRuntimeTarget(entryPoint, projectRoot) {
   const resolvedEntryPoint = path.resolve(entryPoint);
   if (resolvedEntryPoint === path.resolve(projectRoot, 'index.ts')) {
@@ -414,6 +440,11 @@ function applyDevVendorConfig(config, projectRoot) {
       return resolution;
     }
     const runtime = loadRuntime(projectRoot, platform);
+    assertNativeDevVendorResolverContract({
+      customResolverOptions: context.customResolverOptions,
+      manifest: runtime.manifest,
+      platform,
+    });
     const moduleRecord = runtime.moduleByAbsolutePath.get(
       path.resolve(resolution.filePath),
     );
@@ -486,7 +517,9 @@ function resetRuntimeCacheForTests() {
 module.exports = {
   MANIFEST_NAME,
   SUPPORTED_PLATFORMS,
+  SUPPORTED_RUNTIME_TARGETS,
   applyDevVendorConfig,
+  assertNativeDevVendorResolverContract,
   assertSortedUniqueModules,
   computeConfigInputsDigest,
   computeFingerprint,
