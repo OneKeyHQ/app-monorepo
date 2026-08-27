@@ -90,10 +90,10 @@ const SwapProTabListContainer = memo(
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
     const {
-      cachedPositionTokenList,
-      hasCachedPositionSnapshot,
-      hasPositionOwner,
-      isLiveTokenListForCurrentOwner,
+      positionLoadError,
+      positionLoading,
+      positionTokenList,
+      swapProLoadSupportNetworksTokenListRun,
     } = useSwapProSupportNetworksTokenList(
       supportNetworksList,
       supportNetworksReady,
@@ -119,8 +119,12 @@ const SwapProTabListContainer = memo(
       swapProTokenSelect,
     ]);
     const shouldRenderListContent = shouldRenderLists;
-    const shouldRenderPositionsContent =
-      shouldRenderListContent || hasCachedPositionSnapshot;
+    const shouldRenderPositionsContent = shouldRenderListContent;
+    const retryPositions = useCallback(() => {
+      void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+        forceRefresh: true,
+      });
+    }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
     const handleTabPress = useCallback(
       (tab: ETabName) => {
@@ -226,10 +230,10 @@ const SwapProTabListContainer = memo(
                 onTokenPress={onTokenPress}
                 onSearchClick={onSearchClick}
                 filterToken={filterToken}
-                cachedTokenList={cachedPositionTokenList}
-                hasPositionOwner={hasPositionOwner}
-                hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-                isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+                positionTokenList={positionTokenList}
+                positionLoadError={positionLoadError}
+                positionLoading={positionLoading}
+                onRetry={retryPositions}
               />
             ) : (
               <SwapProTabListSkeleton />

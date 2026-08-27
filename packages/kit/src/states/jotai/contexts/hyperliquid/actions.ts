@@ -1507,11 +1507,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
+        source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
-      const { symbol, option } = payload;
-      const prev = get(orderBookTickOptionsAtom());
+      const { symbol, option, source } = payload;
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
+        return;
+      }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
         ...prev,
       };

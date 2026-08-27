@@ -44,6 +44,8 @@ export class Analytics {
 
   private enableAnalyticsInDev = false;
 
+  private initializedWaiters: Array<() => void> = [];
+
   init({
     instanceId,
     baseURL,
@@ -56,6 +58,11 @@ export class Analytics {
     this.instanceId = instanceId;
     this.baseURL = baseURL;
     this.enableAnalyticsInDev = enableAnalyticsInDev;
+    const waiters = this.initializedWaiters;
+    this.initializedWaiters = [];
+    for (const resolve of waiters) {
+      resolve();
+    }
     while (this.cacheEvents.length) {
       const params = this.cacheEvents.pop();
       if (params) {
@@ -237,12 +244,30 @@ export class Analytics {
     });
   }
 
+  whenInitialized(): Promise<void> {
+    if (this.instanceId && this.baseURL) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.initializedWaiters.push(resolve);
+    });
+  }
+
   public updateUserProfile(attributes: IAnalyticsUserProfile) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);
     } else {
       this.cacheUserProfile.push(attributes);
     }
+  }
+
+  async updateUserProfileAsync(
+    attributes: IAnalyticsUserProfile,
+  ): Promise<void> {
+    if (!this.instanceId || !this.baseURL) {
+      throw new OneKeyLocalError('Analytics is not initialized');
+    }
+    await this.requestUserProfile(attributes);
   }
 }
 

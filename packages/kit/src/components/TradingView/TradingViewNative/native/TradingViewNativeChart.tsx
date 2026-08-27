@@ -27,6 +27,7 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
+import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartWidth,
@@ -39,6 +40,7 @@ import {
   getTradingViewNativeChartRuntimeVisiblePointRange,
   reduceTradingViewNativeChartRuntime,
 } from '../utils/chartRuntime';
+import { getTradingViewNativeRenderDataRevision } from '../utils/chartType';
 import {
   getTradingViewNativeDataUpdateMetadata,
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
@@ -64,6 +66,7 @@ import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
   getTradingViewNativeSubIndicatorPanesStructureKey,
   getTradingViewNativeSubIndicatorPanesUpdate,
+  shouldReplaceTradingViewNativeChartPoints,
   shouldReplaceTradingViewNativeIndicatorSeries,
 } from './chartRuntimeData';
 import {
@@ -86,10 +89,10 @@ const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
-
 export const TradingViewNativeChart = memo(
   ({
     candleIntervalSeconds,
+    chartComponents,
     chartSettings,
     chartType,
     chartPictureVersion,
@@ -116,9 +119,14 @@ export const TradingViewNativeChart = memo(
     const [chartWidth, setChartWidth] = useState(0);
     const subIndicatorPanesStructureKey =
       getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
+    const renderDataRevision = getTradingViewNativeRenderDataRevision({
+      chartPictureVersion,
+      chartType,
+    });
     const chartRuntime = useSharedValue(
       createTradingViewNativeChartRuntime({
         candleIntervalSeconds,
+        chartComponents,
         chartSettings,
         chartType,
         currentPriceLabel,
@@ -134,10 +142,10 @@ export const TradingViewNativeChart = memo(
       points[points.length - 1]?.t,
     );
     const previousPictureInputRef = useRef({
-      chartPictureVersion,
       indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
       indicatorSeriesSettingsKey,
       pointCount: points.length,
+      renderDataRevision,
       subIndicatorPanesStructureKey,
     });
     const appliedViewportRequestRef = useRef({
@@ -172,6 +180,10 @@ export const TradingViewNativeChart = memo(
     const widestPriceLabel = useMemo(
       () => getTradingViewNativePriceAxisLabel(points),
       [points],
+    );
+    const widestChartComponentPriceLabel = useMemo(
+      () => getTradingViewNativeChartComponentPriceAxisLabel(chartComponents),
+      [chartComponents],
     );
     const widestIndicatorPriceLabel = useMemo(
       () => getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
@@ -223,6 +235,8 @@ export const TradingViewNativeChart = memo(
       );
       const widestPriceLabelBounds =
         measuredPriceAxisFont.measureText(widestPriceLabel);
+      const widestChartComponentPriceLabelBounds =
+        measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
       const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
         autoPriceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
@@ -251,6 +265,8 @@ export const TradingViewNativeChart = memo(
         ),
         widestPriceLabelWidth: Math.max(
           widestPriceLabelBounds.x + widestPriceLabelBounds.width,
+          widestChartComponentPriceLabelBounds.x +
+            widestChartComponentPriceLabelBounds.width,
           scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
           widestIndicatorPriceLabelBounds.x +
             widestIndicatorPriceLabelBounds.width,
@@ -269,6 +285,7 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.yAxis,
       currentPriceLabel,
       resources,
+      widestChartComponentPriceLabel,
       widestIndicatorPriceLabel,
       widestPriceLabel,
       widestSubIndicatorLabel,
@@ -279,6 +296,7 @@ export const TradingViewNativeChart = memo(
       const runtime = chartRuntime.value;
       return createTradingViewNativeSkiaPicture({
         candleIntervalSeconds: runtime.candleIntervalSeconds,
+        chartComponents: runtime.chartComponents,
         chartSettings: runtime.chartSettings,
         chartType: runtime.chartType,
         crosshair: runtime.crosshair,
@@ -329,11 +347,12 @@ export const TradingViewNativeChart = memo(
             };
         chartRuntime.value = {
           ...nextRuntime,
+          chartComponents,
           chartSettings,
           currentPriceLabel,
         };
       });
-    }, [chartRuntime, chartSettings, currentPriceLabel]);
+    }, [chartComponents, chartRuntime, chartSettings, currentPriceLabel]);
 
     useAnimatedReaction(
       () => {
@@ -411,20 +430,27 @@ export const TradingViewNativeChart = memo(
       const indicatorSeriesKey = indicatorSeries
         .map((series) => series.key)
         .join('|');
-      const shouldReplaceAllPoints =
-        previousPictureInput.chartPictureVersion !== chartPictureVersion ||
-        previousPictureInput.pointCount !== points.length;
+      const shouldReplaceAllPoints = shouldReplaceTradingViewNativeChartPoints({
+        current: {
+          pointCount: points.length,
+          renderDataRevision,
+        },
+        previous: {
+          pointCount: previousPictureInput.pointCount,
+          renderDataRevision: previousPictureInput.renderDataRevision,
+        },
+      });
       const shouldReplaceAllIndicatorSeries =
         shouldReplaceTradingViewNativeIndicatorSeries({
           current: {
-            chartPictureVersion,
             pointCount: points.length,
+            renderDataRevision,
             seriesKey: indicatorSeriesKey,
             settingsKey: indicatorSeriesSettingsKey,
           },
           previous: {
-            chartPictureVersion: previousPictureInput.chartPictureVersion,
             pointCount: previousPictureInput.pointCount,
+            renderDataRevision: previousPictureInput.renderDataRevision,
             seriesKey: previousPictureInput.indicatorSeriesKey,
             settingsKey: previousPictureInput.indicatorSeriesSettingsKey,
           },
@@ -432,23 +458,23 @@ export const TradingViewNativeChart = memo(
       const subIndicatorPanesUpdate =
         getTradingViewNativeSubIndicatorPanesUpdate({
           current: {
-            chartPictureVersion,
             pointCount: points.length,
+            renderDataRevision,
             structureKey: subIndicatorPanesStructureKey,
           },
           panes: subIndicatorPanes,
           previous: {
-            chartPictureVersion: previousPictureInput.chartPictureVersion,
             pointCount: previousPictureInput.pointCount,
+            renderDataRevision: previousPictureInput.renderDataRevision,
             structureKey: previousPictureInput.subIndicatorPanesStructureKey,
           },
         });
       previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
       previousPictureInputRef.current = {
-        chartPictureVersion,
         indicatorSeriesKey,
         indicatorSeriesSettingsKey,
         pointCount: points.length,
+        renderDataRevision,
         subIndicatorPanesStructureKey: subIndicatorPanesUpdate.structureKey,
       };
       const nextSize = chartSize;
@@ -550,7 +576,6 @@ export const TradingViewNativeChart = memo(
     }, [
       candleIntervalSeconds,
       chartType,
-      chartPictureVersion,
       chartRuntime,
       chartSize,
       decayOffset,
@@ -559,6 +584,7 @@ export const TradingViewNativeChart = memo(
       indicatorSeriesSettingsKey,
       points,
       priceAxisWidth,
+      renderDataRevision,
       subIndicatorPanes,
       subIndicatorPanesStructureKey,
     ]);

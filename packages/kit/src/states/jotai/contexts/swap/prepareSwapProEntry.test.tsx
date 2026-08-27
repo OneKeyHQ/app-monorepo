@@ -28,7 +28,6 @@ import {
   swapSelectToTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
-  swapUserSelectedTokensAtom,
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
@@ -189,10 +188,6 @@ describe('prepareSwapProEntry', () => {
     store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
     store.set(swapSelectToTokenAtom(), ordinaryToToken);
     store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
-    store.set(swapUserSelectedTokensAtom(), {
-      fromToken: ordinaryFromToken,
-      toToken: ordinaryToToken,
-    });
     store.set(swapProUserSelectedTokenAtom(), proToken);
 
     prepareSwapProEntry({
@@ -216,7 +211,6 @@ describe('prepareSwapProEntry', () => {
       value: '1',
       isInput: true,
     });
-    expect(store.get(swapUserSelectedTokensAtom())).toBeUndefined();
     expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
   });
 
