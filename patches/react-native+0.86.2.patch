@@ -957,3 +957,39 @@ index 0608c07..e17eff2 100644
 +                if (isNativeDevVendorSource) hmrSourceUrl.toString() else null,
 +            )
        } catch (e: MalformedURLException) {
+diff --git a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
+index a158d98..4b489c7 100644
+--- a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
++++ b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
+@@ -14,2 +14,18 @@ let _cachedDevServerURL: ?string;
+ let _cachedFullBundleURL: ?string;
++
++function getDevVendorMainFullBundleURL(): ?string {
++  // OneKey patch: expose the live main graph after startup from local common HBC.
++  const fullBundleURL =
++    global['__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__'];
++  if (
++    typeof fullBundleURL !== 'string' ||
++    !/^https?:\/\/.*?\//.test(fullBundleURL) ||
++    !/[?&]resolver\.devVendorNative=true(?:&|$)/.test(fullBundleURL) ||
++    !/[?&]resolver\.runtimeTarget=main(?:&|$)/.test(fullBundleURL)
++  ) {
++    return null;
++  }
++  return fullBundleURL;
++}
++
+ const FALLBACK = 'http://localhost:8081/';
+@@ -28,3 +44,11 @@ type DevServerInfo = {
+ export default function getDevServer(): DevServerInfo {
+-  if (_cachedDevServerURL === undefined) {
++  const devVendorMainFullBundleURL = getDevVendorMainFullBundleURL();
++  if (
++    devVendorMainFullBundleURL !== null &&
++    _cachedFullBundleURL !== devVendorMainFullBundleURL
++  ) {
++    const match = devVendorMainFullBundleURL.match(/^https?:\/\/.*?\//);
++    _cachedDevServerURL = match ? match[0] : null;
++    _cachedFullBundleURL = match ? devVendorMainFullBundleURL : null;
++  } else if (_cachedDevServerURL === undefined) {
+     const scriptUrl = NativeSourceCode.getConstants().scriptURL;

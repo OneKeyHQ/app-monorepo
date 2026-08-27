@@ -1,6 +1,9 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const vm = require('vm');
+
+const babel = require('@babel/core');
 
 jest.mock('@rozenite/metro', () => ({
   withRozenite: (config) => config,
@@ -38,6 +41,39 @@ const {
   shouldPrependCommon,
   verifyManifest,
 } = require('../devVendor');
+
+function loadGetDevServer(scriptURL) {
+  const filename = path.join(
+    repoRoot,
+    'node_modules/react-native/Libraries/Core/Devtools/getDevServer.js',
+  );
+  const source = fs.readFileSync(filename, 'utf8');
+  const { code } = babel.transformSync(source, {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      '@babel/plugin-transform-flow-strip-types',
+      '@babel/plugin-transform-modules-commonjs',
+    ],
+  });
+  const runtimeGlobal = {};
+  const module = { exports: {} };
+  vm.runInNewContext(code, {
+    exports: module.exports,
+    global: runtimeGlobal,
+    module,
+    require: (request) => {
+      if (request === '../../NativeModules/specs/NativeSourceCode') {
+        return {
+          __esModule: true,
+          default: { getConstants: () => ({ scriptURL }) },
+        };
+      }
+      throw new Error(`Unexpected getDevServer dependency: ${request}`);
+    },
+  });
+  return { getDevServer: module.exports.default, runtimeGlobal };
+}
 
 describe('devVendor', () => {
   it('only enables the experiment for an explicit true value', () => {
@@ -342,21 +378,32 @@ describe('devVendor', () => {
       }),
     ).toBe(false);
 
-    expect(
-      fs.readFileSync(
-        path.join(
-          repoRoot,
-          'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90.patch',
-        ),
-        'utf8',
+    const splitBundlePatch = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90.patch',
       ),
-    ).toContain('bundleURL.absoluteString');
+      'utf8',
+    );
+    expect(splitBundlePatch).toContain('bundleURL.absoluteString');
+    expect(splitBundlePatch).toContain(
+      '__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__',
+    );
+    expect(
+      splitBundlePatch.indexOf('runtime.global().setProperty('),
+    ).toBeLessThan(
+      splitBundlePatch.indexOf('runtime.evaluateJavaScript(buffer'),
+    );
     const reactNativePatch = fs.readFileSync(
       path.join(repoRoot, 'patches/react-native+0.86.2.patch'),
       'utf8',
     );
     expect(reactNativePatch).toContain('fullBundleUrlOverride ??');
     expect(reactNativePatch).toContain('resolver.devVendorNative=true');
+    expect(reactNativePatch).toContain('resolver\\.runtimeTarget=main');
+    expect(reactNativePatch).toContain(
+      '__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__',
+    );
     expect(reactNativePatch).not.toContain(
       'contains("resolver.devVendor=true")',
     );
@@ -366,6 +413,42 @@ describe('devVendor', () => {
         'utf8',
       ),
     ).toContain('!shouldRetainModulesOnlyGraphForHmr(resolverOptions)');
+  });
+
+  it('refreshes the cached dev server from the native main delta URL', () => {
+    const { getDevServer, runtimeGlobal } = loadGetDevServer(
+      'file:///tmp/onekey-dev-vendor-common.hbc',
+    );
+    expect(getDevServer()).toEqual({
+      bundleLoadedFromServer: false,
+      fullBundleUrl: null,
+      url: 'http://localhost:8081/',
+    });
+
+    const firstMainURL =
+      'http://localhost:8081/.expo/.virtual-metro-entry.bundle' +
+      '?resolver.devVendorNative=true&resolver.runtimeTarget=main';
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ = firstMainURL;
+    expect(getDevServer()).toEqual({
+      bundleLoadedFromServer: true,
+      fullBundleUrl: firstMainURL,
+      url: 'http://localhost:8081/',
+    });
+
+    const reloadedMainURL = firstMainURL.replace('localhost', '127.0.0.1');
+    runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ = reloadedMainURL;
+    expect(getDevServer()).toEqual({
+      bundleLoadedFromServer: true,
+      fullBundleUrl: reloadedMainURL,
+      url: 'http://127.0.0.1:8081/',
+    });
+
+    const backgroundRuntime = loadGetDevServer(
+      'file:///tmp/onekey-dev-vendor-common.hbc',
+    );
+    backgroundRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__ =
+      firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=background');
+    expect(backgroundRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
   });
 
   it('rejects native requests when the Metro experiment is disabled', () => {

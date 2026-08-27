@@ -13,7 +13,7 @@ index e3178b9..1987bea 100644
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..d409fce 100644
+index 7ec0db3..49fce27 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -28,7 +28,7 @@ index 7ec0db3..d409fce 100644
 -
 +constexpr int64_t kDevVendorLoadTimeoutSeconds = 60;
  // Zero-copy jsi::Buffer over an NSData (M4/M5).
-@@ -903,3 +907,150 @@ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host
+@@ -903,3 +907,153 @@ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host
  }
 -
 ++ (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
@@ -134,8 +134,7 @@ index 7ec0db3..d409fce 100644
 +      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(loadError); });
 +      return;
 +    }
-+    // NativeSourceCode must expose the real live graph URL before HMRClient.setup.
-+    // Reload resets this through RCTHost's bundleURLProvider back to common HBC.
++    // Keep native reload targeting the live graph after the common HBC is read.
 +    strongHost.bundleManager.bundleURL = bundleURL;
 +    NSData *data = source.data;
 +    NSString *sourceURL = bundleURL.absoluteString;
@@ -146,6 +145,10 @@ index 7ec0db3..d409fce 100644
 +          marker.asString(runtime).utf8(runtime) != std::string(fingerprint.UTF8String)) {
 +        throw std::runtime_error("Dev-vendor common fingerprint mismatch");
 +      }
++      runtime.global().setProperty(
++          runtime,
++          "__ONEKEY_DEV_VENDOR_MAIN_FULL_BUNDLE_URL__",
++          facebook::jsi::String::createFromUtf8(runtime, sourceURL.UTF8String));
 +      auto buffer = std::make_shared<NSDataJSIBuffer>(data);
 +      runtime.evaluateJavaScript(buffer, sourceURL.UTF8String);
 +      [SBLLogger info:[NSString stringWithFormat:
