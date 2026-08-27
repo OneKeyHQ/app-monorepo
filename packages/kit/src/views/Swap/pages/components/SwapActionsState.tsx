@@ -92,7 +92,9 @@ import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 
 interface ISwapActionsStateProps {
+  disabled?: boolean;
   forceQuoteActionLoading?: boolean;
+  onRefreshQuote?: () => void;
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
@@ -101,7 +103,9 @@ interface ISwapActionsStateProps {
 // cspell:ignore ellipsize
 
 const SwapActionsState = ({
+  disabled,
   forceQuoteActionLoading,
+  onRefreshQuote,
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
@@ -393,6 +397,7 @@ const SwapActionsState = ({
     !swapActionState.isRefreshQuote &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled =
+    Boolean(disabled) ||
     swapActionState.disabled ||
     swapActionState.isLoading ||
     shouldShowQuoteActionLoading ||
@@ -418,6 +423,10 @@ const SwapActionsState = ({
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      if (onRefreshQuote) {
+        onRefreshQuote();
+        return;
+      }
       void quoteAction(
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
@@ -441,6 +450,7 @@ const SwapActionsState = ({
     navigation,
     onOpenRecipientAddress,
     onPreSwap,
+    onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,

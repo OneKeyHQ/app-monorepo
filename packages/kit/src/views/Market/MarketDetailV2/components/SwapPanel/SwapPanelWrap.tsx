@@ -86,7 +86,7 @@ function SwapPanelWrapContent({
     tokenDetail,
     isReady,
   } = useTokenDetail();
-  const { isStockRoute, selectedTokenVariant } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
@@ -359,6 +359,7 @@ function SwapPanelWrapContent({
     balanceToken,
     fetchBalanceLoading,
     priceRate,
+    stockQuoteDisplay,
     quoteResult,
     quoteList,
     quoteActionLoading,
@@ -801,6 +802,16 @@ function SwapPanelWrapContent({
     });
   }, [navigation]);
 
+  const handleOpenRecipientAddress = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapToAnotherAddress,
+      params: {
+        storeName: EJotaiContextStoreNames.marketSwap,
+      },
+    });
+  }, [navigation]);
+
   useEffect(() => {
     return () => {
       dismissKeyboard();
@@ -839,6 +850,9 @@ function SwapPanelWrapContent({
       currentMarketToken={currentMarketToken}
       onCloseDialog={onCloseDialog}
       priceRate={priceRate}
+      stockQuoteDisplay={stockQuoteDisplay}
+      stockTokenToAssetRatio={selectedTokenVariant?.tokenToAssetRatio}
+      stockUnderlyingSymbol={stockId}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
@@ -858,6 +872,7 @@ function SwapPanelWrapContent({
       onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
+      onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}
       supportSpeedSwap={{
         ...supportSpeedSwap,

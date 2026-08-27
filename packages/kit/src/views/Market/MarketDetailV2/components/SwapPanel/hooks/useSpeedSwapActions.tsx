@@ -34,6 +34,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -44,6 +45,7 @@ import {
   isSwapZeroProviderQuoteCompleted,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
+import { useSwapStockSelectedBalanceSync } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapStockSelectedBalanceSync';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
 import {
@@ -135,6 +137,8 @@ import type {
   ISendTxBaseParams,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
+
+import { buildMarketStockQuoteDisplay } from '../utils/marketStockQuoteDisplayUtils';
 
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
 import {
@@ -468,6 +472,7 @@ export function useSpeedSwapActions(props: {
   const [, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const [, setSwapToToken] = useSwapSelectToTokenAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [, setManualSelectQuoteProvider] =
     useSwapManualSelectQuoteProvidersAtom();
@@ -617,6 +622,14 @@ export function useSpeedSwapActions(props: {
   ) {
     receivingNetworkAccount = undefined;
   }
+
+  useSwapStockSelectedBalanceSync({
+    balance: balance?.toFixed(),
+    enabled: swapType === ESwapTabSwitchType.STOCK,
+    ownerScope: `${balanceToken.networkId}:${
+      balanceToken.contractAddress ?? ''
+    }:${fromNetworkAccount?.id ?? ''}`,
+  });
 
   const marketDeriveInfoRes = usePromiseResult(async () => {
     if (!balanceToken?.networkId) {
@@ -772,6 +785,18 @@ export function useSpeedSwapActions(props: {
       ),
     [fromToken, selectedQuoteResult, toToken],
   );
+  useEffect(() => {
+    setSwapToTokenAmount({
+      value: quoteResultPairNoMatch
+        ? ''
+        : (selectedQuoteResult?.toAmount ?? ''),
+      isInput: false,
+    });
+  }, [
+    quoteResultPairNoMatch,
+    selectedQuoteResult?.toAmount,
+    setSwapToTokenAmount,
+  ]);
   const noProviderSupportsTrade = useMemo(
     () =>
       isSwapNoProviderSupportsTrade({
@@ -3722,6 +3747,17 @@ export function useSpeedSwapActions(props: {
     }
     return undefined;
   })();
+  const stockQuoteDisplay =
+    swapType === ESwapTabSwitchType.STOCK
+      ? buildMarketStockQuoteDisplay({
+          currencyMap,
+          fallbackCurrencySymbol: settingsAtom.currencyInfo.symbol,
+          fromToken,
+          quoteResult: selectedQuoteResult,
+          targetCurrency: settingsAtom.currencyInfo.id,
+          toToken,
+        })
+      : undefined;
 
   return {
     speedSwapBuildTxLoading,
@@ -3737,6 +3773,7 @@ export function useSpeedSwapActions(props: {
       ? effectiveTradeTokenPrice
       : undefined,
     priceRate: marketPriceRate,
+    stockQuoteDisplay,
     quoteResult: selectedQuoteResult,
     quoteList,
     quoteActionLoading: quoteActionState.isLoading,
