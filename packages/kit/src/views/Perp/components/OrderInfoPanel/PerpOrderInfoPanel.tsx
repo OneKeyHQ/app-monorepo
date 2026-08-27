@@ -156,6 +156,7 @@ function TabBarItem({
       name={`PerpOrderInfoPanel_TabBarItem_${name}`}
     >
       <XStack
+        testID={`perp-info-panel-tab-${name}`}
         py="$3"
         ml="$5"
         mr="$2"

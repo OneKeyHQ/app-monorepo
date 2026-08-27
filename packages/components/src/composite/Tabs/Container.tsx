@@ -48,6 +48,7 @@ export function ContainerChild({
   focusedTab,
   tabNames,
   disableWebTabContentVisibility,
+  fillAvailableSpace,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
@@ -55,6 +56,7 @@ export function ContainerChild({
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
   disableWebTabContentVisibility: boolean;
+  fillAvailableSpace: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -115,11 +117,43 @@ export function ContainerChild({
     () => syncFocusedTabVisibility(focusedTabValue ?? ''),
     [focusedTabValue, syncFocusedTabVisibility],
   );
+
+  useLayoutEffect(() => {
+    // WindowScroller inserts an unstyled wrapper between the flex container and pager.
+    const windowScrollerElement = listContainerRef.current
+      ?.parentElement as HTMLElement | null;
+    if (!fillAvailableSpace || !windowScrollerElement) {
+      return;
+    }
+
+    const previousStyle = {
+      display: windowScrollerElement.style.display,
+      flexDirection: windowScrollerElement.style.flexDirection,
+      flexGrow: windowScrollerElement.style.flexGrow,
+      flexShrink: windowScrollerElement.style.flexShrink,
+      minHeight: windowScrollerElement.style.minHeight,
+      minWidth: windowScrollerElement.style.minWidth,
+    };
+    Object.assign(windowScrollerElement.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      flexGrow: '1',
+      flexShrink: '0',
+      minHeight: '0',
+      minWidth: '0',
+    });
+
+    return () => {
+      Object.assign(windowScrollerElement.style, previousStyle);
+    };
+  }, [fillAvailableSpace, listContainerRef]);
+
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
+        flexGrow={fillAvailableSpace ? 1 : undefined}
         overflow="hidden"
         style={scrollSnapStyle}
       >
@@ -736,6 +770,7 @@ export function Container({
                   disableWebTabContentVisibility={
                     disableWebTabContentVisibility
                   }
+                  fillAvailableSpace={Boolean(disableScroll)}
                 >
                   {children}
                 </ContainerChild>

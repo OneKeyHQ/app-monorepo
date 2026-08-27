@@ -19,6 +19,7 @@ import type {
   TMPopoverProps,
 } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Keyboard } from '../../content/Keyboard';
@@ -443,6 +444,7 @@ function RawPopover({
       {platformEnv.isNative ? null : (
         <TMPopover.Content
           ref={contentRef}
+          zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
           trapFocus={false}
           unstyled
           w="$96"

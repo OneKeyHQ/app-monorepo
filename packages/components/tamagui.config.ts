@@ -570,9 +570,13 @@ const config = createTamagui({
 
   defaultTheme: 'light',
 
-  shouldAddPrefersColorThemes: false,
-
-  themeClassNameOnRoot: false,
+  settings: {
+    styleCompat: isTamaguiNative ? 'react-native' : 'legacy',
+    defaultPosition: 'relative',
+    shouldAddPrefersColorThemes: false,
+    // Static extraction only parses the config and must not register media listeners.
+    disableSSR: !isTamaguiStatic,
+  },
 
   shorthands,
 
@@ -638,9 +642,6 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
-  // Tamagui static extraction runs in Node with the native target. Avoid
-  // registering native media listeners while the config is only being parsed.
-  disableSSR: !isTamaguiStatic,
 });
 
 export type IAppConfig = typeof config;
