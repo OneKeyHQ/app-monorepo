@@ -8,6 +8,7 @@
 @interface SplitBundleLoader : NSObject
 + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host;
 + (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
+                    hmrBundleURL:(NSURL *)hmrBundleURL
                      fingerprint:(NSString *)fingerprint
                           inHost:(id)host;
 @end

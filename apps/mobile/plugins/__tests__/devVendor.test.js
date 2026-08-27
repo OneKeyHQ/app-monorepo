@@ -469,6 +469,16 @@ describe('devVendor', () => {
       'components.path = "/apps/mobile/index.bundle"',
     );
     expect(appDelegateSource).toContain('hmrBundleURL: mainHMRURL');
+    const bridgingHeader = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'apps/mobile/ios/OneKeyWallet/OneKeyWallet-Bridging-Header.h',
+      ),
+      'utf8',
+    );
+    expect(bridgingHeader).toMatch(
+      /loadDevVendorEntryBundle:\(NSURL \*\)bundleURL\s+hmrBundleURL:\(NSURL \*\)hmrBundleURL\s+fingerprint:/,
+    );
   });
 
   it('refreshes the cached dev server from native runtime delta URLs', () => {
