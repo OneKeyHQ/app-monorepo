@@ -1,0 +1,593 @@
+import type { ReactNode } from 'react';
+import { useCallback } from 'react';
+
+import {
+  Button,
+  Icon,
+  Image,
+  ScrollView,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+
+import type { IWcPayDialogTerminalReason } from './wcPayDialogView';
+
+// Presentational layer of the WalletConnect Pay dialog. The skeleton —
+// Header (64pt visual over centered text, 48pt/16pt vertical padding),
+// optional Body, optional Footer (32pt gap, full-width primary pill) — is a
+// 1:1 mirror of the accepted reference in
+// packages/components/src/scenarios/WalletConnectPay/WalletConnectPay.stories.tsx
+// (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
+// node 21926-35825). The shell (DialogV2) provides the 24pt side inset and
+// the safe-area bottom; nothing here adds horizontal padding of its own.
+// Copy is hardcoded English by product decision (Q12); story copy verbatim.
+
+// ---------------------------------------------------------------------------
+// Header
+
+function WcPayHeader({
+  visual,
+  spacing,
+  children,
+}: {
+  /** The 64pt slot: merchant icon, status badge or spinner. */
+  visual: ReactNode;
+  /** 'roomy' on the transient status steps (48pt), 'regular' otherwise (16pt). */
+  spacing: 'regular' | 'roomy';
+  children: ReactNode;
+}) {
+  return (
+    <YStack
+      alignItems="center"
+      gap="$4"
+      py={spacing === 'roomy' ? '$12' : '$4'}
+    >
+      {visual}
+      <YStack alignItems="center" gap="$1">
+        {children}
+      </YStack>
+    </YStack>
+  );
+}
+
+function WcPayHeaderLine({ children }: { children: ReactNode }) {
+  return (
+    <SizableText size="$bodyLgMedium" color="$textSubdued" textAlign="center">
+      {children}
+    </SizableText>
+  );
+}
+
+function WcPayHeaderAmount({ children }: { children: ReactNode }) {
+  return (
+    <SizableText size="$heading2xl" color="$text" textAlign="center">
+      {children}
+    </SizableText>
+  );
+}
+
+function WcPayHeaderDetail({ children }: { children: ReactNode }) {
+  return (
+    <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+      {children}
+    </SizableText>
+  );
+}
+
+const SPINNER_VISUAL = (
+  <Stack w="$16" h="$16" alignItems="center" justifyContent="center">
+    {/* The 36pt system spinner scaled to the design's 48pt glyph. */}
+    <Spinner size="large" scale={4 / 3} />
+  </Stack>
+);
+
+const FAILED_BADGE_VISUAL = (
+  <Stack
+    w="$16"
+    h="$16"
+    borderRadius="$full"
+    borderCurve="continuous"
+    bg="$bgCritical"
+    alignItems="center"
+    justifyContent="center"
+  >
+    <Icon name="CrossedLargeOutline" size="$8" color="$iconCritical" />
+  </Stack>
+);
+
+const SUCCESS_BADGE_VISUAL = (
+  <Stack
+    w="$16"
+    h="$16"
+    borderRadius="$full"
+    borderCurve="continuous"
+    bg="$bgSuccessStrong"
+    alignItems="center"
+    justifyContent="center"
+  >
+    <Icon name="Checkmark2Solid" size="$8" color="$iconOnColor" />
+  </Stack>
+);
+
+const FALLBACK_MERCHANT_ICON = require('./walletconnect-dapp-icon.png');
+
+function WcPayMerchantVisual({ iconUri }: { iconUri: string | undefined }) {
+  return (
+    <Image
+      source={iconUri ? { uri: iconUri } : FALLBACK_MERCHANT_ICON}
+      w="$16"
+      h="$16"
+      borderRadius={14}
+      borderCurve="continuous"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Body — payment step only.
+
+export interface IWcPaySceneOption {
+  id: string;
+  /** Token amount with symbol, e.g. "20 USDC" (Q7). */
+  primaryText: string;
+  /** Network name, e.g. "Base". */
+  secondaryText: string;
+  tokenImageUri: string | undefined;
+  networkImageUri: string | undefined;
+}
+
+export interface IWcPaySceneBanner {
+  guidance: string;
+  mismatchHint: string | undefined;
+}
+
+const SELECTED_CHECK = (
+  <Icon name="CheckRadioSolid" size="$6" color="$iconActive" />
+);
+
+// Rides the scroll content (not the card) so the inset scrolls away with
+// the rows instead of leaving a static gap at the clipped edges.
+const ASSET_LIST_CONTENT_CONTAINER_STYLE = { p: '$1' } as const;
+
+function WcPayAssetOptionRow({
+  option,
+  selected,
+  disabled,
+  onSelectOption,
+}: {
+  option: IWcPaySceneOption;
+  selected: boolean;
+  disabled: boolean;
+  onSelectOption: (id: string) => void;
+}) {
+  const handlePress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+    onSelectOption(option.id);
+  }, [disabled, onSelectOption, option.id]);
+  return (
+    <XStack
+      alignItems="center"
+      gap="$3"
+      minHeight="$12"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      bg={selected ? '$neutral3' : undefined}
+      opacity={disabled && !selected ? 0.5 : 1}
+      onPress={handlePress}
+    >
+      <Stack
+        w="$10"
+        h="$10"
+        borderRadius="$full"
+        borderCurve="continuous"
+        bg="$bgStrong"
+      >
+        {option.tokenImageUri ? (
+          <Image
+            source={{ uri: option.tokenImageUri }}
+            w="$10"
+            h="$10"
+            borderRadius="$full"
+            borderCurve="continuous"
+          />
+        ) : null}
+        {option.networkImageUri ? (
+          <Stack
+            position="absolute"
+            right={-4}
+            bottom={-4}
+            p="$0.5"
+            bg="$bgApp"
+            borderRadius="$full"
+            borderCurve="continuous"
+          >
+            <Image
+              source={{ uri: option.networkImageUri }}
+              w="$4"
+              h="$4"
+              borderRadius="$full"
+              borderCurve="continuous"
+            />
+          </Stack>
+        ) : null}
+      </Stack>
+      <YStack flex={1}>
+        <SizableText size={selected ? '$headingMd' : '$bodyLg'} color="$text">
+          {option.primaryText}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {option.secondaryText}
+        </SizableText>
+      </YStack>
+      {selected ? SELECTED_CHECK : null}
+    </XStack>
+  );
+}
+
+function WcPayAssetList({
+  options,
+  selectedId,
+  disabled,
+  onSelectOption,
+}: {
+  options: IWcPaySceneOption[];
+  selectedId: string | undefined;
+  disabled: boolean;
+  onSelectOption: (id: string) => void;
+}) {
+  return (
+    <YStack>
+      <XStack px="$4" py="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Pay with
+        </SizableText>
+      </XStack>
+      {/* Fixed 200pt viewport per the design; overflow scrolls inside. */}
+      <YStack
+        bg="$neutral3"
+        borderRadius="$4"
+        borderCurve="continuous"
+        height={200}
+        overflow="hidden"
+      >
+        <ScrollView contentContainerStyle={ASSET_LIST_CONTENT_CONTAINER_STYLE}>
+          {options.map((option) => (
+            <WcPayAssetOptionRow
+              key={option.id}
+              option={option}
+              selected={option.id === selectedId}
+              disabled={disabled}
+              onSelectOption={onSelectOption}
+            />
+          ))}
+        </ScrollView>
+      </YStack>
+    </YStack>
+  );
+}
+
+function WcPayNoticeCard({ children }: { children: ReactNode }) {
+  return (
+    // Design token is overlays/white-alpha/1 (0.05), one notch dimmer than
+    // the populated card's neutral/3 — $neutral2 is the closest app token.
+    <YStack bg="$neutral2" borderRadius="$4" borderCurve="continuous" p="$1">
+      <YStack px="$4" py="$2" alignItems="center" gap="$1">
+        {children}
+      </YStack>
+    </YStack>
+  );
+}
+
+function WcPayBannerCard({ banner }: { banner: IWcPaySceneBanner }) {
+  return (
+    <YStack p="$3" borderRadius="$3" borderCurve="continuous" bg="$bgCriticalSubdued">
+      <SizableText size="$bodyMd" color="$textCritical">
+        {banner.guidance}
+      </SizableText>
+      {banner.mismatchHint ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {banner.mismatchHint}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Footer
+
+function WcPayFooter({
+  label,
+  onPress,
+  disabled,
+  loading,
+  variant = 'primary',
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: 'primary' | 'destructive' | 'secondary';
+}) {
+  return (
+    <YStack pt="$8">
+      <Button
+        variant={variant}
+        size="large"
+        disabled={disabled}
+        loading={loading}
+        onPress={onPress}
+      >
+        {label}
+      </Button>
+    </YStack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Steps
+
+export function WcPayFetchingStep() {
+  return (
+    <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
+      <WcPayHeaderLine>Fetching payment info...</WcPayHeaderLine>
+    </WcPayHeader>
+  );
+}
+
+export function WcPayFetchFailedStep({ onRetry }: { onRetry: () => void }) {
+  return (
+    <>
+      <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
+        <WcPayHeaderLine>Fetch payment info failed</WcPayHeaderLine>
+      </WcPayHeader>
+      <WcPayFooter label="Retry" onPress={onRetry} />
+    </>
+  );
+}
+
+export function WcPayUnsupportedStep({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
+        <WcPayHeaderLine>
+          This account type is not supported by WalletConnect Pay
+        </WcPayHeaderLine>
+      </WcPayHeader>
+      <WcPayFooter label="Close" onPress={onClose} />
+    </>
+  );
+}
+
+export function WcPayOptionsStep({
+  merchantIconUri,
+  amountText,
+  merchantText,
+  options,
+  selectedId,
+  onSelectOption,
+  listDisabled,
+  banner,
+  empty,
+  payButtonText,
+  payDisabled,
+  payLoading,
+  onPay,
+  onClose,
+}: {
+  merchantIconUri: string | undefined;
+  amountText: string;
+  merchantText: string;
+  options: IWcPaySceneOption[];
+  selectedId: string | undefined;
+  onSelectOption: (id: string) => void;
+  listDisabled: boolean;
+  banner: IWcPaySceneBanner | undefined;
+  empty: 'noAssets' | 'platformRefused' | undefined;
+  payButtonText: string;
+  payDisabled: boolean;
+  payLoading: boolean;
+  onPay: () => void;
+  onClose: () => void;
+}) {
+  const hasOptions = !empty && options.length > 0;
+  return (
+    <>
+      <WcPayHeader
+        visual={<WcPayMerchantVisual iconUri={merchantIconUri} />}
+        spacing="regular"
+      >
+        <WcPayHeaderLine>Pay</WcPayHeaderLine>
+        <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
+        {merchantText ? <WcPayHeaderLine>{merchantText}</WcPayHeaderLine> : null}
+      </WcPayHeader>
+      {banner ? (
+        <YStack pb="$3">
+          <WcPayBannerCard banner={banner} />
+        </YStack>
+      ) : null}
+      {hasOptions ? (
+        <WcPayAssetList
+          options={options}
+          selectedId={selectedId}
+          disabled={listDisabled}
+          onSelectOption={onSelectOption}
+        />
+      ) : null}
+      {empty === 'noAssets' ? (
+        <WcPayNoticeCard>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            No available asset
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            No supported asset has enough balance to cover this payment. Top up
+            a supported stablecoin (plus gas) and try again.
+          </SizableText>
+        </WcPayNoticeCard>
+      ) : null}
+      {empty === 'platformRefused' ? (
+        <WcPayNoticeCard>
+          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+            {WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE}
+          </SizableText>
+        </WcPayNoticeCard>
+      ) : null}
+      {hasOptions ? (
+        <WcPayFooter
+          label={payButtonText}
+          onPress={onPay}
+          disabled={payDisabled}
+          loading={payLoading}
+        />
+      ) : (
+        <WcPayFooter label="Close" onPress={onClose} />
+      )}
+    </>
+  );
+}
+
+export function WcPayConfirmingStep() {
+  return (
+    <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
+      <WcPayHeaderLine>Confirming your payment...</WcPayHeaderLine>
+    </WcPayHeader>
+  );
+}
+
+export function WcPaySubmittedStep({
+  canClose,
+  onDone,
+}: {
+  canClose: boolean;
+  onDone: () => void;
+}) {
+  return (
+    <>
+      <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
+        <WcPayHeaderLine>Confirming your payment...</WcPayHeaderLine>
+      </WcPayHeader>
+      {canClose ? <WcPayFooter label="Done" onPress={onDone} /> : null}
+    </>
+  );
+}
+
+export function WcPaySuccessStep({
+  amountText,
+  merchantText,
+  onDone,
+}: {
+  amountText: string;
+  merchantText: string;
+  onDone: () => void;
+}) {
+  return (
+    <>
+      <WcPayHeader visual={SUCCESS_BADGE_VISUAL} spacing="regular">
+        <WcPayHeaderLine>You’ve paid</WcPayHeaderLine>
+        <WcPayHeaderAmount>{amountText}</WcPayHeaderAmount>
+        {merchantText ? <WcPayHeaderLine>{merchantText}</WcPayHeaderLine> : null}
+      </WcPayHeader>
+      <WcPayFooter label="Done" onPress={onDone} />
+    </>
+  );
+}
+
+const TERMINAL_COPY: Record<
+  IWcPayDialogTerminalReason,
+  { title: string; detail: string; action: 'retry' | 'close' }
+> = {
+  failed: {
+    title: 'Payment failed',
+    detail: 'Something went wrong with this payment.',
+    action: 'retry',
+  },
+  expired: {
+    title: 'Payment expired',
+    detail: 'This payment can no longer be paid.',
+    action: 'close',
+  },
+  cancelled: {
+    title: 'Payment cancelled',
+    detail: 'This payment can no longer be paid.',
+    action: 'close',
+  },
+  alreadyPaid: {
+    title: 'Payment already completed',
+    detail: 'This payment has already been paid.',
+    action: 'close',
+  },
+};
+
+export function WcPayTerminalStep({
+  reason,
+  detailText,
+  onRetry,
+  onClose,
+}: {
+  reason: IWcPayDialogTerminalReason;
+  /** Overrides the default detail line (e.g. a server-reported error text). */
+  detailText?: string;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const copy = TERMINAL_COPY[reason];
+  const isRetry = copy.action === 'retry';
+  return (
+    <>
+      <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
+        <WcPayHeaderLine>{copy.title}</WcPayHeaderLine>
+        <WcPayHeaderDetail>{detailText ?? copy.detail}</WcPayHeaderDetail>
+      </WcPayHeader>
+      <WcPayFooter
+        label={isRetry ? 'Retry' : 'Close'}
+        onPress={isRetry ? onRetry : onClose}
+      />
+    </>
+  );
+}
+
+export function WcPayDamagedStep({
+  onDiscard,
+  onClose,
+  discardLoading,
+  discardFailed,
+}: {
+  onDiscard: () => void;
+  onClose: () => void;
+  discardLoading: boolean;
+  discardFailed: boolean;
+}) {
+  return (
+    <>
+      <WcPayHeader visual={FAILED_BADGE_VISUAL} spacing="roomy">
+        <WcPayHeaderLine>Payment progress damaged</WcPayHeaderLine>
+        <WcPayHeaderDetail>
+          {discardFailed
+            ? 'Discarding failed. The saved progress is untouched — try again.'
+            : 'The progress saved for this payment on this device is damaged and cannot be resumed. Discard it to start this payment over.'}
+        </WcPayHeaderDetail>
+      </WcPayHeader>
+      <YStack pt="$8" gap="$2.5">
+        <Button
+          variant="destructive"
+          size="large"
+          loading={discardLoading}
+          onPress={onDiscard}
+        >
+          Discard and start over
+        </Button>
+        <Button size="large" disabled={discardLoading} onPress={onClose}>
+          Close
+        </Button>
+      </YStack>
+    </>
+  );
+}
