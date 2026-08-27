@@ -22,6 +22,19 @@
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
 		541DCC87FB2B844A31C6B2CE /* Roobert-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B713FFEAAB53780C8C97C64A /* Roobert-Medium.ttf */; };
 		8C103D83F4F845C446B2FA61 /* Roobert-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D61DE12A640796AEBBF9AF3E /* Roobert-Bold.ttf */; };
+		A1C000000000000000000001 /* OneKeyAppClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000020 /* OneKeyAppClipApp.swift */; };
+		A1C000000000000000000002 /* AppClipRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000021 /* AppClipRootView.swift */; };
+		A1C000000000000000000003 /* AppClipModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000022 /* AppClipModel.swift */; };
+		A1C000000000000000000004 /* AppClipMarketService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000023 /* AppClipMarketService.swift */; };
+		A1C000000000000000000005 /* CampaignWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000024 /* CampaignWebView.swift */; };
+		A1C000000000000000000006 /* AppClipAttributionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000029 /* AppClipAttributionStore.swift */; };
+		A1C000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000027 /* PrivacyInfo.xcprivacy */; };
+		A1C000000000000000000008 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000028 /* Localizable.xcstrings */; };
+		A1C000000000000000000009 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
+		A1C00000000000000000000A /* OneKeyAppClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002A /* OneKeyAppClip.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A1C00000000000000000000B /* AppClipAttributionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000029 /* AppClipAttributionStore.swift */; };
+		A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002B /* AppClipAttributionModule.swift */; };
+		A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002C /* AppClipAttributionModule.m */; };
 		A42E38F93D9412E28713DB42 /* Roobert-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4212F2E9F990F15A98CD2C91 /* Roobert-SemiBold.ttf */; };
 		AC86234A85826FB6BC60AF85 /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
@@ -35,6 +48,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A1C000000000000000000010 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1C000000000000000000050;
+			remoteInfo = OneKeyAppClip;
+		};
 		C274DAC32AE2644400755275 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
@@ -54,6 +74,17 @@
 				076068C02E7EF3BA00E007B2 /* BuildFile in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C000000000000000000011 /* Embed App Clips */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = AppClips;
+			dstSubfolderSpec = 1;
+			files = (
+				A1C00000000000000000000A /* OneKeyAppClip.app in Embed App Clips */,
+			);
+			name = "Embed App Clips";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C274DAC62AE2644400755275 /* Embed Foundation Extensions */ = {
@@ -91,6 +122,19 @@
 		7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
 		8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C000000000000000000020 /* OneKeyAppClipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneKeyAppClipApp.swift; sourceTree = "<group>"; };
+		A1C000000000000000000021 /* AppClipRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipRootView.swift; sourceTree = "<group>"; };
+		A1C000000000000000000022 /* AppClipModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipModel.swift; sourceTree = "<group>"; };
+		A1C000000000000000000023 /* AppClipMarketService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipMarketService.swift; sourceTree = "<group>"; };
+		A1C000000000000000000024 /* CampaignWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignWebView.swift; sourceTree = "<group>"; };
+		A1C000000000000000000025 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1C000000000000000000026 /* OneKeyAppClip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OneKeyAppClip.entitlements; sourceTree = "<group>"; };
+		A1C000000000000000000027 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A1C000000000000000000028 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A1C000000000000000000029 /* AppClipAttributionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipAttributionStore.swift; sourceTree = "<group>"; };
+		A1C00000000000000000002A /* OneKeyAppClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyAppClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C00000000000000000002B /* AppClipAttributionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppClipAttributionModule.swift; path = OneKeyWallet/AppClipAttributionModule.swift; sourceTree = "<group>"; };
+		A1C00000000000000000002C /* AppClipAttributionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppClipAttributionModule.m; path = OneKeyWallet/AppClipAttributionModule.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B713FFEAAB53780C8C97C64A /* Roobert-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "Roobert-Medium.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -132,6 +176,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1C000000000000000000030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C274DABA2AE2644400755275 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -166,6 +217,8 @@
 				2DAB62C802804CA1BF90BB10 /* noop-file.swift */,
 				07B1C3A02F08000000E00001 /* RecoveryViewController.swift */,
 				07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */,
+				A1C00000000000000000002B /* AppClipAttributionModule.swift */,
+				A1C00000000000000000002C /* AppClipAttributionModule.m */,
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 				B443EFD976C5A3FE30F5AF8C /* Fonts */,
@@ -194,6 +247,8 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* OneKeyWallet */,
+				A1C000000000000000000040 /* OneKeyAppClip */,
+				A1C000000000000000000041 /* SharedAppClipAttribution */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				C274DABE2AE2644400755275 /* ServiceExtension */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -211,8 +266,33 @@
 			children = (
 				13B07F961A680F5B00A75B9A /* OneKeyWallet.app */,
 				C274DABD2AE2644400755275 /* ServiceExtension.appex */,
+				A1C00000000000000000002A /* OneKeyAppClip.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1C000000000000000000040 /* OneKeyAppClip */ = {
+			isa = PBXGroup;
+			children = (
+				A1C000000000000000000020 /* OneKeyAppClipApp.swift */,
+				A1C000000000000000000021 /* AppClipRootView.swift */,
+				A1C000000000000000000022 /* AppClipModel.swift */,
+				A1C000000000000000000023 /* AppClipMarketService.swift */,
+				A1C000000000000000000024 /* CampaignWebView.swift */,
+				A1C000000000000000000025 /* Info.plist */,
+				A1C000000000000000000026 /* OneKeyAppClip.entitlements */,
+				A1C000000000000000000027 /* PrivacyInfo.xcprivacy */,
+				A1C000000000000000000028 /* Localizable.xcstrings */,
+			);
+			path = OneKeyAppClip;
+			sourceTree = "<group>";
+		};
+		A1C000000000000000000041 /* SharedAppClipAttribution */ = {
+			isa = PBXGroup;
+			children = (
+				A1C000000000000000000029 /* AppClipAttributionStore.swift */,
+			);
+			path = SharedAppClipAttribution;
 			sourceTree = "<group>";
 		};
 		B443EFD976C5A3FE30F5AF8C /* Fonts */ = {
@@ -280,6 +360,7 @@
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
 				F14A4B1031B7C10000000001 /* Bundle Background React Native code */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
+				A1C000000000000000000011 /* Embed App Clips */,
 				2FA0D2DF4C8B4E3B9FCE32CA /* Upload Debug Symbols to Sentry */,
 				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
 				3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */,
@@ -289,11 +370,29 @@
 			);
 			dependencies = (
 				C274DAC42AE2644400755275 /* PBXTargetDependency */,
+				A1C000000000000000000070 /* PBXTargetDependency */,
 			);
 			name = OneKeyWallet;
 			productName = OneKeyWallet;
 			productReference = 13B07F961A680F5B00A75B9A /* OneKeyWallet.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1C000000000000000000050 /* OneKeyAppClip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C000000000000000000082 /* Build configuration list for PBXNativeTarget "OneKeyAppClip" */;
+			buildPhases = (
+				A1C000000000000000000061 /* Sources */,
+				A1C000000000000000000030 /* Frameworks */,
+				A1C000000000000000000060 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OneKeyAppClip;
+			productName = OneKeyAppClip;
+			productReference = A1C00000000000000000002A /* OneKeyAppClip.app */;
+			productType = "com.apple.product-type.application.on-demand-install-capable";
 		};
 		C274DABC2AE2644400755275 /* ServiceExtension */ = {
 			isa = PBXNativeTarget;
@@ -322,6 +421,9 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+					};
+					A1C000000000000000000050 = {
+						CreatedOnToolsVersion = 26.0;
 					};
 					C274DABC2AE2644400755275 = {
 						CreatedOnToolsVersion = 14.3.1;
@@ -361,6 +463,7 @@
 			targets = (
 				13B07F861A680F5B00A75B9A /* OneKeyWallet */,
 				C274DABC2AE2644400755275 /* ServiceExtension */,
+				A1C000000000000000000050 /* OneKeyAppClip */,
 			);
 		};
 /* End PBXProject section */
@@ -384,6 +487,16 @@
 				8C103D83F4F845C446B2FA61 /* Roobert-Bold.ttf in Resources */,
 				0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */,
 				AC86234A85826FB6BC60AF85 /* GeistMono-Medium.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C000000000000000000060 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C000000000000000000009 /* OneKeyLogo.icon in Resources */,
+				A1C000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */,
+				A1C000000000000000000008 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -497,7 +610,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# --- Union build: run build-bundle.js instead of standard Metro ---\n# When UNION_BUILD=true, skip the default single-entry Metro bundling\n# and run the union build which produces common + main + background\n# bundles in a single process with shared module IDs.\nif [[ \"$UNION_BUILD\" = \"true\" && \"$SKIP_BUNDLING\" != \"1\" ]]; then\n  # Fail fast: without this, a silent build-bundle.js failure lets the cps\n  # below fail and still exit 0, shipping a JS-less IPA.\n  set -euo pipefail\n  echo \"[UnionBuild] Running union build (UNION_BUILD=true)...\"\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  cd \"$PROJECT_ROOT\"\n  SENTRY_DISABLE_AUTO_UPLOAD=true NODE_ENV=production \"$NODE_BINARY\" --max-old-space-size=8192 build-bundle.js --platform ios\n  UNION_OUT=\"$PROJECT_ROOT/out-dir-bundle/ios/dist\"\n  for required in \"$UNION_OUT/common.bundle\" \"$UNION_OUT/main.jsbundle.hbc\" \"$UNION_OUT/background.bundle\"; do\n    if [[ ! -f \"$required\" ]]; then\n      echo \"[UnionBuild][FATAL] Required bundle missing: $required\" >&2\n      echo \"[UnionBuild][FATAL] build-bundle.js did not produce expected union outputs; refusing to ship an IPA without JS.\" >&2\n      exit 1\n    fi\n  done\n  cp \"$UNION_OUT/common.bundle\" \"$DEST/common.bundle\"\n  echo \"[UnionBuild] Copied common.bundle\"\n  cp \"$UNION_OUT/main.jsbundle.hbc\" \"$DEST/main.jsbundle\"\n  echo \"[UnionBuild] Copied main.jsbundle\"\n  cp \"$UNION_OUT/background.bundle\" \"$DEST/background.bundle\"\n  echo \"[UnionBuild] Copied background.bundle\"\n  if [[ -d \"$UNION_OUT/segments\" ]]; then\n    cp -R \"$UNION_OUT/segments\" \"$DEST/segments\"\n    echo \"[UnionBuild] Copied segments/\"\n  fi\n  if [[ -d \"$UNION_OUT/segments-background\" ]]; then\n    cp -R \"$UNION_OUT/segments-background\" \"$DEST/segments-background\"\n    echo \"[UnionBuild] Copied segments-background/\"\n  fi\n  if [[ -f \"$UNION_OUT/module-id-map.json\" ]]; then\n    cp \"$UNION_OUT/module-id-map.json\" \"$DEST/module-id-map.json\"\n    echo \"[UnionBuild] Copied module-id-map.json\"\n  fi\n  if [[ -d \"$UNION_OUT/assets\" ]]; then\n    rm -rf \"$DEST/assets\"\n    cp -R \"$UNION_OUT/assets\" \"$DEST/assets\"\n    echo \"[UnionBuild] Copied assets/\"\n  fi\n  echo \"[UnionBuild] Union build complete.\"\n  exit 0\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
+			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# --- Union build: run build-bundle.js instead of standard Metro ---\n# When UNION_BUILD=true, skip the default single-entry Metro bundling\n# and run the union build which produces common + main + background\n# bundles in a single process with shared module IDs.\nif [[ \"$UNION_BUILD\" = \"true\" && \"$SKIP_BUNDLING\" != \"1\" ]]; then\n  # Fail fast: without this, a silent build-bundle.js failure lets the cps\n  # below fail and still exit 0, shipping a JS-less IPA.\n  set -euo pipefail\n  echo \"[UnionBuild] Running union build (UNION_BUILD=true)...\"\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  cd \"$PROJECT_ROOT\"\n  SENTRY_DISABLE_AUTO_UPLOAD=true NODE_ENV=production \"$NODE_BINARY\" --max-old-space-size=8192 build-bundle.js --platform ios\n  UNION_OUT=\"$PROJECT_ROOT/out-dir-bundle/ios/dist\"\n  for required in \"$UNION_OUT/common.bundle\" \"$UNION_OUT/main.jsbundle.hbc\" \"$UNION_OUT/background.bundle\"; do\n    if [[ ! -f \"$required\" ]]; then\n      echo \"[UnionBuild][FATAL] Required bundle missing: $required\" >&2\n      echo \"[UnionBuild][FATAL] build-bundle.js did not produce expected union outputs; refusing to ship an IPA without JS.\" >&2\n      exit 1\n    fi\n  done\n  cp \"$UNION_OUT/common.bundle\" \"$DEST/common.bundle\"\n  echo \"[UnionBuild] Copied common.bundle\"\n  cp \"$UNION_OUT/main.jsbundle.hbc\" \"$DEST/main.jsbundle\"\n  echo \"[UnionBuild] Copied main.jsbundle\"\n  cp \"$UNION_OUT/background.bundle\" \"$DEST/background.bundle\"\n  echo \"[UnionBuild] Copied background.bundle\"\n  if [[ -d \"$UNION_OUT/segments\" ]]; then\n    cp -R \"$UNION_OUT/segments\" \"$DEST/segments\"\n    echo \"[UnionBuild] Copied segments/\"\n  fi\n  if [[ -d \"$UNION_OUT/segments-background\" ]]; then\n    cp -R \"$UNION_OUT/segments-background\" \"$DEST/segments-background\"\n    echo \"[UnionBuild] Copied segments-background/\"\n  fi\n  if [[ -f \"$UNION_OUT/module-id-map.json\" ]]; then\n    cp \"$UNION_OUT/module-id-map.json\" \"$DEST/module-id-map.json\"\n    echo \"[UnionBuild] Copied module-id-map.json\"\n  fi\n  if [[ -d \"$UNION_OUT/assets\" ]]; then\n    rm -rf \"$DEST/assets\"\n    cp -R \"$UNION_OUT/assets\" \"$DEST/assets\"\n    echo \"[UnionBuild] Copied assets/\"\n  fi\n  echo \"[UnionBuild] Union build complete.\"\n  exit 0\nfi\n\nSENTRY_XCODE_SCRIPT=\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\")\"\nREACT_NATIVE_XCODE_SCRIPT=\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\")\"\n/bin/sh \"$SENTRY_XCODE_SCRIPT\" \"$REACT_NATIVE_XCODE_SCRIPT\"\n\n";
 		};
 		EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -618,6 +731,22 @@
 				07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
+				A1C00000000000000000000B /* AppClipAttributionStore.swift in Sources */,
+				A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */,
+				A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C000000000000000000061 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C000000000000000000001 /* OneKeyAppClipApp.swift in Sources */,
+				A1C000000000000000000002 /* AppClipRootView.swift in Sources */,
+				A1C000000000000000000003 /* AppClipModel.swift in Sources */,
+				A1C000000000000000000004 /* AppClipMarketService.swift in Sources */,
+				A1C000000000000000000005 /* CampaignWebView.swift in Sources */,
+				A1C000000000000000000006 /* AppClipAttributionStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -632,6 +761,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A1C000000000000000000070 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1C000000000000000000050 /* OneKeyAppClip */;
+			targetProxy = A1C000000000000000000010 /* PBXContainerItemProxy */;
+		};
 		C274DAC42AE2644400755275 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C274DABC2AE2644400755275 /* ServiceExtension */;
@@ -913,6 +1047,79 @@
 			};
 			name = Release;
 		};
+		A1C000000000000000000080 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo;
+				CC = clang;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = OneKeyAppClip/OneKeyAppClip.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				CXX = "clang++";
+				DEVELOPMENT_TEAM = BVJ3FU5H2K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OneKeyAppClip/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD = clang;
+				LDPLUSPLUS = "clang++";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet.Clip;
+				PRODUCT_NAME = OneKeyAppClip;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A1C000000000000000000081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo;
+				CC = clang;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = OneKeyAppClip/OneKeyAppClip.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				CXX = "clang++";
+				DEVELOPMENT_TEAM = BVJ3FU5H2K;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OneKeyAppClip/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD = clang;
+				LDPLUSPLUS = "clang++";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet.Clip;
+				PRODUCT_NAME = OneKeyAppClip;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		C274DAC72AE2644400755275 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1022,6 +1229,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C000000000000000000082 /* Build configuration list for PBXNativeTarget "OneKeyAppClip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C000000000000000000080 /* Debug */,
+				A1C000000000000000000081 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
