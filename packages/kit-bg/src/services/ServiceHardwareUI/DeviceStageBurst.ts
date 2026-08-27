@@ -96,6 +96,12 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
 /** How long the third-party ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
 
+/** How long begin() waits before painting its own `connecting` beat. A
+ * flow that opens straight into a real step (the genuine check above all)
+ * supersedes it within this window — without it the replica flashes the
+ * connecting wallpaper for a frame or two before the flow's first beat. */
+const OPENING_BEAT_DEFER_MS = 120;
+
 /** The authenticity flow's steps — they share one checklist. */
 const AUTH_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'genuineCheck',
@@ -150,6 +156,11 @@ export class DeviceStageBurstScope {
   private burstSeq = 0;
 
   private offTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** The opening beat begin() deferred; the first real step consumes it. */
+  private pendingOpen: IDeviceStageBurstBeginParams | undefined;
+
+  private openingTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
    * The active UI-held burst (OK-59934 Stage 1). Long flows — onboarding
@@ -206,6 +217,12 @@ export class DeviceStageBurstScope {
     this.offTimer = undefined;
   }
 
+  private clearPendingOpen() {
+    clearTimeout(this.openingTimer);
+    this.openingTimer = undefined;
+    this.pendingOpen = undefined;
+  }
+
   async begin(params: IDeviceStageBurstBeginParams = {}) {
     if (!(await this.isEnabled())) {
       return;
@@ -223,15 +240,28 @@ export class DeviceStageBurstScope {
       // A follow-up wrapper inside the grace window rejoins the visible
       // stage: keep the burstId so the container's close grant stays armed.
       this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
-      await this.setStep('connecting', {
-        connectId: params.connectId,
-        deviceType: params.deviceType,
-        deviceName: params.deviceName,
-        vendor: params.vendor,
-        vendorModel: params.vendorModel,
-        vendorModelName: params.vendorModelName,
-        resetOutcome: true,
-      });
+      // The opening `connecting` beat is deferred a beat: a flow whose
+      // first real step follows immediately (the genuine check) opens
+      // straight into it, instead of flashing the connecting scene first.
+      this.clearPendingOpen();
+      this.pendingOpen = params;
+      this.openingTimer = setTimeout(() => {
+        const opening = this.pendingOpen;
+        this.pendingOpen = undefined;
+        this.openingTimer = undefined;
+        if (!opening) {
+          return;
+        }
+        void this.setStep('connecting', {
+          connectId: opening.connectId,
+          deviceType: opening.deviceType,
+          deviceName: opening.deviceName,
+          vendor: opening.vendor,
+          vendorModel: opening.vendorModel,
+          vendorModelName: opening.vendorModelName,
+          resetOutcome: true,
+        });
+      }, OPENING_BEAT_DEFER_MS);
       return;
     }
     // Joined a burst already on stage (typically a UI-held one): the flow
@@ -284,12 +314,36 @@ export class DeviceStageBurstScope {
     if (this.depth <= 0) {
       return;
     }
+    // The person cancelling on the device ends the whole run, not one
+    // call of it: without this, an outer hold keeps the stage up, the
+    // close event walks it back to the flow's authored beat, and the
+    // person watches a second exit play after the one they caused.
+    if (
+      params.error &&
+      (isHardwareErrorByCode({
+        error: params.error as any,
+        code: SILENT_CANCEL_CODES,
+      }) ||
+        // A device-side cancel (ActionCancelled) during an authored
+        // narrative is the person ending that run on the device — the
+        // runner aborts, so nothing is left to land. Outside a narrative
+        // the same code is a call outcome and stays the 'rejected' notice.
+        (this.authoredAuthStep &&
+          isHardwareErrorByCode({
+            error: params.error as any,
+            code: HardwareErrorCode.ActionCancelled,
+          })))
+    ) {
+      await this.userClose();
+      return;
+    }
     this.depth = Math.max(this.depth - 1, 0);
     if (this.depth > 0) {
       return;
     }
     this.confirmContent = undefined;
     this.authoredAuthStep = undefined;
+    this.clearPendingOpen();
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
     const reason = params.error
@@ -555,6 +609,7 @@ export class DeviceStageBurstScope {
    * bookkeeping and settle at off. Cancel semantics live in the caller. */
   async userClose() {
     this.clearOffTimer();
+    this.clearPendingOpen();
     this.depth = 0;
     this.explicitToken = undefined;
     this.confirmContent = undefined;
@@ -566,6 +621,19 @@ export class DeviceStageBurstScope {
   /** Refreshes who is on stage without touching the step or the beat —
    * the device often becomes known after the stage is already up. */
   async mergeDeviceIdentity(params: IDeviceStageBurstBeginParams) {
+    if (this.pendingOpen) {
+      this.pendingOpen = {
+        ...this.pendingOpen,
+        connectId: params.connectId ?? this.pendingOpen.connectId,
+        deviceType: params.deviceType ?? this.pendingOpen.deviceType,
+        deviceName: params.deviceName ?? this.pendingOpen.deviceName,
+        vendor: params.vendor ?? this.pendingOpen.vendor,
+        vendorModel: params.vendorModel ?? this.pendingOpen.vendorModel,
+        vendorModelName:
+          params.vendorModelName ?? this.pendingOpen.vendorModelName,
+      };
+      return;
+    }
     const hasIdentity =
       params.connectId ||
       params.deviceType ||
@@ -652,17 +720,34 @@ export class DeviceStageBurstScope {
       resetOutcome?: boolean;
     },
   ) {
+    // A deferred opening beat is consumed by the first real step: its
+    // device identity rides in here and `connecting` never paints.
+    const opening = this.pendingOpen;
+    let mergedExtras = extras;
+    if (opening) {
+      this.clearPendingOpen();
+      mergedExtras = {
+        ...extras,
+        connectId: extras.connectId ?? opening.connectId,
+        deviceType: extras.deviceType ?? opening.deviceType,
+        deviceName: extras.deviceName ?? opening.deviceName,
+        vendor: extras.vendor ?? opening.vendor,
+        vendorModel: extras.vendorModel ?? opening.vendorModel,
+        vendorModelName: extras.vendorModelName ?? opening.vendorModelName,
+        resetOutcome: true,
+      };
+    }
     // Confirm payload priority: explicit extras (demo / special flows) >
     // the burst's registered content (the confirm channel) > what the
     // step already showed (repeat confirms of the same call).
     const registered = step === 'confirm' ? this.confirmContent : undefined;
     const hasExplicitConfirm = Boolean(
-      extras.confirmDetails ||
-      extras.confirmMessage ||
-      extras.confirmDescription,
+      mergedExtras.confirmDetails ||
+      mergedExtras.confirmMessage ||
+      mergedExtras.confirmDescription,
     );
     await deviceStageAtom.set((prev): IDeviceStageState => {
-      const base = extras.resetOutcome ? undefined : prev;
+      const base = mergedExtras.resetOutcome ? undefined : prev;
       const pickConfirm = <T>(
         explicit: T | undefined,
         fromRegistration: T | undefined,
@@ -685,49 +770,49 @@ export class DeviceStageBurstScope {
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
         step,
-        connectId: extras.connectId ?? base?.connectId,
-        deviceType: pickDeviceType(extras.deviceType, base?.deviceType),
-        deviceName: extras.deviceName ?? base?.deviceName,
+        connectId: mergedExtras.connectId ?? base?.connectId,
+        deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
+        deviceName: mergedExtras.deviceName ?? base?.deviceName,
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
         // never outlive their own step.
-        vendor: extras.vendor ?? base?.vendor,
-        vendorModel: extras.vendorModel ?? base?.vendorModel,
-        vendorModelName: extras.vendorModelName ?? base?.vendorModelName,
-        thirdPartyAction: extras.thirdPartyAction,
-        appName: extras.appName,
-        installProgress: extras.installProgress,
-        installQueue: extras.installQueue,
-        installActiveIndex: extras.installActiveIndex,
-        btcHighIndexPath: extras.btcHighIndexPath,
-        btcHighIndexAccountIndex: extras.btcHighIndexAccountIndex,
+        vendor: mergedExtras.vendor ?? base?.vendor,
+        vendorModel: mergedExtras.vendorModel ?? base?.vendorModel,
+        vendorModelName: mergedExtras.vendorModelName ?? base?.vendorModelName,
+        thirdPartyAction: mergedExtras.thirdPartyAction,
+        appName: mergedExtras.appName,
+        installProgress: mergedExtras.installProgress,
+        installQueue: mergedExtras.installQueue,
+        installActiveIndex: mergedExtras.installActiveIndex,
+        btcHighIndexPath: mergedExtras.btcHighIndexPath,
+        btcHighIndexAccountIndex: mergedExtras.btcHighIndexAccountIndex,
         // The checklist survives the whole authenticity run (the ask, the
         // wait, the landing, the unofficial-firmware failure card).
         authChecklist: AUTH_STEPS.has(step)
-          ? (extras.authChecklist ?? base?.authChecklist)
+          ? (mergedExtras.authChecklist ?? base?.authChecklist)
           : undefined,
         authFailureReason:
-          step === 'authFailure' ? extras.authFailureReason : undefined,
-        errorReason: step === 'error' ? extras.errorReason : undefined,
-        inputError: extras.inputError,
-        passphraseMode: extras.passphraseMode ?? base?.passphraseMode,
+          step === 'authFailure' ? mergedExtras.authFailureReason : undefined,
+        errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
+        inputError: mergedExtras.inputError,
+        passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,
         confirmDetails: pickConfirm(
-          extras.confirmDetails,
+          mergedExtras.confirmDetails,
           registered?.details,
           base?.confirmDetails,
         ),
         confirmMessage: pickConfirm(
-          extras.confirmMessage,
+          mergedExtras.confirmMessage,
           registered?.message,
           base?.confirmMessage,
         ),
         confirmDescription: pickConfirm(
-          extras.confirmDescription,
+          mergedExtras.confirmDescription,
           registered?.description,
           base?.confirmDescription,
         ),
         confirmDescriptionDanger: pickConfirm(
-          extras.confirmDescriptionDanger,
+          mergedExtras.confirmDescriptionDanger,
           registered?.descriptionDanger,
           base?.confirmDescriptionDanger,
         ),
@@ -738,7 +823,7 @@ export class DeviceStageBurstScope {
             : registered
               ? registered.count
               : base?.confirmCount,
-        payload: extras.payload ?? base?.payload,
+        payload: mergedExtras.payload ?? base?.payload,
       };
     });
   }
