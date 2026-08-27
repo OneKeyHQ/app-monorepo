@@ -292,21 +292,21 @@ describe('StockTokenVariantSelector', () => {
       expect(within(otherChainRow).getAllByText('--')).toHaveLength(1);
     });
 
-    it('shows no balance at all when the selected variant left the portfolio network', () => {
+    it('shows balance only after the portfolio scope follows the selected variant', () => {
       mockStockDetailState.tokenVariants = sameAddressVariants;
       mockStockDetailState.selectedTokenId = 'aapl-base';
-      // Selecting a variant does not move the page's portfolio scope, which
-      // stays on the stock route's network.
-      mockStockDetailState.portfolioNetworkId = 'evm--1';
+      mockStockDetailState.portfolioNetworkId = 'evm--8453';
 
       render(
-        <StockTokenVariantSelector
-          portfolioData={position('0xSAME', '12.5')}
-        />,
+        <StockTokenVariantSelector portfolioData={position('0xSAME', '8.5')} />,
       );
 
-      expect(screen.queryByText('12.5')).toBeNull();
-      expect(screen.getAllByText('--')).toHaveLength(2);
+      const ethereumRow = screen.getByTestId('stock-token-variant-row-0');
+      expect(within(ethereumRow).queryByText('8.5')).toBeNull();
+      expect(within(ethereumRow).getAllByText('--')).toHaveLength(1);
+
+      const baseRow = screen.getByTestId('stock-token-variant-row-1');
+      expect(within(baseRow).getByText('8.5')).toBeTruthy();
     });
 
     it('ignores a portfolio payload that still describes the previous variant', () => {

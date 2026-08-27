@@ -31,12 +31,9 @@ type IStockDetailContextValue = {
   selectedTokenId?: string;
   selectedTokenVariant?: IMarketStockTokenVariant;
   setSelectedTokenId: (tokenId: string) => void;
-  // Network the detail page's account portfolio is fetched for. MarketDetailV2
-  // derives the token-detail store's `networkId` from the stock route's
-  // `network` param and never rewrites it when the user switches variant, so
-  // `usePortfolioData` is always scoped to this network. Consumers need it to
-  // tell whether a portfolio entry can legitimately belong to a given variant:
-  // `IMarketAccountPortfolioItem` carries no `networkId` of its own.
+  // Network the detail page's account portfolio is fetched for. Consumers need
+  // it to tell whether a portfolio entry can legitimately belong to a given
+  // variant because `IMarketAccountPortfolioItem` carries no `networkId`.
   portfolioNetworkId?: string;
 };
 
@@ -293,7 +290,7 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       setSelectedTokenId: handleSetSelectedTokenId,
-      portfolioNetworkId: initialNetworkId,
+      portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
     }),
     [
       initialNetworkId,

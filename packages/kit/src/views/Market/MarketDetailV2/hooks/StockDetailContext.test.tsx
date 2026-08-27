@@ -140,7 +140,15 @@ describe('StockDetailProvider', () => {
     await waitFor(() => {
       expect(result.current.stockDetail?.stockId).toBe('AAPL');
       expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+      expect(result.current.portfolioNetworkId).toBe('evm--1');
     });
+
+    act(() => {
+      result.current.setSelectedTokenId('aapl-xstock');
+    });
+
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-xstock');
+    expect(result.current.portfolioNetworkId).toBe('sol--101');
 
     expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],

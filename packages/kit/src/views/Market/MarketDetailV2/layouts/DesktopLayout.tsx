@@ -180,8 +180,11 @@ export function DesktopLayout({
   } = useTokenDetail();
   const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
-  const networkId = storeNetworkId || routeNetworkId;
-  const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const networkId =
+    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ||
+    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
   const isNative =
     networkId === routeNetworkId && tokenAddress === routeTokenAddress
       ? routeIsNative
