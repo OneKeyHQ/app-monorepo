@@ -93,6 +93,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -667,6 +668,7 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
+            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
