@@ -1,11 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import {
+  EStakeProgressStep,
+  StakeProgress,
+} from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -55,16 +59,20 @@ export function ActionFooter({
   } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
+  const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
-  // Action label
+  const businessActionLabel = useMemo(
+    () =>
+      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] }),
+    [actionLabelProp, action, intl],
+  );
+
   const actionLabel = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage({ id: ETranslations.global_approve });
     }
-    return (
-      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] })
-    );
-  }, [actionLabelProp, action, intl, shouldApprove]);
+    return businessActionLabel;
+  }, [businessActionLabel, intl, shouldApprove]);
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -135,11 +143,18 @@ export function ActionFooter({
       if (!confirmed) {
         return;
       }
+      showStakeProgressRef.current[amountValue] = true;
       await onApprove();
       return;
     }
     await handleSubmit();
-  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
+  }, [
+    amountValue,
+    confirmBorrowLiquidationRisk,
+    handleSubmit,
+    onApprove,
+    shouldApprove,
+  ]);
 
   const confirmText = useMemo(() => {
     if (shouldApprove) {
@@ -164,12 +179,41 @@ export function ActionFooter({
     />
   );
 
+  const isShowStakeProgress =
+    !!amountValue &&
+    (shouldApprove || showStakeProgressRef.current[amountValue]);
+
+  const progressContent = isShowStakeProgress ? (
+    <StakeProgress
+      currentStep={
+        isButtonDisabled || shouldApprove
+          ? EStakeProgressStep.approve
+          : EStakeProgressStep.deposit
+      }
+      step1LabelId={ETranslations.global_approve}
+      step2Label={businessActionLabel}
+    />
+  ) : null;
+
   return (
     <>
       {beforeFooter ?? state.beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          {footerContent}
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
+            }}
+          >
+            <Stack pl="$5" $md={{ pt: '$5' }}>
+              {progressContent}
+            </Stack>
+            {footerContent}
+          </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={
               approving ? undefined : onSelectPercentageStage
@@ -177,7 +221,10 @@ export function ActionFooter({
           />
         </Page.Footer>
       ) : (
-        <YStack>{footerContent}</YStack>
+        <YStack bg="$bgApp" gap="$5">
+          {progressContent}
+          {footerContent}
+        </YStack>
       )}
     </>
   );
