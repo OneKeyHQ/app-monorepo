@@ -1,4 +1,6 @@
+// cspell:words heikin ashi
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
 
 import type {
   IChartSettingsSegmentValue,
@@ -30,6 +32,22 @@ export const HEADER_ICON_BUTTON_STYLE_PROPS = {
   },
 } as const;
 
+const CHART_TYPE_TRANSLATIONS = {
+  area: ETranslations.market_area,
+  bars: ETranslations.market_bars,
+  candlestick: ETranslations.market_candle,
+  heikinAshi: ETranslations.market_heikin_ashi,
+  line: ETranslations.market_line,
+} as const satisfies Record<ITradingViewNativeChartType, ETranslations>;
+
+const CHART_TYPE_ICONS = {
+  area: 'ChartTrending2Outline',
+  bars: 'TradingViewCandlesHlcOutline',
+  candlestick: 'TradingViewCandlesOutline',
+  heikinAshi: 'TradingViewBarsOutline',
+  line: 'TradingViewLineOutline',
+} as const satisfies Record<ITradingViewNativeChartType, string>;
+
 export function buildSettingsItemTestID(
   section: string,
   value: IChartSettingsSegmentValue,
@@ -59,8 +77,10 @@ export function findChartTypeOption(
   chartTypes: ITradingViewChartTypeOption[],
   keyword: string,
 ) {
-  return chartTypes.find((chartType) =>
-    chartType.label.trim().toLowerCase().includes(keyword),
+  return chartTypes.find(
+    (chartType) =>
+      chartType.id?.toLowerCase().includes(keyword) ||
+      chartType.label.trim().toLowerCase().includes(keyword),
   );
 }
 
@@ -69,6 +89,9 @@ export function formatChartTypeOptionLabel(
   chartType: ITradingViewChartTypeOption,
 ) {
   const label = chartType.label.trim();
+  if (chartType.id) {
+    return intl.formatMessage({ id: CHART_TYPE_TRANSLATIONS[chartType.id] });
+  }
   const normalizedLabel = label.toLowerCase();
   if (normalizedLabel === 'candle' || normalizedLabel === 'candles') {
     return intl.formatMessage({ id: ETranslations.market_candle });
@@ -90,6 +113,9 @@ export function formatChartTypeOptionLabel(
 }
 
 export function getChartTypeIconName(chartType?: ITradingViewChartTypeOption) {
+  if (chartType?.id) {
+    return CHART_TYPE_ICONS[chartType.id];
+  }
   const normalizedLabel = chartType?.label.trim().toLowerCase() ?? '';
   if (normalizedLabel.includes('heikin')) {
     return 'TradingViewBarsOutline';

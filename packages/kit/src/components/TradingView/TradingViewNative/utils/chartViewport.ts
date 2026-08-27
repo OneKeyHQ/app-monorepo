@@ -8,6 +8,8 @@ import {
   TRADING_VIEW_NATIVE_MIN_ZOOM_SCALE,
 } from '../chartConstants';
 
+import { getTradingViewNativePrimarySeriesModel } from './chartType';
+
 import type {
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
@@ -718,11 +720,12 @@ export function getTradingViewNativePriceRange({
   );
   let minPrice = Number.POSITIVE_INFINITY;
   let maxPrice = Number.NEGATIVE_INFINITY;
+  const { priceSource } = getTradingViewNativePrimarySeriesModel(chartType);
 
   for (let index = clampedStartIndex; index < clampedEndIndex; index += 1) {
     const point = points[index];
-    const pointHigh = chartType === 'line' ? point.c : point.h;
-    const pointLow = chartType === 'line' ? point.c : point.l;
+    const pointHigh = priceSource === 'close' ? point.c : point.h;
+    const pointLow = priceSource === 'close' ? point.c : point.l;
     if (Number.isFinite(pointLow) && Number.isFinite(pointHigh)) {
       minPrice = Math.min(minPrice, pointLow);
       maxPrice = Math.max(maxPrice, pointHigh);
