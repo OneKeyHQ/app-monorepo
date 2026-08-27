@@ -3,8 +3,12 @@ import BigNumber from 'bignumber.js';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapSlippageSegmentItem,
 } from '@onekeyhq/shared/types/swap/types';
-import { SwapBuildShouldFallBackNetworkIds } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSlippageSegmentKey,
+  SwapBuildShouldFallBackNetworkIds,
+} from '@onekeyhq/shared/types/swap/types';
 
 export function resolveMarketQuoteActionState({
   hasActionableQuote,
@@ -43,6 +47,24 @@ export function resolveMarketQuoteActionState({
     isRefreshAction: canRefresh || (manualRefreshRequest && isLoading),
     isLoading,
   };
+}
+
+export function resolveMarketSelectedQuoteSlippage({
+  quoteResult,
+  slippageItem,
+}: {
+  quoteResult: Pick<IFetchQuoteResult, 'autoSuggestedSlippage' | 'slippage'>;
+  slippageItem: ISwapSlippageSegmentItem;
+}) {
+  if (slippageItem.key === ESwapSlippageSegmentKey.AUTO) {
+    return (
+      quoteResult.autoSuggestedSlippage ??
+      quoteResult.slippage ??
+      slippageItem.value
+    );
+  }
+
+  return slippageItem.value;
 }
 
 export function buildMarketReviewShouldFallback({
