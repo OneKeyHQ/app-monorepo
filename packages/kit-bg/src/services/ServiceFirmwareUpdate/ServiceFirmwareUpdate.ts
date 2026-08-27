@@ -189,6 +189,16 @@ export function buildPro2TargetsToUpdate({
   );
 }
 
+export function hasEffectiveFirmwareUpdate({
+  legacyHasUpgrade,
+  protocolV2Targets,
+}: {
+  legacyHasUpgrade: boolean | undefined;
+  protocolV2Targets: readonly IPro2FirmwareUpdateTarget[] | undefined;
+}) {
+  return Boolean(legacyHasUpgrade || protocolV2Targets?.length);
+}
+
 export function buildProtocolV2PlanForceTargets({
   forceTargets = [],
   forceOnceTargets = [],
@@ -699,6 +709,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               skipChangeTransportType: true,
               retryCount: 0,
               silentMode: true,
+              forceFirmwareManifestRefresh: false,
             });
             const firmware = await this.checkFirmwareRelease({
               connectId: compatibleConnectId || connectId,
@@ -718,16 +729,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
-            const hasProtocolV2Update =
-              isProtocolV2ProductType(deviceType) &&
-              Boolean(releaseInfo.targetsToUpdate?.length);
+            const protocolV2Targets = isProtocolV2ProductType(deviceType)
+              ? buildPro2TargetsToUpdate({
+                  sdkTargets: releaseInfo.targetsToUpdate,
+                })
+              : undefined;
             await this.detectMap.resolveUpdateInfo({
               ...detectIdentity,
               firmware,
               ble,
-              hasUpgrade: Boolean(
-                firmware.hasUpgrade || ble.hasUpgrade || hasProtocolV2Update,
-              ),
+              hasUpgrade: hasEffectiveFirmwareUpdate({
+                legacyHasUpgrade: firmware.hasUpgrade || ble.hasUpgrade,
+                protocolV2Targets,
+              }),
             });
             this.detectMap.updateLastDetectAt({
               connectId: detectConnectId,
@@ -1084,7 +1098,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble?.hasUpgrade ? 'ble' : undefined,
     ];
 
-    if (!hasUpgrade && originalConnectId) {
+    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
+      ? buildPro2TargetsToUpdate({
+          sdkTargets: releaseInfo.targetsToUpdate,
+          forceTargets: pro2ForceTargets,
+        })
+      : undefined;
+    const effectiveHasUpgrade = hasEffectiveFirmwareUpdate({
+      legacyHasUpgrade: hasUpgrade,
+      protocolV2Targets: pro2TargetsToUpdate,
+    });
+
+    if (!effectiveHasUpgrade && originalConnectId) {
       await this.deleteFirmwareUpdateDetectInfo(originalConnectId);
     }
 
@@ -1119,12 +1144,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
     }
 
-    const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
-      ? buildPro2TargetsToUpdate({
-          sdkTargets: releaseInfo.targetsToUpdate,
-          forceTargets: pro2ForceTargets,
-        })
-      : undefined;
     const protocolV2FirmwareVersionInfo = pro2TargetsToUpdate
       ? buildProtocolV2FirmwareVersionInfo({
           releaseInfo,
@@ -1148,8 +1167,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // Keep the transport-derived connect ID when the local device is absent.
     }
 
-    const effectiveHasUpgrade =
-      hasUpgrade || Boolean(pro2TargetsToUpdate?.length);
     const executableFirmwareUpdatePlan =
       releaseInfo.firmwareUpdatePlan?.artifacts.length &&
       releaseInfo.firmwareUpdatePlan.targetsToUpdate.length
@@ -1319,7 +1336,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ) {
     return this.loadBaseFirmwareRelease({
       ...params,
-      forceFirmwareManifestRefresh: true,
+      forceFirmwareManifestRefresh: params.forceFirmwareManifestRefresh ?? true,
     }).then((result) => ({
       ...result,
       firmwareUpdatePlan: undefined,

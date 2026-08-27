@@ -34,6 +34,7 @@ import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
   buildProtocolV2PlanForceTargets,
+  hasEffectiveFirmwareUpdate,
   shouldForceProtocolV2ResourceUpdate,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
@@ -173,6 +174,39 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
         protocolV2ForceUpdateTargets: ['app_v1', 'coprocessor'],
       }),
     );
+  });
+
+  it('uses the cached manifest path for a background release check', async () => {
+    const checkAllFirmwareRelease = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { features: {} },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      checkAllFirmwareRelease,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance,
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.baseCheckAllFirmwareRelease({
+      connectId: 'device-1',
+      firmwareType: undefined,
+      skipChangeTransportType: true,
+      forceFirmwareManifestRefresh: false,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'device-1',
+    });
   });
 });
 
@@ -392,6 +426,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(baseCheckAllFirmwareRelease).toHaveBeenCalledWith({
       connectId: 'ONEKEY_COMPATIBLE_ID',
       firmwareType: EFirmwareType.Universal,
+      forceFirmwareManifestRefresh: false,
       retryCount: 0,
       silentMode: true,
       skipChangeTransportType: true,
@@ -626,10 +661,58 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
       .calls[0][0] as (value: unknown) => unknown;
     expect(
       updater({
-        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
-        device_ble: { connectId: 'device_ble', hasUpgrade: true },
+        device_usb: { connectId: 'device_usb', hasUpgrade: true },
+        DEVICE_BLE: { connectId: 'DEVICE_BLE', hasUpgrade: true },
       }),
     ).toBeUndefined();
+  });
+
+  it('replaces persisted transport aliases case-insensitively', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'DEVICE_USB',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.21.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+
+    await service.detectMap.updateDetectStatusAtom({
+      connectId: 'DEVICE_USB',
+      connectIds: ['DEVICE_USB', 'device_ble'],
+    });
+
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => Record<string, unknown>;
+    const updatedValue = updater({
+      device_usb: { connectId: 'device_usb', hasUpgrade: false },
+      DEVICE_BLE: { connectId: 'DEVICE_BLE', hasUpgrade: false },
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
+
+    expect(updatedValue).toMatchObject({
+      DEVICE_USB: {
+        connectId: 'DEVICE_USB',
+        hasUpgrade: true,
+        toVersion: '4.22.0',
+      },
+      device_ble: {
+        connectId: 'device_ble',
+        hasUpgrade: true,
+        toVersion: '4.22.0',
+      },
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
+    expect(updatedValue).not.toHaveProperty('device_usb');
+    expect(updatedValue).not.toHaveProperty('DEVICE_BLE');
   });
 
   it('replaces stale alias updates before publishing a resolved result', async () => {
@@ -837,6 +920,26 @@ describe('buildPro2TargetsToUpdate', () => {
         forceTargets: ['resource', 'se01'],
       }),
     ).toEqual(['app_v1', 'resource', 'se01']);
+  });
+});
+
+describe('hasEffectiveFirmwareUpdate', () => {
+  it('keeps a Protocol V2 target-only update effective', () => {
+    expect(
+      hasEffectiveFirmwareUpdate({
+        legacyHasUpgrade: false,
+        protocolV2Targets: ['resource'],
+      }),
+    ).toBe(true);
+  });
+
+  it('reports no update only when legacy and Protocol V2 targets are empty', () => {
+    expect(
+      hasEffectiveFirmwareUpdate({
+        legacyHasUpgrade: false,
+        protocolV2Targets: [],
+      }),
+    ).toBe(false);
   });
 });
 

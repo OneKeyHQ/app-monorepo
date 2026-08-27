@@ -221,11 +221,17 @@ export class FirmwareUpdateDetectMap {
       (value: IFirmwareUpdatesDetectStatus | undefined) => {
         const status = this.buildDetectStatus({ connectId, detectCache });
         const newValue = { ...value };
+        const normalizedAliases = new Set(
+          aliases.map((alias) => alias.toLowerCase()),
+        );
+        for (const persistedConnectId of Object.keys(newValue)) {
+          if (normalizedAliases.has(persistedConnectId.toLowerCase())) {
+            delete newValue[persistedConnectId];
+          }
+        }
         for (const alias of aliases) {
           if (status) {
             newValue[alias] = { ...status, connectId: alias };
-          } else {
-            delete newValue[alias];
           }
         }
         return Object.keys(newValue).length ? newValue : undefined;
