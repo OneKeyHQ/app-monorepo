@@ -20,6 +20,12 @@ const mockHideNativeStorageBootstrapSplash = jest.fn();
 const mockCallNativeStorage = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
+const mockAppRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
+  appRestart: (options: unknown) => mockAppRestart(options),
+  EAppRestartMode: { All: 'all' },
+}));
 
 jest.mock('@onekeyhq/shared/src/storage/nativeStorageBridge', () => ({
   callNativeStorage: (request: unknown) => mockCallNativeStorage(request),
@@ -96,7 +102,16 @@ describe('NativeStorageBootstrapRoot', () => {
       screen.getByText('Native storage bootstrap timed out after 65 seconds'),
     ).toBeTruthy();
     expect(screen.getByTestId('native-storage-migration-retry')).toBeTruthy();
+    expect(
+      screen.getByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeTruthy();
     expect(mockHideNativeStorageBootstrapSplash).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('native-storage-bootstrap-restart-app'));
+    expect(mockAppRestart).toHaveBeenCalledWith({
+      mode: 'all',
+      reason: 'storage.bootstrap.restart',
+    });
 
     fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
 
@@ -122,6 +137,9 @@ describe('NativeStorageBootstrapRoot', () => {
     });
     expect(screen.getByText('Local storage needs repair')).toBeTruthy();
     expect(screen.queryByTestId('native-storage-migration-retry')).toBeNull();
+    expect(
+      screen.queryByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeNull();
 
     fireEvent.click(screen.getByTestId('native-storage-migration-repair'));
     expect(

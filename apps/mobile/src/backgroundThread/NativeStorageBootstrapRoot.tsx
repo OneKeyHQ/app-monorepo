@@ -10,6 +10,10 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import {
+  EAppRestartMode,
+  appRestart,
+} from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBridge';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
@@ -176,6 +180,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   retryText: { color: '#000', fontWeight: '600' },
+  restartButton: {
+    borderColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  restartText: { color: '#fff', fontWeight: '600' },
 });
 
 export function NativeStorageBootstrapRoot() {
@@ -201,14 +214,29 @@ export function NativeStorageBootstrapRoot() {
     let recoveryAction: ReactNode;
     if (!recoveryTarget) {
       recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void startBootstrap(true)}
-          style={styles.retryButton}
-          testID="native-storage-migration-retry"
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </Pressable>
+        <>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void startBootstrap(true)}
+            style={styles.retryButton}
+            testID="native-storage-migration-retry"
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              void appRestart({
+                mode: EAppRestartMode.All,
+                reason: 'storage.bootstrap.restart',
+              })
+            }
+            style={styles.restartButton}
+            testID="native-storage-bootstrap-restart-app"
+          >
+            <Text style={styles.restartText}>Restart App</Text>
+          </Pressable>
+        </>
       );
     } else if (isConfirmingRepair) {
       recoveryAction = (
