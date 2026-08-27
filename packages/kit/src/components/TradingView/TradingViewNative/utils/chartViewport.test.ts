@@ -387,7 +387,7 @@ describe('TradingViewNative chart viewport', () => {
     });
   });
 
-  it('derives line price ranges from close prices', () => {
+  it('derives line and area price ranges from close prices', () => {
     const points: IMarketTokenKLineDataPoint[] = [
       { c: 10, h: 1000, l: 1, o: 9, t: 1, v: 0 },
       { c: 30, h: 500, l: 2, o: 10, t: 2, v: 0 },
@@ -397,6 +397,14 @@ describe('TradingViewNative chart viewport', () => {
     expect(
       getTradingViewNativePriceRange({
         chartType: 'line',
+        endIndex: points.length,
+        points,
+        startIndex: 0,
+      }),
+    ).toEqual({ maxPrice: 30, minPrice: 10 });
+    expect(
+      getTradingViewNativePriceRange({
+        chartType: 'area',
         endIndex: points.length,
         points,
         startIndex: 0,

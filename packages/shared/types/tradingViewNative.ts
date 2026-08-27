@@ -1,4 +1,4 @@
-export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 2 as const;
+export const TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION = 3 as const;
 export const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_SCHEMA_VERSION = 2 as const;
 
 export const TRADING_VIEW_NATIVE_THEME_COLORS = {
@@ -40,6 +40,17 @@ export type ITradingViewNativeChartColorMode = 'modern' | 'classic';
 export type ITradingViewNativeChartPriceColorMode =
   | 'greenUpRedDown'
   | 'redUpGreenDown';
+
+export type ITradingViewNativeChartType =
+  | 'area'
+  | 'bars'
+  | 'candlestick'
+  | 'heikinAshi'
+  | 'line';
+
+export type ITradingViewNativeChartTypePreference =
+  | 'auto'
+  | ITradingViewNativeChartType;
 
 export type ITradingViewNativeMainIndicatorId = 'MA' | 'EMA' | 'BOLL' | 'SAR';
 
@@ -115,6 +126,7 @@ export type ITradingViewNativeChartSettingsOptions = {
 
 export type ITradingViewNativeChartSettings = {
   schemaVersion: typeof TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION;
+  chartType: ITradingViewNativeChartTypePreference;
   candles: {
     body: ITradingViewNativeChartCandlePartSettings;
     border: ITradingViewNativeChartCandlePartSettings;
@@ -147,6 +159,7 @@ export function createTradingViewNativeChartSettings(): ITradingViewNativeChartS
   const colors = TRADING_VIEW_NATIVE_THEME_COLORS;
   return {
     schemaVersion: TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    chartType: 'auto',
     candles: {
       body: {
         enabled: true,
