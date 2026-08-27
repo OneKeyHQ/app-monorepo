@@ -25,8 +25,16 @@ import {
   TRADING_VIEW_NATIVE_INDICATOR_CATALOG,
   isTradingViewNativeAnyIndicator,
 } from './utils/chartIndicators/indicatorCatalog';
+import {
+  TRADING_VIEW_NATIVE_CHART_TYPE_OPTIONS,
+  getTradingViewNativeChartTypeFromValue,
+  getTradingViewNativeChartTypeValue,
+} from './utils/chartType';
+
+import type { ITradingViewNativeChartType } from './types';
 
 interface ITradingViewNativeChartControlsContainerProps {
+  activeChartType: ITradingViewNativeChartType;
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
@@ -39,6 +47,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   fullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: ITradingViewChartControlsProps['isChartSwitchDisabled'];
   onChartSwitch?: ITradingViewChartControlsProps['onChartSwitch'];
+  onChartTypeChange: (chartType: ITradingViewNativeChartType) => void;
   onIntervalChange: ITradingViewChartControlsProps['onIntervalChange'];
   onChartClose?: () => void;
   onIndicatorChange: (
@@ -56,6 +65,7 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    activeChartType,
     activeIndicatorValues,
     calendarAvailableTimeRange,
     compactMobileLayout = false,
@@ -68,6 +78,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     fullscreenHeader,
     isChartSwitchDisabled,
     onChartSwitch,
+    onChartTypeChange,
     onIntervalChange,
     onChartClose,
     onIndicatorChange,
@@ -82,6 +93,8 @@ export const TradingViewNativeChartControlsContainer = memo(
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
+    const activeChartTypeValue =
+      getTradingViewNativeChartTypeValue(activeChartType);
     const settingsEnabled = enableNativeChartSettings;
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
@@ -120,6 +133,16 @@ export const TradingViewNativeChartControlsContainer = memo(
     const handleFullscreenToggle = useCallback(() => {
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);
+    const handleChartTypeChange = useCallback(
+      (chartTypeValue: number) => {
+        const nextChartType =
+          getTradingViewNativeChartTypeFromValue(chartTypeValue);
+        if (nextChartType && nextChartType !== activeChartType) {
+          onChartTypeChange(nextChartType);
+        }
+      },
+      [activeChartType, onChartTypeChange],
+    );
     const handleIndicatorPress = useCallback(
       (indicator: ITradingViewIndicatorOption) => {
         if (!isTradingViewNativeAnyIndicator(indicator.value)) {
@@ -182,14 +205,14 @@ export const TradingViewNativeChartControlsContainer = memo(
         calendarAvailableTimeRange={calendarAvailableTimeRange}
         compactMobileLayout={compactMobileLayout}
         intervalConfig={intervalConfig}
-        activeChartType={undefined}
+        activeChartType={activeChartTypeValue}
         activeIndicatorValues={activeIndicatorValues}
         chartSettingsTitle={intl.formatMessage({
           id: ETranslations.market_chart_settings,
         })}
         chartStyleTitle={chartStyleTitle}
         chartTypeToggleIcon="TradingViewCandlesOutline"
-        chartTypes={[]}
+        chartTypes={TRADING_VIEW_NATIVE_CHART_TYPE_OPTIONS}
         hasVisibleControls
         hasVisibleIndicators={!onChartClose}
         hasVisibleIntervalSelector
@@ -199,7 +222,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect={false}
+        showChartTypeSelect
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
@@ -217,7 +240,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}
-        onChartTypeChange={noop}
+        onChartTypeChange={handleChartTypeChange}
         onChartTypeToggle={noop}
         onPriceMarketCapModeChange={noop}
         onCalendarPanelOpen={onCalendarPanelOpen}

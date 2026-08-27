@@ -558,6 +558,17 @@ describe('TradingViewNative shared chart scene', () => {
     expect(styles.gridLine.dash).toEqual([2, 4]);
     expect(styles.crosshairLine.opacity).toBe(0.6);
     expect(styles.line.color).toBe('#444444');
+    expect(styles.areaFill).toMatchObject({
+      color: TRADING_VIEW_NATIVE_CHART_UP_COLOR,
+      opacity: 0.12,
+    });
+    expect(styles.areaStroke).toMatchObject({
+      color: TRADING_VIEW_NATIVE_CHART_UP_COLOR,
+      drawStyle: 'stroke',
+      strokeCap: 'round',
+      strokeJoin: 'round',
+      strokeWidth: 2,
+    });
     expect(styles.lineStroke).toMatchObject({
       color: '#444444',
       drawStyle: 'stroke',
@@ -663,6 +674,91 @@ describe('TradingViewNative shared chart scene', () => {
         (command) => command.kind === 'text' && command.text === '-10 (-10%)',
       ),
     ).toMatchObject({ paint: 'down' });
+  });
+
+  it('fills an area below the close-price line', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'area',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const area = scene.commands.find(
+      (command) => command.kind === 'polygon' && command.paint === 'areaFill',
+    );
+    const line = scene.commands.find(
+      (command) =>
+        command.kind === 'polyline' && command.paint === 'areaStroke',
+    );
+    const latestPoint = scene.commands.find(
+      (command) => command.kind === 'circle' && command.paint === 'up',
+    );
+    const priceLegend = scene.commands.find(
+      (command) =>
+        command.kind === 'text' &&
+        command.text === 'Price' &&
+        command.paint === 'axisText',
+    );
+    const priceLegendValue = scene.commands.find(
+      (command) =>
+        command.kind === 'text' &&
+        command.text === '104.00' &&
+        command.paint === 'up',
+    );
+    const text = scene.commands.flatMap((command) =>
+      command.kind === 'text' ? [command.text] : [],
+    );
+
+    expect(area).toMatchObject({ kind: 'polygon', paint: 'areaFill' });
+    expect(area?.kind === 'polygon' ? area.points : []).toHaveLength(
+      POINTS.length + 2,
+    );
+    expect(line).toMatchObject({ kind: 'polyline', paint: 'areaStroke' });
+    expect(latestPoint).toMatchObject({ kind: 'circle', paint: 'up' });
+    expect(priceLegend).toBeDefined();
+    expect(priceLegendValue).toBeDefined();
+    expect(text).toContain('Price');
+    expect(text).not.toEqual(expect.arrayContaining(['O', 'H', 'L', 'C']));
+  });
+
+  it('draws OHLC bars with open and close ticks', () => {
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'bars',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+    const barLines = scene.commands.filter(
+      (command) =>
+        command.kind === 'line' &&
+        (command.paint === 'up' || command.paint === 'down'),
+    );
+    const candleRects = scene.commands.filter(
+      (command) =>
+        command.kind === 'rect' &&
+        command.customPaintId?.startsWith('chart.candle.'),
+    );
+    const text = scene.commands.flatMap((command) =>
+      command.kind === 'text' ? [command.text] : [],
+    );
+
+    expect(barLines).toHaveLength(POINTS.length * 3);
+    expect(candleRects).toHaveLength(0);
+    expect(text).toEqual(expect.arrayContaining(['O', 'H', 'L', 'C']));
   });
 
   it('keeps a long price change visible on narrow charts', () => {

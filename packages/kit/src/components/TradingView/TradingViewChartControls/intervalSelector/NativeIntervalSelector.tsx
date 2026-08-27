@@ -137,6 +137,9 @@ export const TradingViewNativeIntervalSelector = memo(
         title: intl.formatMessage({ id: ETranslations.market_intervals }),
         showFooter: false,
         testID: 'trading-view-native-intervals-dialog',
+        // IntervalsDialogContent owns its own padding so the popover and the
+        // dialog share one layout; drop the default Dialog content padding.
+        contentContainerProps: { px: '$0', pb: '$0' },
         onClose: () => {
           handleIntervalsDialogClose(dialogInstance);
         },
@@ -184,6 +187,7 @@ export const TradingViewNativeIntervalSelector = memo(
         onIntervalChange={onIntervalChange}
         onPreferredValuesChange={handlePreferredValuesChange}
         onClose={closeIntervalsPopover}
+        mode={intervalControlMode}
         maxPreferredIntervalCount={
           intervalControlMode === 'popover'
             ? null
@@ -212,6 +216,9 @@ export const TradingViewNativeIntervalSelector = memo(
             onOpenChange={handleIntervalsPopoverOpenChange}
             floatingPanelProps={{
               width: 360,
+              // Without this the focus scope moves focus to the Edit button on
+              // open and it renders with a focus ring the user never asked for.
+              onOpenAutoFocus: (event) => event.preventDefault(),
             }}
             renderTrigger={
               <IntervalMoreTrigger
@@ -284,13 +291,15 @@ export const TradingViewNativeIntervalSelector = memo(
             activeTextColor="$text"
             inactiveTextColor="$textSubdued"
             h={compactMobileLayout ? 26 : 30}
-            p={compactMobileLayout ? '$0' : '$0.5'}
+            // No frame padding: the item has to fill the full height so its
+            // active/hover background matches the adjacent More trigger.
+            p="$0"
             segmentControlItemStyleProps={{
               minWidth: 42,
               px: '$2.5',
-              py: compactMobileLayout ? '$0' : '$1',
+              py: '$0',
               h: compactMobileLayout ? '100%' : undefined,
-              justifyContent: compactMobileLayout ? 'center' : undefined,
+              justifyContent: 'center',
             }}
           />
         ) : null}
