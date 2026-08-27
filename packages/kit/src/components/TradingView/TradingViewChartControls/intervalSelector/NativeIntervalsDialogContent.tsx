@@ -1,19 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { NATIVE_CHART_SECTION_ACTION_BUTTON_PROPS } from '../utils/NativeChartControlsShared';
 
 import { useNativeIntervalsDialogState } from './hooks/useNativeIntervalsDialogState';
 import { IntervalGrid, IntervalsDialogSection } from './NativeIntervalGrid';
 import { MAX_PREFERRED_INTERVAL_COUNT } from './NativeIntervalUtils';
 
+import type { ITradingViewNativeIntervalControlMode } from './hooks/useNativeIntervalSelector';
 import type { ITradingViewIntervalOption } from '../types';
 
 export function IntervalsDialogContent({
@@ -27,6 +24,7 @@ export function IntervalsDialogContent({
   onClose,
   maxPreferredIntervalCount = MAX_PREFERRED_INTERVAL_COUNT,
   footerButtonSize = 'large',
+  mode = 'dialog',
 }: {
   options: ITradingViewIntervalOption[];
   editableOptions: ITradingViewIntervalOption[];
@@ -38,8 +36,16 @@ export function IntervalsDialogContent({
   onClose: () => void;
   maxPreferredIntervalCount?: number | null;
   footerButtonSize?: IButtonProps['size'];
+  mode?: ITradingViewNativeIntervalControlMode;
 }) {
   const intl = useIntl();
+  // The desktop popover is tighter than the mobile dialog: it has no header of
+  // its own, so it pads evenly and keeps the two groups closer together.
+  const isPopover = mode === 'popover';
+  const contentPadding = isPopover
+    ? ({ p: '$5' } as const)
+    : ({ px: '$5', pt: '$2', pb: '$8' } as const);
+  const sectionGap = isPopover ? '$5' : '$8';
   const {
     draftPreferredValueSet,
     editTitle,
@@ -64,22 +70,32 @@ export function IntervalsDialogContent({
   });
 
   if (isEditing) {
+    // The dialog keeps the 32px footer gap the indicator dialog uses; the
+    // popover is tighter at 20px.
     return (
-      <YStack gap="$5" p="$5">
-        <SizableText size="$bodyLg" color="$text">
-          {editTitle}
-        </SizableText>
-        <IntervalGrid
-          options={editableOptions}
-          activeInterval={activeInterval}
-          selectedValues={draftPreferredValueSet}
-          section="edit"
-          showSelectedCheckMarks
-          highlightActiveInterval={false}
-          maxSelectedCount={maxPreferredIntervalCount ?? undefined}
-          onIntervalPress={handleDraftIntervalPress}
-        />
-        <XStack gap="$3" pt="$2">
+      <YStack
+        gap={isPopover ? '$5' : '$8'}
+        px="$5"
+        pt={isPopover ? '$5' : '$2'}
+        pb="$5"
+      >
+        {/* Same title/grid rhythm as IntervalsDialogSection on the list page. */}
+        <YStack gap="$3">
+          <SizableText size="$bodyMdMedium" color="$text">
+            {editTitle}
+          </SizableText>
+          <IntervalGrid
+            options={editableOptions}
+            activeInterval={activeInterval}
+            selectedValues={draftPreferredValueSet}
+            section="edit"
+            showSelectedCheckMarks
+            highlightActiveInterval={false}
+            maxSelectedCount={maxPreferredIntervalCount ?? undefined}
+            onIntervalPress={handleDraftIntervalPress}
+          />
+        </YStack>
+        <XStack gap="$2.5">
           <Button
             flex={1}
             size={footerButtonSize}
@@ -104,13 +120,25 @@ export function IntervalsDialogContent({
     );
   }
 
+  const editAction = (
+    <Button
+      testID="trading-view-native-intervals-edit-button"
+      {...NATIVE_CHART_SECTION_ACTION_BUTTON_PROPS}
+      iconAfter="ChevronRightSmallOutline"
+      onPress={handleEditPress}
+    >
+      {intl.formatMessage({ id: ETranslations.global_edit })}
+    </Button>
+  );
+
   return (
-    <YStack gap="$6" p="$5">
+    <YStack gap={sectionGap} {...contentPadding}>
       {preferredOptions.length ? (
         <IntervalsDialogSection
           title={intl.formatMessage({
             id: ETranslations.market_preferred_intervals,
           })}
+          action={editAction}
         >
           <IntervalGrid
             options={preferredOptions}
@@ -123,29 +151,6 @@ export function IntervalsDialogContent({
 
       <IntervalsDialogSection
         title={intl.formatMessage({ id: ETranslations.market_all_intervals })}
-        action={
-          <XStack
-            testID="trading-view-native-intervals-edit-button"
-            alignItems="center"
-            gap="$1"
-            px="$1"
-            py="$1"
-            cursor="pointer"
-            userSelect="none"
-            onPress={handleEditPress}
-          >
-            <SizableText size="$bodyLg" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.market_edit_preferred_intervals,
-              })}
-            </SizableText>
-            <Icon
-              name="ChevronRightSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          </XStack>
-        }
       >
         <IntervalGrid
           options={options}
