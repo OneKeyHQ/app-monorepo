@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListLoading } from '@onekeyhq/kit/src/components/Loading/ListLoading';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -21,6 +22,11 @@ type IEnhancedToken = IToken & {
   networkImageSrc?: string;
   valueProps?: { value: string; currency: string };
   error?: string;
+};
+
+type ITokenDetailsResult = {
+  accountId?: string;
+  tokens: IEnhancedToken[];
 };
 
 interface ITokenListProps {
@@ -56,44 +62,52 @@ export function TokenList({
   const shouldFetchTokenDetails = !disableInternalTokenDetailFetch;
 
   // get network account
-  const networkAccount = usePromiseResult(async () => {
-    if (
-      !shouldFetchTokenDetails ||
-      (!activeAccount?.indexedAccount?.id && !activeAccount?.account?.id) ||
-      !currentNetworkId
-    ) {
-      return null;
-    }
-    const defaultDeriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: currentNetworkId ?? '',
+  const networkAccount = usePromiseResult(
+    async () => {
+      if (
+        !shouldFetchTokenDetails ||
+        (!activeAccount?.indexedAccount?.id && !activeAccount?.account?.id) ||
+        !currentNetworkId
+      ) {
+        return null;
+      }
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: currentNetworkId ?? '',
+        });
+      return backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: activeAccount?.indexedAccount?.id
+          ? undefined
+          : activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+        networkId: currentNetworkId,
+        deriveType: defaultDeriveType ?? 'default',
       });
-    return backgroundApiProxy.serviceAccount.getNetworkAccount({
-      accountId: activeAccount?.indexedAccount?.id
-        ? undefined
-        : activeAccount?.account?.id,
-      indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-      networkId: currentNetworkId,
-      deriveType: defaultDeriveType ?? 'default',
-    });
-  }, [
-    activeAccount?.indexedAccount?.id,
-    activeAccount?.account?.id,
-    currentNetworkId,
-    shouldFetchTokenDetails,
-  ]);
+    },
+    [
+      activeAccount?.indexedAccount?.id,
+      activeAccount?.account?.id,
+      currentNetworkId,
+      shouldFetchTokenDetails,
+    ],
+    { watchLoading: shouldFetchTokenDetails },
+  );
 
   // fetch token details
   const tokensWithDetails = usePromiseResult(
-    async (): Promise<IEnhancedToken[]> => {
+    async (): Promise<ITokenDetailsResult> => {
+      const accountId = networkAccount.result?.id;
       if (!shouldFetchTokenDetails) {
-        return tokens;
+        return { accountId, tokens };
       }
       if (!tokens.length || !networkAccount.result) {
-        return tokens.map((token) => ({
-          ...token,
-          error: 'Failed to fetch details',
-        }));
+        return {
+          accountId,
+          tokens: tokens.map((token) => ({
+            ...token,
+            error: 'Failed to fetch details',
+          })),
+        };
       }
       const promises = tokens.map(async (token): Promise<IEnhancedToken> => {
         try {
@@ -127,7 +141,7 @@ export function TokenList({
           return { ...token, error: 'Failed to fetch details' };
         }
       });
-      return Promise.all(promises);
+      return { accountId, tokens: await Promise.all(promises) };
     },
     [tokens, networkAccount.result, currencySymbol, shouldFetchTokenDetails],
     { watchLoading: shouldFetchTokenDetails },
@@ -135,7 +149,7 @@ export function TokenList({
 
   const displayTokens = useMemo(() => {
     const mergedTokens = tokens.map((token) => {
-      const tokenWithDetail = tokensWithDetails?.result?.find(
+      const tokenWithDetail = tokensWithDetails?.result?.tokens.find(
         (detailToken) =>
           detailToken.networkId === token.networkId &&
           detailToken.contractAddress === token.contractAddress,
@@ -157,47 +171,61 @@ export function TokenList({
       const valueB = parseFloat(b.valueProps?.value || '0');
       return valueB - valueA;
     });
-  }, [sortTokensByValue, tokensWithDetails?.result, tokens]);
+  }, [sortTokensByValue, tokensWithDetails?.result?.tokens, tokens]);
 
   const isTokenDetailsLoading =
     tokenDetailsLoading ??
-    (!disableInternalTokenDetailFetch && tokensWithDetails.isLoading);
+    (shouldFetchTokenDetails &&
+      (networkAccount.isLoading !== false ||
+        tokensWithDetails.isLoading !== false ||
+        // The first details run can settle before the network account resolves.
+        // Keep sorted rows hidden until the result belongs to the current account.
+        tokensWithDetails.result?.accountId !== networkAccount.result?.id));
 
   return (
     <YStack gap="$1">
       <YStack px="$1" py="$1">
-        {displayTokens?.map((token: IEnhancedToken) => {
-          const isCurrentToken = Boolean(
-            currentSelectToken &&
-            equalTokenNoCaseSensitive({
-              token1: currentSelectToken,
-              token2: token,
-            }),
-          );
-          const isTokenUnavailable = Boolean(
-            (disableNativeToken && token.isNative) || isTokenDisabled?.(token),
-          );
-          const onPress = () => {
-            if (isCurrentToken || isTokenUnavailable) return;
-            onTokenPress?.(token);
-          };
-          return (
-            <TokenListItem
-              isLoading={isTokenDetailsLoading}
-              key={`${token.networkId}-${token.contractAddress}`}
-              tokenImageSrc={token.logoURI}
-              networkImageSrc={token.networkImageSrc}
-              tokenSymbol={token.symbol}
-              tokenName={token.name}
-              tokenSize="md"
-              balance={token.balance}
-              valueProps={token.valueProps}
-              onPress={onPress}
-              margin={0}
-              disabled={isTokenUnavailable}
-            />
-          );
-        })}
+        {sortTokensByValue && isTokenDetailsLoading ? (
+          <ListLoading
+            isTokenSelectorView
+            listCount={tokens.length || 3}
+            itemProps={{ margin: 0 }}
+          />
+        ) : (
+          displayTokens?.map((token: IEnhancedToken) => {
+            const isCurrentToken = Boolean(
+              currentSelectToken &&
+              equalTokenNoCaseSensitive({
+                token1: currentSelectToken,
+                token2: token,
+              }),
+            );
+            const isTokenUnavailable = Boolean(
+              (disableNativeToken && token.isNative) ||
+              isTokenDisabled?.(token),
+            );
+            const onPress = () => {
+              if (isCurrentToken || isTokenUnavailable) return;
+              onTokenPress?.(token);
+            };
+            return (
+              <TokenListItem
+                isLoading={isTokenDetailsLoading}
+                key={`${token.networkId}-${token.contractAddress}`}
+                tokenImageSrc={token.logoURI}
+                networkImageSrc={token.networkImageSrc}
+                tokenSymbol={token.symbol}
+                tokenName={token.name}
+                tokenSize="md"
+                balance={token.balance}
+                valueProps={token.valueProps}
+                onPress={onPress}
+                margin={0}
+                disabled={isTokenUnavailable}
+              />
+            );
+          })
+        )}
       </YStack>
       {disabledOnSwitchToTrade ? null : (
         <SwitchToTradePrompt onTradePress={onTradePress} />
