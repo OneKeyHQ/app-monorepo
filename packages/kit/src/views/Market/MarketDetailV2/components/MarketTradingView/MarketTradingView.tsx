@@ -107,6 +107,9 @@ export interface IMarketTradingViewProps {
     options?: { layoutRestored?: boolean },
   ) => void;
   maxSelectableSubIndicatorCount?: number;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export const MarketTradingView = memo(
@@ -133,6 +136,9 @@ export const MarketTradingView = memo(
     onInteractionOverlayOpenChange,
     onNativeSubIndicatorCountChange,
     maxSelectableSubIndicatorCount,
+    onChartError,
+    onChartReady,
+    onVisualReady,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -185,6 +191,9 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
+        onChartError={onChartError}
+        onChartReady={onChartReady}
+        onVisualReady={onVisualReady}
         disabledFeatures={MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES}
         enableNativeChartControls
         enableNativeChartSettings

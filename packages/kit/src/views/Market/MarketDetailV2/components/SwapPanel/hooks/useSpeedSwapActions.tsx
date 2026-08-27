@@ -18,6 +18,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -528,14 +529,14 @@ export function useSpeedSwapActions(props: {
 
   // Use atom to get selected derive type from Market Detail page
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const selectedFromDeriveType =
-    balanceToken?.networkId === marketToken.networkId
-      ? selectedDeriveType
-      : undefined;
-  const selectedReceivingDeriveType =
-    toToken.networkId === marketToken.networkId
-      ? selectedDeriveType
-      : undefined;
+  const selectedFromDeriveType = getSelectedDeriveTypeForNetwork(
+    selectedDeriveType,
+    balanceToken?.networkId,
+  );
+  const selectedReceivingDeriveType = getSelectedDeriveTypeForNetwork(
+    selectedDeriveType,
+    toToken.networkId,
+  );
 
   const netAccountRes = usePromiseResult(async () => {
     try {

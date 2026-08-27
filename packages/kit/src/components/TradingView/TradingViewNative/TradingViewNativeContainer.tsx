@@ -13,6 +13,12 @@ import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/trading
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 
+import {
+  TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
+  TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
+} from './chartConstants';
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import {
   emitTradingViewNativeDebugEvent,
@@ -156,14 +162,17 @@ export const TradingViewNativeContainer = memo(
     chartComponents,
     enableNativeChartSettings,
     initialRightOffset,
+    nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    showNativeChartCloseControl,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     isChartSwitchDisabled,
     onChartSwitch,
     onDataStateChange,
     onIntervalChange,
+    onNativeChartClose,
     onNativeSubIndicatorCountChange,
     onNativeChartFullscreenChange,
     onPriceUpdate,
@@ -338,6 +347,7 @@ export const TradingViewNativeContainer = memo(
       () => getTradingViewNativePrimarySeriesPoints({ chartType, points }),
       [chartType, points],
     );
+    const isCompactDisplayMode = nativeChartDisplayMode === 'compact';
     const indicatorSeries = useMemo(
       () =>
         buildTradingViewNativeIndicatorSeries({
@@ -708,11 +718,13 @@ export const TradingViewNativeContainer = memo(
         <TradingViewNativeChartControlsContainer
           activeChartType={chartType}
           calendarAvailableTimeRange={calendarAvailableTimeRange}
+          compactMobileLayout={isCompactDisplayMode}
           enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           activeIndicatorValues={activeIndicatorValues}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
+          showChartCloseControl={showNativeChartCloseControl}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
           isChartSwitchDisabled={isChartSwitchDisabled}
@@ -720,6 +732,7 @@ export const TradingViewNativeContainer = memo(
           onChartTypeChange={handleChartTypeChange}
           onIntervalChange={handleChartIntervalChange}
           onIndicatorChange={handleIndicatorChange}
+          onChartClose={onNativeChartClose}
           onIndicatorSettingsPress={handleIndicatorSettingsPress}
           onIndicatorSelectionConfirm={handleIndicatorSelectionConfirm}
           onCalendarPanelOpen={handleHistoryBoundaryPrefetch}
@@ -737,11 +750,35 @@ export const TradingViewNativeContainer = memo(
             chartType={chartType}
             chartPictureVersion={chartPictureVersion}
             currentPriceLabel={currentPriceLabel}
+            extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
             hasVolume={false}
             indicatorSeries={indicatorSeries}
             indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
             initialRightOffset={initialRightOffset}
             isSwitchingInterval={isSwitchingInterval}
+            locale={intl.locale}
+            priceAxisTickCount={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
+                : undefined
+            }
+            priceAxisFontSize={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
+                : undefined
+            }
+            showLegend={!isCompactDisplayMode}
+            timeAxisFontSize={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
+                : undefined
+            }
+            timeAxisHeight={
+              isCompactDisplayMode
+                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
+                : undefined
+            }
+            timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
             onChartWidthChange={setChartWidth}
             onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
             onViewportRequestApplied={handleViewportRequestApplied}
