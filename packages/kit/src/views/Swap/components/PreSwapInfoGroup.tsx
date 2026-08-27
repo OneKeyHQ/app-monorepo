@@ -21,6 +21,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -227,11 +228,24 @@ const PreSwapInfoGroup = ({
     [preSwapData.netWorkFee?.gasInfos],
   );
 
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so sponsorship never applies; the badge switches to the
+  // "zero fee with OneKey wallet" promo copy (OK-61254).
+  const senderAccountId =
+    preSwapData.swapBuildResultData?.swapInfo?.sender?.accountInfo?.accountId;
+  const isExternalAccount = useMemo(
+    () =>
+      senderAccountId
+        ? accountUtils.isExternalAccount({ accountId: senderAccountId })
+        : false,
+    [senderAccountId],
+  );
+
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
     if (isGasSponsored) {
-      return <SwapSponsoredNetworkFee />;
+      return <SwapSponsoredNetworkFee isExternalAccount={isExternalAccount} />;
     }
     return (
       <XStack alignItems="center" gap="$2">
@@ -272,6 +286,7 @@ const PreSwapInfoGroup = ({
   }, [
     intl,
     isGasSponsored,
+    isExternalAccount,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,

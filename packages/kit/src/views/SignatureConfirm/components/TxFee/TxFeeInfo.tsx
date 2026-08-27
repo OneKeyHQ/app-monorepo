@@ -79,6 +79,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import {
   calculateFeeForSend,
@@ -1949,11 +1950,22 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
+  // External-wallet accounts sign and broadcast through the connected wallet,
+  // which estimates and charges its own network fee, so OneKey sponsorship
+  // never actually applies. Keep the sponsor eligibility as a promo hint
+  // ("zero fee with OneKey wallet") instead of claiming this tx costs zero
+  // (OK-61254).
+  const isExternalAccount = useMemo(
+    () => accountUtils.isExternalAccount({ accountId }),
+    [accountId],
+  );
   const sponsoredInfoTitle = intl.formatMessage({
     id: ETranslations.wallet_fee_sponsorship__title,
   });
   const sponsoredCouponSubtitle = intl.formatMessage({
-    id: ETranslations.wallet_sponsored_by_onekey__title,
+    id: isExternalAccount
+      ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
+      : ETranslations.wallet_sponsored_by_onekey__title,
   });
   const sponsoredCouponTitle = intl.formatMessage({
     id: ETranslations.wallet_zero_network_fee__title,
@@ -1989,16 +2001,20 @@ function TxFeeInfo(props: IProps) {
     selectedFee?.totalFiatMinForDisplay,
     settings.currencyInfo.symbol,
   ]);
-  const sponsoredSummaryDescription = intl.formatMessage(
-    {
-      id: sponsoredSavedFeeFiatValue
-        ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
-        : ETranslations.wallet_you_pay_zero_network_fee__desc,
-    },
-    {
-      amount: sponsoredSavedFeeFiatValue,
-    },
-  );
+  const sponsoredSummaryDescription = isExternalAccount
+    ? intl.formatMessage({
+        id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+      })
+    : intl.formatMessage(
+        {
+          id: sponsoredSavedFeeFiatValue
+            ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
+            : ETranslations.wallet_you_pay_zero_network_fee__desc,
+        },
+        {
+          amount: sponsoredSavedFeeFiatValue,
+        },
+      );
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);

@@ -40,6 +40,7 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -1411,7 +1412,16 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const isSponsored = txHistory?.swapInfo?.isFreeNetworkFee === true;
+    // `isFreeNetworkFee` is persisted from the build-tx pre-check, but
+    // external-wallet accounts always pay the fee charged by the connected
+    // wallet, so the sponsored badge would be wrong for them — fall through
+    // to the real recorded fee instead (OK-61254).
+    const senderAccountId = txHistory?.accountInfo?.sender?.accountId;
+    const isExternalAccount = senderAccountId
+      ? accountUtils.isExternalAccount({ accountId: senderAccountId })
+      : false;
+    const isSponsored =
+      txHistory?.swapInfo?.isFreeNetworkFee === true && !isExternalAccount;
     if (isSponsored) {
       return <SwapSponsoredNetworkFee />;
     }

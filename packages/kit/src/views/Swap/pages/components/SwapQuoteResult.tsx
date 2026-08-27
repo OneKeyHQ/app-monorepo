@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
   SWAP_QUOTE_INPUT_DEBOUNCE_MS,
@@ -45,6 +46,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapDirectionType,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
@@ -58,6 +60,7 @@ import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapLimitConfigMaps } from '../../hooks/useSwapGlobal';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import {
@@ -145,6 +148,18 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so the "Free" claim never holds; show the "zero fee with OneKey
+  // wallet" promo copy instead (OK-61254).
+  const fromAccountId = swapFromAddressInfo?.accountInfo?.account?.id;
+  const isExternalAccount = useMemo(
+    () =>
+      fromAccountId
+        ? accountUtils.isExternalAccount({ accountId: fromAccountId })
+        : false,
+    [fromAccountId],
+  );
 
   const [
     { swapApprovingTransaction, swapApprovingLoading },
@@ -492,7 +507,9 @@ const SwapQuoteResult = ({
                   />
                   <SizableText size="$bodyMdMedium" color="$textSuccess">
                     {intl.formatMessage({
-                      id: ETranslations.prime_status_free,
+                      id: isExternalAccount
+                        ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
+                        : ETranslations.prime_status_free,
                     })}
                   </SizableText>
                 </XStack>
