@@ -34,6 +34,8 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 const childDivStyle = {
+  display: 'flex',
+  flexDirection: 'column',
   width: '100%',
   flexShrink: 0,
   scrollSnapAlign: 'center',
