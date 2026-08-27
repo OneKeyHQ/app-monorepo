@@ -34,6 +34,7 @@ const mockStock: IMarketStockPublicItem = {
 };
 
 const mockTableProps = jest.fn();
+const mockUseMarketStockColumns = jest.fn((_options: unknown) => mockColumns);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -51,6 +52,7 @@ jest.mock('@onekeyhq/components', () => ({
     columns,
     dataSource,
     onRow,
+    rowProps,
   }: {
     columns: ITableColumn<IMarketStockPublicItem>[];
     dataSource: IMarketStockPublicItem[];
@@ -58,8 +60,9 @@ jest.mock('@onekeyhq/components', () => ({
       item: IMarketStockPublicItem,
       index: number,
     ) => { onPress?: () => void } | undefined;
+    rowProps: Record<string, unknown>;
   }) => {
-    mockTableProps({ columns, dataSource });
+    mockTableProps({ columns, dataSource, rowProps });
     return (
       <div data-testid="stock-table">
         {dataSource.map((item, index) => (
@@ -94,7 +97,8 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns',
   () => ({
-    useMarketStockColumns: () => mockColumns,
+    useMarketStockColumns: (options: unknown) =>
+      mockUseMarketStockColumns(options),
   }),
 );
 
@@ -102,15 +106,25 @@ describe('MarketStockSelectorList', () => {
   beforeEach(() => {
     mockOnItemPress.mockReset();
     mockTableProps.mockClear();
+    mockUseMarketStockColumns.mockClear();
   });
 
   it('uses the Market Stocks columns and selects stocks by stockId', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
+    expect(mockUseMarketStockColumns).toHaveBeenCalledWith({
+      showSparkline: false,
+      variant: 'selector',
+    });
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,
       dataSource: [mockStock],
+      rowProps: {
+        width: '100%',
+        height: 72,
+        borderRadius: 0,
+      },
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));

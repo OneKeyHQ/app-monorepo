@@ -31,7 +31,10 @@ const MarketStockSelectorList = memo(
     const intl = useIntl();
     // The selector dropdown is a picker, not the full Market Stocks table, so
     // it drops the 24h price range sparkline column.
-    const columns = useMarketStockColumns({ showSparkline: false });
+    const columns = useMarketStockColumns({
+      showSparkline: false,
+      variant: 'selector',
+    });
     const normalizedQuery = query?.trim() ?? '';
     const {
       result = { items: [] },
@@ -117,7 +120,11 @@ const MarketStockSelectorList = memo(
           keyExtractor={(item) => item.stockId}
           estimatedItemSize={STOCK_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
-          rowProps={{ width: '100%', height: STOCK_SELECTOR_ROW_HEIGHT }}
+          rowProps={{
+            width: '100%',
+            height: STOCK_SELECTOR_ROW_HEIGHT,
+            borderRadius: 0,
+          }}
           headerRowProps={{ height: STOCK_SELECTOR_HEADER_HEIGHT }}
           onRow={(item) => ({
             onPress: () => onItemPress(item.stockId),

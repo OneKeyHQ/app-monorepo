@@ -3,15 +3,17 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
+import type { ISizableTextProps, ITableColumn } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -26,11 +28,25 @@ const EMPTY_VALUE = '--';
 // column redistributes the freed space instead of leaving a gap in the row.
 const COMPANY_COLUMN_UNITS = 150;
 const METRIC_COLUMN_UNITS = 122;
+const SELECTOR_COMPANY_COLUMN_PERCENTAGE = 32;
 
-function getStockColumnWidths(metricColumnCount: number): {
+type IMarketStockColumnVariant = 'default' | 'selector';
+
+function getStockColumnWidths(
+  metricColumnCount: number,
+  variant: IMarketStockColumnVariant,
+): {
   companyColumnWidth: `${number}%`;
   metricColumnWidth: `${number}%`;
 } {
+  if (variant === 'selector') {
+    return {
+      companyColumnWidth: `${SELECTOR_COMPANY_COLUMN_PERCENTAGE}%`,
+      metricColumnWidth: `${
+        (100 - SELECTOR_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
+      }%`,
+    };
+  }
   const totalUnits =
     COMPANY_COLUMN_UNITS + METRIC_COLUMN_UNITS * metricColumnCount;
   return {
@@ -39,9 +55,13 @@ function getStockColumnWidths(metricColumnCount: number): {
   };
 }
 
-function MissingValue() {
+function MissingValue({
+  size = '$bodyMd',
+}: {
+  size?: ISizableTextProps['size'];
+}) {
   return (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <SizableText size={size} color="$textSubdued">
       {EMPTY_VALUE}
     </SizableText>
   );
@@ -54,16 +74,22 @@ const metricColumnProps = {
 
 export function useMarketStockColumns({
   showSparkline = true,
+  variant = 'default',
 }: {
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
+  /** Selector surfaces give the company column more room and use compact metrics. */
+  variant?: IMarketStockColumnVariant;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
   return useMemo(() => {
     const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
       showSparkline ? 5 : 4,
+      variant,
     );
+    const metricTextSize =
+      variant === 'selector' ? '$bodyMdMedium' : '$bodyLgMedium';
     const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
@@ -85,7 +111,13 @@ export function useMarketStockColumns({
         columnWidth: companyColumnWidth,
         columnProps: { flexShrink: 0, px: '$2' },
         render: (_: unknown, record: IMarketStockPublicItem) => (
-          <XStack alignItems="center" gap="$1.5" minWidth={0}>
+          <XStack
+            width="100%"
+            minWidth={0}
+            overflow="hidden"
+            alignItems="center"
+            gap="$1.5"
+          >
             <Stack width={24} alignItems="center" justifyContent="center">
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
@@ -128,18 +160,44 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: intl.formatMessage({ id: ETranslations.global_price }),
+        title:
+          variant === 'selector' ? (
+            <Tooltip
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  dashThickness={0.5}
+                  dashSpacing={0}
+                  color="$textSubdued"
+                  cursor="help"
+                >
+                  {intl.formatMessage({ id: ETranslations.global_price })}
+                </DashText>
+              }
+              renderContent={
+                <SizableText size="$bodySm">
+                  The displayed price is the underlying stock price.
+                </SizableText>
+              }
+              placement="top"
+            />
+          ) : (
+            intl.formatMessage({ id: ETranslations.global_price })
+          ),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps: { textDecorationLine: 'underline' },
+        titleProps:
+          variant === 'selector'
+            ? undefined
+            : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue size={metricTextSize} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={metricTextSize}
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
@@ -159,14 +217,14 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.priceChange24hPercent);
           if (value === undefined) {
-            return <MissingValue />;
+            return <MissingValue size={metricTextSize} />;
           }
           const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
             priceChange: value,
           });
           return (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={metricTextSize}
               formatter="priceChange"
               color={changeColor}
               formatterOptions={{ showPlusMinusSigns }}
@@ -185,10 +243,10 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.marketCap);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue size={metricTextSize} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={metricTextSize}
               formatter="marketCap"
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
@@ -208,10 +266,10 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.volume24h);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue size={metricTextSize} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={metricTextSize}
               formatter="marketCap"
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
@@ -243,5 +301,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [intl, showSparkline]);
+  }, [intl, showSparkline, variant]);
 }
