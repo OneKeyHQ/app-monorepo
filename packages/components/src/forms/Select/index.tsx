@@ -472,7 +472,7 @@ function BasicSelect<
   const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
-      <Stack position="relative" flex={1}>
+      <Stack position="relative" flex={1} flexBasis="auto">
         <Input
           value={label}
           disabled={disabled}
