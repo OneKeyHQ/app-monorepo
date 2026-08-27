@@ -892,14 +892,6 @@ function collectUiReferences(referenceFiles, getAst) {
       ) {
         return;
       }
-      if (
-        ['MemberExpression', 'OptionalMemberExpression'].includes(
-          parent?.type,
-        ) &&
-        parent.object === node
-      ) {
-        return;
-      }
       if (node.computed && !getStaticPropertyName(node)) {
         const descriptor = resolveExpression(
           node.object,
@@ -913,6 +905,14 @@ function collectUiReferences(referenceFiles, getAst) {
             line: node.loc?.start.line ?? 1,
           });
         }
+        return;
+      }
+      if (
+        ['MemberExpression', 'OptionalMemberExpression'].includes(
+          parent?.type,
+        ) &&
+        parent.object === node
+      ) {
         return;
       }
       addReferenceDescriptor(

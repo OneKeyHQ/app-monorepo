@@ -133,6 +133,8 @@ test('rejects dynamic proxy access and ignores direct in-process background acce
         import backgroundApiProxy from './background/instance/backgroundApiProxy';
 
         backgroundApiProxy.servicePrime[methodName]();
+        backgroundApiProxy[serviceName].anyMethod();
+        backgroundApiProxy.simpleDb[entityName].getRawData();
         appGlobals.$backgroundApiProxy.backgroundApi.serviceHardware.getSDKInstance();
       `,
     ],
@@ -140,7 +142,7 @@ test('rejects dynamic proxy access and ignores direct in-process background acce
 
   const result = collectUiReferences([filePath], createAstGetter(sources));
 
-  assert.equal(result.dynamicAccesses.length, 1);
+  assert.equal(result.dynamicAccesses.length, 3);
   assert.deepEqual(result.references, []);
 });
 
