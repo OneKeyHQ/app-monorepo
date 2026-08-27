@@ -978,6 +978,7 @@ export const TradingViewNativeChart = memo(
             clientY: event.clientY,
             labels: priceAxisLabels,
             paneCount: visibleSubIndicatorPaneCount,
+            priceAxisFontSize,
             priceScale: priceScaleModelRef.current,
           })
         ) {

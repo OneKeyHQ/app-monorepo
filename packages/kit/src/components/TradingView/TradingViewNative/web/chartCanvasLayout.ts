@@ -97,6 +97,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   clientY,
   labels,
   paneCount,
+  priceAxisFontSize,
   priceScale,
 }: {
   canvas: HTMLCanvasElement;
@@ -104,13 +105,17 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   clientY: number;
   labels: ITradingViewNativeCanvasPriceAxisLabels;
   paneCount: number;
+  priceAxisFontSize?: number;
   priceScale: ITradingViewNativeCanvasPriceScale;
 }) {
   const canvasRect = canvas.getBoundingClientRect();
+  // Measure with the rendered font, otherwise the compact axis gets a hit
+  // region sized for the default font and steals wheel input from the chart.
   const priceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
     canvas,
     labels,
     priceScale,
+    priceAxisFontSize,
   );
   const x = clientX - canvasRect.left;
   const y = clientY - canvasRect.top;
