@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
+  IconButton,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -85,11 +87,6 @@ const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 // block, so one offset puts the switch on the widget's line in Pro and leaves
 // it in exactly the same place when the mode is toggled.
 const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
-// The widget's control row keeps its own expand toggle at the trailing edge in
-// Pro, so the switch stops short of it: a small tertiary IconButton is a 20px
-// icon in 4px padding, and the overlay's own right padding draws the gap
-// between the two opaquely.
-const STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET = 28;
 
 const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
   '1H',
@@ -517,12 +514,15 @@ function StockChart({
   priceMode,
   onHoverChange,
   isChartFullscreen,
+  onEnterChartFullscreen,
 }: {
   marketTradingView: ReactNode;
   priceMode: IMarketPriceSource;
   onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
   isChartFullscreen: boolean;
+  onEnterChartFullscreen: () => void;
 }) {
+  const intl = useIntl();
   const [mode, setMode] = useState<IStockChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple';
@@ -536,9 +536,16 @@ function StockChart({
   // row, so both modes show it on the same line and the chart body below never
   // shifts between them.
   //
-  // Fullscreen only ever happens from Pro (the widget owns the toggle): the
-  // block drops its fixed height to fill the fixed-position wrapper, and the
-  // mode switch steps aside so nothing floats over the expanded chart.
+  // Pro also carries the expand button, because the widget's control row gives
+  // up its own trailing controls under this overlay. It goes to the left of the
+  // switch behind a separator, never to its right: the switch is what has to
+  // land on the same pixel in both modes, and Simple has no expand button to
+  // reserve room for.
+  //
+  // Fullscreen only ever happens from Pro (Simple is a plain line chart): the
+  // block drops its fixed height to fill the fixed-position wrapper, and this
+  // whole overlay steps aside so nothing floats over the expanded chart — the
+  // widget's own control row is restored there and its toggle is the way out.
   return (
     <YStack
       width="100%"
@@ -603,22 +610,43 @@ function StockChart({
             {marketTradingView}
           </Stack>
           {isChartFullscreen ? null : (
-            <Stack
+            <XStack
               testID="stock-chart-mode-control-pro"
               position="absolute"
               top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
-              right={STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET}
+              right={0}
+              alignItems="center"
+              gap="$2"
               // The widget's control row is a horizontal scroller that now runs
               // the full width; an opaque backdrop keeps a long toolbar from
-              // showing through the switch instead of ending behind it, and
-              // covers the gap kept clear for the expand toggle.
+              // showing through the switch instead of ending behind it.
               bg="$bgApp"
               pl="$2"
-              pr="$2"
               zIndex={4}
             >
+              {/* Stands in for the expand toggle this overlay displaces from
+                  the widget's control row — same icon, size and styling, and
+                  the same fullscreen entry point behind it. */}
+              <IconButton
+                testID="stock-chart-fullscreen-toggle"
+                size="small"
+                variant="tertiary"
+                icon="TradingViewFullscreenCustom"
+                iconSize="$5"
+                title={intl.formatMessage({ id: ETranslations.global_expand })}
+                onPress={onEnterChartFullscreen}
+                {...HEADER_ICON_BUTTON_STYLE_PROPS}
+              />
+              {/* Matches the separators inside the widget's own control row,
+                  scaled to the 32px switch this group is aligned to. */}
+              <Stack
+                width="$px"
+                height="$5"
+                bg="$borderSubdued"
+                flexShrink={0}
+              />
               <StockChartModeControl mode={mode} onChange={setMode} />
-            </Stack>
+            </XStack>
           )}
         </>
       )}
@@ -1226,6 +1254,7 @@ export function StockDesktopLayout({
   showFavoriteButton,
   isChartFullscreen,
   chartFullscreenZIndex,
+  onEnterChartFullscreen,
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
@@ -1233,6 +1262,9 @@ export function StockDesktopLayout({
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
+  // Pro renders the expand button itself, because the widget's control row
+  // hands its trailing slots to the Simple/Pro overlay on this page.
+  onEnterChartFullscreen: () => void;
 }) {
   const { stockId } = useStockDetail();
   const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
@@ -1315,6 +1347,7 @@ export function StockDesktopLayout({
                 priceMode={priceMode}
                 onHoverChange={setChartHoverPoint}
                 isChartFullscreen={isChartFullscreen}
+                onEnterChartFullscreen={onEnterChartFullscreen}
               />
             </Stack>
           </YStack>

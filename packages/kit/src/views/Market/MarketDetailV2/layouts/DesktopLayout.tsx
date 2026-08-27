@@ -273,18 +273,32 @@ export function DesktopLayout({
   );
   // The stock detail layout has no toolbar row of its own in Pro: it lays the
   // Simple/Pro switch over the trailing edge of this widget's control row
-  // (Figma 25476:88969, which shows that row ending in Simple/Pro). Only the
-  // chart-source dropdown gives up its slot for that; the expand toggle stays,
-  // because it is the sole way into fullscreen on this page, and the overlay is
-  // offset to clear it (STOCK_CHART_PRO_MODE_CONTROL_RIGHT_OFFSET there).
+  // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
+  // own trailing controls — the chart-source dropdown and the expand toggle —
+  // are dropped there to make room for it. Every other assembly keeps both.
+  // The expand toggle is not lost: the overlay renders its own copy of it and
+  // drives it through onEnterChartFullscreen below, so the switch can stay
+  // pinned to the trailing edge in both modes instead of stepping aside for a
+  // control that only exists in Pro.
   // Gated on the same condition that renders StockDesktopLayout, minus
-  // fullscreen: only that layout overlays the switch, and fullscreen gives the
-  // row its dropdown back.
-  const hideChartSourceControl =
+  // fullscreen: only that layout overlays the switch, and in fullscreen the
+  // expand toggle is the way back out, so it has to stay.
+  const hideChartTrailingControls =
     shouldUseStockDesktopLayout && !isChartFullscreen;
-  const stockAwareChartSwitch = hideChartSourceControl
+  const stockAwareChartSwitch = hideChartTrailingControls
     ? undefined
     : onChartSwitch;
+  const stockAwareFullscreenChange = hideChartTrailingControls
+    ? undefined
+    : handleChartFullscreenChange;
+  // Handed to the stock layout's own expand button, which stands in for the
+  // control row's hidden one. Routed through the same handler the row's toggle
+  // reaches, so both buttons enter fullscreen by exactly one path. Exiting is
+  // untouched: fullscreen restores the row, and its toggle is the way out.
+  const handleEnterChartFullscreen = useCallback(
+    () => handleChartFullscreenChange(true),
+    [handleChartFullscreenChange],
+  );
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ? (
@@ -302,9 +316,9 @@ export function DesktopLayout({
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the
           // plot's leading edge instead of sitting over it.
-          nativeControlsFlushHorizontalInset={hideChartSourceControl}
+          nativeControlsFlushHorizontalInset={hideChartTrailingControls}
           onChartSwitch={stockAwareChartSwitch}
-          onNativeChartFullscreenChange={handleChartFullscreenChange}
+          onNativeChartFullscreenChange={stockAwareFullscreenChange}
         />
       ) : null;
     }
@@ -330,19 +344,19 @@ export function DesktopLayout({
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
         onChartSwitch={stockAwareChartSwitch}
-        onNativeChartFullscreenChange={handleChartFullscreenChange}
+        onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
     );
   }, [
-    handleChartFullscreenChange,
     handleTradingViewTouchScroll,
-    hideChartSourceControl,
+    hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
     shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
     stockAwareChartSwitch,
+    stockAwareFullscreenChange,
     tradingViewNativeSource,
   ]);
 
@@ -360,6 +374,7 @@ export function DesktopLayout({
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
+          onEnterChartFullscreen={handleEnterChartFullscreen}
         />
       </Stack>
     );

@@ -64,7 +64,6 @@ export const SwapTestIDs = {
   stockChartEmpty: 'swap-stock-chart-empty',
   stockChartError: 'swap-stock-chart-error',
   stockChartRetry: 'swap-stock-chart-retry',
-  stockChartHoverPrice: 'swap-stock-chart-hover-price',
   stockTradeStatusAlert: 'swap-stock-trade-status-alert',
 
   // Limit order

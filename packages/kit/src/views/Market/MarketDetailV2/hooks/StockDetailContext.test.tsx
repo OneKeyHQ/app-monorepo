@@ -522,7 +522,9 @@ describe('StockDetailProvider', () => {
         await act(async () => {
           await jest.advanceTimersByTimeAsync(0);
         });
-        expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(1);
+        expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(
+          1,
+        );
 
         // Two polling windows with the page focused: the loop keeps ticking.
         await act(async () => {
