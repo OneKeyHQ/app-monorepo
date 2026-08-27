@@ -231,10 +231,24 @@ function TxFeeInfo(props: IProps) {
     gasAccountUiState.gasAccountEligible && !!gasAccountQuote?.quoteId;
   const isGasAccountSelected =
     isGasAccountEligible && gasAccountUiState.selectedPayer === 'gasAccount';
+  // External-wallet accounts sign and broadcast through the connected wallet,
+  // which estimates and charges its own network fee, so OneKey sponsorship
+  // never actually applies. Keep them out of the sponsored fee state entirely
+  // so they fall back to the regular fee UI; sponsor eligibility is surfaced
+  // only as a promo hint next to the real fee (OK-61254).
+  const isExternalAccount = useMemo(
+    () => accountUtils.isExternalAccount({ accountId }),
+    [accountId],
+  );
   const isMegafuelSponsored =
-    effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
-  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+    !isExternalAccount &&
+    (effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable);
+  const isGasAccountSponsored =
+    !isExternalAccount && effectiveFeePayer === 'gasAccount';
   const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
+  const showExternalSponsorPromoHint =
+    isExternalAccount &&
+    (effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable);
   const isDarkMode = /dark/.test(themeName);
   const gasSponsoredAccentColor = theme.bgAccent.val;
   const sponsoredCouponBgColor = theme.brand3.val;
@@ -1950,22 +1964,11 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const shouldShowFreeBadge = isMegafuelSponsored || isGasAccountSponsored;
-  // External-wallet accounts sign and broadcast through the connected wallet,
-  // which estimates and charges its own network fee, so OneKey sponsorship
-  // never actually applies. Keep the sponsor eligibility as a promo hint
-  // ("zero fee with OneKey wallet") instead of claiming this tx costs zero
-  // (OK-61254).
-  const isExternalAccount = useMemo(
-    () => accountUtils.isExternalAccount({ accountId }),
-    [accountId],
-  );
   const sponsoredInfoTitle = intl.formatMessage({
     id: ETranslations.wallet_fee_sponsorship__title,
   });
   const sponsoredCouponSubtitle = intl.formatMessage({
-    id: isExternalAccount
-      ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
-      : ETranslations.wallet_sponsored_by_onekey__title,
+    id: ETranslations.wallet_sponsored_by_onekey__title,
   });
   const sponsoredCouponTitle = intl.formatMessage({
     id: ETranslations.wallet_zero_network_fee__title,
@@ -2001,20 +2004,16 @@ function TxFeeInfo(props: IProps) {
     selectedFee?.totalFiatMinForDisplay,
     settings.currencyInfo.symbol,
   ]);
-  const sponsoredSummaryDescription = isExternalAccount
-    ? intl.formatMessage({
-        id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
-      })
-    : intl.formatMessage(
-        {
-          id: sponsoredSavedFeeFiatValue
-            ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
-            : ETranslations.wallet_you_pay_zero_network_fee__desc,
-        },
-        {
-          amount: sponsoredSavedFeeFiatValue,
-        },
-      );
+  const sponsoredSummaryDescription = intl.formatMessage(
+    {
+      id: sponsoredSavedFeeFiatValue
+        ? ETranslations.wallet_saved_network_fee_you_pay_zero__desc
+        : ETranslations.wallet_you_pay_zero_network_fee__desc,
+    },
+    {
+      amount: sponsoredSavedFeeFiatValue,
+    },
+  );
   const handleOpenSponsoredFeesHelpCenter = useCallback(() => {
     openUrlExternal(SPONSORED_FEES_HELP_CENTER_URL);
   }, []);
@@ -2648,6 +2647,13 @@ function TxFeeInfo(props: IProps) {
           </XStack>
           {renderOriginalFeeInfo()}
           {renderFeeSummary()}
+          {showExternalSponsorPromoHint ? (
+            <SizableText size="$bodyMd" color="$textInteractive" pt="$1">
+              {intl.formatMessage({
+                id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+              })}
+            </SizableText>
+          ) : null}
         </>
       )}
     </Stack>

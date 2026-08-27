@@ -150,8 +150,9 @@ const SwapQuoteResult = ({
   const [swapQuoteList] = useSwapQuoteListAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   // External-wallet accounts pay the fee estimated by the connected wallet
-  // itself, so the "Free" claim never holds; show the "zero fee with OneKey
-  // wallet" promo copy instead (OK-61254).
+  // itself, so the "Free" claim never holds; show the real quoted fee, and
+  // fall back to the "zero fee with OneKey wallet" promo copy only when the
+  // quote carries no fee estimate (OK-61254).
   const fromAccountId = swapFromAddressInfo?.accountInfo?.account?.id;
   const isExternalAccount = useMemo(
     () =>
@@ -497,7 +498,9 @@ const SwapQuoteResult = ({
             })}
             isLoading={isQuotePresentationLoading}
             valueComponent={
-              quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
+              quoteResultForDisplay?.fee?.isFreeNetworkFee &&
+              (!isExternalAccount ||
+                !quoteResultForDisplay?.fee?.estimatedFeeFiatValue) ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon
                     name="PartyCelebrateSolid"

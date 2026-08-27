@@ -229,8 +229,9 @@ const PreSwapInfoGroup = ({
   );
 
   // External-wallet accounts pay the fee estimated by the connected wallet
-  // itself, so sponsorship never applies; the badge switches to the
-  // "zero fee with OneKey wallet" promo copy (OK-61254).
+  // itself, so sponsorship never applies; keep the regular fee UI (level
+  // selector + real fee value) and surface the sponsorship only as the
+  // "zero fee with OneKey wallet" promo hint below it (OK-61254).
   const senderAccountId =
     preSwapData.swapBuildResultData?.swapInfo?.sender?.accountInfo?.accountId;
   const isExternalAccount = useMemo(
@@ -244,10 +245,10 @@ const PreSwapInfoGroup = ({
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
-    if (isGasSponsored) {
-      return <SwapSponsoredNetworkFee isExternalAccount={isExternalAccount} />;
+    if (isGasSponsored && !isExternalAccount) {
+      return <SwapSponsoredNetworkFee />;
     }
-    return (
+    const feeLevelSelect = (
       <XStack alignItems="center" gap="$2">
         <Select
           testID="swap-network-fee-select-select"
@@ -283,6 +284,19 @@ const PreSwapInfoGroup = ({
         )}
       </XStack>
     );
+    if (isGasSponsored && isExternalAccount) {
+      return (
+        <YStack alignItems="flex-end" gap="$0.5">
+          {feeLevelSelect}
+          <SizableText size="$bodySm" color="$textInteractive">
+            {intl.formatMessage({
+              id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+            })}
+          </SizableText>
+        </YStack>
+      );
+    }
+    return feeLevelSelect;
   }, [
     intl,
     isGasSponsored,

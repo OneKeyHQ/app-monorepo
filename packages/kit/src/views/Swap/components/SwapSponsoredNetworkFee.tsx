@@ -21,15 +21,7 @@ const SPONSORED_COUPON_CUTOUT_OFFSET = SPONSORED_COUPON_CUTOUT_SIZE / 2;
 const SPONSORED_FEES_HELP_CENTER_URL =
   'https://help.onekey.so/articles/14994693';
 
-export function SwapSponsoredNetworkFee({
-  isExternalAccount,
-}: {
-  // External-wallet accounts sign and broadcast through the connected wallet,
-  // which charges its own network fee, so OneKey sponsorship never actually
-  // applies. Show the "zero fee with OneKey wallet" promo copy instead of
-  // claiming this tx is sponsored (OK-61254).
-  isExternalAccount?: boolean;
-}) {
+export function SwapSponsoredNetworkFee() {
   const intl = useIntl();
 
   const handleOpenHelpCenter = useCallback(() => {
@@ -71,9 +63,7 @@ export function SwapSponsoredNetworkFee({
                 numberOfLines={1}
               >
                 {intl.formatMessage({
-                  id: isExternalAccount
-                    ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
-                    : ETranslations.wallet_sponsored_by_onekey__title,
+                  id: ETranslations.wallet_sponsored_by_onekey__title,
                 })}
               </SizableText>
             </Stack>
@@ -131,7 +121,7 @@ export function SwapSponsoredNetworkFee({
         />
       </Stack>
     ),
-    [handleOpenHelpCenter, intl, isExternalAccount],
+    [handleOpenHelpCenter, intl],
   );
 
   const handleShowSponsoredInfo = useCallback(() => {
@@ -198,9 +188,7 @@ export function SwapSponsoredNetworkFee({
       <Badge badgeType="success" badgeSize="sm">
         <Badge.Text>
           {intl.formatMessage({
-            id: isExternalAccount
-              ? ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc
-              : ETranslations.wallet_onekey_sponsored__title,
+            id: ETranslations.wallet_onekey_sponsored__title,
           })}
         </Badge.Text>
       </Badge>
