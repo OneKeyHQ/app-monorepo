@@ -206,7 +206,7 @@ function StepTextSwap({ text }: { text: string }) {
           right={0}
           size="$heading2xl"
           textAlign="center"
-          animation="medium"
+          transition="medium"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, y: 16 }}
           exitStyle={{ opacity: 0, y: -16 }}
@@ -1017,7 +1017,7 @@ function FinalizeWalletSetupPage({
     opacity: isReadyActionVisible ? 1 : 0,
     pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
-      animation: 'quick' as const,
+      transition: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
     }),
   };
@@ -1029,7 +1029,7 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
-      animation="quick"
+      transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
@@ -1065,7 +1065,7 @@ function FinalizeWalletSetupPage({
               y: '$-2',
               opacity: 0,
             }}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           >
             <SizableText>
@@ -1181,7 +1181,7 @@ function FinalizeWalletSetupPage({
                 <YStack
                   position="absolute"
                   inset={0}
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   opacity={isReady ? 0 : 1}
                 >
@@ -1204,7 +1204,7 @@ function FinalizeWalletSetupPage({
                   bg="$brand10"
                   alignItems="center"
                   justifyContent="center"
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   opacity={isReady ? 1 : 0}
                   scale={isReady ? 1 : 0.7}

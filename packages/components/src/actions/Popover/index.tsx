@@ -10,10 +10,7 @@ import { Dimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
-import type {
-  SheetProps,
-  UseMediaState,
-} from '@onekeyhq/components/src/shared/tamagui';
+import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { TMPopover } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import type {
   PopoverContentProps as PopoverContentTypeProps,
@@ -72,6 +69,8 @@ const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
 const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
 const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
+const WEB_KEEP_MOUNTED_TRANSITION =
+  'opacity 150ms cubic-bezier(0.215, 0.61, 0.355, 1), transform 150ms cubic-bezier(0.215, 0.61, 0.355, 1)';
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   description?: string;
@@ -137,11 +136,6 @@ const usePopoverValue = (
   };
 };
 
-const useContentDisplay = platformEnv.isNative
-  ? () => undefined
-  : (isOpen?: boolean, keepChildrenMounted?: boolean) =>
-      keepChildrenMounted && !isOpen ? 'none' : undefined;
-
 function ModalPortalProvider({ children }: PropsWithChildren) {
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
@@ -153,8 +147,6 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
     </ModalNavigatorContext.Provider>
   );
 }
-
-const when: (state: { media: UseMediaState }) => boolean = () => true;
 
 const useDismissKeyboard = platformEnv.isNative
   ? (isOpen?: boolean) => {
@@ -358,10 +350,10 @@ function RawPopover({
   );
   const { gtMd } = useMedia();
 
-  const display = useContentDisplay(isOpen, props.keepChildrenMounted);
-  // Kept content uses display for visibility because presence transitions only
-  // complete reliably when the content mounts and unmounts.
-  const shouldAnimateContent = !props.keepChildrenMounted;
+  const keepChildrenMounted = Boolean(props.keepChildrenMounted);
+  const shouldUseWebKeepMountedTransition =
+    keepChildrenMounted && !platformEnv.isNative;
+  const shouldAnimateContent = !keepChildrenMounted;
   const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
@@ -370,7 +362,7 @@ function RawPopover({
         <PopoverContent
           isOpen={isOpen}
           closePopover={handleClosePopover}
-          keepChildrenMounted={props.keepChildrenMounted}
+          keepChildrenMounted={keepChildrenMounted}
         >
           {RenderContent
             ? ((
@@ -386,15 +378,30 @@ function RawPopover({
   );
 
   const isShowNativeKeepChildrenMountedBackdrop =
-    platformEnv.isNative && props.keepChildrenMounted;
+    platformEnv.isNative && keepChildrenMounted;
   const maxScrollViewHeight = getMaxScrollViewHeight();
   const transformOriginStyle = useMemo(
-    () => ({ transformOrigin }),
-    [transformOrigin],
+    () =>
+      shouldUseWebKeepMountedTransition
+        ? {
+            transformOrigin,
+            opacity: isOpen ? 1 : 0,
+            transform: `scale(${isOpen ? 1 : 0.95})`,
+            visibility: isOpen ? ('visible' as const) : ('hidden' as const),
+            transition: isOpen
+              ? WEB_KEEP_MOUNTED_TRANSITION
+              : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`,
+          }
+        : { transformOrigin },
+    [isOpen, shouldUseWebKeepMountedTransition, transformOrigin],
   );
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
+  );
+  const contentStyle = useMemo(
+    () => [transformOriginStyle, floatingPanelProps?.style],
+    [floatingPanelProps?.style, transformOriginStyle],
   );
   return (
     <TMPopover
@@ -417,8 +424,6 @@ function RawPopover({
         <TMPopover.Content
           trapFocus={false}
           unstyled
-          display={display}
-          style={transformOriginStyle}
           enterStyle={shouldAnimateContent ? POPOVER_ENTER_STYLE : undefined}
           exitStyle={shouldAnimateContent ? POPOVER_EXIT_STYLE : undefined}
           w="$96"
@@ -426,11 +431,12 @@ function RawPopover({
           borderRadius="$3"
           $platform-web={POPOVER_PLATFORM_WEB_STYLE}
           $platform-native={POPOVER_PLATFORM_NATIVE}
-          animation={shouldAnimateContent ? 'popoverQuick' : undefined}
+          transition={shouldAnimateContent ? 'popoverQuick' : undefined}
           animateOnly={
             shouldAnimateContent ? ANIMATE_ONLY_OPACITY_TRANSFORM : undefined
           }
           {...floatingPanelProps}
+          style={contentStyle}
         >
           <TMPopover.ScrollView
             testID="TMPopover-ScrollView"
@@ -458,10 +464,10 @@ function RawPopover({
             />
           ) : null}
 
-          <TMPopover.Adapt when={platformEnv.isNative ? when : 'md'}>
+          <TMPopover.Adapt when={platformEnv.isNative ? true : 'md'}>
             <TMPopover.Sheet
               dismissOnSnapToBottom
-              animation="quick"
+              transition="quick"
               snapPointsMode="fit"
               zIndex={zIndex}
               {...sheetProps}
@@ -471,7 +477,7 @@ function RawPopover({
                   {...FIX_SHEET_PROPS}
                   zIndex={sheetProps?.zIndex || zIndex}
                   backgroundColor="$bgBackdrop"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={OVERLAY_ENTER_STYLE}
                   exitStyle={OVERLAY_EXIT_STYLE}

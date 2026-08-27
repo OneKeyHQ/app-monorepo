@@ -216,7 +216,7 @@ export function Tooltip({
           style={contentStyle}
           enterStyle={tooltipEnterStyle}
           exitStyle={tooltipExitStyle}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}

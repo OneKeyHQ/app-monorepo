@@ -87,11 +87,11 @@ export function HyperlinkText({
   // elements too is what made rich text fall apart on web: Tamagui's Text turns
   // `numberOfLines >= 2` into `display: -webkit-box`, so a nested <bold>/<red>
   // stopped being inline and broke onto a line of its own, with the runs before
-  // and after it on separate lines again. `ellipse` carries the same kind of
+  // and after it on separate lines again. `ellipsis` carries the same kind of
   // overflow styling, so it is withheld as well. Native is unaffected — its
   // text engine clamps nested Text without any of this — which is why the
   // symptom only shows on web and desktop.
-  const { numberOfLines, ellipse, ...inlineTextProps } = basicTextProps;
+  const { numberOfLines, ellipsis, ...inlineTextProps } = basicTextProps;
 
   const text = useMemo(
     () =>

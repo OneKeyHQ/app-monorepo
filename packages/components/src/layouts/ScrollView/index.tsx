@@ -32,7 +32,7 @@ export type IScrollViewProps = Omit<
   ScrollViewNativeProps,
   'contentContainerStyle'
 > &
-  StackProps & {
+  Omit<StackProps, keyof ScrollViewNativeProps> & {
     contentContainerStyle?: StackProps;
   };
 

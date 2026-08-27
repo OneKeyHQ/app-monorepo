@@ -105,8 +105,8 @@ function FundingDialogTrigger({
       title,
       showFooter: false,
       contentContainerProps: { p: '$0' },
-      sheetProps: { animation: '100ms' },
-      sheetOverlayProps: { animation: '100ms' },
+      sheetProps: { transition: '100ms' },
+      sheetOverlayProps: { transition: '100ms' },
       renderContent: renderContent(closeDialog),
     });
   }, [renderContent, title]);

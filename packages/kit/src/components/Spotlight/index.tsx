@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import type {
+  ComponentProps,
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
@@ -29,11 +30,7 @@ import {
   useDeferredPromise,
   useMedia,
 } from '@onekeyhq/components';
-import type {
-  IDeferredPromise,
-  IElement,
-  IStackStyle,
-} from '@onekeyhq/components';
+import type { IDeferredPromise, IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
@@ -46,7 +43,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import type { View as NativeView } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{
-  containerProps?: IStackStyle;
+  containerProps?: Omit<ComponentProps<typeof View>, 'children'>;
   content: ReactElement;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
@@ -195,7 +192,7 @@ function SpotlightContent({
     return (
       <Stack
         testID="spotlight-content"
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY}
         bg="rgba(0,0,0,0.3)"
         position="absolute"

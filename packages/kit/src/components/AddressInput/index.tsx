@@ -800,6 +800,7 @@ export function AddressInput(props: IAddressInputProps) {
   return (
     <>
       <BaseInput
+        {...rest}
         value={inputText}
         onChangeText={(text) =>
           onChangeText({ text, inputType: EInputAddressChangeType.Manual })
@@ -808,7 +809,6 @@ export function AddressInput(props: IAddressInputProps) {
         extension={AddressInputExtension}
         numberOfLines={screenWidth <= 768 ? 3 : 2}
         {...(screenWidth <= 768 && { minHeight: 64 })}
-        {...rest}
       />
       <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
     </>

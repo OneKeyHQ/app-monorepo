@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren, RefObject } from 'react';
+import type { PropsWithChildren, Ref, RefObject } from 'react';
 
 import { debounce } from 'lodash';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
@@ -22,6 +22,7 @@ import { TabBar } from './TabBar';
 import { useConvertAnimatedToValue } from './useFocusedTab';
 import { parseCssSize } from './utils';
 
+import type { TamaguiElement } from '../../shared/tamagui';
 import type { LayoutChangeEvent } from 'react-native';
 import type {
   CollapsibleProps,
@@ -684,7 +685,7 @@ export function Container({
       className="onekey-tabs-container"
       position="relative"
       style={disableScroll ? undefined : overflowYScrollStyle}
-      ref={ref as React.RefObject<HTMLDivElement>}
+      ref={ref as unknown as Ref<TamaguiElement>}
     >
       {scrollElement ? (
         <TabsContext.Provider value={contextValue as any}>

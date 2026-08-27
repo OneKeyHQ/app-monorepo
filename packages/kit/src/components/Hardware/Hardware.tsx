@@ -56,7 +56,7 @@ export function MacBluetoothIllustrationViews({
   const paringView = useMemo(() => {
     return (
       <YStack
-        animation={[
+        transition={[
           'quick',
           {
             opacity: {
@@ -165,7 +165,7 @@ export function MacBluetoothIllustrationViews({
   const systemAuthorizedView = useMemo(() => {
     return (
       <YStack
-        animation={[
+        transition={[
           'quick',
           {
             opacity: {

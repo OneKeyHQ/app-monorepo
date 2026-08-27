@@ -481,7 +481,7 @@ function OverflowMoreButton({
       borderRadius: '$3',
       enterStyle: ENTER_EXIT_STYLE,
       exitStyle: ENTER_EXIT_STYLE,
-      animation: OVERFLOW_ANIMATION,
+      transition: OVERFLOW_ANIMATION,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
       onHoverIn: handleContentHoverIn,
       onHoverOut: handleHoverOut,

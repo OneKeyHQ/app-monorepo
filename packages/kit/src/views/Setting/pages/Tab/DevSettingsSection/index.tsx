@@ -222,7 +222,7 @@ const DevSettingsAccordionTrigger = ({
             />
           ) : null}
           <View
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={open ? '0deg' : '-90deg'}
           >
@@ -1024,9 +1024,9 @@ const BaseDevSettingsSection = () => {
                     icon="InfoCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1313,9 +1313,9 @@ const BaseDevSettingsSection = () => {
                     icon="LabOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1611,9 +1611,9 @@ const BaseDevSettingsSection = () => {
                     icon="ArrowTopCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1704,9 +1704,9 @@ const BaseDevSettingsSection = () => {
                     icon="ServerOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1896,9 +1896,9 @@ const BaseDevSettingsSection = () => {
                     icon="LayoutWindowOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       exitStyle={{ opacity: 0 }}
                     >
                       <LazyNavigationDiagnosticsSection />
@@ -1915,9 +1915,9 @@ const BaseDevSettingsSection = () => {
                     icon="TableOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2160,9 +2160,9 @@ const BaseDevSettingsSection = () => {
                     icon="BrowserOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2323,9 +2323,9 @@ const BaseDevSettingsSection = () => {
                     icon="AiImagesOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2409,9 +2409,9 @@ const BaseDevSettingsSection = () => {
                     icon="HeadOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2599,9 +2599,9 @@ const BaseDevSettingsSection = () => {
                     icon="SignatureOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >

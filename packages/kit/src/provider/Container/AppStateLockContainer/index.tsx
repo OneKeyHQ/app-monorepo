@@ -173,7 +173,7 @@ export function AppStateLockContainer({
           <AppStateLock
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
