@@ -15,6 +15,7 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapSelectedTokensHomeAccountSyncAction,
   getSwapTokenSupportTypes,
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
@@ -1557,6 +1558,59 @@ describe('swap cold-start selected token context', () => {
         swapType: ESwapTabSwitchType.SWAP,
       }),
     ).toBe(false);
+  });
+
+  it('exposes a Native Pro owner edge when returning to Swap', () => {
+    expect(
+      [ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.SWAP].map((swapType) =>
+        shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+          isNative: true,
+          swapType,
+        }),
+      ),
+    ).toEqual([true, false]);
+
+    expect(
+      [ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.SWAP].map((swapType) =>
+        shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+          isNative: false,
+          swapType,
+        }),
+      ),
+    ).toEqual([false, false]);
+  });
+
+  it('preserves parked Swap tokens while Native Pro owns token state', () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      indexedAccountId: 'indexed-account-2',
+      networkId: 'sol--101',
+    });
+    const swapSelectedAccount = buildSelectedAccount({
+      indexedAccountId: 'indexed-account-1',
+      networkId: 'evm--1',
+    });
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        cachedContext: undefined,
+        deferSelectedTokenSync: true,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toEqual({ type: 'preserve' });
   });
 
   it('builds one-shot consumption keys only for swap init handoff params', () => {

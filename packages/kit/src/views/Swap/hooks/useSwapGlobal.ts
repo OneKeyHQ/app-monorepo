@@ -268,6 +268,11 @@ export function useSwapInit(params?: ISwapInitParams) {
       }),
     [swapFromToken, swapTypeSwitch, swapNetworks, toToken],
   );
+  const isNativeProTokenOwner =
+    shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+      isNative: Boolean(platformEnv.isNative),
+      swapType: swapTypeSwitch,
+    });
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
@@ -586,6 +591,12 @@ export function useSwapInit(params?: ISwapInitParams) {
       const selectedTokensSyncAction =
         getSwapSelectedTokensHomeAccountSyncAction({
           cachedContext: selectedTokensColdStartContextRef.current,
+          // The Home read may finish after Native Pro takes ownership.
+          deferSelectedTokenSync:
+            shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+              isNative: Boolean(platformEnv.isNative),
+              swapType: swapTypeSwitchRef.current,
+            }),
           hasSelectedTokens,
           homeSelectedAccount,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
@@ -1548,6 +1559,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.dbAccount?.id,
     swapActiveAccount.deriveType,
     selectedTokensRuntimeChannelSupport,
+    isNativeProTokenOwner,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

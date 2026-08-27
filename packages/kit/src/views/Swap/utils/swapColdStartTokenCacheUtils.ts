@@ -737,6 +737,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
 
 export function getSwapSelectedTokensHomeAccountSyncAction({
   cachedContext,
+  deferSelectedTokenSync,
   hasSelectedTokens,
   homeSelectedAccount,
   initialSelectedTokensSynced,
@@ -746,6 +747,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   now,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  deferSelectedTokenSync?: boolean;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
   initialSelectedTokensSynced?: boolean;
@@ -766,7 +768,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   | {
       type: 'clear';
     } {
-  if (swapType === ESwapTabSwitchType.STOCK) {
+  if (deferSelectedTokenSync || swapType === ESwapTabSwitchType.STOCK) {
     return { type: 'preserve' };
   }
 

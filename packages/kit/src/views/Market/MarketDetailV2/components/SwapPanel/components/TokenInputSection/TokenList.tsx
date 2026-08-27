@@ -44,6 +44,43 @@ interface ITokenListProps {
   sortTokensByValue?: boolean;
 }
 
+export function resolveTokenDetailsLoading({
+  activeAccountReady,
+  networkAccountId,
+  networkAccountLoading,
+  shouldFetchTokenDetails,
+  tokenDetailsAccountId,
+  tokenDetailsLoading,
+  tokenDetailsRequestLoading,
+}: {
+  activeAccountReady?: boolean;
+  networkAccountId?: string;
+  networkAccountLoading?: boolean;
+  shouldFetchTokenDetails: boolean;
+  tokenDetailsAccountId?: string;
+  tokenDetailsLoading?: boolean;
+  tokenDetailsRequestLoading?: boolean;
+}) {
+  return (
+    tokenDetailsLoading ??
+    (shouldFetchTokenDetails &&
+      (activeAccountReady !== true ||
+        networkAccountLoading !== false ||
+        tokenDetailsRequestLoading !== false ||
+        tokenDetailsAccountId !== networkAccountId))
+  );
+}
+
+export function shouldShowValueSortedTokenListSkeleton({
+  isTokenDetailsLoading,
+  sortTokensByValue,
+}: {
+  isTokenDetailsLoading: boolean;
+  sortTokensByValue: boolean;
+}) {
+  return sortTokensByValue && isTokenDetailsLoading;
+}
+
 export function TokenList({
   tokens = [],
   onTokenPress,
@@ -173,19 +210,25 @@ export function TokenList({
     });
   }, [sortTokensByValue, tokensWithDetails?.result?.tokens, tokens]);
 
-  const isTokenDetailsLoading =
-    tokenDetailsLoading ??
-    (shouldFetchTokenDetails &&
-      (networkAccount.isLoading !== false ||
-        tokensWithDetails.isLoading !== false ||
-        // The first details run can settle before the network account resolves.
-        // Keep sorted rows hidden until the result belongs to the current account.
-        tokensWithDetails.result?.accountId !== networkAccount.result?.id));
+  const isTokenDetailsLoading = resolveTokenDetailsLoading({
+    activeAccountReady: activeAccount?.ready,
+    networkAccountId: networkAccount.result?.id,
+    networkAccountLoading: networkAccount.isLoading,
+    shouldFetchTokenDetails,
+    tokenDetailsAccountId: tokensWithDetails.result?.accountId,
+    tokenDetailsLoading,
+    tokenDetailsRequestLoading: tokensWithDetails.isLoading,
+  });
+  const showValueSortedTokenListSkeleton =
+    shouldShowValueSortedTokenListSkeleton({
+      isTokenDetailsLoading,
+      sortTokensByValue,
+    });
 
   return (
     <YStack gap="$1">
       <YStack px="$1" py="$1">
-        {sortTokensByValue && isTokenDetailsLoading
+        {showValueSortedTokenListSkeleton
           ? Array.from({ length: tokens.length || 3 }, (_, index) => (
               <ListItem key={index} margin={0}>
                 <Skeleton radius="round" w="$10" h="$10" />
