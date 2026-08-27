@@ -10362,7 +10362,7 @@ __metadata:
     "@rozenite/network-activity-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
     "@sentry/react-native": "npm:8.2.0"
-    "@shopify/flash-list": "npm:2.2.0"
+    "@shopify/flash-list": "npm:2.3.2"
     "@shopify/react-native-skia": "npm:2.6.2"
     "@storybook/addon-ondevice-actions": "npm:10.4.7"
     "@storybook/addon-ondevice-controls": "npm:10.4.7"
@@ -16056,14 +16056,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/flash-list@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@shopify/flash-list@npm:2.2.0"
+"@shopify/flash-list@npm:2.3.2":
+  version: 2.3.2
+  resolution: "@shopify/flash-list@npm:2.3.2"
   peerDependencies:
     "@babel/runtime": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/482e32e2e229d32a50312f8e83b02b99e323bb18dafca0fc547ac8faab712eec36d10560da4b01b4efba53271838deb8455d0831a2751218a6f1ca42e178131a
+  checksum: 10/87171290c90d9d0ba329f9c0e8e1c245cea0f42426ab18db74638c2df5c4c3f6ae593163ddde7b73cc263137b5e5b80a03d169286ee5368952a80dbb05646f3b
   languageName: node
   linkType: hard
 
