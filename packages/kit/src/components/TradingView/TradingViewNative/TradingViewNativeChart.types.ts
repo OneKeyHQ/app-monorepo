@@ -3,6 +3,7 @@ import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tra
 
 import type {
   ITradingViewNativeCandleLabels,
+  ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
 } from './types';
@@ -18,6 +19,7 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndica
 
 export interface ITradingViewNativeChartProps {
   candleIntervalSeconds: number;
+  chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;

@@ -13,7 +13,7 @@ import {
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
   calculateMinToAmountBySlippage,
-  hasInFlightSwapReviewSteps,
+  hasInFlightSwapReviewWork,
   invalidateSwapReviewForSlippageChange,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
@@ -323,7 +323,7 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
   const baseParams = {
     isFocused: false,
     isAppLocked: false,
-    hasInFlightSteps: false,
+    hasInFlightReviewWork: false,
     initialRootRouterCount: 1,
     currentRootRouterCount: 1,
   };
@@ -354,19 +354,20 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
     expect(
       shouldCloseSwapReviewOnFocusLoss({
         ...baseParams,
-        hasInFlightSteps: true,
+        hasInFlightReviewWork: true,
       }),
     ).toBe(false);
   });
 });
 
-describe('hasInFlightSwapReviewSteps', () => {
+describe('hasInFlightSwapReviewWork', () => {
   const step = (status: ESwapStepStatus) => ({ status }) as ISwapStep;
 
   it('does not treat prepared steps as in flight', () => {
     expect(
-      hasInFlightSwapReviewSteps({
+      hasInFlightSwapReviewWork({
         steps: [step(ESwapStepStatus.READY)],
+        preSwapData: {},
       }),
     ).toBe(false);
   });
@@ -375,12 +376,26 @@ describe('hasInFlightSwapReviewSteps', () => {
     'treats a %s step as in flight',
     (status) => {
       expect(
-        hasInFlightSwapReviewSteps({
+        hasInFlightSwapReviewWork({
           steps: [step(status)],
+          preSwapData: {},
         }),
       ).toBe(true);
     },
   );
+
+  it.each([
+    'swapBuildLoading',
+    'estimateNetworkFeeLoading',
+    'stepBeforeActionsLoading',
+  ] as const)('keeps the review open while %s is active', (loadingKey) => {
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [step(ESwapStepStatus.READY)],
+        preSwapData: { [loadingKey]: true },
+      }),
+    ).toBe(true);
+  });
 });
 
 describe('shouldShowSwapReviewToAmountSkeleton', () => {

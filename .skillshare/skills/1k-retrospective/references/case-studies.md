@@ -185,3 +185,59 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Moving from a captured-key wallet to per-signature key fetching removed the implicit key↔address binding that constructing `ethers.Wallet` at setup time used to provide; no explicit check replaced it.
 **Fix**: `signTypedData` derives the address from the fetched key (already computed by ethers) and fails closed with a re-enable-trading error when it does not match the advertised agentAddress, case-insensitively.
 **Catchable by**: Section 5: No stale closures capturing outdated state (identity captured at setup must be re-validated against data fetched later)
+
+## Case: onekeyIdLogout analytics flood with user IDs embedded in server-bound reason text
+**Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime emits; analytics is a shared server-side resource)
+**Symptom**: PostHog showed 1.76M `onekeyIdLogout` events in 30 days across ~70k persons — the highest-volume Prime event — drowning genuine logout signals and inflating analytics cost. Several `reason` strings carried Privy DIDs (`did:privy:…` = onekeyUserId), leaking account identifiers into server-bound free text; single users emitted 1000+ events in loops.
+**Root Cause**: `onekeyIdLogout` is decorated `@LogToServer`, but state-maintenance code paths (`setPrimePersistAtomNotLoggedIn` before/after clears on hot startup paths, `updatePrimeAtomByServerUserInfo` before/after every user-info refresh, discarded-response diagnostics) reused it as a general trace channel, interpolating atom values including `onekeyUserId` into `reason`.
+**Fix**: Added local-only `onekeyIdStateTrace` (`@LogToLocal`) and demoted 11 state-maintenance call sites; removed user ids from reason templates; reserved server `onekeyIdLogout` for genuine logout actions; also scrubbed `onekeyIdInvalidToken` (url query/hash + message) and `fetchPackagesFailed` free text at the scene level so every call site inherits the sanitization.
+**Catchable by**: Section 1: no sensitive/identifier interpolation into server-bound free text (scrub at the scene method, not call sites); NEW — @LogToServer methods called from hot/state-maintenance paths need a volume review (dedup or LogToLocal)
+
+## Case: PrimeLoginInvalidToken still counted as onekeyIdLogout
+**Date**: 2026-08-25 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: After demoting hot-path `onekeyIdLogout` traces, invalid-token bus handling still emitted a server `onekeyIdLogout` before the stale-generation gate, so retries and superseded clears kept polluting the genuine logout event.
+**Root Cause**: `PrimeGlobalEffectView` logged logout at handler entry, then separately local-traced stale events. Background already emits `onekeyIdInvalidToken` for the server signal.
+**Fix**: Remove the server logout emit; log a local `onekeyIdStateTrace` only after the stale gate when the handler actually proceeds.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a reserved server event must stay behind the same skip gate as the handler body)
+
+## Case: Prime profile/identity TTL written before analytics delivery
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — a failed or out-of-order `updateUserProfile` POST left membership attributes missing for up to 7 days, and `onekeyIdIdentityLinked` could skip after a fire-and-forget emit.
+**Root Cause**: `markPrimeProfileReported` / `markIdentityLinkReported` persisted the TTL before the network send, and `updateUserProfile` / `@LogToServer()` did not await delivery. `lastHandledPrimeProfileKey` was also set before persist, so the same session would not retry.
+**Fix**: Peek due without writing; await `updateUserProfileAsync` / `@LogToServer({ waitForServer: true })`; record the TTL only after success; set `lastHandledPrimeProfileKey` after the cycle completes.
+**Catchable by**: Section 4: Data flow end-to-end (a best-effort cleanup or send feeding a state-advancing step must report its outcome); Section 5: No race conditions in async operations
+
+## Case: Native restore success rewritten as failed by user-info refresh
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (native main runtime)
+**Symptom**: Review on PR #13008 — RevenueCat restore already had an active Prime entitlement, but a later `apiFetchPrimeUserInfo()` throw reported `primeRestorePurchaseResult({ result: 'failed' })` and skipped the success toast.
+**Root Cause**: Success tracking sat after the user-info refresh inside one try/catch, so a transient server/network error rewrote a real store restore as failed.
+**Fix**: Emit success and show the success toast after the local entitlement check; wrap the user-info refresh in its own try and keep the failure as a local state trace.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition and scope (a success signal must stay behind the same store-outcome gate, not a later refresh)
+
+## Case: Bind/restore login committed without identity or profile analytics
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 — `apiBindLegacyOneKeyIdOAuth` and auth-state restore wrote `isLoggedIn: true` through `updatePrimeAtomByOneKeyIdAccount` but never emitted `onekeyIdIdentityLinked` or membership profile attributes when the later user-info refresh failed or was skipped.
+**Root Cause**: Identity/profile reporting was only attached to `updatePrimeAtomByServerUserInfo` / `updatePrimeAtomByOAuthLoginResponse`, not the shared OneKey-account commit path.
+**Fix**: After `primePersistAtom.set`, the account commit path also tracks the identity link and enqueues the membership profile report.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (every login-commit writer needs the same analytics pair)
+
+## Case: Identity-link races and unbounded analytics init wait
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (bg runtime)
+**Symptom**: Review on PR #13008 after the reporter extract — one login emitted `onekeyIdIdentityLinked` twice (atom commit + user-info refresh); cold-start `waitForServer` identity throws before `analytics.init`; a hung `whenInitialized()` blocked every later profile report.
+**Root Cause**: Persist-after-send deleted the session Set without an in-flight replacement; identity used `trackEventAsync` (no `cacheEvents`) without waiting for init; `whenInitialized()` has no timeout and sat on the serial profile chain.
+**Fix**: Module-level in-flight Map plus session Set (clear in-flight only); `waitForAnalyticsInitialized()` (30s) before identity and profile send; timeout logs, skips TTL, and lets the chain continue.
+**Catchable by**: Section 5: No race conditions in async operations; Section 4: Logic moved between files carries its surrounding guard/condition and scope; NEW — `waitForServer` / `trackEventAsync` callers must wait for analytics init with a bounded timeout
+
+## Case: Session Set written on not-due blocked 7-day identity re-assert
+**Date**: 2026-08-26 | **Platforms**: desktop, web (single-runtime, long-lived); iOS/Android/extension less exposed because bg restarts
+**Symptom**: Review on PR #13008 — a desktop session that started while `onekeyIdIdentityLinked` TTL was still valid never re-emitted after the 7-day mark, even though Dashboard / user-info refresh kept calling the reporter.
+**Root Cause**: The not-due branch wrote `onekeyUserId` into `identityLinkReportedThisSession`, and the entry gate returned before reading simpleDb again. Profile `lastHandledPrimeProfileKey` had the same not-due write.
+**Fix**: Write the session guard only after confirmed delivery. Not-due returns without touching the Set / lastHandled key so a later TTL expiry can report.
+**Catchable by**: Section 4: Data flow end-to-end (a persisted TTL meant to re-assert must not be shadowed by a never-expiring in-memory guard)
+
+## Case: Site-scan usage event only remembered the last OneKey account
+**Date**: 2026-08-26 | **Platforms**: iOS, Android, desktop, web, extension (main runtime)
+**Symptom**: Review on PR #13008 — `siteScanRiskWarned` used a single `reportedUserId`. A → B → A in one JS session re-emitted A and broke the once-per-account-per-session volume bound.
+**Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
+**Fix**: Session-scoped Set of OneKey user IDs; add before emit. Account switch still reports the new account; switching back does not.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (a per-user session guard must keep every seen user, not only the last)

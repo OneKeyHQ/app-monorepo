@@ -226,6 +226,8 @@ export function convertDeviceError(
         new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
       return deviceNotOpenedPassphraseError;
     }
+    case HardwareErrorCode.DeviceLocked:
+      return new HardwareErrors.DeviceLockedError({ payload });
     case HardwareErrorCode.PinCancelled:
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
