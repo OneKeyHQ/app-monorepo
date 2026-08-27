@@ -290,7 +290,18 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
   if (raw === undefined) {
     return;
   }
-  const journal = parseAppStorageTransactionJournal(raw);
+  let journal: IAppStorageTransactionJournal;
+  try {
+    journal = parseAppStorageTransactionJournal(raw);
+  } catch {
+    // Invalid rollback metadata cannot restore a trustworthy prior state. Keep
+    // the current business values and remove only the internal recovery key so
+    // a malformed journal cannot trap every later startup in the same failure.
+    mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    logMigration('discarded invalid app-storage batch journal');
+    return;
+  }
   restoreAppStoragePreviousValues(mmkv, journal.previousValues);
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);

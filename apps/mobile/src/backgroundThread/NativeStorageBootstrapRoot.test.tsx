@@ -21,6 +21,15 @@ const mockCallNativeStorage = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
 const mockAppRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
+const mockJotaiInitResolvers: Array<() => void> = [];
+const mockJotaiInitRejectors: Array<(error: Error) => void> = [];
+const mockInitializeJotaiFromBackground = jest.fn(
+  () =>
+    new Promise<void>((resolve, reject) => {
+      mockJotaiInitResolvers.push(resolve);
+      mockJotaiInitRejectors.push(reject);
+    }),
+);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),
@@ -29,6 +38,13 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
 
 jest.mock('@onekeyhq/shared/src/storage/nativeStorageBridge', () => ({
   callNativeStorage: (request: unknown) => mockCallNativeStorage(request),
+}));
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    initializeJotaiFromBackground: () => mockInitializeJotaiFromBackground(),
+  },
 }));
 
 jest.mock('react-native', () => ({
@@ -164,6 +180,36 @@ describe('NativeStorageBootstrapRoot', () => {
 
     await act(async () => {
       mockBootstrapResolvers[2]?.();
+      await Promise.resolve();
+    });
+
+    expect(mockInitializeJotaiFromBackground).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      mockJotaiInitRejectors[0]?.(new Error('Initial Jotai RPC failed'));
+      await Promise.resolve();
+    });
+    expect(screen.getByText('State initialization failed')).toBeTruthy();
+    expect(screen.getByText('Initial Jotai RPC failed')).toBeTruthy();
+    expect(screen.getByTestId('native-storage-migration-retry')).toBeTruthy();
+    expect(
+      screen.getByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([
+      [{ force: false }],
+      [{ force: true }],
+      [{ force: true }],
+      [{ force: true }],
+    ]);
+
+    await act(async () => {
+      mockBootstrapResolvers[3]?.();
+      await Promise.resolve();
+    });
+    expect(mockInitializeJotaiFromBackground).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      mockJotaiInitResolvers[1]?.();
       await Promise.resolve();
     });
     expect(screen.getByTestId('business-app')).toBeTruthy();

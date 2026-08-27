@@ -634,6 +634,38 @@ describe('nativeStorageExecutor', () => {
     expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
   });
 
+  it.each([
+    ['malformed JSON', '{'],
+    [
+      'invalid schema',
+      JSON.stringify({
+        version: 1,
+        previousValues: [['unexpected-key', 'before-batch']],
+      }),
+    ],
+  ])(
+    'discards an invalid batch journal with %s and keeps current MMKV data',
+    async (_caseName, journal) => {
+      markAppStorageMigrated();
+      mockAppMMKV.set('app:a', 'current-value');
+      mockAppMMKV.set(BATCH_JOURNAL_KEY, journal);
+      const { executeNativeStorageRequest } = loadExecutor();
+
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'a',
+        }),
+      ).resolves.toBe('current-value');
+
+      expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
+      expect(mockSyncNativeStorageMMKV).toHaveBeenCalledWith(
+        'onekey-app-storage-v1',
+      );
+    },
+  );
+
   it('merges stale main-runtime SWR writes without deleting newer bg entries', async () => {
     const previous = JSON.stringify({ a: { d: 'old', t: 1 } });
     mockColdStartMMKV.set(

@@ -37,16 +37,23 @@ function notifySubscribers() {
   subscribers.forEach((subscriber) => subscriber());
 }
 
-function bootstrapNativeStorageWithTimeout(force: boolean) {
-  return new Promise<void>((resolve, reject) => {
+function initializeJotaiFromBackground() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: backgroundApiProxy } =
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+  return backgroundApiProxy.initializeJotaiFromBackground();
+}
+
+function withNativeBootstrapTimeout(promise: Promise<boolean>) {
+  return new Promise<boolean>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MESSAGE));
     }, NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MS);
 
-    void bootstrapNativeStorage({ force }).then(
-      () => {
+    void promise.then(
+      (shouldMountApp) => {
         clearTimeout(timer);
-        resolve();
+        resolve(shouldMountApp);
       },
       (error: unknown) => {
         clearTimeout(timer);
@@ -79,12 +86,19 @@ function startBootstrap(force = false) {
   bootstrapError = undefined;
   bootstrapRecoveryTarget = undefined;
   notifySubscribers();
-  let stage: 'app' | 'storage' = 'storage';
-  const nextPromise = bootstrapNativeStorageWithTimeout(force)
-    .then(() => {
-      if (generation !== bootstrapGeneration) {
-        return;
-      }
+  let stage: 'app' | 'jotai' | 'storage' = 'storage';
+  const bootstrapWork = (async () => {
+    await bootstrapNativeStorage({ force });
+    if (generation !== bootstrapGeneration) {
+      return false;
+    }
+    stage = 'jotai';
+    await initializeJotaiFromBackground();
+    return generation === bootstrapGeneration;
+  })();
+  const nextPromise = withNativeBootstrapTimeout(bootstrapWork)
+    .then((shouldMountApp) => {
+      if (!shouldMountApp || generation !== bootstrapGeneration) return;
       stage = 'app';
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       AppComponent = (require('../../App') as typeof import('../../App'))
@@ -110,10 +124,13 @@ function startBootstrap(force = false) {
       bootstrapError =
         error instanceof Error ? error : new Error(String(error));
       bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
-      bootstrapErrorTitle =
-        stage === 'storage'
-          ? 'Storage initialization failed'
-          : 'App startup failed';
+      if (stage === 'storage') {
+        bootstrapErrorTitle = 'Storage initialization failed';
+      } else if (stage === 'jotai') {
+        bootstrapErrorTitle = 'State initialization failed';
+      } else {
+        bootstrapErrorTitle = 'App startup failed';
+      }
       bootstrapPromise = undefined;
       hideNativeStorageBootstrapSplash();
     })
