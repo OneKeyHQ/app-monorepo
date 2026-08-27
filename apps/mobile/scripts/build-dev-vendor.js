@@ -537,7 +537,7 @@ async function buildPlatform(platform, { writeOutput = true } = {}) {
     }
     return observedModulePaths;
   } finally {
-    await metroServer.end();
+    metroServer.end();
   }
 }
 
