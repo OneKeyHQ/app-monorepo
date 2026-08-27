@@ -19,7 +19,6 @@ import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -29,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { updateAppRootViewBackground } from '../../../hocs/Provider/hooks/useAppearanceTheme';
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
@@ -76,7 +76,11 @@ const useUpdateRootViewBackgroundColor = (
   themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   useEffect(() => {
-    updateRootViewBackgroundColor(color, themeVariant, themeSetting);
+    // Routed through the appearance module (not the raw primitive): a
+    // dark-locked foreground surface may be pinning the window paint,
+    // and the single painter keeps this app-theme write from clobbering
+    // the pin (see useAppearanceTheme).
+    updateAppRootViewBackground(color, themeVariant, themeSetting);
   }, [color, themeVariant, themeSetting]);
 };
 
