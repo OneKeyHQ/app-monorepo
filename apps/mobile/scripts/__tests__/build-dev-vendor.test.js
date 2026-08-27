@@ -6,6 +6,7 @@ const fs = require('fs-extra');
 const { REPO_ROOT } = require('../../plugins/moduleIdRegistry');
 const {
   addObservedModulePaths,
+  createCommonModuleFilter,
   createModuleRecords,
   parseArgs,
   selectClosedVendorModules,
@@ -79,6 +80,21 @@ describe('build-dev-vendor', () => {
       '/repo/shared.js',
       '__prelude__',
     ]);
+  });
+
+  it('includes Metro prepends and selected vendor modules in common only', () => {
+    const filter = createCommonModuleFilter({
+      prepend: [
+        { path: '__prelude__' },
+        { path: '/repo/node_modules/metro-runtime/require.js' },
+      ],
+      selectedModules: new Set(['/repo/node_modules/react/index.js']),
+    });
+
+    expect(filter('__prelude__')).toBe(true);
+    expect(filter('/repo/node_modules/metro-runtime/require.js')).toBe(true);
+    expect(filter('/repo/node_modules/react/index.js')).toBe(true);
+    expect(filter('/repo/apps/mobile/delta-only.js')).toBe(false);
   });
 
   it('sorts manifest records with the shared code-point comparator', () => {

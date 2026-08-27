@@ -198,6 +198,12 @@ function assertEquivalentPrepends(mainPrepend, backgroundPrependSignature) {
   }
 }
 
+function createCommonModuleFilter({ prepend, selectedModules }) {
+  const prependPaths = new Set(prepend.map((moduleData) => moduleData.path));
+  return (modulePath) =>
+    selectedModules.has(modulePath) || prependPaths.has(modulePath);
+}
+
 function createBundleOptions({
   config,
   createModuleId,
@@ -369,7 +375,7 @@ async function writePlatformOutput({
   const bundleOptions = createBundleOptions({
     config,
     createModuleId,
-    moduleFilter: (absolutePath) => selectedModules.has(absolutePath),
+    moduleFilter: createCommonModuleFilter({ prepend, selectedModules }),
     runBeforeMainModule,
   });
   const bundleParts = baseJSBundle(mainEntry, prepend, graph, bundleOptions);
@@ -588,6 +594,7 @@ if (require.main === module) {
 
 module.exports = {
   addObservedModulePaths,
+  createCommonModuleFilter,
   hasAsyncDependency,
   isJsModule,
   parseArgs,
