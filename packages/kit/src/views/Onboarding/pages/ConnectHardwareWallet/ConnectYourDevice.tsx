@@ -59,6 +59,7 @@ import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceE
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -1409,7 +1410,10 @@ export function ConnectYourDevicePage() {
         backgroundApiProxy.serviceHardwareUI.showDeviceProcessLoadingDialog({
           connectId: device.connectId ?? '',
         });
-      if (platformEnv.isNativeIOS) {
+      // The iOS wait is for the legacy Sheet's mount acknowledgement —
+      // with the stage owning the surface no Sheet mounts, so waiting
+      // can only time out and kill the flow (OK-59934).
+      if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
         await hardwareUiStateDialogLifecycle.openAndWait(
           showDeviceProcessLoadingDialog,
         );
