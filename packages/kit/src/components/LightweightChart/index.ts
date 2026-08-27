@@ -4,4 +4,7 @@ export type {
   ILightweightChartPriceScalePosition,
   ILightweightChartProps,
 } from './types';
-export { DEFAULT_CHART_COLORS } from './utils/constants';
+export {
+  APY_PRICE_SCALE_MARGINS,
+  DEFAULT_CHART_COLORS,
+} from './utils/constants';
