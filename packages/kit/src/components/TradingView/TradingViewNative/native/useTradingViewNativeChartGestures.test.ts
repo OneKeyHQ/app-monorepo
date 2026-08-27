@@ -265,6 +265,41 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(chartRuntime.value.timeAxisScaleGesture.isActive).toBe(false);
   });
 
+  it('keeps crosshair gestures from claiming time-axis touches', () => {
+    renderChartGestures();
+    const crosshairGesture = mockPanGestures[0];
+    const tapCrosshairGesture = mockTapGestures.find(
+      (gesture) => gesture.maxDistance.mock.calls.length === 0,
+    );
+    const failCrosshair = jest.fn();
+    const failTapCrosshair = jest.fn();
+    const failMainChartCrosshair = jest.fn();
+    const failMainChartTapCrosshair = jest.fn();
+
+    expect(tapCrosshairGesture).toBeDefined();
+    crosshairGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 280 }] },
+      { fail: failCrosshair },
+    );
+    tapCrosshairGesture?.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 280 }] },
+      { fail: failTapCrosshair },
+    );
+    crosshairGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 200 }] },
+      { fail: failMainChartCrosshair },
+    );
+    tapCrosshairGesture?.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 200 }] },
+      { fail: failMainChartTapCrosshair },
+    );
+
+    expect(failCrosshair).toHaveBeenCalledTimes(1);
+    expect(failTapCrosshair).toHaveBeenCalledTimes(1);
+    expect(failMainChartCrosshair).not.toHaveBeenCalled();
+    expect(failMainChartTapCrosshair).not.toHaveBeenCalled();
+  });
+
   it('rejects time-scale dragging outside the time axis', () => {
     renderChartGestures();
     const timeAxisScaleGesture = mockPanGestures[2];

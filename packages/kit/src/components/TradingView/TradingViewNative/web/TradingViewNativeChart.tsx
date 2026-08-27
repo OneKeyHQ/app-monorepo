@@ -57,7 +57,8 @@ import {
 import { getTradingViewNativeCanvasFont } from './chartCanvasRenderer';
 import {
   getTradingViewNativePointerDragIntent,
-  getTradingViewNativeTimeAxisPointerZoomScale,
+  getTradingViewNativeTimeAxisPointerDragUpdate,
+  shouldStartTradingViewNativeViewportPointerDrag,
 } from './chartPointerInteraction';
 import {
   TradingViewNativeWheelDeltaNormalizer,
@@ -100,6 +101,7 @@ interface ITimeAxisPointerDragState {
   pointerId: number;
   startOffset: number;
   startX: number;
+  startY: number;
   startZoomScale: number;
 }
 
@@ -603,7 +605,15 @@ export const TradingViewNativeChart = memo(
 
     const handlePointerDown = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
-        if (event.button !== 0) {
+        if (
+          !shouldStartTradingViewNativeViewportPointerDrag({
+            button: event.button,
+            hasActiveDrag: Boolean(
+              pointerPanDragStateRef.current ||
+              timeAxisPointerDragStateRef.current,
+            ),
+          })
+        ) {
           return;
         }
         try {
@@ -653,6 +663,9 @@ export const TradingViewNativeChart = memo(
 
     const handlePointerMove = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
+        if (timeAxisPointerDragStateRef.current) {
+          return;
+        }
         const dragState = pointerPanDragStateRef.current;
         if (dragState) {
           if (dragState.pointerId !== event.pointerId) {
@@ -793,15 +806,23 @@ export const TradingViewNativeChart = memo(
 
     const handleTimeAxisPointerDown = useCallback(
       (event: ReactPointerEvent<HTMLDivElement>) => {
-        if (event.button !== 0 || measuredChartWidth <= 0) {
+        if (
+          measuredChartWidth <= 0 ||
+          !shouldStartTradingViewNativeViewportPointerDrag({
+            button: event.button,
+            hasActiveDrag: Boolean(
+              pointerPanDragStateRef.current ||
+              timeAxisPointerDragStateRef.current,
+            ),
+          })
+        ) {
           return;
         }
         try {
           event.currentTarget.setPointerCapture(event.pointerId);
         } catch {
-          // Pointer capture is optional; dragging still works while the pointer remains over the axis.
+          return;
         }
-        event.preventDefault();
         const targetRect = event.currentTarget.getBoundingClientRect();
         const startX = event.clientX - targetRect.left;
         const runtime = renderWithCrosshairHidden();
@@ -812,6 +833,7 @@ export const TradingViewNativeChart = memo(
           pointerId: event.pointerId,
           startOffset: runtime.viewport.offset,
           startX,
+          startY: event.clientY - targetRect.top,
           startZoomScale: runtime.viewport.zoomScale,
         };
       },
@@ -824,20 +846,29 @@ export const TradingViewNativeChart = memo(
         if (!dragState || dragState.pointerId !== event.pointerId) {
           return;
         }
-        event.preventDefault();
         const targetRect = event.currentTarget.getBoundingClientRect();
         const currentX = event.clientX - targetRect.left;
         dragState.currentX = currentX;
-        const nextZoomScale = getTradingViewNativeTimeAxisPointerZoomScale({
+        const dragUpdate = getTradingViewNativeTimeAxisPointerDragUpdate({
           chartWidth: dragState.chartWidth,
           currentX,
+          currentY: event.clientY - targetRect.top,
           isActive: dragState.isActive,
           startX: dragState.startX,
+          startY: dragState.startY,
           startZoomScale: dragState.startZoomScale,
         });
-        if (nextZoomScale === null) {
+        if (dragUpdate.type === 'cancel') {
+          timeAxisPointerDragStateRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
           return;
         }
+        if (dragUpdate.type === 'pending') {
+          return;
+        }
+        event.preventDefault();
         dragState.isActive = true;
         const chartWidth = measuredChartWidth;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -850,7 +881,7 @@ export const TradingViewNativeChart = memo(
             },
             chartWidth,
             hideCrosshair: true,
-            nextZoomScale,
+            nextZoomScale: dragUpdate.zoomScale,
             pointCount,
             type: 'zoomed',
           },
@@ -1029,7 +1060,7 @@ export const TradingViewNativeChart = memo(
               height: TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
               left: CHART_HORIZONTAL_PADDING,
               position: 'absolute',
-              touchAction: 'none',
+              touchAction: 'pan-y',
               userSelect: 'none',
               width: measuredChartWidth,
               zIndex: 1,

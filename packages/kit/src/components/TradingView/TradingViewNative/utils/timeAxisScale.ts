@@ -7,7 +7,7 @@ import {
 import { getTradingViewNativeChartWidth } from './chartLayout';
 import { clampTradingViewNativeZoomScale } from './chartViewport';
 
-const TIME_AXIS_SCALE_MARGIN_RATIO = 0.2;
+const TIME_AXIS_SCALE_SENSITIVITY = 2;
 
 export function getTradingViewNativeTimeAxisZoomScaleAfterDrag({
   chartWidth,
@@ -36,12 +36,8 @@ export function getTradingViewNativeTimeAxisZoomScaleAfterDrag({
     return normalizedStartZoomScale;
   }
 
-  const normalizedStartX = Math.min(Math.max(startX, 0), chartWidth);
-  const startPoint = chartWidth - normalizedStartX;
-  const currentPoint = Math.max(chartWidth - currentX, 0);
-  const scaleMargin = chartWidth * TIME_AXIS_SCALE_MARGIN_RATIO;
-  const relativeScale =
-    (startPoint + scaleMargin) / (currentPoint + scaleMargin);
+  const dragRatio = (currentX - startX) / chartWidth;
+  const relativeScale = Math.exp(dragRatio * TIME_AXIS_SCALE_SENSITIVITY);
 
   return clampTradingViewNativeZoomScale(
     normalizedStartZoomScale * relativeScale,

@@ -160,6 +160,14 @@ export function useTradingViewNativeChartGestures({
       .enabled(isCrosshairEnabled)
       .activateAfterLongPress(TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION)
       .maxPointers(1)
+      .onTouchesDown((event, stateManager) => {
+        'worklet';
+
+        const touch = event.changedTouches[0];
+        if (touch && isTimeAxisTouch(touch.x, touch.y)) {
+          stateManager.fail();
+        }
+      })
       .onStart((event) => {
         'worklet';
 
@@ -186,6 +194,14 @@ export function useTradingViewNativeChartGestures({
 
     const tapCrosshairGesture = Gesture.Tap()
       .enabled(isCrosshairEnabled && isClickInteractionEnabled)
+      .onTouchesDown((event, stateManager) => {
+        'worklet';
+
+        const touch = event.changedTouches[0];
+        if (touch && isTimeAxisTouch(touch.x, touch.y)) {
+          stateManager.fail();
+        }
+      })
       .onEnd((event, success) => {
         'worklet';
 

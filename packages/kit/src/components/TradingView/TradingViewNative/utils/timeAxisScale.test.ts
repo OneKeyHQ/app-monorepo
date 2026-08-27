@@ -25,6 +25,46 @@ describe('TradingViewNative time-axis scaling', () => {
     ).toBeLessThan(1);
   });
 
+  it('uses drag distance consistently regardless of the starting position', () => {
+    const dragFromLeft = getTradingViewNativeTimeAxisZoomScaleAfterDrag({
+      chartWidth: 200,
+      currentX: 70,
+      startX: 20,
+      startZoomScale: 1,
+    });
+    const dragFromRight = getTradingViewNativeTimeAxisZoomScaleAfterDrag({
+      chartWidth: 200,
+      currentX: 230,
+      startX: 180,
+      startZoomScale: 1,
+    });
+
+    expect(dragFromRight).toBeCloseTo(dragFromLeft);
+    expect(dragFromRight).toBeGreaterThan(1);
+  });
+
+  it('zooms in when dragging right from the chart boundary', () => {
+    expect(
+      getTradingViewNativeTimeAxisZoomScaleAfterDrag({
+        chartWidth: 200,
+        currentX: 205,
+        startX: 200,
+        startZoomScale: 1,
+      }),
+    ).toBeGreaterThan(1);
+  });
+
+  it('keeps the starting scale before an out-of-bounds drag moves', () => {
+    expect(
+      getTradingViewNativeTimeAxisZoomScaleAfterDrag({
+        chartWidth: 200,
+        currentX: 205,
+        startX: 205,
+        startZoomScale: 1,
+      }),
+    ).toBe(1);
+  });
+
   it('clamps time-axis dragging to the supported zoom range', () => {
     expect(
       getTradingViewNativeTimeAxisZoomScaleAfterDrag({

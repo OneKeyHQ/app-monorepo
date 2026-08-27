@@ -1,6 +1,7 @@
 import {
   getTradingViewNativePointerDragIntent,
-  getTradingViewNativeTimeAxisPointerZoomScale,
+  getTradingViewNativeTimeAxisPointerDragUpdate,
+  shouldStartTradingViewNativeViewportPointerDrag,
 } from './chartPointerInteraction';
 
 describe('TradingViewNative pointer drag intent', () => {
@@ -44,40 +45,86 @@ describe('TradingViewNative pointer drag intent', () => {
 describe('TradingViewNative time-axis pointer scaling', () => {
   const input = {
     chartWidth: 200,
+    currentY: 50,
     isActive: false,
     startX: 100,
+    startY: 50,
     startZoomScale: 1,
   };
 
   it('waits for horizontal movement beyond the drag threshold', () => {
     expect(
-      getTradingViewNativeTimeAxisPointerZoomScale({
+      getTradingViewNativeTimeAxisPointerDragUpdate({
         ...input,
         currentX: 104,
       }),
-    ).toBeNull();
+    ).toEqual({ type: 'pending' });
     expect(
-      getTradingViewNativeTimeAxisPointerZoomScale({
+      getTradingViewNativeTimeAxisPointerDragUpdate({
         ...input,
         currentX: 105,
       }),
-    ).not.toBeNull();
+    ).toMatchObject({ type: 'scale' });
+  });
+
+  it('cancels a vertical drag before horizontal scaling activates', () => {
+    expect(
+      getTradingViewNativeTimeAxisPointerDragUpdate({
+        ...input,
+        currentX: 103,
+        currentY: 63,
+      }),
+    ).toEqual({ type: 'cancel' });
+    expect(
+      getTradingViewNativeTimeAxisPointerDragUpdate({
+        ...input,
+        currentX: 101,
+        currentY: 100,
+        isActive: true,
+      }),
+    ).toMatchObject({ type: 'scale' });
   });
 
   it('zooms in to the right and out to the left after activation', () => {
+    const zoomIn = getTradingViewNativeTimeAxisPointerDragUpdate({
+      ...input,
+      currentX: 150,
+      isActive: true,
+    });
+    const zoomOut = getTradingViewNativeTimeAxisPointerDragUpdate({
+      ...input,
+      currentX: 50,
+      isActive: true,
+    });
+
+    expect(zoomIn.type).toBe('scale');
+    expect(zoomOut.type).toBe('scale');
+    if (zoomIn.type === 'scale' && zoomOut.type === 'scale') {
+      expect(zoomIn.zoomScale).toBeGreaterThan(1);
+      expect(zoomOut.zoomScale).toBeLessThan(1);
+    }
+  });
+});
+
+describe('TradingViewNative viewport pointer drag arbitration', () => {
+  it('starts only a primary-button drag without an active peer drag', () => {
     expect(
-      getTradingViewNativeTimeAxisPointerZoomScale({
-        ...input,
-        currentX: 150,
-        isActive: true,
+      shouldStartTradingViewNativeViewportPointerDrag({
+        button: 0,
+        hasActiveDrag: false,
       }),
-    ).toBeGreaterThan(1);
+    ).toBe(true);
     expect(
-      getTradingViewNativeTimeAxisPointerZoomScale({
-        ...input,
-        currentX: 50,
-        isActive: true,
+      shouldStartTradingViewNativeViewportPointerDrag({
+        button: 0,
+        hasActiveDrag: true,
       }),
-    ).toBeLessThan(1);
+    ).toBe(false);
+    expect(
+      shouldStartTradingViewNativeViewportPointerDrag({
+        button: 1,
+        hasActiveDrag: false,
+      }),
+    ).toBe(false);
   });
 });
