@@ -70,18 +70,44 @@ class ServiceBootstrap extends ServiceBase {
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
     if (platformEnv.isExtension || platformEnv.isDesktop) {
+      let desktopAppSessionUnlocked: boolean | undefined;
+      let hyperLiquidSessionRestored = false;
+      let hyperLiquidSessionUnlocked = false;
+      if (platformEnv.isDesktop) {
+        try {
+          desktopAppSessionUnlocked =
+            await globalThis.desktopApiProxy.security.getAppSessionUnlocked();
+        } catch (_error) {
+          defaultLogger.app.bootstrap.initCriticalStep(
+            'desktopAppSessionRestore (FAILED)',
+            0,
+          );
+        }
+      }
       try {
         const { restored, unlocked } =
           await localDb.restoreHyperLiquidAgentSecretSession();
+        hyperLiquidSessionRestored = restored;
+        hyperLiquidSessionUnlocked = unlocked;
+      } catch (_error) {
+        defaultLogger.app.bootstrap.initCriticalStep(
+          'hyperLiquidAgentSessionRestore (FAILED)',
+          0,
+        );
+      }
+      try {
         const { appLockDuration } = await passwordPersistAtom.get();
-        if (unlocked && isNeverLockDuration(appLockDuration)) {
+        const shouldRestoreAppUnlock = platformEnv.isDesktop
+          ? (desktopAppSessionUnlocked ?? hyperLiquidSessionUnlocked)
+          : hyperLiquidSessionUnlocked;
+        if (shouldRestoreAppUnlock && isNeverLockDuration(appLockDuration)) {
           await passwordAtom.set((value) => ({ ...value, unLock: true }));
-        } else if (restored) {
+        } else if (hyperLiquidSessionRestored) {
           await localDb.clearHyperLiquidAgentSecretSession();
         }
       } catch (_error) {
         defaultLogger.app.bootstrap.initCriticalStep(
-          'hyperLiquidAgentSessionRestore (FAILED)',
+          'appSessionUnlockRestore (FAILED)',
           0,
         );
       }

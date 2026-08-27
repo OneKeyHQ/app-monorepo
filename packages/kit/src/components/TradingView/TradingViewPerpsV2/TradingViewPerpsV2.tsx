@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
+import { useEnsureTradingEnabled } from '@onekeyhq/kit/src/views/Perp/hooks/useEnableTradingWithDepositFallback';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -298,6 +299,7 @@ export function TradingViewPerpsV2(
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
@@ -336,6 +338,30 @@ export function TradingViewPerpsV2(
 
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
+
+  // OK-59100: on iOS this flag gates both the header pan gesture and the tab
+  // scroller, and nothing ever reset it — a stray `open` arriving before the
+  // chart is live never receives its matching `close` and locks scrolling for
+  // the rest of the session (fail-closed). Accept `open` only once the chart
+  // reports ready; a reload invalidates any pending open state anyway.
+  const isChartContentReadyRef = useRef(isChartContentReady);
+  isChartContentReadyRef.current = isChartContentReady;
+  const guardedInteractionOverlayOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen && !isChartContentReadyRef.current) {
+        return;
+      }
+      onInteractionOverlayOpenChange?.(isOpen);
+    },
+    [onInteractionOverlayOpenChange],
+  );
+  // Any transition out of ready (reload, navigation, render-process loss)
+  // discards overlay state the chart can no longer close on its own.
+  useEffect(() => {
+    if (!isChartContentReady) {
+      onInteractionOverlayOpenChange?.(false);
+    }
+  }, [isChartContentReady, onInteractionOverlayOpenChange]);
 
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
@@ -545,15 +571,15 @@ export function TradingViewPerpsV2(
 
       // Message handler invokes this without await — swallow rejections to
       // avoid leaking them as unhandled; errors are already surfaced via
-      // withToast inside cancelChartOrder / ensureTradingEnabled.
+      // the enable-trading flow or cancelChartOrder.
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         await actions.current.cancelChartOrder({ oid });
       } catch {
         // intentional: toast owns the user-facing message
       }
     },
-    [actions, enablePerpsTradingUi],
+    [actions, enablePerpsTradingUi, ensureTradingEnabled],
   );
 
   const onOrderDraftCreate = useCallback(
@@ -632,7 +658,7 @@ export function TradingViewPerpsV2(
       }
 
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         await actions.current.amendChartOrder({
           coin: payload.symbol,
           oid,
@@ -650,7 +676,7 @@ export function TradingViewPerpsV2(
         });
       }
     },
-    [actions, enablePerpsTradingUi, webRef],
+    [actions, enablePerpsTradingUi, ensureTradingEnabled, webRef],
   );
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
@@ -664,7 +690,7 @@ export function TradingViewPerpsV2(
     onOrderPriceUpdate,
     onChartOrderIntent,
     onTouchScroll,
-    onInteractionOverlayOpenChange,
+    onInteractionOverlayOpenChange: guardedInteractionOverlayOpenChange,
   });
 
   // Chart lines management (liquidation, position, orders)

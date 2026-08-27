@@ -14,7 +14,10 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import {
+  APY_PRICE_SCALE_MARGINS,
+  LightweightChart,
+} from '@onekeyhq/kit/src/components/LightweightChart';
 import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
 
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -244,6 +247,10 @@ const ApyChartBaseComponent = ({
             lineWidth={lineWidth}
             showHorzGridLines={showHorzGridLines}
             showPriceScale={showPriceScale}
+            priceScaleEntireTextOnly={showPriceScale}
+            priceScaleMargins={
+              showPriceScale ? APY_PRICE_SCALE_MARGINS : undefined
+            }
             onHover={handleHover}
           />
           {showDivider ? <Divider mt="$8" /> : null}

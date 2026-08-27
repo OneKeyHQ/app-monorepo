@@ -157,6 +157,7 @@ import {
   encryptHyperLiquidAgentCredentialWithSessionKey,
   hyperLiquidAgentSecretSession,
   isHyperLiquidAgentPasswordEncryptedCredential,
+  shouldUseHyperLiquidAgentPasswordEncryption,
 } from './hyperLiquidAgentSecret';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -1506,7 +1507,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         candidate.canMigrate &&
         !shouldDeferHyperLiquidPlaintextLseMigration({
           candidate,
-          isNative: platformEnv.isNative === true,
+          usePasswordEncryption: shouldUseHyperLiquidAgentPasswordEncryption(),
         })
       );
     });
@@ -1732,7 +1733,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const shouldDeferToHyperLiquidPasswordMigration =
         shouldDeferHyperLiquidPlaintextLseMigration({
           candidate,
-          isNative: platformEnv.isNative === true,
+          usePasswordEncryption: shouldUseHyperLiquidAgentPasswordEncryption(),
         });
       if (!candidate.canMigrate || shouldDeferToHyperLiquidPasswordMigration) {
         nextLastScannedCredentialId = credential.id;
@@ -2098,7 +2099,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     replaceSessionKey?: boolean;
     skipWhenNoCredentials?: boolean;
   }): Promise<void> {
-    if (platformEnv.isNative) {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
       return;
     }
     if (
@@ -2131,7 +2132,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   private async ensureHyperLiquidAgentSecretSessionReadyBestEffort(): Promise<void> {
-    if (platformEnv.isNative || hyperLiquidAgentSecretSession.isReady()) {
+    if (
+      !shouldUseHyperLiquidAgentPasswordEncryption() ||
+      hyperLiquidAgentSecretSession.isReady()
+    ) {
       return;
     }
     try {
@@ -2166,6 +2170,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return hyperLiquidAgentSecretSession.restorePersistedSession();
   }
 
+  isHyperLiquidAgentSecretSessionReady(): boolean {
+    return hyperLiquidAgentSecretSession.isReady();
+  }
+
   async setHyperLiquidAgentSecretSessionUnlocked(
     unlocked: boolean,
   ): Promise<void> {
@@ -2183,7 +2191,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     password: string;
   }): Promise<void> {
-    if (platformEnv.isNative) {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
       return;
     }
     const credentials = await this.getAllHyperLiquidAgentCredentials();
@@ -2247,15 +2255,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       agentName: credential.agentName,
     });
     let serializedCredential: string;
-    if (platformEnv.isNative) {
-      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
-    } else {
+    if (shouldUseHyperLiquidAgentPasswordEncryption()) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
       serializedCredential =
         await hyperLiquidAgentSecretSession.encryptCredential({
           credential,
           recordId: credentialId,
         });
+    } else {
+      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
     }
     const credentialToAddInfo =
       await this.buildCredentialForLocalSecretEnvelopeWrite({
@@ -2305,15 +2313,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       agentName: credential.agentName,
     });
     let serializedCredential: string;
-    if (platformEnv.isNative) {
-      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
-    } else {
+    if (shouldUseHyperLiquidAgentPasswordEncryption()) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
       serializedCredential =
         await hyperLiquidAgentSecretSession.encryptCredential({
           credential,
           recordId: credentialId,
         });
+    } else {
+      serializedCredential = encryptHyperLiquidAgentCredential({ credential });
     }
     const originalCredential = await this.getCredentialRaw(credentialId);
     const compareAndSwapCredential =
@@ -2414,7 +2422,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         })
       : rawCredential;
     const isSessionEncryptedCredential =
-      !platformEnv.isNative &&
+      shouldUseHyperLiquidAgentPasswordEncryption() &&
       isHyperLiquidAgentPasswordEncryptedCredential(credential.credential);
     if (isSessionEncryptedCredential) {
       await this.ensureHyperLiquidAgentSecretSessionReadyBestEffort();
@@ -2431,7 +2439,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (
       credentialDecrypt &&
       (!isLocalSecretEnvelopeString(rawCredential.credential) ||
-        (!platformEnv.isNative &&
+        (shouldUseHyperLiquidAgentPasswordEncryption() &&
           !isHyperLiquidAgentPasswordEncryptedCredential(
             credential.credential,
           )))
@@ -2987,13 +2995,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     credentials: IDBCredentialBase[];
   }) {
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        ids: credentials.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          ids: credentials.map((item) => item.id),
+        });
+      },
+    );
 
     const hyperLiquidAgentCredentialIds = credentials
       .map((item) => item.id)
@@ -5228,13 +5239,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async clearAllSyncItems() {
     const { syncItems } = await this.getAllSyncItems();
     // EIndexedDBBucketNames.cloudSync
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.CloudSyncItem,
-        ids: syncItems.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.CloudSyncItem,
+          ids: syncItems.map((item) => item.id),
+        });
+      },
+    );
   }
 
   async getAllSyncItems(): Promise<{
@@ -5389,9 +5403,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async removeCloudSyncPoolItems({ keys }: { keys: string[] }) {
     // EIndexedDBBucketNames.cloudSync
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveCloudSyncPoolItems({ tx, keys });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveCloudSyncPoolItems({ tx, keys });
+      },
+    );
   }
 
   async txRemoveCloudSyncPoolItems({
@@ -7420,101 +7437,104 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      // call remove account & indexed account
-      // remove credential
-      // remove wallet
-      // remove address
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        // call remove account & indexed account
+        // remove credential
+        // remove wallet
+        // remove address
 
-      if (isHardware) {
-        if (
-          !isRemoveToMocked &&
-          wallet.associatedDevice &&
-          !accountUtils.isHwHiddenWallet({ wallet })
-        ) {
-          // remove device
+        if (isHardware) {
           if (
-            walletsInSameDevice.length === 1 &&
-            walletsInSameDevice[0].id === wallet.id
+            !isRemoveToMocked &&
+            wallet.associatedDevice &&
+            !accountUtils.isHwHiddenWallet({ wallet })
           ) {
-            await this.txRemoveRecords({
-              tx,
-              name: ELocalDBStoreNames.Device,
-              ids: [wallet.associatedDevice],
-              ignoreNotFound: true,
-            });
-          }
+            // remove device
+            if (
+              walletsInSameDevice.length === 1 &&
+              walletsInSameDevice[0].id === wallet.id
+            ) {
+              await this.txRemoveRecords({
+                tx,
+                name: ELocalDBStoreNames.Device,
+                ids: [wallet.associatedDevice],
+                ignoreNotFound: true,
+              });
+            }
 
-          // remove all hidden wallets
-          const { recordPairs } = await this.txGetAllRecords({
-            tx,
-            name: ELocalDBStoreNames.Wallet,
-          });
-          const allWallets = recordPairs.filter(Boolean);
-          const matchedHiddenWallets = allWallets
-            .filter(
-              ([hiddenWallet]) =>
-                hiddenWallet &&
-                accountUtils.isHwHiddenWallet({ wallet: hiddenWallet }) &&
-                hiddenWallet.id.startsWith(wallet.id) &&
-                hiddenWallet.associatedDevice === wallet.associatedDevice,
-            )
-            ?.filter(Boolean);
-          if (matchedHiddenWallets?.length) {
-            await this.txRemoveRecords({
+            // remove all hidden wallets
+            const { recordPairs } = await this.txGetAllRecords({
+              tx,
               name: ELocalDBStoreNames.Wallet,
-              tx,
-              recordPairs: matchedHiddenWallets,
             });
+            const allWallets = recordPairs.filter(Boolean);
+            const matchedHiddenWallets = allWallets
+              .filter(
+                ([hiddenWallet]) =>
+                  hiddenWallet &&
+                  accountUtils.isHwHiddenWallet({ wallet: hiddenWallet }) &&
+                  hiddenWallet.id.startsWith(wallet.id) &&
+                  hiddenWallet.associatedDevice === wallet.associatedDevice,
+              )
+              ?.filter(Boolean);
+            if (matchedHiddenWallets?.length) {
+              await this.txRemoveRecords({
+                name: ELocalDBStoreNames.Wallet,
+                tx,
+                recordPairs: matchedHiddenWallets,
+              });
+            }
           }
-        }
-      } else if (isHdWallet) {
-        await this.txRemoveRecords({
-          tx,
-          name: ELocalDBStoreNames.Credential,
-          ids: [walletId],
-        });
-      }
-
-      if (
-        isHardware &&
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        isRemoveToMocked
-      ) {
-        await this.txUpdateWallet({
-          tx,
-          walletId,
-          updater: (item) => {
-            item.isMocked = true;
-            return item;
-          },
-        });
-      } else {
-        await this.txRemoveRecords({
-          tx,
-          name: ELocalDBStoreNames.Wallet,
-          ids: [walletId],
-        });
-      }
-
-      if (accountUtils.isHdWallet({ walletId }) || isHardware) {
-        const { recordPairs } = await this.txGetAllRecords({
-          tx,
-          name: ELocalDBStoreNames.IndexedAccount,
-        });
-        const allIndexedAccounts = recordPairs.filter(Boolean);
-        const indexedAccounts = allIndexedAccounts
-          .filter((item) => item[0].walletId === walletId)
-          .filter(Boolean);
-        if (indexedAccounts) {
+        } else if (isHdWallet) {
           await this.txRemoveRecords({
             tx,
-            name: ELocalDBStoreNames.IndexedAccount,
-            recordPairs: indexedAccounts,
+            name: ELocalDBStoreNames.Credential,
+            ids: [walletId],
           });
         }
-      }
-    });
+
+        if (
+          isHardware &&
+          !accountUtils.isHwHiddenWallet({ wallet }) &&
+          isRemoveToMocked
+        ) {
+          await this.txUpdateWallet({
+            tx,
+            walletId,
+            updater: (item) => {
+              item.isMocked = true;
+              return item;
+            },
+          });
+        } else {
+          await this.txRemoveRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            ids: [walletId],
+          });
+        }
+
+        if (accountUtils.isHdWallet({ walletId }) || isHardware) {
+          const { recordPairs } = await this.txGetAllRecords({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+          });
+          const allIndexedAccounts = recordPairs.filter(Boolean);
+          const indexedAccounts = allIndexedAccounts
+            .filter((item) => item[0].walletId === walletId)
+            .filter(Boolean);
+          if (indexedAccounts) {
+            await this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.IndexedAccount,
+              recordPairs: indexedAccounts,
+            });
+          }
+        }
+      },
+    );
 
     if (syncKeyInfo) {
       await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
@@ -8900,13 +8920,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     indexedAccounts: IDBIndexedAccount[];
   }) {
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.IndexedAccount,
-        ids: indexedAccounts.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: indexedAccounts.map((item) => item.id),
+        });
+      },
+    );
   }
 
   // TODO remove associated account
@@ -8939,51 +8962,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     // const syncItemKey = await getSyncItemKeyFn();
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.IndexedAccount,
-        ids: [indexedAccountId],
-      });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [indexedAccountId],
+        });
 
-      // keep sync item for same mnemonic wallet accounts creation
-      // if (syncItemKey) {
-      //   await this.txRemoveCloudSyncPoolItems({
-      //     tx,
-      //     keys: [syncItemKey],
-      //   });
-      // }
-    });
+        // keep sync item for same mnemonic wallet accounts creation
+        // if (syncItemKey) {
+        //   await this.txRemoveCloudSyncPoolItems({
+        //     tx,
+        //     keys: [syncItemKey],
+        //   });
+        // }
+      },
+    );
   }
 
   async removeAccountsByIds({ ids }: { ids: string[] }) {
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.Account,
-        ignoreNotFound: true,
-        ids: ids.map((id) => {
-          const accountId = id;
-          const walletId = accountUtils.getWalletIdFromAccountId({
-            accountId,
-          });
-
-          if (walletId) {
-            walletToRemovedAccountsMap[walletId] = [
-              ...(walletToRemovedAccountsMap[walletId] || []),
-              accountId,
-            ];
-          }
-          return accountId;
-        }),
-      });
+    const accountIdsToRemove = ids.map((accountId) => {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      if (walletId) {
+        walletToRemovedAccountsMap[walletId] = [
+          ...(walletToRemovedAccountsMap[walletId] || []),
+          accountId,
+        ];
+      }
+      return accountId;
     });
-
     const mapEntries = Object.entries(walletToRemovedAccountsMap);
-    if (mapEntries.length > 0) {
-      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+
+    // Removal and the wallet-reference cleanup share ONE space-freeing
+    // transaction. Split across two, the second was refused while the
+    // disk-full guard was raised, leaving wallets pointing at accounts that
+    // no longer exist; and even unguarded, a failure between them left the
+    // same inconsistency. `removeAccount` already has this shape.
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ignoreNotFound: true,
+          ids: accountIdsToRemove,
+        });
+
         for (const [walletId, accountIds] of mapEntries) {
           if (!walletId || !accountIds || accountIds.length === 0) {
             // eslint-disable-next-line no-continue
@@ -9000,8 +9027,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
           });
         }
-      });
-    }
+      },
+    );
   }
 
   async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
@@ -9032,34 +9059,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       syncItemKey = keyInfo.key;
     }
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.Account,
-        ids: [accountId],
-      });
-      await this.txUpdateWallet({
-        tx,
-        walletId,
-        updater(item) {
-          item.accounts = (item.accounts || ([] as string[])).filter(
-            (id) => id !== accountId,
-          );
-          return item;
-        },
-      });
-      if (
-        accountUtils.isImportedWallet({
-          walletId,
-        })
-      ) {
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
         await this.txRemoveRecords({
           tx,
-          name: ELocalDBStoreNames.Credential,
+          name: ELocalDBStoreNames.Account,
           ids: [accountId],
         });
-      }
-    });
+        await this.txUpdateWallet({
+          tx,
+          walletId,
+          updater(item) {
+            item.accounts = (item.accounts || ([] as string[])).filter(
+              (id) => id !== accountId,
+            );
+            return item;
+          },
+        });
+        if (
+          accountUtils.isImportedWallet({
+            walletId,
+          })
+        ) {
+          await this.txRemoveRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            ids: [accountId],
+          });
+        }
+      },
+    );
 
     if (syncItemKey) {
       await this.removeCloudSyncPoolItems({ keys: [syncItemKey] });
@@ -9700,14 +9730,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async deleteHardwareHomeScreen({ homeScreenId }: { homeScreenId: string }) {
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      await this.txRemoveRecords({
-        name: ELocalDBStoreNames.HardwareHomeScreen,
-        tx,
-        ids: [homeScreenId],
-        ignoreNotFound: true,
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.HardwareHomeScreen,
+          tx,
+          ids: [homeScreenId],
+          ignoreNotFound: true,
+        });
+      },
+    );
   }
 
   // #endregion
@@ -9982,39 +10015,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const allSignedMessage = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedMessage,
     });
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      await this.txRemoveRecords({
-        name: ELocalDBStoreNames.SignedMessage,
-        tx,
-        ids: allSignedMessage.records.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.SignedMessage,
+          tx,
+          ids: allSignedMessage.records.map((item) => item.id),
+        });
+      },
+    );
   }
 
   async removeAllSignedTransaction() {
     const allSignedTransaction = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
     });
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      await this.txRemoveRecords({
-        name: ELocalDBStoreNames.SignedTransaction,
-        tx,
-        ids: allSignedTransaction.records.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.SignedTransaction,
+          tx,
+          ids: allSignedTransaction.records.map((item) => item.id),
+        });
+      },
+    );
   }
 
   async removeAllConnectedSite() {
     const allConnectedSite = await this.getAllRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      await this.txRemoveRecords({
-        name: ELocalDBStoreNames.ConnectedSite,
-        tx,
-        ids: allConnectedSite.records.map((item) => item.id),
-      });
-    });
+    await this.withSpaceFreeingTransaction(
+      EIndexedDBBucketNames.archive,
+      async (tx) => {
+        await this.txRemoveRecords({
+          name: ELocalDBStoreNames.ConnectedSite,
+          tx,
+          ids: allConnectedSite.records.map((item) => item.id),
+        });
+      },
+    );
   }
 
   // #endregion

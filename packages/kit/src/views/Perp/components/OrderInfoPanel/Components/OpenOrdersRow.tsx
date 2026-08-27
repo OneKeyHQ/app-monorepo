@@ -35,6 +35,10 @@ import {
   getColumnStyle,
   getOrderAssetDisplayName,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -410,8 +414,8 @@ const OpenOrdersRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}

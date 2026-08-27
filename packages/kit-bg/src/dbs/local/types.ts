@@ -840,6 +840,13 @@ export type ILocalDBWithTransactionTask<T> = (
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
   readOnly?: boolean;
+  /**
+   * Let the transaction run while the disk-full guard is raised. Set it for
+   * space-freeing work (record removal, store clearing): deleting local data is
+   * the main way a user recovers from exhausted storage, so blocking it would
+   * turn a recoverable state into a dead end.
+   */
+  allowWhenStorageFull?: boolean;
 };
 
 export interface ILocalDBAgent {

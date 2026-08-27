@@ -110,8 +110,8 @@ export function BorrowRewardsMetric({
     showBorrowClaimRewardsDialog({
       rewardsDetails,
       pendingClaimIds,
-      onClaimItem: async (item) => {
-        await handleBorrowClaim({
+      onClaimItem: async (item) =>
+        handleBorrowClaim({
           provider,
           marketAddress,
           ids: [item.id],
@@ -119,13 +119,12 @@ export function BorrowRewardsMetric({
           onSuccess: () => {
             void onClaimed();
           },
-        });
-      },
+        }),
       onClaimAll: async () => {
         if (allIds.length === 0) {
-          return;
+          return false;
         }
-        await handleBorrowClaim({
+        return handleBorrowClaim({
           provider,
           marketAddress,
           ids: allIds,
