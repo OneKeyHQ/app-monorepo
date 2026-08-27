@@ -66,6 +66,13 @@ module.exports = async () => {
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
       '^lodash-es$': 'lodash',
+      // jest-expo 56 inherits @react-native/jest-preset's
+      // '^react-native($|/.*)' -> real react-native mapping, which is ordered
+      // before the web preset's '^react-native$' -> 'react-native-web' alias.
+      // Jest picks the first matching rule, so bare 'react-native' imports
+      // resolve to RN 0.85's Flow-syntax entry and fail to parse. Config-level
+      // mappings precede preset mappings, so restore the web alias here.
+      '^react-native$': 'react-native-web',
       // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
       // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
     },
