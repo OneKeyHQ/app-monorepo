@@ -21,6 +21,7 @@ import {
   isSwapTokenSupportedBySwapType,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
+  shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
@@ -1531,6 +1532,29 @@ describe('swap cold-start selected token context', () => {
         hasImportParams: true,
         hasSelectedTokens: true,
         initialSelectedTokensSynced: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('defers shared Swap token sync while Native Pro owns the token UI', () => {
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: true,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: false,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: true,
+        swapType: ESwapTabSwitchType.SWAP,
       }),
     ).toBe(false);
   });

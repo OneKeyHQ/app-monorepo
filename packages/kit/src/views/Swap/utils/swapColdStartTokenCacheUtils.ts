@@ -807,6 +807,16 @@ export function shouldSkipSwapDefaultSelectedTokenSync({
   return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
 }
 
+export function shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+  isNative,
+  swapType,
+}: {
+  isNative: boolean;
+  swapType: ESwapTabSwitchType;
+}) {
+  return isNative && swapType === ESwapTabSwitchType.LIMIT;
+}
+
 function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
   if (!token) {
     return '';
