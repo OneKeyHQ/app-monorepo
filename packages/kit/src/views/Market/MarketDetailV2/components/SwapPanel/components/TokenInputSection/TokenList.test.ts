@@ -109,6 +109,21 @@ describe('TokenList loading gate', () => {
     expect(screen.queryByTestId('token-row')).toBeNull();
   });
 
+  it('clears stale network account data on reruns and failed lookups', () => {
+    renderTokenList({
+      activeAccountReady: true,
+      tokenDetailsAccountId: 'account-old',
+    });
+
+    expect(screen.getAllByTestId('skeleton')).not.toHaveLength(0);
+    expect(screen.queryByTestId('token-row')).toBeNull();
+    expect(mockUsePromiseResult.mock.calls[0]?.[2]).toMatchObject({
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+      watchLoading: true,
+    });
+  });
+
   it('shows settled value-sorted rows only after account and requests align', () => {
     renderTokenList({
       activeAccountReady: true,

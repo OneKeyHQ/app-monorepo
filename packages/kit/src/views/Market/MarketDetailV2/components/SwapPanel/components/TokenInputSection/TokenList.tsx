@@ -90,7 +90,11 @@ export function TokenList({
       currentNetworkId,
       shouldFetchTokenDetails,
     ],
-    { watchLoading: shouldFetchTokenDetails },
+    {
+      watchLoading: shouldFetchTokenDetails,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
   );
 
   // fetch token details

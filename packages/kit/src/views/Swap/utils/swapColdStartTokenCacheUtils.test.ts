@@ -1560,7 +1560,7 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
   });
 
-  it('exposes a Native Pro owner edge when returning to Swap', () => {
+  it('changes the owner dependency only when Native Pro returns to Swap', () => {
     expect(
       [ESwapTabSwitchType.LIMIT, ESwapTabSwitchType.SWAP].map((swapType) =>
         shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
