@@ -1592,6 +1592,7 @@ class ServiceHardware extends ServiceBase {
                 connectId: appliedConnectId,
                 payload: appliedPayload,
                 shouldClearUiState: Boolean(reduction.shouldClearUiState),
+                askCompleted: Boolean(reduction.askCompleted),
               },
             );
           })
