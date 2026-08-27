@@ -8,6 +8,7 @@ import type {
   IAuthChecklistItem,
   IDeviceStageProps,
   IDeviceStageStep,
+  IDeviceStageWalletType,
 } from '@onekeyhq/components/src/composite/DeviceStage';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
@@ -154,6 +155,13 @@ export function useStageDriver(
     () => go('passphraseOnApp'),
     [go],
   );
+  // The fork answered: standard heads straight into the create burst,
+  // hidden opens the teach-first intro — the live flow's own next beats.
+  const handleSelectWalletType = useCallback(
+    (walletType: IDeviceStageWalletType) =>
+      go(walletType === 'hidden' ? 'passphraseIntro' : 'processing'),
+    [go],
+  );
   const handleSwitchToDevice = useCallback(() => {
     setInputError(undefined);
     setStep((current) =>
@@ -257,6 +265,7 @@ export function useStageDriver(
       onAuthRetry: startAuthChecklist,
       onAuthContinueAnyway: handleAuthContinueAnyway,
       onPinSubmit: handlePinSubmit,
+      onSelectWalletType: handleSelectWalletType,
       onPassphraseIntroContinue: handlePassphraseIntroContinue,
       onPassphraseSubmit: handlePassphraseSubmit,
       onPassphraseAttachPin: handlePassphraseAttachPin,
