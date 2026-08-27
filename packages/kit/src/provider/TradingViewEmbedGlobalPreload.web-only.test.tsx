@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import {
   loadTradingViewEmbedModule,
@@ -51,7 +51,7 @@ describe('TradingViewEmbedGlobalPreload', () => {
     jest.clearAllMocks();
   });
 
-  test('finishes migration before preloading the DOM runtime', async () => {
+  test('preloads migration and the DOM runtime in parallel', async () => {
     let resolveEmbedModule:
       | ((
           value: Awaited<ReturnType<typeof loadTradingViewEmbedModule>>,
@@ -85,7 +85,9 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     render(<TradingViewEmbedGlobalPreload />);
 
-    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
+    expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
+      'http://localhost:5173/?locale=zh-CN',
+    );
     expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
     expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
       'http://localhost:5173/?locale=zh-CN',
@@ -96,15 +98,6 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     await act(async () => {
       resolveLegacyMigration?.();
-      await Promise.resolve();
-    });
-    await waitFor(() => {
-      expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
-        'http://localhost:5173/?locale=zh-CN',
-      );
-    });
-
-    await act(async () => {
       resolveEmbedModule?.({
         assetBaseUrl: 'http://localhost:5173/',
         module: {

@@ -59,11 +59,9 @@ export function parsePinnedTradingViewEmbedManifestUrl(
 export function getTradingViewBaseUrl({
   devSettings,
   localTradingViewUrl,
-  pinnedEmbedManifestUrl,
 }: {
   devSettings: IDevSettingsPersistAtom;
   localTradingViewUrl: string;
-  pinnedEmbedManifestUrl?: string;
 }) {
   if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
     return localTradingViewUrl;
@@ -73,8 +71,5 @@ export function getTradingViewBaseUrl({
     return TRADING_VIEW_URL_TEST;
   }
 
-  return (
-    parsePinnedTradingViewEmbedManifestUrl(pinnedEmbedManifestUrl)
-      ?.runtimeBaseUrl ?? TRADING_VIEW_URL
-  );
+  return TRADING_VIEW_URL;
 }

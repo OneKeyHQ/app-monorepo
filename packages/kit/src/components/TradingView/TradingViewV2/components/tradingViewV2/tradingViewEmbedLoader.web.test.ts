@@ -18,6 +18,7 @@ const buildAsset = (file: string) => ({
 describe('preloadTradingViewEmbedBootstrapAssets', () => {
   afterEach(() => {
     delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
+    delete process.env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL;
     jest.restoreAllMocks();
   });
 
@@ -310,7 +311,9 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
         },
       },
     });
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL = manifestUrl;
+    process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
+      'https://tradingview.onekey.so/production-release/embed/embed-manifest.json';
+    process.env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL = manifestUrl;
     const fetchMock = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(

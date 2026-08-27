@@ -110,17 +110,23 @@ function resolveManifestUrl(runtimeUrl?: string): string {
     return new URL('/latest.json', runtime.origin).toString();
   }
 
-  const pinnedManifest = parsePinnedTradingViewEmbedManifestUrl(
+  const pinnedManifests = [
     process.env.TRADINGVIEW_EMBED_MANIFEST_URL,
+    process.env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL,
+  ]
+    .map((manifestUrl) => parsePinnedTradingViewEmbedManifestUrl(manifestUrl))
+    .filter((manifest) => manifest !== undefined);
+  const pinnedManifest = pinnedManifests.find(
+    (manifest) => !runtime || runtime.origin === manifest.runtimeBaseUrl,
   );
   if (!pinnedManifest) {
+    if (runtime && pinnedManifests.length > 0) {
+      throw new OneKeyLocalError(
+        'TradingView runtime and pinned manifest origins do not match',
+      );
+    }
     throw new OneKeyLocalError(
       'TradingView embed requires a release-pinned manifest',
-    );
-  }
-  if (runtime && runtime.origin !== pinnedManifest.runtimeBaseUrl) {
-    throw new OneKeyLocalError(
-      'TradingView runtime and pinned manifest origins do not match',
     );
   }
   return pinnedManifest.manifestUrl;

@@ -25,9 +25,6 @@ permissions:
   packages: read
   actions: read
 
-env:
-  TRADINGVIEW_EMBED_TEST_MANIFEST_URL: 'https://tradingview.onekeytest.com/d4420a44a008b14c29ffb38918a63bcafa1213a6/embed/embed-manifest.json'
-
 jobs:
   validate-pr:
     if: ${{ inputs.pr_number }}
@@ -231,7 +228,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           NODE_ENV: production
           SENTRY_UPLOAD_BY_CLI: 'true'
-          TRADINGVIEW_EMBED_MANIFEST_URL: ${{ env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL }}
           WEB_EMBED_SKIP_POSTBUILD: 'true'
         run: yarn workspace @onekeyhq/web-embed build
 

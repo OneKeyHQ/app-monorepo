@@ -164,26 +164,6 @@ async function mountLoadedTradingViewEmbed(
   context.refs.mountingModule.current = null;
 }
 
-async function loadAndMountTradingViewEmbed(
-  context: ITradingViewRuntimeContext,
-  lifecycle: ITradingViewRuntimeLifecycle,
-): Promise<void> {
-  try {
-    await migrateLegacyTradingViewStorage(context.runtimeUrl);
-  } catch (error) {
-    defaultLogger.app.error.log(
-      `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
-        error,
-      )}`,
-    );
-  }
-  if (lifecycle.cancelled || lifecycle.failed) {
-    return;
-  }
-  const loaded = await loadTradingViewEmbedModule(context.runtimeUrl);
-  await mountLoadedTradingViewEmbed(loaded, context, lifecycle);
-}
-
 function stopTradingViewRuntime(
   context: ITradingViewRuntimeContext,
   lifecycle: ITradingViewRuntimeLifecycle,
@@ -217,7 +197,18 @@ function startTradingViewRuntime(
   // Chart readiness includes the first data request, so only explicit chart
   // errors should trigger fallback while the embed module is mounting.
   void lifecycle.monitor.wait().catch(handleFailure);
-  void loadAndMountTradingViewEmbed(context, lifecycle).catch(handleFailure);
+  void migrateLegacyTradingViewStorage(context.runtimeUrl).catch(
+    (error: unknown) => {
+      defaultLogger.app.error.log(
+        `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+          error,
+        )}`,
+      );
+    },
+  );
+  void loadTradingViewEmbedModule(context.runtimeUrl)
+    .then((loaded) => mountLoadedTradingViewEmbed(loaded, context, lifecycle))
+    .catch(handleFailure);
   return () => stopTradingViewRuntime(context, lifecycle);
 }
 
