@@ -112,6 +112,20 @@ const { sourceMapStringNonBlocking } = require(
     'metro/src/DeltaBundler/Serializers/sourceMapString',
   ),
 );
+// Expo SDK 56's transform worker stores each module's source map as a packed
+// `SerializableSourceMap` object instead of the tuple array that the vanilla
+// metro serializers used by this script expect (`fromRawMappings` throws
+// "Unexpected module with full source map found" otherwise). Wrapping
+// `Bundler.transformFile` — the same hook `@expo/cli` installs in
+// `instantiateMetro` — converts packed maps into `Array.isArray`-true proxies
+// for both fresh worker results and cache hits.
+const { patchTransformFileForPackedMaps } = require(
+  path.resolve(
+    __dirname,
+    '../../../node_modules',
+    '@expo/metro-config/build/serializer/packedMap',
+  ),
+);
 
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
@@ -127,10 +141,23 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 // tolerated and went unnoticed).
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
-const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-);
+// RN 0.85 moved the prebuilt hermesc out of react-native/sdks into the
+// standalone `hermes-compiler` package; keep the legacy path as a fallback.
+// When neither exists, keep the primary candidate so the spawn ENOENT names
+// the expected location instead of `undefined`.
+const HERMES_COMMAND_CANDIDATES = [
+  path.join(
+    projectRootPath,
+    `node_modules/hermes-compiler/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  ),
+  path.join(
+    projectRootPath,
+    `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  ),
+];
+const HERMES_COMMAND =
+  HERMES_COMMAND_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
+  HERMES_COMMAND_CANDIDATES[0];
 
 function runHermescAsync({ outPath, inputPath }) {
   return new Promise((resolve, reject) => {
@@ -1959,6 +1986,7 @@ async function main() {
   }
 
   const metroServer = await Metro.runMetro(config, { watch: false });
+  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();

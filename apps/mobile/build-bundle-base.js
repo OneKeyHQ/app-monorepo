@@ -72,10 +72,21 @@ const resolveWebEmbedSentryRelease = () => {
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 // cspell:ignore hermesc
-const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-);
+// RN 0.85 moved the prebuilt hermesc out of react-native/sdks into the
+// standalone `hermes-compiler` package; keep the legacy path as a fallback.
+const HERMES_COMMAND_CANDIDATES = [
+  path.join(
+    projectRootPath,
+    `node_modules/hermes-compiler/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  ),
+  path.join(
+    projectRootPath,
+    `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  ),
+];
+const HERMES_COMMAND =
+  HERMES_COMMAND_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
+  HERMES_COMMAND_CANDIDATES[0];
 
 const webEmbedOutputPath = path.join(
   projectRootPath,
