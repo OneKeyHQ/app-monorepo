@@ -21,8 +21,6 @@ const forbiddenPatterns = [
   '__TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY__',
   'TRADINGVIEW_EMBED_BUILD_MANIFEST_URL',
   'TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY',
-  'https://tradingview.onekey.so/embed/latest.json',
-  'https://tradingview.onekeytest.com/embed/latest.json',
 ];
 
 for (const pattern of forbiddenPatterns) {
@@ -42,7 +40,7 @@ if (manifestFileNames.length > 0) {
 }
 
 console.log(
-  '[service-worker] Remote TradingView manifests require a version-pinned URL.',
+  '[service-worker] TradingView manifest will be resolved from the runtime URL.',
 );
 
 console.log('[service-worker] compiled bundle validation passed.');

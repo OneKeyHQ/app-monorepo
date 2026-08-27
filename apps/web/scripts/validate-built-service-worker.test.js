@@ -8,13 +8,11 @@ const validatorPath = path.resolve(
   'validate-built-service-worker.mjs',
 );
 
-function createBuildDirectory({
-  includeManifest = false,
-  serviceWorker = 'const ready = true;',
-} = {}) {
+function createBuildDirectory({ includeManifest = false } = {}) {
   const buildDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'tradingview-embed-build-'),
   );
+  const serviceWorker = 'const ready = true;';
   if (includeManifest) {
     const manifestFileName = 'tradingview-embed-manifest.test-v1.json';
     const manifestBytes = Buffer.from('{"version":"test-v1"}\n');
@@ -47,12 +45,12 @@ describe('validate-built-service-worker', () => {
     }
   });
 
-  test('accepts a build without a mutable remote manifest pointer', () => {
+  test('accepts a build without a pinned manifest', () => {
     const buildDirectory = createBuildDirectory();
     buildDirectories.push(buildDirectory);
 
     expect(validateBuild(buildDirectory)).toContain(
-      'Remote TradingView manifests require a version-pinned URL',
+      'TradingView manifest will be resolved from the runtime URL',
     );
   });
 
@@ -62,18 +60,6 @@ describe('validate-built-service-worker', () => {
 
     expect(() => validateBuild(buildDirectory)).toThrow(
       'Web build must not contain a pinned TradingView embed manifest',
-    );
-  });
-
-  test('rejects a mutable remote TradingView manifest pointer', () => {
-    const buildDirectory = createBuildDirectory({
-      serviceWorker:
-        'const manifest = "https://tradingview.onekey.so/embed/latest.json";',
-    });
-    buildDirectories.push(buildDirectory);
-
-    expect(() => validateBuild(buildDirectory)).toThrow(
-      'compiled bundle contains forbidden pattern: https://tradingview.onekey.so/embed/latest.json',
     );
   });
 });

@@ -13,8 +13,7 @@ function createMemoryCache(responses = new Map()) {
 }
 
 describe('TradingView embed manifest cache', () => {
-  const manifestUrl =
-    'https://tradingview.onekeytest.com/recovery-v1/embed/embed-manifest.json';
+  const manifestUrl = 'https://tradingview.onekeytest.com/embed/latest.json';
   const manifest = {
     schema: 2,
     version: 'recovery-v1',

@@ -150,9 +150,6 @@ test('updates an outdated service worker before starting prefetch', async () => 
     .mockResolvedValueOnce(
       new Response(JSON.stringify(manifest), { status: 200 }),
     );
-  process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-    'https://tradingview.onekeytest.com/controller-ready/embed/embed-manifest.json';
-
   try {
     const preloadPromise = preloadTradingViewEmbedBootstrapAssets(
       'https://tradingview.onekeytest.com/?locale=en',
@@ -187,7 +184,6 @@ test('updates an outdated service worker before starting prefetch', async () => 
       expect.any(Function),
     );
   } finally {
-    delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
     jest.restoreAllMocks();
     if (originalNavigatorDescriptor) {
       Object.defineProperty(
@@ -262,9 +258,6 @@ test('reuses a compatible controller without matching its script URL', async () 
     .mockResolvedValueOnce(
       new Response(JSON.stringify(manifest), { status: 200 }),
     );
-  process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-    'https://tradingview.onekey.so/compatible-controller/embed/embed-manifest.json';
-
   try {
     await preloadTradingViewEmbedBootstrapAssets(
       'https://tradingview.onekey.so/?locale=en',
@@ -280,7 +273,6 @@ test('reuses a compatible controller without matching its script URL', async () 
       expect.any(Array),
     );
   } finally {
-    delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
     jest.restoreAllMocks();
     if (originalNavigatorDescriptor) {
       Object.defineProperty(
@@ -327,9 +319,6 @@ test('rejects instead of waiting forever when no compatible controller takes ove
       },
     },
   });
-  process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-    'https://tradingview.onekeytest.com/controller-timeout/embed/embed-manifest.json';
-
   try {
     const preloadPromise = preloadTradingViewEmbedBootstrapAssets(
       'https://tradingview.onekeytest.com/?locale=zh-CN',
@@ -345,7 +334,6 @@ test('rejects instead of waiting forever when no compatible controller takes ove
     );
     expect(fetchMock).not.toHaveBeenCalled();
   } finally {
-    delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
     jest.useRealTimers();
     jest.restoreAllMocks();
     if (originalNavigatorDescriptor) {

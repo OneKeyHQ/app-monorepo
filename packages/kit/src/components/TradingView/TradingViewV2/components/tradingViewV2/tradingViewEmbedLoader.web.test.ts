@@ -18,7 +18,6 @@ const buildAsset = (file: string) => ({
 describe('preloadTradingViewEmbedBootstrapAssets', () => {
   afterEach(() => {
     delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
-    delete process.env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL;
     jest.restoreAllMocks();
   });
 
@@ -259,13 +258,14 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
   });
 
   test('resolves the remote runtime manifest through the service worker', async () => {
-    const manifestUrl =
-      'https://tradingview.onekeytest.com/test-runtime/embed/embed-manifest.json';
-    const manifest = {
+    const manifestPointer = {
       schema: 2,
       version: 'test-runtime',
       baseUrl: 'https://tradingview.onekeytest.com/test-runtime/embed/',
       entry: 'onekey-tradingview-embed.js',
+    };
+    const manifest = {
+      ...manifestPointer,
       bootstrap: {
         commonAssets: [
           'onekey-tradingview-embed.js',
@@ -311,11 +311,11 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
         },
       },
     });
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-      'https://tradingview.onekey.so/production-release/embed/embed-manifest.json';
-    process.env.TRADINGVIEW_EMBED_TEST_MANIFEST_URL = manifestUrl;
     const fetchMock = jest
       .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(manifestPointer), { status: 200 }),
+      )
       .mockResolvedValueOnce(
         new Response(JSON.stringify(manifest), { status: 200 }),
       );
@@ -325,19 +325,35 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
         'https://tradingview.onekeytest.com/?locale=fr-FR',
       );
 
-      expect(fetchMock).toHaveBeenNthCalledWith(1, manifestUrl, {
-        cache: 'no-store',
-        credentials: 'omit',
-        mode: 'cors',
-        redirect: 'error',
-      });
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        'https://tradingview.onekeytest.com/embed/latest.json',
+        {
+          cache: 'no-store',
+          credentials: 'omit',
+          mode: 'cors',
+          redirect: 'error',
+        },
+      );
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        new URL(
+          'https://tradingview.onekeytest.com/test-runtime/embed/embed-manifest.json',
+        ),
+        {
+          cache: 'no-store',
+          credentials: 'omit',
+          mode: 'cors',
+          redirect: 'error',
+        },
+      );
       expect(postMessage).toHaveBeenCalledWith(
         {
           type: 'PREFETCH_TRADINGVIEW_EMBED',
           payload: {
             locale: 'fr',
             manifest,
-            manifestUrl,
+            manifestUrl: 'https://tradingview.onekeytest.com/embed/latest.json',
             manifestVersion: manifest.version,
           },
         },
@@ -373,9 +389,6 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
         },
       },
     });
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-      'https://tradingview.onekeytest.com/controller-blocked/embed/embed-manifest.json';
-
     try {
       await expect(
         preloadTradingViewEmbedBootstrapAssets(
@@ -398,7 +411,7 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
     }
   });
 
-  test('rejects a runtime origin that differs from the pinned manifest', async () => {
+  test('prefers the runtime TradingView origin over a build environment URL', async () => {
     const manifest = {
       schema: 2,
       version: 'runtime-origin',
@@ -448,7 +461,7 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       },
     });
     process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-      'https://tradingview.onekeytest.com/runtime-origin/embed/embed-manifest.json';
+      'https://tradingview.onekeytest.com/embed/latest.json';
     const fetchMock = jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
@@ -456,12 +469,19 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
       );
 
     try {
-      expect(() =>
-        preloadTradingViewEmbedBootstrapAssets(
-          'https://tradingview.onekey.so/?locale=en',
-        ),
-      ).toThrow('TradingView runtime and pinned manifest origins do not match');
-      expect(fetchMock).not.toHaveBeenCalled();
+      await preloadTradingViewEmbedBootstrapAssets(
+        'https://tradingview.onekey.so/?locale=en',
+      );
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://tradingview.onekey.so/embed/latest.json',
+        {
+          cache: 'no-store',
+          credentials: 'omit',
+          mode: 'cors',
+          redirect: 'error',
+        },
+      );
     } finally {
       delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
       if (originalNavigatorDescriptor) {
