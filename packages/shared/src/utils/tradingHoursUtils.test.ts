@@ -364,6 +364,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('PRE_MARKET'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.PreMarket);
     expect(
@@ -371,6 +372,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('REGULAR'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.Open);
     expect(
@@ -378,6 +380,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('POST_MARKET'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.PostMarket);
     expect(
@@ -385,6 +388,7 @@ describe('resolveUSMarketStatusVariant', () => {
         source: ondo,
         isOpen: true,
         status: status('OVERNIGHT'),
+        now: midSessionNow,
       }),
     ).toBe(EUSMarketStatusVariant.Overnight);
   });
