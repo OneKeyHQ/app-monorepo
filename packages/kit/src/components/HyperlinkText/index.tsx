@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { createIntl, useIntl } from 'react-intl';
 
@@ -10,7 +10,11 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import useParseQRCodeLazy from '../../views/ScanQrCode/hooks/useParseQRCodeLazy';
@@ -93,6 +97,62 @@ export function HyperlinkText({
   // symptom only shows on web and desktop.
   const { numberOfLines, ellipse, ...inlineTextProps } = basicTextProps;
 
+  const renderUrlChunk = useCallback(
+    (
+      params: React.ReactNode[],
+      {
+        openWith = openUrlExternal,
+        showExternalIndicator = true,
+      }: {
+        openWith?: (link: string) => void;
+        showExternalIndicator?: boolean;
+      } = {},
+    ) => {
+      const [link, chunks] = params;
+      const isLinkString = typeof link === 'string';
+      return (
+        <SizableText
+          {...inlineTextProps}
+          textDecorationLine="underline"
+          {...urlTextProps}
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={() => {
+            setTimeout(() => {
+              onAction?.(isLinkString ? link : '');
+            }, 0);
+            if (isLinkString) {
+              void parseQRCode.parse(link, {
+                handlers: [
+                  EQRCodeHandlerNames.marketDetail,
+                  EQRCodeHandlerNames.sendProtection,
+                  EQRCodeHandlerNames.rewardCenter,
+                  EQRCodeHandlerNames.updatePreview,
+                ],
+                qrWalletScene: false,
+                autoExecuteParsedAction,
+                // OneKey deeplinks still resolve natively above; only a plain
+                // web link reaches this.
+                defaultHandler: openWith,
+              });
+            }
+          }}
+        >
+          {isLinkString ? chunks : link}
+          {autoExecuteParsedAction && showExternalIndicator ? ' ↗' : null}
+        </SizableText>
+      );
+    },
+    [
+      inlineTextProps,
+      urlTextProps,
+      onAction,
+      parseQRCode,
+      autoExecuteParsedAction,
+    ],
+  );
+
   const text = useMemo(
     () =>
       translationId || defaultMessage
@@ -123,41 +183,25 @@ export function HyperlinkText({
                   </SizableText>
                 );
               },
-              url: (params: React.ReactNode[]) => {
-                const [link, chunks] = params;
-                const isLinkString = typeof link === 'string';
-                return (
-                  <SizableText
-                    {...inlineTextProps}
-                    textDecorationLine="underline"
-                    {...urlTextProps}
-                    cursor="pointer"
-                    hoverStyle={{ bg: '$bgHover' }}
-                    pressStyle={{ bg: '$bgActive' }}
-                    onPress={() => {
-                      setTimeout(() => {
-                        onAction?.(isLinkString ? link : '');
-                      }, 0);
-                      if (isLinkString) {
-                        void parseQRCode.parse(link, {
-                          handlers: [
-                            EQRCodeHandlerNames.marketDetail,
-                            EQRCodeHandlerNames.sendProtection,
-                            EQRCodeHandlerNames.rewardCenter,
-                            EQRCodeHandlerNames.updatePreview,
-                          ],
-                          qrWalletScene: false,
-                          autoExecuteParsedAction,
-                          defaultHandler: openUrlExternal,
-                        });
-                      }
-                    }}
-                  >
-                    {isLinkString ? chunks : link}
-                    {autoExecuteParsedAction ? ' ↗' : null}
-                  </SizableText>
-                );
-              },
+              url: renderUrlChunk,
+              // Same link, opened inside the app so the page can talk to the
+              // wallet and closing it lands back on the page the link was on.
+              // <url> keeps handing plain web links to the system browser.
+              urlInApp: (params: React.ReactNode[]) =>
+                renderUrlChunk(params, {
+                  openWith: (link) => {
+                    // The link comes from remote config, so apply the same
+                    // policy the WebView overlay uses (https, no credentials,
+                    // no local address, no punycode) before hosting it.
+                    if (!isAllowedWebViewUrl(link)) {
+                      openUrlExternal(link);
+                      return;
+                    }
+                    openUrlInApp(link, undefined, { enableDappBridge: true });
+                  },
+                  // The arrow reads as "leaves the app", which this one does not.
+                  showExternalIndicator: false,
+                }),
               subscripts: ([string]) => (
                 <SizableText
                   {...inlineTextProps}
@@ -245,9 +289,7 @@ export function HyperlinkText({
       inlineTextProps,
       actionTextProps,
       onAction,
-      urlTextProps,
-      parseQRCode,
-      autoExecuteParsedAction,
+      renderUrlChunk,
       scriptFontSize,
       subscriptsTextProps,
       underlineTextProps,

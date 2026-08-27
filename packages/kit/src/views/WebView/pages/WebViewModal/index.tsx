@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
@@ -28,6 +29,7 @@ import type {
   IModalWebViewParamList,
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { WebViewTestIDs } from '../../testIDs';
 
@@ -49,6 +51,7 @@ export default function WebViewModal() {
     hashRouteQueryParams,
     redirectExternalNavigation,
     hideHeaderRight,
+    enableDappBridge,
   } = route.params;
   const navigation = useAppNavigation();
 
@@ -159,7 +162,13 @@ export default function WebViewModal() {
 
   const [navigationTitle, setNavigationTitle] = useState(title);
   useEffect(() => {
-    setNavigationTitle('');
+    // A dApp page can ask to connect before it reports a document title, so
+    // fall back to the host: the user must be able to see which site is asking.
+    setNavigationTitle(
+      enableDappBridge ? uriUtils.getHostNameFromUrl({ url }) : '',
+    );
+    // Runs once on mount, same as before.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const onNavigationStateChange = useCallback(
     ({ title: webTitle, url: newUrl }: { title: string; url?: string }) => {
@@ -227,6 +236,10 @@ export default function WebViewModal() {
     !!redirectExternalNavigation,
   );
 
+  // Same inpage provider either way; the wrapper only adds the account/network
+  // change notifications a live dApp session needs.
+  const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
+
   return (
     <Page>
       <Page.Header
@@ -241,7 +254,7 @@ export default function WebViewModal() {
             customReceiveHandler={webembedCustomReceiveHandler}
           />
         ) : (
-          <WebView
+          <WebViewComponent
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
             mediaPermissionWhitelist={fiatPaySiteWhitelist}
@@ -253,6 +266,12 @@ export default function WebViewModal() {
                 : undefined
             }
             onOpenWindow={redirectExternalNavigation ? onOpenWindow : undefined}
+            {...(enableDappBridge
+              ? // important: without this the dApp is never told about the
+                // connected account, so it stays disconnected after the user
+                // approves (see PageWebviewPerpTrade).
+                { features: { notifyChangedEventsToDappOnFocus: true } }
+              : undefined)}
           />
         )}
       </Page.Body>

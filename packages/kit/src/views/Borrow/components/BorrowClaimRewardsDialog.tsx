@@ -2,14 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  ScrollView,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Dialog, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -268,7 +261,7 @@ function BorrowClaimRewardsDialogContent({
 
   return (
     <YStack gap="$4">
-      <ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
+      <Dialog.ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
         <YStack gap="$2">
           {claimableGroups.map((group, index) => (
             <ClaimGroup
@@ -284,7 +277,7 @@ function BorrowClaimRewardsDialogContent({
             <UnclaimableGroup key={`unclaimable-${index}`} group={group} />
           ))}
         </YStack>
-      </ScrollView>
+      </Dialog.ScrollView>
 
       {hasClaimableItems ? (
         <Dialog.Footer
