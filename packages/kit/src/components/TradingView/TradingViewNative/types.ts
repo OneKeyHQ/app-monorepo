@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 
-import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tradingViewNative';
+import type {
+  ITradingViewNativeChartLineStyle,
+  ITradingViewNativeChartType,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
