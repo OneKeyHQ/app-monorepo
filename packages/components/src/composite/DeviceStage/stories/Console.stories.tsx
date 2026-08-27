@@ -65,6 +65,9 @@ function ConsoleStage(props: IDeviceStageProps) {
       >
         Wrong PIN
       </StepButton>
+      <StepButton driver={driver} step="selectWalletType">
+        Wallet type
+      </StepButton>
       <StepButton driver={driver} step="passphraseIntro">
         Hidden wallet intro
       </StepButton>

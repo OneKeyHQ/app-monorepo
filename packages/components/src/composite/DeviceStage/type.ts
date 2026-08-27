@@ -20,7 +20,11 @@ import type { IHardwareDeviceType } from '../../content/HardwareDevice';
  * rests as the floating capsule until the device answers. `pinOnApp`
  * and `passphraseOnApp` are the app-side inputs — the person types here
  * while the device waits, so the replica leaves the stage and the input
- * panel takes its place. `passphraseIntro` is the teach-first beat
+ * panel takes its place. `selectWalletType` is the wallet-creation fork
+ * on passphrase-enabled devices — the live Select-wallet-type dialog in
+ * stage vocabulary: standard or hidden, two option rows, chosen here in
+ * the app, so the replica stays off stage; the choice rides out through
+ * `onSelectWalletType`. `passphraseIntro` is the teach-first beat
  * before a hidden wallet is created: what a passphrase is and the facts
  * to hold before one exists to lose, with Continue as its single
  * action — reading material, so the replica stays off stage there too;
@@ -65,6 +69,7 @@ export type IDeviceStageStep =
   | 'connecting'
   | 'enterPin'
   | 'pinOnApp'
+  | 'selectWalletType'
   | 'passphraseIntro'
   | 'enterPassphrase'
   | 'passphraseOnApp'
@@ -97,6 +102,11 @@ export type IDeviceStageVendor = 'ledger' | 'trezor';
  * side, so the connecting wait tells them apart; which one is the
  * driver's knowledge, never looked up here. */
 export type IDeviceStageConnectionType = 'bluetooth' | 'usb';
+
+/** The wallet-creation fork's two answers — the live dialog's own pair:
+ * a standard wallet (no passphrase) or a hidden one (passphrase or
+ * hidden-wallet PIN). */
+export type IDeviceStageWalletType = 'standard' | 'hidden';
 
 /**
  * What went wrong, in stage vocabulary. Each reason picks the failure copy
@@ -324,6 +334,14 @@ export interface IDeviceStageProps {
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */
   onPinSubmit?: (pin: string) => void;
+  /**
+   * The selectWalletType choice, made — the fork's only exit (stepping
+   * away is the surface's own dismissal). The driver decides what
+   * follows: the live flow heads into creating the standard wallet, or
+   * into the hidden-wallet passphrase flow. Omitted, the step renders
+   * its title alone, no rows.
+   */
+  onSelectWalletType?: (walletType: IDeviceStageWalletType) => void;
   /**
    * The passphraseIntro step's single action — the person has read what
    * a passphrase is and moves on; the driver decides what follows
