@@ -58,22 +58,24 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx.objectStore(ELocalDBStoreNames.Wallet)?.delete(walletId);
       } catch (error) {
         console.error('ServiceDBBackup removeBackupHDWallet error', error);
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(walletId);
@@ -113,15 +115,17 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Account)
           ?.delete(accountId);
@@ -133,7 +137,7 @@ class ServiceDBBackup extends ServiceBase {
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(accountId);
@@ -194,9 +198,12 @@ class ServiceDBBackup extends ServiceBase {
         .filter(shouldRemove);
 
       if (credentialIdsToRemove.length) {
-        const backupTx = backupDB.transaction(
+        // Deletes free space, so they stay allowed while the disk-full guard
+        // is raised.
+        const backupTx = await backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
         const credentialStore = backupTx.objectStore(
           ELocalDBStoreNames.Credential,
@@ -367,7 +374,7 @@ class ServiceDBBackup extends ServiceBase {
           accountUtils.isHyperLiquidAgentCredentialId({ credentialId }),
         );
 
-      const backupTx = backupDB.transaction(
+      const backupTx = await backupDB.transactionAsync(
         INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
         'readwrite',
       );
