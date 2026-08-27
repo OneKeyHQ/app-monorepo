@@ -9,7 +9,13 @@ import {
   YStack,
   useOverlayZIndex,
 } from '@onekeyhq/components';
-import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import {
+  type ITradingViewNativeSource,
+  TradingViewNative,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
+import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -180,6 +186,9 @@ export function DesktopLayout({
   } = useTokenDetail();
   const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
+  const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
+  const isStockSharePrice =
+    shouldUseStockDesktopLayout && stockPriceSource === 'share';
   const networkId =
     selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
   const tokenAddress =
@@ -255,24 +264,35 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
-  const tradingViewNativeSource = useMemo(
-    () =>
-      getMarketDetailTradingViewNativeSource({
-        hyperliquidCoin: nativeHyperliquidCoin,
-        isNative,
-        marketDataSource: marketTradingViewParams?.dataSource,
-        networkId,
-        symbol: tokenDetail?.symbol ?? '',
-        tokenAddress,
-      }),
-    [
-      marketTradingViewParams?.dataSource,
-      nativeHyperliquidCoin,
+  const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
+    if (isStockSharePrice && stockId) {
+      return { kind: 'stock', stockId };
+    }
+    return getMarketDetailTradingViewNativeSource({
+      hyperliquidCoin: nativeHyperliquidCoin,
       isNative,
+      marketDataSource: marketTradingViewParams?.dataSource,
       networkId,
+      symbol: tokenDetail?.symbol ?? '',
       tokenAddress,
-      tokenDetail?.symbol,
-    ],
+    });
+  }, [
+    isStockSharePrice,
+    marketTradingViewParams?.dataSource,
+    nativeHyperliquidCoin,
+    isNative,
+    networkId,
+    stockId,
+    tokenAddress,
+    tokenDetail?.symbol,
+  ]);
+  const stockKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+    () =>
+      stockId
+        ? ({ timeFrom, timeTo }) =>
+            fetchMarketStockKLineData({ stockId, timeFrom, timeTo })
+        : undefined,
+    [stockId],
   );
   // The stock detail layout has no toolbar row of its own in Pro: it lays the
   // Simple/Pro switch over the trailing edge of this widget's control row
@@ -304,7 +324,7 @@ export function DesktopLayout({
   );
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId ? (
+      return networkId || tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
@@ -326,17 +346,24 @@ export function DesktopLayout({
       ) : null;
     }
 
-    if (!marketTradingViewParams) {
+    if (!marketTradingViewParams && !isStockSharePrice) {
       return null;
     }
 
     return (
       <LazyMarketTradingView
-        tokenAddress={marketTradingViewParams.tokenAddress}
-        networkId={marketTradingViewParams.networkId}
-        tokenSymbol={marketTradingViewParams.tokenSymbol}
-        isNative={marketTradingViewParams.isNative}
-        dataSource={marketTradingViewParams.dataSource}
+        key={isStockSharePrice ? `stock-share:${stockId ?? ''}` : 'token'}
+        tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
+        networkId={marketTradingViewParams?.networkId ?? ''}
+        tokenSymbol={
+          isStockSharePrice ? stockId : marketTradingViewParams?.tokenSymbol
+        }
+        isNative={marketTradingViewParams?.isNative}
+        dataSource={
+          isStockSharePrice
+            ? 'polling'
+            : (marketTradingViewParams?.dataSource ?? 'polling')
+        }
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -346,6 +373,11 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
+        kLineDataFallback={
+          isStockSharePrice ? stockKLineDataFallback : undefined
+        }
+        primaryKLineDataUnavailable={isStockSharePrice}
+        disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
@@ -355,11 +387,14 @@ export function DesktopLayout({
     hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
+    isStockSharePrice,
     shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
+    stockId,
+    stockKLineDataFallback,
     tradingViewNativeSource,
   ]);
 

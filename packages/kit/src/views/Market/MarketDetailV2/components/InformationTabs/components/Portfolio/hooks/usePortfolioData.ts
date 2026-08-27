@@ -47,7 +47,6 @@ export function usePortfolioData({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
-      undefinedResultIfReRun: true,
     },
   );
 

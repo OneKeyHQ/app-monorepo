@@ -8,6 +8,7 @@ import type {
   ITradingViewDisabledFeature,
   ITradingViewNativeIndicatorQuickBarState,
   ITradingViewPriceUpdateData,
+  ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -114,6 +115,9 @@ export interface IMarketTradingViewProps {
   ) => void;
   maxSelectableSubIndicatorCount?: number;
   forceCandlestickChart?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  disableChartPriceUpdate?: boolean;
 }
 
 export const MarketTradingView = memo(
@@ -141,12 +145,18 @@ export const MarketTradingView = memo(
     onNativeSubIndicatorCountChange,
     maxSelectableSubIndicatorCount,
     forceCandlestickChart,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    disableChartPriceUpdate,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
+        if (disableChartPriceUpdate) {
+          return;
+        }
         if (data.source === 'history') {
           return;
         }
@@ -173,7 +183,7 @@ export const MarketTradingView = memo(
           lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
         });
       },
-      [networkId, tokenAddress, tokenDetailActions],
+      [disableChartPriceUpdate, networkId, tokenAddress, tokenDetailActions],
     );
 
     return (
@@ -193,6 +203,8 @@ export const MarketTradingView = memo(
         onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         onPriceUpdate={handlePriceUpdate}
+        kLineDataFallback={kLineDataFallback}
+        primaryKLineDataUnavailable={primaryKLineDataUnavailable}
         disabledFeatures={
           forceCandlestickChart
             ? STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
