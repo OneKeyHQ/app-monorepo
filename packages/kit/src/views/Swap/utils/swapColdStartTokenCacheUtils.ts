@@ -737,6 +737,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
 
 export function getSwapSelectedTokensHomeAccountSyncAction({
   cachedContext,
+  deferSelectedTokenSync,
   hasSelectedTokens,
   homeSelectedAccount,
   initialSelectedTokensSynced,
@@ -746,6 +747,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   now,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  deferSelectedTokenSync?: boolean;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
   initialSelectedTokensSynced?: boolean;
@@ -766,7 +768,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   | {
       type: 'clear';
     } {
-  if (swapType === ESwapTabSwitchType.STOCK) {
+  if (deferSelectedTokenSync || swapType === ESwapTabSwitchType.STOCK) {
     return { type: 'preserve' };
   }
 
@@ -805,6 +807,16 @@ export function shouldSkipSwapDefaultSelectedTokenSync({
   initialSelectedTokensSynced: boolean;
 }) {
   return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
+}
+
+export function shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+  isNative,
+  swapType,
+}: {
+  isNative: boolean;
+  swapType: ESwapTabSwitchType;
+}) {
+  return isNative && swapType === ESwapTabSwitchType.LIMIT;
 }
 
 function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
