@@ -1628,11 +1628,17 @@ function MoreActionContent({
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
-    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
-      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
-        void closePopover?.();
-      }
-    });
+    const unsubscribe = rootNavigationRef.current?.addListener(
+      '__unsafe_action__',
+      ({ data }) => {
+        if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+          void closePopover?.();
+        }
+      },
+    );
+    return () => {
+      unsubscribe?.();
+    };
   }, [closePopover]);
   return (
     <MoreActionProvider>

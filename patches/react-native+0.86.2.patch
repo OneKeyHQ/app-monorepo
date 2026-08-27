@@ -641,6 +641,21 @@ index 5977524..1b3f871 100644
    }
  
    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+diff --git a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+index fdabd7b..ef70011 100644
+--- a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
++++ b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+@@ -21,6 +21,10 @@ class ReactNativeFeatureFlagsOverridesOSSStable : public ReactNativeFeatureFlags
+   {
+     return true;
+   }
++  bool enableSchedulerDelegateInvalidation() override
++  {
++    return true;
++  }
+   bool useTurboModules() override
+   {
+     return true;
 diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
 index 516ae35..cc2353c 100644
 --- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
@@ -691,64 +706,117 @@ index a3f2e01..4024ce8 100644
  
   private:
    void dispatchTextInputEvent(
-diff --git a/node_modules/react-native/scripts/cocoapods/new_architecture.rb b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
-index 3873632..6c0683f 100644
---- a/node_modules/react-native/scripts/cocoapods/new_architecture.rb
-+++ b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
-@@ -171,8 +171,7 @@ class NewArchitectureHelper
-         excluded_info_plist = ["/Pods", "Tests", "metainternal", ".bundle", "build/", "DerivedData/", ".xcframework", ".framework", "watchkitapp", "today-extention"]
-         projectPaths.each do |projectPath|
-             projectFolderPath = File.dirname(projectPath)
--            infoPlistFiles = `find #{projectFolderPath} -name "Info.plist"`
--            infoPlistFiles = infoPlistFiles.split("\n").map { |f| f.strip }
-+            infoPlistFiles = Dir.glob(File.join(projectFolderPath, "**", "Info.plist"))
- 
-             infoPlistFiles.each do |infoPlistFile|
-                 # If infoPlistFile contains Pods or tests, skip it
-diff --git a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
---- a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
-+++ b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
-@@ -23,0 +24,4 @@
-+  bool enableSchedulerDelegateInvalidation() override
-+  {
-+    return true;
-+  }
-diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
---- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
-+++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
-@@ -504,1 +504,10 @@
--  _reactInstance->getBufferedRuntimeExecutor()([=](jsi::Runtime &runtime) {
-+  RuntimeExecutor bufferedRuntimeExecutor;
-+  {
-+    std::lock_guard<std::mutex> lock(_invalidationMutex);
-+    if (!_valid || !_reactInstance) {
-+      return;
-+    }
-+    bufferedRuntimeExecutor = _reactInstance->getBufferedRuntimeExecutor();
-+  }
-+
-+  bufferedRuntimeExecutor([=](jsi::Runtime &runtime) {
 diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
+index 0d5762d..85f2779 100644
 --- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
 +++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
-@@ -29,0 +30 @@
-+#import <atomic>
-@@ -262,0 +264 @@
-+  std::atomic_bool _reloadInProgress;
-@@ -334,0 +337 @@
-+    _reloadInProgress.store(false);
-@@ -621,0 +625,10 @@
-+  // A second dev-server reload can arrive while the replacement runtime is
-+  // still initializing (for example when `r` is pressed twice). Starting
-+  // another RCTInstance in that window makes multiple Expo module registries
-+  // initialize concurrently. Coalesce those duplicate requests into the
-+  // reload already in progress.
-+  if (_reloadInProgress.exchange(true)) {
-+    RCTLogInfo(@"Ignoring duplicate reload while the replacement runtime is initializing");
+@@ -10,6 +10,7 @@
+ 
+ #import <React/RCTAssert.h>
+ #import <React/RCTBridgeModule.h>
++#import <React/RCTConstants.h>
+ #import <React/RCTConvert.h>
+ #import <React/RCTDevMenu.h>
+ #import <React/RCTFabricSurface.h>
+@@ -260,6 +261,9 @@ bool onSetEmulatedMedia(const SetEmulatedMediaRequest &request) override
+ 
+ @implementation RCTHost {
+   RCTInstance *_instance;
++  BOOL _reloadInProgress;
++  BOOL _reloadPending;
++  BOOL _pendingShouldRestartSurfaces;
+ 
+   __weak id<RCTHostDelegate> _hostDelegate;
+   __weak id<RCTTurboModuleManagerDelegate> _turboModuleManagerDelegate;
+@@ -332,6 +336,9 @@ - (instancetype)initWithBundleURLProvider:(RCTHostBundleURLProvider)provider
+                      devMenuConfiguration:(RCTDevMenuConfiguration *)devMenuConfiguration
+ {
+   if (self = [super init]) {
++    _reloadInProgress = NO;
++    _reloadPending = NO;
++    _pendingShouldRestartSurfaces = NO;
+     _hostDelegate = hostDelegate;
+     _turboModuleManagerDelegate = turboModuleManagerDelegate;
+     _bundleManager = [[RCTBundleManager alloc] initWithBundleConfig:bundleConfiguration];
+@@ -371,6 +378,10 @@ - (instancetype)initWithBundleURLProvider:(RCTHostBundleURLProvider)provider
+     RCTExecuteOnMainQueue(^{
+       // Listen to reload commands
+       RCTRegisterReloadCommandListener(self);
++      [[NSNotificationCenter defaultCenter] addObserver:self
++                                               selector:@selector(_javascriptDidFailToLoad:)
++                                                   name:RCTJavaScriptDidFailToLoadNotification
++                                                 object:nil];
+     });
+ 
+     _inspectorHostDelegate = std::make_unique<RCTHostHostTargetDelegate>(self);
+@@ -475,6 +486,9 @@ - (void)didReceiveReloadCommand
+ 
+ - (void)dealloc
+ {
++  [[NSNotificationCenter defaultCenter] removeObserver:self
++                                                  name:RCTJavaScriptDidFailToLoadNotification
++                                                object:nil];
+   [_instance invalidate];
+   if (_inspectorPageId.has_value()) {
+     facebook::react::jsinspector_modern::getInspectorInstance().removePage(*_inspectorPageId);
+@@ -617,8 +631,53 @@ - (void)_setBundleURL:(NSURL *)bundleURL
+   RCTReloadCommandSetBundleURL(_bundleURL);
+ }
+ 
++- (void)_completeReloadForInstance:(RCTInstance *)reloadedInstance
++{
++  RCTAssertMainQueue();
++  if (!_reloadInProgress || reloadedInstance != _instance) {
 +    return;
 +  }
 +
-@@ -643,0 +657,19 @@
++  _reloadInProgress = NO;
++  const BOOL shouldRunPendingReload = _reloadPending;
++  const BOOL shouldRestartSurfaces = _pendingShouldRestartSurfaces;
++  _reloadPending = NO;
++  _pendingShouldRestartSurfaces = NO;
++
++  if (shouldRunPendingReload) {
++    __weak RCTHost *weakSelf = self;
++    dispatch_async(dispatch_get_main_queue(), ^{
++      [weakSelf _reloadWithShouldRestartSurfaces:shouldRestartSurfaces];
++    });
++  }
++}
++
++- (void)_javascriptDidFailToLoad:(NSNotification *)notification
++{
++  [self _completeReloadForInstance:notification.object];
++}
++
+ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
+ {
++  if (![NSThread isMainThread]) {
++    __weak RCTHost *weakSelf = self;
++    dispatch_async(dispatch_get_main_queue(), ^{
++      [weakSelf _reloadWithShouldRestartSurfaces:shouldRestartSurfaces];
++    });
++    return;
++  }
++
++  // A reload command is delivered to every host in the process. Queue one
++  // follow-up request per host so foreground and background runtimes cannot
++  // permanently drop a restart while a replacement runtime is initializing.
++  if (_reloadInProgress) {
++    _reloadPending = YES;
++    _pendingShouldRestartSurfaces = _pendingShouldRestartSurfaces || shouldRestartSurfaces;
++    RCTLogInfo(@"Queued reload while the replacement runtime is initializing");
++    return;
++  }
++  _reloadInProgress = YES;
++
+   [_instance invalidate];
+   _instance = nil;
+   if (_bundleURLProvider) {
+@@ -641,6 +700,36 @@ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
+       [_instance callFunctionOnBufferedRuntimeExecutor:[surface](facebook::jsi::Runtime &_) { [surface start]; }];
+     }
+   }
 +
 +  // Keep the reload gate closed until the bundle has finished executing and
 +  // all attached surfaces have been queued to restart. Runtime initialization
@@ -763,8 +831,58 @@ diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/Re
 +    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 +      RCTHost *strongSelf = weakSelf;
 +      RCTInstance *strongReloadedInstance = weakReloadedInstance;
-+      if (strongSelf && strongReloadedInstance && strongReloadedInstance == strongSelf->_instance) {
-+        strongSelf->_reloadInProgress.store(false);
++      if (strongSelf && strongReloadedInstance) {
++        [strongSelf _completeReloadForInstance:strongReloadedInstance];
 +      }
 +    });
 +  }];
++
++  // Bundle loading or execution can fail before the buffered executor runs.
++  // Always reopen the gate so a later reload can recover without restarting
++  // the process. Stale timers are ignored by the instance identity check.
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++    RCTHost *strongSelf = weakSelf;
++    RCTInstance *strongReloadedInstance = weakReloadedInstance;
++    if (strongSelf && strongReloadedInstance) {
++      [strongSelf _completeReloadForInstance:strongReloadedInstance];
++    }
++  });
+ }
+ 
+ #pragma mark - jsinspector_modern
+diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
+index d065b1b..cf02d45 100644
+--- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
++++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
+@@ -504,7 +504,16 @@ - (void)_attachBridgelessAPIsToModule:(id<RCTTurboModule>)module
+ 
+ - (void)callFunctionOnBufferedRuntimeExecutor:(std::function<void(facebook::jsi::Runtime &)> &&)executor
+ {
+-  _reactInstance->getBufferedRuntimeExecutor()([=](jsi::Runtime &runtime) {
++  RuntimeExecutor bufferedRuntimeExecutor;
++  {
++    std::lock_guard<std::mutex> lock(_invalidationMutex);
++    if (!_valid || !_reactInstance) {
++      return;
++    }
++    bufferedRuntimeExecutor = _reactInstance->getBufferedRuntimeExecutor();
++  }
++
++  bufferedRuntimeExecutor([=](jsi::Runtime &runtime) {
+     if (executor) {
+       executor(runtime);
+     }
+diff --git a/node_modules/react-native/scripts/cocoapods/new_architecture.rb b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
+index 3873632..6c0683f 100644
+--- a/node_modules/react-native/scripts/cocoapods/new_architecture.rb
++++ b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
+@@ -171,8 +171,7 @@ class NewArchitectureHelper
+         excluded_info_plist = ["/Pods", "Tests", "metainternal", ".bundle", "build/", "DerivedData/", ".xcframework", ".framework", "watchkitapp", "today-extention"]
+         projectPaths.each do |projectPath|
+             projectFolderPath = File.dirname(projectPath)
+-            infoPlistFiles = `find #{projectFolderPath} -name "Info.plist"`
+-            infoPlistFiles = infoPlistFiles.split("\n").map { |f| f.strip }
++            infoPlistFiles = Dir.glob(File.join(projectFolderPath, "**", "Info.plist"))
+ 
+             infoPlistFiles.each do |infoPlistFile|
+                 # If infoPlistFile contains Pods or tests, skip it
