@@ -443,6 +443,12 @@ describe('devVendor', () => {
     expect(backgroundThreadPatch).toContain(
       'org.json.JSONObject.quote(entryURL)',
     );
+    expect(backgroundThreadPatch).toMatch(
+      /assertionFile\.absolutePath,\n\+\s+entryURL,/,
+    );
+    expect(backgroundThreadPatch).not.toContain(
+      '"onekey-dev-vendor-assert-background.js",',
+    );
     expect(backgroundThreadPatch).not.toContain('HMRClient');
     expect(
       backgroundThreadPatch.indexOf(
@@ -455,6 +461,12 @@ describe('devVendor', () => {
       'utf8',
     );
     expect(expoPatch).toContain('org.json.JSONObject.quote(hmrEntryUrl)');
+    expect(expoPatch).toMatch(
+      /assertionFile\.absolutePath,\n\+\s+hmrEntryUrl,/,
+    );
+    expect(expoPatch).not.toContain(
+      '"onekey-dev-vendor-assert-main.js",',
+    );
     expect(expoPatch).toContain(
       '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryUrl',
     );

@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
-index 63c295b..10ded09 100644
+index 63c295b..4f4578d 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
 +++ b/node_modules/@onekeyfe/react-native-background-thread/android/src/main/java/com/backgroundthread/BackgroundThreadManager.kt
 @@ -3,2 +3,3 @@ package com.backgroundthread
@@ -65,7 +65,7 @@ index 63c295b..10ded09 100644
 +                )
 +                delegate.loadScriptFromFile(
 +                    assertionFile.absolutePath,
-+                    "onekey-dev-vendor-assert-background.js",
++                    entryURL,
 +                    false,
 +                )
 +                val deltaFile = File(

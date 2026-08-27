@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index c712e48..4fc8933 100644
+index c712e48..3e9a902 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 @@ -10,2 +10,3 @@ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
@@ -54,7 +54,7 @@ index c712e48..4fc8933 100644
 +        )
 +        delegate.loadScriptFromFile(
 +          assertionFile.absolutePath,
-+          "onekey-dev-vendor-assert-main.js",
++          hmrEntryUrl,
 +          false
 +        )
 +
