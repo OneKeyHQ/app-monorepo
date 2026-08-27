@@ -77,7 +77,10 @@ jest.mock('@sentry/react-native', () => ({
 }));
 
 jest.mock('expo-localization', () => ({
+  // languageTag mirrors the retired `locale` constant's mocked value so
+  // getDefaultLocale keeps falling through to 'en-US' exactly as before.
   locale: '',
+  getLocales: () => [{ languageTag: '' }],
 }));
 
 jest.mock('expo-device', () => ({
