@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListLoading } from '@onekeyhq/kit/src/components/Loading/ListLoading';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -185,47 +185,53 @@ export function TokenList({
   return (
     <YStack gap="$1">
       <YStack px="$1" py="$1">
-        {sortTokensByValue && isTokenDetailsLoading ? (
-          <ListLoading
-            isTokenSelectorView
-            listCount={tokens.length || 3}
-            itemProps={{ margin: 0 }}
-          />
-        ) : (
-          displayTokens?.map((token: IEnhancedToken) => {
-            const isCurrentToken = Boolean(
-              currentSelectToken &&
-              equalTokenNoCaseSensitive({
-                token1: currentSelectToken,
-                token2: token,
-              }),
-            );
-            const isTokenUnavailable = Boolean(
-              (disableNativeToken && token.isNative) ||
-              isTokenDisabled?.(token),
-            );
-            const onPress = () => {
-              if (isCurrentToken || isTokenUnavailable) return;
-              onTokenPress?.(token);
-            };
-            return (
-              <TokenListItem
-                isLoading={isTokenDetailsLoading}
-                key={`${token.networkId}-${token.contractAddress}`}
-                tokenImageSrc={token.logoURI}
-                networkImageSrc={token.networkImageSrc}
-                tokenSymbol={token.symbol}
-                tokenName={token.name}
-                tokenSize="md"
-                balance={token.balance}
-                valueProps={token.valueProps}
-                onPress={onPress}
-                margin={0}
-                disabled={isTokenUnavailable}
-              />
-            );
-          })
-        )}
+        {sortTokensByValue && isTokenDetailsLoading
+          ? Array.from({ length: tokens.length || 3 }, (_, index) => (
+              <ListItem key={index} margin={0}>
+                <Skeleton radius="round" w="$10" h="$10" />
+                <YStack>
+                  <YStack py="$1">
+                    <Skeleton h="$4" w="$32" />
+                  </YStack>
+                  <YStack py="$1">
+                    <Skeleton h="$3" w="$24" />
+                  </YStack>
+                </YStack>
+              </ListItem>
+            ))
+          : displayTokens?.map((token: IEnhancedToken) => {
+              const isCurrentToken = Boolean(
+                currentSelectToken &&
+                equalTokenNoCaseSensitive({
+                  token1: currentSelectToken,
+                  token2: token,
+                }),
+              );
+              const isTokenUnavailable = Boolean(
+                (disableNativeToken && token.isNative) ||
+                isTokenDisabled?.(token),
+              );
+              const onPress = () => {
+                if (isCurrentToken || isTokenUnavailable) return;
+                onTokenPress?.(token);
+              };
+              return (
+                <TokenListItem
+                  isLoading={isTokenDetailsLoading}
+                  key={`${token.networkId}-${token.contractAddress}`}
+                  tokenImageSrc={token.logoURI}
+                  networkImageSrc={token.networkImageSrc}
+                  tokenSymbol={token.symbol}
+                  tokenName={token.name}
+                  tokenSize="md"
+                  balance={token.balance}
+                  valueProps={token.valueProps}
+                  onPress={onPress}
+                  margin={0}
+                  disabled={isTokenUnavailable}
+                />
+              );
+            })}
       </YStack>
       {disabledOnSwitchToTrade ? null : (
         <SwitchToTradePrompt onTradePress={onTradePress} />
