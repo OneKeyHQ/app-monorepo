@@ -119,6 +119,27 @@ const PROGRESS_WRITABLE_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'processing',
 ]);
 
+/** Outcomes that hold the stage until they are read: the notice a failed
+ * call landed, the third-party ✓ beat. */
+const OUTCOME_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'error',
+  'done',
+]);
+
+/** The steps that ask something of the person. Only an ask outranks an
+ * outcome already on stage — the device is waiting on them, so the notice
+ * has had its say. Waits and call-end closes carry no such news: the call
+ * that just failed goes on winding down, and its own end must not wipe
+ * the reason it failed. */
+const ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'confirm',
+  'enterPin',
+  'pinOnApp',
+  'passphraseIntro',
+  'passphraseOnApp',
+  'enterPassphrase',
+]);
+
 /**
  * Who is on stage, kept across the burst.
  *
@@ -388,11 +409,19 @@ export class DeviceStageBurstScope {
     if (!(await this.isEnabled())) {
       return;
     }
+    const current = await deviceStageAtom.get();
+    const outcomeOnStage = Boolean(current && OUTCOME_STEPS.has(current.step));
     const isCloseEvent =
       shouldClearUiState ||
       action === EHardwareUiStateAction.CLOSE_UI_WINDOW ||
       action === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW;
     if (isCloseEvent) {
+      if (outcomeOnStage) {
+        // The call that landed this outcome is winding down — its own end
+        // is not news, and must not replace the reason it failed with a
+        // wait the person can make nothing of.
+        return;
+      }
       if (this.authoredAuthStep) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
@@ -418,13 +447,32 @@ export class DeviceStageBurstScope {
     if (!step) {
       return;
     }
+    if (outcomeOnStage && !ASK_STEPS.has(step)) {
+      return;
+    }
     if (
       this.authoredAuthStep &&
       (step === 'processing' || step === 'confirm' || step === 'connecting')
     ) {
       // Progress ticks and the device's ButtonRequest during an authored
       // flow ARE the authored card's own story ("confirm on your device
-      // to verify…") — never a step change.
+      // to verify…") — never a step of their own.
+      //
+      // A ButtonRequest is still news, though: the device asks for the
+      // next thing only once the ask that played over the narrative was
+      // answered, and on-device entry is announced no other way — there
+      // is no close event between the PIN and the request that follows
+      // it. Resume the narrative there, or the answered PIN card stands
+      // on stage while the device waits for a confirmation the person
+      // was never told about.
+      if (
+        step === 'confirm' &&
+        current &&
+        current.step !== 'off' &&
+        current.step !== this.authoredAuthStep
+      ) {
+        await this.setStep(this.authoredAuthStep, { connectId });
+      }
       return;
     }
     if (step === 'processing') {
@@ -432,11 +480,10 @@ export class DeviceStageBurstScope {
       // on stage. Any ask (confirm, PIN, passphrase, the teach card…)
       // outranks it — the trailing BLE tick behind a ButtonRequest must
       // not repaint the ask the device is still making.
-      const prev = await deviceStageAtom.get();
       if (
-        prev &&
-        prev.step !== 'off' &&
-        !PROGRESS_WRITABLE_STEPS.has(prev.step)
+        current &&
+        current.step !== 'off' &&
+        !PROGRESS_WRITABLE_STEPS.has(current.step)
       ) {
         return;
       }
