@@ -6,12 +6,15 @@ module.exports = (config, projectRoot) => {
   dotenv.config({
     path: path.resolve(__dirname, '../../../.env.expo'),
   });
+  const { fileToIdMap } = require('./map');
+  config.serializer = config.serializer || {};
+  config.serializer.createModuleIdFactory = () => (filePath) =>
+    fileToIdMap.get(filePath);
   if (process.env.SPLIT_BUNDLE) {
     const fs = require('fs-extra');
     const connect = require('connect');
     const dynamicImports = require('./dynamicImports');
     const segmentSerializer = require('./segmentSerializer');
-    const { fileToIdMap } = require('./map');
     const useSegments = process.env.SPLIT_BUNDLE_SEGMENTS === 'true';
     const workspaceRoot = path.resolve(projectRoot, '../..');
     const getAssets = require(
@@ -108,14 +111,6 @@ module.exports = (config, projectRoot) => {
 
     //     true;
     // })();
-
-    config.serializer.createModuleIdFactory = () => (filePath) => {
-      const id = fileToIdMap.get(filePath);
-      if (typeof id !== 'number') {
-        return fileToIdMap.safeSet(filePath);
-      }
-      return id;
-    };
 
     // When ONEKEY_STARTUP_PROFILE=1 is set at bundle time, inject a prologue
     // into the main entry module that (1) flips the globalThis flag the JS
