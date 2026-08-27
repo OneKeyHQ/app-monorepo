@@ -438,6 +438,30 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return components.url
   }
 
+  private func devVendorMainHMRBundleURL(from entryURL: URL) -> URL? {
+    guard var components = URLComponents(
+      url: entryURL,
+      resolvingAgainstBaseURL: false
+    ) else {
+      return nil
+    }
+    components.path = "/apps/mobile/index.bundle"
+    let values = [
+      "transform.routerRoot": "app",
+      "transform.engine": "hermes",
+      "transform.bytecode": "1",
+    ]
+    let overriddenNames = Set(values.keys)
+    var queryItems = (components.queryItems ?? []).filter {
+      !overriddenNames.contains($0.name)
+    }
+    queryItems.append(contentsOf: values.keys.sorted().map {
+      URLQueryItem(name: $0, value: values[$0])
+    })
+    components.queryItems = queryItems
+    return components.url
+  }
+
   private func isNativeBackgroundThreadEnabled() -> Bool {
 #if DEBUG
     if let envValue = ProcessInfo.processInfo.environment["ENABLE_NATIVE_BACKGROUND_THREAD"]?.lowercased() {
@@ -618,9 +642,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         let mainEntryURL = devVendorEntryBundleURL(
           runtimeTarget: "main",
           fingerprint: devVendorBundleInfo.fingerprint
-        )
+        ),
+        let mainHMRURL = devVendorMainHMRBundleURL(from: mainEntryURL)
       else {
-        fatalError("Unable to construct the dev-vendor main entry URL")
+        fatalError("Unable to construct the dev-vendor main entry or HMR URL")
       }
 
       if isNativeBackgroundThreadEnabled() {
@@ -655,6 +680,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
       SplitBundleLoader.loadDevVendorEntryBundle(
         mainEntryURL,
+        hmrBundleURL: mainHMRURL,
         fingerprint: devVendorBundleInfo.fingerprint,
         inHost: host
       )

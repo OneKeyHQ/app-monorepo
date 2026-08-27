@@ -349,6 +349,17 @@ describe('devVendor', () => {
     const liveOptions = splitBundleOptions(
       parseBundleOptions(rewrittenLiveUrl, new Set(['android', 'ios'])),
     );
+    const canonicalHmrUrl = new URL(liveUrl);
+    canonicalHmrUrl.pathname = '/apps/mobile/index.bundle';
+    canonicalHmrUrl.searchParams.set('transform.routerRoot', 'app');
+    canonicalHmrUrl.searchParams.set('transform.engine', 'hermes');
+    canonicalHmrUrl.searchParams.set('transform.bytecode', '1');
+    const canonicalHmrOptions = splitBundleOptions(
+      parseBundleOptions(
+        canonicalHmrUrl.toString(),
+        new Set(['android', 'ios']),
+      ),
+    );
 
     expect(fs.existsSync(path.join(repoRoot, 'apps/mobile/index.ts'))).toBe(
       true,
@@ -366,6 +377,7 @@ describe('devVendor', () => {
       engine: 'hermes',
       routerRoot: 'app',
     });
+    expect(canonicalHmrOptions).toEqual(liveOptions);
     expect(
       shouldRetainModulesOnlyGraphForHmr(liveOptions.resolverOptions),
     ).toBe(true);
@@ -385,7 +397,13 @@ describe('devVendor', () => {
       ),
       'utf8',
     );
-    expect(splitBundlePatch).toContain('bundleURL.absoluteString');
+    expect(splitBundlePatch).toContain(
+      'strongHost.bundleManager.bundleURL = bundleURL',
+    );
+    expect(splitBundlePatch).toContain(
+      'NSString *sourceURL = hmrBundleURL.absoluteString',
+    );
+    expect(splitBundlePatch).toContain('hmrBundleURL.absoluteString');
     expect(splitBundlePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
     expect(
       splitBundlePatch.indexOf('runtime.global().setProperty('),
@@ -436,10 +454,21 @@ describe('devVendor', () => {
       path.join(repoRoot, 'patches/expo+57.0.14.patch'),
       'utf8',
     );
-    expect(expoPatch).toContain('org.json.JSONObject.quote(config.entryUrl)');
+    expect(expoPatch).toContain('org.json.JSONObject.quote(hmrEntryUrl)');
     expect(expoPatch).toContain(
       '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryUrl',
     );
+    expect(expoPatch).toContain('.path("/apps/mobile/index.bundle")');
+    expect(expoPatch).toContain('URL(config.entryUrl).openConnection()');
+    expect(expoPatch).toContain('return hmrEntryUrl');
+    const appDelegateSource = fs.readFileSync(
+      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
+      'utf8',
+    );
+    expect(appDelegateSource).toContain(
+      'components.path = "/apps/mobile/index.bundle"',
+    );
+    expect(appDelegateSource).toContain('hmrBundleURL: mainHMRURL');
   });
 
   it('refreshes the cached dev server from native runtime delta URLs', () => {

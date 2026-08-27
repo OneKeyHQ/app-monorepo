@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index c712e48..6006adf 100644
+index c712e48..4fc8933 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 @@ -10,2 +10,3 @@ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
@@ -13,7 +13,7 @@ index c712e48..6006adf 100644
 +import java.net.HttpURLConnection
 +import java.net.URL
  
-@@ -27,2 +31,147 @@ object ExpoReactHostFactory {
+@@ -27,2 +31,156 @@ object ExpoReactHostFactory {
  
 +  // OneKey patch: load a stable local HBC before the live Metro delta while
 +  // keeping ReactHost dev support enabled for Fast Refresh and full reloads.
@@ -30,6 +30,15 @@ index c712e48..6006adf 100644
 +    return object : JSBundleLoader() {
 +      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
 +        val totalStart = System.nanoTime()
++        val hmrEntryUrl =
++          android.net.Uri.parse(config.entryUrl)
++            .buildUpon()
++            .path("/apps/mobile/index.bundle")
++            .appendQueryParameter("transform.routerRoot", "app")
++            .appendQueryParameter("transform.engine", "hermes")
++            .appendQueryParameter("transform.bytecode", "1")
++            .build()
++            .toString()
 +        delegate.loadScriptFromAssets(
 +          context.assets,
 +          "assets://${config.commonAssetName}",
@@ -37,7 +46,7 @@ index c712e48..6006adf 100644
 +        )
 +
 +        val assertionFile = File(context.cacheDir, "onekey-dev-vendor-assert-main.js")
-+        val quotedEntryUrl = org.json.JSONObject.quote(config.entryUrl)
++        val quotedEntryUrl = org.json.JSONObject.quote(hmrEntryUrl)
 +        assertionFile.writeText(
 +          "if(globalThis.__ONEKEY_DEV_VENDOR_FINGERPRINT__!==\"${config.fingerprint}\")" +
 +            "{throw new Error(\"Dev-vendor common fingerprint mismatch\");}" +
@@ -84,13 +93,13 @@ index c712e48..6006adf 100644
 +          throw RuntimeException("Failed to download dev-vendor main delta", error)
 +        }
 +
-+        delegate.loadScriptFromFile(deltaFile.absolutePath, config.entryUrl, false)
++        delegate.loadScriptFromFile(deltaFile.absolutePath, hmrEntryUrl, false)
 +        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
 +        android.util.Log.i(
 +          "DevVendor",
 +          "main common.hbc + Metro delta loaded in ${String.format("%.1f", totalMs)}ms"
 +        )
-+        return config.entryUrl
++        return hmrEntryUrl
 +      }
 +    }
 +  }
@@ -161,11 +170,11 @@ index c712e48..6006adf 100644
 +  }
 +
    @UnstableReactNativeAPI
-@@ -35,2 +184,3 @@ object ExpoReactHostFactory {
+@@ -35,2 +193,3 @@ object ExpoReactHostFactory {
      private val useDevSupport: Boolean,
 +    private val devVendorConfig: DevVendorConfig? = null,
      override val bindingsInstaller: BindingsInstaller? = null,
-@@ -69,6 +219,14 @@ object ExpoReactHostFactory {
+@@ -69,6 +228,14 @@ object ExpoReactHostFactory {
            ?: throw IllegalStateException("Unable to get concrete Context")
 +        devVendorConfig?.let { return createDevVendorBundleLoader(context, it) }
          hostDelegateJsBundleFilePath?.let { jsBundleFile ->
@@ -180,14 +189,14 @@ index c712e48..6006adf 100644
 +            return createSequentialFileBundleLoader(commonPath, jsBundleFile)
 +          }
            return JSBundleLoader.createFileLoader(jsBundleFile)
-@@ -76,2 +234,6 @@ object ExpoReactHostFactory {
+@@ -76,2 +243,6 @@ object ExpoReactHostFactory {
  
 +        if (hasCommonBundleInAssets(context)) {
 +          val entryAssetName = hostDelegateJSBundleAssetPath ?: jsBundleAssetPath ?: "index.android.bundle"
 +          return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
 +        }
          return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
-@@ -105,3 +267,6 @@ object ExpoReactHostFactory {
+@@ -105,3 +276,6 @@ object ExpoReactHostFactory {
      useDevSupport: Boolean = ReactBuildConfig.DEBUG,
 -    bindingsInstaller: BindingsInstaller? = null
 +    bindingsInstaller: BindingsInstaller? = null,
@@ -195,7 +204,7 @@ index c712e48..6006adf 100644
 +    devVendorEntryUrl: String? = null,
 +    devVendorFingerprint: String? = null
    ): ReactHost {
-@@ -111,2 +276,17 @@ object ExpoReactHostFactory {
+@@ -111,2 +285,17 @@ object ExpoReactHostFactory {
  
 +      val devVendorConfig =
 +        if (
@@ -213,13 +222,13 @@ index c712e48..6006adf 100644
 +          null
 +        }
        val reactHostDelegate = ExpoReactHostDelegate(
-@@ -118,3 +298,4 @@ object ExpoReactHostFactory {
+@@ -118,3 +307,4 @@ object ExpoReactHostFactory {
          useDevSupport,
 -        bindingsInstaller,
 +        devVendorConfig = devVendorConfig,
 +        bindingsInstaller = bindingsInstaller,
          hostHandlers = hostHandlers
-@@ -133,3 +314,5 @@ object ExpoReactHostFactory {
+@@ -133,3 +323,5 @@ object ExpoReactHostFactory {
            componentFactory = componentFactory,
 -          allowPackagerServerAccess = true,
 +          // Keep DevSupportManager active. Its ReactContext listener performs

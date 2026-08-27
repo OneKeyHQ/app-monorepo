@@ -1,19 +1,20 @@
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
-index e3178b9..1987bea 100644
+index e3178b9..aeb0f84 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
-@@ -26,3 +26,8 @@
+@@ -26,3 +26,9 @@
  + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host;
 -
 +/// Download and evaluate a dev-vendor modules-only entry bundle after the
 +/// host has booted from its local common HBC. HMR setup is queued after the
 +/// entry bundle evaluation.
 ++ (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
++                    hmrBundleURL:(NSURL *)hmrBundleURL
 +                     fingerprint:(NSString *)fingerprint
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..edd324f 100644
+index 7ec0db3..7c63281 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -28,14 +29,16 @@ index 7ec0db3..edd324f 100644
 -
 +constexpr int64_t kDevVendorLoadTimeoutSeconds = 60;
  // Zero-copy jsi::Buffer over an NSData (M4/M5).
-@@ -903,3 +907,153 @@ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host
+@@ -903,3 +907,155 @@ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host
  }
 -
 ++ (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
++                    hmrBundleURL:(NSURL *)hmrBundleURL
 +                     fingerprint:(NSString *)fingerprint
 +                          inHost:(id)host
 +{
 +  if (!host || !bundleURL || bundleURL.fileURL || bundleURL.host.length == 0 ||
++      !hmrBundleURL || hmrBundleURL.fileURL || hmrBundleURL.host.length == 0 ||
 +      fingerprint.length == 0) {
 +    [SBLLogger warn:@"loadDevVendorEntryBundle: invalid arguments"];
 +    return;
@@ -47,7 +50,7 @@ index 7ec0db3..edd324f 100644
 +    [SBLLogger warn:@"loadDevVendorEntryBundle: RCTInstance is unavailable"];
 +    return;
 +  }
-+  NSURLComponents *components = [NSURLComponents componentsWithURL:bundleURL
++  NSURLComponents *components = [NSURLComponents componentsWithURL:hmrBundleURL
 +                                           resolvingAgainstBaseURL:NO];
 +  NSString *path = [components.path hasPrefix:@"/"]
 +      ? [components.path substringFromIndex:1]
@@ -137,7 +140,7 @@ index 7ec0db3..edd324f 100644
 +    // Keep native reload targeting the live graph after the common HBC is read.
 +    strongHost.bundleManager.bundleURL = bundleURL;
 +    NSData *data = source.data;
-+    NSString *sourceURL = bundleURL.absoluteString;
++    NSString *sourceURL = hmrBundleURL.absoluteString;
 +    try {
 +      facebook::jsi::Value marker = runtime.global().getProperty(
 +          runtime, "__ONEKEY_DEV_VENDOR_FINGERPRINT__");
@@ -178,7 +181,7 @@ index 7ec0db3..edd324f 100644
 +                                 port,
 +                                 @(devSettings.isHotLoadingEnabled),
 +                                 scheme,
-+                                 bundleURL.absoluteString
++                                 hmrBundleURL.absoluteString
 +                               ]];
 +  [SBLLogger info:@"[DevVendor] main HMR client setup queued"];
 +}
