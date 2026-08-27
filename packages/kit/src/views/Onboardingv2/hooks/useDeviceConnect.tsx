@@ -764,6 +764,7 @@ export function useDeviceConnect({
             (resolve, reject) => {
               void showFirmwareVerifyDialog({
                 device: latestDevice,
+                features,
                 // iOS only, matching the closeAndWait gate above: the page
                 // portal sits below the global overlay on every platform, so
                 // without the awaited close an in-page dialog would sit under

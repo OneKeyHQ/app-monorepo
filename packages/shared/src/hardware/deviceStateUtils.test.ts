@@ -273,12 +273,12 @@ describe('deviceStateUtils', () => {
     });
 
     expect(merged.versions).toEqual(incomingState.versions);
-    expect(merged.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
-    expect(merged.securityElements).toEqual(incomingState.securityElements);
-    expect(merged.verification).toEqual(incomingState.verification);
+    expect(merged.identity.firmwareType).toBe(EFirmwareType.Universal);
+    expect(merged.securityElements).toEqual(currentState.securityElements);
+    expect(merged.verification).toEqual(currentState.verification);
   });
 
-  it('uses V1 initialize version and capability sections as authoritative', () => {
+  it('uses V1 initialize versions as authoritative without replacing other sections', () => {
     const currentState = createState({ revision: 1, updatedAt: 1 });
     currentState.protocol = 'V1';
     currentState.versions.firmware = '4.16.1';
@@ -297,7 +297,7 @@ describe('deviceStateUtils', () => {
     });
 
     expect(merged.versions).toEqual(incomingState.versions);
-    expect(merged.capabilities).toEqual(incomingState.capabilities);
+    expect(merged.capabilities).toEqual(currentState.capabilities);
   });
 
   it('does not replace persisted V1 versions with an incomplete snapshot', () => {

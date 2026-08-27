@@ -51,6 +51,7 @@ function DeviceSectionSupport({
     }
     await showFirmwareVerifyDialog({
       device: deviceData.device,
+      features: deviceData.device.featuresInfo,
       onContinue: async ({ checked }) => {
         console.log(checked);
       },

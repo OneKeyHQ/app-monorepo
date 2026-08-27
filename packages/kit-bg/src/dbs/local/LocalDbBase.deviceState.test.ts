@@ -423,8 +423,8 @@ describe('LocalDb DeviceState persistence', () => {
 
     const persisted = JSON.parse(db.device.deviceState || '{}');
     expect(persisted.versions).toEqual(incoming.versions);
-    expect(persisted.identity.firmwareType).toBe(EFirmwareType.BitcoinOnly);
-    expect(persisted.securityElements).toEqual(incoming.securityElements);
+    expect(persisted.identity.firmwareType).toBe(EFirmwareType.Universal);
+    expect(persisted.securityElements).toEqual(current.securityElements);
   });
 
   it('ignores an event older than the persisted state', async () => {

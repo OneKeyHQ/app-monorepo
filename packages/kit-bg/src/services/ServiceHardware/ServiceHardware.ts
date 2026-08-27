@@ -307,22 +307,14 @@ const supportsDedicatedFirmwareFeatures = (deviceType: IDeviceType) =>
   deviceType === EDeviceType.Pro2 ||
   deviceType === NEO_DEVICE_TYPE;
 
-type IFirmwareVerificationFeatures = OnekeyFeatures & {
-  fw_vendor?: string;
-};
-
 function buildOnekeyFeaturesFromState(
   state: IOneKeyDeviceState,
-): IFirmwareVerificationFeatures {
+): OnekeyFeatures {
   const { verification: verify, versions } = state;
 
   return {
     onekey_serial_no: state.identity.serialNo,
     onekey_ble_name: state.identity.bleName || '',
-    fw_vendor:
-      state.identity.firmwareType === EFirmwareType.BitcoinOnly
-        ? 'OneKey Bitcoin-only'
-        : undefined,
     onekey_firmware_version: nullableToUndefined(versions.firmware),
     onekey_boot_version: nullableToUndefined(versions.bootloader),
     onekey_board_version: nullableToUndefined(versions.board),
@@ -3567,8 +3559,7 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async shouldAuthenticateFirmwareByHash(params: {
-    deviceType: IDeviceType;
-    onekeyFeatures: OnekeyFeatures | undefined;
+    features: IOneKeyDeviceFeatures | undefined;
   }) {
     return this.hardwareVerifyManager.shouldAuthenticateFirmwareByHash(params);
   }
@@ -3580,7 +3571,7 @@ class ServiceHardware extends ServiceBase {
   }: {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
-  }): Promise<IDeviceVerifyVersionCompareResult | undefined> {
+  }): Promise<IDeviceVerifyVersionCompareResult> {
     return this.hardwareVerifyManager.verifyFirmwareHash({
       deviceType,
       onekeyFeatures,
@@ -3702,7 +3693,7 @@ class ServiceHardware extends ServiceBase {
   }: {
     connectId: string;
     deviceType: IDeviceType;
-  }): Promise<IFirmwareVerificationFeatures> {
+  }): Promise<OnekeyFeatures> {
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,

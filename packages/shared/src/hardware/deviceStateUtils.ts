@@ -67,10 +67,8 @@ export function mergeDeviceStateEvent({
   }
 
   let mergedState = sanitizeState(currentState);
-  // Some V1 events carry complete sections even when changedKeys only reflects
-  // the delta against the SDK's in-memory cache. Merge those sections as the
-  // authoritative device snapshot so values learned before App listeners were
-  // attached still reach persistence. V2 device-info remains sparse.
+  // V1 snapshots may contain current device values that are absent from
+  // changedKeys because the SDK cache observed them before App persistence.
   const isAuthoritativeSettingsSnapshot =
     source === 'settings-read' ||
     (incomingState.protocol === 'V1' &&
@@ -85,18 +83,9 @@ export function mergeDeviceStateEvent({
           : [],
       )
     : [];
-  const hasAuthoritativeV1Versions = authoritativeV1VersionKeys.length > 0;
   const authoritativeKeys = [
     ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
     ...authoritativeV1VersionKeys,
-    ...(hasAuthoritativeV1Versions
-      ? [
-          'identity.firmwareType',
-          'securityElements',
-          'verification',
-          'capabilities',
-        ]
-      : []),
   ];
   const mergeKeys = Array.from(new Set([...changedKeys, ...authoritativeKeys]));
   for (const changedKey of mergeKeys) {

@@ -19,15 +19,13 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  EFirmwareVerifyType,
-  EHardwareCallContext,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
   IFirmwareVerifyInfo,
   IFirmwareVerifyResult,
+  IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -123,36 +121,6 @@ function buildSkippedFirmwareHashResult(
       releaseUrl: localVerifyInfos?.bootloader.releaseUrl,
     },
   };
-}
-
-function hasCompleteFirmwareVerifyResult({
-  result,
-  verifyVersions,
-}: {
-  result: IFirmwareVerifyInfo[] | undefined;
-  verifyVersions: IFetchFirmwareVerifyHashParams;
-}) {
-  if (!Array.isArray(result) || result.length !== 3) {
-    return false;
-  }
-
-  const expectedVersionByType: Record<EFirmwareVerifyType, string> = {
-    [EFirmwareVerifyType.System]: verifyVersions.firmwareVersion,
-    [EFirmwareVerifyType.Bluetooth]: verifyVersions.bluetoothVersion,
-    [EFirmwareVerifyType.Bootloader]: verifyVersions.bootloaderVersion,
-  };
-  const seenTypes = new Set<EFirmwareVerifyType>();
-  return result.every(({ type, version }) => {
-    if (
-      seenTypes.has(type) ||
-      expectedVersionByType[type] === undefined ||
-      expectedVersionByType[type] !== version
-    ) {
-      return false;
-    }
-    seenTypes.add(type);
-    return true;
-  });
 }
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
@@ -314,28 +282,68 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
 
   @backgroundMethod()
   async shouldAuthenticateFirmwareByHash({
-    deviceType,
-    onekeyFeatures,
+    features,
   }: {
-    deviceType: IDeviceType;
-    onekeyFeatures: OnekeyFeatures | undefined;
+    features: IOneKeyDeviceFeatures | undefined;
   }) {
+    const deviceType = features
+      ? await deviceUtils.getDeviceTypeFromFeatures({ features })
+      : undefined;
     if (!this.isFirmwareVerificationEnabled(deviceType)) {
       return false;
     }
 
-    if (!onekeyFeatures) {
+    if (!features) {
       return false;
     }
     const verifyVersions =
-      await deviceUtils.getDeviceVerifyVersionsFromRawOnekeyFeatures({
-        deviceType,
-        onekeyFeatures,
+      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
+        features,
       });
     if (!verifyVersions) {
       return false;
     }
-    return true;
+    const result = await this.fetchFirmwareVerifyHash(verifyVersions);
+    // server should return 3 firmware config
+    if (!result || !Array.isArray(result) || result.length !== 3) {
+      return false;
+    }
+    const isValid = result.every((firmware) => {
+      if (
+        firmware.type === 'system' &&
+        firmware.version !== verifyVersions.firmwareVersion
+      ) {
+        console.log('System version mismatch:', {
+          expected: verifyVersions.firmwareVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      if (
+        firmware.type === 'bluetooth' &&
+        firmware.version !== verifyVersions.bluetoothVersion
+      ) {
+        console.log('Bluetooth version mismatch:', {
+          expected: verifyVersions.bluetoothVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      if (
+        firmware.type === 'bootloader' &&
+        firmware.version !== verifyVersions.bootloaderVersion
+      ) {
+        console.log('Bootloader version mismatch:', {
+          expected: verifyVersions.bootloaderVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      return true;
+    });
+
+    console.log('shouldAuthenticateFirmwareByHash isValid: ', isValid);
+    return isValid;
   }
 
   @backgroundMethod()
@@ -391,13 +399,23 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   }: {
     deviceType: IDeviceType;
     onekeyFeatures: OnekeyFeatures | undefined;
-  }): Promise<IDeviceVerifyVersionCompareResult | undefined> {
+  }): Promise<IDeviceVerifyVersionCompareResult> {
     if (!this.isFirmwareVerificationEnabled(deviceType)) {
       return buildSkippedFirmwareHashResult(onekeyFeatures);
     }
 
+    const defaultResult = {
+      certificate: {
+        isMatch: true,
+        format: onekeyFeatures?.onekey_serial_no ?? '',
+      },
+      firmware: { isMatch: false, format: '' },
+      bluetooth: { isMatch: false, format: '' },
+      bootloader: { isMatch: false, format: '' },
+    };
+
     if (!onekeyFeatures) {
-      return undefined;
+      return defaultResult;
     }
 
     const verifyVersions =
@@ -406,12 +424,12 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         deviceType,
       });
     if (!verifyVersions) {
-      return undefined;
+      return defaultResult;
     }
 
     const result = await this.fetchFirmwareVerifyHash(verifyVersions);
-    if (!hasCompleteFirmwareVerifyResult({ result, verifyVersions })) {
-      return undefined;
+    if (!result || !Array.isArray(result)) {
+      return defaultResult;
     }
     const serverVerifyInfos = deviceUtils.parseServerVersionInfos({
       serverVerifyInfos: result,

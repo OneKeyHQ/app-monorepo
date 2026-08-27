@@ -12,10 +12,7 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EFirmwareVerifyType,
-  EHardwareCallContext,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import localDb from '../../dbs/local/localDb';
@@ -28,7 +25,6 @@ import ServiceHardware from './ServiceHardware';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { OnekeyFeatures } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -147,7 +143,6 @@ const createService = ({
       bleName: 'Pro2 6136',
       displayName: 'OneKey Pro 2',
       deviceType: EDeviceType.Pro2,
-      firmwareType: EFirmwareType.Universal,
     },
     status: { mode, unlocked },
     settings: { language: 'en-US' },
@@ -423,7 +418,6 @@ describe('ServiceHardware wallet session compatibility', () => {
     const { service, state } = createService({ unlocked: true });
     state.protocol = 'V1';
     state.identity.deviceType = EDeviceType.Classic1s;
-    state.identity.firmwareType = EFirmwareType.BitcoinOnly;
     service.getDeviceState = jest.fn().mockResolvedValue({
       ...state,
       versions: { ...state.versions, se: '1.1.0.2' },
@@ -437,7 +431,6 @@ describe('ServiceHardware wallet session compatibility', () => {
     ).resolves.toMatchObject({
       onekey_firmware_version: '1.0.0',
       onekey_se01_version: '1.1.0.2',
-      fw_vendor: 'OneKey Bitcoin-only',
     });
 
     expect(service.getDeviceState).toHaveBeenCalledWith({
@@ -2071,57 +2064,6 @@ describe('ServiceHardware.fetchHardwareHomeScreen', () => {
 });
 
 describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
-  const onekeyFeatures = {
-    onekey_serial_no: 'ONEKEY_SERIAL',
-    onekey_firmware_version: '4.21.0',
-    onekey_ble_version: '2.3.7',
-    onekey_boot_version: '2.8.4',
-    onekey_firmware_hash: 'firmware-checksum',
-    onekey_ble_hash: 'bluetooth-checksum',
-    onekey_boot_hash: 'bootloader-checksum',
-    onekey_firmware_build_id: 'firmware-commit',
-    onekey_ble_build_id: 'bluetooth-commit',
-    onekey_boot_build_id: 'bootloader-commit',
-  } as OnekeyFeatures;
-
-  const completeVerifyResult = [
-    {
-      deviceType: EDeviceType.Pro,
-      type: EFirmwareVerifyType.System,
-      version: '4.21.0',
-      checksum: 'firmware-checksum',
-      commitId: 'firmware-commit',
-      releaseUrl: 'https://example.com/firmware',
-    },
-    {
-      deviceType: EDeviceType.Pro,
-      type: EFirmwareVerifyType.Bluetooth,
-      version: '2.3.7',
-      checksum: 'bluetooth-checksum',
-      commitId: 'bluetooth-commit',
-      releaseUrl: 'https://example.com/bluetooth',
-    },
-    {
-      deviceType: EDeviceType.Pro,
-      type: EFirmwareVerifyType.Bootloader,
-      version: '2.8.4',
-      checksum: 'bootloader-checksum',
-      commitId: 'bootloader-commit',
-      releaseUrl: 'https://example.com/bootloader',
-    },
-  ];
-
-  const createVerifyService = () => {
-    const backgroundApi = {
-      serviceHardware: undefined as never as ServiceHardware,
-    };
-    const service = new ServiceHardware({
-      backgroundApi: backgroundApi as never as IBackgroundApi,
-    });
-    backgroundApi.serviceHardware = service;
-    return service;
-  };
-
   it.each([EDeviceType.Pro2, EDeviceType.Neo] as const)(
     'requests firmware/detail with the native %s device type',
     async (deviceType) => {
@@ -2162,74 +2104,6 @@ describe('ServiceHardware.fetchFirmwareVerifyHash', () => {
       });
     },
   );
-
-  it('treats an empty server response as unavailable instead of three failures', async () => {
-    const service = createVerifyService();
-    jest
-      .spyOn(service.hardwareVerifyManager, 'fetchFirmwareVerifyHash')
-      .mockResolvedValue([]);
-
-    await expect(
-      service.hardwareVerifyManager.shouldAuthenticateFirmwareByHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      service.hardwareVerifyManager.verifyFirmwareHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('keeps hash verification enabled when component records are incomplete', async () => {
-    const service = createVerifyService();
-    jest
-      .spyOn(service.hardwareVerifyManager, 'fetchFirmwareVerifyHash')
-      .mockResolvedValue([
-        completeVerifyResult[0],
-        completeVerifyResult[0],
-        completeVerifyResult[2],
-      ]);
-
-    await expect(
-      service.hardwareVerifyManager.shouldAuthenticateFirmwareByHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      service.hardwareVerifyManager.verifyFirmwareHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('compares a complete matching response from the same version snapshot', async () => {
-    const service = createVerifyService();
-    jest
-      .spyOn(service.hardwareVerifyManager, 'fetchFirmwareVerifyHash')
-      .mockResolvedValue(completeVerifyResult);
-
-    await expect(
-      service.hardwareVerifyManager.shouldAuthenticateFirmwareByHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      service.hardwareVerifyManager.verifyFirmwareHash({
-        deviceType: EDeviceType.Pro,
-        onekeyFeatures,
-      }),
-    ).resolves.toMatchObject({
-      firmware: { isMatch: true },
-      bluetooth: { isMatch: true },
-      bootloader: { isMatch: true },
-    });
-  });
 });
 
 describe('ServiceHardware.cancel Pro2 operation', () => {

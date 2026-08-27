@@ -142,7 +142,21 @@ export class FirmwareUpdateDetectMap {
     };
   }
 
-  async updateDetectStatusAtom({ connectId }: { connectId: string }) {
+  async updateDetectStatusAtom({
+    connectId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+  }) {
+    const staleConnectIds = [usbConnectId, bleConnectId].filter(
+      (value): value is string => Boolean(value && value !== connectId),
+    );
+    for (const staleConnectId of staleConnectIds) {
+      delete this.detectMapCache[staleConnectId];
+    }
     const detectCache = this.detectMapCache[connectId];
     if (detectCache?.detectResultResolved !== true) {
       return;
@@ -151,6 +165,9 @@ export class FirmwareUpdateDetectMap {
       (value: IFirmwareUpdatesDetectStatus | undefined) => {
         const status = this.buildDetectStatus({ connectId, detectCache });
         const newValue = { ...value };
+        for (const staleConnectId of staleConnectIds) {
+          delete newValue[staleConnectId];
+        }
         if (status) {
           newValue[connectId] = status;
         } else {
@@ -167,9 +184,13 @@ export class FirmwareUpdateDetectMap {
 
   async updateFirmwareUpdateInfo({
     connectId,
+    usbConnectId,
+    bleConnectId,
     updateInfo,
   }: {
     connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
     updateInfo: IFirmwareUpdateInfo;
   }) {
     const mockAllIsUpToDate =
@@ -192,14 +213,22 @@ export class FirmwareUpdateDetectMap {
         updateInfo: undefined,
       };
     }
-    await this.updateDetectStatusAtom({ connectId });
+    await this.updateDetectStatusAtom({
+      connectId,
+      usbConnectId,
+      bleConnectId,
+    });
   }
 
   async updateBleFirmwareUpdateInfo({
     connectId,
+    usbConnectId,
+    bleConnectId,
     updateInfo,
   }: {
     connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
     updateInfo: IBleFirmwareUpdateInfo;
   }) {
     const mockAllIsUpToDate =
@@ -222,16 +251,24 @@ export class FirmwareUpdateDetectMap {
         updateInfo: undefined,
       };
     }
-    await this.updateDetectStatusAtom({ connectId });
+    await this.updateDetectStatusAtom({
+      connectId,
+      usbConnectId,
+      bleConnectId,
+    });
   }
 
   async resolveUpdateInfo({
     connectId,
+    usbConnectId,
+    bleConnectId,
     hasUpgrade,
     firmware,
     ble,
   }: {
     connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
     hasUpgrade: boolean;
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
@@ -247,16 +284,32 @@ export class FirmwareUpdateDetectMap {
           }
         : undefined,
     };
-    await this.updateDetectStatusAtom({ connectId });
+    await this.updateDetectStatusAtom({
+      connectId,
+      usbConnectId,
+      bleConnectId,
+    });
   }
 
-  async deleteUpdateInfo({ connectId }: { connectId: string }) {
+  async deleteUpdateInfo({
+    connectId,
+    usbConnectId,
+    bleConnectId,
+  }: {
+    connectId: string;
+    usbConnectId?: string | null;
+    bleConnectId?: string | null;
+  }) {
     this.detectMapCache[connectId] = {
       ...this.detectMapCache[connectId],
       detectResultResolved: true,
       updateInfo: undefined,
     };
-    await this.updateDetectStatusAtom({ connectId });
+    await this.updateDetectStatusAtom({
+      connectId,
+      usbConnectId,
+      bleConnectId,
+    });
   }
 
   async clear() {
