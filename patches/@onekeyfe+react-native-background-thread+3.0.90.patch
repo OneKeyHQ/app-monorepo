@@ -451,7 +451,7 @@ index 0b7c882..bb890e5 100644
 +                               fingerprint:(NSString *)fingerprint;
  /**
 diff --git a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
-index 4cadac6..8a6c54c 100644
+index 4cadac6..4d15619 100644
 --- a/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
 +++ b/node_modules/@onekeyfe/react-native-background-thread/ios/BackgroundRunnerReactNativeDelegate.mm
 @@ -14,4 +14,5 @@
@@ -534,7 +534,7 @@ index 4cadac6..8a6c54c 100644
 +    NSString *fingerprint = _devVendorFingerprint;
 +    BTDevVendorDownloadState *downloadState = [[BTDevVendorDownloadState alloc] init];
 +    [RCTJavaScriptLoader loadBundleAtURL:entryURL
-+        onProgress:nil
++        onProgress:^(RCTLoadingProgress *progress) { (void)progress; }
 +        onComplete:^(NSError *error, RCTSource *source) {
 +          downloadState.error = error;
 +          downloadState.data = source.data;

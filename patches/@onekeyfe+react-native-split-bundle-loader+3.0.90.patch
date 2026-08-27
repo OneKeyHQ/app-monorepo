@@ -13,7 +13,7 @@ index e3178b9..1987bea 100644
 +                          inHost:(id)host;
  @end
 diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
-index 7ec0db3..211b098 100644
+index 7ec0db3..46e2436 100644
 --- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 +++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
 @@ -2,2 +2,6 @@
@@ -82,7 +82,7 @@ index 7ec0db3..211b098 100644
 +  dispatch_semaphore_t downloadReady = dispatch_semaphore_create(0);
 +  dispatch_semaphore_t hostRegistrationReady = dispatch_semaphore_create(0);
 +  [RCTJavaScriptLoader loadBundleAtURL:bundleURL
-+      onProgress:nil
++      onProgress:^(RCTLoadingProgress *progress) { (void)progress; }
 +      onComplete:^(NSError *error, RCTSource *source) {
 +        downloadError = error;
 +        downloadedSource = source;
