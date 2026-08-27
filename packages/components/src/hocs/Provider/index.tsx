@@ -18,6 +18,8 @@ import { TamaguiProvider } from './TamaguiProvider';
 
 import type { TamaguiConfig } from 'tamagui';
 
+export { setSystemBarsOverride } from './hooks/useAppearanceTheme';
+
 export type IUIProviderProps = PropsWithChildren<{
   /**
    * Resolved theme variant used for rendering.
