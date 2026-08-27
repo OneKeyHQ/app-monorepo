@@ -1,8 +1,20 @@
 diff --git a/node_modules/react-native-get-random-values/lib/module/index.js b/node_modules/react-native-get-random-values/lib/module/index.js
-index 19bd4df..f2d9d8e 100644
+index 19bd4df..3faccae 100644
 --- a/node_modules/react-native-get-random-values/lib/module/index.js
 +++ b/node_modules/react-native-get-random-values/lib/module/index.js
-@@ -29,6 +29,26 @@ function markNativeGetRandomValuesCall(message, isCallNativeModule) {
+@@ -1,6 +1,10 @@
+ "use strict";
+ 
+-const base64Decode = require('fast-base64-decode');
++// OneKey patch: fast-base64-decode 2.x is ESM-only (default export); under
++// Metro's CJS interop require() returns the namespace object, and calling it
++// threw "Object is not a function" on the first use of this path.
++const base64DecodeModule = require('fast-base64-decode');
++const base64Decode = base64DecodeModule && base64DecodeModule.default ? base64DecodeModule.default : base64DecodeModule;
+ const ExpoCrypto = require('expo-crypto');
+ const NativeReactNativeGetRandomValues = require('./module').ReactNativeGetRandomValues;
+ class TypeMismatchError extends Error {}
+@@ -29,6 +33,26 @@ function markNativeGetRandomValuesCall(message, isCallNativeModule) {
    }
  }
  
@@ -29,7 +41,7 @@ index 19bd4df..f2d9d8e 100644
  /**
   * @param {number} byteLength
   * @returns {string}
-@@ -57,7 +77,8 @@ function getRandomValues(array) {
+@@ -57,7 +81,8 @@ function getRandomValues(array) {
    }
  
    // Expo SDK 48+
@@ -39,7 +51,7 @@ index 19bd4df..f2d9d8e 100644
      markNativeGetRandomValuesCall('Expo SDK 48+ global.expo.modules.ExpoCrypto.getRandomValues(array)', true);
      // ExpoCrypto.getRandomValues doesn't return the array
      ExpoCrypto.getRandomValues(array);
-@@ -68,7 +89,10 @@ function getRandomValues(array) {
+@@ -68,7 +93,10 @@ function getRandomValues(array) {
    // "Calling synchronous methods on native modules is not supported in Chrome".
    // So in that specific case we fall back to just using Math.random.
    if (__DEV__) {
