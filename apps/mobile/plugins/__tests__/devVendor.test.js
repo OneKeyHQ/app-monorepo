@@ -1,3 +1,4 @@
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -131,6 +132,26 @@ function loadResolveAssetSource(scriptURL) {
     },
   });
   return { resolveAssetSource: module.exports.default, runtimeGlobal };
+}
+
+function loadIOSMainBundlePhaseScript() {
+  const project = fs.readFileSync(
+    path.join(
+      repoRoot,
+      'apps/mobile/ios/OneKeyWallet.xcodeproj/project.pbxproj',
+    ),
+    'utf8',
+  );
+  const phaseStart = project.indexOf(
+    'EA7958392B70B02A00E0382F /* Bundle React Native code and images */ = {',
+  );
+  const phaseEnd = project.indexOf('\n\t\t};', phaseStart);
+  const phase = project.slice(phaseStart, phaseEnd);
+  const scriptMatch = phase.match(/shellScript = ("(?:\\.|[^"\\])*");/);
+  if (!scriptMatch) {
+    throw new Error('Unable to read the iOS main bundle build phase');
+  }
+  return JSON.parse(scriptMatch[1]);
 }
 
 describe('devVendor', () => {
@@ -602,6 +623,58 @@ describe('devVendor', () => {
     invalidRuntime.runtimeGlobal.__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__ =
       firstMainURL.replace('runtimeTarget=main', 'runtimeTarget=worker');
     expect(invalidRuntime.getDevServer().bundleLoadedFromServer).toBe(false);
+  });
+
+  it('quotes iOS bundle phase tool paths containing spaces', () => {
+    const script = loadIOSMainBundlePhaseScript();
+    const invocation = script.trimEnd().split('\n').at(-1);
+    const temporaryDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey dev vendor xcode '),
+    );
+    const nodeBinary = path.join(temporaryDirectory, 'Node Binary');
+    const sentryScript = path.join(temporaryDirectory, 'Sentry Script.sh');
+    const reactNativeScript = path.join(
+      temporaryDirectory,
+      'React Native Script.sh',
+    );
+    const captureFile = path.join(temporaryDirectory, 'Captured Argument.txt');
+
+    try {
+      fs.writeFileSync(
+        nodeBinary,
+        '#!/bin/sh\n' +
+          'case "$*" in\n' +
+          '  *sentry*) printf "%s\\n" "$MOCK_SENTRY_SCRIPT" ;;\n' +
+          '  *) printf "%s\\n" "$MOCK_REACT_NATIVE_SCRIPT" ;;\n' +
+          'esac\n',
+      );
+      fs.chmodSync(nodeBinary, 0o755);
+      fs.writeFileSync(
+        sentryScript,
+        '#!/bin/sh\nprintf "%s\\n" "$1" > "$MOCK_CAPTURE_FILE"\n',
+      );
+      fs.writeFileSync(reactNativeScript, '');
+
+      const result = spawnSync('/bin/sh', ['-c', invocation], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          MOCK_CAPTURE_FILE: captureFile,
+          MOCK_REACT_NATIVE_SCRIPT: reactNativeScript,
+          MOCK_SENTRY_SCRIPT: sentryScript,
+          NODE_BINARY: nodeBinary,
+        },
+      });
+
+      expect(invocation).not.toContain('`');
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(fs.readFileSync(captureFile, 'utf8').trim()).toBe(
+        reactNativeScript,
+      );
+    } finally {
+      fs.rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
   });
 
   it('resolves background assets from Metro after local common startup', () => {
