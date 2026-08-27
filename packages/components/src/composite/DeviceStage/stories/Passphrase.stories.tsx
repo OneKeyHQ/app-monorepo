@@ -33,15 +33,21 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-// The hidden-wallet family: the teach-first intro (Continue lands on the
-// in-app form), on-device entry, the in-app form with its create/verify
-// split, and the attach-PIN alternative hopping to the device pad.
+// The hidden-wallet family: the wallet-type fork (the live
+// Select-wallet-type dialog as a step — standard heads into the create
+// burst, hidden opens the intro), the teach-first intro (Continue lands
+// on the in-app form), on-device entry, the in-app form with its
+// create/verify split, and the attach-PIN alternative hopping to the
+// device pad.
 function PassphraseStage(props: IDeviceStageProps) {
   const driver = useStageDriver(props);
   return (
     <StageHost driver={driver} props={props}>
       <StepButton driver={driver} step="off">
         Off
+      </StepButton>
+      <StepButton driver={driver} step="selectWalletType">
+        Wallet type
       </StepButton>
       <StepButton driver={driver} step="passphraseIntro">
         Hidden wallet intro
