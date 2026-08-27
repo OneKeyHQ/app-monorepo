@@ -909,6 +909,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
+      // A reconcile can also start while buildRequiredSubscriptionsMap awaits.
+      // A plain reconcile does not bump _subscriptionLifecycleVersion, so the
+      // guard above cannot catch it, and its subscribes have not landed yet,
+      // which biases the checks below toward reporting them missing. The
+      // remaining steps are synchronous, so this is the last point a concurrent
+      // reconcile can slip in before the rebuild.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
+        return;
+      }
+
       const missingCriticalTypes =
         this._getMissingCriticalOpenSubscriptionTypes(
           requiredSubInfo.requiredSubSpecsMap,
