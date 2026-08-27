@@ -107,11 +107,19 @@ export function StockTokenOverview() {
           <SizableText>{getStockAnalystConsensus(ratings)}</SizableText>
         </XStack>
         {[
-          { label: 'Buy', value: ratings?.buy },
-          { label: 'Hold', value: ratings?.hold },
-          { label: 'Sell', value: ratings?.sell },
+          {
+            key: 'buy',
+            label: intl.formatMessage({ id: ETranslations.global_buy }),
+            value: ratings?.buy,
+          },
+          { key: 'hold', label: 'Hold', value: ratings?.hold },
+          {
+            key: 'sell',
+            label: intl.formatMessage({ id: ETranslations.global_sell }),
+            value: ratings?.sell,
+          },
         ].map((item) => (
-          <XStack key={item.label} justifyContent="space-between">
+          <XStack key={item.key} justifyContent="space-between">
             <SizableText color="$textSubdued">{item.label}</SizableText>
             <SizableText>{formatDirectPercentValue(item.value)}</SizableText>
           </XStack>

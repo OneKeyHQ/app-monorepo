@@ -9,12 +9,12 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
 
 interface IPortfolioItemNormalProps {
-  item: IMarketAccountPortfolioItem;
+  item: IMarketAccountPortfolioDisplayItem;
   tokenLogoUrl?: string;
   columnWidth: number;
 }
@@ -40,7 +40,13 @@ function PortfolioItemNormalBase({
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <XStack gap="$2" alignItems="center" w={100}>
-        <Token size="xs" tokenImageUri={tokenLogoUrl} />
+        <Token
+          size="xs"
+          tokenImageUri={item.tokenLogoUrl ?? tokenLogoUrl}
+          networkImageUri={item.networkLogoUrl}
+          networkId={item.networkId}
+          showNetworkIcon={Boolean(item.networkId)}
+        />
         <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
           {item.symbol}
         </SizableText>

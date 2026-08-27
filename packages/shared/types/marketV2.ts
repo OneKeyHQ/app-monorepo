@@ -685,6 +685,14 @@ export interface IMarketAccountPortfolioItem {
   pnl?: IMarketAccountPortfolioPnl;
 }
 
+export interface IMarketAccountPortfolioDisplayItem extends IMarketAccountPortfolioItem {
+  networkId?: string;
+  tokenId?: string;
+  issuer?: string;
+  tokenLogoUrl?: string;
+  networkLogoUrl?: string;
+}
+
 export interface IMarketAccountPortfolioResponse {
   list: IMarketAccountPortfolioItem[];
 }

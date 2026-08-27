@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   NumberSizeableText,
@@ -11,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -55,6 +58,8 @@ export function useMarketStockColumns({
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
+  const intl = useIntl();
+
   return useMemo(() => {
     const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
       showSparkline ? 5 : 4,
@@ -123,7 +128,7 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: 'Price',
+        title: intl.formatMessage({ id: ETranslations.global_price }),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -145,7 +150,9 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Change',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_banner_token_24hchange,
+        }),
         dataIndex: 'priceChange24hPercent',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -171,7 +178,7 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={64} height={16} />,
       },
       {
-        title: 'MCap',
+        title: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
         dataIndex: 'marketCap',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -192,7 +199,9 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: '24h Volume',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_stock_24h_volume,
+        }),
         dataIndex: 'volume24h',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -215,7 +224,9 @@ export function useMarketStockColumns({
     ];
     if (showSparkline) {
       columns.push({
-        title: '24h price range',
+        title: intl.formatMessage({
+          id: ETranslations.market_24h_price_range,
+        }),
         dataIndex: 'sparkline',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
@@ -232,5 +243,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [showSparkline]);
+  }, [intl, showSparkline]);
 }

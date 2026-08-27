@@ -36,6 +36,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
+import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
@@ -50,6 +51,7 @@ import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 import {
   STAT_FALLBACK_VALUE,
@@ -471,6 +473,8 @@ function StockChartModeControl({
   mode: IStockChartMode;
   onChange: (mode: IStockChartMode) => void;
 }) {
+  const intl = useIntl();
+
   // Figma 25476:88969: Simple (62) and Pro (40) sit 2px apart, exactly like the
   // range selector on the other end of the toolbar.
   return (
@@ -503,7 +507,7 @@ function StockChartModeControl({
         borderRadius="$full"
         onPress={() => onChange('pro')}
       >
-        Pro
+        {intl.formatMessage({ id: ETranslations.dexmarket_pro })}
       </Button>
     </XStack>
   );
@@ -587,7 +591,9 @@ function StockChart({
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
-                    {item}
+                    {item === 'All'
+                      ? intl.formatMessage({ id: ETranslations.global_all })
+                      : item}
                   </Button>
                 </Stack>
               );
@@ -814,152 +820,20 @@ function StockOverviewGrid() {
   );
 }
 
-type IStockPnlDisplay = {
-  color: '$text' | '$textSuccess' | '$textCritical';
-  amount: string;
-  percent?: string;
-};
-
-// PnL arrives as plain decimal strings; anything non-numeric means the backend
-// has no figure for this position and the column is dropped instead of showing
-// a fabricated zero.
-function buildStockPnlDisplay(
-  usdValue?: string,
-  percentValue?: string,
-): IStockPnlDisplay | undefined {
-  const amountBN = new BigNumber(usdValue ?? '');
-  if (!amountBN.isFinite()) {
-    return undefined;
-  }
-
-  let color: IStockPnlDisplay['color'] = '$text';
-  if (amountBN.gt(0)) {
-    color = '$textSuccess';
-  } else if (amountBN.lt(0)) {
-    color = '$textCritical';
-  }
-
-  const percentBN = new BigNumber(percentValue ?? '');
-  const percent = percentBN.isFinite()
-    ? `(${percentBN.gt(0) ? '+' : ''}${percentBN.toFixed(2)}%)`
-    : undefined;
-
-  // Kept as a plain decimal string: the `price` formatter renders it with the
-  // sign and full precision, unlike the abbreviating `marketCap` one used for
-  // the statistics grid.
-  return { color, amount: amountBN.toFixed(), percent };
-}
-
-function StockPositionPnlCell({
-  label,
-  display,
-}: {
-  label: string;
-  display: IStockPnlDisplay;
-}) {
-  return (
-    <YStack gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
-        {label}
-      </SizableText>
-      <XStack alignItems="baseline" gap="$1.5">
-        <NumberSizeableText
-          size="$headingMd"
-          color={display.color}
-          formatter="price"
-          formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
-        >
-          {display.amount}
-        </NumberSizeableText>
-        {display.percent ? (
-          <SizableText size="$bodyMd" color={display.color}>
-            {display.percent}
-          </SizableText>
-        ) : null}
-      </XStack>
-    </YStack>
-  );
-}
-
-function StockPositionRow({
-  position,
-}: {
-  position: IMarketAccountPortfolioItem;
-}) {
-  const pnl = position.pnl?.isPnlSupported ? position.pnl : undefined;
-  const totalPnl = buildStockPnlDisplay(pnl?.totalPnlUsd, pnl?.totalPnlPercent);
-  const unrealizedPnl = buildStockPnlDisplay(
-    pnl?.unrealizedPnlUsd,
-    pnl?.unrealizedPnlPercent,
-  );
+function StockPosition() {
+  const { portfolioData, isRefreshing, hasAccount } = useStockPortfolioData();
 
   return (
-    <YStack testID={`stock-position-${position.tokenAddress}`} gap="$3" py="$2">
-      <SizableText size="$bodyMdMedium">{position.symbol}</SizableText>
-      <XStack gap="$8" rowGap="$4" flexWrap="wrap">
-        <YStack gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            Holding
-          </SizableText>
-          <SizableText size="$headingMd">
-            {position.amount} {position.symbol}
-          </SizableText>
-        </YStack>
-        <YStack gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            Value
-          </SizableText>
-          <SizableText size="$headingMd">
-            {formatCurrencyStatValue(position.totalPrice)}
-          </SizableText>
-        </YStack>
-        {totalPnl ? (
-          <StockPositionPnlCell label="Total PnL" display={totalPnl} />
-        ) : null}
-        {unrealizedPnl ? (
-          <StockPositionPnlCell
-            label="Unrealized PnL"
-            display={unrealizedPnl}
-          />
-        ) : null}
-      </XStack>
-    </YStack>
+    <Portfolio
+      standalone
+      hasAccount={hasAccount}
+      portfolioData={portfolioData}
+      isRefreshing={isRefreshing}
+    />
   );
 }
 
-function StockPosition({
-  portfolioData,
-}: {
-  portfolioData: IMarketAccountPortfolioItem[];
-}) {
-  if (portfolioData.length === 0) {
-    return (
-      <YStack py="$12" alignItems="center" gap="$2">
-        <Icon name="WalletOutline" size="$8" color="$iconSubdued" />
-        <SizableText color="$textSubdued">No position yet</SizableText>
-      </YStack>
-    );
-  }
-
-  // One row per token variant: the same listing can be held through several
-  // wrapped tokens, and only rendering the first one hid the rest.
-  return (
-    <YStack gap="$5">
-      {portfolioData.map((position) => (
-        <StockPositionRow
-          key={`${position.accountAddress}-${position.tokenAddress}`}
-          position={position}
-        />
-      ))}
-    </YStack>
-  );
-}
-
-function StockOverview({
-  portfolioData,
-}: {
-  portfolioData: IMarketAccountPortfolioItem[];
-}) {
+function StockOverview() {
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
 
@@ -1010,15 +884,9 @@ function StockOverview({
           })}
         </Button>
       </XStack>
-      {/* The overview grid fills these exact heights; the position tab can hold
-      more rows than that, so the block grows instead of clipping them. */}
       <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
-        <YStack minHeight={336} py="$6">
-          {activeTab === 'overview' ? (
-            <StockOverviewGrid />
-          ) : (
-            <StockPosition portfolioData={portfolioData} />
-          )}
+        <YStack minHeight={336} py={activeTab === 'overview' ? '$6' : '$0'}>
+          {activeTab === 'overview' ? <StockOverviewGrid /> : <StockPosition />}
         </YStack>
       </YStack>
     </YStack>
@@ -1028,6 +896,7 @@ function StockOverview({
 const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 
 function StockAnalystRatings() {
+  const intl = useIntl();
   const { format } = useFormatDate();
   const { stockDetail, isStockDetailLoading } = useStockDetail();
   const ratings = stockDetail?.analystRatings;
@@ -1041,10 +910,13 @@ function StockAnalystRatings() {
   const lastUpdatedText = ratings?.updatedAt
     ? format(ratings.updatedAt, 'MMM d, yyyy')
     : STAT_FALLBACK_VALUE;
+  const lastUpdatedLabel = intl.formatMessage({
+    id: ETranslations.market_last_updated,
+  });
   const footerText =
     ratingCounts.total > 0
-      ? `${ratingCounts.total} ratings, Last Updated: ${lastUpdatedText}`
-      : `Last Updated: ${lastUpdatedText}`;
+      ? `${ratingCounts.total} ratings, ${lastUpdatedLabel}: ${lastUpdatedText}`
+      : `${lastUpdatedLabel}: ${lastUpdatedText}`;
 
   return (
     <YStack
@@ -1080,17 +952,20 @@ function StockAnalystRatings() {
           <YStack flex={1} minWidth={0} justifyContent="center">
             {[
               {
-                label: 'Buy',
+                key: 'buy',
+                label: intl.formatMessage({ id: ETranslations.global_buy }),
                 value: ratings?.buy,
                 barColor: '$bgSuccessStrong',
               },
               {
+                key: 'hold',
                 label: 'Hold',
                 value: ratings?.hold,
                 barColor: '$neutral8',
               },
               {
-                label: 'Sell',
+                key: 'sell',
+                label: intl.formatMessage({ id: ETranslations.global_sell }),
                 value: ratings?.sell,
                 barColor: '$bgCriticalStrong',
               },
@@ -1101,7 +976,7 @@ function StockAnalystRatings() {
               );
               return (
                 <XStack
-                  key={item.label}
+                  key={item.key}
                   height={STOCK_ANALYST_BAR_ROW_HEIGHT}
                   alignItems="center"
                   gap="$3"
@@ -1118,7 +993,7 @@ function StockAnalystRatings() {
                     overflow="hidden"
                   >
                     <Stack
-                      testID={`stock-analyst-${item.label.toLowerCase()}-bar`}
+                      testID={`stock-analyst-${item.key}-bar`}
                       width={`${barWidth}%`}
                       height="100%"
                       borderRadius="$full"
@@ -1126,7 +1001,7 @@ function StockAnalystRatings() {
                     />
                   </Stack>
                   <SizableText
-                    testID={`stock-analyst-${item.label.toLowerCase()}`}
+                    testID={`stock-analyst-${item.key}`}
                     size="$bodyMdMedium"
                     minWidth={48}
                     textAlign="right"
@@ -1351,7 +1226,7 @@ export function StockDesktopLayout({
               />
             </Stack>
           </YStack>
-          <StockOverview portfolioData={portfolioData} />
+          <StockOverview />
           <StockEventsSection />
           <StockAnalystRatings />
           <StockNewsSection />

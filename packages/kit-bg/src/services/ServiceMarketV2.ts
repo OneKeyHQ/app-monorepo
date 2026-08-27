@@ -914,12 +914,14 @@ class ServiceMarketV2 extends ServiceBase {
     networkId,
     tokenAddress,
     xpub,
+    throwOnError,
   }: {
     accountAddress: string;
     networkId: string;
     tokenAddress: string;
     xpub?: string;
-  }) {
+    throwOnError?: boolean;
+  }): Promise<IMarketAccountPortfolioResponse> {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
 
@@ -944,6 +946,9 @@ class ServiceMarketV2 extends ServiceBase {
         '[ServiceMarketV2] fetchMarketAccountPortfolio error:',
         error,
       );
+      if (throwOnError) {
+        throw error;
+      }
       // Return empty list on error instead of throwing
       return { list: [] };
     }

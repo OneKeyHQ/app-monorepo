@@ -153,6 +153,7 @@ function StockEventRow({
   event: IMarketStockEvent;
   isPast: boolean;
 }) {
+  const intl = useIntl();
   const { format, formatDate } = useFormatDate();
   const [isExpanded, setIsExpanded] = useState(false);
   const detailLines = getStockEventDetailLines(event, formatDate);
@@ -205,7 +206,9 @@ function StockEventRow({
                 bg="$bgInfoSubdued"
               >
                 <SizableText size="$bodySmMedium" color="$textInfo">
-                  Upcoming
+                  {intl.formatMessage({
+                    id: ETranslations.market_chart_settings__upcoming_events,
+                  })}
                 </SizableText>
               </Stack>
             ) : null}
@@ -287,7 +290,11 @@ export function StockEventsSection() {
       py="$8"
       gap="$4"
     >
-      <SizableText size="$headingXl">Events</SizableText>
+      <SizableText size="$headingXl">
+        {intl.formatMessage({
+          id: ETranslations.market_chart_settings__events,
+        })}
+      </SizableText>
       {isLoading && events.length === 0 ? (
         <YStack gap="$5">
           <Skeleton width="100%" height={STOCK_EVENT_ROW_HEIGHT} />
@@ -330,7 +337,9 @@ export function StockEventsSection() {
           ))}
           {pastEvents.length > 0 ? (
             <SizableText size="$bodyMd" color="$textSubdued" pt="$2">
-              Past events
+              {intl.formatMessage({
+                id: ETranslations.market_chart_settings__past_events,
+              })}
             </SizableText>
           ) : null}
           {pastEvents.map((event) => (
