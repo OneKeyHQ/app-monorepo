@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react';
 
+import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tradingViewNative';
+
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
+export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
-export type ITradingViewNativeChartType = 'candlestick' | 'line';
+export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
@@ -64,11 +68,44 @@ export type ITradingViewNativeInitialRightOffset =
       value: number;
     };
 
+export interface ITradingViewNativePriceChartAnchor {
+  type: 'price';
+  price: number;
+}
+
+export interface ITradingViewNativeReferenceLineComponent {
+  id: string;
+  type: 'referenceLine';
+  props: {
+    anchor: ITradingViewNativePriceChartAnchor;
+    color: string;
+    interactive: false;
+    style: ITradingViewNativeChartLineStyle;
+    title: string;
+  };
+}
+
+export interface ITradingViewNativeChartComponentGroup {
+  id: string;
+  type: 'group';
+  children: readonly ITradingViewNativeChartComponentNode[];
+}
+
+export type ITradingViewNativeChartLeafComponent =
+  ITradingViewNativeReferenceLineComponent;
+
+export type ITradingViewNativeChartComponentNode =
+  | ITradingViewNativeChartComponentGroup
+  | ITradingViewNativeChartLeafComponent;
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;

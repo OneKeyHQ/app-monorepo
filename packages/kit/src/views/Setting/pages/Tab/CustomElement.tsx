@@ -73,6 +73,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -315,7 +316,11 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
     if (platformEnv.isDesktop) {
       const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
-      if (usb === 'bridge') {
+      if (
+        deviceUtils.getDesktopUsbTransportType({
+          usbCommunicationMode: usb,
+        }) === EHardwareTransportType.Bridge
+      ) {
         desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,

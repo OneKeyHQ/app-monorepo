@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { OkxIndicatorSettingsDialog } from './TradingViewIndicatorContent';
+import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import {
+  TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
   createTradingViewIndicatorSettingsValue,
   getDefaultTradingViewIndicatorIdForScope,
   getTradingViewSettingsMockIndicatorsByScope,
   normalizeTradingViewActiveSubIndicators,
+  normalizeTradingViewMaxActiveSubIndicatorCount,
+  resetTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockIndicator,
   toggleTradingViewSettingsMockLine,
   updateTradingViewSettingsMockIndicatorOpacity,
@@ -27,6 +30,12 @@ export type ITradingViewIndicatorSettingsProps = {
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewIndicatorSettingsValue;
   defaultValue?: ITradingViewIndicatorSettingsValue;
+  /** Creates the value used by Reset. */
+  createDefaultValue?: () => ITradingViewIndicatorSettingsValue;
+  /** Set to null to allow any number of active sub-indicators. */
+  maxActiveSubIndicatorCount?: number | null;
+  displayMode?: 'focused' | 'full';
+  initialIndicatorId?: string;
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
@@ -34,6 +43,8 @@ export type ITradingViewIndicatorSettingsProps = {
   onConfirm?: (
     value: ITradingViewIndicatorSettingsValue,
   ) => void | Promise<void>;
+  /** Called after the confirmed draft has been committed locally. */
+  onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
   onCancel?: () => void;
@@ -63,19 +74,32 @@ function reconcileActiveSubIndicatorOrder(
 export function TradingViewIndicatorSettings({
   value,
   defaultValue,
+  createDefaultValue = createTradingViewIndicatorSettingsValue,
+  maxActiveSubIndicatorCount = TRADING_VIEW_MAX_ACTIVE_SUB_INDICATORS,
+  displayMode = 'full',
+  initialIndicatorId,
   isSubmitting = false,
   onChange,
   onConfirm,
+  onConfirmSuccess,
   onConfirmError,
   onCancel,
   onClose,
 }: ITradingViewIndicatorSettingsProps) {
   const activeSubIndicatorOrderRef = useRef<string[]>([]);
+  const normalizedMaxActiveSubIndicatorCount = useMemo(
+    () =>
+      normalizeTradingViewMaxActiveSubIndicatorCount(
+        maxActiveSubIndicatorCount,
+      ),
+    [maxActiveSubIndicatorCount],
+  );
   const handleSettingsChange = useCallback(
     (nextValue: ITradingViewIndicatorSettingsValue) => {
       const normalizedNextValue = normalizeTradingViewActiveSubIndicators(
         nextValue,
         activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
       );
       activeSubIndicatorOrderRef.current = reconcileActiveSubIndicatorOrder(
         normalizedNextValue,
@@ -83,7 +107,7 @@ export function TradingViewIndicatorSettings({
       );
       onChange?.(normalizedNextValue);
     },
-    [onChange],
+    [normalizedMaxActiveSubIndicatorCount, onChange],
   );
   const [
     settingsValue,
@@ -93,7 +117,7 @@ export function TradingViewIndicatorSettings({
   ] = useSettingsDraftValue({
     value,
     defaultValue,
-    createDefaultValue: createTradingViewIndicatorSettingsValue,
+    createDefaultValue,
     onChange: handleSettingsChange,
   });
   const normalizedSettingsValue = useMemo(
@@ -101,16 +125,23 @@ export function TradingViewIndicatorSettings({
       normalizeTradingViewActiveSubIndicators(
         settingsValue,
         activeSubIndicatorOrderRef.current,
+        normalizedMaxActiveSubIndicatorCount,
       ),
-    [settingsValue],
+    [normalizedMaxActiveSubIndicatorCount, settingsValue],
   );
+  const initialIndicator = normalizedSettingsValue.indicators.find(
+    (indicator) => indicator.id === initialIndicatorId,
+  );
+  const initialIndicatorScope = initialIndicator?.scope ?? 'main';
   const [selectedIndicatorScope, setSelectedIndicatorScope] =
-    useState<ITradingViewSettingsMockIndicatorScope>('main');
-  const [selectedIndicatorId, setSelectedIndicatorId] = useState(() =>
-    getDefaultTradingViewIndicatorIdForScope(
-      normalizedSettingsValue.indicators,
-      'main',
-    ),
+    useState<ITradingViewSettingsMockIndicatorScope>(initialIndicatorScope);
+  const [selectedIndicatorId, setSelectedIndicatorId] = useState(
+    () =>
+      initialIndicator?.id ??
+      getDefaultTradingViewIndicatorIdForScope(
+        normalizedSettingsValue.indicators,
+        initialIndicatorScope,
+      ),
   );
   const [isConfirming, setIsConfirming] = useState(false);
   const submitInProgress = isSubmitting || isConfirming;
@@ -143,8 +174,22 @@ export function TradingViewIndicatorSettings({
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
   const handleReset = useCallback(() => {
+    if (displayMode === 'focused') {
+      const defaultSettingsValue = createDefaultValue();
+      updateSettingsValue((currentValue) =>
+        resetTradingViewSettingsMockIndicator(
+          currentValue,
+          defaultSettingsValue,
+          effectiveSelectedIndicatorId,
+        ),
+      );
+      return;
+    }
+
     const nextValue = normalizeTradingViewActiveSubIndicators(
-      createTradingViewIndicatorSettingsValue(),
+      createDefaultValue(),
+      undefined,
+      normalizedMaxActiveSubIndicatorCount,
     );
     activeSubIndicatorOrderRef.current =
       reconcileActiveSubIndicatorOrder(nextValue);
@@ -161,7 +206,15 @@ export function TradingViewIndicatorSettings({
         ),
       );
     }
-  }, [selectedIndicatorId, selectedIndicatorScope, updateSettingsValue]);
+  }, [
+    createDefaultValue,
+    displayMode,
+    effectiveSelectedIndicatorId,
+    normalizedMaxActiveSubIndicatorCount,
+    selectedIndicatorId,
+    selectedIndicatorScope,
+    updateSettingsValue,
+  ]);
 
   const handleToggleIndicator = useCallback(
     (indicatorId: string, active: boolean) => {
@@ -190,10 +243,15 @@ export function TradingViewIndicatorSettings({
           indicatorId,
           active,
           activeSubIndicatorOrderRef.current,
+          normalizedMaxActiveSubIndicatorCount,
         ),
       );
     },
-    [normalizedSettingsValue, updateSettingsValue],
+    [
+      normalizedMaxActiveSubIndicatorCount,
+      normalizedSettingsValue,
+      updateSettingsValue,
+    ],
   );
 
   const handleClose = () => {
@@ -207,6 +265,7 @@ export function TradingViewIndicatorSettings({
       return;
     }
 
+    let didConfirm = false;
     setIsConfirming(true);
     try {
       if (normalizedSettingsValue !== settingsValue) {
@@ -214,16 +273,27 @@ export function TradingViewIndicatorSettings({
       }
       await onConfirm?.(normalizedSettingsValue);
       commitSettingsValue();
+      didConfirm = true;
     } catch (error) {
       onConfirmError?.(error);
     } finally {
       setIsConfirming(false);
     }
+
+    if (didConfirm) {
+      try {
+        await onConfirmSuccess?.();
+      } catch (error) {
+        onConfirmError?.(error);
+      }
+    }
   };
 
   return (
-    <OkxIndicatorSettingsDialog
+    <TradingViewIndicatorSettingsDialog
+      displayMode={displayMode}
       value={normalizedSettingsValue}
+      maxActiveSubIndicatorCount={normalizedMaxActiveSubIndicatorCount}
       selectedIndicatorScope={selectedIndicatorScope}
       selectedIndicatorId={effectiveSelectedIndicatorId}
       visibleIndicators={visibleIndicators}
@@ -254,23 +324,39 @@ export function TradingViewIndicatorSettings({
       onToggleIndicator={handleToggleIndicator}
       onToggleLine={(lineId, enabled) => {
         updateSettingsValue((currentValue) =>
-          toggleTradingViewSettingsMockLine(currentValue, lineId, enabled),
+          toggleTradingViewSettingsMockLine(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            enabled,
+          ),
         );
       }}
       onLinePeriodChange={(lineId, period) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLinePeriod(currentValue, lineId, period),
+          updateTradingViewSettingsMockLinePeriod(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            period,
+          ),
         );
       }}
       onLineStyleChange={(lineId, style) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLineStyle(currentValue, lineId, style),
+          updateTradingViewSettingsMockLineStyle(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            style,
+          ),
         );
       }}
       onLineSecondaryStyleChange={(lineId, style) => {
         updateSettingsValue((currentValue) =>
           updateTradingViewSettingsMockLineSecondaryStyle(
             currentValue,
+            effectiveSelectedIndicatorId,
             lineId,
             style,
           ),
@@ -278,7 +364,12 @@ export function TradingViewIndicatorSettings({
       }}
       onLineColorChange={(lineId, color) => {
         updateSettingsValue((currentValue) =>
-          updateTradingViewSettingsMockLineColor(currentValue, lineId, color),
+          updateTradingViewSettingsMockLineColor(
+            currentValue,
+            effectiveSelectedIndicatorId,
+            lineId,
+            color,
+          ),
         );
       }}
       onOpacityChange={(indicatorId, opacity) => {
@@ -304,6 +395,7 @@ export function TradingViewIndicatorSettings({
         updateSettingsValue((currentValue) =>
           updateTradingViewSettingsMockIndicatorParameter(
             currentValue,
+            effectiveSelectedIndicatorId,
             parameterId,
             nextValue,
           ),

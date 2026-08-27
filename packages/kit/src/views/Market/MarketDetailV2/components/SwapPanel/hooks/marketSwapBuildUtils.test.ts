@@ -2,11 +2,13 @@ import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   resolveMarketQuoteActionState,
+  resolveMarketSelectedQuoteSlippage,
 } from './marketSwapBuildUtils';
 
 function createQuoteResult(
@@ -70,6 +72,7 @@ describe('marketSwapBuildUtils', () => {
     ).toEqual({
       canRefresh: false,
       canReview: true,
+      isRefreshAction: false,
       isLoading: false,
     });
   });
@@ -110,8 +113,59 @@ describe('marketSwapBuildUtils', () => {
     ).toEqual({
       canRefresh: true,
       canReview: false,
+      isRefreshAction: true,
       isLoading: false,
     });
+  });
+
+  it('keeps the refresh action active while a manual quote request is loading', () => {
+    expect(
+      resolveMarketQuoteActionState({
+        hasActionableQuote: true,
+        quoteRequestMatchesCurrentInput: true,
+        quoteRequestLocked: true,
+        quoteFetching: false,
+        quoteEventFetching: false,
+        shouldRefreshQuote: false,
+        hasQuoteError: false,
+        manualRefreshRequest: true,
+      }),
+    ).toEqual({
+      canRefresh: false,
+      canReview: false,
+      isRefreshAction: true,
+      isLoading: true,
+    });
+  });
+
+  it('uses the server auto suggestion for an automatic Market quote', () => {
+    expect(
+      resolveMarketSelectedQuoteSlippage({
+        quoteResult: createQuoteResult({
+          autoSuggestedSlippage: 1,
+          slippage: 0.5,
+        }),
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('keeps the fixed value for a custom Market quote', () => {
+    expect(
+      resolveMarketSelectedQuoteSlippage({
+        quoteResult: createQuoteResult({
+          autoSuggestedSlippage: 1,
+          slippage: 2,
+        }),
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.CUSTOM,
+          value: 0.5,
+        },
+      }),
+    ).toBe(0.5);
   });
 
   it('aligns Market fallback logic with Swap fallback networks', () => {

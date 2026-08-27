@@ -53,13 +53,13 @@ function createHistory({
 }
 
 describe('getSwapHistoryTransactionIdRows', () => {
-  it('keeps an ordinary single-hash swap unchanged', () => {
+  it('shows the explorer link on the hash row for an ordinary single-hash swap', () => {
     expect(getSwapHistoryTransactionIdRows(createHistory())).toEqual([
       {
         kind: 'transaction',
         transactionId: '0xsource',
         networkId: 'evm--1',
-        showExplorer: false,
+        showExplorer: true,
       },
     ]);
   });

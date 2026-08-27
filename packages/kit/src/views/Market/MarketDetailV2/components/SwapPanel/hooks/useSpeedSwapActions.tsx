@@ -49,6 +49,7 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import { ESwapReviewRebuildPhase } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewRebuildStateMachine';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -111,6 +112,7 @@ import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
+  ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
@@ -123,7 +125,6 @@ import {
   ESwapNetworkFeeLevel,
   ESwapQuoteKind,
   ESwapQuoteSource,
-  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   ESwapTradeSource,
   ESwapTxHistoryStatus,
@@ -140,6 +141,7 @@ import {
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   estimateMarketPresetGasFeeFiatValues,
+  prepareMarketDirectUnsignedTx,
   resolveMarketPresetNativeTokenPrice,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
@@ -154,6 +156,7 @@ import {
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   resolveMarketQuoteActionState,
+  resolveMarketSelectedQuoteSlippage,
 } from './marketSwapBuildUtils';
 import {
   areMarketApproveAmountsEqual,
@@ -393,7 +396,7 @@ export function useSpeedSwapActions(props: {
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
   fromTokenAmount: string;
-  slippage: number;
+  slippageItem: ISwapSlippageSegmentItem;
   antiMEV: boolean;
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
@@ -410,13 +413,14 @@ export function useSpeedSwapActions(props: {
     fromTokenAmount,
     tradeToken,
     tradeType,
-    slippage,
+    slippageItem,
     antiMEV,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     // onCloseDialog,
     stockIsOpen,
   } = props;
+  const { key: slippageMode, value: slippage } = slippageItem;
 
   const intl = useIntl();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
@@ -524,6 +528,14 @@ export function useSpeedSwapActions(props: {
 
   // Use atom to get selected derive type from Market Detail page
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
+  const selectedFromDeriveType =
+    balanceToken?.networkId === marketToken.networkId
+      ? selectedDeriveType
+      : undefined;
+  const selectedReceivingDeriveType =
+    toToken.networkId === marketToken.networkId
+      ? selectedDeriveType
+      : undefined;
 
   const netAccountRes = usePromiseResult(async () => {
     try {
@@ -534,7 +546,7 @@ export function useSpeedSwapActions(props: {
 
       // Prioritize Market Detail page selected derive type over global
       const effectiveDeriveType =
-        selectedDeriveType ?? defaultDeriveType ?? 'default';
+        selectedFromDeriveType ?? defaultDeriveType ?? 'default';
 
       const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
         accountId: account?.indexedAccount?.id
@@ -548,7 +560,58 @@ export function useSpeedSwapActions(props: {
     } catch (_e) {
       return undefined;
     }
-  }, [account, balanceToken?.networkId, selectedDeriveType]);
+  }, [account, balanceToken?.networkId, selectedFromDeriveType]);
+
+  const receivingAccountRes = usePromiseResult(
+    async () => {
+      if (!toToken.networkId || toToken.networkId === balanceToken?.networkId) {
+        return undefined;
+      }
+
+      try {
+        const defaultDeriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: toToken.networkId,
+          });
+        const effectiveDeriveType =
+          selectedReceivingDeriveType ?? defaultDeriveType ?? 'default';
+
+        return backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: account?.indexedAccount?.id
+            ? undefined
+            : account?.account?.id,
+          indexedAccountId: account?.indexedAccount?.id ?? '',
+          dbAccount: account?.dbAccount,
+          networkId: toToken.networkId,
+          deriveType: effectiveDeriveType,
+        });
+      } catch (_e) {
+        return undefined;
+      }
+    },
+    [
+      account?.account?.id,
+      account?.dbAccount,
+      account?.indexedAccount?.id,
+      balanceToken?.networkId,
+      selectedReceivingDeriveType,
+      toToken.networkId,
+    ],
+    { undefinedResultIfReRun: true },
+  );
+
+  const fromNetworkAccount =
+    netAccountRes.result?.addressDetail.networkId === fromToken.networkId
+      ? netAccountRes.result
+      : undefined;
+  let receivingNetworkAccount = receivingAccountRes.result;
+  if (toToken.networkId === fromToken.networkId) {
+    receivingNetworkAccount = fromNetworkAccount;
+  } else if (
+    receivingNetworkAccount?.addressDetail.networkId !== toToken.networkId
+  ) {
+    receivingNetworkAccount = undefined;
+  }
 
   const marketDeriveInfoRes = usePromiseResult(async () => {
     if (!balanceToken?.networkId) {
@@ -561,7 +624,7 @@ export function useSpeedSwapActions(props: {
       });
 
     const effectiveDeriveType =
-      selectedDeriveType ??
+      selectedFromDeriveType ??
       defaultDeriveType ??
       account?.deriveType ??
       'default';
@@ -570,10 +633,10 @@ export function useSpeedSwapActions(props: {
       networkId: balanceToken.networkId,
       deriveType: effectiveDeriveType,
     });
-  }, [account?.deriveType, balanceToken?.networkId, selectedDeriveType]);
+  }, [account?.deriveType, balanceToken?.networkId, selectedFromDeriveType]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: netAccountRes.result?.id ?? '',
+    accountId: fromNetworkAccount?.id ?? '',
     networkId: fromToken.networkId,
   });
   const balanceRefreshToken = useMemo(() => {
@@ -608,6 +671,7 @@ export function useSpeedSwapActions(props: {
   useEffect(() => {
     const handleDeriveTypeChanged = () => {
       void netAccountRes.run();
+      void receivingAccountRes.run();
     };
     appEventBus.off(
       EAppEventBusNames.NetworkDeriveTypeChanged,
@@ -624,7 +688,7 @@ export function useSpeedSwapActions(props: {
         handleDeriveTypeChanged,
       );
     };
-  }, [netAccountRes]);
+  }, [netAccountRes, receivingAccountRes]);
 
   const fromTokenAmountDebounced = useDebounce(
     fromTokenAmount,
@@ -664,9 +728,9 @@ export function useSpeedSwapActions(props: {
   const quoteRequestMatchesCurrentInput = useMemo(
     () =>
       isSwapQuoteRequestForCurrentInput({
-        currentAccountId: netAccountRes.result?.id,
-        currentAddress: netAccountRes.result?.addressDetail.address,
-        currentReceivingAddress: netAccountRes.result?.addressDetail.address,
+        currentAccountId: fromNetworkAccount?.id,
+        currentAddress: fromNetworkAccount?.addressDetail.address,
+        currentReceivingAddress: receivingNetworkAccount?.addressDetail.address,
         currentSwapType: ESwapTabSwitchType.SWAP,
         fromAmount: fromTokenAmountDebounced,
         fromToken,
@@ -678,9 +742,10 @@ export function useSpeedSwapActions(props: {
     [
       fromToken,
       fromTokenAmountDebounced,
-      netAccountRes.result?.addressDetail.address,
-      netAccountRes.result?.id,
+      fromNetworkAccount?.addressDetail.address,
+      fromNetworkAccount?.id,
       quoteActionLock,
+      receivingNetworkAccount?.addressDetail.address,
       toToken,
     ],
   );
@@ -730,6 +795,7 @@ export function useSpeedSwapActions(props: {
         quoteFetching,
         quoteEventFetching,
         shouldRefreshQuote,
+        manualRefreshRequest: quoteActionLock.manualRefresh,
         hasQuoteError: Boolean(
           quoteEventError?.message ||
           selectedQuoteResult?.errorMessage ||
@@ -738,6 +804,7 @@ export function useSpeedSwapActions(props: {
       }),
     [
       quoteActionLock.actionLock,
+      quoteActionLock.manualRefresh,
       quoteEventError?.message,
       quoteEventFetching,
       quoteFetching,
@@ -758,19 +825,21 @@ export function useSpeedSwapActions(props: {
   };
 
   const refreshMarketQuote = useCallback(() => {
-    const userAddress = netAccountRes.result?.addressDetail.address;
-    const accountId = netAccountRes.result?.id;
+    const userAddress = fromNetworkAccount?.addressDetail.address;
+    const accountId = fromNetworkAccount?.id;
+    const receivingAddress = receivingNetworkAccount?.addressDetail.address;
     if (
       !quoteExecutionStateRef.current.actionState.canRefresh ||
       !userAddress ||
-      !accountId
+      !accountId ||
+      !receivingAddress
     ) {
       return;
     }
 
     void quoteAction(
       {
-        key: ESwapSlippageSegmentKey.CUSTOM,
+        key: slippageMode,
         value: slippage,
       },
       userAddress,
@@ -779,7 +848,7 @@ export function useSpeedSwapActions(props: {
       undefined,
       ESwapQuoteKind.SELL,
       true,
-      userAddress,
+      receivingAddress,
       undefined,
       {
         fromToken,
@@ -787,15 +856,18 @@ export function useSpeedSwapActions(props: {
         fromTokenAmount: fromTokenAmountDebounced,
         type: ESwapTabSwitchType.SWAP,
         source: ESwapQuoteSource.MARKET,
+        manualRefresh: true,
       },
     );
   }, [
     fromToken,
     fromTokenAmountDebounced,
-    netAccountRes.result?.addressDetail.address,
-    netAccountRes.result?.id,
+    fromNetworkAccount?.addressDetail.address,
+    fromNetworkAccount?.id,
     quoteAction,
+    receivingNetworkAccount?.addressDetail.address,
     slippage,
+    slippageMode,
     toToken,
   ]);
 
@@ -1018,6 +1090,9 @@ export function useSpeedSwapActions(props: {
       fromAmount,
       userAddress,
       accountId,
+      receivingAddress,
+      receivingAccountId,
+      slippagePercentage,
     }: {
       buildRes: IFetchBuildTxResponse;
       quoteResult?: IFetchQuoteResult;
@@ -1026,6 +1101,9 @@ export function useSpeedSwapActions(props: {
       fromAmount: string;
       userAddress: string;
       accountId: string;
+      receivingAddress: string;
+      receivingAccountId: string;
+      slippagePercentage: number;
     }) => {
       const buildResFinal = mergeMarketBuildResultWithQuote({
         buildRes,
@@ -1044,10 +1122,11 @@ export function useSpeedSwapActions(props: {
         currentToToken,
         deriveAddressEncoding: marketDeriveInfoRes.result?.addressEncoding,
         fromAmount,
-        receivingAddress: userAddress,
-        slippage,
-        swapType,
+        receivingAccountId,
         userAddress,
+        slippage: slippagePercentage,
+        swapType,
+        receivingAddress,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
         onBuildLMSwapEncodedTx: (params) =>
@@ -1056,7 +1135,7 @@ export function useSpeedSwapActions(props: {
           backgroundApiProxy.serviceStaking.buildInternalDappTx(params),
       });
     },
-    [intl, marketDeriveInfoRes.result?.addressEncoding, slippage],
+    [intl, marketDeriveInfoRes.result?.addressEncoding],
   );
 
   const assertLatestFromTokenBalanceSufficient = useCallback(
@@ -1143,9 +1222,28 @@ export function useSpeedSwapActions(props: {
       const amount = fromAmount ?? fromTokenAmountDebounced;
       const fromTokenFinal = currentFromToken ?? fromToken;
       const toTokenFinal = currentToToken ?? toToken;
-      const userAddress = netAccountRes.result?.addressDetail.address ?? '';
+      const fromAccount =
+        fromNetworkAccount?.addressDetail.networkId === fromTokenFinal.networkId
+          ? fromNetworkAccount
+          : undefined;
+      let receivingAccount = receivingNetworkAccount;
+      if (toTokenFinal.networkId === fromTokenFinal.networkId) {
+        receivingAccount = fromAccount;
+      } else if (
+        receivingAccount?.addressDetail.networkId !== toTokenFinal.networkId
+      ) {
+        receivingAccount = undefined;
+      }
+      const userAddress = fromAccount?.addressDetail.address ?? '';
+      const receivingAddress = receivingAccount?.addressDetail.address ?? '';
 
-      if (!amount || !userAddress || !netAccountRes.result?.id) {
+      if (
+        !amount ||
+        !userAddress ||
+        !fromAccount?.id ||
+        !receivingAddress ||
+        !receivingAccount?.id
+      ) {
         throw new OneKeyLocalError(
           'Market swap review requires account and amount.',
         );
@@ -1175,7 +1273,7 @@ export function useSpeedSwapActions(props: {
         token: fromTokenFinal,
         amount,
         accountAddress: userAddress,
-        accountId: netAccountRes.result.id,
+        accountId: fromAccount.id,
       });
 
       if (
@@ -1187,12 +1285,20 @@ export function useSpeedSwapActions(props: {
         );
       }
 
+      const selectedQuoteSlippage = resolveMarketSelectedQuoteSlippage({
+        quoteResult: selectedQuote,
+        slippageItem: {
+          key: slippageMode,
+          value: slippage,
+        },
+      });
+
       if (selectedQuote.swapShouldSignedData) {
         const reviewBuildRes: IFetchBuildTxResponse = {
           ...(selectedQuote.quoteId ? { orderId: selectedQuote.quoteId } : {}),
           result: {
             ...selectedQuote,
-            slippage: selectedQuote.slippage ?? slippage,
+            slippage: selectedQuoteSlippage,
           },
         };
         const swapInfo: ISwapTxInfo = {
@@ -1201,7 +1307,7 @@ export function useSpeedSwapActions(props: {
             amount: selectedQuote.fromAmount ?? amount,
             token: fromTokenFinal,
             accountInfo: {
-              accountId: netAccountRes.result.id,
+              accountId: fromAccount.id,
               networkId: fromTokenFinal.networkId,
             },
           },
@@ -1209,12 +1315,12 @@ export function useSpeedSwapActions(props: {
             amount: selectedQuote.toAmount,
             token: toTokenFinal,
             accountInfo: {
-              accountId: netAccountRes.result.id,
+              accountId: receivingAccount.id,
               networkId: toTokenFinal.networkId,
             },
           },
           accountAddress: userAddress,
-          receivingAddress: userAddress,
+          receivingAddress,
           swapBuildResData: reviewBuildRes,
         };
 
@@ -1236,10 +1342,10 @@ export function useSpeedSwapActions(props: {
           toTokenAmount: selectedQuote.toAmount,
           provider: selectedQuote.info.provider,
           userAddress,
-          receivingAddress: userAddress,
-          slippagePercentage: selectedQuote.slippage ?? slippage,
+          receivingAddress,
+          slippagePercentage: selectedQuoteSlippage,
           quoteResultCtx: selectedQuote.quoteResultCtx,
-          accountId: netAccountRes.result.id,
+          accountId: fromAccount.id,
           protocol: selectedQuote.protocol ?? EProtocolOfExchange.SWAP,
           kind: selectedQuote.kind ?? ESwapQuoteKind.SELL,
           tradeSource: ESwapTradeSource.MARKET_DEX,
@@ -1249,10 +1355,17 @@ export function useSpeedSwapActions(props: {
           throw new OneKeyLocalError('Market swap review build failed.');
         }
 
-        const buildResFinal = mergeMarketBuildResultWithQuote({
+        const mergedBuildRes = mergeMarketBuildResultWithQuote({
           buildRes,
           quoteResult: selectedQuote,
         });
+        const buildResFinal: IFetchBuildTxResponse = {
+          ...mergedBuildRes,
+          result: {
+            ...mergedBuildRes.result,
+            slippage: mergedBuildRes.result.slippage ?? selectedQuoteSlippage,
+          },
+        };
 
         const { encodedTx, transferInfo, swapInfo } =
           await buildMarketExecutionFromBuildRes({
@@ -1262,7 +1375,10 @@ export function useSpeedSwapActions(props: {
             currentToToken: toTokenFinal,
             fromAmount: amount,
             userAddress,
-            accountId: netAccountRes.result.id,
+            accountId: fromAccount.id,
+            receivingAddress,
+            receivingAccountId: receivingAccount.id,
+            slippagePercentage: selectedQuoteSlippage,
           });
 
         return {
@@ -1279,9 +1395,10 @@ export function useSpeedSwapActions(props: {
     [
       fromTokenAmountDebounced,
       fromToken,
-      netAccountRes.result?.addressDetail.address,
-      netAccountRes.result?.id,
+      fromNetworkAccount,
+      receivingNetworkAccount,
       slippage,
+      slippageMode,
       toToken,
       buildMarketExecutionFromBuildRes,
       assertLatestFromTokenBalanceSufficient,
@@ -1374,18 +1491,20 @@ export function useSpeedSwapActions(props: {
     ({
       buildRes,
       amount,
+      receivingAddress,
       userAddress,
       status,
     }: {
       buildRes: IFetchBuildTxResponse;
       amount: string;
+      receivingAddress: string;
       userAddress: string;
       status: ESwapEventAPIStatus;
     }) => {
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount: amount,
         fromAddress: userAddress,
-        toAddress: userAddress,
+        toAddress: receivingAddress,
         toTokenAmount: buildRes.result?.toAmount ?? '',
         status,
         swapProvider: buildRes.result?.info.provider ?? '',
@@ -1459,7 +1578,10 @@ export function useSpeedSwapActions(props: {
       snapshot: IMarketReviewExecutionSnapshot,
       networkFeeLevel: ESwapNetworkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee?: ISwapReviewCustomPriorityFee,
-      options?: { throwOnEstimateError?: boolean },
+      options?: {
+        throwOnEstimateError?: boolean;
+        onExecutionReady?: (reviewState: ISwapReviewState) => void;
+      },
     ) => {
       const nextReviewState = buildMarketReviewState({
         accountId: snapshot.accountId,
@@ -1482,6 +1604,28 @@ export function useSpeedSwapActions(props: {
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
 
+      const buildReviewStateWithFee = ({
+        netWorkFee,
+        estimateNetworkFeeLoading,
+      }: {
+        netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
+        estimateNetworkFeeLoading: boolean;
+      }): ISwapReviewState => ({
+        steps: nextReviewState.steps,
+        preSwapData: {
+          ...nextReviewState.preSwapData,
+          swapBuildLoading: false,
+          estimateNetworkFeeLoading,
+          swapBuildResultData: {
+            swapInfo: snapshot.swapInfo,
+            encodedTx: snapshot.buildUnsignedParams.encodedTx,
+            transferInfo: snapshot.buildUnsignedParams.transfersInfo?.[0],
+          },
+          netWorkFee,
+        },
+        quoteResult: snapshot.quoteResult,
+      });
+
       let netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
       try {
         const approveUnsignedTxArr = await buildMarketApproveUnsignedTxArr({
@@ -1492,15 +1636,47 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
         });
-        if (
+        const shouldEstimateApproveOnly = Boolean(
           snapshot.quoteResult.swapShouldSignedData &&
-          approveUnsignedTxArr?.length
+          approveUnsignedTxArr?.length,
+        );
+        const shouldSkipSignedPrebuild = shouldSkipMarketSignedPrebuild({
+          quoteResult: snapshot.quoteResult,
+          approveUnsignedTxCount: approveUnsignedTxArr?.length,
+        });
+        const preparedUnsignedTx =
+          !shouldEstimateApproveOnly && !shouldSkipSignedPrebuild
+            ? await prepareMarketDirectUnsignedTx({
+                accountId: snapshot.accountId,
+                networkId: snapshot.networkId,
+                buildUnsignedParams: snapshot.buildUnsignedParams,
+                approveUnsignedTxArr,
+              })
+            : undefined;
+
+        if (
+          !snapshot.buildUnsignedParams.encodedTx &&
+          preparedUnsignedTx?.encodedTx
         ) {
+          snapshot.buildUnsignedParams = {
+            ...snapshot.buildUnsignedParams,
+            encodedTx: preparedUnsignedTx.encodedTx,
+          };
+        }
+
+        options?.onExecutionReady?.(
+          buildReviewStateWithFee({
+            netWorkFee: undefined,
+            estimateNetworkFeeLoading: true,
+          }),
+        );
+
+        if (shouldEstimateApproveOnly) {
           const feeState = await estimateMarketApproveGasInfos({
             accountAddress: snapshot.accountAddress,
             accountId: snapshot.accountId,
             networkId: snapshot.networkId,
-            approveUnsignedTxArr,
+            approveUnsignedTxArr: approveUnsignedTxArr ?? [],
             networkFeeLevel,
             customPriorityFee,
           });
@@ -1509,12 +1685,7 @@ export function useSpeedSwapActions(props: {
             gasInfos: feeState.gasInfos,
             gasFeeFiatValue: feeState.gasFeeFiatValue,
           };
-        } else if (
-          shouldSkipMarketSignedPrebuild({
-            quoteResult: snapshot.quoteResult,
-            approveUnsignedTxCount: approveUnsignedTxArr?.length,
-          })
-        ) {
+        } else if (shouldSkipSignedPrebuild) {
           netWorkFee = undefined;
         } else {
           const feeState = await estimateMarketDirectGasInfos({
@@ -1525,6 +1696,7 @@ export function useSpeedSwapActions(props: {
             approveUnsignedTxArr,
             networkFeeLevel,
             customPriorityFee,
+            preparedUnsignedTx,
             gasAccountAnalytics:
               snapshot.kind === 'swap'
                 ? {
@@ -1573,19 +1745,10 @@ export function useSpeedSwapActions(props: {
         });
       }
 
-      return {
-        steps: nextReviewState.steps,
-        preSwapData: {
-          ...nextReviewState.preSwapData,
-          swapBuildResultData: {
-            swapInfo: snapshot.swapInfo,
-            encodedTx: snapshot.buildUnsignedParams.encodedTx,
-            transferInfo: snapshot.buildUnsignedParams.transfersInfo?.[0],
-          },
-          netWorkFee,
-        },
-        quoteResult: snapshot.quoteResult,
-      };
+      return buildReviewStateWithFee({
+        netWorkFee,
+        estimateNetworkFeeLoading: false,
+      });
     },
     [
       assertLatestWrappedExecutionBalancesSufficient,
@@ -1814,12 +1977,13 @@ export function useSpeedSwapActions(props: {
       slippagePercentage,
       networkFeeLevel = ESwapNetworkFeeLevel.MEDIUM,
       customPriorityFee,
+      isCurrent,
+      onPhaseChange,
+      onExecutionReady,
     }) => {
       const snapshot = reviewExecutionSnapshotRef.current;
-      if (snapshot?.kind !== 'swap' || !snapshot.buildRes?.supportRebuildTx) {
-        throw new OneKeyLocalError(
-          'Current market swap quote does not support rebuilding.',
-        );
+      if (snapshot?.kind !== 'swap') {
+        throw new OneKeyLocalError('Current market review is not a swap.');
       }
 
       const frozenQuoteResult = snapshot.quoteResult;
@@ -1834,6 +1998,12 @@ export function useSpeedSwapActions(props: {
         accountAddress: snapshot.accountAddress,
         accountId: snapshot.accountId,
       });
+      if (!isCurrent()) {
+        throw new OneKeyLocalError(
+          'Market swap review changed while rebuilding.',
+        );
+      }
+      onPhaseChange(ESwapReviewRebuildPhase.BuildingTransaction);
 
       const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
         fromToken: fromTokenFinal,
@@ -1843,7 +2013,7 @@ export function useSpeedSwapActions(props: {
           frozenQuoteResult.toAmount ?? snapshot.swapInfo.receiver.amount,
         provider: frozenQuoteResult.info.provider,
         userAddress: snapshot.accountAddress,
-        receivingAddress: snapshot.accountAddress,
+        receivingAddress: snapshot.swapInfo.receivingAddress,
         slippagePercentage,
         quoteResultCtx: buildCustomSlippageQuoteResultCtx(
           frozenQuoteResult.quoteResultCtx,
@@ -1856,6 +2026,12 @@ export function useSpeedSwapActions(props: {
       if (!buildRes) {
         throw new OneKeyLocalError('Market swap review rebuild failed.');
       }
+      if (!isCurrent()) {
+        throw new OneKeyLocalError(
+          'Market swap review changed while rebuilding.',
+        );
+      }
+      onPhaseChange(ESwapReviewRebuildPhase.PreparingExecution);
 
       const mergedBuildRes = mergeMarketBuildResultWithQuote({
         buildRes,
@@ -1884,6 +2060,11 @@ export function useSpeedSwapActions(props: {
           fromAmount: amount,
           userAddress: snapshot.accountAddress,
           accountId: snapshot.accountId,
+          receivingAddress: snapshot.swapInfo.receivingAddress,
+          receivingAccountId:
+            snapshot.swapInfo.receiver.accountInfo?.accountId ??
+            snapshot.accountId,
+          slippagePercentage,
         });
 
       const nextSnapshot: IMarketReviewExecutionSnapshot = {
@@ -1902,14 +2083,27 @@ export function useSpeedSwapActions(props: {
         nextSnapshot,
         networkFeeLevel,
         customPriorityFee,
-        { throwOnEstimateError: true },
+        {
+          throwOnEstimateError: true,
+          onExecutionReady: (reviewState) => {
+            if (
+              !isCurrent() ||
+              reviewExecutionSnapshotRef.current !== snapshot
+            ) {
+              throw new OneKeyLocalError(
+                'Market swap review changed while rebuilding.',
+              );
+            }
+            onExecutionReady(reviewState);
+            reviewExecutionSnapshotRef.current = nextSnapshot;
+          },
+        },
       );
-      if (reviewExecutionSnapshotRef.current !== snapshot) {
+      if (!isCurrent() || reviewExecutionSnapshotRef.current !== nextSnapshot) {
         throw new OneKeyLocalError(
           'Market swap review changed while rebuilding.',
         );
       }
-      reviewExecutionSnapshotRef.current = nextSnapshot;
       return nextReviewState;
     },
     [
@@ -2540,6 +2734,7 @@ export function useSpeedSwapActions(props: {
                 logMarketCreateOrder({
                   buildRes: snapshot.buildRes,
                   amount: snapshot.swapInfo.sender.amount,
+                  receivingAddress: snapshot.swapInfo.receivingAddress,
                   userAddress: snapshot.accountAddress,
                   status: ESwapEventAPIStatus.SUCCESS,
                 });
@@ -2581,6 +2776,7 @@ export function useSpeedSwapActions(props: {
         logMarketCreateOrder({
           buildRes: snapshot.buildRes as IFetchBuildTxResponse,
           amount: snapshot.swapInfo.sender.amount,
+          receivingAddress: snapshot.swapInfo.receivingAddress,
           userAddress: snapshot.accountAddress,
           status: ESwapEventAPIStatus.SUCCESS,
         });
@@ -2590,6 +2786,7 @@ export function useSpeedSwapActions(props: {
           logMarketCreateOrder({
             buildRes: snapshot.buildRes,
             amount: snapshot.swapInfo.sender.amount,
+            receivingAddress: snapshot.swapInfo.receivingAddress,
             userAddress: snapshot.accountAddress,
             status: ESwapEventAPIStatus.FAIL,
           });
@@ -2756,6 +2953,15 @@ export function useSpeedSwapActions(props: {
           accountAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
         });
+        const signingSlippage =
+          signedQuoteResult.slippage ??
+          resolveMarketSelectedQuoteSlippage({
+            quoteResult: signedQuoteResult,
+            slippageItem: {
+              key: slippageMode,
+              value: slippage,
+            },
+          });
         const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
           fromToken: snapshot.swapInfo.sender.token,
           toToken: snapshot.swapInfo.receiver.token,
@@ -2766,7 +2972,7 @@ export function useSpeedSwapActions(props: {
           provider: signedQuoteResult.info.provider,
           userAddress: snapshot.accountAddress,
           receivingAddress: snapshot.swapInfo.receivingAddress,
-          slippagePercentage: signedQuoteResult.slippage ?? slippage,
+          slippagePercentage: signingSlippage,
           quoteResultCtx: signedQuoteResult.quoteResultCtx,
           accountId: snapshot.accountId,
           protocol: signedQuoteResult.protocol ?? EProtocolOfExchange.SWAP,
@@ -2778,9 +2984,20 @@ export function useSpeedSwapActions(props: {
           throw new OneKeyLocalError('Market sign build failed.');
         }
 
+        const mergedBuildRes = mergeMarketBuildResultWithQuote({
+          buildRes,
+          quoteResult: signedQuoteResult,
+        });
+        const buildResFinal: IFetchBuildTxResponse = {
+          ...mergedBuildRes,
+          result: {
+            ...mergedBuildRes.result,
+            slippage: mergedBuildRes.result.slippage ?? signingSlippage,
+          },
+        };
         const { encodedTx, transferInfo, swapInfo, skipSendTransAction } =
           await buildMarketExecutionFromBuildRes({
-            buildRes,
+            buildRes: buildResFinal,
             quoteResult: signedQuoteResult,
             currentFromToken: snapshot.swapInfo.sender.token,
             currentToToken: snapshot.swapInfo.receiver.token,
@@ -2788,11 +3005,12 @@ export function useSpeedSwapActions(props: {
               signedQuoteResult.fromAmount ?? snapshot.swapInfo.sender.amount,
             userAddress: snapshot.accountAddress,
             accountId: snapshot.accountId,
+            receivingAddress: snapshot.swapInfo.receivingAddress,
+            receivingAccountId:
+              snapshot.swapInfo.receiver.accountInfo?.accountId ??
+              snapshot.accountId,
+            slippagePercentage: signingSlippage,
           });
-        const buildResFinal = mergeMarketBuildResultWithQuote({
-          buildRes,
-          quoteResult: signedQuoteResult,
-        });
         const buildCtx = buildResFinal.ctx as
           | {
               cowSwapOrderId?: string;
@@ -2825,6 +3043,7 @@ export function useSpeedSwapActions(props: {
             fromAmount: reviewedBuildResult.fromAmount,
             toAmount: reviewedBuildResult.toAmount,
             minToAmount: reviewedBuildResult.minToAmount,
+            slippage: reviewedBuildResult.slippage ?? signingSlippage,
           },
           buildUnsignedParams: {
             networkId: snapshot.networkId,
@@ -2850,6 +3069,7 @@ export function useSpeedSwapActions(props: {
           logMarketCreateOrder({
             buildRes: buildResFinal,
             amount: swapInfo.sender.amount,
+            receivingAddress: swapInfo.receivingAddress,
             userAddress: snapshot.accountAddress,
             status: ESwapEventAPIStatus.SUCCESS,
           });
@@ -2860,6 +3080,7 @@ export function useSpeedSwapActions(props: {
           logMarketCreateOrder({
             buildRes: snapshot.buildRes,
             amount: snapshot.swapInfo.sender.amount,
+            receivingAddress: snapshot.swapInfo.receivingAddress,
             userAddress: snapshot.accountAddress,
             status: ESwapEventAPIStatus.FAIL,
           });
@@ -2882,6 +3103,7 @@ export function useSpeedSwapActions(props: {
       refreshMarketSigningQuoteResult,
       signMarketReviewQuoteResult,
       slippage,
+      slippageMode,
     ],
   );
 
@@ -3304,7 +3526,25 @@ export function useSpeedSwapActions(props: {
 
   useEffect(() => {
     appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    if (!isReviewDialogOpen) {
+      appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    }
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    };
+  }, [isReviewDialogOpen, quoteEventHandler]);
+
+  useEffect(() => {
+    if (isReviewDialogOpen) {
+      cleanQuoteInterval();
+      const quoteRequestId = quoteRequestIdRef.current;
+      if (quoteRequestId) {
+        closeQuoteEvent(quoteRequestId);
+      }
+    }
+  }, [cleanQuoteInterval, closeQuoteEvent, isReviewDialogOpen]);
+
+  useEffect(() => {
     return () => {
       appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       cleanQuoteInterval();
@@ -3338,11 +3578,15 @@ export function useSpeedSwapActions(props: {
   ]);
 
   useEffect(() => {
+    if (isReviewDialogOpen) {
+      return;
+    }
     const fromTokenAmountDebouncedBN = new BigNumber(
       fromTokenAmountDebounced || 0,
     );
-    const userAddress = netAccountRes.result?.addressDetail.address;
-    const accountId = netAccountRes.result?.id;
+    const userAddress = fromNetworkAccount?.addressDetail.address;
+    const accountId = fromNetworkAccount?.id;
+    const receivingAddress = receivingNetworkAccount?.addressDetail.address;
     setSwapFromTokenAmount({
       value: fromTokenAmountDebounced,
       isInput: true,
@@ -3355,11 +3599,12 @@ export function useSpeedSwapActions(props: {
       fromTokenAmountDebouncedBN.gt(0) &&
       userAddress &&
       accountId &&
+      receivingAddress &&
       !isWrapped
     ) {
       void quoteAction(
         {
-          key: ESwapSlippageSegmentKey.CUSTOM,
+          key: slippageMode,
           value: slippage,
         },
         userAddress,
@@ -3368,7 +3613,7 @@ export function useSpeedSwapActions(props: {
         undefined,
         ESwapQuoteKind.SELL,
         undefined,
-        userAddress,
+        receivingAddress,
         undefined,
         {
           fromToken: fromTokenRef.current,
@@ -3390,13 +3635,16 @@ export function useSpeedSwapActions(props: {
     fromToken.contractAddress,
     fromToken.networkId,
     fromTokenAmountDebounced,
+    isReviewDialogOpen,
     isWrapped,
-    netAccountRes.result?.addressDetail.address,
-    netAccountRes.result?.id,
+    fromNetworkAccount?.addressDetail.address,
+    fromNetworkAccount?.id,
     quoteAction,
+    receivingNetworkAccount?.addressDetail.address,
     resetQuoteAction,
     setSwapFromTokenAmount,
     slippage,
+    slippageMode,
     stockIsOpen,
     toToken.contractAddress,
     toToken.networkId,
@@ -3480,6 +3728,7 @@ export function useSpeedSwapActions(props: {
         : undefined),
     quoteReadyForReview: quoteActionState.canReview,
     quoteNeedsRefresh: quoteActionState.canRefresh,
+    quoteRefreshActionActive: quoteActionState.isRefreshAction,
     refreshMarketQuote,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,

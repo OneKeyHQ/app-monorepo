@@ -571,6 +571,12 @@ function useHyperliquidSession() {
   };
 }
 
+function useRefreshHyperLiquidAgentPasswordStatus() {
+  useEffect(() => {
+    void backgroundApiProxy.servicePassword.refreshHyperLiquidAgentPasswordStatus();
+  }, []);
+}
+
 function useHyperliquidAccountSelect() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -1505,6 +1511,7 @@ function PerpsGlobalEffectsView() {
   useHydrateFavoritesBarMarketCache();
   useHyperliquidEventBusListener();
   useHyperliquidSession();
+  useRefreshHyperLiquidAgentPasswordStatus();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();

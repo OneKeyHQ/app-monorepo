@@ -77,6 +77,11 @@ import { SwapSponsoredNetworkFee } from '../../components/SwapSponsoredNetworkFe
 import { useShouldShowSwapLocalData } from '../../hooks/useSwapLocalDataVisibility';
 import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
+  buildSwapHistoryOrderExplorerUrl,
+  getSwapHistoryProviderOrderId,
+  shortenSwapOrderId,
+} from '../../utils/swapHistoryIdentity';
+import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
   getSwapHistoryTransactionIdRows,
@@ -962,6 +967,17 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
+  // Only show Order ID when the provider has a third-party order explorer
+  // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
+  // hidden per OK-57251. (OK-59978)
+  const providerOrderId = txHistory
+    ? getSwapHistoryProviderOrderId(txHistory)
+    : undefined;
+  const shouldRenderOrderId =
+    !!providerOrderId &&
+    !!txHistory?.swapInfo.orderSupportUrl &&
+    !isPrivateSendHistory;
+
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
   }, []);
@@ -1650,6 +1666,24 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderSwapProvider()}
             />
+            {shouldRenderOrderId ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.Limit_order_history_order_id,
+                })}
+                renderContent={shortenSwapOrderId(providerOrderId)}
+                copyContent={providerOrderId}
+                showCopy
+                openWithUrl={() =>
+                  onViewInBrowser(
+                    buildSwapHistoryOrderExplorerUrl({
+                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
+                      orderId: providerOrderId,
+                    }) ?? '',
+                  )
+                }
+              />
+            ) : null}
             {isPrivateSendHistory ? null : (
               <InfoItem
                 disabledCopy
@@ -1694,6 +1728,9 @@ const SwapHistoryDetailModal = () => {
     renderSwapOrderStatus,
     renderSwapProvider,
     renderSwapTransactionIdRows,
+    shouldRenderOrderId,
+    providerOrderId,
+    onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
   ]);

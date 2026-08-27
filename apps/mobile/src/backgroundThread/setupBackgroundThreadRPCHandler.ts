@@ -142,6 +142,7 @@ function buildErrorPayload(error: unknown) {
   const runtimeError = error as Error & {
     autoToast?: unknown;
     className?: unknown;
+    $isHardwareError?: unknown;
     code?: unknown;
     key?: unknown;
     requestId?: unknown;
@@ -156,6 +157,7 @@ function buildErrorPayload(error: unknown) {
     stack?: string;
     autoToast?: boolean;
     className?: string;
+    $isHardwareError?: boolean;
     code?: string | number;
     key?: string;
     requestId?: string;
@@ -175,6 +177,9 @@ function buildErrorPayload(error: unknown) {
   }
   if (typeof runtimeError?.className === 'string') {
     errorPayload.className = runtimeError.className;
+  }
+  if (runtimeError?.$isHardwareError === true) {
+    errorPayload.$isHardwareError = true;
   }
   if (
     typeof runtimeError?.code === 'string' ||

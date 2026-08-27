@@ -1,14 +1,19 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
+  resolveSettledSwapRecipientRequired,
   resolveSwapTargetNetworkAccount,
   shouldResetSwapRecipientOnAccountNetworkSync,
   shouldShowSwapRecipientAddressInfo,
+  shouldShowSwapRecipientEntry,
   shouldUseSwapCustomRecipientAddress,
 } from './useSwapAccount.utils';
 
@@ -230,6 +235,178 @@ describe('getSwapRecipientActionState', () => {
       shouldEnterRecipient: false,
       shouldDisableAction: false,
     });
+  });
+});
+
+describe('shouldShowSwapRecipientEntry', () => {
+  const baseParams = {
+    swapType: ESwapTabSwitchType.SWAP,
+    incognitoMode: false,
+    recipientAddressSettingOn: false,
+    recipientRequired: false,
+    providerSupportReceiveAddress: true,
+    hasFromToken: true,
+    hasToToken: true,
+  };
+
+  it('shows the entry when the custom recipient setting is on', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientAddressSettingOn: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('hides the entry when the setting is off and no recipient is required', () => {
+    expect(shouldShowSwapRecipientEntry(baseParams)).toBe(false);
+  });
+
+  it('forces the entry when a recipient is required even with the setting off (OK-58326)', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('never shows the entry when the provider does not support a recipient', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        recipientAddressSettingOn: true,
+        providerSupportReceiveAddress: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the entry hidden in incognito mode on Swap where the inline input owns it', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows the entry in incognito mode on Limit and Stock', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        incognitoMode: true,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).toBe(true);
+  });
+
+  it('requires both tokens to be selected', () => {
+    expect(
+      shouldShowSwapRecipientEntry({
+        ...baseParams,
+        recipientRequired: true,
+        hasToToken: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveSettledSwapRecipientRequired', () => {
+  const settledScope = { scopeKey: 'swap|eth|usdc|sol|sol|acc-1', value: true };
+
+  it('keeps the held verdict while a quote for the same scope is pending', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('adopts the new verdict once the quote settles', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: settledScope.scopeKey, value: false });
+  });
+
+  it('waits for target address resolution before adopting a verdict', () => {
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: settledScope.scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: false,
+        recipientRequiredNow: false,
+      }),
+    ).toBe(settledScope);
+  });
+
+  it('drops a previous tab verdict when the scope changes (OK-58326)', () => {
+    // Switching Swap -> Limit clears the quote list and quoteEventCompleted
+    // without settling a quote, so the stale verdict must not leak over.
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: settledScope,
+        scopeKey: 'limit|eth|usdc|sol|sol|acc-1',
+        quoteSettled: false,
+        isAddressInfoReady: true,
+        recipientRequiredNow: false,
+      }),
+    ).toEqual({ scopeKey: 'limit|eth|usdc|sol|sol|acc-1', value: false });
+  });
+
+  it('drops the verdict when the token pair or account changes', () => {
+    for (const scopeKey of [
+      'swap|eth|dai|sol|sol|acc-1',
+      'swap|eth|usdc|sol|sol|acc-2',
+    ]) {
+      expect(
+        resolveSettledSwapRecipientRequired({
+          previous: settledScope,
+          scopeKey,
+          quoteSettled: false,
+          isAddressInfoReady: true,
+          recipientRequiredNow: true,
+        }),
+      ).toEqual({ scopeKey, value: false });
+    }
+  });
+
+  it('adopts the verdict on the very render that changes the scope', () => {
+    // The verdict lives in a ref, so a scope change that arrives together with
+    // already-settled inputs (e.g. sourceAccountId resolving from undefined to
+    // a real id) must not discard them — nothing would schedule the follow-up
+    // render that recomputes it.
+    const scopeKey = 'swap|eth|usdc|sol|sol|acc-1';
+    expect(
+      resolveSettledSwapRecipientRequired({
+        previous: { scopeKey: 'swap|eth|usdc|sol|sol|undefined', value: false },
+        scopeKey,
+        quoteSettled: true,
+        isAddressInfoReady: true,
+        recipientRequiredNow: true,
+      }),
+    ).toEqual({ scopeKey, value: true });
   });
 });
 

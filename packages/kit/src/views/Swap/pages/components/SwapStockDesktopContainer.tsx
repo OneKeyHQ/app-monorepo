@@ -1276,7 +1276,7 @@ function StockAmountInput({
                 }
               : undefined,
         }}
-        enableMaxAmount={balanceActionsReady}
+        enableMaxAmount={Boolean(inputToken)}
       />
       {platformEnv.isNativeIOS && balanceActionsReady ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
@@ -1515,6 +1515,11 @@ function StockMarketTokenHeader({
     });
   const tokenName =
     tokenDetail?.name ?? currentStockToken?.name ?? tokenSymbol ?? '';
+  const priceChange24hPercent = tokenDetail?.priceChange24hPercent;
+  const hasPriceChange24hPercent =
+    priceChange24hPercent !== undefined &&
+    priceChange24hPercent !== null &&
+    priceChange24hPercent !== '';
   const tokenSubtitle = getStockMarketTokenSubtitle({
     currentStockSubtitle: selectedStock?.subtitle,
     tokenDetailStockSubtitle: stock?.subtitle,
@@ -1637,8 +1642,8 @@ function StockMarketTokenHeader({
       >
         {tokenInfoContent}
       </XStack>
-      {tokenDetail ? (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        {tokenDetail ? (
           <BaseMarketTokenPrice
             size="$bodyLg"
             color="$text"
@@ -1650,17 +1655,21 @@ function StockMarketTokenHeader({
             lastUpdated={String(tokenDetail.lastUpdated ?? '')}
             currency="$"
           />
-          <PriceChangePercentage size="$bodySm">
-            {tokenDetail.priceChange24hPercent}
-          </PriceChangePercentage>
-        </YStack>
-      ) : (
-        <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
+        ) : (
           <SizableText size="$bodyLg" color="$textSubdued">
             --
           </SizableText>
-        </YStack>
-      )}
+        )}
+        {hasPriceChange24hPercent ? (
+          <PriceChangePercentage size="$bodySm">
+            {priceChange24hPercent}
+          </PriceChangePercentage>
+        ) : (
+          <SizableText size="$bodySm" color="$textSubdued">
+            -
+          </SizableText>
+        )}
+      </YStack>
     </XStack>
   );
 }
@@ -2136,13 +2145,14 @@ function StockMobilePositionsSection({
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
   const {
-    cachedPositionTokenList,
-    hasCachedPositionSnapshot,
-    hasPositionOwner,
-    isLiveTokenListForCurrentOwner,
+    positionLoadError,
+    positionLoading,
+    positionTokenList,
+    swapProLoadSupportNetworksTokenListRun,
   } = useSwapProSupportNetworksTokenList(
     supportNetworksList,
     supportNetworksReady,
+    { stockOnly: true },
   );
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
@@ -2171,6 +2181,12 @@ function StockMobilePositionsSection({
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
     'position',
   );
+  const retryPositions = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+      forceRefresh: true,
+      stockOnly: true,
+    });
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
   return (
     <YStack mt="$2">
@@ -2233,10 +2249,10 @@ function StockMobilePositionsSection({
             onTokenPress={handlePositionPress}
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
-            cachedTokenList={cachedPositionTokenList}
-            hasPositionOwner={hasPositionOwner}
-            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+            positionTokenList={positionTokenList}
+            positionLoadError={positionLoadError}
+            positionLoading={positionLoading}
+            onRetry={retryPositions}
             stockOnly
             hideSearch
           />

@@ -35,7 +35,6 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
-export const CREATOR_PROGRAM_URL = 'https://creator.onekey.so/';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
@@ -87,18 +86,25 @@ export function getOneKeyWebUrl(env: IEndpointEnv): string {
   return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
+export type IReferralShareSource = 'Earn' | 'Perps' | 'Swap';
+
+const REFERRAL_LANDING_PATH: Record<IReferralShareSource, string> = {
+  Earn: '/app/defi',
+  Perps: '/app/perps',
+  Swap: '/app/swap',
+};
+
 export function buildReferralUrl({
   code,
   source,
   env = 'prod',
 }: {
   code: string;
-  source: 'Perps' | 'Earn';
+  source: IReferralShareSource;
   env?: IEndpointEnv;
 }): string {
-  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
   const baseUrl = getWebAppUrl(env);
-  return `${baseUrl}/r/${code}${path}`;
+  return `${baseUrl}/r/${code}${REFERRAL_LANDING_PATH[source]}`;
 }
 
 export const EXT_RATE_URL = {

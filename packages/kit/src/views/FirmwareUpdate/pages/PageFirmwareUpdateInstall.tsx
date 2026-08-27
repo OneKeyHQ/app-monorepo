@@ -21,6 +21,7 @@ import {
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
+import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
 function PageFirmwareUpdateInstall() {
   const route = useAppRoute<
@@ -31,6 +32,18 @@ function PageFirmwareUpdateInstall() {
   const navigation = useAppNavigation();
 
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+
+  useFirmwareUpdateWorkflowLifetime({
+    onReallyLeave: async () => {
+      await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+      if (result?.originalConnectId) {
+        await backgroundApiProxy.serviceHardware.cancel({
+          connectId: result.originalConnectId,
+          forceDeviceResetToHome: true,
+        });
+      }
+    },
+  });
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -83,19 +96,7 @@ function PageFirmwareUpdateInstall() {
   }, [stepInfo.step, navigation, result]);
 
   return (
-    <Page
-      scrollEnabled
-      onUnmounted={async () => {
-        console.log('PageFirmwareUpdateInstall unmounted');
-        await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-        if (result?.originalConnectId) {
-          await backgroundApiProxy.serviceHardware.cancel({
-            connectId: result.originalConnectId,
-            forceDeviceResetToHome: true,
-          });
-        }
-      }}
-    >
+    <Page scrollEnabled>
       <FirmwareUpdatePageLayout>
         <ForceExtensionUpdatingFromExpandTab />
         {content}

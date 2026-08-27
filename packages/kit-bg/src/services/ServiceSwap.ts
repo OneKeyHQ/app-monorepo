@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { cloneDeep, has, isEqual } from 'lodash';
+import { cloneDeep, has, isEqual, omit } from 'lodash';
 
 import {
   getBtcForkNetwork,
@@ -119,6 +119,7 @@ import {
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
   ESwapLimitOrderUpdateInterval,
+  ESwapQuoteSource,
   ESwapTabSwitchType,
   ESwapTradeSource,
   ESwapTxHistoryStatus,
@@ -815,17 +816,13 @@ export default class ServiceSwap extends ServiceBase {
       }
 
       if (requestProtocol !== EProtocolOfExchange.STOCK) {
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
     }
@@ -1037,17 +1034,13 @@ export default class ServiceSwap extends ServiceBase {
         } catch (e) {
           console.error(e);
         }
-        const inscriptionProtection =
-          await this.backgroundApi.serviceSetting.getInscriptionProtection();
-        const checkInscriptionProtectionEnabled =
-          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await this.backgroundApi.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId,
               accountId,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
       let fetchSignal: AbortSignal | undefined;
@@ -1182,7 +1175,7 @@ export default class ServiceSwap extends ServiceBase {
       source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
+      ...(fromTokenAmount ? { fromTokenAmount } : {}),
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
       protocol: getProtocolOfExchangeFromSwapTab(protocol),
@@ -1194,18 +1187,27 @@ export default class ServiceSwap extends ServiceBase {
       receivingAddress,
       limitPartiallyFillable,
       kind,
-      toTokenAmount,
+      ...(toTokenAmount ? { toTokenAmount } : {}),
       userMarketPriceRate,
       denyCrossChainProvider,
       denySingleSwapProvider,
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
+    // Keep Market event ownership while restoring the legacy provider pool for
+    // native BTC outbound routes, which the Market-approved pool cannot quote.
+    const requestParams =
+      source === ESwapQuoteSource.MARKET &&
+      fromToken.isNative &&
+      fromToken.networkId !== toToken.networkId &&
+      networkUtils.isBTCNetwork(fromToken.networkId)
+        ? omit(params, 'source')
+        : params;
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
     ).getUri({
       url: '/swap/v1/quote/events',
-      params,
+      params: requestParams,
     });
     let headers = await getRequestHeaders();
     const walletType =

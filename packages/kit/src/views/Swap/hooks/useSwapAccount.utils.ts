@@ -2,7 +2,10 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -138,6 +141,116 @@ export function getSwapRecipientEditorAccountInfo({
   }
 
   return undefined;
+}
+
+type IShouldShowSwapRecipientEntryParams = {
+  swapType: ESwapTabSwitchType;
+  incognitoMode: boolean;
+  recipientAddressSettingOn: boolean;
+  recipientRequired: boolean;
+  providerSupportReceiveAddress: boolean;
+  hasFromToken: boolean;
+  hasToToken: boolean;
+};
+
+export function shouldShowSwapRecipientEntry({
+  swapType,
+  incognitoMode,
+  recipientAddressSettingOn,
+  recipientRequired,
+  providerSupportReceiveAddress,
+  hasFromToken,
+  hasToToken,
+}: IShouldShowSwapRecipientEntryParams) {
+  // Incognito mode has its own inline recipient input on Swap/Bridge.
+  const incognitoAllows =
+    swapType === ESwapTabSwitchType.LIMIT ||
+    swapType === ESwapTabSwitchType.STOCK ||
+    !incognitoMode;
+  return Boolean(
+    incognitoAllows &&
+    // The recipient is mandatory when the target chain has no account
+    // address (e.g. a single-network private-key wallet doing a
+    // cross-chain swap), so surface the entry even while the custom
+    // recipient setting is off. (OK-58326)
+    (recipientAddressSettingOn || recipientRequired) &&
+    providerSupportReceiveAddress &&
+    hasFromToken &&
+    hasToToken,
+  );
+}
+
+export type ISettledSwapRecipientRequired = {
+  scopeKey: string;
+  value: boolean;
+};
+
+type IBuildSwapRecipientRequiredScopeKeyParams = {
+  swapType: ESwapTabSwitchType;
+  fromToken?: { networkId?: string; contractAddress?: string };
+  toToken?: { networkId?: string; contractAddress?: string };
+  sourceAccountId?: string;
+};
+
+/**
+ * Identity of the quote round that a "recipient required" verdict belongs to.
+ * Every input that can change whether a recipient is needed must be part of
+ * this key, otherwise a verdict from the previous round leaks into the next.
+ */
+export function buildSwapRecipientRequiredScopeKey({
+  swapType,
+  fromToken,
+  toToken,
+  sourceAccountId,
+}: IBuildSwapRecipientRequiredScopeKeyParams) {
+  return [
+    swapType,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
+    sourceAccountId,
+  ].join('|');
+}
+
+type IResolveSettledSwapRecipientRequiredParams = {
+  previous: ISettledSwapRecipientRequired;
+  scopeKey: string;
+  quoteSettled: boolean;
+  isAddressInfoReady: boolean;
+  recipientRequiredNow: boolean;
+};
+
+/**
+ * Holds the "a recipient must be entered" verdict across a quote cycle so the
+ * recipient entry does not collapse and re-expand on every refresh, while
+ * still belonging to exactly one quote scope: switching tab clears the quote
+ * list and resets quoteEventCompleted without settling a quote, so a stale
+ * verdict would otherwise leak into the next tab. (OK-58326)
+ */
+export function resolveSettledSwapRecipientRequired({
+  previous,
+  scopeKey,
+  quoteSettled,
+  isAddressInfoReady,
+  recipientRequiredNow,
+}: IResolveSettledSwapRecipientRequiredParams): ISettledSwapRecipientRequired {
+  // A settled quote plus a resolved target address is a complete verdict for
+  // whatever scope this render belongs to, so adopt it even on the render that
+  // changes the scope key — e.g. sourceAccountId resolving from undefined to a
+  // real id while a settled quote already needs a recipient. The verdict lives
+  // in a ref, so discarding those inputs here would keep the entry hidden until
+  // some unrelated state change happened to schedule another render.
+  if (quoteSettled && isAddressInfoReady) {
+    return { scopeKey, value: recipientRequiredNow };
+  }
+  // Without a settled quote a new scope starts neutral, so a previous scope's
+  // verdict cannot leak into it, while an unchanged scope keeps holding its
+  // last verdict across the refresh window.
+  if (previous.scopeKey !== scopeKey) {
+    return { scopeKey, value: false };
+  }
+  return previous;
 }
 
 export function getSwapRecipientValidationAccountId({

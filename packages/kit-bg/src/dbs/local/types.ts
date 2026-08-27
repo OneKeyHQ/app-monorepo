@@ -28,6 +28,7 @@ import type {
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
   IOneKeyDeviceFeatures,
+  IOneKeyDeviceState,
   IQrWalletDevice,
 } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -53,7 +54,10 @@ import type { RealmSchemaHardwareHomeScreen } from './realm/schemas/RealmSchemaH
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  EFirmwareType,
+  HardwareConnectProtocol,
+} from '@onekeyfe/hd-shared';
 import type { DBSchema } from 'idb';
 
 // ---------------------------------------------- base
@@ -205,6 +209,9 @@ export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: Omit<SearchDevice, 'commType'>;
   features: IOneKeyDeviceFeatures;
+  connectProtocol?: HardwareConnectProtocol;
+  /** Unified OneKey SDK state snapshot populated only by background services. */
+  deviceState?: IOneKeyDeviceState;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
@@ -404,17 +411,34 @@ export type IDBDeviceSettings = {
   vendorFirmwareVersion?: string;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
-  features: string; // TODO rename to featuresRaw
+  /**
+   * Legacy persisted Features field.
+   * OneKey DeviceState devices may store only `$app_*` local metadata here;
+   * V1 compatibility records, QR wallets, and third-party devices may persist full Features.
+   */
+  features: string;
+  /**
+   * Runtime compatibility projection, not the source of truth for OneKey devices.
+   * @deprecated OneKey flows should read deviceStateInfo; third-party devices still use this field.
+   */
   featuresInfo?: IOneKeyDeviceFeatures & {
     // only qr wallet
     $app_firmware_type?: EFirmwareType;
-  }; // readonly field // TODO rename to features
+  };
+  deviceState?: string;
+  deviceStateInfo?: IOneKeyDeviceState;
+  /**
+   * Transport handshake protocol selected before device communication.
+   * This is independent from DeviceState.protocolVersion.
+   */
+  connectProtocol?: HardwareConnectProtocol;
   // TODO make index for better performance (getDeviceByQuery)
   connectId: string; // alias BLE mac or USB sn, never changed even if device reset
   name: string;
   // TODO make index for better performance (getDeviceByQuery)
   uuid: string;
-  deviceId: string; // features.device_id changed after device reset, use deviceUtils.getRawDeviceId()
+  /** Wallet-lifecycle ID; stable across reboots and changes after wipe/reinitialization. */
+  deviceId: string;
   deviceType: IDeviceType;
   settingsRaw: string;
   settings?: IDBDeviceSettings;

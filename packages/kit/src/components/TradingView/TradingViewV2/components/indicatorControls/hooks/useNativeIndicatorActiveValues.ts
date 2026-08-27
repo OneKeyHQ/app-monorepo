@@ -1,38 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  TRADING_VIEW_NATIVE_ALL_INDICATORS,
+  isTradingViewNativeIndicator,
+  isTradingViewNativeSubIndicator,
+  resolveTradingViewNativeIndicatorId,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/chartIndicators/indicatorCatalog';
+
 import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeChartControlsConfigData,
 } from '../../../types';
 
-const APP_NATIVE_INDICATOR_OPTIONS: ITradingViewIndicatorOption[] = [
-  { label: 'MA', value: 'MA' },
-  { label: 'EMA', value: 'EMA' },
-  { label: 'BOLL', value: 'BOLL' },
-  { label: 'SAR', value: 'SAR' },
-  { label: 'VOL', value: 'VOL' },
-  { label: 'MACD', value: 'MACD' },
-  { label: 'RSI', value: 'RSI' },
-  { label: 'StochRSI', value: 'StochRSI' },
-  { label: 'OBV', value: 'OBV' },
-  { label: 'MFI', value: 'MFI' },
-  { label: 'TRIX', value: 'TRIX' },
-  { label: 'EMV', value: 'EMV' },
-  { label: 'WR', value: 'WR' },
-  { label: 'ROC', value: 'ROC' },
-  { label: 'MTM', value: 'MTM' },
-  { label: 'DMI', value: 'DMI' },
-  { label: 'CCI', value: 'CCI' },
-];
-const APP_NATIVE_INDICATOR_VALUE_SET = new Set(
-  APP_NATIVE_INDICATOR_OPTIONS.map((indicator) => indicator.value),
-);
-const MAIN_CHART_INDICATOR_LABEL_SET = new Set<string>([
-  'MA',
-  'EMA',
-  'BOLL',
-  'SAR',
-]);
+const APP_NATIVE_INDICATOR_OPTIONS: ITradingViewIndicatorOption[] =
+  TRADING_VIEW_NATIVE_ALL_INDICATORS.map((indicator) => ({
+    label: indicator,
+    value: indicator,
+  }));
 
 export interface ITradingViewNativeIndicatorState {
   activeIndicatorValues: Set<string>;
@@ -46,15 +30,18 @@ export interface ITradingViewNativeIndicatorState {
 }
 
 function getAppNativeIndicatorValue(indicator: ITradingViewIndicatorOption) {
-  if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.label)) {
-    return indicator.label;
-  }
+  return resolveTradingViewNativeIndicatorId(indicator.value, indicator.label);
+}
 
-  if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.value)) {
-    return indicator.value;
-  }
-
-  return null;
+function hasActiveIndicatorValue(
+  activeIndicatorValues: ReadonlySet<string>,
+  indicator: ITradingViewIndicatorOption,
+  canonicalIndicatorValue: string,
+) {
+  return (
+    activeIndicatorValues.has(canonicalIndicatorValue) ||
+    activeIndicatorValues.has(indicator.value)
+  );
 }
 
 function getActiveIndicatorValueSet(
@@ -74,7 +61,9 @@ function getActiveIndicatorValueSet(
   return activeValues;
 }
 
-export function getAppNativeIndicators(activeIndicatorValues: Set<string>) {
+export function getAppNativeIndicators(
+  activeIndicatorValues: ReadonlySet<string>,
+) {
   return APP_NATIVE_INDICATOR_OPTIONS.map((indicator) => ({
     ...indicator,
     active: activeIndicatorValues.has(indicator.value),
@@ -88,9 +77,13 @@ export function getIndicatorSections(
   const subIndicators: ITradingViewIndicatorOption[] = [];
 
   indicators.forEach((indicator) => {
-    if (MAIN_CHART_INDICATOR_LABEL_SET.has(indicator.label)) {
+    const indicatorValue = getAppNativeIndicatorValue(indicator);
+    if (indicatorValue && isTradingViewNativeIndicator(indicatorValue)) {
       mainIndicators.push(indicator);
-    } else {
+    } else if (
+      indicatorValue &&
+      isTradingViewNativeSubIndicator(indicatorValue)
+    ) {
       subIndicators.push(indicator);
     }
   });
@@ -99,10 +92,6 @@ export function getIndicatorSections(
     mainIndicators,
     subIndicators,
   };
-}
-
-function isTradingViewNativeSubIndicator(indicatorValue: string) {
-  return !MAIN_CHART_INDICATOR_LABEL_SET.has(indicatorValue);
 }
 
 export function getTradingViewNativeSubIndicatorCount(
@@ -143,29 +132,31 @@ export function getTradingViewNativeSubIndicatorCountForSnapshot({
   return getTradingViewNativeSubIndicatorCountFromOptions(configIndicators);
 }
 
-function normalizeTradingViewNativeMaxSubIndicatorCount(
-  maxSubIndicatorCount: number | undefined,
+function normalizeTradingViewNativeMaxSelectableSubIndicatorCount(
+  maxSelectableSubIndicatorCount: number | undefined,
 ) {
-  return typeof maxSubIndicatorCount === 'number' &&
-    Number.isFinite(maxSubIndicatorCount)
-    ? Math.max(0, Math.floor(maxSubIndicatorCount))
+  return typeof maxSelectableSubIndicatorCount === 'number' &&
+    Number.isFinite(maxSelectableSubIndicatorCount)
+    ? Math.max(0, Math.floor(maxSelectableSubIndicatorCount))
     : undefined;
 }
 
 export function canToggleTradingViewNativeIndicatorOn({
   indicatorValue,
   activeIndicatorValues,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
 }: {
   indicatorValue: string;
   activeIndicatorValues: ReadonlySet<string>;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
 }) {
-  const normalizedMaxSubIndicatorCount =
-    normalizeTradingViewNativeMaxSubIndicatorCount(maxSubIndicatorCount);
+  const normalizedMaxSelectableSubIndicatorCount =
+    normalizeTradingViewNativeMaxSelectableSubIndicatorCount(
+      maxSelectableSubIndicatorCount,
+    );
 
   if (
-    normalizedMaxSubIndicatorCount === undefined ||
+    normalizedMaxSelectableSubIndicatorCount === undefined ||
     !isTradingViewNativeSubIndicator(indicatorValue) ||
     activeIndicatorValues.has(indicatorValue)
   ) {
@@ -174,7 +165,7 @@ export function canToggleTradingViewNativeIndicatorOn({
 
   return (
     getTradingViewNativeSubIndicatorCount(activeIndicatorValues) <
-    normalizedMaxSubIndicatorCount
+    normalizedMaxSelectableSubIndicatorCount
   );
 }
 
@@ -186,28 +177,43 @@ export function getNativeIndicatorSelectionUpdates({
   indicators: ITradingViewIndicatorOption[];
   originalActiveIndicatorValues: ReadonlySet<string>;
   nextActiveIndicatorValues: ReadonlySet<string>;
-}): Array<[indicatorName: string, desiredActive: boolean]> {
-  const removedIndicators = indicators.filter(
-    (indicator) =>
-      originalActiveIndicatorValues.has(indicator.value) &&
-      !nextActiveIndicatorValues.has(indicator.value),
+}): Array<[indicatorId: string, desiredActive: boolean]> {
+  const removedIndicators = indicators.flatMap<[string, boolean]>(
+    (indicator) => {
+      const indicatorValue = getAppNativeIndicatorValue(indicator);
+      return indicatorValue !== null &&
+        hasActiveIndicatorValue(
+          originalActiveIndicatorValues,
+          indicator,
+          indicatorValue,
+        ) &&
+        !hasActiveIndicatorValue(
+          nextActiveIndicatorValues,
+          indicator,
+          indicatorValue,
+        )
+        ? [[indicatorValue, false]]
+        : [];
+    },
   );
-  const addedIndicators = indicators.filter(
-    (indicator) =>
-      !originalActiveIndicatorValues.has(indicator.value) &&
-      nextActiveIndicatorValues.has(indicator.value),
-  );
+  const addedIndicators = indicators.flatMap<[string, boolean]>((indicator) => {
+    const indicatorValue = getAppNativeIndicatorValue(indicator);
+    return indicatorValue !== null &&
+      !hasActiveIndicatorValue(
+        originalActiveIndicatorValues,
+        indicator,
+        indicatorValue,
+      ) &&
+      hasActiveIndicatorValue(
+        nextActiveIndicatorValues,
+        indicator,
+        indicatorValue,
+      )
+      ? [[indicatorValue, true]]
+      : [];
+  });
 
-  return [
-    ...removedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      false,
-    ]),
-    ...addedIndicators.map<[string, boolean]>((indicator) => [
-      indicator.label,
-      true,
-    ]),
-  ];
+  return [...removedIndicators, ...addedIndicators];
 }
 
 export function useNativeIndicatorActiveValues(
@@ -296,12 +302,12 @@ export function useNativeIndicatorActiveValues(
 export function useNativeIndicatorControls({
   nativeChartControlsConfig,
   nativeIndicatorState,
-  maxSubIndicatorCount,
+  maxSelectableSubIndicatorCount,
   onIndicatorSelect,
 }: {
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
   nativeIndicatorState: ITradingViewNativeIndicatorState;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
 }) {
   const {
@@ -327,9 +333,9 @@ export function useNativeIndicatorControls({
       canToggleTradingViewNativeIndicatorOn({
         indicatorValue,
         activeIndicatorValues: getActiveIndicatorValues(),
-        maxSubIndicatorCount,
+        maxSelectableSubIndicatorCount,
       }),
-    [getActiveIndicatorValues, maxSubIndicatorCount],
+    [getActiveIndicatorValues, maxSelectableSubIndicatorCount],
   );
 
   const handleIndicatorPress = useCallback(
@@ -339,7 +345,7 @@ export function useNativeIndicatorControls({
         !canToggleTradingViewNativeIndicatorOn({
           indicatorValue: indicator.value,
           activeIndicatorValues: currentActiveIndicatorValues,
-          maxSubIndicatorCount,
+          maxSelectableSubIndicatorCount,
         })
       ) {
         return;
@@ -347,11 +353,11 @@ export function useNativeIndicatorControls({
 
       const desiredActive = !currentActiveIndicatorValues.has(indicator.value);
       updateActiveIndicatorValue(indicator.value, desiredActive);
-      onIndicatorSelect(indicator.label, desiredActive);
+      onIndicatorSelect(indicator.value, desiredActive);
     },
     [
       getActiveIndicatorValues,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onIndicatorSelect,
       updateActiveIndicatorValue,
     ],

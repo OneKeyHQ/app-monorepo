@@ -45,8 +45,9 @@ export function deriveBorrowDataStatus({
     }
     return EBorrowDataStatus.Refreshing;
   }
-  if (!hasMarket || !hasFetchKey) return EBorrowDataStatus.Idle;
+  if (!hasMarket) return EBorrowDataStatus.Idle;
   if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
+  if (!hasFetchKey) return EBorrowDataStatus.Idle;
 
   // The request starts in a passive effect. Keep the new scope pending during
   // the render before usePromiseResult publishes its loading flag.
