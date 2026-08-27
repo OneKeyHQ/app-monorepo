@@ -11,6 +11,7 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
 import {
+  syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
@@ -27,7 +28,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { findChartTypeOption } from '../../../TradingViewChartControls/utils/NativeChartControlsShared';
 import {
   type ICalendarPanelSubmitPayload,
   type ITradingViewNativeChartTypeControlMode,
@@ -54,6 +54,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
+import { resolveTradingViewStorageNamespace } from './tradingViewStorageNamespace';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -71,6 +72,7 @@ import type {
 } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -171,6 +173,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
@@ -219,6 +223,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineLoadError,
     onKLinePeriodChange,
     forceCandlestickChart = false,
+    onLoadEnd,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -344,25 +349,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       },
     });
   }, []);
-  useEffect(() => {
-    if (!forceCandlestickChart || !nativeChartControlsConfig) {
-      return;
-    }
-    const candlestickChartType = findChartTypeOption(
-      nativeChartControlsConfig.chartTypes,
-      'candle',
-    );
-    if (
-      candlestickChartType &&
-      candlestickChartType.value !== nativeChartControlsConfig.activeChartType
-    ) {
-      handleNativeChartTypeChange(candlestickChartType.value);
-    }
-  }, [
-    forceCandlestickChart,
-    handleNativeChartTypeChange,
-    nativeChartControlsConfig,
-  ]);
   const handleNativeResetLayout = useCallback(() => {
     webRef.current?.sendMessageViaInjectedScript({
       type: TRADINGVIEW_RESET_LAYOUT_MESSAGE,
@@ -449,6 +435,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       payload: {},
     });
   }, []);
+  const handleChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+  }, []);
 
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
@@ -475,6 +464,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onChartReady: handleChartReady,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
@@ -498,7 +488,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace = storageNamespace?.trim() || 'market';
+    const finalStorageNamespace = resolveTradingViewStorageNamespace({
+      storageNamespace,
+      forceCandlestickChart,
+    });
 
     return {
       decimal: decimal?.toString(),
@@ -516,6 +509,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     enableNativeChartControls,
     enableNativeIntervalSelector,
+    forceCandlestickChart,
     networkId,
     storageNamespace,
     tokenAddress,
@@ -526,6 +520,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useTradingViewUrl({
       additionalParams,
       disabledFeatures,
+      theme,
     });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
@@ -571,6 +566,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartType: activeKLineResolution,
     symbol: chartSymbol,
   });
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
@@ -687,6 +686,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [onLoadStart, resetInteractionLocks],
   );
 
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      syncTradingViewTheme(webRef.current, latestThemeRef.current);
+      onLoadEnd?.(event);
+    },
+    [onLoadEnd],
+  );
+
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
@@ -777,7 +784,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
+        key={tradingViewUrlWithParams}
         containerProps={{ bg: '$bgApp' }}
         containerStyle={tradingViewWebViewStyleProps.containerStyle}
         style={tradingViewWebViewStyleProps.style}
@@ -787,6 +794,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         }}
         onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
+        onLoadEnd={handleLoadEnd}
         onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
@@ -802,10 +810,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
+      handleLoadEnd,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
-      theme,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],

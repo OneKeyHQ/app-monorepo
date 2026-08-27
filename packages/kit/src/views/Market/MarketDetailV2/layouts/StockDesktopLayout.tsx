@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketAccountPortfolioItem,
   IMarketStockInfo,
@@ -112,6 +113,14 @@ function StockPageHeader({
   const { tokenDetail, networkId, isNative } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
   const stock = tokenDetail?.stock;
+  const tokenActionIdentity =
+    networkId && tokenDetail?.address && tokenDetail.symbol
+      ? {
+          networkId,
+          address: tokenDetail.address,
+          symbol: tokenDetail.symbol,
+        }
+      : undefined;
 
   return (
     <XStack
@@ -188,22 +197,25 @@ function StockPageHeader({
         }
       />
 
-      {networkId || stockId ? (
+      {/* The stock route can share the listing before any token variant
+          resolves, so the row also stands on a bare `stockId`. The favorite
+          button still needs a real chain/contract/symbol triple. */}
+      {tokenActionIdentity || stockId ? (
         <XStack alignItems="center" gap="$4">
-          {showFavoriteButton && networkId ? (
+          {showFavoriteButton && tokenActionIdentity ? (
             <MarketStarV2
-              chainId={networkId}
-              contractAddress={tokenDetail?.address ?? ''}
+              chainId={tokenActionIdentity.networkId}
+              contractAddress={tokenActionIdentity.address}
               size="small"
               customIconSize="$5"
               from={EWatchlistFrom.Detail}
-              tokenSymbol={tokenDetail?.symbol ?? ''}
+              tokenSymbol={tokenActionIdentity.symbol}
               isNative={isNative}
             />
           ) : null}
           <ShareButton
-            networkId={networkId}
-            address={tokenDetail?.address ?? ''}
+            networkId={tokenActionIdentity?.networkId ?? ''}
+            address={tokenActionIdentity?.address ?? ''}
             isNative={isNative}
             // Share the stock listing itself, not the token variant that
             // happens to be selected on the page.
@@ -239,7 +251,7 @@ function StockLivePrice({
   const { stockDetail, stockId } = useStockDetail();
 
   if (!price) {
-    // MarketTokenPrice caches by name+symbol and only accepts a newer
+    // MarketTokenPrice caches per key and only accepts a newer
     // `lastUpdated`, so feeding it a placeholder while the feed is still
     // loading stamps '--' with the current clock and the real price that
     // arrives afterwards (carrying an older quote timestamp) can never
@@ -251,11 +263,12 @@ function StockLivePrice({
     <MarketTokenPrice
       size="$heading4xl"
       price={price}
-      // MarketTokenPrice de-dupes by name+symbol and keeps whichever price
-      // carries the newest timestamp. Both modes describe the same instrument,
-      // so under one key the token price wins in share mode too — give each
-      // mode its own cache entry.
-      tokenName={`${stockDetail?.name ?? tokenDetail?.name ?? ''}:${priceMode}`}
+      // MarketTokenPrice otherwise de-dupes by name+symbol and keeps whichever
+      // price carries the newest timestamp. Both modes describe the same
+      // instrument, so under one key the token price would win in share mode
+      // too — the explicit cache key gives each mode its own entry.
+      cacheKey={`stock-${stockId ?? 'unknown'}-${priceMode}`}
+      tokenName={stockDetail?.name ?? tokenDetail?.name ?? ''}
       tokenSymbol={stockDetail?.symbol ?? tokenDetail?.symbol ?? stockId ?? ''}
       lastUpdated={
         isSharePrice
@@ -332,8 +345,8 @@ function StockPriceHeader({
   // point of the range, both in the places they already occupy. The
   // market-status badge stays put, and the moment being read is answered by the
   // label that follows the crosshair inside the plot. The scrub price is
-  // rendered outside MarketTokenPrice on purpose — that component caches by
-  // name+symbol and would poison the live quote.
+  // rendered outside MarketTokenPrice on purpose — that component caches the
+  // last price it saw and would poison the live quote.
   const { color: hoverChangeColor } = formatPriceChangeDisplay(
     hoverPoint?.changePercent,
   );
@@ -498,10 +511,12 @@ function StockChart({
   marketTradingView,
   priceMode,
   onHoverChange,
+  isChartFullscreen,
 }: {
   marketTradingView: ReactNode;
   priceMode: IMarketPriceSource;
   onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+  isChartFullscreen: boolean;
 }) {
   const [mode, setMode] = useState<IStockChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
@@ -515,10 +530,15 @@ function StockChart({
   // and the switch is laid over the trailing edge of the widget's own interval
   // row, so both modes show it on the same line and the chart body below never
   // shifts between them.
+  //
+  // Fullscreen only ever happens from Pro (the widget owns the toggle): the
+  // block drops its fixed height to fill the fixed-position wrapper, and the
+  // mode switch steps aside so nothing floats over the expanded chart.
   return (
     <YStack
       width="100%"
-      height={STOCK_CHART_HEIGHT}
+      height={isChartFullscreen ? undefined : STOCK_CHART_HEIGHT}
+      flex={isChartFullscreen ? 1 : undefined}
       gap={isSimpleMode ? '$4' : '$0'}
       position="relative"
     >
@@ -577,20 +597,22 @@ function StockChart({
           <Stack flex={1} minWidth={0} overflow="hidden">
             {marketTradingView}
           </Stack>
-          <Stack
-            testID="stock-chart-mode-control-pro"
-            position="absolute"
-            top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
-            right={0}
-            // The widget's control row is a horizontal scroller that now runs
-            // the full width; an opaque backdrop keeps a long toolbar from
-            // showing through the switch instead of ending behind it.
-            bg="$bgApp"
-            pl="$2"
-            zIndex={4}
-          >
-            <StockChartModeControl mode={mode} onChange={setMode} />
-          </Stack>
+          {isChartFullscreen ? null : (
+            <Stack
+              testID="stock-chart-mode-control-pro"
+              position="absolute"
+              top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
+              right={0}
+              // The widget's control row is a horizontal scroller that now runs
+              // the full width; an opaque backdrop keeps a long toolbar from
+              // showing through the switch instead of ending behind it.
+              bg="$bgApp"
+              pl="$2"
+              zIndex={4}
+            >
+              <StockChartModeControl mode={mode} onChange={setMode} />
+            </Stack>
+          )}
         </>
       )}
     </YStack>
@@ -1098,6 +1120,7 @@ function StockAnalystRatings() {
 const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
 
 function StockAbout() {
+  const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
@@ -1112,7 +1135,7 @@ function StockAbout() {
   const about = stockDetail?.about ?? stock?.about;
   const employeeCount = Number(about?.employees);
   const formattedEmployees = Number.isFinite(employeeCount)
-    ? employeeCount.toLocaleString('en-US')
+    ? intl.formatNumber(employeeCount)
     : STAT_FALLBACK_VALUE;
   const description =
     about?.description ??
@@ -1194,11 +1217,15 @@ export function StockDesktopLayout({
   swapToken,
   portfolioData,
   showFavoriteButton,
+  isChartFullscreen,
+  chartFullscreenZIndex,
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   portfolioData: IMarketAccountPortfolioItem[];
   showFavoriteButton: boolean;
+  isChartFullscreen: boolean;
+  chartFullscreenZIndex: number;
 }) {
   const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
   const handlePriceModeChange = useCallback(
@@ -1244,14 +1271,32 @@ export function StockDesktopLayout({
             <Stack
               testID="stock-token-detail-tradingview"
               width="100%"
-              height={STOCK_CHART_HEIGHT}
+              height={isChartFullscreen ? undefined : STOCK_CHART_HEIGHT}
               overflow="hidden"
               bg="$bgApp"
+              zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
+              style={
+                isChartFullscreen
+                  ? {
+                      position: 'fixed',
+                      left: 0,
+                      top: 0,
+                      right: 0,
+                      bottom: platformEnv.isWeb ? 40 : 0,
+                    }
+                  : undefined
+              }
             >
+              {/* Desktop keeps the draggable title bar clear of the
+                  fullscreen chart. */}
+              {isChartFullscreen && platformEnv.isDesktop ? (
+                <Stack height={48} bg="$bgApp" flexShrink={0} />
+              ) : null}
               <StockChart
                 marketTradingView={marketTradingView}
                 priceMode={priceMode}
                 onHoverChange={setChartHoverPoint}
+                isChartFullscreen={isChartFullscreen}
               />
             </Stack>
           </YStack>

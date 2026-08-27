@@ -51,7 +51,8 @@ const LazyMarketPerpsTokenList = lazy(async () => {
 });
 
 const LazyMarketStockList = lazy(async () => {
-  const { MarketStockList } = await import('../components/MarketStockList');
+  const { MarketStockList } =
+    await import('../components/MarketStockList/MarketStockList');
   return { default: MarketStockList };
 });
 

@@ -134,6 +134,7 @@ jest.mock('@onekeyhq/components', () => ({
     purple9: { val: '#purple9' },
     red6: { val: '#red6' },
     red9: { val: '#red9' },
+    textDisabled: { val: '#textDisabled' },
     textSubdued: { val: '#textSubdued' },
   }),
   YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (

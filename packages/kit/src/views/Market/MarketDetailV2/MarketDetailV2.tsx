@@ -168,6 +168,16 @@ function MarketDetailV2(
   const { navigation } = props;
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
+  const initialTokenAddress =
+    'tokenAddress' in props.route.params
+      ? props.route.params.tokenAddress
+      : undefined;
+  const initialNetwork =
+    'network' in props.route.params ? props.route.params.network : undefined;
+  const initialNetworkId = initialNetwork
+    ? networkUtils.getNetworkIdFromShortCode({ shortCode: initialNetwork }) ||
+      initialNetwork
+    : undefined;
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
@@ -259,7 +269,11 @@ function MarketDetailV2(
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <StockDetailProvider stockId={stockId}>
+        <StockDetailProvider
+          stockId={stockId}
+          initialNetworkId={initialNetworkId}
+          initialTokenAddress={initialTokenAddress}
+        >
           <MarketDetail
             {...props}
             isChartFullscreen={effectiveIsChartFullscreen}

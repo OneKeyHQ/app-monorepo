@@ -178,7 +178,8 @@ export function DesktopLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const { selectedTokenVariant, stockId } = useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
   const isNative =
@@ -275,7 +276,11 @@ export function DesktopLayout({
   // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
   // own trailing controls — the chart-source dropdown and the expand toggle —
   // are dropped there to make room for it. Every other assembly keeps both.
-  const hideChartTrailingControls = isStockToken && !isChartFullscreen;
+  // Gated on the same condition that renders StockDesktopLayout, minus
+  // fullscreen: only that layout overlays the switch, and in fullscreen the
+  // expand toggle is the way back out, so it has to stay.
+  const hideChartTrailingControls =
+    shouldUseStockDesktopLayout && !isChartFullscreen;
   const stockAwareChartSwitch = hideChartTrailingControls
     ? undefined
     : onChartSwitch;
@@ -288,7 +293,9 @@ export function DesktopLayout({
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
-          forcedChartType={isStockToken ? 'candlestick' : undefined}
+          forcedChartType={
+            shouldUseStockDesktopLayout ? 'candlestick' : undefined
+          }
           enableNativeChartSettings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
@@ -323,7 +330,7 @@ export function DesktopLayout({
         nativeControlsLayoutMode="desktop"
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
-        forceCandlestickChart={isStockToken}
+        forceCandlestickChart={shouldUseStockDesktopLayout}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
@@ -333,7 +340,7 @@ export function DesktopLayout({
     hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
-    isStockToken,
+    shouldUseStockDesktopLayout,
     marketTradingViewParams,
     networkId,
     stockAwareChartSwitch,
@@ -341,7 +348,7 @@ export function DesktopLayout({
     tradingViewNativeSource,
   ]);
 
-  if (isStockToken && !isChartFullscreen) {
+  if (shouldUseStockDesktopLayout) {
     return (
       <Stack
         ref={scrollContainerRef as any}
@@ -353,6 +360,8 @@ export function DesktopLayout({
           swapToken={swapToken}
           portfolioData={portfolioData}
           showFavoriteButton={showFavoriteButton}
+          isChartFullscreen={isChartFullscreen}
+          chartFullscreenZIndex={chartFullscreenZIndex}
         />
       </Stack>
     );

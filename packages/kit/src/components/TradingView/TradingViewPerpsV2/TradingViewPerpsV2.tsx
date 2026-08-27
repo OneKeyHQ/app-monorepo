@@ -23,7 +23,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import {
+  syncTradingViewTheme,
+  useNavigationHandler,
+  useTradingViewUrl,
+} from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -192,6 +196,8 @@ const WebViewMemoized = memo(
     return (
       prevProps.src === nextProps.src &&
       prevProps.customReceiveHandler === nextProps.customReceiveHandler &&
+      prevProps.containerStyle === nextProps.containerStyle &&
+      prevProps.style === nextProps.style &&
       prevProps.onShouldStartLoadWithRequest ===
         nextProps.onShouldStartLoadWithRequest
     );
@@ -285,6 +291,10 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
+  const onLoadEndRef = useRef(onLoadEnd);
+  onLoadEndRef.current = onLoadEnd;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
@@ -301,7 +311,9 @@ export function TradingViewPerpsV2(
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
-    return `${theme}-${webviewKey || ''}${
+    const themeKey =
+      platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
+    return `${themeKey}${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
   }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
@@ -324,6 +336,30 @@ export function TradingViewPerpsV2(
 
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
+
+  // OK-59100: on iOS this flag gates both the header pan gesture and the tab
+  // scroller, and nothing ever reset it — a stray `open` arriving before the
+  // chart is live never receives its matching `close` and locks scrolling for
+  // the rest of the session (fail-closed). Accept `open` only once the chart
+  // reports ready; a reload invalidates any pending open state anyway.
+  const isChartContentReadyRef = useRef(isChartContentReady);
+  isChartContentReadyRef.current = isChartContentReady;
+  const guardedInteractionOverlayOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen && !isChartContentReadyRef.current) {
+        return;
+      }
+      onInteractionOverlayOpenChange?.(isOpen);
+    },
+    [onInteractionOverlayOpenChange],
+  );
+  // Any transition out of ready (reload, navigation, render-process loss)
+  // discards overlay state the chart can no longer close on its own.
+  useEffect(() => {
+    if (!isChartContentReady) {
+      onInteractionOverlayOpenChange?.(false);
+    }
+  }, [isChartContentReady, onInteractionOverlayOpenChange]);
 
   const prevWebviewKeyRef = useRef(_webviewKey);
   useEffect(() => {
@@ -412,6 +448,7 @@ export function TradingViewPerpsV2(
 
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams,
+    theme,
   });
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
@@ -513,12 +550,14 @@ export function TradingViewPerpsV2(
   }, [restoreNonce]);
 
   const onChartLinesReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
   const onChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
     setChartContentReadyWebviewKey(_webviewKey);
   }, [_webviewKey]);
 
@@ -649,7 +688,7 @@ export function TradingViewPerpsV2(
     onOrderPriceUpdate,
     onChartOrderIntent,
     onTouchScroll,
-    onInteractionOverlayOpenChange,
+    onInteractionOverlayOpenChange: guardedInteractionOverlayOpenChange,
   });
 
   // Chart lines management (liquidation, position, orders)
@@ -671,6 +710,15 @@ export function TradingViewPerpsV2(
     webRef.current = ref;
   }, []);
 
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
+
+  const handleLoadEnd = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+    onLoadEndRef.current?.();
+  }, []);
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
@@ -688,7 +736,7 @@ export function TradingViewPerpsV2(
         customReceiveHandler={customReceiveHandler}
         skipBackgroundBridge
         onWebViewRef={onWebViewRef}
-        onLoadEnd={onLoadEnd}
+        onLoadEnd={handleLoadEnd}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         nativeInjectedJavaScriptBeforeContentLoaded={
           platformEnv.isNativeAndroid

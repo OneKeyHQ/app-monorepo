@@ -35,6 +35,7 @@ import type {
 import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
+const TRADINGVIEW_CHART_READY = 'tradingview_chartReady';
 const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 const TRADINGVIEW_INTERVAL_CONFIG = 'tradingview_intervalConfig';
 const TRADINGVIEW_NATIVE_CHART_CONTROLS_CONFIG =
@@ -64,6 +65,7 @@ interface IUseTradingViewMessageHandlerParams {
   onNativeChartControlsConfigChange?: (
     data: ITradingViewNativeChartControlsConfigData,
   ) => void;
+  onChartReady?: () => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
@@ -618,6 +620,7 @@ export function useTradingViewMessageHandler({
   onPriceUpdate,
   onIntervalConfigChange,
   onNativeChartControlsConfigChange,
+  onChartReady,
   onKLineDataReady,
   onKLineLoadError,
   onKLinePeriodChange,
@@ -645,6 +648,13 @@ export function useTradingViewMessageHandler({
         onKLineLoadError,
         onKLinePeriodChange,
       };
+
+      if (
+        data.scope === '$private' &&
+        data.method === TRADINGVIEW_CHART_READY
+      ) {
+        onChartReady?.();
+      }
 
       // Handle TradingView private API requests
       if (
@@ -807,6 +817,7 @@ export function useTradingViewMessageHandler({
       onPriceUpdate,
       onIntervalConfigChange,
       onNativeChartControlsConfigChange,
+      onChartReady,
       onKLineDataReady,
       onKLineLoadError,
       onKLinePeriodChange,

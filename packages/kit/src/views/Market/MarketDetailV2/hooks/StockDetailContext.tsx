@@ -11,6 +11,7 @@ import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
@@ -62,6 +63,10 @@ type IStockTokenVariantsRequestResult = {
   failed?: boolean;
 };
 
+// The variant list backs the token selector and the tradable-variant checks,
+// so it keeps the 6s cadence the rest of the detail page polls at.
+const STOCK_TOKEN_VARIANTS_POLLING_INTERVAL = 6000;
+
 export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
   return Boolean(
     variant.tradingEnabled &&
@@ -73,14 +78,25 @@ export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
 
 export function StockDetailProvider({
   stockId,
+  initialNetworkId,
+  initialTokenAddress,
   children,
-}: PropsWithChildren<{ stockId?: string }>) {
+}: PropsWithChildren<{
+  stockId?: string;
+  initialNetworkId?: string;
+  initialTokenAddress?: string;
+}>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
   // Last value the detail endpoint actually returned, so a failed polling tick
   // can fall back to it instead of blanking the page.
   const lastStockDetailRef = useRef<IStockDetailRequestResult | undefined>(
     undefined,
+  );
+  // Same idea for the variant list, kept per stock because a failed fetch here
+  // must not drop the token the user already selected.
+  const successfulTokenVariantsRef = useRef(
+    new Map<string, IStockTokenVariantsRequestResult>(),
   );
 
   const {
@@ -115,8 +131,13 @@ export function StockDetailProvider({
       // Kept false so the first fetch still runs while a modal sits above the
       // route; usePromiseResult already parks polling ticks while the app is
       // in the background, so this does not keep a hidden page fetching.
+      // No `revalidateOnFocus` here on purpose: it only fires under
+      // `checkIsFocused`, and because polling never pauses on route blur the
+      // quote is already current by the time the page is focused again.
       checkIsFocused: false,
-      pollingInterval: STOCK_DETAIL_POLLING_INTERVAL,
+      pollingInterval: normalizedStockId
+        ? STOCK_DETAIL_POLLING_INTERVAL
+        : undefined,
       revalidateOnReconnect: true,
     },
   );
@@ -133,19 +154,32 @@ export function StockDetailProvider({
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
             { stockId: normalizedStockId },
           );
-        return {
+        const result = {
           stockId: normalizedStockId,
           items: response.items,
           defaultTokenId: response.defaultTokenId,
         };
+        successfulTokenVariantsRef.current.set(normalizedStockId, result);
+        return result;
       } catch (_error) {
-        return { stockId: normalizedStockId, items: [], failed: true };
+        const cachedResult =
+          successfulTokenVariantsRef.current.get(normalizedStockId);
+        return {
+          stockId: normalizedStockId,
+          items: cachedResult?.items ?? [],
+          defaultTokenId: cachedResult?.defaultTokenId,
+          failed: true,
+        };
       }
     },
     [normalizedStockId],
     {
       watchLoading: true,
-      checkIsFocused: false,
+      pollingInterval: normalizedStockId
+        ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
+        : undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 
@@ -165,24 +199,45 @@ export function StockDetailProvider({
       setSelectedTokenId(undefined);
       return;
     }
+    if (tokenVariantResult?.failed) return;
 
     const hasCurrentToken = tokenVariants.some(
-      (item) =>
-        item.tokenId === selectedTokenId && isStockTokenVariantTradable(item),
+      (item) => item.tokenId === selectedTokenId,
     );
     if (hasCurrentToken) return;
 
+    const routeToken = tokenVariants.find(
+      (item) =>
+        isStockTokenVariantTradable(item) &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: item.networkId,
+            contractAddress: item.contractAddress,
+          },
+          token2: {
+            networkId: initialNetworkId,
+            contractAddress: initialTokenAddress,
+          },
+        }),
+    );
     const defaultToken = tokenVariants.find(
       (item) =>
         item.tokenId === tokenVariantResult?.defaultTokenId &&
         isStockTokenVariantTradable(item),
     );
     const firstTradableToken = tokenVariants.find(isStockTokenVariantTradable);
-    setSelectedTokenId(defaultToken?.tokenId ?? firstTradableToken?.tokenId);
+    setSelectedTokenId(
+      routeToken?.tokenId ??
+        defaultToken?.tokenId ??
+        firstTradableToken?.tokenId,
+    );
   }, [
+    initialNetworkId,
+    initialTokenAddress,
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
+    tokenVariantResult?.failed,
     tokenVariants,
   ]);
 
