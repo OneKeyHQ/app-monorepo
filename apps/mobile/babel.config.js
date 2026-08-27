@@ -41,7 +41,7 @@ module.exports = function (api) {
         //  in react-native-gesture-handler
         require('@babel/plugin-transform-shorthand-properties'),
         [
-          require('@tamagui/babel-plugin/dist/cjs/index.native'),
+          require('@tamagui/babel-plugin').default,
           {
             components: ['tamagui'],
             config: path.join(
