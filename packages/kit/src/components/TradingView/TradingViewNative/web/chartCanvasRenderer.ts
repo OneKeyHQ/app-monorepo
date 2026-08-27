@@ -18,6 +18,9 @@ interface IDrawTradingViewNativeCanvasSceneOptions {
   customPaintStyles: Readonly<
     Record<string, ITradingViewNativeChartScenePaintStyle>
   >;
+  priceAxisFontSize?: number;
+  timeAxisFontSize?: number;
+  timeAxisBorderWidth?: number;
   watermarkImage: HTMLImageElement | null;
 }
 
@@ -28,11 +31,13 @@ type ITradingViewNativeDrawableChartSceneCommand = Extract<
 
 export function getTradingViewNativeCanvasFont(
   font: ITradingViewNativeChartSceneFont,
+  priceAxisFontSize = AXIS_FONT_SIZE,
+  timeAxisFontSize = AXIS_FONT_SIZE,
 ) {
   if (font === 'priceAxis') {
-    return `${AXIS_FONT_SIZE}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
+    return `${priceAxisFontSize}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
   }
-  return `${font === 'axis' ? AXIS_FONT_SIZE : LEGEND_FONT_SIZE}px sans-serif`;
+  return `${font === 'axis' ? timeAxisFontSize : LEGEND_FONT_SIZE}px sans-serif`;
 }
 
 function getCanvasPaintStyle(
@@ -54,9 +59,14 @@ export function drawTradingViewNativeCanvasScene({
   commands,
   context,
   customPaintStyles,
+  priceAxisFontSize,
+  timeAxisFontSize,
+  timeAxisBorderWidth,
   watermarkImage,
 }: IDrawTradingViewNativeCanvasSceneOptions) {
-  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors);
+  const paintStyles = getTradingViewNativeChartScenePaintStyles(colors, {
+    timeAxisBorderWidth,
+  });
   for (const command of commands) {
     switch (command.kind) {
       case 'circle': {
@@ -212,7 +222,11 @@ export function drawTradingViewNativeCanvasScene({
         context.save();
         context.globalAlpha = paint.opacity;
         context.fillStyle = paint.color;
-        context.font = getTradingViewNativeCanvasFont(command.font);
+        context.font = getTradingViewNativeCanvasFont(
+          command.font,
+          priceAxisFontSize,
+          timeAxisFontSize,
+        );
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
         context.fillText(command.text, command.x, command.y);

@@ -51,6 +51,7 @@ export function useTradingViewNativeChartGestures({
   priceAxisScaleGesture,
   priceAxisWidth,
   resources,
+  timeAxisHeight,
 }: {
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   decayOffset: SharedValue<number>;
@@ -63,6 +64,7 @@ export function useTradingViewNativeChartGestures({
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
+  timeAxisHeight?: number;
 }) {
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
@@ -109,6 +111,7 @@ export function useTradingViewNativeChartGestures({
         ),
         height: runtime.size.height,
         pointCount: runtime.points.length,
+        timeAxisHeight,
         type: 'crosshairMoved',
         x,
         y,
@@ -561,5 +564,6 @@ export function useTradingViewNativeChartGestures({
     priceAxisScaleGesture,
     priceAxisWidth,
     resources,
+    timeAxisHeight,
   ]);
 }

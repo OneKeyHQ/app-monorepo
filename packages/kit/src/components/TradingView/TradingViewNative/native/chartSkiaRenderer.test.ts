@@ -124,6 +124,8 @@ function createResources() {
     },
     fontFamily: 'System',
     priceAxisFont: null,
+    priceAxisFontSize: 12,
+    timeAxisFontSize: 12,
     watermarkSvg: null,
   });
 }

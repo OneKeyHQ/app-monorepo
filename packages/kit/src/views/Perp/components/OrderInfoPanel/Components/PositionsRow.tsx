@@ -44,6 +44,10 @@ import { showClosePositionDialog } from '../ClosePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import { MOBILE_POSITION_ACTION_TEXT_SIZE } from '../utils/positionActionPresentation';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import { DesktopActionIconButton } from './DesktopActionIconButton';
 
@@ -708,8 +712,8 @@ const PositionRowDesktop = memo(
         <XStack
           minWidth={renderMode === 'full' ? cellMinWidth : undefined}
           py="$1.5"
-          pl="22px"
-          pr="$3"
+          pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+          pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
           display="flex"
           flex={1}
           alignItems="center"
