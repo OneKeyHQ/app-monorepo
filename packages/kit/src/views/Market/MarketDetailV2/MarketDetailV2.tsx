@@ -25,6 +25,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
@@ -230,25 +231,28 @@ function MarketDetailV2(
   );
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <>
+      <TradingViewEmbedGlobalPreload />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
       >
-        <MarketDetail
-          {...props}
-          isChartFullscreen={effectiveIsChartFullscreen}
-          isTradingViewNative={isTradingViewNative}
-          onChartSwitch={handleChartSwitch}
-          onChartFullscreenChange={handleChartFullscreenChange}
-        />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <MarketDetail
+            {...props}
+            isChartFullscreen={effectiveIsChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={handleChartSwitch}
+            onChartFullscreenChange={handleChartFullscreenChange}
+          />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </>
   );
 }
 
