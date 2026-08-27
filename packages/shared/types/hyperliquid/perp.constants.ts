@@ -49,15 +49,20 @@ export const SUB_DEX_LIST = [
   { prefix: 'io', hlDexIndex: 10 },
 ] as const;
 
-// `xyz` is the only prefix that ever shipped separator-free deep links, from
-// before encodeCoinForUrl kept the separator. Every prefix registered since
-// always encodes one, so a bare-prefix match on them is only a guess — and one
-// that collides with real main-DEX symbols (`io` shadows `IOTA`).
-export const LEGACY_SEPARATOR_FREE_DEX_PREFIXES: readonly string[] = ['xyz'];
-
 export const DEX_SEPARATOR = ':';
 
 export const DEX_PREFIXES = SUB_DEX_LIST.map((item) => item.prefix);
+
+export type IPerpDexPrefix = (typeof DEX_PREFIXES)[number];
+
+// Prefixes that a real main-DEX symbol starts with, so a separator-free link
+// (`IOTA`) reads both as that symbol and as `<prefix>:<rest>`. With no universe
+// to settle it the literal symbol is the likelier market; for every other
+// prefix the literal form is no market at all, so the split guess wins.
+// Re-check a new prefix against the main-DEX universe before registering it:
+// `cash` (hyperliquid dex 7) shadows a listed cat-themed market and belongs
+// here if adopted.
+export const MAIN_DEX_SHADOWED_DEX_PREFIXES: readonly IPerpDexPrefix[] = ['io'];
 
 export const DEX_ASSET_ID_OFFSETS: readonly number[] = [
   0,

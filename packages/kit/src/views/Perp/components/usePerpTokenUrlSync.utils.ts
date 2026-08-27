@@ -3,14 +3,15 @@ import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEX_PREFIXES,
   DEX_SEPARATOR,
-  LEGACY_SEPARATOR_FREE_DEX_PREFIXES,
+  MAIN_DEX_SHADOWED_DEX_PREFIXES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpDexPrefix } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 export const SPOT_PAIR_SEPARATOR = '_';
 
 // Longest prefix first so a shorter one cannot shadow it. Bare-prefix matching
 // has to stay: legacy links omit the separator (`xyzNVDA`).
-function findDexPrefix(token: string): string | null {
+function findDexPrefix(token: string): IPerpDexPrefix | null {
   const lowerToken = token.toLowerCase();
   return (
     [...DEX_PREFIXES]
@@ -51,11 +52,10 @@ export function decodeCoinFromUrl(urlToken: string): {
   // Separator-free legacy links are ambiguous; the caller must confirm the
   // guess against the universe.
   isAmbiguousLegacyGuess: boolean;
-  // What to use when the universe cannot confirm the guess. `xyz` actually
-  // shipped separator-free links, so its guess still beats the literal token.
-  // Prefixes registered after the separator fix never produced one, and their
-  // bare-prefix match shadows real main-DEX symbols (`io` swallows `IOTA`), so
-  // those fall back to the literal reading instead.
+  // What to use when the universe cannot confirm the guess: whichever reading
+  // could name a real market. Only a prefix shadowed by a main-DEX symbol has a
+  // literal reading worth keeping (`IOTA` over `io:TA`); elsewhere the literal
+  // form is no market at all, so the split guess stays.
   unverifiedFallbackCoin: string;
 } {
   if (!urlToken)
@@ -75,7 +75,7 @@ export function decodeCoinFromUrl(urlToken: string): {
     const symbol = urlToken.slice(symbolStartIndex);
     const coin = `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
     const isTrustedWithoutUniverse =
-      !hasNoSeparator || LEGACY_SEPARATOR_FREE_DEX_PREFIXES.includes(dexPrefix);
+      !hasNoSeparator || !MAIN_DEX_SHADOWED_DEX_PREFIXES.includes(dexPrefix);
     return {
       coin,
       isAmbiguousLegacyGuess: hasNoSeparator,

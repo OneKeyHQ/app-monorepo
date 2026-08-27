@@ -1,4 +1,3 @@
-// cspell:ignore PARAUNITREE
 import {
   decodeCoinFromUrl,
   encodeCoinForUrl,
@@ -28,8 +27,8 @@ describe('decodeCoinFromUrl', () => {
   });
 
   it('trusts the xyz bare-prefix guess when the universe is unavailable', () => {
-    // xyz shipped separator-free links, so the literal reading has no
-    // plausible main-DEX market to fall back to.
+    // xyz is what separator-free links were minted for, and no main-DEX symbol
+    // shadows it, so the guess is the only reading that names a market.
     expect(decodeCoinFromUrl('xyzNVDA')).toEqual({
       coin: 'xyz:NVDA',
       isAmbiguousLegacyGuess: true,
@@ -37,7 +36,7 @@ describe('decodeCoinFromUrl', () => {
     });
   });
 
-  it('falls back to the literal token for prefixes that never shipped separator-free links', () => {
+  it('falls back to the literal token for a prefix a main-DEX symbol shadows', () => {
     // `io` shadows the real main-DEX IOTA market; without a universe to
     // confirm `io:TA`, the literal reading is the right one.
     expect(decodeCoinFromUrl('IOTA')).toEqual({
@@ -45,10 +44,15 @@ describe('decodeCoinFromUrl', () => {
       isAmbiguousLegacyGuess: true,
       unverifiedFallbackCoin: 'IOTA',
     });
+  });
+
+  it('keeps the guess for an unshadowed prefix, whatever its link history', () => {
+    // No main-DEX symbol starts with `para`, so the literal reading names no
+    // market at all and the split guess is the only one that can resolve.
     expect(decodeCoinFromUrl('paraUNITREE')).toEqual({
       coin: 'para:UNITREE',
       isAmbiguousLegacyGuess: true,
-      unverifiedFallbackCoin: 'PARAUNITREE',
+      unverifiedFallbackCoin: 'para:UNITREE',
     });
   });
 
