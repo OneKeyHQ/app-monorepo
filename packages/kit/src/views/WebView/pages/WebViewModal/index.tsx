@@ -314,8 +314,13 @@ export default function WebViewModal() {
             {...(enableDappBridge
               ? // important: without this the dApp is never told about the
                 // connected account, so it stays disconnected after the user
-                // approves (see PageWebviewPerpTrade).
-                { features: { notifyChangedEventsToDappOnFocus: true } }
+                // approves (see PageWebviewPerpTrade). currentUrl keeps those
+                // notifications addressed to the page that is actually loaded
+                // after a cross-origin hop, without reloading the WebView.
+                {
+                  features: { notifyChangedEventsToDappOnFocus: true },
+                  currentUrl,
+                }
               : undefined)}
           />
         )}

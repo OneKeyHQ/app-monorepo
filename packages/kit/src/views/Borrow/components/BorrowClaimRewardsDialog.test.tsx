@@ -77,6 +77,9 @@ jest.mock('@onekeyhq/components', () => {
       show: (config: IDialogConfig) => {
         mockDialogShow(config);
       },
+      // The rewards list scrolls through Dialog.ScrollView so the sheet's drag
+      // gesture and the list's scroll stay separate (OK-61140).
+      ScrollView: Container,
     },
     ScrollView: Container,
     XStack: Container,
