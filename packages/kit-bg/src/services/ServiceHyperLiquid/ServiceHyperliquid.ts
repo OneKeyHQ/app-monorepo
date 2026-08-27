@@ -3525,6 +3525,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
     }
     if (!agentCredential && isEnableTradingTrigger) {
+      await this.backgroundApi.servicePassword.ensureHyperLiquidAgentPasswordSessionReady();
       this.fetchExtraAgentsWithCache.clear();
       try {
         const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));

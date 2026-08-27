@@ -7,7 +7,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
 import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
   appIsLocked,
@@ -169,6 +168,7 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
+type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
@@ -1507,11 +1507,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
+        source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
-      const { symbol, option } = payload;
-      const prev = get(orderBookTickOptionsAtom());
+      const { symbol, option, source } = payload;
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
+        return;
+      }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
         ...prev,
       };
@@ -3548,13 +3554,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
-    const info = await perpsActiveAccountIsAgentReadyAtom.get();
-    if (info.isAgentReady === false) {
-      showEnableTradingDialog();
-      throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
-    }
-  });
+  ensureTradingEnabled = contextAtomMethod(
+    async (_get, _set, runEnableTradingFlow: IRunEnableTradingFlow) => {
+      const info = await perpsActiveAccountIsAgentReadyAtom.get();
+      if (info.isAgentReady === false) {
+        await runEnableTradingFlow();
+        throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
+      }
+    },
+  );
 
   tokenSzDecimalsCache: {
     [coin: string]: number | null | undefined;
@@ -3620,7 +3628,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
           // Apply filter if specified

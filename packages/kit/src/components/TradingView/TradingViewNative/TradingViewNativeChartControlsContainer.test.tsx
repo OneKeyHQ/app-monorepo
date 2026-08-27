@@ -31,6 +31,8 @@ const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
+  activeChartType: 'candlestick' as const,
+  onChartTypeChange: jest.fn(),
   onIndicatorSettingsPress: jest.fn(),
   onIndicatorSelectionConfirm: jest.fn(),
 };
@@ -103,9 +105,45 @@ describe('TradingViewNative chart controls', () => {
         hasVisibleIntervalSelector: true,
         settingsEnabled: false,
         showIndicatorPopover: false,
+        showChartTypeSelect: true,
         showChartTypeToggle: false,
+        activeChartType: 1,
+        chartTypes: [
+          { id: 'candlestick', label: 'Candles', value: 1 },
+          { id: 'heikinAshi', label: 'Heikin Ashi', value: 8 },
+          { id: 'bars', label: 'Bars', value: 0 },
+          { id: 'line', label: 'Line', value: 2 },
+          { id: 'area', label: 'Area', value: 3 },
+        ],
       }),
     );
+  });
+
+  it('maps shared menu values back to native chart types', () => {
+    const handleChartTypeChange = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeChartType="line"
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartTypeChange={handleChartTypeChange}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      activeChartType: number;
+      onChartTypeChange: (chartType: number) => void;
+    };
+    expect(controlsProps.activeChartType).toBe(2);
+
+    controlsProps.onChartTypeChange(8);
+    controlsProps.onChartTypeChange(21);
+
+    expect(handleChartTypeChange).toHaveBeenCalledTimes(1);
+    expect(handleChartTypeChange).toHaveBeenCalledWith('heikinAshi');
   });
 
   it('keeps chart settings hidden in desktop layout without an opt-in', () => {

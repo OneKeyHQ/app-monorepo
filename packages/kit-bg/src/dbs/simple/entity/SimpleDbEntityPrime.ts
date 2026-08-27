@@ -57,6 +57,34 @@ const INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 const INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT = 20;
 const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;
 
+// How often the analytics identity link may be re-reported per user from
+// this device. Keeps onekeyIdIdentityLinked volume bounded while still
+// re-asserting the link periodically (server-side $identify is idempotent).
+const IDENTITY_LINK_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const IDENTITY_LINK_REPORTED_USERS_LIMIT = 5;
+
+// Re-assert cadence for the membership user-profile attributes. Unchanged
+// values are re-sent after this TTL so a lost server-side property
+// self-heals; value changes always report immediately.
+const PRIME_PROFILE_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isAnalyticsReportDue({
+  reportedAt,
+  now,
+  ttlMs,
+}: {
+  reportedAt: number | undefined;
+  now: number;
+  ttlMs: number;
+}): boolean {
+  return (
+    !reportedAt ||
+    !Number.isFinite(reportedAt) ||
+    reportedAt > now ||
+    now - reportedAt >= ttlMs
+  );
+}
+
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
 };
@@ -123,6 +151,12 @@ export interface ISimpleDBPrime {
     string,
     IPrimeInfiniSupersededPaymentSession[]
   >;
+  identityLinkReportedAtByUserId?: Record<string, number>;
+  analyticsPrimeProfileReport?: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    reportedAt: number;
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -647,6 +681,85 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
     }));
     return rawData.identityLifecycleRevision ?? 0;
+  }
+
+  async isIdentityLinkDue({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return isAnalyticsReportDue({
+      reportedAt: rawData?.identityLinkReportedAtByUserId?.[onekeyUserId],
+      now,
+      ttlMs: IDENTITY_LINK_REPORT_TTL_MS,
+    });
+  }
+
+  async recordIdentityLinkReported({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => {
+      const reportedAtByUserId = {
+        ...data?.identityLinkReportedAtByUserId,
+        [onekeyUserId]: now,
+      };
+      const prunedEntries = Object.entries(reportedAtByUserId)
+        .toSorted(([, a], [, b]) => b - a)
+        .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
+      return {
+        ...data,
+        identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
+      };
+    });
+  }
+
+  async isPrimeProfileDue({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    const prev = rawData?.analyticsPrimeProfileReport;
+    return (
+      !prev ||
+      prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
+      prev.isPrimeActive !== isPrimeActive ||
+      isAnalyticsReportDue({
+        reportedAt: prev.reportedAt,
+        now,
+        ttlMs: PRIME_PROFILE_REPORT_TTL_MS,
+      })
+    );
+  }
+
+  async recordPrimeProfileReported({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => ({
+      ...data,
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn,
+        isPrimeActive,
+        reportedAt: now,
+      },
+    }));
   }
 
   async getKeylessOAuthSessionPersistenceJournal(): Promise<

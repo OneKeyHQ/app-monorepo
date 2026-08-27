@@ -10,7 +10,6 @@ import {
   swapProSelectTokenAtom,
   swapProUserSelectedTokenAtom,
   swapTypeSwitchAtom,
-  swapUserSelectedTokensAtom,
 } from './atoms';
 
 export function prepareSwapProEntry({
@@ -26,7 +25,6 @@ export function prepareSwapProEntry({
 
   // Keep ordinary Swap state intact. The pending global intent remains the
   // owner of persistence and Market preset consumption after navigation.
-  store.set(swapUserSelectedTokensAtom(), undefined);
   store.set(swapProUserSelectedTokenAtom(), undefined);
   store.set(swapProSelectTokenAtom(), token);
   store.set(swapProDirectionAtom(), direction);
