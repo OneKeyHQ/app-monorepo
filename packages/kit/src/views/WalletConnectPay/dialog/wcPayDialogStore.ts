@@ -31,6 +31,20 @@ let state: IWcPayDialogState = initialState;
 let nextInstanceId = 1;
 const listeners = new Set<() => void>();
 
+// Entry guard. While the mounted flow is in a non-dismissible stretch
+// (the paying phase, or result polling before it may close), a new open()
+// must not remount the flow: the instanceId bump would silently yank an
+// in-flight payment out from under the user — the exact interruption the
+// non-dismissible view exists to prevent, arriving through a different
+// door (a second deep link / QR scan). The flow syncs this flag from
+// whether its derived view is dismissible. Kept outside the subscribed
+// state on purpose: it gates writes, it never drives rendering.
+let isEntryGuarded = false;
+
+export function setWcPayDialogGuarded(guarded: boolean) {
+  isEntryGuarded = guarded;
+}
+
 function setState(next: IWcPayDialogState) {
   state = next;
   listeners.forEach((listener) => listener());
@@ -47,13 +61,22 @@ export function subscribeWcPayDialog(listener: () => void): () => void {
   };
 }
 
-export function openWcPayDialog({ paymentLink }: { paymentLink: string }) {
+export function openWcPayDialog({ paymentLink }: { paymentLink: string }): {
+  opened: boolean;
+} {
+  if (state.isOpen && isEntryGuarded) {
+    return { opened: false };
+  }
   const instanceId = nextInstanceId;
   nextInstanceId += 1;
   setState({ isOpen: true, isHidden: false, paymentLink, instanceId });
+  return { opened: true };
 }
 
 export function closeWcPayDialog() {
+  // close is the flow's own exit (or a deliberate abort like the
+  // wallet-not-backed-up verdict); it always releases the entry guard.
+  isEntryGuarded = false;
   setState({ ...initialState });
 }
 

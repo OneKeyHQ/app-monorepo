@@ -63,6 +63,7 @@ import {
   hideWcPayDialog,
   openWcPayDialog,
   revealWcPayDialog,
+  setWcPayDialogGuarded,
   useWcPayDialogState,
 } from './wcPayDialogStore';
 import { deriveWcPayDialogView } from './wcPayDialogView';
@@ -434,8 +435,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
               params: {
                 collectData,
                 onComplete: () => resolve(),
-                onError: (error: string) =>
-                  reject(new OneKeyLocalError(error)),
+                onError: (error: string) => reject(new OneKeyLocalError(error)),
                 onCancel: () =>
                   reject(new WcPayUserCancelledError('User canceled payment')),
               },
@@ -709,6 +709,19 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     pollExhausted,
   });
 
+  // Entry-guard sync: while this view is non-dismissible, a new pay link
+  // must not remount the flow (see wcPayDialogStore.openWcPayDialog). The
+  // unmount cleanup releases the guard so a closed flow never blocks entry.
+  useEffect(() => {
+    setWcPayDialogGuarded(!view.dismissible);
+  }, [view.dismissible]);
+  useEffect(
+    () => () => {
+      setWcPayDialogGuarded(false);
+    },
+    [],
+  );
+
   const handleClose = useCallback(() => {
     closeWcPayDialog();
   }, []);
@@ -722,9 +735,11 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const handleTerminalRetry = useCallback(() => {
     openWcPayDialog({ paymentLink });
   }, [paymentLink]);
-  const handleSelectOption = useCallback((id: string) => {
-    setSelectedOptionId((prev) => {
-      if (id !== prev) {
+  const handleSelectOption = useCallback(
+    (id: string) => {
+      // Updaters must stay pure (StrictMode double-invokes them), so the
+      // banner-clearing side effects live outside the setState call.
+      if (id !== selectedOptionId) {
         // the (pre-sign) banner reports the previously selected option's
         // attempt and no longer applies
         setInlineFailure((prevFailure) =>
@@ -734,9 +749,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         );
         setGenericFailure(undefined);
       }
-      return id;
-    });
-  }, []);
+      setSelectedOptionId(id);
+    },
+    [selectedOptionId],
+  );
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       // belt to the shell's own locks: a dismiss gesture only closes the

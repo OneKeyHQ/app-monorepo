@@ -12,6 +12,13 @@ export const WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE =
 export const WC_PAY_PROGRESS_DAMAGED_MESSAGE =
   'Saved progress for this payment is damaged and cannot be resumed';
 
+// Shown when a new payment link arrives while the dialog is in a
+// non-dismissible stretch and the entry is refused (see
+// wcPayDialogStore.openWcPayDialog).
+// copy pending product i18n keys
+export const WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE =
+  'A payment is already in progress. Finish or close it before starting another one';
+
 // Error identities for the two payload-failure verdicts of the durable
 // progress store (see SimpleDbEntityWalletConnectPay.readSecureEntries):
 // thrown by the entity, matched by message in ServiceWalletConnectPay. They

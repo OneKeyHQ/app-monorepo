@@ -1,6 +1,8 @@
 import {
   closeWcPayDialog,
   getWcPayDialogState,
+  openWcPayDialog,
+  setWcPayDialogGuarded,
 } from '@onekeyhq/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -83,6 +85,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsCommonConfigPersistAtom: {
     get: jest.fn(),
   },
+}));
+
+// the pay deep link waits for unlock before opening the dialog; resolved
+// immediately by default, individual tests swap in a deferred promise
+jest.mock('../../../../utils/passwordUtils', () => ({
+  whenAppUnlocked: jest.fn(async () => {}),
 }));
 
 jest.mock('../referralLandingLink', () => ({
@@ -381,6 +389,11 @@ describe('walletconnect pay deep links', () => {
     mockedBackgroundApiProxy.serviceWalletConnectPay.supportsDurableProgress;
   const mockedConnectToDapp =
     mockedBackgroundApiProxy.walletConnect.connectToDapp;
+  const mockedWhenAppUnlocked = (
+    jest.requireMock('../../../../utils/passwordUtils') as {
+      whenAppUnlocked: jest.Mock;
+    }
+  ).whenAppUnlocked;
 
   // deep chains of awaits need more microtask turns than flushAsyncTasks runs
   async function flushDeepAsyncTasks() {
@@ -393,6 +406,9 @@ describe('walletconnect pay deep links', () => {
     jest.clearAllMocks();
     mockedIsPaymentLink.mockResolvedValue(true);
     mockedSupportsDurableProgress.mockResolvedValue(true);
+    // clearAllMocks keeps implementations; restore the immediate-unlock
+    // default in case a test swapped in a deferred promise
+    mockedWhenAppUnlocked.mockImplementation(async () => {});
     appGlobals.$rootAppNavigation = undefined;
     closeWcPayDialog();
   });
@@ -442,5 +458,47 @@ describe('walletconnect pay deep links', () => {
       isOpen: true,
       paymentLink: payUrl,
     });
+  });
+
+  it('waits for app unlock before opening the pay dialog', async () => {
+    // the dialog is a system sheet that would present ABOVE the RN lock
+    // screen, so the link must park until the app is unlocked
+    let resolveUnlock: () => void = () => {};
+    mockedWhenAppUnlocked.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+        }),
+    );
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState().isOpen).toBe(false);
+
+    resolveUnlock();
+    await flushDeepAsyncTasks();
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: payUrl,
+    });
+  });
+
+  it('refuses a second pay link while the flow is entry-guarded', async () => {
+    // an in-flight, non-dismissible payment sets the entry guard; a new
+    // deep link must not remount the flow, and the refusal is surfaced
+    openWcPayDialog({ paymentLink: 'link-in-flight' });
+    setWcPayDialogGuarded(true);
+
+    handleDeepLinkUrl({ url: payUrl });
+    await flushDeepAsyncTasks();
+
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: 'link-in-flight',
+    });
+    const { Toast } = jest.requireMock('@onekeyhq/components') as {
+      Toast: { error: jest.Mock };
+    };
+    expect(Toast.error).toHaveBeenCalled();
   });
 });

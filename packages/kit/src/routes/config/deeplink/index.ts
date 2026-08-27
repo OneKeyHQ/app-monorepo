@@ -42,7 +42,10 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
+import {
+  WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
+  WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE,
+} from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -475,7 +478,20 @@ const getUniversalLink = async () => {
 // is not lost: the container reads the current state on mount. No
 // navigation-retry loop needed anymore.
 function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
-  openWcPayDialog({ paymentLink });
+  // Unlock gate: on native the dialog is a SYSTEM sheet that presents above
+  // the RN lock screen (the routed modal it replaced rendered under it), so
+  // the link waits for unlock. The payment's absolute deadline keeps ticking
+  // meanwhile; an expired link lands on the expired terminal, which is the
+  // correct outcome.
+  void whenAppUnlocked().then(() => {
+    const { opened } = openWcPayDialog({ paymentLink });
+    if (!opened) {
+      // an in-flight payment is non-dismissible; a second link must not
+      // silently replace it (see wcPayDialogStore.openWcPayDialog)
+      // copy pending product i18n keys
+      Toast.error({ title: WC_PAY_PAYMENT_IN_PROGRESS_MESSAGE });
+    }
+  });
 }
 
 async function processDeepLinkWalletConnect({

@@ -4,6 +4,7 @@ import {
   hideWcPayDialog,
   openWcPayDialog,
   revealWcPayDialog,
+  setWcPayDialogGuarded,
   subscribeWcPayDialog,
 } from '../wcPayDialogStore';
 
@@ -74,5 +75,51 @@ describe('wcPayDialogStore', () => {
     expect(getWcPayDialogState().isHidden).toBe(false);
     revealWcPayDialog();
     expect(getWcPayDialogState().isHidden).toBe(false);
+  });
+
+  describe('entry guard', () => {
+    it('refuses open() while open and guarded, reporting the refusal', () => {
+      expect(openWcPayDialog({ paymentLink: 'in-flight' })).toEqual({
+        opened: true,
+      });
+      const before = getWcPayDialogState();
+      setWcPayDialogGuarded(true);
+
+      expect(openWcPayDialog({ paymentLink: 'intruder' })).toEqual({
+        opened: false,
+      });
+      // refused open leaves the in-flight state fully untouched
+      expect(getWcPayDialogState()).toBe(before);
+    });
+
+    it('releasing the guard lets a new open() through again', () => {
+      openWcPayDialog({ paymentLink: 'in-flight' });
+      setWcPayDialogGuarded(true);
+      setWcPayDialogGuarded(false);
+
+      expect(openWcPayDialog({ paymentLink: 'next' })).toEqual({
+        opened: true,
+      });
+      expect(getWcPayDialogState().paymentLink).toBe('next');
+    });
+
+    it('close releases the guard', () => {
+      openWcPayDialog({ paymentLink: 'in-flight' });
+      setWcPayDialogGuarded(true);
+      closeWcPayDialog();
+
+      expect(openWcPayDialog({ paymentLink: 'next' })).toEqual({
+        opened: true,
+      });
+    });
+
+    it('a stale guard on a closed store does not block opening', () => {
+      // safety net: the guard only means anything while a flow is mounted
+      setWcPayDialogGuarded(true);
+      expect(openWcPayDialog({ paymentLink: 'link' })).toEqual({
+        opened: true,
+      });
+      setWcPayDialogGuarded(false);
+    });
   });
 });

@@ -28,9 +28,10 @@ describe('deriveWcPayDialogView', () => {
   });
 
   it('shows fetching before any result exists', () => {
-    expect(
-      deriveWcPayDialogView({ ...base, hasPayResult: false }),
-    ).toEqual({ step: { name: 'fetching' }, dismissible: true });
+    expect(deriveWcPayDialogView({ ...base, hasPayResult: false })).toEqual({
+      step: { name: 'fetching' },
+      dismissible: true,
+    });
   });
 
   it('shows fetchFailed on load error', () => {
@@ -115,7 +116,10 @@ describe('deriveWcPayDialogView', () => {
     // button disabled by the flow's own isPaymentActionable gate.
     expect(
       deriveWcPayDialogView({ ...base, payStatus: EWcPayStatus.Processing }),
-    ).toEqual({ step: { name: 'options', empty: undefined }, dismissible: true });
+    ).toEqual({
+      step: { name: 'options', empty: undefined },
+      dismissible: true,
+    });
   });
 
   it('shows the damaged-progress step above the options step', () => {
