@@ -9,9 +9,13 @@ import {
 } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewEmbedLoader.web';
 import { migrateLegacyTradingViewStorage } from '../components/TradingView/TradingViewV2/components/tradingViewV2/tradingViewLegacyStorageMigration.web';
 import { useThemeVariant } from '../hooks/useThemeVariant';
-import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView';
 
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
+
+const loadMarketTradingViewPreloadRuntime = () =>
+  import(
+    /* webpackChunkName: "market-detail-v2-tradingview" */ '../views/Market/MarketDetailV2/components/MarketTradingView/LazyMarketTradingView'
+  );
 
 async function runImmediatePreload(
   name: string,
@@ -39,24 +43,32 @@ export function TradingViewEmbedGlobalPreloadRuntime() {
         `[TradingViewEmbedPreload] Invalid runtime URL: ${String(error)}`,
       );
     }
-    const immediatePreloads = [
-      runImmediatePreload('LegacyTradingViewStorageMigration', () =>
-        migrateLegacyTradingViewStorage(finalUrl),
-      ),
-      runImmediatePreload('TradingViewEmbedModule', () =>
-        loadTradingViewEmbedModule(finalUrl),
-      ),
-      runImmediatePreload('MarketTradingView', preloadMarketTradingView),
-      ...(isLocalRuntime
-        ? [
-            runImmediatePreload('TradingViewEmbedBootstrapAssets', () =>
-              preloadTradingViewEmbedBootstrapAssets(finalUrl),
-            ),
-          ]
-        : []),
-    ];
+    const preloadEmbedRuntime = async () => {
+      await Promise.all([
+        runImmediatePreload('LegacyTradingViewStorageMigration', () =>
+          migrateLegacyTradingViewStorage(finalUrl),
+        ),
+        runImmediatePreload('TradingViewEmbedModule', () =>
+          loadTradingViewEmbedModule(finalUrl),
+        ),
+        ...(isLocalRuntime
+          ? [
+              runImmediatePreload('TradingViewEmbedBootstrapAssets', () =>
+                preloadTradingViewEmbedBootstrapAssets(finalUrl),
+              ),
+            ]
+          : []),
+      ]);
+    };
 
-    void Promise.all(immediatePreloads);
+    void Promise.all([
+      runImmediatePreload('TradingViewEmbedRuntime', preloadEmbedRuntime),
+      runImmediatePreload('MarketTradingView', async () => {
+        const { preloadMarketTradingView } =
+          await loadMarketTradingViewPreloadRuntime();
+        await preloadMarketTradingView();
+      }),
+    ]);
   }, [baseUrl, finalUrl]);
 
   return null;

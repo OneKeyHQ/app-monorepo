@@ -14,17 +14,23 @@ import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { loadTradingViewEmbedModule } from './tradingViewEmbedLoader.web';
 import {
   createTradingViewEmbedReadyMonitor,
   isTradingViewChartReadyPayload,
   isTradingViewVisualReadyPayload,
 } from './tradingViewEmbedReady.web';
-import { migrateLegacyTradingViewStorage } from './tradingViewLegacyStorageMigration.web';
 
-import type { ITradingViewEmbedHandle } from './tradingViewEmbedLoader.web';
+import type {
+  ITradingViewEmbedHandle,
+  loadTradingViewEmbedModule,
+} from './tradingViewEmbedLoader.web';
 import type { ITradingViewRuntimeViewProps } from './TradingViewRuntimeView.types';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+
+const loadTradingViewEmbedPreloadRuntime = () =>
+  import(
+    /* webpackChunkName: "tradingview-dom-runtime" */ './tradingViewEmbedPreload.web'
+  );
 
 type ILoadedTradingViewEmbed = Awaited<
   ReturnType<typeof loadTradingViewEmbedModule>
@@ -197,16 +203,19 @@ function startTradingViewRuntime(
   // Chart readiness includes the first data request, so only explicit chart
   // errors should trigger fallback while the embed module is mounting.
   void lifecycle.monitor.wait().catch(handleFailure);
-  void migrateLegacyTradingViewStorage(context.runtimeUrl).catch(
-    (error: unknown) => {
-      defaultLogger.app.error.log(
-        `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
-          error,
-        )}`,
+  void loadTradingViewEmbedPreloadRuntime()
+    .then(({ loadTradingViewEmbedModule, migrateLegacyTradingViewStorage }) => {
+      void migrateLegacyTradingViewStorage(context.runtimeUrl).catch(
+        (error: unknown) => {
+          defaultLogger.app.error.log(
+            `[TradingViewRuntimeView] Legacy storage migration failed: ${String(
+              error,
+            )}`,
+          );
+        },
       );
-    },
-  );
-  void loadTradingViewEmbedModule(context.runtimeUrl)
+      return loadTradingViewEmbedModule(context.runtimeUrl);
+    })
     .then((loaded) => mountLoadedTradingViewEmbed(loaded, context, lifecycle))
     .catch(handleFailure);
   return () => stopTradingViewRuntime(context, lifecycle);

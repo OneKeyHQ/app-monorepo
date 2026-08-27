@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 
 import {
   loadTradingViewEmbedModule,
@@ -13,6 +13,8 @@ import { preloadMarketTradingView } from '../views/Market/MarketDetailV2/compone
 
 import { TradingViewEmbedGlobalPreload } from './TradingViewEmbedGlobalPreload.web-only';
 
+let mockRouteIsFocused = true;
+
 jest.mock('../components/TradingView/hooks/useTradingViewUrl', () => ({
   useTradingViewUrl: () => ({
     baseUrl: 'http://localhost:5173/',
@@ -22,6 +24,10 @@ jest.mock('../components/TradingView/hooks/useTradingViewUrl', () => ({
 
 jest.mock('../hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
+}));
+
+jest.mock('../hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => mockRouteIsFocused,
 }));
 
 jest.mock(
@@ -49,6 +55,38 @@ jest.mock(
 describe('TradingViewEmbedGlobalPreload', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteIsFocused = true;
+    globalThis.history.replaceState(null, '', '/market');
+  });
+
+  test('does not preload while a Market screen is unfocused', async () => {
+    mockRouteIsFocused = false;
+
+    render(<TradingViewEmbedGlobalPreload />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
+    expect(preloadMarketTradingView).not.toHaveBeenCalled();
+    expect(preloadTradingViewEmbedBootstrapAssets).not.toHaveBeenCalled();
+    expect(migrateLegacyTradingViewStorage).not.toHaveBeenCalled();
+  });
+
+  test('does not preload from a focused background Market screen on /swap', async () => {
+    globalThis.history.replaceState(null, '', '/swap');
+
+    render(<TradingViewEmbedGlobalPreload />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(loadTradingViewEmbedModule).not.toHaveBeenCalled();
+    expect(preloadMarketTradingView).not.toHaveBeenCalled();
+    expect(preloadTradingViewEmbedBootstrapAssets).not.toHaveBeenCalled();
+    expect(migrateLegacyTradingViewStorage).not.toHaveBeenCalled();
   });
 
   test('preloads migration and the DOM runtime in parallel', async () => {
@@ -85,16 +123,18 @@ describe('TradingViewEmbedGlobalPreload', () => {
 
     render(<TradingViewEmbedGlobalPreload />);
 
-    expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
-      'http://localhost:5173/?locale=zh-CN',
-    );
-    expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
-    expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
-      'http://localhost:5173/?locale=zh-CN',
-    );
-    expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
-      'http://localhost:5173/?locale=zh-CN',
-    );
+    await waitFor(() => {
+      expect(preloadMarketTradingView).toHaveBeenCalledTimes(1);
+      expect(loadTradingViewEmbedModule).toHaveBeenCalledWith(
+        'http://localhost:5173/?locale=zh-CN',
+      );
+      expect(preloadTradingViewEmbedBootstrapAssets).toHaveBeenCalledWith(
+        'http://localhost:5173/?locale=zh-CN',
+      );
+      expect(migrateLegacyTradingViewStorage).toHaveBeenCalledWith(
+        'http://localhost:5173/?locale=zh-CN',
+      );
+    });
 
     await act(async () => {
       resolveLegacyMigration?.();
