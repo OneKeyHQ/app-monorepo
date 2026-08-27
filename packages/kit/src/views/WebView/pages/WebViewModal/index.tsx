@@ -176,6 +176,21 @@ export default function WebViewModal() {
     // Runs once on mount, same as before.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Desktop never emits onNavigationStateChange (the Electron adapter only
+  // forwards onDidStartNavigation), so the live-origin header and the dApp
+  // notification target would keep the entry host there. Feed both platforms
+  // through the same updater.
+  const onDesktopDidStartNavigation = useCallback(
+    ({ url: nextUrl, isMainFrame }: { url: string; isMainFrame: boolean }) => {
+      if (isUnmounting.current || !isMainFrame || !nextUrl) return;
+      setCurrentUrl(nextUrl);
+      if (enableDappBridge) {
+        setNavigationTitle(uriUtils.getHostNameFromUrl({ url: nextUrl }));
+      }
+    },
+    [enableDappBridge],
+  );
+
   const onNavigationStateChange = useCallback(
     ({ title: webTitle, url: newUrl }: { title: string; url?: string }) => {
       // Guard against events after unmount started
@@ -309,6 +324,7 @@ export default function WebViewModal() {
             mediaPermissionWhitelist={fiatPaySiteWhitelist}
             allowpopups={!!redirectExternalNavigation}
             onNavigationStateChange={onNavigationStateChange}
+            onDidStartNavigation={onDesktopDidStartNavigation}
             onShouldStartLoadWithRequest={shouldStartLoadWithRequestHandler}
             onOpenWindow={redirectExternalNavigation ? onOpenWindow : undefined}
             {...(enableDappBridge

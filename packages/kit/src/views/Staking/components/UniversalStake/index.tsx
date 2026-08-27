@@ -1310,6 +1310,22 @@ export function UniversalStake({
       }
     }
 
+    // OK-59196: Stakefish signs a provider-facing message before any hook runs,
+    // so the disclaimer has to gate this pre-transaction step. Not a duplicate
+    // of the gate inside useUniversalStake — that one only covers the transaction
+    // itself, and once accepted this call resolves immediately.
+    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+      const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
+        provider: providerName,
+        symbol: actionSymbol,
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      });
+      if (!riskAcceptedBeforeSigning) {
+        return;
+      }
+    }
+
     // Stakefish ETH: sign before building the staking transaction.
     if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
       setApproving(true);

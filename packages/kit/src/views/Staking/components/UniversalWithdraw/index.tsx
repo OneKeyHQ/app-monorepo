@@ -36,6 +36,7 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -696,6 +697,7 @@ export function UniversalWithdraw({
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
@@ -794,6 +796,19 @@ export function UniversalWithdraw({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !approveAmountValue) return;
+    // OK-59196: the approve transaction is the user's first on-chain action in
+    // the two-step withdraw flow and never reaches useUniversalWithdraw, so the
+    // one-time disclaimer has to gate it here too. Before the approving lock:
+    // bailing after it would leave the button stuck loading.
+    if (
+      !(await ensureRiskAccepted({
+        provider: providerName ?? '',
+        symbol: tokenSymbol,
+        networkId,
+      }))
+    ) {
+      return;
+    }
     Keyboard.dismiss();
     setApproving(true);
 
@@ -858,6 +873,10 @@ export function UniversalWithdraw({
     allowance,
     approveAmountValue,
     approveTarget,
+    ensureRiskAccepted,
+    networkId,
+    providerName,
+    tokenSymbol,
     navigationToTxConfirm,
     fetchAllowanceResponse,
     trackAllowance,

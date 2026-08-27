@@ -945,6 +945,11 @@ export function useEModeNeedActionFlow({
             ...callbacks,
             onCancel: disarm,
           });
+          // undefined = never started (risk disclaimer declined). onCancel
+          // already disarmed the step, so stop without touching the check state.
+          if (!latestCheck) {
+            return;
+          }
           if (!latestCheck.canSwitch) {
             applyAuthoritativeCheck({
               eModeId: targetEModeId,

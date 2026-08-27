@@ -661,6 +661,8 @@ export function useUniversalBorrowSetEMode({
     networkId,
   });
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       provider,
@@ -680,7 +682,22 @@ export function useUniversalBorrowSetEMode({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
-    }): Promise<IBorrowEModeSwitchCheck> => {
+    }): Promise<IBorrowEModeSwitchCheck | undefined> => {
+      // OK-59196: an existing position can make this its first DeFi transaction
+      // after the upgrade, so gate before the first background request. Calls
+      // onCancel so callers that only listen to it (armed eMode steps) unwind
+      // exactly as they do for a cancelled confirm.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        onCancel?.();
+        return undefined;
+      }
+
       let switchCheckResp;
       try {
         switchCheckResp =
@@ -755,7 +772,14 @@ export function useUniversalBorrowSetEMode({
       });
       return latestCheck;
     },
-    [accountId, intl, networkId, navigationToTxConfirm, waitForFinalStatus],
+    [
+      accountId,
+      ensureRiskAccepted,
+      intl,
+      networkId,
+      navigationToTxConfirm,
+      waitForFinalStatus,
+    ],
   );
 }
 
@@ -771,6 +795,8 @@ export function useUniversalBorrowSetCollateral({
     networkId,
   });
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       provider,
@@ -792,7 +818,20 @@ export function useUniversalBorrowSetCollateral({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
-    }) => {
+    }): Promise<boolean> => {
+      // OK-59196: same reason as the eMode switch — this can be the first DeFi
+      // transaction of an existing position, so gate before the first request.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        onCancel?.();
+        return false;
+      }
+
       let confirmation: IBorrowTransactionConfirmation | undefined;
       try {
         confirmation =
@@ -877,7 +916,9 @@ export function useUniversalBorrowSetCollateral({
         onFail,
         onCancel,
       });
+
+      return true;
     },
-    [accountId, intl, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, intl, networkId, navigationToTxConfirm],
   );
 }

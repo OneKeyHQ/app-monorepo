@@ -353,7 +353,9 @@ describe('useUniversalBorrowSetCollateral', () => {
           stakingInfo,
           onSuccess,
         }),
-      ).resolves.toBeUndefined();
+        // true = handed off to the tx confirm page (OK-59196 contract); order
+        // tracking failing afterwards must not change that.
+      ).resolves.toBe(true);
     });
 
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledWith({

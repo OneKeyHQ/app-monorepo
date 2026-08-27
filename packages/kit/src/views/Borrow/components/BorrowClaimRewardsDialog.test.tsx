@@ -156,7 +156,7 @@ const rewardsDetails: IEarnRewardsDetails = {
   },
 };
 
-function renderClaimDialog(onClaimAll: () => Promise<void>) {
+function renderClaimDialog(onClaimAll: () => Promise<boolean | void>) {
   showBorrowClaimRewardsDialog({
     rewardsDetails,
     onClaimItem: jest.fn(async () => undefined),
@@ -216,6 +216,31 @@ describe('BorrowClaimRewardsDialog Claim All lifecycle', () => {
 
     await act(async () => {
       await expect(getFooterOnConfirm()()).rejects.toBe(claimFailure);
+    });
+
+    expect(onClaimAll).toHaveBeenCalledTimes(1);
+    expect(mockDialogClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId<HTMLButtonElement>('borrow-claim-all-btn').disabled,
+    ).toBe(false);
+  });
+});
+
+describe('BorrowClaimRewardsDialog risk disclaimer', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFooterOnConfirm = undefined;
+    mockDialogClose.mockResolvedValue(undefined);
+  });
+
+  it('stays open when Claim All reports the flow never started', async () => {
+    // useUniversalBorrowClaim resolves false when the one-time disclaimer is
+    // declined: nothing was submitted, so the rewards list must remain.
+    const onClaimAll = jest.fn(async () => false);
+    renderClaimDialog(onClaimAll);
+
+    await act(async () => {
+      await getFooterOnConfirm()();
     });
 
     expect(onClaimAll).toHaveBeenCalledTimes(1);
