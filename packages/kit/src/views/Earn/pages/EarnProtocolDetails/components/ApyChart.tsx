@@ -15,7 +15,10 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import {
+  APY_PRICE_SCALE_MARGINS,
+  LightweightChart,
+} from '@onekeyhq/kit/src/components/LightweightChart';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -450,6 +453,8 @@ const ApyChartComponent = ({
             bottomColor="#00834700"
             lineWidth={2}
             showPriceScale
+            priceScaleEntireTextOnly
+            priceScaleMargins={APY_PRICE_SCALE_MARGINS}
             showHorzGridLines
           />
         </YStack>
