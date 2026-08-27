@@ -85,23 +85,23 @@ describe('TradingViewNative time-axis pointer scaling', () => {
     ).toMatchObject({ type: 'scale' });
   });
 
-  it('zooms in to the right and out to the left after activation', () => {
-    const zoomIn = getTradingViewNativeTimeAxisPointerDragUpdate({
+  it('compresses to the right and expands to the left after activation', () => {
+    const compressed = getTradingViewNativeTimeAxisPointerDragUpdate({
       ...input,
       currentX: 150,
       isActive: true,
     });
-    const zoomOut = getTradingViewNativeTimeAxisPointerDragUpdate({
+    const expanded = getTradingViewNativeTimeAxisPointerDragUpdate({
       ...input,
       currentX: 50,
       isActive: true,
     });
 
-    expect(zoomIn.type).toBe('scale');
-    expect(zoomOut.type).toBe('scale');
-    if (zoomIn.type === 'scale' && zoomOut.type === 'scale') {
-      expect(zoomIn.zoomScale).toBeGreaterThan(1);
-      expect(zoomOut.zoomScale).toBeLessThan(1);
+    expect(compressed.type).toBe('scale');
+    expect(expanded.type).toBe('scale');
+    if (compressed.type === 'scale' && expanded.type === 'scale') {
+      expect(compressed.zoomScale).toBeLessThan(1);
+      expect(expanded.zoomScale).toBeGreaterThan(1);
     }
   });
 });

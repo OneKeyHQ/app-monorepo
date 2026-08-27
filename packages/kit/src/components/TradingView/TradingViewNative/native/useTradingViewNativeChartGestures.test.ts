@@ -252,7 +252,7 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(failContentPan).toHaveBeenCalledTimes(1);
     expect(failTimeAxisScale).not.toHaveBeenCalled();
     expect(chartRuntime.value.crosshair.visible).toBe(false);
-    expect(chartRuntime.value.viewport.zoomScale).toBeGreaterThan(1);
+    expect(chartRuntime.value.viewport.zoomScale).toBeLessThan(1);
     expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
     expect(chartRuntime.value.timeAxisScaleGesture).toMatchObject({
       currentX: 150,

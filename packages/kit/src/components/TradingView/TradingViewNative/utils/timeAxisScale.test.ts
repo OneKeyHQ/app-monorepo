@@ -4,7 +4,7 @@ import {
 } from './timeAxisScale';
 
 describe('TradingViewNative time-axis scaling', () => {
-  it('zooms in when dragging right and zooms out when dragging left', () => {
+  it('compresses the time axis when dragging right and expands it when dragging left', () => {
     const input = {
       chartWidth: 200,
       startX: 100,
@@ -16,13 +16,13 @@ describe('TradingViewNative time-axis scaling', () => {
         ...input,
         currentX: 150,
       }),
-    ).toBeGreaterThan(1);
+    ).toBeLessThan(1);
     expect(
       getTradingViewNativeTimeAxisZoomScaleAfterDrag({
         ...input,
         currentX: 50,
       }),
-    ).toBeLessThan(1);
+    ).toBeGreaterThan(1);
   });
 
   it('uses drag distance consistently regardless of the starting position', () => {
@@ -40,10 +40,10 @@ describe('TradingViewNative time-axis scaling', () => {
     });
 
     expect(dragFromRight).toBeCloseTo(dragFromLeft);
-    expect(dragFromRight).toBeGreaterThan(1);
+    expect(dragFromRight).toBeLessThan(1);
   });
 
-  it('zooms in when dragging right from the chart boundary', () => {
+  it('compresses the time axis when dragging right from the chart boundary', () => {
     expect(
       getTradingViewNativeTimeAxisZoomScaleAfterDrag({
         chartWidth: 200,
@@ -51,7 +51,7 @@ describe('TradingViewNative time-axis scaling', () => {
         startX: 200,
         startZoomScale: 1,
       }),
-    ).toBeGreaterThan(1);
+    ).toBeLessThan(1);
   });
 
   it('keeps the starting scale before an out-of-bounds drag moves', () => {
@@ -69,7 +69,7 @@ describe('TradingViewNative time-axis scaling', () => {
     expect(
       getTradingViewNativeTimeAxisZoomScaleAfterDrag({
         chartWidth: 200,
-        currentX: 1000,
+        currentX: -10_000,
         startX: 190,
         startZoomScale: 3,
       }),
@@ -77,7 +77,7 @@ describe('TradingViewNative time-axis scaling', () => {
     expect(
       getTradingViewNativeTimeAxisZoomScaleAfterDrag({
         chartWidth: 200,
-        currentX: -10_000,
+        currentX: 10_000,
         startX: 10,
         startZoomScale: 0.2,
       }),
