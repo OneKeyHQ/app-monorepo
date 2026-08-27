@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Dialog, Divider, SizableText, YStack } from '@onekeyhq/components';
+import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
@@ -18,11 +19,45 @@ function pickInlineTip(tips: IProtocolTipItem[]): IProtocolTipItem {
   return tips.find((tip) => tip.showDefault) ?? tips[0];
 }
 
-function ProtocolTipRow({ tip }: { tip: IProtocolTipItem }) {
+function ProtocolTipRow({
+  tip,
+  onLinkPress,
+}: {
+  tip: IProtocolTipItem;
+  onLinkPress?: () => void;
+}) {
   return (
     <YStack gap="$1">
-      <EarnText text={tip.title} size="$bodyMdMedium" />
-      <EarnText text={tip.description} size="$bodyMd" color="$textSubdued" />
+      <EarnText text={tip.title} size="$bodyMdMedium" onAction={onLinkPress} />
+      <EarnText
+        text={tip.description}
+        size="$bodyMd"
+        color="$textSubdued"
+        onAction={onLinkPress}
+      />
+    </YStack>
+  );
+}
+
+// The dialog has to get out of the way before a link opens: an <urlInApp> link
+// pushes the in-app browser onto the navigation modal stack while this dialog
+// renders in its own overlay, so it would otherwise still be sitting there when
+// the user comes back from the page — and on native it keeps the sheet stacked
+// under the browser the whole time.
+function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
+  const dialogInstance = useDialogInstance();
+  const handleLinkPress = useCallback(() => {
+    void dialogInstance.close();
+  }, [dialogInstance]);
+
+  return (
+    <YStack gap="$4" pb="$2">
+      {tips.map((tip, index) => (
+        <YStack key={index} gap="$4">
+          {index > 0 ? <Divider /> : null}
+          <ProtocolTipRow tip={tip} onLinkPress={handleLinkPress} />
+        </YStack>
+      ))}
     </YStack>
   );
 }
@@ -49,16 +84,7 @@ export function ProtocolTipsSection({
     Dialog.show({
       title: protocolTipsHeader,
       showFooter: false,
-      renderContent: (
-        <YStack gap="$4" pb="$2">
-          {tips.map((tip, index) => (
-            <YStack key={index} gap="$4">
-              {index > 0 ? <Divider /> : null}
-              <ProtocolTipRow tip={tip} />
-            </YStack>
-          ))}
-        </YStack>
-      ),
+      renderContent: <ProtocolTipsDialogContent tips={tips} />,
     });
   }, [protocolTipsHeader, tips]);
 
