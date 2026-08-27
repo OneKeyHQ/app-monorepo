@@ -33,7 +33,6 @@ describe('firmware update detect status reconciliation', () => {
         snapshot: {
           requestedConnectId: 'DEVICE_USB',
           resolved: true,
-          connectIds: ['DEVICE_USB', 'device_ble'],
           status: undefined,
         },
       }),
@@ -48,20 +47,19 @@ describe('firmware update detect status reconciliation', () => {
         snapshot: {
           requestedConnectId: 'DEVICE_USB',
           resolved: false,
-          connectIds: ['DEVICE_USB'],
         },
       }),
     ).toEqual(staleStatus.DEVICE_USB);
   });
 
-  it('finds a persisted transport alias without case-sensitive key matching', () => {
+  it('does not fall back to a different persisted connectId key', () => {
     expect(
       selectFirmwareUpdateDetectStatus({
         connectId: 'device_usb',
         persistedStatus: staleStatus,
         snapshot: undefined,
       }),
-    ).toEqual(staleStatus.DEVICE_USB);
+    ).toBeUndefined();
   });
 
   it('ignores a snapshot returned for the previously selected device', () => {
@@ -72,7 +70,6 @@ describe('firmware update detect status reconciliation', () => {
         snapshot: {
           requestedConnectId: 'OTHER_DEVICE',
           resolved: true,
-          connectIds: ['OTHER_DEVICE'],
         },
       }),
     ).toEqual(staleStatus.DEVICE_USB);

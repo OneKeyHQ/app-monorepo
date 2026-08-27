@@ -21,16 +21,8 @@ export function selectFirmwareUpdateDetectStatus({
   persistedStatus: IFirmwareUpdatesDetectStatus | undefined;
   snapshot: IFirmwareUpdateDetectStatusSnapshot | undefined;
 }) {
-  const persistedDetectStatus =
-    persistedStatus?.[connectId] ??
-    Object.entries(persistedStatus ?? {}).find(
-      ([persistedConnectId]) =>
-        persistedConnectId.toLowerCase() === connectId.toLowerCase(),
-    )?.[1];
-  if (
-    snapshot &&
-    snapshot.requestedConnectId.toLowerCase() !== connectId.toLowerCase()
-  ) {
+  const persistedDetectStatus = persistedStatus?.[connectId];
+  if (snapshot && snapshot.requestedConnectId !== connectId) {
     return persistedDetectStatus;
   }
   if (snapshot?.resolved) {

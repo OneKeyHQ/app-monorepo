@@ -269,9 +269,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
-  [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: {
-    connectIds: string[];
-  };
+  [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;

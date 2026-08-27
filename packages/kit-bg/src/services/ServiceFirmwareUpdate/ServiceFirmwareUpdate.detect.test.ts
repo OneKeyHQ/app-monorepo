@@ -286,7 +286,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
 
-  it('uses the canonical USB throttle after the caller switches to BLE', async () => {
+  it('uses the requested connectId for throttling', async () => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
       connectId: 'ONEKEY_USB_ID',
@@ -316,7 +316,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     });
     service.detectMap.firstDetectAt =
       Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
-    service.detectMap.detectMapCache.ONEKEY_USB_ID = {
+    service.detectMap.detectMapCache.ONEKEY_BLE_ID = {
       lastDetectAt: Date.now(),
     };
 
@@ -699,16 +699,10 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
   });
 
   it('does not treat throttling metadata as a resolved no-update result', async () => {
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
-      id: 'db-device-1',
-      connectId: 'DEVICE_USB',
-      usbConnectId: 'DEVICE_USB',
-      bleConnectId: 'device_ble',
-    } as IDBDevice);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
-    service.detectMap.detectMapCache.device_ble = {
+    service.detectMap.detectMapCache.DEVICE_USB = {
       lastDetectAt: Date.now(),
       updateInfo: undefined,
     };
@@ -718,26 +712,19 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     ).resolves.toEqual({
       requestedConnectId: 'DEVICE_USB',
       resolved: false,
-      connectIds: ['DEVICE_USB', 'device_ble'],
       status: undefined,
     });
   });
 
-  it('returns the authoritative bg update through a transport alias', async () => {
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
-      id: 'db-device-1',
-      connectId: 'DEVICE_USB',
-      usbConnectId: 'DEVICE_USB',
-      bleConnectId: 'device_ble',
-    } as IDBDevice);
+  it('returns the authoritative bg update for the requested connectId', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
-    service.detectMap.detectMapCache.device_ble = {
+    service.detectMap.detectMapCache.DEVICE_USB = {
       detectResultResolved: true,
       updateInfo: {
         firmware: {
-          connectId: 'device_ble',
+          connectId: 'DEVICE_USB',
           hasUpgrade: true,
           hasUpgradeForce: false,
           fromVersion: '4.21.0',
@@ -752,7 +739,6 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     ).resolves.toEqual({
       requestedConnectId: 'DEVICE_USB',
       resolved: true,
-      connectIds: ['DEVICE_USB', 'device_ble'],
       status: {
         connectId: 'DEVICE_USB',
         hasUpgrade: true,
@@ -763,7 +749,7 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     });
   });
 
-  it('clears persisted update entries for every transport alias', async () => {
+  it('clears only the persisted update entry for the requested connectId', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -773,7 +759,6 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
 
     await service.detectMap.deleteUpdateInfo({
       connectId: 'DEVICE_USB',
-      connectIds: ['DEVICE_USB', 'device_ble'],
     });
 
     expect(service.detectMap.detectMapCache.DEVICE_USB).toMatchObject({
@@ -783,12 +768,10 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     expect(
       service.detectMap.getDetectStatus({
         connectId: 'DEVICE_USB',
-        connectIds: ['DEVICE_USB', 'device_ble'],
       }),
     ).toEqual({
       requestedConnectId: 'DEVICE_USB',
       resolved: true,
-      connectIds: ['DEVICE_USB', 'device_ble'],
       status: undefined,
     });
 
@@ -796,13 +779,15 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
       .calls[0][0] as (value: unknown) => unknown;
     expect(
       updater({
-        device_usb: { connectId: 'device_usb', hasUpgrade: true },
-        DEVICE_BLE: { connectId: 'DEVICE_BLE', hasUpgrade: true },
+        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
+        OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
       }),
-    ).toBeUndefined();
+    ).toEqual({
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
   });
 
-  it('replaces persisted transport aliases case-insensitively', async () => {
+  it('replaces the persisted update for the requested connectId', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -822,14 +807,12 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
 
     await service.detectMap.updateDetectStatusAtom({
       connectId: 'DEVICE_USB',
-      connectIds: ['DEVICE_USB', 'device_ble'],
     });
 
     const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
       .calls[0][0] as (value: unknown) => Record<string, unknown>;
     const updatedValue = updater({
-      device_usb: { connectId: 'device_usb', hasUpgrade: false },
-      DEVICE_BLE: { connectId: 'DEVICE_BLE', hasUpgrade: false },
+      DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: false },
       OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
     });
 
@@ -839,53 +822,27 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
         hasUpgrade: true,
         toVersion: '4.22.0',
       },
-      device_ble: {
-        connectId: 'device_ble',
-        hasUpgrade: true,
-        toVersion: '4.22.0',
-      },
       OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
     });
-    expect(updatedValue).not.toHaveProperty('device_usb');
-    expect(updatedValue).not.toHaveProperty('DEVICE_BLE');
   });
 
-  it('replaces stale alias updates before publishing a resolved result', async () => {
+  it('removes a stale persisted update after a resolved no-update result', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
-    service.detectMap.detectMapCache.device_ble = {
-      detectResultResolved: true,
-      updateInfo: {
-        firmware: {
-          connectId: 'device_ble',
-          hasUpgrade: true,
-          hasUpgradeForce: false,
-          fromVersion: '4.21.0',
-          toVersion: '4.22.0',
-          firmwareType: 'firmware',
-        } as IFirmwareUpdateInfo,
-      },
-    };
 
     await service.detectMap.resolveUpdateInfo({
       connectId: 'DEVICE_USB',
-      connectIds: ['DEVICE_USB', 'device_ble'],
       hasUpgrade: false,
     });
 
     expect(
-      service.detectMap.detectMapCache.device_ble.updateInfo,
-    ).toBeUndefined();
-    expect(
       service.detectMap.getDetectStatus({
         connectId: 'DEVICE_USB',
-        connectIds: ['DEVICE_USB', 'device_ble'],
       }),
     ).toEqual({
       requestedConnectId: 'DEVICE_USB',
       resolved: true,
-      connectIds: ['DEVICE_USB', 'device_ble'],
       status: undefined,
     });
     const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
@@ -893,12 +850,11 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     expect(
       updater({
         DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
-        device_ble: { connectId: 'device_ble', hasUpgrade: true },
       }),
     ).toBeUndefined();
   });
 
-  it('keeps canonical component results while replacing stale alias updates', async () => {
+  it('keeps firmware and BLE component results for the same connectId', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceDevSetting: {
@@ -906,19 +862,6 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
         },
       } as unknown as IBackgroundApi,
     });
-    service.detectMap.detectMapCache.device_ble = {
-      detectResultResolved: true,
-      updateInfo: {
-        firmware: {
-          connectId: 'device_ble',
-          hasUpgrade: true,
-          hasUpgradeForce: false,
-          fromVersion: '4.20.0',
-          toVersion: '4.22.0',
-          firmwareType: 'firmware',
-        } as IFirmwareUpdateInfo,
-      },
-    };
     const firmware = {
       connectId: 'DEVICE_USB',
       hasUpgrade: true,
@@ -938,18 +881,13 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
 
     await service.detectMap.updateFirmwareUpdateInfo({
       connectId: 'DEVICE_USB',
-      connectIds: ['DEVICE_USB', 'device_ble'],
       updateInfo: firmware,
     });
     await service.detectMap.updateBleFirmwareUpdateInfo({
       connectId: 'DEVICE_USB',
-      connectIds: ['DEVICE_USB', 'device_ble'],
       updateInfo: ble,
     });
 
-    expect(
-      service.detectMap.detectMapCache.device_ble.updateInfo,
-    ).toBeUndefined();
     expect(service.detectMap.detectMapCache.DEVICE_USB?.updateInfo).toEqual({
       firmware,
       ble,
@@ -957,7 +895,6 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     expect(
       service.detectMap.getDetectStatus({
         connectId: 'DEVICE_USB',
-        connectIds: ['DEVICE_USB', 'device_ble'],
       }).status,
     ).toMatchObject({
       hasUpgrade: true,
@@ -981,21 +918,11 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
     expect(firmwareUpdatesDetectStatusPersistAtom.set).not.toHaveBeenCalled();
   });
 
-  it('loads device aliases once for a batch of status snapshots', async () => {
-    mockedLocalDb.getAllDevices.mockResolvedValue({
-      devices: [
-        {
-          id: 'db-device-1',
-          connectId: 'DEVICE_USB',
-          usbConnectId: 'DEVICE_USB',
-          bleConnectId: 'device_ble',
-        } as IDBDevice,
-      ],
-    });
+  it('returns exact-key snapshots for a batch of connectIds', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
-    service.detectMap.detectMapCache.device_ble = {
+    service.detectMap.detectMapCache.DEVICE_USB = {
       detectResultResolved: true,
       updateInfo: undefined,
     };
@@ -1008,17 +935,15 @@ describe('ServiceFirmwareUpdate firmware detect status', () => {
       DEVICE_USB: {
         requestedConnectId: 'DEVICE_USB',
         resolved: true,
-        connectIds: ['DEVICE_USB', 'device_ble'],
         status: undefined,
       },
       UNKNOWN_DEVICE: {
         requestedConnectId: 'UNKNOWN_DEVICE',
         resolved: false,
-        connectIds: ['UNKNOWN_DEVICE'],
         status: undefined,
       },
     });
-    expect(mockedLocalDb.getAllDevices.mock.calls).toHaveLength(1);
+    expect(mockedLocalDb.getAllDevices.mock.calls).toHaveLength(0);
     expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
   });
 });

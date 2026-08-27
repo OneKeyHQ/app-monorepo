@@ -79,7 +79,6 @@ export type IFirmwareUpdatesDetectStatus = Partial<
 export type IFirmwareUpdateDetectStatusSnapshot = {
   requestedConnectId: string;
   resolved: boolean;
-  connectIds: string[];
   status?: IFirmwareUpdateDetectStatus;
 };
 

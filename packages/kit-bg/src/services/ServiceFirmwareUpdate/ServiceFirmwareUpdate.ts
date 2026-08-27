@@ -484,41 +484,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     backgroundApi: this.backgroundApi,
   });
 
-  private buildFirmwareUpdateDetectIdentity({
-    connectId,
-    dbDevice,
-  }: {
-    connectId: string;
-    dbDevice: IDBDevice | undefined;
-  }) {
-    const connectIds = [
-      dbDevice?.connectId,
-      dbDevice?.usbConnectId,
-      dbDevice?.bleConnectId,
-      connectId,
-    ].filter((value): value is string => Boolean(value));
-    return {
-      connectId: dbDevice?.connectId || connectId,
-      connectIds,
-    };
-  }
-
-  private async getFirmwareUpdateDetectIdentity(connectId: string) {
-    const dbDevice = await localDb
-      .getDeviceByQuery({ connectId })
-      .catch(() => undefined);
-    return this.buildFirmwareUpdateDetectIdentity({ connectId, dbDevice });
-  }
-
   private async deleteFirmwareUpdateDetectInfo(connectId: string) {
-    const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
-    await this.detectMap.deleteUpdateInfo(identity);
+    await this.detectMap.deleteUpdateInfo({ connectId });
   }
 
   @backgroundMethod()
   async resetShouldDetectTimeCheck({ connectId }: { connectId: string }) {
-    const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
-    this.detectMap.resetLastDetectAt({ connectId: identity.connectId });
+    this.detectMap.resetLastDetectAt({ connectId });
   }
 
   @backgroundMethod()
@@ -544,8 +516,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
    */
   @backgroundMethod()
   async delayShouldDetectTimeCheck({ connectId }: { connectId: string }) {
-    const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
-    this.detectMap.updateLastDetectAt({ connectId: identity.connectId });
+    this.detectMap.updateLastDetectAt({ connectId });
 
     void this.showAutoUpdateCheckDebugToast('推迟硬件自动更新检测');
   }
@@ -558,9 +529,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId: string;
     delay: number;
   }) {
-    const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
     this.detectMap.updateLastDetectAtWithDelay({
-      connectId: identity.connectId,
+      connectId,
       delay,
     });
     void this.showAutoUpdateCheckDebugToast('暂停硬件自动更新检测');
@@ -568,17 +538,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async getFirmwareUpdateDetectInfo({ connectId }: { connectId: string }) {
-    const info = this.detectMap.detectMapCache[connectId];
-    return info;
+    return this.detectMap.detectMapCache[connectId];
   }
 
   @backgroundMethod()
   async getFirmwareUpdateDetectStatus({ connectId }: { connectId: string }) {
-    const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
-    return this.detectMap.getDetectStatus({
-      ...identity,
-      connectId,
-    });
+    return this.detectMap.getDetectStatus({ connectId });
   }
 
   @backgroundMethod()
@@ -587,27 +552,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }: {
     connectIds: string[];
   }): Promise<Record<string, IFirmwareUpdateDetectStatusSnapshot>> {
-    const { devices } = await localDb
-      .getAllDevices()
-      .catch(() => ({ devices: [] }));
     return Object.fromEntries(
-      connectIds.map((connectId) => {
-        const dbDevice = devices.find((device) =>
-          [device.connectId, device.usbConnectId, device.bleConnectId].some(
-            (deviceConnectId) =>
-              Boolean(deviceConnectId) &&
-              equalsIgnoreCase(deviceConnectId, connectId),
-          ),
-        );
-        const identity = this.buildFirmwareUpdateDetectIdentity({
-          connectId,
-          dbDevice,
-        });
-        return [
-          connectId,
-          this.detectMap.getDetectStatus({ ...identity, connectId }),
-        ];
-      }),
+      connectIds.map((connectId) => [
+        connectId,
+        this.detectMap.getDetectStatus({ connectId }),
+      ]),
     );
   }
 
@@ -636,11 +585,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (vendorProfile?.isThirdParty) {
       return { status: 'skipped' };
     }
-    const detectIdentity = this.buildFirmwareUpdateDetectIdentity({
-      connectId,
-      dbDevice,
-    });
-    const detectConnectId = detectIdentity.connectId;
     const exclusiveResult = await this.backgroundApi.serviceHardwareUI
       .tryRunExclusiveOneKeyOperation(
         async (): Promise<IDetectActiveAccountFirmwareUpdatesResult> => {
@@ -652,14 +596,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
               },
             );
           };
-          if (!this.detectMap.shouldDetect({ connectId: detectConnectId })) {
+          if (!this.detectMap.shouldDetect({ connectId })) {
             return {
               status: 'throttled',
               retryAfterMs: Math.max(
                 1,
-                this.detectMap.getNextDetectDelay({
-                  connectId: detectConnectId,
-                }),
+                this.detectMap.getNextDetectDelay({ connectId }),
               ),
             };
           }
@@ -696,9 +638,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
           if (isBootloaderMode) {
             showBootloaderUpdateModal();
-            this.detectMap.updateLastDetectAt({
-              connectId: detectConnectId,
-            });
+            this.detectMap.updateLastDetectAt({ connectId });
           } else if (features) {
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
@@ -735,7 +675,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 })
               : undefined;
             await this.detectMap.resolveUpdateInfo({
-              ...detectIdentity,
+              connectId,
               firmware,
               ble,
               hasUpgrade: hasEffectiveFirmwareUpdate({
@@ -743,9 +683,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 protocolV2Targets,
               }),
             });
-            this.detectMap.updateLastDetectAt({
-              connectId: detectConnectId,
-            });
+            this.detectMap.updateLastDetectAt({ connectId });
           } else {
             return {
               status: 'failed',
@@ -1113,10 +1051,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     if (originalConnectId && shouldResolveDetectStatus) {
-      const identity =
-        await this.getFirmwareUpdateDetectIdentity(originalConnectId);
       await this.detectMap.resolveUpdateInfo({
-        ...identity,
+        connectId: originalConnectId,
         firmware,
         ble,
         hasUpgrade: effectiveHasUpgrade,
@@ -1662,9 +1598,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: 'firmware',
     };
     if (connectId && saveUpdateInfo) {
-      const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
       await this.detectMap.updateFirmwareUpdateInfo({
-        ...identity,
+        connectId,
         updateInfo,
       });
     }
@@ -1720,9 +1655,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       firmwareType: 'ble',
     };
     if (connectId && saveUpdateInfo) {
-      const identity = await this.getFirmwareUpdateDetectIdentity(connectId);
       await this.detectMap.updateBleFirmwareUpdateInfo({
-        ...identity,
+        connectId,
         updateInfo,
       });
     }

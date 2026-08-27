@@ -24,15 +24,8 @@ export function useFirmwareUpdateDetectStatus(connectId: string | undefined) {
   );
 
   useEffect(() => {
-    const refresh = ({ connectIds }: { connectIds: string[] }) => {
-      if (
-        connectId &&
-        (connectIds.length === 0 ||
-          connectIds.some(
-            (changedConnectId) =>
-              changedConnectId.toLowerCase() === connectId.toLowerCase(),
-          ))
-      ) {
+    const refresh = () => {
+      if (connectId) {
         void run({ alwaysSetState: true });
       }
     };
