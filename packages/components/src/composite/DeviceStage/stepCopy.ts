@@ -157,6 +157,12 @@ export const STEP_TEXT: Record<
     sub: ETranslations.device_stage_enter_pin_on_device__desc,
   },
   pinOnApp: { title: ETranslations.device_stage_enter_pin__title },
+  // The wallet-creation fork's title, the ratified design's own words
+  // (Figma 21912-35639) on its own key. No sub — the two options carry
+  // their copy in the panel (see WalletTypeOptions).
+  selectWalletType: {
+    title: ETranslations.device_stage_select_wallet_type__title,
+  },
   // The teach-first beat titles itself after the flow it opens (the live
   // dialog's own name). No sub on purpose: the definition line needs an
   // emphasized word — rich text the panel carries itself (see
@@ -372,6 +378,7 @@ export const SCENE_ANIMATION: Record<
   connecting: 'connecting',
   enterPin: 'enterPin',
   pinOnApp: undefined,
+  selectWalletType: undefined,
   passphraseIntro: undefined,
   enterPassphrase: 'enterPassphrase',
   passphraseOnApp: undefined,
@@ -416,6 +423,7 @@ export const STEP_POSE: Record<
   processing: 'capsule',
   enterPin: 'card',
   pinOnApp: 'card',
+  selectWalletType: 'card',
   passphraseIntro: 'card',
   enterPassphrase: 'card',
   passphraseOnApp: 'card',
