@@ -54,7 +54,8 @@ export type ISupportedSymbol =
   | 'aUSDT0'
   | 'stcUSD'
   | 'kHYPE'
-  | 'U';
+  | 'U'
+  | 'vbUSDC';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
@@ -185,8 +186,11 @@ export interface IEarnAvailableAssetV2 {
   enableBatch?: boolean;
 }
 
+export type IEarnBannerTheme = 'light' | 'dark';
+
 export interface IEarnPageBannerListItem {
   bannerId: string;
+  theme: IEarnBannerTheme;
   backgroundImage: string;
   icon: string;
   title: string;

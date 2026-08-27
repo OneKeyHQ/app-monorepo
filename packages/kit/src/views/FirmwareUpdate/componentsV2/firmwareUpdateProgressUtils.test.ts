@@ -1,10 +1,7 @@
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
-  PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-  PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
   calculateProgressInRange,
-  getNextEstimatedFirmwareProgress,
   normalizeFirmwareUpdateProgressType,
 } from './firmwareUpdateProgressUtils';
 
@@ -39,36 +36,5 @@ describe('firmwareUpdateProgressUtils', () => {
         currentProgress: 150,
       }),
     ).toBe(90);
-  });
-
-  test('Pro2 估算进度渐近阶段上限但不会提前触顶', () => {
-    let progress = 50;
-    for (let index = 0; index < 240; index += 1) {
-      progress = getNextEstimatedFirmwareProgress({
-        currentProgress: progress,
-        maxProgress: PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-      });
-    }
-
-    expect(progress).toBeGreaterThan(88.9);
-    expect(progress).toBeLessThan(PRO2_INSTALL_ESTIMATED_PROGRESS_MAX);
-  });
-
-  test('重连估算进度不回退真实进度，也不越过验证阶段', () => {
-    expect(
-      getNextEstimatedFirmwareProgress({
-        currentProgress: 90,
-        maxProgress: PRO2_INSTALL_ESTIMATED_PROGRESS_MAX,
-      }),
-    ).toBe(90);
-
-    const reconnectProgress = getNextEstimatedFirmwareProgress({
-      currentProgress: 90,
-      maxProgress: PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
-    });
-    expect(reconnectProgress).toBeGreaterThan(90);
-    expect(reconnectProgress).toBeLessThan(
-      PRO2_RECONNECT_ESTIMATED_PROGRESS_MAX,
-    );
   });
 });

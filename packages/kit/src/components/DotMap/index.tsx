@@ -80,8 +80,13 @@ const DotWord = ({ values }: IDotWordProps) => {
 type IDotMapRowProps = { data: IDotMapValues };
 const DotMapRow = ({ data }: IDotMapRowProps) => (
   <XStack alignItems="center">
-    <XStack width="$6" justifyContent="flex-end">
-      <SizableText size="$bodySm" mr="$2" color="$textSubdued">
+    <XStack width="$10" flexShrink={0} justifyContent="flex-end">
+      <SizableText
+        size="$bodySm"
+        mr="$2"
+        color="$textSubdued"
+        numberOfLines={1}
+      >
         {data.index}
       </SizableText>
     </XStack>
@@ -100,7 +105,7 @@ const DotMapBaseHeader = () => {
   const items = useMemo<number[]>(() => range(1, 13), []);
   return (
     <XStack alignItems="flex-end" pb="$2">
-      <XStack width="$6" justifyContent="flex-end">
+      <XStack width="$10" flexShrink={0} justifyContent="flex-end">
         <Icon name="OnekeyBrand" />
       </XStack>
       <XStack
@@ -132,7 +137,9 @@ export const DotMapBase = ({ items }: { items: IDotMapValues[] }) => {
   return (
     <Stack
       backgroundColor="$bgSubdued"
-      p="$4"
+      py="$4"
+      pl={0}
+      pr="$4"
       borderRadius={14}
       borderWidth="$1.5"
       borderColor="$borderSubdued"

@@ -16,6 +16,7 @@ import {
   EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
+  KatanaVbUSDC,
   PlasmaNetworkId,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
@@ -266,6 +267,21 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Pendle]: {
         supportedSymbols: [],
         configs: {},
+      },
+    },
+  },
+  [getNetworkIdsMap().katana]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['vbUSDC', 'MORPHO'],
+        configs: {
+          vbUSDC: {
+            enabled: true,
+            tokenAddress: KatanaVbUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
       },
     },
   },

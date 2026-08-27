@@ -288,6 +288,7 @@ function BasicStakePage() {
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
           }),

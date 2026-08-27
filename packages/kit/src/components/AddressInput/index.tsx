@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -815,9 +815,10 @@ export function AddressInput(props: IAddressInputProps) {
   );
 }
 
-export function AddressInputField(
-  props: IAddressInputProps & { name: string },
-) {
+export function AddressInputField({
+  labelAddon,
+  ...props
+}: IAddressInputProps & { name: string; labelAddon?: ReactNode }) {
   const intl = useIntl();
   const {
     enableAllowListValidation,
@@ -867,6 +868,7 @@ export function AddressInputField(
     <AddressInputContext.Provider value={contextValue}>
       <Form.Field
         label={intl.formatMessage({ id: ETranslations.global_recipient })}
+        labelAddon={labelAddon}
         name={name}
         description={hintDescription}
         renderErrorMessage={

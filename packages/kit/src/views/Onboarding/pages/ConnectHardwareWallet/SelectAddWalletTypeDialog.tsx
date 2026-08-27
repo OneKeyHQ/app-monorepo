@@ -5,9 +5,9 @@ import { useIntl } from 'react-intl';
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { hardwareUiStateDialogLifecycle } from '@onekeyhq/kit/src/provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function SelectAddWalletTypeDialogContent({
   onAddStandardWalletPress,
@@ -84,24 +84,19 @@ export function useSelectAddWalletTypeDialog() {
   const showSelectAddWalletTypeDialog = useCallback(async (): Promise<
     'Standard' | 'Hidden' | undefined
   > => {
-    // iOS-only: dismiss the hardware-UI dialog before mounting this one.
-    // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same
-    // useOverlayZIndex stack. The hardware DialogContainer remounts on every
-    // atom action transition, so its Sheet.Overlay can end up above this
-    // dialog's Frame on iOS and intercept taps even though the wallet-type
-    // buttons appear visually on top. skipDeviceCancel:true keeps the BLE
-    // session alive; the hardware dialog naturally returns when the SDK
-    // emits its next UI event.
+    // iOS-only: wait until the hardware Sheet has left the main runtime's
+    // FullWindowOverlay before mounting another Sheet. The background atom
+    // write can finish before the main runtime commits the close, so a fixed
+    // delay can still leave the old overlay intercepting touches.
     if (platformEnv.isNativeIOS) {
-      await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-        connectId: undefined,
-        skipDeviceCancel: true,
-        skipDelayClose: true,
-        reason: 'open SelectAddWalletTypeDialog',
-      });
-      // Let the hardware DialogContainer unmount and its useOverlayZIndex
-      // cleanup drop from the stack before we mount.
-      await timerUtils.wait(300);
+      await hardwareUiStateDialogLifecycle.closeAndWait(() =>
+        backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: undefined,
+          skipDeviceCancel: true,
+          skipDelayClose: true,
+          reason: 'open SelectAddWalletTypeDialog',
+        }),
+      );
     }
 
     return new Promise((resolve) => {

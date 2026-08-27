@@ -10,7 +10,7 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { EBorrowDataStatus } from '../borrowDataStatus';
+import { isBorrowDataLoading } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -81,10 +81,7 @@ export const BorrowCard = () => {
     [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
-  const showLoading =
-    borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
-    borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
-    borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+  const showLoading = isBorrowDataLoading(borrowDataStatus);
 
   // Per-row disabled state: dim + block tap for disabled borrow assets on mobile.
   // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
