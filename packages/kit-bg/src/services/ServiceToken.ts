@@ -877,12 +877,19 @@ class ServiceToken extends ServiceBase {
     // TRASH) or on networks this app version does not know at all. Such rows
     // render without a resolvable network and cannot receive funds, so drop
     // them here. Tokens without their own networkId belong to the request's
-    // scoped networkId and pass through.
-    const { networks: availableNetworks } =
-      await this.backgroundApi.serviceNetwork.getAllNetworks();
-    const availableNetworkIds = new Set(
-      availableNetworks.map((network) => network.id),
-    );
+    // scoped networkId and pass through. The catalog lookup itself is
+    // best-effort: a transient catalog failure must not discard the token
+    // queries that already succeeded, so fail open and skip the filter.
+    let availableNetworkIds: Set<string> | undefined;
+    try {
+      const { networks: availableNetworks } =
+        await this.backgroundApi.serviceNetwork.getAllNetworks();
+      availableNetworkIds = new Set(
+        availableNetworks.map((network) => network.id),
+      );
+    } catch {
+      availableNetworkIds = undefined;
+    }
 
     return uniqBy(
       fulfilledResponses
@@ -890,6 +897,7 @@ class ServiceToken extends ServiceBase {
         .filter(
           (item) =>
             !item.info.networkId ||
+            !availableNetworkIds ||
             availableNetworkIds.has(item.info.networkId),
         ),
       (item) => buildSearchTokenKey(item.info),

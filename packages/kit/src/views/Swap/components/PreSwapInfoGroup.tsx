@@ -52,6 +52,11 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
+  // Authoritative external-wallet flag from the dialog's active account; the
+  // build-result sender accountId can be transiently empty and must not be the
+  // only source (it would fall back to the sponsored badge for external
+  // accounts).
+  isExternalAccount?: boolean;
   onSetNativeBtcMinSlippage: () => void;
   nativeBtcMinSlippageSaving?: boolean;
   isSwapPro?: boolean;
@@ -76,6 +81,7 @@ const PreSwapInfoGroup = ({
   nativeBtcMinSlippageSaving,
   isSwapPro,
   slippageEditor,
+  isExternalAccount: isExternalAccountFromDialog,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -236,10 +242,11 @@ const PreSwapInfoGroup = ({
     preSwapData.swapBuildResultData?.swapInfo?.sender?.accountInfo?.accountId;
   const isExternalAccount = useMemo(
     () =>
-      senderAccountId
+      Boolean(isExternalAccountFromDialog) ||
+      (senderAccountId
         ? accountUtils.isExternalAccount({ accountId: senderAccountId })
-        : false,
-    [senderAccountId],
+        : false),
+    [isExternalAccountFromDialog, senderAccountId],
   );
 
   const networkFeeSelect = useMemo(() => {

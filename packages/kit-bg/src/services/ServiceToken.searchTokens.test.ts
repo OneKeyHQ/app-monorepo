@@ -111,6 +111,33 @@ describe('ServiceToken.searchTokens', () => {
     ]);
   });
 
+  it('fails open when the network catalog lookup rejects', async () => {
+    const service = buildService({
+      availableNetworkIds: [],
+      searchResults: [
+        {
+          info: { networkId: 'evm--1', address: '0xwbtc' },
+        },
+      ],
+    });
+    (
+      service.backgroundApi as unknown as {
+        serviceNetwork: { getAllNetworks: jest.Mock };
+      }
+    ).serviceNetwork.getAllNetworks.mockRejectedValue(
+      new Error('catalog unavailable'),
+    );
+
+    const result = await service.searchTokens({
+      accountId: '',
+      networkId: 'onekeyall--0',
+      keywords: 'BTC',
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].networkId).toBe('evm--1');
+  });
+
   it('keeps tokens without their own networkId (single-network scoped response)', async () => {
     const service = buildService({
       availableNetworkIds: ['evm--1'],
