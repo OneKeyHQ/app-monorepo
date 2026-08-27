@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -39,7 +38,9 @@ const POPOVER_WIDTH = 384;
 const ROW_MIN_HEIGHT = 62;
 // Figma 25672:54928: the trigger avatar is 28 with a 12 chain badge. The shared
 // Token size scale steps 24 -> 32, so the badge is composed here instead.
-const TRIGGER_TOKEN_SIZE = 28;
+// Figma 26230:23591 — the trigger avatar is 32 with a 16 chain badge, which
+// is exactly what `Token` renders at size "md".
+const TRIGGER_TOKEN_SIZE = 32;
 const VALUE_FALLBACK = '--';
 
 const ISSUER_LABELS: Record<string, string> = {
@@ -201,42 +202,6 @@ function StockTokenVariantRow({
   );
 }
 
-// Figma 25672:54928. `Token` only exposes 24 (sm) and 32 (md) avatars, so the
-// 28 trigger avatar keeps Token for the image (fallback/skeleton behavior) and
-// re-creates the chain badge that Token would otherwise place around a 24 box.
-function StockTokenVariantTriggerToken({
-  variant,
-}: {
-  variant: IMarketStockTokenVariant;
-}) {
-  return (
-    <Stack
-      position="relative"
-      width={TRIGGER_TOKEN_SIZE}
-      height={TRIGGER_TOKEN_SIZE}
-    >
-      <Token
-        size="sm"
-        w={TRIGGER_TOKEN_SIZE}
-        h={TRIGGER_TOKEN_SIZE}
-        tokenImageUri={variant.logoUrl}
-      />
-      {variant.networkLogoUrl ? (
-        <Stack
-          position="absolute"
-          right="$-1"
-          bottom="$-1"
-          p="$0.5"
-          bg="$bgApp"
-          borderRadius="$full"
-        >
-          <NetworkAvatarBase size="$3" logoURI={variant.networkLogoUrl} />
-        </Stack>
-      ) : null}
-    </Stack>
-  );
-}
-
 export function StockTokenVariantSelector({
   portfolioData,
 }: {
@@ -305,7 +270,7 @@ export function StockTokenVariantSelector({
       placement="bottom-start"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={
-        // Figma 25672:54926. The pressable area is tight to its content (28
+        // Figma 26230:23589. The pressable area is tight to its content (32
         // avatar + 10 gap + label + 8 gap + 18 chevron) while the hover pill
         // bleeds 8 horizontally / 4 vertically past it, which the negative
         // margin reproduces without changing the row's layout width.
@@ -323,13 +288,29 @@ export function StockTokenVariantSelector({
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
         >
-          <StockTokenVariantTriggerToken variant={selectedTokenVariant} />
+          <Token
+            size="md"
+            tokenImageUri={selectedTokenVariant.logoUrl}
+            networkImageUri={selectedTokenVariant.networkLogoUrl}
+            showNetworkIcon
+          />
           <XStack alignItems="center" gap="$2">
-            <SizableText size="$headingMd" numberOfLines={1}>
-              {selectedTokenVariant.symbol ||
-                selectedTokenVariant.name ||
-                VALUE_FALLBACK}
-            </SizableText>
+            <YStack justifyContent="center" minWidth={0}>
+              <SizableText size="$headingMd" numberOfLines={1}>
+                {selectedTokenVariant.symbol ||
+                  selectedTokenVariant.name ||
+                  VALUE_FALLBACK}
+              </SizableText>
+              {/* Figma 26230:23833 — the issuer sits under the symbol so the
+                  trigger names who backs the token, not just which one it is. */}
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {`Issued by ${getIssuerLabel(selectedTokenVariant.issuer)}`}
+              </SizableText>
+            </YStack>
             <Icon
               name="ChevronDownSmallOutline"
               size="$4.5"
