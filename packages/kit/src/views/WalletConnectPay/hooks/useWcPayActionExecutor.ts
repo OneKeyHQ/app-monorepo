@@ -460,6 +460,9 @@ export function useWcPayActionExecutor() {
             if (isStoppedAfterBroadcast()) {
               return results;
             }
+            // park the host dialog before the confirm page takes the screen
+            // (see IWcPayInlineController.onBeforePushConfirmModal)
+            inlineController?.onBeforePushConfirmModal?.();
             let txid: string;
             try {
               txid = await new Promise<string>((resolve, reject) => {
@@ -583,6 +586,9 @@ export function useWcPayActionExecutor() {
             if (isStoppedAfterBroadcast()) {
               return results;
             }
+            // park the host dialog before the confirm page takes the screen
+            // (see IWcPayInlineController.onBeforePushConfirmModal)
+            inlineController?.onBeforePushConfirmModal?.();
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -627,6 +633,9 @@ export function useWcPayActionExecutor() {
             if (isStoppedAfterBroadcast()) {
               return results;
             }
+            // park the host dialog before the confirm page takes the screen
+            // (see IWcPayInlineController.onBeforePushConfirmModal)
+            inlineController?.onBeforePushConfirmModal?.();
             const signature = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.MessageConfirm,
@@ -673,6 +682,9 @@ export function useWcPayActionExecutor() {
             if (isStoppedAfterBroadcast()) {
               return results;
             }
+            // park the host dialog before the confirm page takes the screen
+            // (see IWcPayInlineController.onBeforePushConfirmModal)
+            inlineController?.onBeforePushConfirmModal?.();
             const rawTx = await new Promise<string>((resolve, reject) => {
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxConfirm,

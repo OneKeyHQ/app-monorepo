@@ -259,6 +259,21 @@ export interface IWcPayInlineController {
    * `onInlineFailure` fallback branch.
    */
   onFallback?: () => void;
+  /**
+   * Called right before the executor pushes ANY confirm modal — the inline
+   * fallback's eth_sendTransaction confirm as well as the typed-data,
+   * personal-sign, and Solana branches that never consult the inline plan.
+   *
+   * The dialog host uses this to park its system-level sheet (iOS SwiftUI
+   * .sheet / Android ModalBottomSheet), which would otherwise cover the
+   * pushed RN-layer confirm page while itself being non-dismissible during
+   * the paying phase — a deadlock. Parking only in `onFallback` is not
+   * enough: multi-action sequences and the non-EVM-send branches push
+   * confirm modals without ever entering the inline attempts loop.
+   * Idempotent; the flow's own finally reveals the dialog once the whole
+   * action sequence settles.
+   */
+  onBeforePushConfirmModal?: () => void;
 }
 
 /**

@@ -477,6 +477,18 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       // fallback.
       const inlineController: IWcPayInlineController = {
         onPhase: (step) => setPagePhase({ name: 'paying', step }),
+        // Parks the dialog before EVERY confirm modal the executor pushes —
+        // the inline fallback as well as the typed-data/personal-sign/Solana
+        // branches and later actions of a multi-action sequence, none of
+        // which enter the inline attempts loop. The pushed RN-layer confirm
+        // page would otherwise sit under this system-level sheet while the
+        // paying phase keeps it non-dismissible — an unrecoverable deadlock.
+        // handlePay's finally reveals the dialog once the sequence settles;
+        // between consecutive confirm modals the dialog stays parked
+        // (hideWcPayDialog is idempotent, reveal happens exactly once).
+        onBeforePushConfirmModal: () => {
+          hideWcPayDialog();
+        },
         // Single owner of the transition out of inline execution. The dialog
         // parks so the pushed confirm modal owns the screen (it would sit
         // under the iOS system sheet otherwise); handlePay's finally reveals
