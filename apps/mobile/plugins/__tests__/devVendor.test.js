@@ -464,9 +464,7 @@ describe('devVendor', () => {
     expect(expoPatch).toMatch(
       /assertionFile\.absolutePath,\n\+\s+hmrEntryUrl,/,
     );
-    expect(expoPatch).not.toContain(
-      '"onekey-dev-vendor-assert-main.js",',
-    );
+    expect(expoPatch).not.toContain('"onekey-dev-vendor-assert-main.js",');
     expect(expoPatch).toContain(
       '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryUrl',
     );
