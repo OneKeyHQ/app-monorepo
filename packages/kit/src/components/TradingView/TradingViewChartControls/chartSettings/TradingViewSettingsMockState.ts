@@ -113,6 +113,7 @@ export type ITradingViewChartSettingsOptions = {
   depth: boolean;
   priceChange: boolean;
   latestPrice: boolean;
+  previousClose: boolean;
   futureEvents: boolean;
   pastEvents: boolean;
   clickInteraction: boolean;
@@ -1666,6 +1667,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
       depth: true,
       priceChange: true,
       latestPrice: true,
+      previousClose: false,
       futureEvents: true,
       pastEvents: false,
       clickInteraction: false,

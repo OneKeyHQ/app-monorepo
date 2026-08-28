@@ -674,6 +674,9 @@ function runLocalChecks(logDir) {
   return [
     ...runWorktreeLintChecks(logDir),
     runCommand(logDir, 'agent-context', 'yarn', ['lint:agent-context']),
+    runCommand(logDir, 'background-api-contract', 'yarn', [
+      'lint:background-api-contract',
+    ]),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];

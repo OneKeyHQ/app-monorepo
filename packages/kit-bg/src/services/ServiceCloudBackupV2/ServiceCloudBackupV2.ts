@@ -446,30 +446,50 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async delete(params: {
     recordId: string;
-    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
+    await this.deleteSilently(params);
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
     skipManifestUpdate?: boolean;
   }): Promise<void> {
     const provider = this.getProvider();
-    if (!params?.skipPasswordVerify) {
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-    }
     await provider.deleteBackup({
       recordId: params.recordId,
       skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 
-  async deleteSilently(params: {
-    recordId: string;
-    skipManifestUpdate: boolean | undefined;
-  }): Promise<void> {
-    return this.delete({
-      recordId: params.recordId,
-      skipPasswordVerify: true,
-      skipManifestUpdate: params?.skipManifestUpdate,
+  @backgroundMethod()
+  @toastIfError()
+  async deleteAllBackups(): Promise<{
+    deletedCount: number;
+    failedCount: number;
+  }> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
     });
+    const data = await this.getAllBackups();
+    const items = data?.items ?? [];
+    let deletedCount = 0;
+    let failedCount = 0;
+    for (const item of items) {
+      try {
+        await this.deleteSilently({
+          recordId: item.recordID,
+          skipManifestUpdate: false,
+        });
+        deletedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return { deletedCount, failedCount };
   }
 
   @backgroundMethod()
