@@ -3257,22 +3257,15 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
-      // OpenWalletSessionParams is only `mode`. `deriveCardano` is a CommonParams
-      // flag that means "this call needs Cardano derivation" (V1 Initialize).
-      // On V2, false AskPassphrases [Standard] only and freezes the session;
-      // true would mark every wallet open as a Cardano derive. Omit the flag so
-      // SDK sends seed_domains=[] and firmware keeps its default (Cardano on).
-      // Later ADA resumes with DeviceSessionGet, which cannot set domains.
       const walletSessionParams = useEmptyPassphrase
         ? { mode: 'standard' as const }
         : { mode: 'select-hidden' as const };
       const walletSession = await convertDeviceResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
-      serviceHardwareUtils.hardwareLog('openWalletSession seed domain', {
+      serviceHardwareUtils.hardwareLog('openWalletSession', {
         protocol,
         mode: walletSessionParams.mode,
-        seedDomains: [],
         resumed: walletSession.resumed,
       });
       const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
