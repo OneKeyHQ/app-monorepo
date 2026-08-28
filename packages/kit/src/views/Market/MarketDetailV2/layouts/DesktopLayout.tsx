@@ -440,9 +440,14 @@ export function DesktopLayout({
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           portfolioData={portfolioData}
+          chartMode={isTradingViewNative ? 'native' : 'tradingView'}
+          isChartSwitchDisabled={
+            !effectiveMarketTradingViewParams && !isStockSharePrice
+          }
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
+          onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
         />
       </Stack>

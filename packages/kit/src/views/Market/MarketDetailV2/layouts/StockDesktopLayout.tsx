@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  IconButton,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -17,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
+import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
@@ -68,6 +67,7 @@ import {
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
 
+import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
 import {
@@ -516,13 +516,19 @@ function StockChartModeControl({
 function StockChart({
   marketTradingView,
   priceMode,
+  chartMode,
+  isChartSwitchDisabled,
   onHoverChange,
+  onChartSwitch,
   isChartFullscreen,
   onEnterChartFullscreen,
 }: {
   marketTradingView: ReactNode;
   priceMode: IMarketPriceSource;
+  chartMode: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
   onHoverChange: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+  onChartSwitch: () => void;
   isChartFullscreen: boolean;
   onEnterChartFullscreen: () => void;
 }) {
@@ -540,11 +546,10 @@ function StockChart({
   // row, so both modes show it on the same line and the chart body below never
   // shifts between them.
   //
-  // Pro also carries the expand button, because the widget's control row gives
-  // up its own trailing controls under this overlay. It goes to the left of the
-  // switch behind a separator, never to its right: the switch is what has to
-  // land on the same pixel in both modes, and Simple has no expand button to
-  // reserve room for.
+  // Pro also carries the chart-source selector and expand button, because the
+  // widget's control row gives up its own trailing controls under this overlay.
+  // They stay to the left of the Simple/Pro switch so the switch lands on the
+  // same pixel in both modes.
   //
   // Fullscreen only ever happens from Pro (Simple is a plain line chart): the
   // block drops its fixed height to fill the fixed-position wrapper, and this
@@ -616,43 +621,17 @@ function StockChart({
             {marketTradingView}
           </Stack>
           {isChartFullscreen ? null : (
-            <XStack
+            <MarketDetailProChartControls
               testID="stock-chart-mode-control-pro"
-              position="absolute"
               top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
-              right={0}
-              alignItems="center"
-              gap="$2"
-              // The widget's control row is a horizontal scroller that now runs
-              // the full width; an opaque backdrop keeps a long toolbar from
-              // showing through the switch instead of ending behind it.
-              bg="$bgApp"
-              pl="$2"
-              zIndex={4}
+              fullscreenTestID="stock-chart-fullscreen-toggle"
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              {/* Stands in for the expand toggle this overlay displaces from
-                  the widget's control row — same icon, size and styling, and
-                  the same fullscreen entry point behind it. */}
-              <IconButton
-                testID="stock-chart-fullscreen-toggle"
-                size="small"
-                variant="tertiary"
-                icon="TradingViewFullscreenCustom"
-                iconSize="$5"
-                title={intl.formatMessage({ id: ETranslations.global_expand })}
-                onPress={onEnterChartFullscreen}
-                {...HEADER_ICON_BUTTON_STYLE_PROPS}
-              />
-              {/* Matches the separators inside the widget's own control row,
-                  scaled to the 32px switch this group is aligned to. */}
-              <Stack
-                width="$px"
-                height="$5"
-                bg="$borderSubdued"
-                flexShrink={0}
-              />
               <StockChartModeControl mode={mode} onChange={setMode} />
-            </XStack>
+            </MarketDetailProChartControls>
           )}
         </>
       )}
@@ -1126,19 +1105,25 @@ export function StockDesktopLayout({
   marketTradingView,
   swapToken,
   portfolioData,
+  chartMode,
+  isChartSwitchDisabled,
   showFavoriteButton,
   isChartFullscreen,
   chartFullscreenZIndex,
+  onChartSwitch,
   onEnterChartFullscreen,
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   portfolioData: IMarketAccountPortfolioItem[];
+  chartMode: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
-  // Pro renders the expand button itself, because the widget's control row
-  // hands its trailing slots to the Simple/Pro overlay on this page.
+  onChartSwitch: () => void;
+  // Pro renders the source and expand controls itself, because the widget's
+  // control row hands its trailing slots to this page's stable overlay.
   onEnterChartFullscreen: () => void;
 }) {
   const { stockId } = useStockDetail();
@@ -1218,7 +1203,10 @@ export function StockDesktopLayout({
               <StockChart
                 marketTradingView={marketTradingView}
                 priceMode={priceMode}
+                chartMode={chartMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
                 onHoverChange={setChartHoverPoint}
+                onChartSwitch={onChartSwitch}
                 isChartFullscreen={isChartFullscreen}
                 onEnterChartFullscreen={onEnterChartFullscreen}
               />

@@ -29,6 +29,7 @@ export function useMarketTopCoins() {
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
       revalidateOnReconnect: true,
+      watchLoading: true,
     },
   );
 

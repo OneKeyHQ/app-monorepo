@@ -3,24 +3,16 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import {
-  type ITradingViewChartMode,
-  TradingViewChartModeSelect,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
+import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
+import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
 } from '../../components/StockSimpleChart';
+
+import { MarketDetailProChartControls } from './MarketDetailProChartControls';
 
 type ITokenChartMode = 'simple' | 'pro';
 
@@ -144,46 +136,17 @@ export function TokenDetailChart({
             {marketTradingView}
           </Stack>
           {isChartFullscreen ? null : (
-            <XStack
+            <MarketDetailProChartControls
               testID="market-token-chart-mode-control-pro"
-              position="absolute"
               top={3}
-              right={0}
-              alignItems="center"
-              gap="$2"
-              bg="$bgApp"
-              pl="$2"
-              zIndex={4}
+              fullscreenTestID="trading-view-native-fullscreen-toggle"
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              <TradingViewChartModeSelect
-                chartMode={chartMode}
-                isDisabled={isChartSwitchDisabled}
-                onChartSwitch={onChartSwitch}
-              />
-              <Stack
-                width="$px"
-                height="$5"
-                bg="$borderSubdued"
-                flexShrink={0}
-              />
-              <IconButton
-                testID="trading-view-native-fullscreen-toggle"
-                size="small"
-                variant="tertiary"
-                icon="TradingViewFullscreenCustom"
-                iconSize="$5"
-                title={intl.formatMessage({ id: ETranslations.global_expand })}
-                onPress={onEnterChartFullscreen}
-                {...HEADER_ICON_BUTTON_STYLE_PROPS}
-              />
-              <Stack
-                width="$px"
-                height="$5"
-                bg="$borderSubdued"
-                flexShrink={0}
-              />
               <TokenChartModeControl mode={mode} onChange={setMode} />
-            </XStack>
+            </MarketDetailProChartControls>
           )}
         </>
       )}

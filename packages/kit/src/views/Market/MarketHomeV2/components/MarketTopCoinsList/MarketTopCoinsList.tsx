@@ -312,14 +312,13 @@ export function MarketTopCoinsList({
     (item: IMarketToken) => ({
       onPress: () => void handleItemPress(item),
       rowProps: {
-        height: TOP_COINS_DESKTOP_ROW_HEIGHT,
         testID: `market-top-coins-row-${item.coingeckoId}`,
       },
     }),
     [handleItemPress],
   );
 
-  const webTabIntegrated = Boolean(platformEnv.isWeb && tabIntegrated);
+  const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
   const useDesktopPortal = Boolean(
     webTabIntegrated &&
     tabName &&
@@ -347,30 +346,25 @@ export function MarketTopCoinsList({
         flex={1}
         style={{ paddingTop: 4, overflowX: 'auto', overflowY: 'hidden' }}
       >
-        {isLoading && data.length === 0 ? (
-          <Table.Skeleton
-            columns={columns}
-            count={12}
-            rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
-          />
-        ) : (
-          <Table<IMarketToken>
-            contentContainerStyle={{
-              paddingTop: 4,
-              paddingBottom: contentPaddingBottom,
-            }}
-            columns={columns}
-            dataSource={sortedData}
-            estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}
-            headerRowProps={{ height: 36 }}
-            keyExtractor={(item) => item.coingeckoId}
-            onHeaderRow={onHeaderRow}
-            onRow={onRow}
-            scrollEnabled={!webTabIntegrated}
-            showHeader={!useDesktopPortal}
-            tabIntegrated={tabIntegrated}
-          />
-        )}
+        <Table<IMarketToken>
+          contentContainerStyle={{
+            paddingTop: 4,
+            paddingBottom: contentPaddingBottom,
+          }}
+          columns={columns}
+          dataSource={sortedData}
+          estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}
+          headerRowProps={{ height: 36 }}
+          keyExtractor={(item) => item.coingeckoId}
+          onHeaderRow={onHeaderRow}
+          onRow={onRow}
+          rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
+          scrollEnabled={!webTabIntegrated}
+          showHeader={!useDesktopPortal}
+          showSkeleton={isLoading && data.length === 0}
+          skeletonCount={12}
+          tabIntegrated={tabIntegrated}
+        />
       </Stack>
     </Stack>
   );
