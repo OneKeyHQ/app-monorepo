@@ -127,10 +127,10 @@ index f180dfd..96eeb6a 100644
          if (!rawStyles[key]) {
            return;
 diff --git a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/webUtils.web.js b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/webUtils.web.js
-index 742885f..e375a4e 100644
+index 742885f..c144d16 100644
 --- a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/webUtils.web.js
 +++ b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/webUtils.web.js
-@@ -1,30 +1,40 @@
+@@ -1,13 +1,22 @@
  'use strict';
  
 +import createReactDOMStyleImport from 'react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle';
@@ -139,130 +139,65 @@ index 742885f..e375a4e 100644
 +  createTransformValue as createTransformValueImport,
 +} from 'react-native-web/dist/exports/StyleSheet/preprocess';
 +
-+// OneKey patch: Use static imports so Rspack includes these helpers in browser bundles.
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 -export let createReactDOMStyle;
-+// export let createReactDOMStyle;
-+export const createReactDOMStyle = createReactDOMStyleImport;
++export let createReactDOMStyle = createReactDOMStyleImport;
  
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 -export let createTransformValue;
-+// export let createTransformValue;
-+export const createTransformValue = createTransformValueImport;
++export let createTransformValue = createTransformValueImport;
  
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 -export let createTextShadowValue;
--try {
--  createReactDOMStyle =
--  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--  require('react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle').default;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
--try {
--  // React Native Web 0.19+
--  createTransformValue =
--  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--  require('react-native-web/dist/exports/StyleSheet/preprocess').createTransformValue;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
--try {
--  createTextShadowValue =
--  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--  require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
++export let createTextShadowValue = createTextShadowValueImport;
++
++// OneKey patch: Static imports let Rspack include these helpers in browser bundles.
++/*
+ try {
+   createReactDOMStyle =
+   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
+@@ -27,4 +36,5 @@ try {
+   require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
+   // eslint-disable-next-line no-empty
+ } catch (_e) {}
 -//# sourceMappingURL=webUtils.web.js.map
 \ No newline at end of file
-+// export let createTextShadowValue;
-+export const createTextShadowValue = createTextShadowValueImport;
-+// try {
-+//   createReactDOMStyle =
-+//   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//   require('react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle').default;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
-+// try {
-+//   // React Native Web 0.19+
-+//   createTransformValue =
-+//   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//   require('react-native-web/dist/exports/StyleSheet/preprocess').createTransformValue;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
-+// try {
-+//   createTextShadowValue =
-+//   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//   require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
++*/
 +//# sourceMappingURL=webUtils.web.js.map
 diff --git a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/webUtils.web.ts b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/webUtils.web.ts
-index e073380..de80f2e 100644
+index e073380..7885989 100644
 --- a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/webUtils.web.ts
 +++ b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/webUtils.web.ts
-@@ -1,32 +1,42 @@
+@@ -1,14 +1,24 @@
  'use strict';
  
--// eslint-disable-next-line @typescript-eslint/no-explicit-any
--export let createReactDOMStyle: (style: any) => any;
 +import createReactDOMStyleImport from 'react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle';
 +import {
 +  createTextShadowValue as createTextShadowValueImport,
 +  createTransformValue as createTransformValueImport,
 +} from 'react-native-web/dist/exports/StyleSheet/preprocess';
++
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+-export let createReactDOMStyle: (style: any) => any;
++export let createReactDOMStyle: (style: any) => any = createReactDOMStyleImport;
  
-+// OneKey patch: Use static imports so Rspack includes these helpers in browser bundles.
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 -export let createTransformValue: (transform: any) => any;
-+// export let createReactDOMStyle: (style: any) => any;
-+export const createReactDOMStyle = createReactDOMStyleImport;
++export let createTransformValue: (transform: any) => any =
++  createTransformValueImport;
  
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 -export let createTextShadowValue: (style: any) => void | string;
--
--try {
--  createReactDOMStyle =
--    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--    require('react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle').default;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
-+// export let createTransformValue: (transform: any) => any;
-+export const createTransformValue = createTransformValueImport;
++export let createTextShadowValue: (style: any) => void | string =
++  createTextShadowValueImport;
  
--try {
--  // React Native Web 0.19+
--  createTransformValue =
--    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--    require('react-native-web/dist/exports/StyleSheet/preprocess').createTransformValue;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
-+// eslint-disable-next-line @typescript-eslint/no-explicit-any
-+// export let createTextShadowValue: (style: any) => void | string;
-+export const createTextShadowValue = createTextShadowValueImport;
- 
--try {
--  createTextShadowValue =
--    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
--    require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
--  // eslint-disable-next-line no-empty
--} catch (_e) {}
-+// try {
-+//   createReactDOMStyle =
-+//     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//     require('react-native-web/dist/exports/StyleSheet/compiler/createReactDOMStyle').default;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
-+//
-+// try {
-+//   // React Native Web 0.19+
-+//   createTransformValue =
-+//     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//     require('react-native-web/dist/exports/StyleSheet/preprocess').createTransformValue;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
-+//
-+// try {
-+//   createTextShadowValue =
-+//     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
-+//     require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
-+//   // eslint-disable-next-line no-empty
-+// } catch (_e) {}
++// OneKey patch: Static imports let Rspack include these helpers in browser bundles.
++/*
+ try {
+   createReactDOMStyle =
+     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports, n/no-unpublished-require
+@@ -30,3 +40,4 @@ try {
+     require('react-native-web/dist/exports/StyleSheet/preprocess').createTextShadowValue;
+   // eslint-disable-next-line no-empty
+ } catch (_e) {}
++*/
