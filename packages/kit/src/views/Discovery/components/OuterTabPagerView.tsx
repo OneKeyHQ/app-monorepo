@@ -29,6 +29,9 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
+// ViewPager2 otherwise detaches Browser (index 2) while Market (index 0) is active.
+const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = 2;
+
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
 const styles = StyleSheet.create({
@@ -422,7 +425,7 @@ function OuterTabPagerViewComponent({
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}
-      offscreenPageLimit={1}
+      offscreenPageLimit={OUTER_PAGER_OFFSCREEN_PAGE_LIMIT}
       onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}

@@ -282,6 +282,8 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
   const isBrowserWebPageVisible =
     selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
+  const isBrowserDashboardActive =
+    selectedHeaderTab === ETranslations.global_browser && showDiscoveryPage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -533,17 +535,21 @@ function MobileBrowser() {
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
   const browserDashboardContent = (
     <View
-      pointerEvents={showDiscoveryPage ? 'auto' : 'none'}
-      accessibilityElementsHidden={!showDiscoveryPage}
+      collapsable={false}
+      pointerEvents={isBrowserDashboardActive ? 'auto' : 'none'}
+      accessibilityElementsHidden={!isBrowserDashboardActive}
       importantForAccessibility={
-        showDiscoveryPage ? 'auto' : 'no-hide-descendants'
+        isBrowserDashboardActive ? 'auto' : 'no-hide-descendants'
       }
       style={{
         flex: 1,
         opacity: showDiscoveryPage ? 1 : 0,
       }}
     >
-      <DashboardContent onScroll={handleScroll} />
+      <DashboardContent
+        isActive={isBrowserDashboardActive}
+        onScroll={handleScroll}
+      />
     </View>
   );
 
@@ -699,7 +705,10 @@ function MobileBrowser() {
                     flex: showDiscoveryPage ? 1 : undefined,
                   }}
                 >
-                  <DashboardContent onScroll={handleScroll} />
+                  <DashboardContent
+                    isActive={isBrowserDashboardActive}
+                    onScroll={handleScroll}
+                  />
                 </View>
                 {!isTabletMainView ? (
                   <View
