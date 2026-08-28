@@ -454,6 +454,7 @@ describe('ServiceHardware wallet session compatibility', () => {
 
     expect(openWalletSession).toHaveBeenCalledWith('PRO2_USB', {
       mode: 'select-hidden',
+      deriveCardano: false,
     });
     expect(getPassphraseState).not.toHaveBeenCalled();
   });
@@ -475,6 +476,7 @@ describe('ServiceHardware wallet session compatibility', () => {
 
     expect(openWalletSession).toHaveBeenCalledWith('PRO2_USB', {
       mode: 'select-hidden',
+      deriveCardano: false,
     });
     expect(getPassphraseState).not.toHaveBeenCalled();
   });
@@ -495,6 +497,7 @@ describe('ServiceHardware wallet session compatibility', () => {
 
     expect(openWalletSession).toHaveBeenCalledWith('PRO2_USB', {
       mode: 'standard',
+      deriveCardano: false,
     });
     expect(getPassphraseState).not.toHaveBeenCalled();
   });

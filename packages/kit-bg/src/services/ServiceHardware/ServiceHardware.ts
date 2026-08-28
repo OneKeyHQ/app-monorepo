@@ -3257,10 +3257,25 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
+      const walletSessionParams = useEmptyPassphrase
+        ? {
+            mode: 'standard' as const,
+            deriveCardano: false,
+          }
+        : {
+            mode: 'select-hidden' as const,
+            deriveCardano: false,
+          };
+      // deriveCardano:false maps to Protocol V2 seed_domains=[Standard].
+      // Undefined would send seed_domains=[] and let the device pick defaults.
+      serviceHardwareUtils.hardwareLog('openWalletSession seed domain', {
+        protocol,
+        mode: walletSessionParams.mode,
+        deriveCardano: walletSessionParams.deriveCardano,
+        seedDomains: ['standard'],
+      });
       const walletSession = await convertDeviceResponse(() =>
-        useEmptyPassphrase
-          ? openWalletSession(connectId, { mode: 'standard' })
-          : openWalletSession(connectId, { mode: 'select-hidden' }),
+        openWalletSession(connectId, walletSessionParams),
       );
       const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
       if (walletSession.walletType !== expectedWalletType) {
