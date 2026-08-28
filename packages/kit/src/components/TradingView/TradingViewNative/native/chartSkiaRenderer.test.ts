@@ -41,8 +41,12 @@ let mockFontGlyphsByFamily: Record<string, string> = {};
 let mockFontDisposeByFamily: Record<string, jest.Mock> = {};
 let mockFallbackFontFamilyByRequest: Record<string, string> = {};
 let mockFallbackTypefaceDisposeByFamily: Record<string, jest.Mock> = {};
-const mockCountFontFamilies = jest.fn(() => 0);
-const mockGetFontFamilyName = jest.fn((_index: number) => '');
+let mockHasMatchFamilyStyleCharacter = true;
+let mockSystemFontFamilies: string[] = [];
+const mockCountFontFamilies = jest.fn(() => mockSystemFontFamilies.length);
+const mockGetFontFamilyName = jest.fn(
+  (index: number) => mockSystemFontFamilies[index],
+);
 const mockMatchFamilyStyleCharacter = jest.fn(
   (
     _fontFamily: string,
@@ -117,23 +121,30 @@ jest.mock('@shopify/react-native-skia', () => ({
     Font: (typeface: { fontFamily: string }, fontSize: number) =>
       mockSkiaFont(typeface, fontSize),
     FontMgr: {
-      System: () => ({
-        countFamilies: () => mockCountFontFamilies(),
-        getFamilyName: (index: number) => mockGetFontFamilyName(index),
-        matchFamilyStyle: (fontFamily: string) => ({ fontFamily }),
-        matchFamilyStyleCharacter: (
-          fontFamily: string,
-          fontStyle: unknown,
-          bcp47: string[],
-          character: number,
-        ) =>
-          mockMatchFamilyStyleCharacter(
-            fontFamily,
-            fontStyle,
-            bcp47,
-            character,
-          ),
-      }),
+      System: () => {
+        const fontManager = {
+          countFamilies: () => mockCountFontFamilies(),
+          getFamilyName: (index: number) => mockGetFontFamilyName(index),
+          matchFamilyStyle: (fontFamily: string) => ({ fontFamily }),
+        };
+        return mockHasMatchFamilyStyleCharacter
+          ? {
+              ...fontManager,
+              matchFamilyStyleCharacter: (
+                fontFamily: string,
+                fontStyle: unknown,
+                bcp47: string[],
+                character: number,
+              ) =>
+                mockMatchFamilyStyleCharacter(
+                  fontFamily,
+                  fontStyle,
+                  bcp47,
+                  character,
+                ),
+            }
+          : fontManager;
+      },
     },
     Paint: () => mockCreatePaint(),
     Path: { Make: () => mockPath },
@@ -232,6 +243,8 @@ describe('TradingViewNative Skia scene renderer', () => {
     mockFontDisposeByFamily = {};
     mockFallbackFontFamilyByRequest = {};
     mockFallbackTypefaceDisposeByFamily = {};
+    mockHasMatchFamilyStyleCharacter = true;
+    mockSystemFontFamilies = [];
   });
 
   it('keeps the primary font without requesting a fallback when it has every glyph', () => {
@@ -261,6 +274,32 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
+  });
+
+  it('scans system fonts when the native fallback API is unavailable', () => {
+    const legendText = '开高低收';
+    mockHasMatchFamilyStyleCharacter = false;
+    mockSystemFontFamilies = ['Partial', 'PingFang SC', 'Later'];
+    mockFontGlyphsByFamily.Partial = '开高';
+    mockFontGlyphsByFamily['PingFang SC'] = legendText;
+    mockFontGlyphsByFamily.Later = legendText;
+
+    const font = createTradingViewNativeSkiaFontForText({
+      fontFamily: 'System',
+      fontSize: 11,
+      locale: 'zh-CN',
+      requiredText: legendText,
+    });
+
+    expect(font).toEqual(
+      expect.objectContaining({ fontFamily: 'PingFang SC' }),
+    );
+    expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.System).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.Partial).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily['PingFang SC']).not.toHaveBeenCalled();
+    expect(mockFontDisposeByFamily.Later).toBeUndefined();
   });
 
   it.each([
