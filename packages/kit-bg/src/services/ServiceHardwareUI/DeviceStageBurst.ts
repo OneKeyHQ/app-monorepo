@@ -182,6 +182,16 @@ export type IDeviceStageBurstBeginParams = {
 };
 
 export class DeviceStageBurstScope {
+  /** Live connectivity probe backing end()'s disconnect fallback. Injected
+   * by ServiceHardwareUI so the scope stays free of service imports. */
+  private isDeviceStillConnected?: (connectId: string) => Promise<boolean>;
+
+  constructor(options?: {
+    isDeviceStillConnected?: (connectId: string) => Promise<boolean>;
+  }) {
+    this.isDeviceStillConnected = options?.isDeviceStillConnected;
+  }
+
   private depth = 0;
 
   private burstSeq = 0;
@@ -443,9 +453,36 @@ export class DeviceStageBurstScope {
     this.clearPendingOpen();
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
-    const reason = params.error
-      ? this.mapErrorToReason(params.error)
-      : undefined;
+    let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // A dying transport rarely reports a mapped disconnect code — each
+    // protocol fails with its own string (V2 transferIn errors, V1 retry
+    // exhaustion, bridge messages) — so a generic outcome on a device
+    // that is no longer reachable is really a disconnect. Third-party
+    // bursts stay out: the probe only knows OneKey transports.
+    if (
+      reason === 'generic' &&
+      !wasVendorBurst &&
+      this.isDeviceStillConnected
+    ) {
+      const connectId = (await deviceStageAtom.get())?.connectId;
+      if (connectId) {
+        let stillConnected: boolean | undefined;
+        try {
+          stillConnected = await this.isDeviceStillConnected(connectId);
+        } catch {
+          // Probe failure keeps the generic outcome.
+        }
+        if (stillConnected === false) {
+          reason = 'disconnected';
+        }
+      }
+      // This branch awaited: if a new burst claimed the stage meanwhile,
+      // landing this stale outcome would pin it over the live flow
+      // (outcome steps outrank progress beats) — leave it to its owner.
+      if (this.depth > 0) {
+        return;
+      }
+    }
     if (params.error && reason !== 'silent') {
       await this.setStep('error', {
         errorReason: reason === 'generic' ? undefined : reason,
