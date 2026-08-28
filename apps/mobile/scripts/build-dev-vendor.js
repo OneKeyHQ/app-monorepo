@@ -43,13 +43,21 @@ const getPrependedScripts = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const backgroundEntry = path.resolve(mobileDirPath, 'background.ts');
-const HERMES_PLATFORM_DIR =
-  process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
+const HERMES_PLATFORM_DIR = {
+  darwin: 'osx-bin',
+  linux: 'linux64-bin',
+  win32: 'win64-bin',
+}[process.platform];
+if (!HERMES_PLATFORM_DIR) {
+  throw new Error(
+    `[devVendor] Unsupported Hermes compiler platform: ${process.platform}`,
+  );
+}
 const HERMES_COMMAND = path.join(
   path.dirname(require.resolve('hermes-compiler/package.json')),
   'hermesc',
   HERMES_PLATFORM_DIR,
-  'hermesc',
+  process.platform === 'win32' ? 'hermesc.exe' : 'hermesc',
 );
 
 function ensureBuildEnvironment() {
@@ -576,8 +584,15 @@ async function preparePlatform(
     );
   }
 
-  await build(platform);
-  check(platform);
+  try {
+    await build(platform);
+    check(platform);
+  } catch (error) {
+    console.error(
+      '[devVendor] Prepare failed. Run `yarn app:native-bundle:legacy`, then `yarn app:ios:legacy` or `yarn app:android:legacy`.',
+    );
+    throw error;
+  }
   return { rebuilt: true };
 }
 

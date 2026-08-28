@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import {
   ABSOLUTE_MAX_TTL_MS,
   REFRESH_THRESHOLD_MS,
@@ -263,5 +266,20 @@ describe('SignerSoftwareBase.getHdCredential happy path', () => {
       code: 'NOT_AUTHENTICATED',
     });
     expect(fetchKey).not.toHaveBeenCalled();
+  });
+
+  it('does not introduce timer-based async paths inside getHdCredential', () => {
+    const source = readFileSync(
+      path.resolve(__dirname, '../SignerSoftwareBase.ts'),
+      'utf-8',
+    );
+    const methodSource = source.match(
+      /async getHdCredential\(\): Promise<string> \{[\s\S]*?\n {2}\}/,
+    )?.[0];
+
+    expect(methodSource).toBeDefined();
+    expect(methodSource).not.toMatch(
+      /setImmediate|setTimeout|process\.nextTick/,
+    );
   });
 });
