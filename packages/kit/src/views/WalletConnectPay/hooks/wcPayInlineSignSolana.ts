@@ -153,6 +153,11 @@ export async function wcPayInlineSignSolanaTx({
   try {
     // Exactly what the confirm page's sign-only path calls
     // (ServiceSend.batchSignAndSendTransaction), fee info deliberately absent.
+    //
+    // One transaction per action, never a batch: the batch path refreshes
+    // every tx after the first (`refreshUnsignedTxBeforeBatchSign`, which
+    // rewrites the sol blockhash), and that rewrite would break the identity
+    // check below. Anyone batching WC Pay actions must revisit this.
     signedTx = await backgroundApiProxy.serviceSend.signTransaction({
       networkId,
       accountId,

@@ -42,6 +42,7 @@ import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
+  WC_PAY_PERMIT_EXPIRY_GRACE_S,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
   classifyWcPayInlineFailure,
@@ -53,7 +54,13 @@ import {
   runWcPayInlineAttempts,
 } from './wcPayInlineUtils';
 
-import type { IWcPayInlineController } from './wcPayInlineUtils';
+import type {
+  IWcPayInlineController,
+  IWcPayInlineSignResult,
+  IWcPayInlineSigningSummary,
+  IWcPayInlineSolanaSignResult,
+  IWcPayResolvedToken,
+} from './wcPayInlineUtils';
 
 // re-exported from its leaf module for the existing import sites
 export { WcPayUserCancelledError };
@@ -116,6 +123,49 @@ function buildWcPaySourceInfo({
     data: { method, params },
     isWalletConnectRequest: false,
   };
+}
+
+/**
+ * The order carries no token contract (see payTypes.ts), so a payload's
+ * self-declared token is never taken at face value: identity is proven
+ * through the wallet's own token registry for the chain (spec §4.6), and both
+ * inline signing gates refuse when this returns undefined.
+ *
+ * Never fatal — an unresolvable token only costs the action its inline path,
+ * and the confirm page still owns the decision.
+ */
+async function resolveWcPayToken({
+  networkId,
+  accountId,
+  address,
+}: {
+  networkId: string;
+  accountId: string;
+  address: string;
+}): Promise<IWcPayResolvedToken | undefined> {
+  try {
+    const [detail] = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      networkId,
+      accountId,
+      contractList: [address],
+    });
+    const info = detail?.info;
+    if (
+      !info?.address ||
+      typeof info.symbol !== 'string' ||
+      typeof info.decimals !== 'number'
+    ) {
+      return undefined;
+    }
+    return {
+      address: info.address,
+      symbol: info.symbol,
+      decimals: info.decimals,
+    };
+  } catch (error) {
+    console.error('wcPay token resolve failed', error);
+    return undefined;
+  }
 }
 
 export function useWcPayActionExecutor() {
@@ -258,45 +308,64 @@ export function useWcPayActionExecutor() {
         }
       };
 
-      // The option carries no token contract (see payTypes.ts), so a payload's
-      // self-declared token is never taken at face value: identity is proven
-      // through the wallet's own token registry for the chain (spec §4.6), and
-      // both inline signing gates refuse when this returns undefined.
-      // Never fatal — an unresolvable token only costs the action its inline
-      // path, and the confirm page still owns the decision.
-      const resolveWcPayToken = async ({
-        networkId,
-        accountId: tokenAccountId,
-        address,
+      /**
+       * The tail both signing branches share once their own plan said inline:
+       * announce what is being signed, run the pipeline, and dispose of its
+       * three outcomes identically — including the bookkeeping the modal path
+       * performs (`results.push` + an AWAITED persist) so an inline signature
+       * is recorded exactly like a confirmed one.
+       *
+       * The budget deliberately stays at the call sites: the two plans have
+       * different shapes, and so does everything that produces them.
+       */
+      const runInlineSignature = async ({
+        index,
+        controller,
+        summary,
+        run,
       }: {
-        networkId: string;
-        accountId: string;
-        address: string;
-      }) => {
-        try {
-          const [detail] =
-            await backgroundApiProxy.serviceToken.fetchTokensDetails({
-              networkId,
-              accountId: tokenAccountId,
-              contractList: [address],
-            });
-          const info = detail?.info;
-          if (
-            !info?.address ||
-            typeof info.symbol !== 'string' ||
-            typeof info.decimals !== 'number'
-          ) {
-            return undefined;
-          }
-          return {
-            address: info.address,
-            symbol: info.symbol,
-            decimals: info.decimals,
-          };
-        } catch (error) {
-          console.error('wcPay token resolve failed', error);
-          return undefined;
+        index: number;
+        // passed in rather than closed over: the branches narrow
+        // `inlineController` themselves, and that narrowing cannot travel
+        // into a closure declared out here
+        controller: IWcPayInlineController;
+        summary: IWcPayInlineSigningSummary;
+        run: () => Promise<
+          IWcPayInlineSignResult | IWcPayInlineSolanaSignResult
+        >;
+      }): Promise<'done' | 'fallback'> => {
+        controller.onSigningSummary?.(summary);
+        const inline = await run();
+        if (inline.status === 'ok') {
+          // the two pipelines name their payload differently — a detached
+          // signature vs a whole signed transaction — but the Pay server is
+          // handed either one the same way
+          const result =
+            'signature' in inline ? inline.signature : inline.rawTx;
+          results.push(result);
+          await persistActionResult(index, result);
+          return 'done';
         }
+        if (inline.status === 'abort') {
+          // Phase 1 rule: the backup dialog is an RN-layer dialog, so the flow
+          // must be told to close the sheet before it can be seen. The
+          // controller's verdict is deliberately ignored — this call exists
+          // only to trigger that close; the payment ends either way.
+          await controller.onInlineFailure(
+            classifyWcPayInlineFailure({
+              stage: 'backup',
+              error: new OneKeyLocalError('Wallet is not backed up'),
+            }),
+          );
+          throw new WcPayUserCancelledError('User canceled payment');
+        }
+        // The page must learn inline execution ended before the confirm page
+        // takes over — the same contract runWcPayInlineAttempts'
+        // resolveFallback honours. The reason is logged here because, unlike
+        // the send leg's classified failure, nothing else carries it.
+        console.error('wcPay inline signature fallback', inline.reason);
+        controller.onFallback?.();
+        return 'fallback';
       };
 
       // cancellation is a pre-sign concept only: checked before the resume
@@ -425,9 +494,10 @@ export function useWcPayActionExecutor() {
       // future inline branch can take the budget and forget to report it.
       const takeInlineSpend = () => {
         if (inlinedSpends >= WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE) {
-          // worth a diagnostic on its own: the sequence asked to inline more
-          // spends than a legitimate payment ever contains
-          console.warn('wcPay inline fallback', WC_PAY_INLINE_BUDGET_REASON);
+          // Reported at error level, not warn: the sequence asked to inline
+          // more spends than a legitimate payment ever contains, which is a
+          // louder condition than any single pipeline falling back.
+          console.error('wcPay inline fallback', WC_PAY_INLINE_BUDGET_REASON);
           return false;
         }
         inlinedSpends += 1;
@@ -741,12 +811,22 @@ export function useWcPayActionExecutor() {
                 option,
                 nowMs,
                 resolvedToken,
-                // a permit must not outlive the order it pays by more than an
-                // hour; the validator's own 24h ceiling still caps this
+                // The permit may outlive the order by at most the grace
+                // window; the validator clamps this to its own ceiling too,
+                // and the outer Math.min keeps that bound visible here.
+                //
+                // `nowMs` is read after the loop-top isWcPayExpired check and
+                // after the background round-trips above (account resolution,
+                // token lookup), so a narrow race remains: an order can expire
+                // in between and land here with a negative remainder, which
+                // Math.max floors at the grace window alone. Harmless — a
+                // permit only authorizes, and the Pay server refuses an
+                // expired order whatever the permit says.
                 maxDeadlineS: expiryMs
                   ? Math.min(
                       WC_PAY_PERMIT_MAX_DEADLINE_S,
-                      Math.max(0, Math.floor((expiryMs - nowMs) / 1000)) + 3600,
+                      Math.max(0, Math.floor((expiryMs - nowMs) / 1000)) +
+                        WC_PAY_PERMIT_EXPIRY_GRACE_S,
                     )
                   : undefined,
               });
@@ -757,51 +837,29 @@ export function useWcPayActionExecutor() {
                 };
               }
               if (plan.mode === 'inline') {
-                inlineController.onSigningSummary?.({
-                  kind: 'typedData',
-                  summary: plan.summary,
+                const outcome = await runInlineSignature({
+                  index: i,
+                  controller: inlineController,
+                  summary: { kind: 'typedData', summary: plan.summary },
+                  run: () =>
+                    wcPayInlineSignTypedData({
+                      networkId,
+                      accountId: account.id,
+                      accountAddress: account.address,
+                      message,
+                      option,
+                      sourceInfo: buildWcPaySourceInfo({
+                        method,
+                        params: parsed,
+                        scope: 'ethereum',
+                      }),
+                      throwIfCancelled,
+                      onPhase: inlineController.onPhase,
+                    }),
                 });
-                const inline = await wcPayInlineSignTypedData({
-                  networkId,
-                  accountId: account.id,
-                  accountAddress: account.address,
-                  message,
-                  option,
-                  sourceInfo: buildWcPaySourceInfo({
-                    method,
-                    params: parsed,
-                    scope: 'ethereum',
-                  }),
-                  throwIfCancelled,
-                  onPhase: inlineController.onPhase,
-                });
-                if (inline.status === 'ok') {
-                  results.push(inline.signature);
-                  await persistActionResult(i, inline.signature);
+                if (outcome === 'done') {
                   break;
                 }
-                if (inline.status === 'abort') {
-                  // Phase 1 rule: the backup dialog is an RN-layer dialog, so
-                  // the flow must be told to close the sheet before it can be
-                  // seen; the payment then ends silently.
-                  await inlineController.onInlineFailure(
-                    classifyWcPayInlineFailure({
-                      stage: 'backup',
-                      error: new OneKeyLocalError('Wallet is not backed up'),
-                    }),
-                  );
-                  throw new WcPayUserCancelledError('User canceled payment');
-                }
-                // The page must learn inline execution ended before the
-                // confirm page takes over — the same contract
-                // runWcPayInlineAttempts' resolveFallback honours. The reason
-                // is logged here because, unlike the send leg's classified
-                // failure, nothing else carries it.
-                console.error(
-                  'wcPay inline typed-data fallback',
-                  inline.reason,
-                );
-                inlineController.onFallback?.();
               }
             }
             // the inline attempt above may itself have spanned a page close;
@@ -966,7 +1024,15 @@ export function useWcPayActionExecutor() {
                 : undefined;
               let plan = getWcPayInlineSolanaPlan({
                 option,
-                txBase64,
+                // The blob the verdict was produced for, so check → plan →
+                // sign is one value by construction. It is the same string as
+                // the case-local `txBase64` above — both come from
+                // extractWcPaySolanaTransaction on these very params — which
+                // stays only as what wcPaySolanaTxToEncodedTx built the
+                // unsignedTx from. A refused request never reaches the plan's
+                // inline branch, so the substitution below is never signed.
+                txBase64:
+                  request.mode === 'request' ? request.txBase64 : txBase64,
                 consistency,
                 resolvedToken,
               });
@@ -977,45 +1043,32 @@ export function useWcPayActionExecutor() {
                 };
               }
               if (plan.mode === 'inline') {
-                inlineController.onSigningSummary?.({
-                  kind: 'solana',
-                  summary: plan.summary,
+                const outcome = await runInlineSignature({
+                  index: i,
+                  controller: inlineController,
+                  summary: { kind: 'solana', summary: plan.summary },
+                  run: () =>
+                    wcPayInlineSignSolanaTx({
+                      networkId,
+                      accountId: account.id,
+                      accountAddress: account.address,
+                      option,
+                      unsignedTx,
+                      // the checked blob, carried through the plan so the
+                      // pipeline compares the signed transaction against it
+                      txBase64: plan.txBase64,
+                      sourceInfo: buildWcPaySourceInfo({
+                        method,
+                        params: parsed,
+                        scope: 'solana',
+                      }),
+                      throwIfCancelled,
+                      onPhase: inlineController.onPhase,
+                    }),
                 });
-                const inline = await wcPayInlineSignSolanaTx({
-                  networkId,
-                  accountId: account.id,
-                  accountAddress: account.address,
-                  option,
-                  unsignedTx,
-                  // the blob the verdict was produced for, so the pipeline
-                  // compares the signed transaction against what was checked
-                  txBase64: plan.txBase64,
-                  sourceInfo: buildWcPaySourceInfo({
-                    method,
-                    params: parsed,
-                    scope: 'solana',
-                  }),
-                  throwIfCancelled,
-                  onPhase: inlineController.onPhase,
-                });
-                if (inline.status === 'ok') {
-                  results.push(inline.rawTx);
-                  await persistActionResult(i, inline.rawTx);
+                if (outcome === 'done') {
                   break;
                 }
-                if (inline.status === 'abort') {
-                  // see the typed-data branch: the backup dialog needs the
-                  // sheet closed before it can be seen
-                  await inlineController.onInlineFailure(
-                    classifyWcPayInlineFailure({
-                      stage: 'backup',
-                      error: new OneKeyLocalError('Wallet is not backed up'),
-                    }),
-                  );
-                  throw new WcPayUserCancelledError('User canceled payment');
-                }
-                console.error('wcPay inline solana fallback', inline.reason);
-                inlineController.onFallback?.();
               }
             }
             // the inline attempt above may itself have spanned a page close;

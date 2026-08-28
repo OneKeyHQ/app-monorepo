@@ -419,7 +419,9 @@ describe('useWcPayActionExecutor sequence invariants', () => {
 
   // C2: N equal transfers must not become N headless broadcasts.
   it('inlines only the first spend of a repeated-transfer sequence', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // the budget refusal is reported at error level: a sequence asking for a
+    // second inline spend is louder than any single pipeline falling back
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -440,11 +442,11 @@ describe('useWcPayActionExecutor sequence invariants', () => {
       '0xtxid-confirm',
       '0xtxid-confirm',
     ]);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   // The seeding must follow the index the loop actually starts from: a
@@ -769,7 +771,6 @@ describe('useWcPayActionExecutor inline signing', () => {
   // The sequence budget covers every inline-eligible shape, so a spent
   // transfer must push the follow-up permit to its confirm page.
   it('refuses to inline a permit after the sequence already inlined a transfer', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -781,15 +782,13 @@ describe('useWcPayActionExecutor inline signing', () => {
 
     expect(signatures).toEqual(['0xinline', '0xsig-modal']);
     expect(wcPayInlineSignTypedData).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    warnSpy.mockRestore();
   });
 
   it('refuses to inline a transfer after the sequence already inlined a permit', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -802,11 +801,10 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(signatures).toEqual(['0xpermit', '0xtxid-confirm']);
     expect(wcPayInlineSendTx).not.toHaveBeenCalled();
     expect(pushModalMock).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    warnSpy.mockRestore();
   });
 
   it('signs a matching Solana payment inline instead of pushing TxConfirm', async () => {
@@ -1148,7 +1146,6 @@ describe('useWcPayActionExecutor inline signing', () => {
   });
 
   it('refuses to inline a Solana action after the sequence already inlined a transfer', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -1160,18 +1157,16 @@ describe('useWcPayActionExecutor inline signing', () => {
 
     expect(signatures).toEqual(['0xinline', 'rawtx-confirm']);
     expect(wcPayInlineSignSolanaTx).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    warnSpy.mockRestore();
   });
 
   // The budget is spent at the ATTEMPT, not at its success: an attempt may
   // already have moved funds by the time it reports back, so a failed one
   // must not hand the sequence a second inline spend.
   it('counts a failed inline attempt against the sequence budget', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     wcPayInlineSignTypedData.mockResolvedValue({
       status: 'fallback',
       reason: 'x',
@@ -1187,11 +1182,10 @@ describe('useWcPayActionExecutor inline signing', () => {
 
     expect(signatures).toEqual(['0xsig-modal', '0xtxid-confirm']);
     expect(wcPayInlineSendTx).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    warnSpy.mockRestore();
   });
 
   // Without a controller (or without the selected option) nothing may be
