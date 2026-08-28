@@ -905,13 +905,14 @@ function TxFeeInfo(props: IProps) {
             (e as Error).message ??
             e,
         });
-        // The previous estimate may have populated sponsor state (badge, quote).
-        // Clear it together with the payer so a stale "free" UI never survives
-        // a failed re-estimate and misleads the user or leaks an expired quote
-        // into submit.
+        // The previous estimate may have populated sponsor state (badge, quote)
+        // or the external-account promo hint. Clear them together with the
+        // payer so a stale "free" UI never survives a failed re-estimate and
+        // misleads the user or leaks an expired quote into submit.
         updateEffectiveFeePayer('user');
         resetGasAccountUiState();
         resetMegafuelEligible();
+        setExternalSponsorPromoEligible(false);
       }
     },
     [

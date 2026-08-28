@@ -21,7 +21,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -52,11 +51,6 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
-  // Authoritative external-wallet flag from the dialog's active account; the
-  // build-result sender accountId can be transiently empty and must not be the
-  // only source (it would fall back to the sponsored badge for external
-  // accounts).
-  isExternalAccount?: boolean;
   onSetNativeBtcMinSlippage: () => void;
   nativeBtcMinSlippageSaving?: boolean;
   isSwapPro?: boolean;
@@ -81,7 +75,6 @@ const PreSwapInfoGroup = ({
   nativeBtcMinSlippageSaving,
   isSwapPro,
   slippageEditor,
-  isExternalAccount: isExternalAccountFromDialog,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -235,34 +228,23 @@ const PreSwapInfoGroup = ({
   );
 
   // External-wallet accounts pay the fee estimated by the connected wallet
-  // itself, so sponsorship never applies; keep the regular fee UI (level
-  // selector + real fee value) and surface the sponsorship only as the
-  // "zero fee with OneKey wallet" promo hint below it (OK-61254).
-  const senderAccountId =
-    preSwapData.swapBuildResultData?.swapInfo?.sender?.accountInfo?.accountId;
-  const isExternalAccount = useMemo(
+  // itself, so sponsorship never applies; the estimate source strips the
+  // sponsor state for them and keeps only this raw eligibility flag, which
+  // surfaces as the "zero fee with OneKey wallet" promo hint (OK-61254).
+  const showExternalSponsorPromo = useMemo(
     () =>
-      Boolean(isExternalAccountFromDialog) ||
-      (senderAccountId
-        ? accountUtils.isExternalAccount({ accountId: senderAccountId })
-        : false),
-    [isExternalAccountFromDialog, senderAccountId],
+      !!preSwapData.netWorkFee?.gasInfos?.some(
+        ({ gasInfo }) => gasInfo.externalSponsorPromoEligible,
+      ),
+    [preSwapData.netWorkFee?.gasInfos],
   );
 
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
-    if (isGasSponsored && !isExternalAccount) {
+    if (isGasSponsored) {
       return <SwapSponsoredNetworkFee />;
     }
-    // Megafuel-sponsored estimates zero out `gasPrice`, which empties
-    // `gasFeeFiatValue`; external accounts pay the real fee, so fall back to
-    // the original-price total for them.
-    const networkFeeFiatValue =
-      preSwapData.netWorkFee?.gasFeeFiatValue ??
-      (isExternalAccount
-        ? preSwapData.netWorkFee?.originalGasFeeFiatValue
-        : undefined);
     const feeLevelSelect = (
       <XStack alignItems="center" gap="$2">
         <Select
@@ -294,12 +276,12 @@ const PreSwapInfoGroup = ({
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
-            {networkFeeFiatValue ?? ''}
+            {preSwapData.netWorkFee?.gasFeeFiatValue ?? ''}
           </NumberSizeableText>
         )}
       </XStack>
     );
-    if (isGasSponsored && isExternalAccount) {
+    if (showExternalSponsorPromo) {
       return (
         <YStack alignItems="flex-end" gap="$0.5">
           {feeLevelSelect}
@@ -315,13 +297,12 @@ const PreSwapInfoGroup = ({
   }, [
     intl,
     isGasSponsored,
-    isExternalAccount,
+    showExternalSponsorPromo,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
-    preSwapData.netWorkFee?.originalGasFeeFiatValue,
     settings.currencyInfo.symbol,
     preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,

@@ -611,6 +611,11 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  // Raw megafuel eligibility kept for the external-wallet promo hint
+  // (OK-61254). The effective sponsor state above is stripped at the estimate
+  // source for external-wallet accounts — they always pay the real fee — but
+  // the review UI still advertises "zero network fee with OneKey wallet".
+  externalSponsorPromoEligible?: boolean;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -653,11 +658,6 @@ export interface ISwapPreSwapData {
       txSize?: number;
     }[];
     gasFeeFiatValue?: string;
-    // Megafuel-sponsored estimates zero out `gasPrice` (real price kept in
-    // `originalGasPrice`), which zeroes `gasFeeFiatValue`; this keeps the
-    // un-sponsored fee so external-wallet accounts — which the sponsorship
-    // never applies to — can still show a real amount.
-    originalGasFeeFiatValue?: string;
   };
 }
 

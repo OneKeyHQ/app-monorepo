@@ -884,7 +884,6 @@ const PreSwapDialogContent = ({
                 <>
                   <PreSwapInfoGroup
                     preSwapData={swapSteps.preSwapData}
-                    isExternalAccount={isExternalAccount}
                     onSetNativeBtcMinSlippage={handleSetNativeBtcMinSlippage}
                     nativeBtcMinSlippageSaving={
                       slippageSavingScope === 'current'
