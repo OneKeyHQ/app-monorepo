@@ -2,6 +2,7 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
@@ -464,22 +465,45 @@ export class DeviceStageBurstScope {
       !wasVendorBurst &&
       this.isDeviceStillConnected
     ) {
-      const connectId = (await deviceStageAtom.get())?.connectId;
+      const stateAtLanding = await deviceStageAtom.get();
+      const connectId = stateAtLanding?.connectId;
       if (connectId) {
         let stillConnected: boolean | undefined;
-        try {
-          stillConnected = await this.isDeviceStillConnected(connectId);
-        } catch {
-          // Probe failure keeps the generic outcome.
+        // DEVICE.DISCONNECT can land a beat after the failed call's
+        // finally (it lost by ~200ms in the desktop unplug repro), so
+        // give the tracker a bounded window to catch up before trusting
+        // a `true`.
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          if (attempt > 0) {
+            await timerUtils.wait(250);
+          }
+          try {
+            stillConnected = await this.isDeviceStillConnected(connectId);
+          } catch {
+            // Probe failure keeps the generic outcome.
+            break;
+          }
+          if (stillConnected === false) {
+            break;
+          }
         }
         if (stillConnected === false) {
           reason = 'disconnected';
         }
       }
-      // This branch awaited: if a new burst claimed the stage meanwhile,
-      // landing this stale outcome would pin it over the live flow
-      // (outcome steps outrank progress beats) — leave it to its owner.
+      // This branch awaited (up to ~500ms): a new burst may have claimed
+      // the stage (depth grew), or the person may have closed it (step
+      // walked to 'off' during the window). Landing the stale outcome
+      // would pin it over the live flow or resurrect a dismissed stage —
+      // leave it to its owner. An error landing on a stage that never
+      // painted (still 'off' from before the window) stays legitimate.
       if (this.depth > 0) {
+        return;
+      }
+      if (
+        stateAtLanding?.step !== 'off' &&
+        (await deviceStageAtom.get())?.step === 'off'
+      ) {
         return;
       }
     }
