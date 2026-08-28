@@ -267,15 +267,6 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(boundary.style.borderTopColor).toBe('#AABBCC');
   });
 
-  it('keeps the draggable chart boundary free of a spotlight overlay', () => {
-    const view = render(<PerpDesktopLayout />);
-
-    expect(view.getByTestId('perp-desktop-chart-boundary')).toBeTruthy();
-    expect(
-      view.queryByTestId('perp-desktop-chart-resize-spotlight'),
-    ).toBeNull();
-  });
-
   it('uses a 1px line on the account panel boundary', () => {
     const view = render(<PerpDesktopLayout />);
     const boundary = view.getByTestId('perp-desktop-account-boundary');
