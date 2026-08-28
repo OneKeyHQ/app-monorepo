@@ -313,27 +313,39 @@ export function getWcPayInlineSolanaPlan({
   // The wallet-registry lookup of `summary.mint`; only spl legs consult it.
   resolvedToken?: IWcPayResolvedToken;
 }): IWcPayInlineSolanaPlan {
-  if (!consistency.ok) {
-    return { mode: 'fallback', reason: consistency.reason };
+  // The whole verdict envelope is read defensively, not just its payload:
+  // it is produced in the background and crosses a serialization boundary,
+  // so a damaged one (`ok` without a `summary`, a refusal without a reason)
+  // must fall back rather than throw.
+  if (!consistency?.ok) {
+    return {
+      mode: 'fallback',
+      reason: consistency?.reason || 'invalid verdict',
+    };
   }
-  if (consistency.summary.kind === 'spl') {
+  const { summary } = consistency;
+  if (!summary) {
+    return { mode: 'fallback', reason: 'invalid verdict' };
+  }
+  if (summary.kind === 'spl') {
     if (!resolvedToken) {
       return { mode: 'fallback', reason: 'unknown token' };
     }
-    if (resolvedToken.address !== consistency.summary.mint) {
+    if (resolvedToken.address !== summary.mint) {
       return { mode: 'fallback', reason: 'token address mismatch' };
     }
-    // `amount` itself is optional-chained: the verdict crossed a
-    // serialization boundary, so this side must refuse a malformed option
-    // rather than throw on it.
-    if (resolvedToken.symbol !== option.amount?.display?.assetSymbol) {
+    // Optional-chained all the way down to `option` itself: the verdict
+    // crossed a serialization boundary, so this side must refuse a
+    // malformed option rather than throw on it. (Only these two reads are
+    // exposed — a missing resolvedToken is refused above, before them.)
+    if (resolvedToken.symbol !== option?.amount?.display?.assetSymbol) {
       return { mode: 'fallback', reason: 'token symbol mismatch' };
     }
-    if (resolvedToken.decimals !== option.amount?.display?.decimals) {
+    if (resolvedToken.decimals !== option?.amount?.display?.decimals) {
       return { mode: 'fallback', reason: 'token decimals mismatch' };
     }
   }
-  return { mode: 'inline', summary: consistency.summary, txBase64 };
+  return { mode: 'inline', summary, txBase64 };
 }
 
 /**

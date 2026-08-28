@@ -444,16 +444,18 @@ describe('getWcPayInlineSolanaPlan', () => {
     ).toEqual({ mode: 'fallback', reason: 'token decimals mismatch' });
   });
 
-  it('falls back without throwing on an option that carries no amount', () => {
-    // the verdict now crosses a serialization boundary, so the option this
-    // side holds may be shaped worse than the one the validator saw
-    const amountlessOption = {
-      ...usdcSolOption,
-      amount: undefined as never,
-    };
+  // The verdict now crosses a serialization boundary, so the option this
+  // side holds may be shaped worse than the one the validator saw. A
+  // matching resolvedToken is what carries these cases past the earlier
+  // refusals and into the option reads.
+  it.each([
+    ['no amount', { ...usdcSolOption, amount: undefined as never }],
+    ['no option at all', undefined as unknown as IWcPayOption],
+    ['a null option', null as unknown as IWcPayOption],
+  ])('falls back without throwing on %s', (_label, hostileOption) => {
     const call = () =>
       getWcPayInlineSolanaPlan({
-        option: amountlessOption,
+        option: hostileOption,
         txBase64: TX_BASE64,
         consistency: okSpl,
         resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 6 },
@@ -463,6 +465,33 @@ describe('getWcPayInlineSolanaPlan', () => {
       mode: 'fallback',
       reason: 'token symbol mismatch',
     });
+  });
+
+  // The verdict is built in the background and reaches this side through
+  // the proxy, so its envelope is no more trustworthy than its payload.
+  it.each([
+    ['a verdict that lost its summary', { ok: true } as never],
+    ['a verdict whose summary is null', { ok: true, summary: null } as never],
+    ['no verdict at all', undefined as never],
+  ])('falls back without throwing on %s', (_label, consistency) => {
+    const call = () =>
+      getWcPayInlineSolanaPlan({
+        option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency,
+      });
+    expect(call).not.toThrow();
+    expect(call()).toEqual({ mode: 'fallback', reason: 'invalid verdict' });
+  });
+
+  it('names a reasonless refusal rather than reporting an empty reason', () => {
+    expect(
+      getWcPayInlineSolanaPlan({
+        option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: { ok: false } as never,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'invalid verdict' });
   });
 
   it('inlines an spl leg the registry agrees with', () => {
