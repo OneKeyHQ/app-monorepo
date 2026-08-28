@@ -5,10 +5,15 @@ import {
   extractWcPayPersonalSignMessage,
   extractWcPayTypedDataMessage,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
+// The Solana order check has no import here on purpose: its module
+// (wcPaySolanaConsistency) decodes transactions with @solana/web3.js, which
+// must not enter the UI runtime — it is reached through the background
+// service (serviceWalletConnectPay.checkSolanaTxMatchesOrder) instead.
 import {
   extractWcPaySolanaTransaction,
   wcPaySolanaTxToEncodedTx,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
+import { WC_PAY_PERMIT_MAX_DEADLINE_S } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayMessageConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
@@ -34,10 +39,17 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { wcPayInlineSendTx } from './wcPayInlineSendTx';
+import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
+import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
   WcPayUserCancelledError,
+  classifyWcPayInlineFailure,
+  getWcPayInlineMessagePlan,
+  getWcPayInlineSolanaPlan,
+  getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
+  readWcPayPermitTokenAddress,
   runWcPayInlineAttempts,
 } from './wcPayInlineUtils';
 
@@ -243,6 +255,47 @@ export function useWcPayActionExecutor() {
           await onActionComplete?.({ index, result });
         } catch (persistError) {
           console.error('wcPay persist action result failed', persistError);
+        }
+      };
+
+      // The option carries no token contract (see payTypes.ts), so a payload's
+      // self-declared token is never taken at face value: identity is proven
+      // through the wallet's own token registry for the chain (spec §4.6), and
+      // both inline signing gates refuse when this returns undefined.
+      // Never fatal — an unresolvable token only costs the action its inline
+      // path, and the confirm page still owns the decision.
+      const resolveWcPayToken = async ({
+        networkId,
+        accountId: tokenAccountId,
+        address,
+      }: {
+        networkId: string;
+        accountId: string;
+        address: string;
+      }) => {
+        try {
+          const [detail] =
+            await backgroundApiProxy.serviceToken.fetchTokensDetails({
+              networkId,
+              accountId: tokenAccountId,
+              contractList: [address],
+            });
+          const info = detail?.info;
+          if (
+            !info?.address ||
+            typeof info.symbol !== 'string' ||
+            typeof info.decimals !== 'number'
+          ) {
+            return undefined;
+          }
+          return {
+            address: info.address,
+            symbol: info.symbol,
+            decimals: info.decimals,
+          };
+        } catch (error) {
+          console.error('wcPay token resolve failed', error);
+          return undefined;
         }
       };
 
@@ -648,6 +701,90 @@ export function useWcPayActionExecutor() {
           }
           case EWcPayActionMethod.EthSignTypedDataV4: {
             const message = extractWcPayTypedDataMessage(parsed);
+            // Inline path: sign the Permit2 payload without a confirm page
+            // when it proves to be exactly the order the user approved.
+            // Nothing is caught — a thrown pipeline error must reach the page,
+            // which owns the recovery decision. A signature is not a
+            // broadcast, so this branch performs the same bookkeeping as the
+            // modal path below and, like it, never sets hasBroadcastInThisRun.
+            if (inlineController && option) {
+              const permitToken = readWcPayPermitTokenAddress(message);
+              const resolvedToken = permitToken
+                ? await resolveWcPayToken({
+                    networkId,
+                    accountId: account.id,
+                    address: permitToken,
+                  })
+                : undefined;
+              const nowMs = Date.now();
+              let plan = getWcPayInlineMessagePlan({
+                action: actions[i],
+                option,
+                nowMs,
+                resolvedToken,
+                // a permit must not outlive the order it pays by more than an
+                // hour; the validator's own 24h ceiling still caps this
+                maxDeadlineS: expiryMs
+                  ? Math.min(
+                      WC_PAY_PERMIT_MAX_DEADLINE_S,
+                      Math.max(0, Math.floor((expiryMs - nowMs) / 1000)) + 3600,
+                    )
+                  : undefined,
+              });
+              if (plan.mode === 'inline' && !takeInlineSpend()) {
+                plan = {
+                  mode: 'fallback',
+                  reason: WC_PAY_INLINE_BUDGET_REASON,
+                };
+              }
+              if (plan.mode === 'inline') {
+                inlineController.onSigningSummary?.({
+                  kind: 'typedData',
+                  summary: plan.summary,
+                });
+                const inline = await wcPayInlineSignTypedData({
+                  networkId,
+                  accountId: account.id,
+                  accountAddress: account.address,
+                  message,
+                  option,
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'ethereum',
+                  }),
+                  throwIfCancelled,
+                  onPhase: inlineController.onPhase,
+                });
+                if (inline.status === 'ok') {
+                  results.push(inline.signature);
+                  await persistActionResult(i, inline.signature);
+                  break;
+                }
+                if (inline.status === 'abort') {
+                  // Phase 1 rule: the backup dialog is an RN-layer dialog, so
+                  // the flow must be told to close the sheet before it can be
+                  // seen; the payment then ends silently.
+                  await inlineController.onInlineFailure(
+                    classifyWcPayInlineFailure({
+                      stage: 'backup',
+                      error: new OneKeyLocalError('Wallet is not backed up'),
+                    }),
+                  );
+                  throw new WcPayUserCancelledError('User canceled payment');
+                }
+                // The page must learn inline execution ended before the
+                // confirm page takes over — the same contract
+                // runWcPayInlineAttempts' resolveFallback honours. The reason
+                // is logged here because, unlike the send leg's classified
+                // failure, nothing else carries it.
+                console.error(
+                  'wcPay inline typed-data fallback',
+                  inline.reason,
+                );
+                inlineController.onFallback?.();
+              }
+            }
             // re-check after the async prep above (see eth_sendTransaction)
             throwIfCancelled();
             if (isStoppedAfterBroadcast()) {
@@ -747,9 +884,8 @@ export function useWcPayActionExecutor() {
             break;
           }
           case EWcPayActionMethod.SolanaSignTransaction: {
-            const encodedTx = wcPaySolanaTxToEncodedTx(
-              extractWcPaySolanaTransaction(parsed),
-            );
+            const txBase64 = extractWcPaySolanaTransaction(parsed);
+            const encodedTx = wcPaySolanaTxToEncodedTx(txBase64);
             const unsignedTx =
               await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
                 {
@@ -758,6 +894,102 @@ export function useWcPayActionExecutor() {
                   encodedTx,
                 },
               );
+            // Inline path: sign only, without a confirm page, when the blob
+            // proves to be the approved order. Same bookkeeping rules as the
+            // typed-data branch above — a signature is not a broadcast.
+            if (inlineController && option) {
+              // Re-derives, from the same params, the very txBase64 this case
+              // already extracted; it is called for the gate that comes with
+              // its own checks: the method, the CAIP-2 chain shape, and the
+              // size pre-filter that keeps an oversize blob off the background
+              // proxy. The blob handed to the plan below stays the one the
+              // unsignedTx above was built from, so what gets signed is what
+              // gets checked.
+              const request = getWcPayInlineSolanaRequest({
+                action: actions[i],
+                option,
+              });
+              // The order check decodes the blob with @solana/web3.js, which
+              // lives in the background runtime only (spec §5 "Runtime
+              // placement").
+              const consistency =
+                request.mode === 'request'
+                  ? await backgroundApiProxy.serviceWalletConnectPay.checkSolanaTxMatchesOrder(
+                      {
+                        txBase64: request.txBase64,
+                        caip2ChainId: request.caip2ChainId,
+                        option,
+                      },
+                    )
+                  : { ok: false as const, reason: request.reason };
+              // spl legs: the mint must resolve through the wallet registry
+              // and agree with the option asset (the rule the EVM Permit2
+              // token check draws); native legs carry no mint and are fully
+              // judged by the validator itself.
+              const mint = consistency.ok
+                ? consistency.summary.mint
+                : undefined;
+              const resolvedToken = mint
+                ? await resolveWcPayToken({
+                    networkId,
+                    accountId: account.id,
+                    address: mint,
+                  })
+                : undefined;
+              let plan = getWcPayInlineSolanaPlan({
+                option,
+                txBase64,
+                consistency,
+                resolvedToken,
+              });
+              if (plan.mode === 'inline' && !takeInlineSpend()) {
+                plan = {
+                  mode: 'fallback',
+                  reason: WC_PAY_INLINE_BUDGET_REASON,
+                };
+              }
+              if (plan.mode === 'inline') {
+                inlineController.onSigningSummary?.({
+                  kind: 'solana',
+                  summary: plan.summary,
+                });
+                const inline = await wcPayInlineSignSolanaTx({
+                  networkId,
+                  accountId: account.id,
+                  accountAddress: account.address,
+                  option,
+                  unsignedTx,
+                  // the blob the verdict was produced for, so the pipeline
+                  // compares the signed transaction against what was checked
+                  txBase64: plan.txBase64,
+                  sourceInfo: buildWcPaySourceInfo({
+                    method,
+                    params: parsed,
+                    scope: 'solana',
+                  }),
+                  throwIfCancelled,
+                  onPhase: inlineController.onPhase,
+                });
+                if (inline.status === 'ok') {
+                  results.push(inline.rawTx);
+                  await persistActionResult(i, inline.rawTx);
+                  break;
+                }
+                if (inline.status === 'abort') {
+                  // see the typed-data branch: the backup dialog needs the
+                  // sheet closed before it can be seen
+                  await inlineController.onInlineFailure(
+                    classifyWcPayInlineFailure({
+                      stage: 'backup',
+                      error: new OneKeyLocalError('Wallet is not backed up'),
+                    }),
+                  );
+                  throw new WcPayUserCancelledError('User canceled payment');
+                }
+                console.error('wcPay inline solana fallback', inline.reason);
+                inlineController.onFallback?.();
+              }
+            }
             // re-check after the async prep above (see eth_sendTransaction)
             throwIfCancelled();
             if (isStoppedAfterBroadcast()) {
