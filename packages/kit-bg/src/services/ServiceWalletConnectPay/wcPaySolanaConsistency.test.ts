@@ -215,7 +215,12 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
       }),
     ).toEqual({
       ok: true,
-      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        fundsRecipientAta: false,
+      },
     });
   });
 
@@ -235,6 +240,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        fundsRecipientAta: false,
       },
     });
   });
@@ -257,6 +263,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        fundsRecipientAta: false,
       },
     });
   });
@@ -346,7 +353,12 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
       }),
     ).toEqual({
       ok: true,
-      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        fundsRecipientAta: false,
+      },
     });
   });
 
@@ -373,13 +385,25 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '101',
+        fundsRecipientAta: false,
       },
     });
   });
 
-  it('bounds the priority fee at the 1,400,000 CU runtime default when no limit ix is present', () => {
+  it('bounds the priority fee at the 1,400,000 CU ceiling when the unset-limit default reaches it', () => {
+    // 7 non-ComputeBudget instructions (6 memos + 1 transfer) -> default
+    // budget = min(200_000*7, 1_400_000) = 1_400_000, the ceiling itself.
+    const memos = [
+      memoInstruction('m1'),
+      memoInstruction('m2'),
+      memoInstruction('m3'),
+      memoInstruction('m4'),
+      memoInstruction('m5'),
+      memoInstruction('m6'),
+    ];
     const underCapTx = toBase64([
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 7_000_000 }),
+      ...memos,
       SystemProgram.transfer({
         fromPubkey: payer.publicKey,
         toPubkey: recipient.publicKey,
@@ -399,11 +423,13 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '9800000',
+        fundsRecipientAta: false,
       },
     });
 
     const overCapTx = toBase64([
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 7_200_000 }),
+      ...memos,
       SystemProgram.transfer({
         fromPubkey: payer.publicKey,
         toPubkey: recipient.publicKey,
@@ -519,8 +545,147 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '9800000',
+        fundsRecipientAta: false,
       },
     });
+  });
+
+  it('computes the priority fee from the runtime default (200,000 CU per non-ComputeBudget instruction) when no limit ix is present', () => {
+    const oneIxTx = toBase64([
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    // 1 non-ComputeBudget instruction -> default budget = min(200_000*1, 1_400_000) = 200_000
+    // ceil(50_000 * 200_000 / 1_000_000) = 10_000
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: oneIxTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '10000',
+        fundsRecipientAta: false,
+      },
+    });
+
+    const sevenIxTx = toBase64([
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
+      memoInstruction('m1'),
+      memoInstruction('m2'),
+      memoInstruction('m3'),
+      memoInstruction('m4'),
+      memoInstruction('m5'),
+      memoInstruction('m6'),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    // 7 non-ComputeBudget instructions (6 memos + 1 transfer) -> default
+    // budget = min(200_000*7, 1_400_000) = 1_400_000
+    // ceil(50_000 * 1_400_000 / 1_000_000) = 70_000
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: sevenIxTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '70000',
+        fundsRecipientAta: false,
+      },
+    });
+  });
+
+  it('refuses a SystemProgram transfer instruction with the wrong data length', () => {
+    const base = SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: recipient.publicKey,
+      lamports: 1500,
+    });
+    // 13 bytes instead of the exact 12 (u32 LE index + u64 LE lamports).
+    const withExtraByte = new TransactionInstruction({
+      programId: base.programId,
+      keys: base.keys,
+      data: Buffer.concat([base.data, Buffer.from([0])]),
+    });
+    const tx = toBase64([withExtraByte]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('refuses a transferChecked instruction with the wrong data length', () => {
+    // 14 bytes instead of the exact 10 (discriminator + u64 amount + decimals).
+    const data = Buffer.alloc(14);
+    data.writeUInt8(12, 0);
+    data.writeBigUInt64LE(100_000n, 1);
+    data.writeUInt8(6, 9);
+    const ix = new TransactionInstruction({
+      programId: TOKEN_PROGRAM_ID,
+      keys: [
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: true,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: true,
+        },
+        { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+    const tx = toBase64([ix]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('refuses a SetComputeUnitPrice instruction with an over-long data length', () => {
+    // 20 bytes instead of the exact 9 (discriminator + u64 LE microLamports).
+    const data = Buffer.alloc(20);
+    data.writeUInt8(3, 0);
+    const tx = toBase64([
+      rawComputeBudgetInstruction(data),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
   });
 
   it('accepts one RequestHeapFrame instruction and refuses a duplicate', () => {
@@ -540,7 +705,12 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
       }),
     ).toEqual({
       ok: true,
-      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        fundsRecipientAta: false,
+      },
     });
 
     const dupTx = toBase64([
@@ -578,7 +748,12 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
       }),
     ).toEqual({
       ok: true,
-      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        fundsRecipientAta: false,
+      },
     });
 
     const dupTx = toBase64([
@@ -695,6 +870,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        fundsRecipientAta: true,
       },
     });
   });
@@ -896,6 +1072,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        fundsRecipientAta: true,
       },
     });
   });
@@ -1162,7 +1339,12 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
       }),
     ).toEqual({
       ok: true,
-      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        fundsRecipientAta: false,
+      },
     });
   });
 

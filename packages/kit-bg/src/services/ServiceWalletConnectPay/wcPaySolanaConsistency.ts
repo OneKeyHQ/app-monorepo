@@ -8,6 +8,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import type { TransactionInstruction } from '@solana/web3.js';
@@ -21,6 +22,9 @@ export type IWcPaySolanaSummary = {
   decimals?: number;
   // Always present. '0' when the blob carries no SetComputeUnitPrice ix.
   priorityFeeLamports: string;
+  // True iff the accepted ATA rent-payment instruction is present, so the
+  // sheet can account for the extra ~0.002 SOL cost.
+  fundsRecipientAta: boolean;
 };
 
 export type IWcPaySolanaConsistencyResult =
@@ -34,6 +38,11 @@ export type IWcPaySolanaConsistencyResult =
 // be bounded here.
 export const WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS = 10_000_000;
 
+// These program ids overlap `SYSTEM_PROGRAM_IDS` / `SPL_PROGRAM_IDS` in
+// packages/core/src/chains/sol/constants.ts; the duplication is intentional
+// — core exports them as opaque membership Sets, while this file needs each
+// id individually, next to the account-layout/data-length comments that
+// document how it is parsed.
 const TOKEN_PROGRAM_ID = new PublicKey(
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 );
@@ -58,6 +67,8 @@ const TOKEN_2022_PROGRAM_ID_STR = TOKEN_2022_PROGRAM_ID.toBase58();
 // SystemInstruction enum index for `Transfer`.
 const SYSTEM_TRANSFER_INDEX = 2;
 const SYSTEM_TRANSFER_KEY_COUNT = 2;
+// index(u32 LE, 4 bytes) + lamports(u64 LE, 8 bytes).
+const SYSTEM_TRANSFER_DATA_LEN = 12;
 // SPL Token instruction discriminants (same byte layout on both the classic
 // Token program and Token-2022 for these two variants).
 const SPL_TRANSFER = 3;
@@ -67,6 +78,8 @@ const TRANSFER_CHECKED_MINT_INDEX = 1;
 const TRANSFER_CHECKED_DESTINATION_INDEX = 2;
 const TRANSFER_CHECKED_AUTHORITY_INDEX = 3;
 const TRANSFER_CHECKED_DECIMALS_OFFSET = 9;
+// discriminator(1) + amount(u64 LE, 8 bytes) + decimals(1 byte).
+const TRANSFER_CHECKED_DATA_LEN = 10;
 
 // ComputeBudget instruction discriminants — see @solana/web3.js
 // COMPUTE_BUDGET_INSTRUCTION_LAYOUTS (programs/compute-budget.ts).
@@ -81,9 +94,13 @@ const CU_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 0x04;
 const CU_U32_PAYLOAD_DATA_LEN = 5; // discriminator(1) + u32 LE
 const CU_U64_PAYLOAD_DATA_LEN = 9; // discriminator(1) + u64 LE
 // The runtime's own cap on compute units per transaction — the ceiling a
-// SetComputeUnitLimit value is clamped to, and the assumed limit when no
-// limit ix is present at all (the conservative, i.e. most expensive, case).
+// SetComputeUnitLimit value is clamped to.
 const MAX_COMPUTE_UNITS = 1_400_000;
+// Runtime default when no SetComputeUnitLimit is present: 200,000 CU per
+// instruction that isn't itself a ComputeBudget instruction, capped at
+// MAX_COMPUTE_UNITS. NOT "the max" — a single-instruction transaction with
+// no limit ix actually budgets 200,000 CU, not 1,400,000.
+const DEFAULT_COMPUTE_UNITS_PER_INSTRUCTION = 200_000;
 const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000;
 
 // Associated Token Account program: [funder, ata, owner, mint,
@@ -167,7 +184,10 @@ function classifySystemInstruction(
   ix: TransactionInstruction,
 ): IInstructionOutcome {
   const data = Buffer.from(ix.data);
-  const index = data.length >= 4 ? data.readUInt32LE(0) : -1;
+  if (data.length !== SYSTEM_TRANSFER_DATA_LEN) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  const index = data.readUInt32LE(0);
   const lamports = readU64LE(data, 4);
   if (
     index !== SYSTEM_TRANSFER_INDEX ||
@@ -206,12 +226,11 @@ function classifyTokenInstruction(
   if (discriminator !== SPL_TRANSFER_CHECKED) {
     return { kind: 'error', reason: 'unsupported instruction' };
   }
+  if (data.length !== TRANSFER_CHECKED_DATA_LEN) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
   const amount = readU64LE(data, 1);
-  if (
-    amount === undefined ||
-    data.length <= TRANSFER_CHECKED_DECIMALS_OFFSET ||
-    ix.keys.length !== TRANSFER_CHECKED_KEY_COUNT
-  ) {
+  if (amount === undefined || ix.keys.length !== TRANSFER_CHECKED_KEY_COUNT) {
     return { kind: 'error', reason: 'unsupported instruction' };
   }
   return {
@@ -423,48 +442,79 @@ export function checkWcPaySolanaTxMatchesOrder({
   // this shared discriminator set rather than a value-holding variable.
   const seenComputeBudgetDiscriminators = new Set<number>();
   let ata: IAtaOutcome | undefined;
+  // Every instruction that is NOT itself a ComputeBudget instruction —
+  // counted for the runtime's own unset-limit default (see effectiveLimit
+  // below). Legs, memos, and the ATA instruction all count.
+  let nonComputeBudgetInstructionCount = 0;
   for (const ix of instructions) {
     const outcome = classifyInstruction(ix);
-    if (outcome.kind === 'error') {
-      return { ok: false, reason: outcome.reason };
+    switch (outcome.kind) {
+      case 'error':
+        return { ok: false, reason: outcome.reason };
+      case 'leg':
+        legs.push(outcome.leg);
+        nonComputeBudgetInstructionCount += 1;
+        break;
+      case 'skip':
+        nonComputeBudgetInstructionCount += 1;
+        break;
+      case 'ata':
+        if (ata !== undefined) {
+          return { ok: false, reason: ATA_REASON };
+        }
+        ata = outcome.ata;
+        nonComputeBudgetInstructionCount += 1;
+        break;
+      case 'computeBudgetLimit':
+        // The runtime itself rejects a duplicate SetComputeUnitLimit — a
+        // second one here is already a shape the real runtime never
+        // produces.
+        if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_LIMIT)) {
+          return { ok: false, reason: 'unsupported instruction' };
+        }
+        seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_LIMIT);
+        computeUnitLimit = outcome.units;
+        break;
+      case 'computeBudgetPrice':
+        if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_PRICE)) {
+          return { ok: false, reason: 'unsupported instruction' };
+        }
+        seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_PRICE);
+        priceMicroLamports = outcome.microLamports;
+        break;
+      case 'computeBudgetOther':
+        if (seenComputeBudgetDiscriminators.has(outcome.discriminator)) {
+          return { ok: false, reason: 'unsupported instruction' };
+        }
+        seenComputeBudgetDiscriminators.add(outcome.discriminator);
+        break;
+      default: {
+        // Exhaustiveness guard: a future IInstructionOutcome variant that
+        // isn't handled by one of the cases above fails to compile here
+        // (the `never` assignment) rather than being silently tolerated —
+        // e.g. dropped from the fee/rent accounting — at runtime.
+        const exhaustiveCheck: never = outcome;
+        throw new OneKeyInternalError(
+          `Unhandled wc pay solana instruction outcome: ${String(
+            exhaustiveCheck,
+          )}`,
+        );
+      }
     }
-    if (outcome.kind === 'leg') {
-      legs.push(outcome.leg);
-    } else if (outcome.kind === 'computeBudgetLimit') {
-      // The runtime itself rejects a duplicate SetComputeUnitLimit — a
-      // second one here is already a shape the real runtime never produces.
-      if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_LIMIT)) {
-        return { ok: false, reason: 'unsupported instruction' };
-      }
-      seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_LIMIT);
-      computeUnitLimit = outcome.units;
-    } else if (outcome.kind === 'computeBudgetPrice') {
-      if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_PRICE)) {
-        return { ok: false, reason: 'unsupported instruction' };
-      }
-      seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_PRICE);
-      priceMicroLamports = outcome.microLamports;
-    } else if (outcome.kind === 'computeBudgetOther') {
-      if (seenComputeBudgetDiscriminators.has(outcome.discriminator)) {
-        return { ok: false, reason: 'unsupported instruction' };
-      }
-      seenComputeBudgetDiscriminators.add(outcome.discriminator);
-    } else if (outcome.kind === 'ata') {
-      if (ata !== undefined) {
-        return { ok: false, reason: ATA_REASON };
-      }
-      ata = outcome.ata;
-    }
-    // 'skip' needs no handling.
   }
 
-  // effectiveLimit: the explicit limit clamped to the runtime ceiling, or
-  // the ceiling itself when no limit ix is present (the conservative case —
-  // the runtime default is the max, so an unset limit must be assumed to
-  // cost the max).
+  // effectiveLimit: the explicit limit clamped to the runtime ceiling, or,
+  // when no limit ix is present, the runtime's own default — 200,000 CU per
+  // non-ComputeBudget instruction, capped at the ceiling. NOT the ceiling
+  // itself: a single-instruction transaction with no limit ix actually
+  // budgets 200,000 CU, not 1,400,000.
   const effectiveLimit =
     computeUnitLimit === undefined
-      ? MAX_COMPUTE_UNITS
+      ? Math.min(
+          DEFAULT_COMPUTE_UNITS_PER_INSTRUCTION *
+            nonComputeBudgetInstructionCount,
+          MAX_COMPUTE_UNITS,
+        )
       : Math.min(computeUnitLimit, MAX_COMPUTE_UNITS);
   const priorityFeeLamports = priceMicroLamports
     ? priceMicroLamports
@@ -534,6 +584,7 @@ export function checkWcPaySolanaTxMatchesOrder({
       kind: leg.kind,
       ...(leg.kind === 'spl' ? { mint: leg.mint, decimals: leg.decimals } : {}),
       priorityFeeLamports: priorityFeeLamports.toFixed(),
+      fundsRecipientAta: ata !== undefined,
     },
   };
 }
