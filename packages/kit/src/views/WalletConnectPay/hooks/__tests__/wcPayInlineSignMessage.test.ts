@@ -6,7 +6,10 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
-import { wcPayInlineSignTypedData } from '../wcPayInlineSignMessage';
+import {
+  isWcPayInlineUserCancel,
+  wcPayInlineSignTypedData,
+} from '../wcPayInlineSignMessage';
 import { WcPayUserCancelledError } from '../wcPayInlineUtils';
 
 // yarn jest packages/kit/src/views/WalletConnectPay/hooks/__tests__/wcPayInlineSignMessage.test.ts
@@ -257,5 +260,34 @@ describe('wcPayInlineSignTypedData', () => {
     expect(throwIfCancelled.mock.invocationCallOrder[0]).toBeLessThan(
       onPhase.mock.invocationCallOrder[0],
     );
+  });
+});
+
+// Exported for the other headless signing legs to share, so it is pinned
+// directly rather than only through the pipeline that uses it.
+describe('isWcPayInlineUserCancel', () => {
+  it('recognizes a dismissed password prompt', () => {
+    expect(isWcPayInlineUserCancel(new PasswordPromptDialogCancel())).toBe(
+      true,
+    );
+  });
+
+  it('recognizes a cancellation on the hardware device', () => {
+    expect(
+      isWcPayInlineUserCancel(
+        Object.assign(new Error('cancelled on device'), {
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not claim a plain failure was a cancellation', () => {
+    expect(isWcPayInlineUserCancel(new Error('keyring exploded'))).toBe(false);
+  });
+
+  it('returns a boolean for a missing error rather than propagating it', () => {
+    expect(isWcPayInlineUserCancel(undefined)).toBe(false);
   });
 });

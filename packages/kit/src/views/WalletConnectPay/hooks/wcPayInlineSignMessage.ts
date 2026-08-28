@@ -32,8 +32,12 @@ export type IWcPayInlineSignResult =
  * device. Matched on error class and hardware code — never on message text,
  * which is localized and vendor-supplied. Anything else is a real failure and
  * must keep its identity.
+ *
+ * Exported because every headless signing leg (typed data here, Solana
+ * sign-only) has to draw the same line, and a second copy of this list would
+ * be free to drift.
  */
-function isWcPaySignUserCancel(error: unknown): boolean {
+export function isWcPayInlineUserCancel(error: unknown): boolean {
   const oneKeyError = error as IOneKeyError | undefined;
   if (
     oneKeyError?.className === EOneKeyErrorClassNames.PasswordPromptDialogCancel
@@ -149,7 +153,7 @@ export async function wcPayInlineSignTypedData({
       unsignedMessage,
     });
   } catch (error) {
-    if (isWcPaySignUserCancel(error)) {
+    if (isWcPayInlineUserCancel(error)) {
       // Generic on purpose: this message can surface to the user, and the
       // underlying error may name the device or the prompt that raised it.
       throw new WcPayUserCancelledError('User canceled payment');
