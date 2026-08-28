@@ -363,7 +363,11 @@ export function useWcPayActionExecutor() {
         // takes over — the same contract runWcPayInlineAttempts'
         // resolveFallback honours. The reason is logged here because, unlike
         // the send leg's classified failure, nothing else carries it.
-        console.error('wcPay inline signature fallback', inline.reason);
+        console.error(
+          'wcPay inline signature fallback',
+          summary.kind,
+          inline.reason,
+        );
         controller.onFallback?.();
         return 'fallback';
       };

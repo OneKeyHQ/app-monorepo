@@ -81,6 +81,12 @@ jest.mock('../wcPayInlineSignSolana', () => ({
 // mocked PARTIALLY: every export keeps its real implementation — the plans
 // below still decide for real — and the message plan additionally records its
 // arguments.
+//
+// This relies on the jest config enabling neither `resetMocks` nor
+// `restoreMocks`: either would wipe the implementation this factory installed
+// and leave the gate answering `undefined`, which reads as "no plan" rather
+// than as a broken mock. Whoever turns one on has to give the gate its
+// implementation back per test.
 jest.mock('../wcPayInlineUtils', () => {
   const actual = jest.requireActual<typeof import('../wcPayInlineUtils')>(
     '../wcPayInlineUtils',
