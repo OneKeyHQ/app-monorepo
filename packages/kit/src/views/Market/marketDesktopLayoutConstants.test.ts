@@ -1,23 +1,9 @@
-import {
-  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
-  MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS,
-  MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
-} from './marketDesktopLayoutConstants';
+import { MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE } from './marketDesktopLayoutConstants';
 
 describe('marketDesktopLayoutConstants', () => {
-  it('centers portalled list controls without changing the base content frame', () => {
-    expect(MARKET_DESKTOP_CONTENT_FRAME_PROPS).toEqual({
-      width: '100%',
-      maxWidth: 1240,
-      alignSelf: 'center',
-    });
-    expect(MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS).toEqual({
-      ...MARKET_DESKTOP_CONTENT_FRAME_PROPS,
-      mx: 'auto',
-    });
-  });
-
-  it('matches the 60px desktop list-page tab region', () => {
+  it('gives the desktop tab bar the design 60px band', () => {
+    // 44px tab item + 8px above and below, and a positioned container so the
+    // sticky header portal anchors to it instead of the page.
     expect(MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE).toEqual({
       position: 'relative',
       py: '$2',

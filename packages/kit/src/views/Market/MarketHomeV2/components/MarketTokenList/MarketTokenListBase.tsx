@@ -43,7 +43,7 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
@@ -816,7 +816,7 @@ function MarketTokenListBase({
           // Must resolve to the same frame as the rows this header labels,
           // otherwise the column titles drift once the header sticks.
           {...(centerDesktopPortalContent
-            ? MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS
+            ? MARKET_DESKTOP_CONTENT_FRAME_PROPS
             : { width: '100%' as const })}
           bg="$bgApp"
           px={centerDesktopPortalContent ? '$3' : '$4'}

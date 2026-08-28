@@ -28,10 +28,7 @@ import type {
   IMarketStockPublicListSortBy,
 } from '@onekeyhq/shared/types/marketV2';
 
-import {
-  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
-  MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS,
-} from '../../../marketDesktopLayoutConstants';
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
@@ -162,7 +159,7 @@ function MarketStockListImpl({
     }
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack {...MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS} bg="$bgApp">
+        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp">
           {CategorySelector}
           <Stack px="$3" overflow="hidden">
             <Table.HeaderRow

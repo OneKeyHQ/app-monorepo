@@ -15,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
-  MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS,
   MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
 } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
@@ -312,7 +311,7 @@ export function DesktopLayout({
 
   const tabElements = [
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack {...MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
         {hasActivated(watchlistTabName) ? (
           <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
@@ -390,7 +389,7 @@ export function DesktopLayout({
             // horizontal scroller full-bleed), so it opts out of this one.
             {...(isStockCategory
               ? { width: '100%' as const }
-              : MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS)}
+              : MARKET_DESKTOP_CONTENT_FRAME_PROPS)}
             px={isStockCategory ? '$0' : '$3'}
             flex={1}
           >
@@ -402,11 +401,7 @@ export function DesktopLayout({
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack
-              {...MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS}
-              px="$3"
-              flex={1}
-            >
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(perpsTabName) ? (
                 <Suspense fallback={null}>
                   <LazyMarketPerpsTokenList
