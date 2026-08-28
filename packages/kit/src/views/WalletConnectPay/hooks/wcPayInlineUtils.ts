@@ -254,6 +254,17 @@ export type IWcPayInlinePhase =
   | 'signingMessage'
   | 'recording';
 
+/**
+ * Every step a payment attempt can be on: the inline pipeline's own phases
+ * plus the two the page owns around them. Declared here, beside the phases it
+ * extends, so the flow's state and the scene's prop are one type and cannot
+ * drift — neither of those modules can own it without the other importing it.
+ */
+export type IWcPayConfirmingPhase =
+  | 'preparing'
+  | IWcPayInlinePhase
+  | 'submitting';
+
 // Result contract of `wcPayInlineSendTx`, which re-exports this type. Only the
 // non-`ok` variants carry a failure, and both of them are decided by the
 // controller below — `fallback` is the pipeline's suggestion, not a verdict.

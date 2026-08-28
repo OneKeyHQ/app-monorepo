@@ -14,11 +14,14 @@ import {
 } from '@onekeyhq/components';
 import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 
-import { describeWcPaySigningSummary } from './wcPaySigningSummary';
+import {
+  describeWcPaySigningHeadline,
+  describeWcPaySigningSummary,
+} from './wcPaySigningSummary';
 
 import type { IWcPayDialogTerminalReason } from './wcPayDialogView';
 import type {
-  IWcPayInlinePhase,
+  IWcPayConfirmingPhase,
   IWcPayInlineSigningSummary,
 } from '../hooks/wcPayInlineUtils';
 
@@ -31,6 +34,10 @@ import type {
 // node 21926-35825). The shell (DialogV2) provides the 24pt side inset and
 // the safe-area bottom; nothing here adds horizontal padding of its own.
 // Copy is hardcoded English by product decision (Q12); story copy verbatim.
+// One deliberate divergence from the story: WcPayConfirmingStep adds a
+// summary block under its headline while a headless signature is in flight —
+// the story predates inline signing and has no step that signs without a
+// confirm page to describe what is being signed.
 
 // ---------------------------------------------------------------------------
 // Header
@@ -483,16 +490,6 @@ export function WcPayOptionsStep({
   );
 }
 
-/**
- * The step the flow is on while an attempt runs. Declared here — not in the
- * flow — so the flow's own `paying` step and this prop cannot drift: the flow
- * imports this type for its phase union.
- */
-export type IWcPayConfirmingPhase =
-  | 'preparing'
-  | IWcPayInlinePhase
-  | 'submitting';
-
 // Product decision Q5 (2026-08-27): one confirming label for every step, no
 // per-step copy. The phase stays a prop so the signing summary can key off it.
 // copy pending product i18n keys
@@ -503,7 +500,8 @@ export function WcPayConfirmingStep({
   amountText,
   signingSummary,
 }: {
-  phase: IWcPayConfirmingPhase;
+  /** The attempt's current step; absent while no attempt is running. */
+  phase?: IWcPayConfirmingPhase;
   amountText: string;
   /** What the headless signature in flight commits to; `signingMessage` only. */
   signingSummary?: IWcPayInlineSigningSummary;
@@ -513,9 +511,8 @@ export function WcPayConfirmingStep({
       <WcPayHeaderLine>{CONFIRMING_HEADLINE}</WcPayHeaderLine>
       {phase === 'signingMessage' && signingSummary ? (
         <YStack pt="$3" gap="$1" alignItems="center">
-          {/* copy pending product i18n keys */}
           <SizableText size="$bodyMd" color="$text" textAlign="center">
-            {`Authorize ${amountText} for this payment`}
+            {describeWcPaySigningHeadline(signingSummary, amountText)}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
             {describeWcPaySigningSummary(signingSummary)}

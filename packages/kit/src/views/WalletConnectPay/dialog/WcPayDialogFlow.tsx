@@ -69,12 +69,9 @@ import {
 } from './wcPayDialogStore';
 import { deriveWcPayDialogView } from './wcPayDialogView';
 
+import type { IWcPaySceneBanner, IWcPaySceneOption } from './WcPayDialogScene';
 import type {
   IWcPayConfirmingPhase,
-  IWcPaySceneBanner,
-  IWcPaySceneOption,
-} from './WcPayDialogScene';
-import type {
   IWcPayInlineController,
   IWcPayInlineFailure,
   IWcPayInlineSigningSummary,
@@ -99,7 +96,7 @@ const EMPTY_SIGNATURES: string[] = [];
  */
 type IWcPayPagePhase =
   | { name: 'idle' }
-  // The step type is the scene's own prop type, so the two cannot drift.
+  // Shared with the scene's own prop type, so the two cannot drift.
   | { name: 'paying'; step: IWcPayConfirmingPhase }
   | {
       name: 'result';
@@ -934,7 +931,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     case 'confirming':
       content = (
         <WcPayConfirmingStep
-          phase={pagePhase.name === 'paying' ? pagePhase.step : 'preparing'}
+          phase={pagePhase.name === 'paying' ? pagePhase.step : undefined}
           amountText={
             selectedOption
               ? formatPayAmount(selectedOption.amount)

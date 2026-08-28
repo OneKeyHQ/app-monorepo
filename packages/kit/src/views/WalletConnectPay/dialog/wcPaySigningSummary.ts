@@ -1,10 +1,13 @@
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 import type { IWcPayInlineSigningSummary } from '../hooks/wcPayInlineUtils';
 
-// The secondary line the sheet shows while a headless signature is being
-// produced: what the proven payload commits the user to beyond the amount
-// already on screen. Pure so it can be tested without a render harness.
+// The two lines the sheet shows while a headless signature is being produced:
+// what the user is committing to, and what it costs beyond the amount already
+// on screen. Both are built here — one i18n site, one testable unit — and both
+// are pure so they need no render harness.
 //
 // Copy is hardcoded English like the rest of this scene.
 // copy pending product i18n keys
@@ -13,13 +16,19 @@ const LAMPORTS_PER_SOL_DECIMALS = 9;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * 60;
 
-export function shortenWcPayAddress(address: string): string {
-  if (!address) {
-    return '';
-  }
-  return address.length > 12
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : address;
+/**
+ * The headline is split on `kind` rather than shared, because the two
+ * signatures commit to different things: a Permit2 payload authorizes a
+ * spender to pull the amount later, while the Solana leg signs the transfer
+ * itself — irreversible once submitted, and not an allowance.
+ */
+export function describeWcPaySigningHeadline(
+  summary: IWcPayInlineSigningSummary,
+  amountText: string,
+): string {
+  return summary.kind === 'typedData'
+    ? `Authorize ${amountText} for this payment`
+    : `Sign this ${amountText} payment`;
 }
 
 /**
@@ -28,9 +37,10 @@ export function shortenWcPayAddress(address: string): string {
  * an absolute timestamp would only add a timezone the reader has to convert.
  *
  * Both units are FLOORED — the text may never claim more validity than the
- * signature actually has — and a deadline this side cannot read (the summary
- * crosses a serialization boundary) yields no text at all rather than a
- * fabricated one.
+ * signature actually has. The non-finite branch is totality, not a defense:
+ * `deadlineSec` is produced in-process from a regex-validated uint, so it
+ * cannot arrive as NaN today; the branch keeps the function total if that
+ * ever changes, rather than rendering "Expires in NaN min".
  */
 function describeWcPayPermitExpiry({
   deadlineSec,
@@ -63,7 +73,14 @@ export function describeWcPaySigningSummary(
     // A permit hands a named spender a standing pull of the amount, so the
     // spender and how long it lasts are the two facts the amount alone does
     // not carry.
-    const parts = [`Spender ${shortenWcPayAddress(summary.summary.spender)}`];
+    const parts = [
+      `Spender ${accountUtils.shortenAddress({
+        address: summary.summary.spender,
+        minLength: 12,
+        leadingLength: 6,
+        trailingLength: 4,
+      })}`,
+    ];
     const expiry = describeWcPayPermitExpiry({
       deadlineSec: summary.summary.deadlineSec,
       nowMs,
@@ -78,6 +95,8 @@ export function describeWcPaySigningSummary(
   // name them.
   const parts: string[] = [];
   const fee = new BigNumber(summary.summary.priorityFeeLamports);
+  // isFinite() is load-bearing beyond the NaN case: it is what stops an
+  // 'Infinity' fee from rendering as "up to Infinity SOL".
   if (fee.isFinite() && fee.isGreaterThan(0)) {
     parts.push(
       `Network priority fee up to ${fee
@@ -86,7 +105,9 @@ export function describeWcPaySigningSummary(
     );
   }
   if (summary.summary.fundsRecipientAta) {
-    parts.push('Creates the recipient token account (small SOL rent)');
+    // Approximate on purpose: the standard ATA rent is ~0.002 SOL, but a
+    // Token-2022 mint with extensions needs a larger account and costs more.
+    parts.push('Creates the recipient token account (≈0.002 SOL rent)');
   }
   return parts.length > 0 ? parts.join(' · ') : 'Signs the payment transaction';
 }

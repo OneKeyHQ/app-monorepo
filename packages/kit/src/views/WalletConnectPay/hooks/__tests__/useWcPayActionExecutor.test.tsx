@@ -129,6 +129,7 @@ function buildAction({
 }
 
 type IControllerStub = IWcPayInlineController & {
+  onPhase: jest.Mock;
   onSigningSummary: jest.Mock;
   onInlineFailure: jest.Mock;
   onFallback: jest.Mock<void, []>;
@@ -711,6 +712,30 @@ describe('useWcPayActionExecutor inline signing', () => {
         option: permitOption,
         sourceInfo: expect.objectContaining({ scope: 'ethereum' }),
       }),
+    );
+  });
+
+  it('leaves the signing phase as soon as an inline signature exists', async () => {
+    // The sheet renders what is being signed only during `signingMessage`, so
+    // the phase must move on the moment the signature is in hand — otherwise
+    // the summary lingers on screen through a later action's confirm page or
+    // Permit2's minutes-long mined-wait, describing a signature already given.
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [permitAction],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: controller,
+    });
+
+    expect(controller.onPhase).toHaveBeenLastCalledWith('recording');
+    // The mocked pipeline emits no phases of its own, so this call can only
+    // come from the executor — and it is made after `await`ing the pipeline,
+    // which the ordering below pins down.
+    expect(controller.onPhase.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+      wcPayInlineSignTypedData.mock.invocationCallOrder[0],
     );
   });
 

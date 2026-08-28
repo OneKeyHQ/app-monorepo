@@ -343,6 +343,12 @@ export function useWcPayActionExecutor() {
           const result =
             'signature' in inline ? inline.signature : inline.rawTx;
           results.push(result);
+          // Same vocabulary as the send leg (wcPayInlineSendTx): the
+          // signature exists, what is left is bookkeeping. Announced before
+          // the persist so the sheet stops describing a signature already
+          // given — otherwise the summary would sit on screen through a later
+          // action's confirm page or Permit2's minutes-long mined-wait.
+          controller.onPhase('recording');
           await persistActionResult(index, result);
           return 'done';
         }
