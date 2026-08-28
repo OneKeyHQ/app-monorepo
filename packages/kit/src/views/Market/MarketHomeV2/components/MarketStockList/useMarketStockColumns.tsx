@@ -19,6 +19,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
+
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
@@ -74,7 +79,11 @@ export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
 }: {
-  /** Use the selector layout with a wider company column and denser rows. */
+  /**
+   * Use the selector layout: a wider company column and denser metric columns.
+   * The company cell itself stays identical to the full Stocks table so the
+   * dropdown reads as the same list.
+   */
   compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
@@ -90,9 +99,9 @@ export function useMarketStockColumns({
     const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
-          <XStack alignItems="center" gap="$1.5">
+          <XStack alignItems="center" gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}>
             <SizableText
-              width={24}
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
               textAlign="center"
               color="$textSubdued"
               size="$bodySmMedium"
@@ -113,26 +122,33 @@ export function useMarketStockColumns({
             minWidth={0}
             overflow="hidden"
             alignItems="center"
-            gap="$1.5"
+            // Star-slot to logo distance shared with Trending and Top coins.
+            gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}
           >
-            <Stack width={24} alignItems="center" justifyContent="center">
+            {/* Not a `MarketStarV2`: the stock list payload carries no
+                chain/contract pair, and the V2 watchlist is keyed by one, so
+                there is nothing to favorite yet. Plain icon until the list
+                endpoint returns a tokenized variant to watch. */}
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
-            <XStack
-              flex={1}
-              minWidth={0}
-              alignItems="center"
-              gap={compact ? '$1.5' : 14}
-            >
+            {/* The company cell keeps the full Stocks table presentation on
+                every surface: `compact` only affects column widths and the
+                metric columns. */}
+            <XStack flex={1} minWidth={0} alignItems="center" gap={14}>
               <Token
-                size={compact ? 'xs' : 'lg'}
+                size="lg"
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
               <YStack flex={1} minWidth={0} justifyContent="center">
                 <SizableText
-                  size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
+                  size="$bodyLgMedium"
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
@@ -151,13 +167,9 @@ export function useMarketStockColumns({
           </XStack>
         ),
         renderSkeleton: () => (
-          <XStack alignItems="center" gap={compact ? '$1.5' : 14}>
+          <XStack alignItems="center" gap={14}>
             <Skeleton width={24} height={16} />
-            <Skeleton
-              width={compact ? 20 : 40}
-              height={compact ? 20 : 40}
-              borderRadius="$full"
-            />
+            <Skeleton width={40} height={40} borderRadius="$full" />
             <YStack gap="$1">
               <Skeleton width={64} height={16} />
               <Skeleton width={96} height={14} />

@@ -50,11 +50,12 @@ export const MARKET_TOKEN_ROW_GROUP_NAME = 'marketTokenRow' as const;
 
 // The token age and the contract address share one line-height window and the
 // pair slides up on hover, so the age is pushed out by the address rather than
-// dissolving underneath it. 16px is the `$bodySm` line box both lines use.
-const TOKEN_SECONDARY_LINE_HEIGHT = 16;
+// dissolving underneath it. 20px is the `$bodyMd` line box both lines use — the
+// same subtitle size the Stocks table first column uses.
+const TOKEN_SECONDARY_LINE_HEIGHT = 20;
 
 const secondaryTextProps = {
-  size: '$bodySm',
+  size: '$bodyMd',
   color: '$textSubdued',
   numberOfLines: 1,
   ellipsizeMode: 'tail',
@@ -262,7 +263,16 @@ export function useTrendingColumnsDesktop({
             : undefined;
 
           return (
-            <XStack alignItems="center" gap="$3" minWidth={0}>
+            // Same first-cell frame as the Stocks table: bounded to the column
+            // width so the symbol and subtitle ellipsize instead of overflowing,
+            // and a 14px logo-to-text gap.
+            <XStack
+              width="100%"
+              minWidth={0}
+              overflow="hidden"
+              alignItems="center"
+              gap={14}
+            >
               <Token
                 size="lg"
                 borderRadius="$full"
@@ -271,11 +281,12 @@ export function useTrendingColumnsDesktop({
                 networkImageUri={record.networkLogoUri}
                 fallbackIcon="CryptoCoinOutline"
               />
-              <YStack minWidth={0} flex={1} gap="$0.5">
+              <YStack flex={1} minWidth={0} justifyContent="center">
                 <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
+                    flexShrink={1}
                     ellipsizeMode="tail"
                   >
                     {record.symbol}
@@ -293,7 +304,7 @@ export function useTrendingColumnsDesktop({
           );
         },
         renderSkeleton: () => (
-          <XStack alignItems="center" gap="$3">
+          <XStack alignItems="center" gap={14}>
             <Skeleton width={40} height={40} borderRadius="$full" />
             <YStack gap="$1">
               <Skeleton width={80} height={16} />
@@ -366,7 +377,11 @@ export function useTrendingColumnsDesktop({
         dataIndex: 'transactions',
         columnProps: { flex: 1 },
         render: (value: number, record: IMarketToken) => (
-          <Txns transactions={value} walletInfo={record.walletInfo} />
+          <Txns
+            transactions={value}
+            walletInfo={record.walletInfo}
+            primarySize="$bodyLgMedium"
+          />
         ),
         renderSkeleton: () => (
           <YStack gap="$1">

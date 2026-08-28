@@ -20,7 +20,11 @@ import type { IMarketToken } from '@onekeyhq/shared/types/market';
 
 import { PriceChangePercentage } from '../../../components/PriceChangePercentage';
 import SparklineChart from '../../../components/SparklineChart';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -108,10 +112,22 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
       {
         title: '#',
         dataIndex: 'star',
-        columnWidth: 48,
+        // The column width carries the distance from the star slot to the next
+        // column's logo, so the name column below starts flush at its own edge.
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
         columnProps: { flexShrink: 0, px: '$2' },
+        // Not a `MarketStarV2`: this list is served by the legacy CoinGecko
+        // category endpoint, whose items carry only a `coingeckoId` — the V2
+        // watchlist is keyed by chain + contract, so there is nothing to
+        // favorite yet. Plain icon on the same slot as the other lists.
         render: () => (
-          <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+          <Stack
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+          </Stack>
         ),
         renderSkeleton: () => (
           <Skeleton width={24} height={24} borderRadius="$full" />
@@ -121,25 +137,34 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
         title: 'Name',
         dataIndex: 'name',
         columnWidth: 220,
-        columnProps: { flexShrink: 0, px: '$2' },
+        // No left padding: the star column already spends the shared star-to-
+        // logo distance, so the logo starts on this column's edge.
+        columnProps: { flexShrink: 0, pl: 0, pr: '$2' },
         render: (_: unknown, record: IMarketToken) => (
-          <XStack alignItems="center" gap={14} minWidth={0}>
+          // `width="100%"` + `overflow="hidden"` bound the cell to its column so
+          // the symbol and the name below it can actually ellipsize; without
+          // them the row is a non-shrinking flex item and the text overflows.
+          <XStack
+            width="100%"
+            minWidth={0}
+            overflow="hidden"
+            alignItems="center"
+            gap={14}
+          >
             <Token
               size="lg"
               borderRadius="$full"
               tokenImageUri={record.image || record.iconUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <YStack flex={1} minWidth={0}>
-              <XStack alignItems="center" gap="$2" minWidth={0}>
-                <SizableText
-                  size="$bodyLgMedium"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {record.symbol.toUpperCase()}
-                </SizableText>
-              </XStack>
+            <YStack flex={1} minWidth={0} justifyContent="center">
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {record.symbol.toUpperCase()}
+              </SizableText>
               <SizableText
                 size="$bodyMd"
                 color="$textSubdued"

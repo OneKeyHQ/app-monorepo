@@ -4,6 +4,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 
 export interface ITxnsWalletInfo {
   /** Positive (green) count, e.g. incoming wallets */
@@ -21,6 +22,12 @@ interface ITxnsProps {
    * Wallet info object containing buy & sell counts.
    */
   walletInfo?: ITxnsWalletInfo;
+  /**
+   * Text size of the total-transactions line. Defaults to the compact size the
+   * spot table uses; Trending passes `$bodyLgMedium` so the value lines up with
+   * the other metric columns on that table.
+   */
+  primarySize?: ISizableTextProps['size'];
 }
 
 /**
@@ -31,11 +38,15 @@ interface ITxnsProps {
  *   38.55K/39.64K
  *
  */
-export function Txns({ transactions, walletInfo }: ITxnsProps) {
+export function Txns({
+  transactions,
+  walletInfo,
+  primarySize = '$bodyMd',
+}: ITxnsProps) {
   return (
     <YStack gap="$0.5">
       {/* Total transactions */}
-      <NumberSizeableText size="$bodyMd" formatter="marketCap">
+      <NumberSizeableText size={primarySize} formatter="marketCap">
         {transactions === 0 ? '--' : transactions}
       </NumberSizeableText>
 
