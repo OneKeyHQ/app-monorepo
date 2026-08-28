@@ -13,7 +13,6 @@ import {
   extractWcPaySolanaTransaction,
   wcPaySolanaTxToEncodedTx,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
-import { WC_PAY_PERMIT_MAX_DEADLINE_S } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayMessageConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
@@ -43,6 +42,7 @@ import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
+  WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
   classifyWcPayInlineFailure,
   getWcPayInlineMessagePlan,

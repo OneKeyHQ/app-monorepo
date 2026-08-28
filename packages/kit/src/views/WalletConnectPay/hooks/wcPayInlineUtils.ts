@@ -8,6 +8,7 @@ import {
 import {
   type IWcPayResolvedToken,
   type IWcPayTypedDataSummary,
+  WC_PAY_PERMIT_MAX_DEADLINE_S,
   checkWcPayTypedDataMatchesOrder,
   readWcPayPermitTokenAddress,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayMessageConsistency';
@@ -349,8 +350,9 @@ export function getWcPayInlineTxPlan({
 
 // Re-exported from this leaf module so a caller can resolve the permit's
 // token through its own registry — the input `getWcPayInlineMessagePlan`
-// demands — without importing kit-bg's validator directly.
-export { readWcPayPermitTokenAddress };
+// demands — and tighten the deadline bound it enforces, without importing
+// kit-bg's validator directly.
+export { readWcPayPermitTokenAddress, WC_PAY_PERMIT_MAX_DEADLINE_S };
 
 /**
  * The Permit2 typed-data gate. `resolvedToken` is the caller's registry

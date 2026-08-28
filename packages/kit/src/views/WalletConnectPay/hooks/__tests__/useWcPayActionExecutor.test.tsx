@@ -1032,6 +1032,168 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(pushModalMock).toHaveBeenCalledTimes(1);
   });
 
+  // Solana sibling of the two prefix tests above: the sign-only pipeline
+  // raises the same password/hardware prompt, so it obeys the same guard.
+  it('stops with the collected prefix instead of signing a Solana action once the page closed', async () => {
+    const cancelController = new AbortController();
+    getNetworkAccount
+      .mockResolvedValueOnce({ id: 'account-1', address: SENDER })
+      .mockImplementationOnce(() => {
+        cancelController.abort();
+        return Promise.resolve({ id: 'account-1', address: SOL_PAYER });
+      });
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [
+        // an EVM transfer can never match a Solana order, so it takes the
+        // confirm page and leaves the inline spend budget untouched
+        buildAction({
+          method: EWcPayActionMethod.EthSendTransaction,
+          params: [{ from: SENDER, to: SENDER, value: '0x1' }],
+          chainId: 'eip155:8453',
+        }),
+        solanaAction,
+      ],
+      accountId: 'account-1',
+      option: solOption,
+      inlineController: buildController(),
+      cancelSignal: cancelController.signal,
+    });
+
+    expect(signatures).toEqual(['0xtxid-confirm']);
+    expect(wcPayInlineSignSolanaTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
+  // The inline attempt itself spans an unbounded stretch (network, prompts),
+  // so each branch re-checks between the attempt and the confirm push: a
+  // modal pushed onto a stack whose owner is gone is unrecoverable.
+  it('does not push MessageConfirm when the page closes during a typed-data attempt', async () => {
+    const cancelController = new AbortController();
+    wcPayInlineSignTypedData.mockImplementation(() => {
+      cancelController.abort();
+      return Promise.resolve({ status: 'fallback', reason: 'x' });
+    });
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: [permitAction],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      }),
+    ).rejects.toBeInstanceOf(WcPayUserCancelledError);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).not.toHaveBeenCalled();
+  });
+
+  it('does not push TxConfirm when the page closes during a Solana attempt', async () => {
+    const cancelController = new AbortController();
+    getNetworkAccount.mockResolvedValue({
+      id: 'account-1',
+      address: SOL_PAYER,
+    });
+    wcPayInlineSignSolanaTx.mockImplementation(() => {
+      cancelController.abort();
+      return Promise.resolve({ status: 'fallback', reason: 'x' });
+    });
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: [solanaAction],
+        accountId: 'account-1',
+        option: solOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      }),
+    ).rejects.toBeInstanceOf(WcPayUserCancelledError);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).not.toHaveBeenCalled();
+  });
+
+  it('does not push TxConfirm when the page closes during an inline send attempt', async () => {
+    const cancelController = new AbortController();
+    wcPayInlineSendTx.mockImplementation(() => {
+      cancelController.abort();
+      return Promise.resolve({
+        status: 'fallback',
+        failure: {
+          kind: EWcPayInlineFailureKind.PreSignBlocked,
+          message: 'x',
+          retryable: false,
+        },
+      });
+    });
+    const controller = buildController();
+    controller.onInlineFailure.mockResolvedValue('fallback');
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: [buildTransferAction()],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      }),
+    ).rejects.toBeInstanceOf(WcPayUserCancelledError);
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses to inline a Solana action after the sequence already inlined a transfer', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildTransferAction(), solanaAction],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: buildController(),
+    });
+
+    expect(signatures).toEqual(['0xinline', 'rawtx-confirm']);
+    expect(wcPayInlineSignSolanaTx).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      'inline spend budget exhausted',
+    );
+    warnSpy.mockRestore();
+  });
+
+  // The budget is spent at the ATTEMPT, not at its success: an attempt may
+  // already have moved funds by the time it reports back, so a failed one
+  // must not hand the sequence a second inline spend.
+  it('counts a failed inline attempt against the sequence budget', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    wcPayInlineSignTypedData.mockResolvedValue({
+      status: 'fallback',
+      reason: 'x',
+    });
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [permitAction, buildTransferAction()],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: buildController(),
+    });
+
+    expect(signatures).toEqual(['0xsig-modal', '0xtxid-confirm']);
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      'inline spend budget exhausted',
+    );
+    warnSpy.mockRestore();
+  });
+
   // Without a controller (or without the selected option) nothing may be
   // signed inline, whatever the payload proves.
   it('never signs inline without an inline controller', async () => {
