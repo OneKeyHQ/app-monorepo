@@ -23,6 +23,8 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../../constants';
+
 import {
   createTradingViewChartSettingsValue,
   toggleTradingViewSettingsMockAppearanceItem,
@@ -53,7 +55,7 @@ const NAVIGATION_TRANSLATION_IDS: Record<
 };
 
 const OPTION_TRANSLATION_IDS: Record<
-  keyof ITradingViewChartSettingsOptions,
+  Exclude<keyof ITradingViewChartSettingsOptions, 'previousClose'>,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
@@ -913,75 +915,90 @@ export function TradingViewChartSettings({
         </SettingsGroup>
       ) : null}
 
-      {isOptionVisible('latestPrice') ? (
+      {isOptionVisible('latestPrice') || isOptionVisible('previousClose') ? (
         <SettingsGroup
           title={intl.formatMessage({
             id: ETranslations.market_chart_settings__price_label_and_line,
           })}
         >
-          <SettingsCheckboxRow
-            label={intl.formatMessage({
-              id: OPTION_TRANSLATION_IDS.latestPrice,
-            })}
-            testID="latest-price"
-            value={settingsValue.options.latestPrice}
-            disabled={submitInProgress}
-            onChange={(checked) => handleOptionChange('latestPrice', checked)}
-          >
-            <XStack
-              gap="$3"
-              alignItems="center"
-              justifyContent="flex-end"
-              flexWrap="wrap"
-              opacity={settingsValue.options.latestPrice ? 1 : 0.5}
+          {isOptionVisible('latestPrice') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.latestPrice,
+              })}
+              testID="latest-price"
+              value={settingsValue.options.latestPrice}
+              disabled={submitInProgress}
+              onChange={(checked) => handleOptionChange('latestPrice', checked)}
             >
-              <SettingsSelect
-                testID="latest-price-line-style"
-                title={intl.formatMessage({
-                  id: ETranslations.market_chart_settings__line_style,
-                })}
-                value={settingsValue.latestPriceLine.style}
-                options={['solid', 'dashed']}
-                disabled={
-                  submitInProgress || !settingsValue.options.latestPrice
-                }
-                showLinePreview
-                onChange={(style) => {
-                  updateSettingsValue((currentValue) => ({
-                    ...currentValue,
-                    latestPriceLine: {
-                      ...currentValue.latestPriceLine,
-                      style,
-                    },
-                  }));
-                }}
-              />
-              <SettingsColorField
-                label={intl.formatMessage({
-                  id: ETranslations.market_chart_settings__up,
-                })}
-                testID="latest-price-up-color"
-                value={settingsValue.latestPriceLine.upColor}
-                disabled={
-                  submitInProgress || !settingsValue.options.latestPrice
-                }
-                onChange={(color) => handleLatestPriceColorChange('up', color)}
-              />
-              <SettingsColorField
-                label={intl.formatMessage({
-                  id: ETranslations.market_chart_settings__down,
-                })}
-                testID="latest-price-down-color"
-                value={settingsValue.latestPriceLine.downColor}
-                disabled={
-                  submitInProgress || !settingsValue.options.latestPrice
-                }
-                onChange={(color) =>
-                  handleLatestPriceColorChange('down', color)
-                }
-              />
-            </XStack>
-          </SettingsCheckboxRow>
+              <XStack
+                gap="$3"
+                alignItems="center"
+                justifyContent="flex-end"
+                flexWrap="wrap"
+                opacity={settingsValue.options.latestPrice ? 1 : 0.5}
+              >
+                <SettingsSelect
+                  testID="latest-price-line-style"
+                  title={intl.formatMessage({
+                    id: ETranslations.market_chart_settings__line_style,
+                  })}
+                  value={settingsValue.latestPriceLine.style}
+                  options={['solid', 'dashed']}
+                  disabled={
+                    submitInProgress || !settingsValue.options.latestPrice
+                  }
+                  showLinePreview
+                  onChange={(style) => {
+                    updateSettingsValue((currentValue) => ({
+                      ...currentValue,
+                      latestPriceLine: {
+                        ...currentValue.latestPriceLine,
+                        style,
+                      },
+                    }));
+                  }}
+                />
+                <SettingsColorField
+                  label={intl.formatMessage({
+                    id: ETranslations.market_chart_settings__up,
+                  })}
+                  testID="latest-price-up-color"
+                  value={settingsValue.latestPriceLine.upColor}
+                  disabled={
+                    submitInProgress || !settingsValue.options.latestPrice
+                  }
+                  onChange={(color) =>
+                    handleLatestPriceColorChange('up', color)
+                  }
+                />
+                <SettingsColorField
+                  label={intl.formatMessage({
+                    id: ETranslations.market_chart_settings__down,
+                  })}
+                  testID="latest-price-down-color"
+                  value={settingsValue.latestPriceLine.downColor}
+                  disabled={
+                    submitInProgress || !settingsValue.options.latestPrice
+                  }
+                  onChange={(color) =>
+                    handleLatestPriceColorChange('down', color)
+                  }
+                />
+              </XStack>
+            </SettingsCheckboxRow>
+          ) : null}
+          {isOptionVisible('previousClose') ? (
+            <SettingsCheckboxRow
+              label={TRADING_VIEW_PREVIOUS_CLOSE_LABEL}
+              testID="previous-close"
+              value={settingsValue.options.previousClose}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('previousClose', checked)
+              }
+            />
+          ) : null}
         </SettingsGroup>
       ) : null}
     </YStack>

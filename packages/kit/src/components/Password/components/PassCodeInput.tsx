@@ -62,6 +62,7 @@ function BasicPassCodeInput(
     cell: {
       width: 16,
       height: 16,
+      overflow: 'visible',
     },
   });
 

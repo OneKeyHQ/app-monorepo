@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
@@ -37,7 +38,6 @@ import { TokenDesktopLayout } from './TokenDesktopLayout';
 import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 360,
@@ -77,21 +77,6 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 
 const infoTabsLoadingFallback = (
   <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight} />
-);
-
-const chartLoadingFallback = (
-  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
-);
-
-const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
-    ).then(({ MarketTradingView }) => ({
-      default: MarketTradingView,
-    })),
-  undefined,
-  chartLoadingFallback,
 );
 
 const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
@@ -168,6 +153,7 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
@@ -263,6 +249,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -383,7 +370,7 @@ export function DesktopLayout({
     }
 
     return (
-      <LazyMarketTradingView
+      <LazyDesktopMarketTradingView
         key={
           isStockSharePrice
             ? `stock-share:${stockId ?? ''}`
@@ -397,6 +384,7 @@ export function DesktopLayout({
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
         isNative={effectiveMarketTradingViewParams?.isNative}
+        decimal={marketTradingViewParams?.decimal}
         dataSource={
           isStockSharePrice
             ? 'polling'
@@ -432,6 +420,7 @@ export function DesktopLayout({
     effectiveMarketTradingViewParams,
     legacyCoinGeckoChartId,
     legacyKLineDataFallback,
+    marketTradingViewParams?.decimal,
     networkId,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,

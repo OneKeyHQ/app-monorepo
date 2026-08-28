@@ -27,6 +27,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
@@ -292,32 +293,35 @@ function MarketDetailV2(
   );
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <>
+      <TradingViewEmbedGlobalPreload />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
       >
-        <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
-        <StockDetailProvider
-          stockId={stockId}
-          initialNetworkId={initialNetworkId}
-          initialTokenAddress={initialTokenAddress}
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
         >
-          <MarketDetail
-            {...props}
-            isChartFullscreen={effectiveIsChartFullscreen}
-            isTradingViewNative={isTradingViewNative}
-            onChartSwitch={handleChartSwitch}
-            onChartFullscreenChange={handleChartFullscreenChange}
-          />
-        </StockDetailProvider>
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+          <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
+          <StockDetailProvider
+            stockId={stockId}
+            initialNetworkId={initialNetworkId}
+            initialTokenAddress={initialTokenAddress}
+          >
+            <MarketDetail
+              {...props}
+              isChartFullscreen={effectiveIsChartFullscreen}
+              isTradingViewNative={isTradingViewNative}
+              onChartSwitch={handleChartSwitch}
+              onChartFullscreenChange={handleChartFullscreenChange}
+            />
+          </StockDetailProvider>
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </>
   );
 }
 

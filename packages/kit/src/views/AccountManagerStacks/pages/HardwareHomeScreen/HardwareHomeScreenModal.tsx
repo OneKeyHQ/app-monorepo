@@ -211,7 +211,7 @@ function HomeScreenImageItem({
             bottom="$1.5"
             zIndex={100}
             // backgroundColor="$bg"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid
@@ -244,7 +244,7 @@ function HomeScreenImageItem({
             zIndex={101}
             borderRadius="$full"
             backgroundColor="$bg"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid

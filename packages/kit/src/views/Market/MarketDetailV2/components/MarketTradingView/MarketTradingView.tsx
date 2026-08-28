@@ -118,6 +118,9 @@ export interface IMarketTradingViewProps {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   disableChartPriceUpdate?: boolean;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export const MarketTradingView = memo(
@@ -148,6 +151,9 @@ export const MarketTradingView = memo(
     kLineDataFallback,
     primaryKLineDataUnavailable,
     disableChartPriceUpdate,
+    onChartError,
+    onChartReady,
+    onVisualReady,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -205,6 +211,9 @@ export const MarketTradingView = memo(
         onPriceUpdate={handlePriceUpdate}
         kLineDataFallback={kLineDataFallback}
         primaryKLineDataUnavailable={primaryKLineDataUnavailable}
+        onChartError={onChartError}
+        onChartReady={onChartReady}
+        onVisualReady={onVisualReady}
         disabledFeatures={
           forceCandlestickChart
             ? STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES

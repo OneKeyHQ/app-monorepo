@@ -56,6 +56,8 @@ public class MainActivity extends ReactActivity {
     int windowedFailures = BootRecoveryStore.recordBootAttempt(
       getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE)
     );
+    boolean shouldEnterRecovery = MainApplication.shouldShowRecovery
+      || windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
@@ -88,6 +90,11 @@ public class MainActivity extends ReactActivity {
         // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
       }
     }
+    if (!shouldEnterRecovery) {
+      ((MainApplication) getApplication())
+        .startBackgroundThreadIfNeeded("main_activity_pre_super");
+    }
+
     long tBeforeSuper = System.currentTimeMillis();
     super.onCreate(null);
     long tAfterSuper = System.currentTimeMillis();
@@ -101,8 +108,7 @@ public class MainActivity extends ReactActivity {
     // so when the third user-launch in the 10-minute window finally crosses
     // the threshold, MainApplication.shouldShowRecovery is still false on
     // this launch and we have to route to recovery ourselves.
-    if (MainApplication.shouldShowRecovery
-        || windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD) {
+    if (shouldEnterRecovery) {
         startActivity(new Intent(this, RecoveryActivity.class));
         finish();
         return;

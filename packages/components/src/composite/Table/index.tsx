@@ -207,7 +207,7 @@ function TableRow<T>({
     ? {
         scale: isDragging ? 0.9 : 1,
         animateOnly: ANIMATE_ONLY_TRANSFORM,
-        animation: 'quick',
+        transition: 'quick',
       }
     : {};
 

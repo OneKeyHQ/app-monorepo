@@ -68,7 +68,7 @@ function BannerItem<T extends IBannerData>({
       borderTopRightRadius={isLast ? '$3' : 0}
       borderBottomRightRadius={isLast ? '$3' : 0}
       overflow="hidden"
-      tag="section"
+      render="section"
       flex={1}
       position="relative"
       userSelect="none"

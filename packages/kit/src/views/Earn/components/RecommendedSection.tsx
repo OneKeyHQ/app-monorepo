@@ -418,7 +418,7 @@ function WebRecommendedScroller({
         pr="$4"
         opacity={showLeftArrow ? 1 : 0}
         pointerEvents={showLeftArrow ? 'auto' : 'none'}
-        animation="quick"
+        transition="quick"
         animateOnly={['opacity']}
         style={{
           background:
@@ -446,7 +446,7 @@ function WebRecommendedScroller({
         pl="$4"
         opacity={showRightArrow ? 1 : 0}
         pointerEvents={showRightArrow ? 'auto' : 'none'}
-        animation="quick"
+        transition="quick"
         animateOnly={['opacity']}
         style={{
           background:

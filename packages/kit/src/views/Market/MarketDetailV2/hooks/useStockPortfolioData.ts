@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -210,7 +211,10 @@ export function useStockPortfolioData() {
             networkDefaultDeriveType,
             networkId,
             portfolioNetworkId,
-            selectedDeriveType,
+            selectedDeriveType: getSelectedDeriveTypeForNetwork(
+              selectedDeriveType,
+              networkId,
+            ),
           }),
         });
       return {

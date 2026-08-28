@@ -13,7 +13,7 @@ function CalculationList({ children }: IYStackProps) {
 function CalculationListItem({ children, ...rest }: IXStackProps) {
   return (
     <XStack
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY}
       enterStyle={{ opacity: 0 }}
       justifyContent="space-between"

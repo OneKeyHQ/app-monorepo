@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren, RefObject } from 'react';
+import type { PropsWithChildren, Ref, RefObject } from 'react';
 
 import { debounce } from 'lodash';
 import { useAnimatedReaction, useSharedValue } from 'react-native-reanimated';
@@ -22,6 +22,7 @@ import { TabBar } from './TabBar';
 import { useConvertAnimatedToValue } from './useFocusedTab';
 import { parseCssSize } from './utils';
 
+import type { TamaguiElement } from '../../shared/tamagui';
 import type { LayoutChangeEvent } from 'react-native';
 import type {
   CollapsibleProps,
@@ -33,6 +34,8 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 const childDivStyle = {
+  display: 'flex',
+  flexDirection: 'column',
   width: '100%',
   flexShrink: 0,
   scrollSnapAlign: 'center',
@@ -45,6 +48,7 @@ export function ContainerChild({
   focusedTab,
   tabNames,
   disableWebTabContentVisibility,
+  fillAvailableSpace,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
@@ -52,6 +56,7 @@ export function ContainerChild({
   focusedTab: SharedValue<string>;
   tabNames: (string | null)[];
   disableWebTabContentVisibility: boolean;
+  fillAvailableSpace: boolean;
 }) {
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -112,11 +117,43 @@ export function ContainerChild({
     () => syncFocusedTabVisibility(focusedTabValue ?? ''),
     [focusedTabValue, syncFocusedTabVisibility],
   );
+
+  useLayoutEffect(() => {
+    // WindowScroller inserts an unstyled wrapper between the flex container and pager.
+    const windowScrollerElement = listContainerRef.current
+      ?.parentElement as HTMLElement | null;
+    if (!fillAvailableSpace || !windowScrollerElement) {
+      return;
+    }
+
+    const previousStyle = {
+      display: windowScrollerElement.style.display,
+      flexDirection: windowScrollerElement.style.flexDirection,
+      flexGrow: windowScrollerElement.style.flexGrow,
+      flexShrink: windowScrollerElement.style.flexShrink,
+      minHeight: windowScrollerElement.style.minHeight,
+      minWidth: windowScrollerElement.style.minWidth,
+    };
+    Object.assign(windowScrollerElement.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      flexGrow: '1',
+      flexShrink: '0',
+      minHeight: '0',
+      minWidth: '0',
+    });
+
+    return () => {
+      Object.assign(windowScrollerElement.style, previousStyle);
+    };
+  }, [fillAvailableSpace, listContainerRef]);
+
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
         width={containerWidth || props.width}
+        flexGrow={fillAvailableSpace ? 1 : undefined}
         overflow="hidden"
         style={scrollSnapStyle}
       >
@@ -684,7 +721,7 @@ export function Container({
       className="onekey-tabs-container"
       position="relative"
       style={disableScroll ? undefined : overflowYScrollStyle}
-      ref={ref as React.RefObject<HTMLDivElement>}
+      ref={ref as unknown as Ref<TamaguiElement>}
     >
       {scrollElement ? (
         <TabsContext.Provider value={contextValue as any}>
@@ -733,6 +770,7 @@ export function Container({
                   disableWebTabContentVisibility={
                     disableWebTabContentVisibility
                   }
+                  fillAvailableSpace={Boolean(disableScroll)}
                 >
                   {children}
                 </ContainerChild>
