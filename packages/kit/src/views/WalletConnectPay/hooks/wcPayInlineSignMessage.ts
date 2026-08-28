@@ -20,6 +20,19 @@ import type {
 } from './wcPayInlineUtils';
 
 /**
+ * Diagnostic text for a returned fallback. A bare string reject (RPC and some
+ * validators throw one) would otherwise lose its only diagnostic.
+ */
+function wcPayInlineSignFallbackReason(
+  error: unknown,
+  defaultReason: string,
+): string {
+  const reason =
+    typeof error === 'string' ? error : (error as Error | undefined)?.message;
+  return reason || defaultReason;
+}
+
+/**
  * Headless counterpart of `MessageConfirmActions.handleSignMessage` for the WC
  * Pay Permit2 leg: the same backup gate, the same pre-sign validation, the
  * same unsigned message, and the same signature-history write the confirm page
@@ -95,23 +108,52 @@ export async function wcPayInlineSignTypedData({
     return { status: 'abort' };
   }
 
-  // Bind the signing account to the account the order names. A Permit2
-  // signature authorizes a spend from whoever signed it, and the payload's
-  // own `from` is only echoed back into `payload[0]` from this same
-  // argument — so nothing else here would notice an incorrectly wired
-  // caller authorizing a different account than the user approved. Hard
-  // abort rather than fallback: the confirm page would sign with the same
-  // wrong account just as silently.
+  // Bind the ORDER to the KEY behind `accountId` — the key that actually
+  // signs, resolved here rather than trusted from an argument. A Permit2
+  // signature authorizes a spend from whoever signed it, so a caller wired to
+  // the wrong account would authorize a spend the user never approved, and
+  // nothing else on this path would notice.
+  //
+  // `accountAddress` is only the payload echo (it becomes the typed data's own
+  // `from` in payload[0]), so it is checked against the same derived address:
+  // a `from` the signing key does not back would make the signed payload lie
+  // about its sender.
+  //
+  // Hard abort rather than fallback: the confirm page would sign with the same
+  // wrong key just as silently.
+  let signerAddress: string;
+  try {
+    signerAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+  } catch (error) {
+    // Same disposition as the send leg's 'prepare' stage: an address we could
+    // not resolve is an unknown blocker, not a verdict about the account.
+    return {
+      status: 'fallback',
+      reason: wcPayInlineSignFallbackReason(
+        error,
+        'failed to resolve the signing account',
+      ),
+    };
+  }
+
   const optionAddress = option.account.split(':')[2];
   if (
     !optionAddress ||
+    !signerAddress ||
     !accountAddress ||
-    optionAddress.toLowerCase() !== accountAddress.toLowerCase()
+    optionAddress.toLowerCase() !== signerAddress.toLowerCase() ||
+    accountAddress.toLowerCase() !== signerAddress.toLowerCase()
   ) {
     console.error(
       'wcPay inline account mismatch: option account',
       optionAddress,
       'signing account',
+      signerAddress,
+      'payload account',
       accountAddress,
     );
     // copy pending product i18n keys
@@ -132,12 +174,12 @@ export async function wcPayInlineSignTypedData({
       network.impl,
     );
   } catch (error) {
-    // A bare string reject would otherwise lose its only diagnostic.
-    const reason =
-      typeof error === 'string' ? error : (error as Error | undefined)?.message;
     return {
       status: 'fallback',
-      reason: reason || 'typed data validation failed',
+      reason: wcPayInlineSignFallbackReason(
+        error,
+        'typed data validation failed',
+      ),
     };
   }
 

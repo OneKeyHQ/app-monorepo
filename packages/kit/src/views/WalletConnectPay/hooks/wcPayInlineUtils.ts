@@ -180,6 +180,15 @@ export function isWcPayInlineUserCancel(error: unknown): boolean {
       className: [
         EOneKeyErrorClassNames.PasswordPromptDialogCancel,
         EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+        // Must be matched by class, not by its code. `UserCancelFromOutside`
+        // overrides `className`, and the `$isHardwareError` own property that
+        // would otherwise identify it survives neither `toPlainErrorObject`
+        // nor the JsBridge serializer — so once the rejection crosses from bg
+        // to main on iOS, Android or the extension, nothing marks it as a
+        // hardware error and the code list below is never consulted. The
+        // codes still cover the single-runtime case (desktop, web) and every
+        // hardware error that keeps the base className.
+        EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       ],
     })
   ) {

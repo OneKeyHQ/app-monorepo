@@ -3,10 +3,12 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import type { IWcPaySolanaConsistencyResult } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
 import {
   PasswordPromptDialogCancel,
+  PinCancelled,
   SecureQRCodeDialogCancel,
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IWcPayAction,
   IWcPayOption,
@@ -910,8 +912,32 @@ describe('isWcPayInlineUserCancel', () => {
   // There is no `HardwareErrorCode.UserCancelFromOutside`; the real error is
   // this class, which carries DeviceInterruptedFromOutside. Constructed for
   // real so the coverage claim rests on the shipped definition, not a fixture.
-  it('recognizes a real UserCancelFromOutside instance', () => {
-    expect(isWcPayInlineUserCancel(new UserCancelFromOutside())).toBe(true);
+  //
+  // Both runtime shapes are asserted because they take different routes
+  // through the detector. Desktop and web run bg and main in one runtime, so
+  // the live instance arrives intact. On iOS, Android and the extension the
+  // rejection crosses the bridge as a plain object: `instanceof` and the
+  // `$isHardwareError` own property are both gone, and this class overrides
+  // `className` to HardwareUserCancelFromOutside — so nothing identifies it
+  // as a hardware error any more and its code is never consulted. Only the
+  // className entry catches that form.
+  it.each<[string, () => unknown]>([
+    ['as a live instance', () => new UserCancelFromOutside()],
+    [
+      'after crossing the bridge as a plain object',
+      () => toPlainErrorObject(new UserCancelFromOutside()),
+    ],
+  ])('recognizes UserCancelFromOutside %s', (_name, build) => {
+    expect(isWcPayInlineUserCancel(build())).toBe(true);
+  });
+
+  // The counterpart that still works on codes alone: PinCancelled does not
+  // override className, so the plain object keeps `OneKeyHardwareError` and
+  // stays recognizable as a hardware error across the bridge.
+  it('recognizes a bridged PinCancelled through its surviving hardware class', () => {
+    const plain = toPlainErrorObject(new PinCancelled());
+    expect(plain.className).toBe(EOneKeyErrorClassNames.OneKeyHardwareError);
+    expect(isWcPayInlineUserCancel(plain)).toBe(true);
   });
 
   // The rule under test: classification comes from the class and the code,

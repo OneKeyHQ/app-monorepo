@@ -29,6 +29,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceAccount: {
       checkIsWalletNotBackedUp: jest.fn(),
+      getAccountAddressForApi: jest.fn(),
     },
     serviceNetwork: {
       getNetwork: jest.fn(),
@@ -115,6 +116,9 @@ describe('wcPayInlineSignTypedData', () => {
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     validateTypedSignMessageDataV3V4.mockResolvedValue(undefined);
     api.serviceAccount.checkIsWalletNotBackedUp.mockResolvedValue(false);
+    api.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      ACCOUNT_ADDRESS,
+    );
     api.serviceNetwork.getNetwork.mockResolvedValue({
       impl: 'evm',
       chainId: '8453',
@@ -181,7 +185,9 @@ describe('wcPayInlineSignTypedData', () => {
     expect(onPhase).not.toHaveBeenCalled();
   });
 
-  it('refuses to sign for an account the order does not name', async () => {
+  // The guard binds the order to the KEY behind accountId, so the address it
+  // trusts is the one derived from that key — never a caller-supplied one.
+  it('refuses to sign when the order names an account other than the signing key', async () => {
     await expect(
       wcPayInlineSignTypedData({
         ...baseParams,
@@ -198,10 +204,44 @@ describe('wcPayInlineSignTypedData', () => {
     ).toContain('wcPay inline account mismatch');
   });
 
-  it('accepts an order account that differs only in case', async () => {
+  // payload[0] is the typed data's own `from`. If it is not the signing key,
+  // the signature would carry an echoed sender the key does not back.
+  it('refuses to sign when the payload address is not the signing key', async () => {
     await expect(
       wcPayInlineSignTypedData({
         ...baseParams,
+        accountAddress: OTHER_ADDRESS,
+      }),
+    ).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
+  });
+
+  it('refuses to sign when the signing key resolves to a third address', async () => {
+    api.serviceAccount.getAccountAddressForApi.mockResolvedValue(OTHER_ADDRESS);
+
+    await expect(wcPayInlineSignTypedData(baseParams)).rejects.toThrow(
+      GENERIC_ABORT_MESSAGE,
+    );
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
+  });
+
+  it('falls back when the signing account cannot be resolved', async () => {
+    api.serviceAccount.getAccountAddressForApi.mockRejectedValueOnce(
+      new Error('no account'),
+    );
+
+    await expect(wcPayInlineSignTypedData(baseParams)).resolves.toEqual({
+      status: 'fallback',
+      reason: 'no account',
+    });
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
+  });
+
+  it('accepts an order and payload address that differ only in case', async () => {
+    await expect(
+      wcPayInlineSignTypedData({
+        ...baseParams,
+        accountAddress: ACCOUNT_ADDRESS.toUpperCase(),
         option: buildOption(`eip155:8453:${ACCOUNT_ADDRESS.toLowerCase()}`),
       }),
     ).resolves.toEqual({ status: 'ok', signature: SIGNATURE });
