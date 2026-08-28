@@ -175,9 +175,11 @@ export function checkWcPayTypedDataMatchesOrder({
   // the typed-data payload's `permitted.token` alone is not trusted for
   // symbol/decimals identity.
   resolvedToken: IWcPayResolvedToken | undefined;
-  // Overrides WC_PAY_PERMIT_MAX_DEADLINE_S. Any non-finite or non-positive
-  // value is ignored in favor of the default — a bad caller input must
-  // never silently disable the deadline bound.
+  // Tightens WC_PAY_PERMIT_MAX_DEADLINE_S, which stays a hard ceiling: a
+  // finite positive value narrows the bound (via Math.min), but can never
+  // widen it past the default. Any non-finite or non-positive value is
+  // ignored in favor of the default — a bad caller input must never
+  // silently disable the deadline bound.
   maxDeadlineS?: number;
 }): IWcPayMessageConsistencyResult {
   // BigNumber comparisons against NaN silently return false, which would
@@ -302,11 +304,16 @@ export function checkWcPayTypedDataMatchesOrder({
   if (deadline.isLessThan(nowSec)) {
     return { ok: false, reason: 'deadline expired' };
   }
+  // WC_PAY_PERMIT_MAX_DEADLINE_S is a hard ceiling, not just a default: a
+  // caller-provided maxDeadlineS can only tighten the bound, never widen it
+  // past what this validator considers "effectively unbounded" — Math.min
+  // ignores a finite positive value larger than the ceiling rather than
+  // trusting it outright.
   const effectiveMaxDeadlineS =
     typeof maxDeadlineS === 'number' &&
     Number.isFinite(maxDeadlineS) &&
     maxDeadlineS > 0
-      ? maxDeadlineS
+      ? Math.min(maxDeadlineS, WC_PAY_PERMIT_MAX_DEADLINE_S)
       : WC_PAY_PERMIT_MAX_DEADLINE_S;
   if (deadline.isGreaterThan(nowSec + effectiveMaxDeadlineS)) {
     return { ok: false, reason: 'deadline too far' };

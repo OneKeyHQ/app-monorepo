@@ -237,6 +237,15 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       'invalid amount',
     ],
     [
+      // JSON number, not a string: Number.isSafeInteger(1e21) is false
+      // (1e21 exceeds Number.MAX_SAFE_INTEGER), so parseUint's number
+      // branch must reject it rather than silently rounding to a wrong
+      // BigNumber value.
+      'an unsafe-integer JSON number amount',
+      buildTypedData({ permitted: { amount: 1e21 } }),
+      'invalid amount',
+    ],
+    [
       'a token address that is too short',
       buildTypedData({ permitted: { token: '0x12' } }),
       'invalid token address',
@@ -353,6 +362,18 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       message: { deadline: String(NOW_S + 600) },
     });
     expect(check(typedData, { maxDeadlineS: -1 }).ok).toBe(true);
+  });
+
+  it('never lets a caller-provided maxDeadlineS widen the bound past the default ceiling', () => {
+    // 10 years — far larger than WC_PAY_PERMIT_MAX_DEADLINE_S (24h) — must
+    // not let a deadline just past the default ceiling through.
+    const typedData = buildTypedData({
+      message: { deadline: String(NOW_S + 24 * 3600 + 1) },
+    });
+    expect(check(typedData, { maxDeadlineS: 10 * 365 * 24 * 3600 })).toEqual({
+      ok: false,
+      reason: 'deadline too far',
+    });
   });
 
   it('refuses an unknown or mismatching token', () => {
