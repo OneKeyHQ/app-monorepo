@@ -961,6 +961,42 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(pushModalMock).toHaveBeenCalledTimes(1);
   });
 
+  // The stopped-after-broadcast exit is a UI boundary, and a headless
+  // signature is one too: it raises the password prompt on a page that is
+  // already gone. The window is narrow — between the loop-top guard and the
+  // branch itself — but it is exactly where the inter-action wait sits.
+  it('stops with the collected prefix instead of signing inline once the page closed', async () => {
+    const cancelController = new AbortController();
+    getNetworkAccount
+      .mockResolvedValueOnce({ id: 'account-1', address: SENDER })
+      .mockImplementationOnce(() => {
+        cancelController.abort();
+        return Promise.resolve({ id: 'account-1', address: SENDER });
+      });
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [
+        // does not match the order, so it takes the confirm page and leaves
+        // the inline spend budget untouched for the permit below
+        buildAction({
+          method: EWcPayActionMethod.EthSendTransaction,
+          params: [{ from: SENDER, to: SENDER, value: '0x1' }],
+          chainId: 'eip155:8453',
+        }),
+        permitAction,
+      ],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: buildController(),
+      cancelSignal: cancelController.signal,
+    });
+
+    expect(signatures).toEqual(['0xtxid-confirm']);
+    expect(wcPayInlineSignTypedData).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
   // Without a controller (or without the selected option) nothing may be
   // signed inline, whatever the payload proves.
   it('never signs inline without an inline controller', async () => {

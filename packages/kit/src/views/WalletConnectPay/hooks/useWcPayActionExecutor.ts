@@ -701,6 +701,14 @@ export function useWcPayActionExecutor() {
           }
           case EWcPayActionMethod.EthSignTypedDataV4: {
             const message = extractWcPayTypedDataMessage(parsed);
+            // re-check after the async prep above (see eth_sendTransaction).
+            // A headless signature is a UI boundary of its own — it raises the
+            // password/hardware prompt — so it sits behind the same guards the
+            // confirm modal does, never in front of them.
+            throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             // Inline path: sign the Permit2 payload without a confirm page
             // when it proves to be exactly the order the user approved.
             // Nothing is caught — a thrown pipeline error must reach the page,
@@ -785,7 +793,9 @@ export function useWcPayActionExecutor() {
                 inlineController.onFallback?.();
               }
             }
-            // re-check after the async prep above (see eth_sendTransaction)
+            // the inline attempt above may itself have spanned a page close;
+            // re-check so no confirm modal is pushed onto a stack whose owner
+            // is gone (see eth_sendTransaction)
             throwIfCancelled();
             if (isStoppedAfterBroadcast()) {
               return results;
@@ -894,6 +904,13 @@ export function useWcPayActionExecutor() {
                   encodedTx,
                 },
               );
+            // re-check after the async prep above (see eth_sendTransaction);
+            // as in the typed-data branch, the headless signature sits behind
+            // these guards rather than in front of them
+            throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             // Inline path: sign only, without a confirm page, when the blob
             // proves to be the approved order. Same bookkeeping rules as the
             // typed-data branch above — a signature is not a broadcast.
@@ -990,7 +1007,8 @@ export function useWcPayActionExecutor() {
                 inlineController.onFallback?.();
               }
             }
-            // re-check after the async prep above (see eth_sendTransaction)
+            // the inline attempt above may itself have spanned a page close;
+            // re-check before the confirm modal (see eth_sendTransaction)
             throwIfCancelled();
             if (isStoppedAfterBroadcast()) {
               return results;
