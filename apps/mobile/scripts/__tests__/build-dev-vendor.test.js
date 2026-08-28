@@ -9,6 +9,7 @@ const {
   createCommonModuleFilter,
   createModuleRecords,
   parseArgs,
+  preparePlatform,
   selectClosedVendorModules,
   verifyAndReplaceDirectory,
 } = require('../build-dev-vendor');
@@ -35,19 +36,55 @@ describe('build-dev-vendor', () => {
     expect(parseArgs(['--platform', 'all', '--check'])).toEqual({
       check: true,
       platforms: ['ios', 'android'],
+      prepare: false,
       registryUpdate: false,
     });
     expect(parseArgs(['--platform', 'android', '--update-registry'])).toEqual({
       check: false,
       platforms: ['android'],
+      prepare: false,
       registryUpdate: true,
+    });
+    expect(parseArgs(['--platform', 'all', '--prepare'])).toEqual({
+      check: false,
+      platforms: ['ios', 'android'],
+      prepare: true,
+      registryUpdate: false,
     });
     expect(() => parseArgs(['--platform', 'web'])).toThrow(
       '--platform must be android, ios, or all',
     );
-    expect(() => parseArgs(['--check', '--update-registry'])).toThrow(
-      '--check and --update-registry cannot be used together',
+    expect(() => parseArgs(['--check', '--prepare'])).toThrow(
+      '--check, --prepare, and --update-registry cannot be used together',
     );
+  });
+
+  it('rebuilds only an invalid platform and verifies the replacement', async () => {
+    const check = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new TypeError('fingerprint mismatch');
+      })
+      .mockImplementationOnce(() => {});
+    const build = jest.fn().mockResolvedValue(undefined);
+
+    await expect(preparePlatform('android', { build, check })).resolves.toEqual(
+      { rebuilt: true },
+    );
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(build).toHaveBeenCalledWith('android');
+    expect(check).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips a valid platform during prepare', async () => {
+    const check = jest.fn();
+    const build = jest.fn();
+
+    await expect(preparePlatform('ios', { build, check })).resolves.toEqual({
+      rebuilt: false,
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(build).not.toHaveBeenCalled();
   });
 
   it('collects every main/background graph and prepend path', () => {

@@ -72,15 +72,17 @@ function parseArgs(argv = process.argv.slice(2)) {
     );
   }
   const check = argv.includes('--check');
+  const prepare = argv.includes('--prepare');
   const registryUpdate = argv.includes('--update-registry');
-  if (check && registryUpdate) {
+  if ([check, prepare, registryUpdate].filter(Boolean).length > 1) {
     throw new Error(
-      '[devVendor] --check and --update-registry cannot be used together.',
+      '[devVendor] --check, --prepare, and --update-registry cannot be used together.',
     );
   }
   return {
     check,
     platforms: platform === 'all' ? ['ios', 'android'] : [platform],
+    prepare,
     registryUpdate,
   };
 }
@@ -556,6 +558,29 @@ function checkPlatform(platform) {
   );
 }
 
+async function preparePlatform(
+  platform,
+  {
+    build = (targetPlatform) =>
+      buildPlatform(targetPlatform, { writeOutput: true }),
+    check = checkPlatform,
+  } = {},
+) {
+  try {
+    check(platform);
+    return { rebuilt: false };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[devVendor] rebuild required platform=${platform} reason=${reason}`,
+    );
+  }
+
+  await build(platform);
+  check(platform);
+  return { rebuilt: true };
+}
+
 async function main() {
   ensureBuildEnvironment();
   const args = parseArgs();
@@ -563,6 +588,8 @@ async function main() {
   for (const platform of args.platforms) {
     if (args.check) {
       checkPlatform(platform);
+    } else if (args.prepare) {
+      await preparePlatform(platform);
     } else {
       const platformModulePaths = await buildPlatform(platform, {
         writeOutput: !args.registryUpdate,
@@ -598,6 +625,7 @@ module.exports = {
   hasAsyncDependency,
   isJsModule,
   parseArgs,
+  preparePlatform,
   createModuleRecords,
   selectClosedVendorModules,
   verifyAndReplaceDirectory,

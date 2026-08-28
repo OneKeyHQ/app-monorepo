@@ -34,7 +34,7 @@
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
     "app:playground": "yarn workspace @onekeyhq/playground sb:dev",
-    "app:native-bundle": "cross-env ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS=\"--max-old-space-size=8192\" concurrently --kill-others-on-fail \"yarn workspace @onekeyhq/mobile native-bundle\" \"yarn workspace @onekeyhq/mobile native-bundle:bg\"",
+    "app:native-bundle": "yarn workspace @onekeyhq/mobile dev-vendor:prepare && cross-env ONEKEY_DEV_VENDOR=true ONEKEY_DEV_BG_HMR=true ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle",
     "app:native-bundle:bg": "cross-env ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS=\"--max-old-space-size=8192\" yarn workspace @onekeyhq/mobile native-bundle:bg",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",

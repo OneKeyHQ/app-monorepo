@@ -255,6 +255,20 @@ describe('devVendor', () => {
     resetRuntimeCacheForTests();
   });
 
+  it('starts one native Metro with common HBC and background HMR by default', () => {
+    const rootPackageJson = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
+    );
+    const script = rootPackageJson.scripts['app:native-bundle'];
+
+    expect(script).toContain('ONEKEY_DEV_VENDOR=true');
+    expect(script).toContain('ONEKEY_DEV_BG_HMR=true');
+    expect(script).toContain('dev-vendor:prepare && cross-env');
+    expect(script).toContain('yarn workspace @onekeyhq/mobile native-bundle');
+    expect(script).not.toContain('concurrently');
+    expect(script).not.toContain('native-bundle:bg');
+  });
+
   it('only enables the experiment for an explicit true value', () => {
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'true' })).toBe(true);
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'false' })).toBe(false);
