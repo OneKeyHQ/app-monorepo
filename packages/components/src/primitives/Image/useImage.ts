@@ -40,6 +40,7 @@ export function useImage(
   reFetchImage: () => void;
 } {
   const [image, setImage] = useState<ImageRef | null>(null);
+  const [failedSource, setFailedSource] = useState<ImageSource | null>(null);
   const resolvedSource = useMemo(() => {
     return resolveSource(source);
   }, [source]);
@@ -89,11 +90,14 @@ export function useImage(
   const loadImage = useCallback(() => {
     if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
       setImage(null);
+      setFailedSource(null);
       return;
     }
+    setFailedSource(null);
     Image.loadAsync(resolvedSource, optionsRef.current)
       .then((remoteImage) => {
         if (isEffectValid.current) {
+          setFailedSource(null);
           optionsRef.current.onSuccess?.(remoteImage);
           setImage(remoteImage);
           const uri = resolvedSource?.uri;
@@ -107,6 +111,7 @@ export function useImage(
           return;
         }
         setImage(null);
+        setFailedSource(resolvedSource);
         if (optionsRef.current.onError) {
           optionsRef.current.onError(error, loadImage);
         } else {
@@ -140,18 +145,34 @@ export function useImage(
   // would release a stale image value instead of the current one.
   const currentImageRef = useRef<ImageRef | null>(null);
 
-  // Release the previous ImageRef when the image state changes.
-  // This ensures each ImageRef is released exactly once, only after
-  // it has been replaced by a new one (preventing use-after-free).
+  // Release the previous ImageRef after the replacement has been committed.
+  // Releasing it from the effect cleanup is too early because React may still
+  // inspect the previous ImageRef while committing the new image props.
   useEffect(() => {
+    const previousImage = currentImageRef.current;
     currentImageRef.current = image;
+
+    if (previousImage && previousImage !== image) {
+      previousImage.release();
+    }
+  }, [image]);
+
+  // Defer the final release until the current commit's cleanups have finished.
+  useEffect(() => {
     return () => {
-      if (currentImageRef.current) {
-        currentImageRef.current.release();
-        currentImageRef.current = null;
+      const imageToRelease = currentImageRef.current;
+      currentImageRef.current = null;
+
+      if (imageToRelease) {
+        queueMicrotask(() => {
+          // Strict Mode may remount the effect before this microtask runs.
+          if (currentImageRef.current !== imageToRelease) {
+            imageToRelease.release();
+          }
+        });
       }
     };
-  }, [image]);
+  }, []);
 
   useEffect(() => {
     const imageUri = resolvedSource?.uri;
@@ -177,12 +198,18 @@ export function useImage(
   }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);
 
   return useMemo(() => {
+    const sourceWhileLoading =
+      failedSource !== resolvedSource &&
+      resolvedSource &&
+      !isEmptyResolvedSource(resolvedSource)
+        ? resolvedSource
+        : null;
     return {
       image:
         fetchImageTimesLimit.current > 0 && image
           ? image
-          : cachedImage || image,
+          : cachedImage || image || sourceWhileLoading,
       reFetchImage,
     };
-  }, [cachedImage, image, reFetchImage]);
+  }, [cachedImage, failedSource, image, reFetchImage, resolvedSource]);
 }

@@ -397,7 +397,7 @@ export default function ImportPhraseOrPrivateKey() {
               ) : (
                 <YStack
                   key="privateKey"
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,

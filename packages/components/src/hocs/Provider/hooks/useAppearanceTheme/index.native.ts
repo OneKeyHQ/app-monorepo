@@ -1,9 +1,6 @@
 import { useLayoutEffect } from 'react';
 
-import {
-  setBackgroundColorAsync,
-  setButtonStyleAsync,
-} from 'expo-navigation-bar';
+import { setStyle } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
 import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
@@ -16,8 +13,7 @@ const setDarkContent = (isAnimated = true) => {
   if (platformEnv.isNativeAndroid) {
     const color = getTokenValue('$bgAppDark', 'color');
     StatusBar.setBackgroundColor(color, isAnimated);
-    void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('light');
+    setStyle('light');
   }
 };
 
@@ -26,8 +22,7 @@ const setLightContent = (isAnimated = true) => {
   if (platformEnv.isNativeAndroid) {
     const color = getTokenValue('$bgAppLight', 'color');
     StatusBar.setBackgroundColor(color, isAnimated);
-    void setBackgroundColorAsync(color);
-    void setButtonStyleAsync('dark');
+    setStyle('dark');
   }
 };
 

@@ -25,7 +25,7 @@ export function UnOrderedListItem({
   ...rest
 }: IUnOrderedListItemProps) {
   return (
-    <XStack tag="li" role="listitem" {...rest}>
+    <XStack render="li" role="listitem" {...rest}>
       <XStack w="$5" h="$6" justifyContent="center" alignItems="center">
         {icon ? (
           <Icon name={icon} {...iconProps} />
@@ -34,11 +34,11 @@ export function UnOrderedListItem({
         )}
       </XStack>
       <YStack pl="$2">
-        <SizableText tag="p" size={titleSize}>
+        <SizableText render="p" size={titleSize}>
           {children}
         </SizableText>
         {description ? (
-          <SizableText tag="p" size="$bodyMd" color="$textSubdued">
+          <SizableText render="p" size="$bodyMd" color="$textSubdued">
             {description}
           </SizableText>
         ) : null}
@@ -59,7 +59,7 @@ export function UnOrderedList({ children, ...rest }: StackProps) {
   });
 
   return (
-    <Stack p="$0" m="$0" tag="ul" role="list" {...rest}>
+    <Stack p="$0" m="$0" render="ul" role="list" {...rest}>
       {enhanceChildren}
     </Stack>
   );

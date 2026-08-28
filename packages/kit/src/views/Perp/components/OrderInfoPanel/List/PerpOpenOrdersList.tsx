@@ -191,7 +191,7 @@ function useOpenOrdersColumnsConfig({
         }),
         minWidth: 140,
         flex: 1,
-        align: 'center',
+        align: 'left',
       },
       {
         key: 'cancel',

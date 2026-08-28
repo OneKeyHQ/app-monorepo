@@ -1066,7 +1066,7 @@ function CheckAndUpdatePage({
               !isStepCollapsed &&
               step.state !== ECheckAndUpdateStepState.Idle ? (
                 <YStack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   enterStyle={{
                     opacity: 0,
@@ -1257,7 +1257,7 @@ function CheckAndUpdatePage({
           <Button
             key={bottomCta.key}
             testID={bottomCta.testID}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             variant="primary"
             size="large"

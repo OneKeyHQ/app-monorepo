@@ -6,6 +6,7 @@ import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
 import platformEnv from '../platformEnv';
+import storageChecker from '../storageChecker/storageChecker';
 import resetUtils from '../utils/resetUtils';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
@@ -131,7 +132,7 @@ class WebStorage implements AsyncStorageStatic {
   }) {
     this.tableName = tableName;
     // eslint-disable-next-line no-async-promise-executor
-    this.indexed = new Promise(async (resolve) => {
+    this.initIndexed = async () => {
       const indexed = new IndexedDBPromised({
         name: dbName,
         bucketName,
@@ -143,22 +144,65 @@ class WebStorage implements AsyncStorageStatic {
         },
       });
       await indexed.open();
-      await migrateFromLegacyStorage({
-        indexed,
-        legacyKeyPrefix,
-        tableName,
+      try {
+        await migrateFromLegacyStorage({
+          indexed,
+          legacyKeyPrefix,
+          tableName,
+        });
+      } catch (error) {
+        // `getIndexed` drops the cached promise on failure so init can retry;
+        // without this close every failed attempt would leak the connection
+        // opened above and block later `versionchange` upgrades.
+        indexed.close();
+        throw error;
+      }
+      return indexed;
+    };
+  }
+
+  private initIndexed: () => Promise<IndexedDBPromised>;
+
+  private indexedPromise: Promise<IndexedDBPromised> | undefined;
+
+  /**
+   * Retryable initialization.
+   *
+   * This used to be a `new Promise(async (resolve) => ...)` with no rejection
+   * path, so a failed `open()` — which is exactly what a full backing store
+   * produces at startup — left the promise pending forever and hung every
+   * later read and write. Freeing space could then never reach the reopening
+   * logic, and only restarting the runtime recovered. Caching the promise and
+   * dropping it on failure keeps the single-flight behavior while letting the
+   * next call try again.
+   */
+  private getIndexed(): Promise<IndexedDBPromised> {
+    if (!this.indexedPromise) {
+      this.indexedPromise = this.initIndexed().catch((error) => {
+        this.indexedPromise = undefined;
+        throw error;
       });
-      resolve(indexed);
-    });
+    }
+    return this.indexedPromise;
   }
 
   tableName: string;
 
-  indexed: Promise<IndexedDBPromised>;
+  get indexed(): Promise<IndexedDBPromised> {
+    return this.getIndexed();
+  }
 
   // localforage = localforage;
 
-  checkDiskFull(payload?: any) {
+  // Diagnostic payload only: never the stored values. WebStorage carries
+  // application and global state, and a storage incident produces a burst of
+  // blocked writes — logging their contents would spray persisted data into
+  // developer consoles and log collection exactly when it is least wanted.
+  checkDiskFull(payload?: {
+    method: string;
+    key?: string;
+    itemCount?: number;
+  }) {
     if (platformEnv.isWebDappMode) {
       return;
     }
@@ -166,10 +210,14 @@ class WebStorage implements AsyncStorageStatic {
       return;
     }
     if (globalThis.$onekeySystemDiskIsFull) {
-      appEventBus.emit(EAppEventBusNames.ShowSystemDiskFullWarning, undefined);
       console.error('WebStorage==>checkDiskFull ', payload);
-      throw new SystemDiskFullError();
     }
+    // Delegate rather than re-implement: `checkIfDiskIsFullSync` forwards the
+    // measured quota to the warning dialog AND schedules the re-measurement
+    // that lets a retry succeed once the user frees space. Throwing here
+    // directly would leave this path — the main app-storage write path —
+    // unable to ever observe recovery.
+    storageChecker.checkIfDiskIsFullSync();
   }
 
   isIndexedDB() {
@@ -221,7 +269,7 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'setItem', key, value });
+    this.checkDiskFull({ method: 'setItem', key });
 
     const indexed = await this.indexed;
     try {
@@ -269,7 +317,7 @@ class WebStorage implements AsyncStorageStatic {
     value: string,
     callback: Callback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'mergeItem', key, value });
+    this.checkDiskFull({ method: 'mergeItem', key });
 
     const indexed = await this.indexed;
 
@@ -298,7 +346,10 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'multiMerge', keyValuePairs });
+    this.checkDiskFull({
+      method: 'multiMerge',
+      itemCount: keyValuePairs.length,
+    });
 
     const indexed = await this.indexed;
 
@@ -324,7 +375,10 @@ class WebStorage implements AsyncStorageStatic {
     keyValuePairs: readonly (readonly [string, string])[],
     callback: MultiCallback | undefined,
   ): Promise<void> {
-    this.checkDiskFull({ method: 'multiSet', keyValuePairs });
+    this.checkDiskFull({
+      method: 'multiSet',
+      itemCount: keyValuePairs.length,
+    });
 
     const indexed = await this.indexed;
 

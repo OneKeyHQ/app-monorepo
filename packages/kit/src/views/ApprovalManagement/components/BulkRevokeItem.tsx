@@ -269,7 +269,7 @@ function BulkRevokeItem(props: IProps) {
         {({ open }: { open: boolean }) => (
           <XStack alignItems="center" gap="$3" flex={1}>
             <View
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"
@@ -335,9 +335,9 @@ function BulkRevokeItem(props: IProps) {
           </XStack>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"

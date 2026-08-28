@@ -20,7 +20,7 @@ export type IChainSelectorInputProps = Pick<
   title?: string;
   excludeAllNetworkItem?: boolean;
   miniMode?: boolean;
-} & ComponentProps<typeof Stack>;
+} & Omit<ComponentProps<typeof Stack>, 'onChange'>;
 
 export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   value,

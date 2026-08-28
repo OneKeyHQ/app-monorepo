@@ -1,12 +1,15 @@
 package so.onekey.app.wallet;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
-import android.net.Uri;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -31,9 +34,11 @@ import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
-import expo.modules.ReactNativeHostWrapper;
+import expo.modules.ExpoReactHostFactory;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -46,8 +51,8 @@ public class MainApplication extends Application implements ReactApplication {
   // ReactContext listener to compute "+Xms from app launch" deltas.
   public static long appLaunchMs = 0L;
 
-  private final ReactNativeHost mReactNativeHost =
-    new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
+  private final CustomReactNativeHost mReactNativeHost =
+    new CustomReactNativeHost(this) {
       @Override
       public boolean getUseDeveloperSupport() {
         return BuildConfig.DEBUG;
@@ -75,9 +80,10 @@ public class MainApplication extends Application implements ReactApplication {
       protected boolean isHermesEnabled() {
         return BuildConfig.IS_HERMES_ENABLED;
       }
-  });
+  };
   @Nullable
   private ReactHost mReactHost;
+  private boolean isDefaultMainProcess = true;
 
   @Override
   public ReactNativeHost getReactNativeHost() {
@@ -87,11 +93,21 @@ public class MainApplication extends Application implements ReactApplication {
     @Nullable
     @Override
     public synchronized ReactHost getReactHost() {
+        if (!isDefaultMainProcess) {
+          Log.w("MainApplication", "Ignoring ReactHost access outside the default main process");
+          return null;
+        }
         if (mReactHost == null) {
           mReactHost =
-            ReactNativeHostWrapper.createReactHost(
+            ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
-              this.getReactNativeHost()
+              new PackageList(this).getPackages(),
+              ".expo/.virtual-metro-entry",
+              "index.android.bundle",
+              mReactNativeHost.getJSBundleFile(),
+              null,
+              BuildConfig.DEBUG,
+              null
             );
         }
         return mReactHost;
@@ -147,6 +163,90 @@ public class MainApplication extends Application implements ReactApplication {
       return BuildConfig.ENABLE_NATIVE_BACKGROUND_THREAD;
     }
 
+    @Nullable
+    private String getCurrentProcessNameCompat() {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        return Application.getProcessName();
+      }
+
+      ActivityManager activityManager =
+        (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+      int currentPid = android.os.Process.myPid();
+      if (activityManager != null) {
+        List<ActivityManager.RunningAppProcessInfo> runningProcesses =
+          activityManager.getRunningAppProcesses();
+        if (runningProcesses != null) {
+          for (ActivityManager.RunningAppProcessInfo processInfo : runningProcesses) {
+            if (processInfo.pid == currentPid) {
+              return processInfo.processName;
+            }
+          }
+        }
+      }
+
+      try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/cmdline"))) {
+        String processName = reader.readLine();
+        if (processName != null) {
+          processName = processName.replace("\u0000", "").trim();
+          if (!processName.isEmpty()) {
+            return processName;
+          }
+        }
+      } catch (IOException error) {
+        Log.w("MainApplication", "Unable to read /proc/self/cmdline", error);
+      }
+      return null;
+    }
+
+    private boolean resolveIsDefaultMainProcess() {
+      String processName = getCurrentProcessNameCompat();
+      if (processName == null || processName.isEmpty()) {
+        Log.w(
+          "MainApplication",
+          "Unable to resolve process name; conservatively enabling main-process initialization"
+        );
+        return true;
+      }
+      boolean isMainProcess = getPackageName().equals(processName);
+      Log.i(
+        "MainApplication",
+        "process=" + processName + ", mainProcess=" + isMainProcess
+      );
+      return isMainProcess;
+    }
+
+    public void startBackgroundThreadIfNeeded(@NonNull String trigger) {
+      if (
+        !isDefaultMainProcess ||
+        shouldShowRecovery ||
+        !isNativeBackgroundThreadEnabled()
+      ) {
+        return;
+      }
+
+      BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+      String entryUrl = getBackgroundRunnerEntryUrl();
+      long startTime = System.currentTimeMillis();
+      boolean startScheduled = manager.ensureBackgroundRunnerWithEntryURL(
+        getApplicationContext(),
+        entryUrl
+      );
+      OneKeyLog.info(
+        "BackgroundThread",
+        "ensure background runner: trigger=" + trigger
+          + ", scheduled=" + startScheduled
+          + ", state=" + manager.getBackgroundRunnerState()
+          + ", failure=" + manager.getBackgroundRunnerFailureMessage()
+          + ", entryURL=" + entryUrl
+      );
+      OneKeyLog.info(
+        "StartupTiming",
+        "bg_runner.ensure: " + (System.currentTimeMillis() - startTime)
+          + "ms (+" + (System.currentTimeMillis() - appLaunchMs)
+          + "ms from launch, trigger=" + trigger + ") (android)"
+      );
+    }
+
     /**
      * Feeds the host Activity's resume/pause/destroy signals to
      * {@link BackgroundThreadManager} so an allowlisted subset of bg-host
@@ -198,6 +298,9 @@ public class MainApplication extends Application implements ReactApplication {
         return;
       }
 
+      BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+      manager.setReactPackages(new PackageList(this).getPackages());
+
       ReactHost reactHost = getReactHost();
       if (reactHost == null) {
         OneKeyLog.warn("BackgroundThread", "setupBackgroundThreadBootstrap: ReactHost is null");
@@ -222,20 +325,8 @@ public class MainApplication extends Application implements ReactApplication {
           ReactApplicationContext reactApplicationContext =
             (ReactApplicationContext) context;
           BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
-          long tBeforeBgStart = System.currentTimeMillis();
-          manager.setReactPackages(new PackageList(MainApplication.this).getPackages());
           manager.installSharedBridgeInMainRuntime(reactApplicationContext);
-
-          String entryUrl = getBackgroundRunnerEntryUrl();
-          OneKeyLog.info(
-            "BackgroundThread",
-            "onReactContextInitialized: start background runner with entryURL=" + entryUrl
-          );
-          manager.startBackgroundRunnerWithEntryURL(reactApplicationContext, entryUrl);
-          OneKeyLog.info(
-            "StartupTiming",
-            "bg_runner.start: " + (System.currentTimeMillis() - tBeforeBgStart) + "ms (+" + (System.currentTimeMillis() - appLaunchMs) + "ms from launch) (android)"
-          );
+          startBackgroundThreadIfNeeded("main_react_context_fallback");
         }
       });
     }
@@ -256,9 +347,23 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
-    OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
 
-    // Log zygote→onCreate delay (API 24+, minSdk=24). This is the window
+    long tBeforeSuper = System.currentTimeMillis();
+    super.onCreate();
+    long tAfterSuper = System.currentTimeMillis();
+
+    isDefaultMainProcess = resolveIsDefaultMainProcess();
+    if (!isDefaultMainProcess) {
+      return;
+    }
+
+    OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms"
+    );
+
+    // Log zygote→onCreate delay (API 26+, minSdk=26). This is the window
     // between process fork and our first Java code running: ART/dex2oat,
     // class loading, Application allocation.
     try {
@@ -306,18 +411,11 @@ public class MainApplication extends Application implements ReactApplication {
     shouldShowRecovery = !isHarnessMode
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
-    long tBeforeSuper = System.currentTimeMillis();
-    super.onCreate();
-    long tAfterSuper = System.currentTimeMillis();
-    OneKeyLog.info(
-      "StartupTiming",
-      "android.app.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms"
-    );
-
     // SoLoader and new architecture entry point must be initialized before
     // the recovery early-return because MainActivity extends ReactActivity,
     // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
     // TurboModules initialization. Without these, recovery mode itself crashes.
+    long tBeforeSoLoader = System.currentTimeMillis();
     try {
         SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
     } catch (IOException e) {
@@ -326,7 +424,7 @@ public class MainApplication extends Application implements ReactApplication {
     long tAfterSoLoader = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",
-      "android.app.so_loader_init: " + (tAfterSoLoader - tAfterSuper) + "ms"
+      "android.app.so_loader_init: " + (tAfterSoLoader - tBeforeSoLoader) + "ms"
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
@@ -441,6 +539,8 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onConfigurationChanged(@NonNull Configuration newConfig) {
     super.onConfigurationChanged(newConfig);
-    ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig);
+    if (isDefaultMainProcess && !shouldShowRecovery) {
+      ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig);
+    }
   }
 }

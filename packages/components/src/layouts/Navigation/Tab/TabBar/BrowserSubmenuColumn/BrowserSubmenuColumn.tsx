@@ -6,9 +6,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { XStack } from '@onekeyhq/components/src/primitives';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
@@ -191,7 +192,7 @@ export function BrowserSubmenuColumn({
   return (
     <BrowserSubmenuContext.Provider value={contextValue}>
       <XStack
-        ref={containerRef}
+        ref={containerRef as unknown as Ref<TamaguiElement>}
         position="relative"
         flex={1}
         onHoverIn={handleHoverIn}
