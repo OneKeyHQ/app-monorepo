@@ -3260,19 +3260,20 @@ class ServiceHardware extends ServiceBase {
       const walletSessionParams = useEmptyPassphrase
         ? {
             mode: 'standard' as const,
-            deriveCardano: false,
+            deriveCardano: true,
           }
         : {
             mode: 'select-hidden' as const,
-            deriveCardano: false,
+            deriveCardano: true,
           };
-      // deriveCardano:false maps to Protocol V2 seed_domains=[Standard].
-      // Undefined would send seed_domains=[] and let the device pick defaults.
+      // Protocol V2 applies seed domains only on AskPassphrase, not DeviceSessionGet.
+      // deriveCardano:true maps to seed_domains=[Standard, Cardano] so later ADA
+      // resume (Get) can use the same hidden/standard session without rebuilding.
       serviceHardwareUtils.hardwareLog('openWalletSession seed domain', {
         protocol,
         mode: walletSessionParams.mode,
         deriveCardano: walletSessionParams.deriveCardano,
-        seedDomains: ['standard'],
+        seedDomains: ['standard', 'cardano'],
       });
       const walletSession = await convertDeviceResponse(() =>
         openWalletSession(connectId, walletSessionParams),
