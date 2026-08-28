@@ -323,10 +323,13 @@ export function getWcPayInlineSolanaPlan({
     if (resolvedToken.address !== consistency.summary.mint) {
       return { mode: 'fallback', reason: 'token address mismatch' };
     }
-    if (resolvedToken.symbol !== option.amount.display?.assetSymbol) {
+    // `amount` itself is optional-chained: the verdict crossed a
+    // serialization boundary, so this side must refuse a malformed option
+    // rather than throw on it.
+    if (resolvedToken.symbol !== option.amount?.display?.assetSymbol) {
       return { mode: 'fallback', reason: 'token symbol mismatch' };
     }
-    if (resolvedToken.decimals !== option.amount.display?.decimals) {
+    if (resolvedToken.decimals !== option.amount?.display?.decimals) {
       return { mode: 'fallback', reason: 'token decimals mismatch' };
     }
   }

@@ -117,8 +117,8 @@ export function useWcPayActionExecutor() {
       // observer/decider for the inline path. Supplying it together with
       // `option` opts this call into the headless send; the gate that decides
       // whether a given action is actually eligible (getWcPayInlineTxPlan)
-      // still runs per action. Absent — as for every
-      // caller today — the executor behaves exactly as before.
+      // still runs per action. When it is absent, as for every caller today,
+      // the executor behaves exactly as before.
       inlineController?: IWcPayInlineController;
       // pre-sign cancellation boundary, fired when the page that started the
       // flow unmounts. Checked before the resume probes, at the top of every

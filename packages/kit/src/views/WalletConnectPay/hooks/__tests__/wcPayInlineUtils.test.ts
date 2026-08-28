@@ -65,9 +65,10 @@ describe('getWcPayInlineTxPlan', () => {
   });
 
   it('falls back for a non-transfer method and without an option', () => {
-    expect(getWcPayInlineTxPlan({ action: signAction, option }).mode).toBe(
-      'fallback',
-    );
+    expect(getWcPayInlineTxPlan({ action: signAction, option })).toEqual({
+      mode: 'fallback',
+      reason: 'method personal_sign',
+    });
     expect(
       getWcPayInlineTxPlan({ action: nativeAction, option: undefined }),
     ).toEqual({ mode: 'fallback', reason: 'no selected option' });
@@ -83,9 +84,12 @@ describe('getWcPayInlineTxPlan', () => {
         ]),
       },
     };
-    expect(getWcPayInlineTxPlan({ action: inflated, option }).mode).toBe(
-      'fallback',
-    );
+    // the validator's own reason is carried through verbatim — it is what
+    // logs/telemetry read to tell one refusal from another
+    expect(getWcPayInlineTxPlan({ action: inflated, option })).toEqual({
+      mode: 'fallback',
+      reason: 'native amount mismatch',
+    });
   });
 
   it('falls back without throwing on a malformed action', () => {
@@ -438,6 +442,27 @@ describe('getWcPayInlineSolanaPlan', () => {
         resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 9 },
       }),
     ).toEqual({ mode: 'fallback', reason: 'token decimals mismatch' });
+  });
+
+  it('falls back without throwing on an option that carries no amount', () => {
+    // the verdict now crosses a serialization boundary, so the option this
+    // side holds may be shaped worse than the one the validator saw
+    const amountlessOption = {
+      ...usdcSolOption,
+      amount: undefined as never,
+    };
+    const call = () =>
+      getWcPayInlineSolanaPlan({
+        option: amountlessOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
+        resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 6 },
+      });
+    expect(call).not.toThrow();
+    expect(call()).toEqual({
+      mode: 'fallback',
+      reason: 'token symbol mismatch',
+    });
   });
 
   it('inlines an spl leg the registry agrees with', () => {
