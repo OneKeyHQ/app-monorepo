@@ -61,9 +61,7 @@ const HERMES_COMMAND = path.join(
 );
 
 function ensureBuildEnvironment() {
-  process.env.NODE_ENV = 'development';
-  process.env.BABEL_ENV = 'development';
-  process.env.ONEKEY_PLATFORM = process.env.ONEKEY_PLATFORM || 'app';
+  devVendorConfig.applyTransformationEnvironment(process.env);
   process.env.ONEKEY_MODULE_ID_REGISTRY_STRICT = 'true';
   delete process.env.ONEKEY_DEV_VENDOR;
 }

@@ -391,6 +391,33 @@ describe('devVendor', () => {
     ).not.toBe(computeFingerprint(fields));
   });
 
+  it('invalidates config digests for transitive transformer and environment changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const developmentEnv = { ...process.env, NODE_ENV: 'development' };
+    try {
+      const baseline = computeConfigInputsDigest(
+        fixture.repoRoot,
+        developmentEnv,
+      );
+      expect(
+        computeConfigInputsDigest(fixture.repoRoot, {
+          ...developmentEnv,
+          NODE_ENV: 'production',
+        }),
+      ).not.toBe(baseline);
+
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, 'development/platformEnvDefine.js'),
+        '\n// changed transformer input\n',
+      );
+      expect(
+        computeConfigInputsDigest(fixture.repoRoot, developmentEnv),
+      ).not.toBe(baseline);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('uses code-point ordering for manifest module paths', () => {
     expect(() =>
       assertSortedUniqueModules([
