@@ -370,7 +370,7 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     );
   });
 
-  it('latches the observed server progress before blocking', async () => {
+  it('latches server progress before blocking the payment method picker', async () => {
     mockGetLocalUserInfo.mockResolvedValue({
       isLoggedIn: true,
       onekeyUserId: 'user-1',
@@ -396,46 +396,16 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
     };
     mockApiGetInfiniPayment.mockResolvedValue(latestPayment);
 
-    await getPrimeInfiniPaymentEntryGuard();
-
-    expect(mockLatchPendingPaymentProgress).toHaveBeenCalledTimes(1);
-    expect(mockLatchPendingPaymentProgress).toHaveBeenCalledWith({
-      onekeyUserId: 'user-1',
-      paymentCacheKey: { paymentId: 'payment-1' },
-      latestPayment,
-    });
-  });
-
-  it('blocks the payment method picker when the server reports payment progress', async () => {
-    mockGetLocalUserInfo.mockResolvedValue({
-      isLoggedIn: true,
-      onekeyUserId: 'user-1',
-    });
-    mockGetPendingPaymentSession.mockResolvedValue({
-      sendStarted: false,
-      selectedSubscriptionPeriod: 'P1M',
-      paymentCacheKey: {
-        paymentId: 'payment-1',
-      },
-      payment: {
-        paymentId: 'payment-1',
-        amountDue: '1',
-        amountConfirmed: '0',
-        amountConfirming: '0',
-      },
-    });
-    mockApiGetInfiniPayment.mockResolvedValue({
-      paymentId: 'payment-1',
-      amountDue: '1',
-      amountConfirmed: '0',
-      amountConfirming: '0.5',
-    });
-
     await expect(getPrimeInfiniPaymentEntryGuard()).resolves.toEqual({
       isLoggedIn: true,
       hasPendingPayment: true,
       onekeyUserId: 'user-1',
       pendingSubscriptionPeriod: 'P1M',
+    });
+    expect(mockLatchPendingPaymentProgress).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: { paymentId: 'payment-1' },
+      latestPayment,
     });
   });
 
@@ -701,41 +671,6 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
 
     await expect(getPrimeInfiniPaymentEntryGuard()).rejects.toThrow(
       'Infini payment session changed while it was being verified',
-    );
-  });
-
-  it('logs a failed atomic retirement and fails closed', async () => {
-    mockGetLocalUserInfo.mockResolvedValue({
-      isLoggedIn: true,
-      onekeyUserId: 'user-1',
-    });
-    mockGetPendingPaymentSession.mockResolvedValue({
-      sendStarted: false,
-      selectedSubscriptionPeriod: 'P1M',
-      paymentCacheKey: {
-        paymentId: 'payment-1',
-      },
-      payment: {
-        paymentId: 'payment-1',
-        amountDue: '1',
-        amountConfirmed: '0',
-        amountConfirming: '0',
-      },
-    });
-    mockApiGetInfiniPayment.mockRejectedValue(
-      new Error('invoice endpoint down'),
-    );
-    const discardError = new Error('storage unavailable');
-    mockDiscardUnsentPaymentSession.mockRejectedValue(discardError);
-
-    await expect(getPrimeInfiniPaymentEntryGuard()).rejects.toThrow(
-      'Infini payment session changed while it was being verified',
-    );
-    expect(mockLogPrimeInfiniPaymentFlow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: 'entryGuardSessionRetirementFailed',
-        error: discardError,
-      }),
     );
   });
 

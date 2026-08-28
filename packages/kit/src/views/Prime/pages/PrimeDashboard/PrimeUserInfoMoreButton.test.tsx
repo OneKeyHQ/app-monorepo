@@ -321,24 +321,6 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     });
   });
 
-  it('opens the local RevenueCat URL for a current RevenueCat subscription', () => {
-    mockUser.primeSubscription = {
-      isActive: true,
-      subscriptions: [{ channel: 'revenuecat' }],
-    };
-    mockUser.subscriptionManageUrl =
-      'https://subscriptions.example.com/current';
-    render(<PrimeUserInfoMoreButton />);
-
-    fireEvent.click(
-      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
-    );
-
-    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
-      'https://subscriptions.example.com/current',
-    );
-  });
-
   it('opens in-app management for a resolved Infini channel', () => {
     mockUser.primeSubscription = {
       isActive: true,

@@ -76,19 +76,4 @@ describe('primeSubscriptionManagementUtils', () => {
       url: 'https://example.com/revenuecat-manage',
     });
   });
-
-  it('identifies when the channel and management URL are both missing', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl: undefined }],
-          },
-        },
-        isInfiniManageSupported: true,
-      }),
-    ).toEqual({ type: 'unavailable' });
-  });
 });

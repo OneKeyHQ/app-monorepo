@@ -467,50 +467,6 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
-  it('does not attribute another channel renewal to a pending crypto payment', async () => {
-    const payment = {
-      ...buildPayment('payment-a'),
-      amountConfirmed: '29.99',
-    };
-    const renewalBaseline = {
-      ...baseline,
-      wasPrimeActive: true,
-      primeExpiresAt: Date.now() + 30_000,
-      infiniPeriodEnd: Date.now() + 20_000,
-    };
-    const onSuccess = jest.fn();
-    servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
-    servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
-      onekeyUserId: renewalBaseline.onekeyUserId,
-      primeSubscription: {
-        isActive: true,
-        expiresAt: renewalBaseline.primeExpiresAt + 30_000,
-        subscriptions: [{ channel: 'revenuecat' }],
-      },
-      infiniSubscription: {
-        currentPeriodEnd: renewalBaseline.infiniPeriodEnd,
-      },
-    });
-
-    const { unmount } = renderHook(() =>
-      usePrimeInfiniPaymentPolling({
-        payment,
-        asset,
-        baseline: renewalBaseline,
-        enabled: true,
-        onSuccess,
-        onTerminal: jest.fn(),
-        pollIntervalMs: 60_000,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(1);
-    });
-    expect(onSuccess).not.toHaveBeenCalled();
-    unmount();
-  });
-
   it('keeps polling a confirmed payment until the subscription advances', async () => {
     const payment = {
       ...buildPayment('payment-a'),

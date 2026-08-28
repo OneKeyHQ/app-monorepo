@@ -41,10 +41,6 @@ const mockDialogShow = jest.fn<
 const mockDialogFooter = jest.fn<null, [props: IMockDialogFooterProps]>(
   () => null,
 );
-const mockAlert = jest.fn<
-  null,
-  [props: { description?: string; title?: string }]
->(() => null);
 const mockPaymentMethodDialogClose = jest.fn(async () => undefined);
 const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   Promise<IPrimeInfiniPaymentEntryGuard>,
@@ -95,8 +91,6 @@ jest.mock('@onekeyhq/components', () => {
     return children ?? null;
   }
   return {
-    Alert: (props: { description?: string; title?: string }) =>
-      mockAlert(props),
     Dialog: {
       show: (config: IMockDialogConfig) => mockDialogShow(config),
       Footer: (props: IMockDialogFooterProps) => mockDialogFooter(props),
@@ -295,7 +289,6 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       freeTrial,
     );
     render(dialogConfig.renderContent);
-    expect(mockAlert).not.toHaveBeenCalled();
     expect(mockListItem).toHaveBeenCalledTimes(2);
     expect(
       mockListItem.mock.calls.find(

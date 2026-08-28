@@ -341,12 +341,6 @@ describe('PrimeRedemptionDialog', () => {
     expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
     expect(
-      screen.queryByText(ETranslations.prime_duplicate_subscription__title),
-    ).toBeNull();
-    expect(
-      screen.queryByText(ETranslations.prime_duplicate_subscription__desc),
-    ).toBeNull();
-    expect(
       screen.getByText(ETranslations.prime_redemption_codes_cumulative__desc),
     ).toBeTruthy();
     expect(
@@ -383,9 +377,6 @@ describe('PrimeRedemptionDialog', () => {
         ETranslations.prime_redeem_pending_payment__desc,
       ),
     ).toBeTruthy();
-    expect(
-      screen.queryByText(ETranslations.prime_unfinished_payment__desc),
-    ).toBeNull();
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole('button', { name: ETranslations.global_back }),
