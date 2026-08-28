@@ -3,7 +3,9 @@ import { isString } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+import storageChecker from '../storageChecker/storageChecker';
 
 import { IndexedDBObjectStorePromised } from './IndexedDBObjectStorePromised';
 import indexedDBPromisedUtils from './indexedDBPromisedUtils';
@@ -21,6 +23,16 @@ import type {
   StoreValue,
   TypedDOMStringList,
 } from 'idb';
+
+export interface ICreateBucketTransactionOptions extends IDBTransactionOptions {
+  /**
+   * Let the transaction through while the disk-full guard is raised. Set it
+   * only for space-freeing work (delete / clear): those are what a user needs
+   * in order to recover from exhausted storage, so blocking them turns a
+   * recoverable state into a dead end.
+   */
+  allowWhenStorageFull?: boolean;
+}
 
 export interface IDBInitOptions<DBTypes extends DBSchema | unknown = unknown> {
   bucketName: string;
@@ -65,6 +77,15 @@ export class IndexedDBPromised<
   nativeDBFactory: IDBFactory | null = null;
 
   nativeDB: IDBDatabase | null = null;
+
+  /**
+   * In-flight `open()` request, so concurrent callers share one connection.
+   * Without it every caller that arrives while the cache is empty opens its
+   * own `IDBDatabase`; only the last one is kept and the rest leak as
+   * unreferenced open connections, which then block any later `versionchange`
+   * upgrade indefinitely.
+   */
+  private openPromise: Promise<IDBDatabase> | null = null;
 
   onabort: ((this: IDBDatabase, ev: Event) => any) | null = null;
 
@@ -136,7 +157,25 @@ export class IndexedDBPromised<
     this.nativeDB?.deleteObjectStore(name);
   }
 
-  // use getTransactionAsync() if get bucket db transaction
+  /**
+   * Async counterpart of `transaction()` for ordinary bucket work such as DB
+   * backup and bucket migration. Prefer it over the sync path: it can reopen a
+   * connection the browser force-closed, whereas a sync API can only drop the
+   * dead handle and rethrow, leaving its caller stuck until something else
+   * reopens the database.
+   */
+  async transactionAsync<
+    Names extends ArrayLike<StoreNames<DBTypes>>,
+    Mode extends IDBTransactionMode = 'readonly',
+  >(
+    storeNames: Names,
+    mode: Mode,
+    options?: ICreateBucketTransactionOptions,
+  ): Promise<IDBPTransaction<DBTypes, Names, Mode>> {
+    return this.createBucketTransaction(storeNames, mode, options);
+  }
+
+  // use transactionAsync() for ordinary bucket db transactions
   // sync transaction() is only for sync createObjectStore()
   transaction<
     Names extends ArrayLike<StoreNames<DBTypes>>,
@@ -148,8 +187,25 @@ export class IndexedDBPromised<
   ): IDBPTransaction<DBTypes, Names, Mode> {
     this.ensureDBOpened();
 
+    // Ordinary writes made through this sync path (DB backup, bucket
+    // migration) share the disk-full guard of `createBucketTransaction`.
+    // `versionchange` stays exempt: schema upgrades must never be blocked.
+    if (mode === 'readwrite') {
+      storageChecker.checkIfDiskIsFullSync();
+    }
+
     const storeNamesArray = Array.from(storeNames) as unknown as string[];
-    const tx = this.nativeDB?.transaction(storeNamesArray, mode, options);
+    let tx: IDBTransaction | undefined;
+    try {
+      tx = this.nativeDB?.transaction(storeNamesArray, mode, options);
+    } catch (error) {
+      if (storageChecker.isConnectionClosingError(error)) {
+        // A sync API cannot reopen; drop the dead cached handle so the next
+        // `open()` recovers instead of failing every later call.
+        this.invalidateNativeDB('syncTransactionOnClosingConnection');
+      }
+      throw error;
+    }
     if (!tx) {
       throw new OneKeyLocalError(
         `IndexedDBPromised ERROR: DB Transaction create failed: ${
@@ -170,15 +226,82 @@ export class IndexedDBPromised<
   >(
     storeNames: Names,
     mode: Mode,
-    options?: IDBTransactionOptions,
+    options?: ICreateBucketTransactionOptions,
   ): Promise<IndexedDBTransactionPromised<DBTypes, Names, Mode>> {
-    const nativeDB = await this.open({ alwaysOpenNew: true });
+    const { allowWhenStorageFull, ...restOptions } = options ?? {};
+    if (mode !== 'readonly' && !allowWhenStorageFull) {
+      storageChecker.checkIfDiskIsFullSync();
+    }
+    const nativeOptions: IDBTransactionOptions | undefined = Object.keys(
+      restOptions,
+    ).length
+      ? restOptions
+      : undefined;
     const storeNamesArray = Array.from(storeNames) as unknown as string[];
-    const tx = nativeDB.transaction(storeNamesArray, mode, options);
+
+    const openTransaction = async () => {
+      const nativeDB = await this.open();
+      return nativeDB.transaction(storeNamesArray, mode, nativeOptions);
+    };
+
+    let tx: IDBTransaction;
+    try {
+      tx = await openTransaction();
+    } catch (error) {
+      if (!storageChecker.isConnectionClosingError(error)) {
+        throw error;
+      }
+      // The cached handle was force-closed by the browser without our
+      // `close()` running, so it can never serve a transaction again. Drop it
+      // and reopen once rather than failing every later read and write.
+      this.invalidateNativeDB('transactionOnClosingConnection');
+      tx = await openTransaction();
+    }
+
     return new IndexedDBTransactionPromised({
       db: this,
       mode,
       tx,
+    });
+  }
+
+  /**
+   * Forget the cached connection so the next call reopens it.
+   *
+   * `open()` caches one `IDBDatabase` and reuses it for every transaction, but
+   * only our own `close()` used to reset that cache. When the browser
+   * force-closes the connection instead — a `versionchange` raised by another
+   * runtime, storage bucket eviction, a backing-store error — the cached
+   * handle stayed behind as a dead object and every later `transaction()` threw
+   * `InvalidStateError: ... The database connection is closing`.
+   */
+  private invalidateNativeDB(trigger: string) {
+    if (this.nativeDB) {
+      this.nativeDB = null;
+      appGlobals?.$defaultLogger?.app.storage.connectionInvalidated({
+        dbName: this.name,
+        trigger,
+      });
+    }
+  }
+
+  /**
+   * Drop the cached handle as soon as the browser tells us the connection is
+   * going away, so the next transaction reopens instead of reusing a dead one.
+   */
+  private attachConnectionInvalidationHandlers(nativeDB: IDBDatabase) {
+    nativeDB.addEventListener('close', () => {
+      if (this.nativeDB === nativeDB) {
+        this.invalidateNativeDB('close');
+      }
+    });
+    nativeDB.addEventListener('versionchange', () => {
+      // Another runtime is upgrading the same shared native database. Release
+      // our handle so its upgrade transaction is not blocked.
+      nativeDB.close();
+      if (this.nativeDB === nativeDB) {
+        this.invalidateNativeDB('versionchange');
+      }
     });
   }
 
@@ -189,13 +312,26 @@ export class IndexedDBPromised<
   ): Promise<StoreKey<DBTypes, Name>> {
     const tx = await this.createBucketTransaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
-    return store.add(value, key);
+    const result = await store.add(value, key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
+    return result;
   }
 
   async clear(name: StoreNames<DBTypes>): Promise<void> {
-    const tx = await this.createBucketTransaction([name], 'readwrite');
+    const tx = await this.createBucketTransaction([name], 'readwrite', {
+      allowWhenStorageFull: true,
+    });
     const store = tx.objectStore(name);
-    return store.clear();
+    await store.clear();
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
   }
 
   async count<Name extends StoreNames<DBTypes>>(
@@ -225,9 +361,16 @@ export class IndexedDBPromised<
     storeName: Name,
     key: StoreKey<DBTypes, Name> | IDBKeyRange,
   ): Promise<void> {
-    const tx = await this.createBucketTransaction([storeName], 'readwrite');
+    const tx = await this.createBucketTransaction([storeName], 'readwrite', {
+      allowWhenStorageFull: true,
+    });
     const store = tx.objectStore(storeName);
-    return store.delete(key);
+    await store.delete(key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
   }
 
   async get<Name extends StoreNames<DBTypes>>(
@@ -349,7 +492,13 @@ export class IndexedDBPromised<
   ): Promise<StoreKey<DBTypes, Name>> {
     const tx = await this.createBucketTransaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
-    return store.put(value, key);
+    const result = await store.put(value, key);
+    // Resolve on COMMIT, not on request success. A quota failure can abort the
+    // transaction after the request already succeeded, so resolving early told
+    // callers their data was persisted when it was not — and the abort only
+    // surfaced asynchronously through the guard.
+    await tx.done;
+    return result;
   }
 
   addEventListener<K extends keyof IDBDatabaseEventMap>(
@@ -375,19 +524,27 @@ export class IndexedDBPromised<
     return this.nativeDB?.dispatchEvent(event) ?? false;
   }
 
-  async open({
-    alwaysOpenNew = false,
-  }: {
-    alwaysOpenNew?: boolean;
-  } = {}): Promise<IDBDatabase> {
-    // if (this.nativeDB && !alwaysOpenNew) {
-    //   return this.nativeDB;
-    // }
-
+  async open(): Promise<IDBDatabase> {
+    // Check the in-flight promise BEFORE the cached handle: `onupgradeneeded`
+    // publishes `this.nativeDB` early (the upgrade callback needs it for
+    // `this.transaction()`), so while an upgrade is running the cached handle
+    // is a half-open connection. Callers must wait for `onsuccess` instead of
+    // starting normal transactions against it.
+    if (this.openPromise) {
+      return this.openPromise;
+    }
     if (this.nativeDB) {
       return this.nativeDB;
     }
+    this.openPromise = this.doOpen();
+    try {
+      return await this.openPromise;
+    } finally {
+      this.openPromise = null;
+    }
+  }
 
+  private async doOpen(): Promise<IDBDatabase> {
     if (!this.nativeDBFactory) {
       // TODO should always open bucket or database? can we cache the bucket instance?
       const dbFactory = await IndexedDBPromised.getBucketIndexedDBFactory(
@@ -403,7 +560,18 @@ export class IndexedDBPromised<
     return new Promise((resolve, reject) => {
       request.onerror = (event) => {
         const target = event.target as IDBOpenDBRequest;
-        reject(target?.error || indexedDBPromisedUtils.newDBOpenError());
+        const error = target?.error || indexedDBPromisedUtils.newDBOpenError();
+        // A full backing store fails here, before any transaction exists —
+        // "QuotaExceededError: Encountered full disk while opening backing
+        // store for indexedDB.open". Without reporting it the guard, the
+        // warning and the diagnostics all stay unset.
+        storageChecker.handleDiskFullError(error, {
+          indexedDBFactory: this.nativeDBFactory,
+        });
+        // `onupgradeneeded` may already have published a handle for the
+        // upgrade callback; a failed open must not leave it cached.
+        this.invalidateNativeDB('openFailed');
+        reject(error);
       };
 
       request.onsuccess = (event) => {
@@ -414,6 +582,7 @@ export class IndexedDBPromised<
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         nativeDB.$$nonce = Date.now();
 
+        this.attachConnectionInvalidationHandlers(nativeDB);
         this.nativeDB = nativeDB;
         resolve(nativeDB);
       };
@@ -447,6 +616,7 @@ export class IndexedDBPromised<
   }
 
   close(): void {
+    this.openPromise = null;
     if (this.nativeDB) {
       this.nativeDB.close();
       this.nativeDB = null;

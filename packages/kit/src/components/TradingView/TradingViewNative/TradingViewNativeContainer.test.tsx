@@ -103,6 +103,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
+    locale: 'zh-CN',
   }),
 }));
 
@@ -289,6 +290,7 @@ describe('TradingViewNativeContainer', () => {
           low: 'market.low_abbr',
           open: 'market.open_abbr',
         },
+        locale: 'zh-CN',
       }),
     );
   });

@@ -120,9 +120,6 @@ module.exports = {
     'storage',
     'unlimitedStorage',
     // 'system.storage',
-    'webRequest',
-    // 'webRequestBlocking' requires manifest version of 2 or lower.
-    // 'webRequestBlocking',
     'notifications',
     'idle',
     'sidePanel',

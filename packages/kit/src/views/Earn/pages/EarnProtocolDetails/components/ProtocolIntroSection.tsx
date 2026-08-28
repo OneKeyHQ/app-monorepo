@@ -18,7 +18,6 @@ import {
   Divider,
   Icon,
   Image,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -364,7 +363,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
   const isCompact = Boolean(platformEnv.isRuntimeBrowser && md);
 
   return (
-    <ScrollView
+    <Dialog.ScrollView
       height={isCompact ? COMPACT_DIALOG_CONTENT_HEIGHT : undefined}
       maxHeight={isCompact ? undefined : DIALOG_CONTENT_MAX_HEIGHT}
       nestedScrollEnabled
@@ -372,7 +371,7 @@ function DialogContent({ children }: { children: React.ReactNode }) {
       <YStack px="$5" pb="$5">
         {children}
       </YStack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 
