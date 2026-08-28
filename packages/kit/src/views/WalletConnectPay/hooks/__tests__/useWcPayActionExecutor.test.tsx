@@ -13,6 +13,7 @@ import type {
 import { useWcPayActionExecutor } from '../useWcPayActionExecutor';
 import {
   EWcPayInlineFailureKind,
+  WC_PAY_INLINE_POST_SIGN_FLAG,
   WC_PAY_PERMIT_EXPIRY_GRACE_S,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
@@ -367,6 +368,11 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     ],
     chainId: 'eip155:8453',
   });
+  const solanaAction = buildAction({
+    method: EWcPayActionMethod.SolanaSignTransaction,
+    params: [{ transaction: 'dW5zaWduZWQ=' }],
+    chainId: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+  });
 
   const services = jest.requireMock<{
     default: {
@@ -420,6 +426,12 @@ describe('useWcPayActionExecutor sequence invariants', () => {
       txid: '0xinline',
     });
     expect(pushModalMock).toHaveBeenCalledTimes(1);
+    // ordering, not just counts: the approve has to be MINED before the
+    // follow-up signature is requested, which is the whole reason the inlined
+    // broadcast joins the confirm page's post-broadcast tail
+    expect(waitForTxMined.mock.invocationCallOrder[0]).toBeLessThan(
+      pushModalMock.mock.invocationCallOrder[0],
+    );
     expect(signatures).toEqual(['0xinline', '0xsig-permit']);
   });
 
@@ -514,6 +526,56 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     expect(wcPayInlineSendTx).not.toHaveBeenCalled();
     expect(pushModalMock).toHaveBeenCalledTimes(1);
     expect(signatures).toEqual(['0xearlier', '0xtxid-confirm']);
+  });
+
+  // Fail-closed seeding for the two shapes stored progress cannot judge:
+  // nothing records HOW a completed action was signed, and both of these are
+  // inline-eligible spends, so a resumed sequence must treat them as spent
+  // rather than hand its budget to a later action.
+  it("counts a resumed run's completed permit against the budget", async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [typedDataAction, buildTransferAction()],
+      accountId: 'account-1',
+      // signed in an earlier run, possibly inline
+      completedResults: ['0xsig-earlier'],
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xsig-earlier', '0xtxid-confirm']);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      'inline spend budget exhausted',
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("counts a resumed run's completed Solana signature against the budget", async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [solanaAction, buildTransferAction()],
+      accountId: 'account-1',
+      // signed in an earlier run, possibly inline
+      completedResults: ['rawtx-earlier'],
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['rawtx-earlier', '0xtxid-confirm']);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      'inline spend budget exhausted',
+    );
+    errorSpy.mockRestore();
   });
 });
 
@@ -711,6 +773,9 @@ describe('useWcPayActionExecutor inline signing', () => {
         message: permitMessage,
         option: permitOption,
         sourceInfo: expect.objectContaining({ scope: 'ethereum' }),
+        // the executor's own checker, never the raw signal: the retirement
+        // rule has to travel into the pipeline with it
+        throwIfCancelled: expect.any(Function),
       }),
     );
   });
@@ -894,6 +959,9 @@ describe('useWcPayActionExecutor inline signing', () => {
         // signed exactly what the background checked
         txBase64: SOL_TX_BASE64,
         sourceInfo: expect.objectContaining({ scope: 'solana' }),
+        // the executor's own checker, never the raw signal (see the
+        // typed-data pipeline above)
+        throwIfCancelled: expect.any(Function),
       }),
     );
   });
@@ -1009,6 +1077,45 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(signatures).toEqual(['rawtx-confirm']);
     expect(controller.onFallback).toHaveBeenCalledTimes(1);
     expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
+  // The send leg carries two arguments no other route supplies: the
+  // executor's own cancel checker (a bare signal would re-arm cancellation
+  // after a broadcast) and the durable pre-broadcast identity, which must be
+  // built exactly as the confirm page's is — the record is what a resumed
+  // attempt reads to know the transfer was already sent.
+  it('threads the cancel checker and the pre-broadcast record into the inline send', async () => {
+    const transferAction = buildTransferAction();
+    const progressContext = {
+      paymentId: 'pay-1',
+      optionId: 'opt-1',
+      accountKey: 'acct-1',
+    };
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [transferAction],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: buildController(),
+      progressContext,
+    });
+
+    expect(signatures).toEqual(['0xinline']);
+    expect(wcPayInlineSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--8453',
+        accountId: 'account-1',
+        option: permitOption,
+        sourceInfo: expect.objectContaining({ scope: 'ethereum' }),
+        throwIfCancelled: expect.any(Function),
+        wcPayPreBroadcastRecord: {
+          ...progressContext,
+          action: transferAction,
+          index: 0,
+        },
+      }),
+    );
   });
 
   // The stopped-after-broadcast exit is a UI boundary, and a headless
@@ -1197,6 +1304,145 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(pushModalMock).not.toHaveBeenCalled();
   });
 
+  // Boundaries only a run that ALREADY broadcast can reach: from that point
+  // the cancel signal is retired (throwIfCancelled becomes a no-op), so each
+  // of these UI steps is held by isStoppedAfterBroadcast alone. Every exit
+  // returns a PROPER PREFIX, the caller's contract for "do not submit".
+  describe('stopped-after-broadcast boundaries', () => {
+    // deliberately unlike the order, so it takes the confirm page and leaves
+    // the inline spend budget untouched for the action under test
+    const buildUnmatchedTransferAction = () =>
+      buildAction({
+        method: EWcPayActionMethod.EthSendTransaction,
+        params: [{ from: SENDER, to: SENDER, value: '0x1' }],
+        chainId: 'eip155:8453',
+      });
+
+    it('does not start the next action when the page closed during the mined-wait', async () => {
+      const cancelController = new AbortController();
+      waitForTxMined.mockImplementation(() => {
+        cancelController.abort();
+        return Promise.resolve({ isReverted: false });
+      });
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const signatures = await result.current.executeActions({
+        actions: [buildTransferAction(), permitAction],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: buildController(),
+        cancelSignal: cancelController.signal,
+      });
+
+      expect(signatures).toEqual(['0xinline']);
+      // the loop-top guard is what stopped it: resolving the signing account
+      // is the first thing the next iteration would do
+      expect(getNetworkAccount).toHaveBeenCalledTimes(1);
+      expect(pushModalMock).not.toHaveBeenCalled();
+    });
+
+    it('returns the prefix instead of waiting for the mine once the page closed', async () => {
+      const cancelController = new AbortController();
+      wcPayInlineSendTx.mockImplementation(() => {
+        cancelController.abort();
+        return Promise.resolve({ status: 'ok', txid: '0xinline' });
+      });
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const signatures = await result.current.executeActions({
+        actions: [buildTransferAction(), permitAction],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: buildController(),
+        cancelSignal: cancelController.signal,
+      });
+
+      expect(signatures).toEqual(['0xinline']);
+      // the mined-wait serves only the follow-up signing, which will never be
+      // requested — blocking on it for minutes would buy nothing
+      expect(waitForTxMined).not.toHaveBeenCalled();
+      expect(pushModalMock).not.toHaveBeenCalled();
+    });
+
+    it('does not push TxConfirm after an inline send fell back once the page closed', async () => {
+      const cancelController = new AbortController();
+      wcPayInlineSendTx.mockImplementation(() => {
+        cancelController.abort();
+        return Promise.resolve({
+          status: 'fallback',
+          failure: {
+            kind: EWcPayInlineFailureKind.PreSignBlocked,
+            message: 'x',
+            retryable: false,
+          },
+        });
+      });
+      const controller = buildController();
+      controller.onInlineFailure.mockResolvedValue('fallback');
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const signatures = await result.current.executeActions({
+        actions: [buildUnmatchedTransferAction(), buildTransferAction()],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      });
+
+      expect(signatures).toEqual(['0xtxid-confirm']);
+      expect(controller.onFallback).toHaveBeenCalledTimes(1);
+      // the first action's confirm page only, never the fallen-back one's
+      expect(pushModalMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not push MessageConfirm after a typed-data attempt fell back once the page closed', async () => {
+      const cancelController = new AbortController();
+      wcPayInlineSignTypedData.mockImplementation(() => {
+        cancelController.abort();
+        return Promise.resolve({ status: 'fallback', reason: 'x' });
+      });
+      const controller = buildController();
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const signatures = await result.current.executeActions({
+        actions: [buildUnmatchedTransferAction(), permitAction],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      });
+
+      expect(signatures).toEqual(['0xtxid-confirm']);
+      expect(controller.onFallback).toHaveBeenCalledTimes(1);
+      expect(pushModalMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not push TxConfirm after a Solana attempt fell back once the page closed', async () => {
+      const cancelController = new AbortController();
+      getNetworkAccount
+        .mockResolvedValueOnce({ id: 'account-1', address: SENDER })
+        .mockResolvedValue({ id: 'account-1', address: SOL_PAYER });
+      wcPayInlineSignSolanaTx.mockImplementation(() => {
+        cancelController.abort();
+        return Promise.resolve({ status: 'fallback', reason: 'x' });
+      });
+      const controller = buildController();
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const signatures = await result.current.executeActions({
+        actions: [buildUnmatchedTransferAction(), solanaAction],
+        accountId: 'account-1',
+        option: solOption,
+        inlineController: controller,
+        cancelSignal: cancelController.signal,
+      });
+
+      expect(signatures).toEqual(['0xtxid-confirm']);
+      expect(controller.onFallback).toHaveBeenCalledTimes(1);
+      expect(pushModalMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('refuses to inline a Solana action after the sequence already inlined a transfer', async () => {
     const { result } = renderHook(() => useWcPayActionExecutor());
 
@@ -1237,6 +1483,92 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
+    );
+  });
+
+  // A pipeline REJECTION is not a fallback suggestion: tagged, it means a
+  // transaction may already be on chain; untagged, it failed before anything
+  // was signed. Either way the page owns the recovery decision, so the very
+  // error has to reach it — converting one into a confirm-page fallback would
+  // re-present a payment that may already have been made.
+  describe('pipeline rejections reach the caller untouched', () => {
+    const buildTaggedError = () => {
+      const error = new Error('post-sign boom');
+      (error as unknown as Record<string, unknown>)[
+        WC_PAY_INLINE_POST_SIGN_FLAG
+      ] = true;
+      return error;
+    };
+
+    const branches = [
+      {
+        label: 'eth_sendTransaction',
+        pipeline: wcPayInlineSendTx,
+        prepare: () => {
+          getNetworkAccount.mockResolvedValue({
+            id: 'account-1',
+            address: SENDER,
+          });
+        },
+        buildActions: () => [buildTransferAction()],
+        caseOption: permitOption,
+      },
+      {
+        label: 'eth_signTypedData_v4',
+        pipeline: wcPayInlineSignTypedData,
+        prepare: () => {
+          getNetworkAccount.mockResolvedValue({
+            id: 'account-1',
+            address: SENDER,
+          });
+        },
+        buildActions: () => [permitAction],
+        caseOption: permitOption,
+      },
+      {
+        label: 'solana_signTransaction',
+        pipeline: wcPayInlineSignSolanaTx,
+        prepare: () => {
+          getNetworkAccount.mockResolvedValue({
+            id: 'account-1',
+            address: SOL_PAYER,
+          });
+        },
+        buildActions: () => [solanaAction],
+        caseOption: solOption,
+      },
+    ];
+    const shapes = [
+      { shape: 'a tagged post-sign error', buildError: buildTaggedError },
+      { shape: 'a plain pre-sign error', buildError: () => new Error('boom') },
+    ];
+    const cases = branches.flatMap((branch) =>
+      shapes.map((errorShape) => ({ ...branch, ...errorShape })),
+    );
+
+    it.each(cases)(
+      'rethrows $shape from the $label pipeline',
+      async ({ pipeline, prepare, buildActions, caseOption, buildError }) => {
+        prepare();
+        const error = buildError();
+        pipeline.mockRejectedValue(error);
+        const controller = buildController();
+        const { result } = renderHook(() => useWcPayActionExecutor());
+
+        await expect(
+          result.current.executeActions({
+            actions: buildActions(),
+            accountId: 'account-1',
+            option: caseOption,
+            inlineController: controller,
+          }),
+          // the SAME object, not a copy: the post-sign tag and everything
+          // else the recovery machinery reads must survive
+        ).rejects.toBe(error);
+        expect(pushModalMock).not.toHaveBeenCalled();
+        expect(controller.onFallback).not.toHaveBeenCalled();
+        expect(controller.onInlineFailure).not.toHaveBeenCalled();
+      },
     );
   });
 
