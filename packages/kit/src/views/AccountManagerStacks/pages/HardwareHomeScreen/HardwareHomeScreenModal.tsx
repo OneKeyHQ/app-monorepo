@@ -479,11 +479,21 @@ function WallpaperCustomCategorySection({
       isMonochrome,
     });
 
+    // resizeImage reports a failed decode by returning a result with no base64
+    // rather than throwing. Caching that stored an empty entry, which rendered as a
+    // blank wallpaper and only failed on apply, with an internal error string.
+    if (!img?.base64) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_failed }),
+      });
+      return;
+    }
+
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
 
     UploadedHomeScreenCache.saveCache(device.id, {
       deviceId: device.id,
-      imgBase64: img?.base64 ?? '',
+      imgBase64: img.base64,
       name,
     });
 
