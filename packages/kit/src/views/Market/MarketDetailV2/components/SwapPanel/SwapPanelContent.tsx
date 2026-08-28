@@ -39,6 +39,7 @@ import { StockTokenInfoPopover } from '../StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '../TokenSelector/StockTokenVariantSelector';
 
 import { ActionButton } from './components/ActionButton';
+import { shouldJumpToMarketTradeFallback } from './components/ActionButton.utils';
 import {
   type IEstimateMarketPresetPriorityFeeFiatValues,
   MarketPresetSelector,
@@ -54,7 +55,10 @@ import {
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
-import { calculateMarketStockEstimatedShares } from './utils/marketStockQuoteDisplayUtils';
+import {
+  calculateMarketStockEstimatedShares,
+  hasValidMarketStockTokenToAssetRatio,
+} from './utils/marketStockQuoteDisplayUtils';
 
 import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings';
 
@@ -65,6 +69,7 @@ export type ISwapPanelContentProps = {
   isActionDisabled?: boolean;
   isRefreshQuote?: boolean;
   onRefreshQuote: (manual?: boolean) => void;
+  onForceRefreshQuote: () => void;
   balanceLoading: boolean;
   slippageAutoValue?: number;
   supportSpeedSwap: {
@@ -124,6 +129,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     isActionDisabled,
     isRefreshQuote,
     onRefreshQuote,
+    onForceRefreshQuote,
     balanceLoading,
     slippageAutoValue,
     supportSpeedSwap,
@@ -366,8 +372,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     stockTokenAmount: estimatedStockTokenAmount,
     tokenToAssetRatio: stockTokenToAssetRatio,
   });
+  const hasValidStockTokenToAssetRatio = hasValidMarketStockTokenToAssetRatio(
+    stockTokenToAssetRatio,
+  );
   const shouldShowStockEstimatedShares = Boolean(
-    quoteLoading || estimatedStockTokenAmount,
+    (quoteLoading && hasValidStockTokenToAssetRatio) || estimatedShares,
   );
   let stockEstimatedReceiveContent: ReactNode = (
     <SizableText size="$bodyMdMedium">--</SizableText>
@@ -439,6 +448,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
 
   if (stockDetailDesktopLayout) {
+    const noAccount =
+      !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+    const shouldUseSwapFallbackAction = shouldJumpToMarketTradeFallback({
+      supportSpeedSwap: supportSpeedSwap.enabled,
+      isAccountNetworkSupported: supportSpeedSwap.isAccountNetworkSupported,
+      isWrapped,
+      isRefreshQuote,
+    });
     const handleStockPreSwap = () => {
       logSwapAction({
         tradeType,
@@ -577,24 +594,54 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           </SizableText>
         ) : null}
 
-        <SwapActionsState
-          disabled={
-            isLoading ||
-            !currentMarketToken?.networkId ||
-            (!currentMarketToken?.contractAddress &&
-              !currentMarketToken?.isNative) ||
-            !!isActionDisabled ||
-            (!isRefreshQuote && !!quoteError)
-          }
-          forceQuoteActionLoading={isLoading || quoteLoading}
-          onRefreshQuote={() => onRefreshQuote(true)}
-          onPreSwap={handleStockPreSwap}
-          onOpenRecipientAddress={onOpenRecipientAddress}
-        />
+        {shouldUseSwapFallbackAction ? (
+          <ActionButton
+            supportSpeedSwap={!!supportSpeedSwap.enabled}
+            isAccountNetworkSupported={
+              supportSpeedSwap.isAccountNetworkSupported
+            }
+            onlySupportCrossChain={!!supportSpeedSwap.onlySupportCrossChain}
+            loading={isLoading}
+            actionToken={supportSpeedSwap.actionToken}
+            actionOtherToken={supportSpeedSwap.actionOtherToken}
+            tradeType={tradeType}
+            onPress={actionButtonOnPress}
+            amount={currentInputAmount.toFixed()}
+            token={balanceToken}
+            paymentToken={paymentToken}
+            paymentTokenPrice={paymentTokenPrice}
+            balance={balance}
+            isWrapped={isWrapped}
+            networkId={networkId}
+            disabled={
+              isLoading ||
+              !!isActionDisabled ||
+              (!isRefreshQuote && !!quoteError)
+            }
+            isRefreshQuote={isRefreshQuote}
+          />
+        ) : (
+          <SwapActionsState
+            forceNoConnectWallet={noAccount}
+            disabled={
+              !noAccount &&
+              (isLoading ||
+                !currentMarketToken?.networkId ||
+                (!currentMarketToken?.contractAddress &&
+                  !currentMarketToken?.isNative) ||
+                !!isActionDisabled ||
+                (!isRefreshQuote && !!quoteError))
+            }
+            forceQuoteActionLoading={!noAccount && (isLoading || quoteLoading)}
+            onRefreshQuote={() => onRefreshQuote(true)}
+            onPreSwap={handleStockPreSwap}
+            onOpenRecipientAddress={onOpenRecipientAddress}
+          />
+        )}
 
         {!isWrapped ? (
           <SwapQuoteResult
-            refreshAction={onRefreshQuote}
+            refreshAction={onForceRefreshQuote}
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
           />

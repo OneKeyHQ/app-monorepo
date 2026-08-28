@@ -4,6 +4,7 @@ import { ESwapRateDifferenceUnit } from '@onekeyhq/shared/types/swap/types';
 import {
   buildMarketStockQuoteDisplay,
   calculateMarketStockEstimatedShares,
+  hasValidMarketStockTokenToAssetRatio,
 } from './marketStockQuoteDisplayUtils';
 
 const currencyMap = {
@@ -89,5 +90,67 @@ describe('marketStockQuoteDisplayUtils', () => {
         tokenToAssetRatio: '0',
       }),
     ).toBeUndefined();
+  });
+
+  it('only accepts a positive finite token-to-share ratio', () => {
+    expect(hasValidMarketStockTokenToAssetRatio('0.9985')).toBe(true);
+    expect(hasValidMarketStockTokenToAssetRatio()).toBe(false);
+    expect(hasValidMarketStockTokenToAssetRatio('0')).toBe(false);
+    expect(hasValidMarketStockTokenToAssetRatio('NaN')).toBe(false);
+  });
+
+  it('treats a payment token fallback price as the selected display currency', () => {
+    const cnyCurrencyMap = {
+      ...currencyMap,
+      cny: {
+        id: 'cny',
+        unit: '¥',
+        name: 'Chinese Yuan',
+        type: ['fiat'],
+        value: '7',
+      } as ICurrencyItem,
+    };
+    const result = buildMarketStockQuoteDisplay({
+      currencyMap: cnyCurrencyMap,
+      fallbackCurrencySymbol: '¥',
+      fromToken: {
+        networkId: 'evm--1',
+        contractAddress: '0xstock',
+        symbol: 'AAPLon',
+        decimals: 18,
+        isStock: true,
+        price: '100',
+        currency: 'usd',
+      },
+      toToken: {
+        networkId: 'evm--1',
+        contractAddress: '0xtoken',
+        symbol: 'TOKEN',
+        decimals: 6,
+        price: '7',
+      },
+      quoteResult: {
+        info: {
+          provider: 'liquidMesh',
+          providerName: 'liquidMesh',
+        },
+        fromTokenInfo: {
+          networkId: 'evm--1',
+          contractAddress: '0xstock',
+          symbol: 'AAPLon',
+          decimals: 18,
+        },
+        toTokenInfo: {
+          networkId: 'evm--1',
+          contractAddress: '0xtoken',
+          symbol: 'TOKEN',
+          decimals: 6,
+        },
+        toAmount: '10',
+      },
+      targetCurrency: 'cny',
+    });
+
+    expect(result.receiveFiatValue).toBe('70');
   });
 });

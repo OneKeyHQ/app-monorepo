@@ -245,6 +245,28 @@ export function isMarketUserCancelledError(error: unknown) {
   );
 }
 
+export function isMarketQuoteResultForPair({
+  fromToken,
+  quoteResult,
+  toToken,
+}: {
+  fromToken: ISwapTokenBase;
+  quoteResult?: IFetchQuoteResult;
+  toToken: ISwapTokenBase;
+}) {
+  return Boolean(
+    quoteResult &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.fromTokenInfo,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: quoteResult.toTokenInfo,
+      token2: toToken,
+    }),
+  );
+}
+
 export function buildMarketReviewTokens({
   tradeType,
   fromToken,
@@ -772,31 +794,23 @@ export function useSpeedSwapActions(props: {
     () =>
       Boolean(
         selectedQuoteResult &&
-        !(
-          equalTokenNoCaseSensitive({
-            token1: selectedQuoteResult.fromTokenInfo,
-            token2: fromToken,
-          }) &&
-          equalTokenNoCaseSensitive({
-            token1: selectedQuoteResult.toTokenInfo,
-            token2: toToken,
-          })
-        ),
+        !isMarketQuoteResultForPair({
+          fromToken,
+          quoteResult: selectedQuoteResult,
+          toToken,
+        }),
       ),
     [fromToken, selectedQuoteResult, toToken],
   );
+  const currentQuoteResult = quoteResultPairNoMatch
+    ? undefined
+    : selectedQuoteResult;
   useEffect(() => {
     setSwapToTokenAmount({
-      value: quoteResultPairNoMatch
-        ? ''
-        : (selectedQuoteResult?.toAmount ?? ''),
+      value: currentQuoteResult?.toAmount ?? '',
       isInput: false,
     });
-  }, [
-    quoteResultPairNoMatch,
-    selectedQuoteResult?.toAmount,
-    setSwapToTokenAmount,
-  ]);
+  }, [currentQuoteResult?.toAmount, setSwapToTokenAmount]);
   const noProviderSupportsTrade = useMemo(
     () =>
       isSwapNoProviderSupportsTrade({
@@ -855,16 +869,11 @@ export function useSpeedSwapActions(props: {
     selectedQuoteResult,
   };
 
-  const refreshMarketQuote = useCallback(() => {
+  const forceRefreshMarketQuote = useCallback(() => {
     const userAddress = fromNetworkAccount?.addressDetail.address;
     const accountId = fromNetworkAccount?.id;
     const receivingAddress = receivingNetworkAccount?.addressDetail.address;
-    if (
-      !quoteExecutionStateRef.current.actionState.canRefresh ||
-      !userAddress ||
-      !accountId ||
-      !receivingAddress
-    ) {
+    if (!userAddress || !accountId || !receivingAddress) {
       return;
     }
 
@@ -902,6 +911,13 @@ export function useSpeedSwapActions(props: {
     swapType,
     toToken,
   ]);
+
+  const refreshMarketQuote = useCallback(() => {
+    if (!quoteExecutionStateRef.current.actionState.canRefresh) {
+      return;
+    }
+    forceRefreshMarketQuote();
+  }, [forceRefreshMarketQuote]);
 
   const buildReviewStepTexts = useCallback(
     (providerName?: string): ISwapReviewStepTexts => ({
@@ -3731,11 +3747,11 @@ export function useSpeedSwapActions(props: {
   ]);
 
   const marketPriceRate = (() => {
-    if (selectedQuoteResult?.instantRate) {
+    if (currentQuoteResult?.instantRate) {
       return {
-        rate: Number(selectedQuoteResult.instantRate),
-        fromTokenSymbol: selectedQuoteResult.fromTokenInfo.symbol,
-        toTokenSymbol: selectedQuoteResult.toTokenInfo.symbol,
+        rate: Number(currentQuoteResult.instantRate),
+        fromTokenSymbol: currentQuoteResult.fromTokenInfo.symbol,
+        toTokenSymbol: currentQuoteResult.toTokenInfo.symbol,
         loading: quoteActionState.isLoading,
       };
     }
@@ -3753,7 +3769,7 @@ export function useSpeedSwapActions(props: {
           currencyMap,
           fallbackCurrencySymbol: settingsAtom.currencyInfo.symbol,
           fromToken,
-          quoteResult: selectedQuoteResult,
+          quoteResult: currentQuoteResult,
           targetCurrency: settingsAtom.currencyInfo.id,
           toToken,
         })
@@ -3774,13 +3790,13 @@ export function useSpeedSwapActions(props: {
       : undefined,
     priceRate: marketPriceRate,
     stockQuoteDisplay,
-    quoteResult: selectedQuoteResult,
+    quoteResult: currentQuoteResult,
     quoteList,
     quoteActionLoading: quoteActionState.isLoading,
     isWrapped,
     quoteError:
       quoteEventError?.message ??
-      selectedQuoteResult?.errorMessage ??
+      currentQuoteResult?.errorMessage ??
       (noProviderSupportsTrade
         ? intl.formatMessage({
             id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -3790,6 +3806,7 @@ export function useSpeedSwapActions(props: {
     quoteNeedsRefresh: quoteActionState.canRefresh,
     quoteRefreshActionActive: quoteActionState.isRefreshAction,
     refreshMarketQuote,
+    forceRefreshMarketQuote,
     estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     rebuildMarketSwapReview,

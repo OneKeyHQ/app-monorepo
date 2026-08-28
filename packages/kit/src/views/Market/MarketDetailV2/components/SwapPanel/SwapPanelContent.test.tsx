@@ -258,6 +258,7 @@ function createProps(): ISwapPanelContentProps {
     onOpenRecipientAddress: jest.fn(),
     onWrappedSwap: jest.fn(),
     onRefreshQuote: jest.fn(),
+    onForceRefreshQuote: jest.fn(),
     swapMevNetConfig: [],
     swapNativeTokenReserveGas: [],
     isWrapped: false,
@@ -427,7 +428,7 @@ describe('SwapPanelContent', () => {
       expect.objectContaining({
         onOpenProviderList: props.onOpenProviderList,
         quoteResult: props.quoteResult,
-        refreshAction: props.onRefreshQuote,
+        refreshAction: props.onForceRefreshQuote,
       }),
     );
     expect(swapProviderInfoItemMock).not.toHaveBeenCalled();
@@ -448,8 +449,39 @@ describe('SwapPanelContent', () => {
 
     render(<SwapPanelContent {...props} />);
 
-    expect(screen.getByTestId('stock-trade-estimated-shares').textContent).toBe(
-      'Est. shares--',
+    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+  });
+
+  it('keeps the shared Connect wallet action enabled without an account', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.activeAccount = {} as never;
+    props.isActionDisabled = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        forceNoConnectWallet: true,
+        disabled: false,
+        forceQuoteActionLoading: false,
+      }),
+    );
+  });
+
+  it('preserves the full Swap fallback when speed swap is unsupported', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.supportSpeedSwap.enabled = false;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(swapActionsStateMock).not.toHaveBeenCalled();
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        supportSpeedSwap: false,
+        isAccountNetworkSupported: true,
+      }),
     );
   });
 

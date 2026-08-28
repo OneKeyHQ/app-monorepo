@@ -33,6 +33,13 @@ export function calculateMarketStockEstimatedShares({
   return amountBN.multipliedBy(ratioBN).toFixed();
 }
 
+export function hasValidMarketStockTokenToAssetRatio(
+  tokenToAssetRatio?: string,
+) {
+  const ratioBN = new BigNumber(tokenToAssetRatio ?? '');
+  return ratioBN.isFinite() && ratioBN.gt(0);
+}
+
 export function buildMarketStockQuoteDisplay({
   currencyMap,
   fallbackCurrencySymbol,
@@ -60,13 +67,17 @@ export function buildMarketStockQuoteDisplay({
     quoteFromTokenPrice ??
     resolveStockTokenPrice({
       token: fromToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+      fallbackCurrency: fromToken.isStock
+        ? STOCK_PRICE_SOURCE_CURRENCY
+        : targetCurrency,
     });
   const toTokenPrice =
     quoteToTokenPrice ??
     resolveStockTokenPrice({
       token: toToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+      fallbackCurrency: toToken.isStock
+        ? STOCK_PRICE_SOURCE_CURRENCY
+        : targetCurrency,
     });
 
   return {

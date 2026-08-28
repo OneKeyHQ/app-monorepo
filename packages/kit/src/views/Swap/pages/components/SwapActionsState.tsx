@@ -93,6 +93,7 @@ import { SwapSmoothReveal } from './SwapSmoothReveal';
 
 interface ISwapActionsStateProps {
   disabled?: boolean;
+  forceNoConnectWallet?: boolean;
   forceQuoteActionLoading?: boolean;
   onRefreshQuote?: () => void;
   onPreSwap: () => void;
@@ -104,6 +105,7 @@ interface ISwapActionsStateProps {
 
 const SwapActionsState = ({
   disabled,
+  forceNoConnectWallet,
   forceQuoteActionLoading,
   onRefreshQuote,
   onPreSwap,
@@ -131,6 +133,9 @@ const SwapActionsState = ({
   const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
     useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const noConnectWallet = Boolean(
+    forceNoConnectWallet || swapActionState.noConnectWallet,
+  );
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const hasEverShownCostSavingsRef = useRef(false);
@@ -270,7 +275,7 @@ const SwapActionsState = ({
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
-    noConnectWallet: Boolean(swapActionState.noConnectWallet),
+    noConnectWallet,
   });
 
   const shouldShowRecipient = useMemo(
@@ -386,7 +391,7 @@ const SwapActionsState = ({
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
       inputText: incognitoRecipientInput.inputText,
-      isConnectWalletAction: Boolean(swapActionState.noConnectWallet),
+      isConnectWalletAction: noConnectWallet,
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
       validationEnabled: incognitoRecipientInput.enabled,
@@ -394,17 +399,19 @@ const SwapActionsState = ({
     });
 
   const shouldShowQuoteActionLoading =
+    !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
-  const isActionDisabled =
-    Boolean(disabled) ||
-    swapActionState.disabled ||
-    swapActionState.isLoading ||
-    shouldShowQuoteActionLoading ||
-    shouldBlockIncognitoRecipientAction;
+  const isActionDisabled = noConnectWallet
+    ? false
+    : Boolean(disabled) ||
+      swapActionState.disabled ||
+      swapActionState.isLoading ||
+      shouldShowQuoteActionLoading ||
+      shouldBlockIncognitoRecipientAction;
 
   const onActionHandlerBefore = useCallback(async () => {
-    if (swapActionState.noConnectWallet) {
+    if (noConnectWallet) {
       if (platformEnv.isWebDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
@@ -455,7 +462,7 @@ const SwapActionsState = ({
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
-    swapActionState.noConnectWallet,
+    noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
     swapFromAddressInfo?.accountInfo?.account?.id,
@@ -998,10 +1005,18 @@ const SwapActionsState = ({
           color="$textInverse"
           textAlign="center"
         >
-          {swapActionState.label}
+          {noConnectWallet
+            ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
+            : swapActionState.label}
         </SizableText>
       ),
-    [swapActionState.label, shouldShowQuoteActionLoading, themeVariant],
+    [
+      intl,
+      noConnectWallet,
+      swapActionState.label,
+      shouldShowQuoteActionLoading,
+      themeVariant,
+    ],
   );
 
   const actionRowComponent = useMemo(

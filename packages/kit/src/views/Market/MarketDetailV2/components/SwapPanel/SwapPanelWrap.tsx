@@ -368,6 +368,7 @@ function SwapPanelWrapContent({
     quoteNeedsRefresh,
     quoteRefreshActionActive,
     refreshMarketQuote,
+    forceRefreshMarketQuote,
     paymentTokenPrice,
     swapNativeTokenReserveGas,
     isWrapped,
@@ -870,6 +871,7 @@ function SwapPanelWrapContent({
       }
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
+      onForceRefreshQuote={forceRefreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
