@@ -4,10 +4,8 @@ import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core/errors';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
 import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
@@ -2077,35 +2075,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isAttachPinMode,
         });
         if (options?.addDefaultNetworkAccounts) {
-          let dialog: IDialogInstance | undefined;
-          try {
-            if (options?.showAddAccountsLoading) {
-              dialog = Dialog.show({
-                // eslint-disable-next-line onekey/no-app-locale-main-thread
-                title: appLocale.intl.formatMessage({
-                  id: ETranslations.onboarding_finalize_generating_accounts,
-                }),
-                showCancelButton: false,
-                showConfirmButton: false,
-                dismissOnOverlayPress: false,
-                showExitButton: false,
-                showFooter: false,
-                disableDrag: true,
-                renderContent: <CommonDeviceLoading />,
-              });
-            }
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet,
-              indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel,
-              hideCheckingDeviceLoading: options?.showAddAccountsLoading
-                ? true
-                : hideCheckingDeviceLoading,
-            });
-          } finally {
-            await dialog?.close();
-          }
+          // The legacy "Generating your accounts" dialog stood down here:
+          // the DeviceStage capsule already narrates this whole phase, and
+          // the two surfaces were showing at once (OK-59934).
+          await this.addDefaultNetworkAccounts.call(set, {
+            wallet,
+            indexedAccount,
+            isCreateWallet: true,
+            skipDeviceCancel,
+            hideCheckingDeviceLoading: options?.showAddAccountsLoading
+              ? true
+              : hideCheckingDeviceLoading,
+          });
         }
         return res;
       } catch (error) {
