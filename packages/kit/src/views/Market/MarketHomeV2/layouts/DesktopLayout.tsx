@@ -13,7 +13,11 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS,
+  MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
+} from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -38,7 +42,6 @@ import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
-const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 
 const LazyMarketWatchlistTokenList = lazy(async () => {
@@ -241,7 +244,7 @@ export function DesktopLayout({
                 {...tabBarProps}
                 onTabPress={handleTabPress}
                 divider={false}
-                containerStyle={{ position: 'relative' as any }}
+                containerStyle={MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE}
               />
             </XStack>
             {/* Keep controls mounted so network data remains ready across tabs. */}
@@ -263,10 +266,7 @@ export function DesktopLayout({
               />
             </XStack>
           </XStack>
-          <div
-            ref={portalRefCallback}
-            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
-          />
+          <div ref={portalRefCallback} />
         </YStack>
       );
     },
@@ -312,7 +312,7 @@ export function DesktopLayout({
 
   const tabElements = [
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+      <YStack {...MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS} px="$3" flex={1}>
         {hasActivated(watchlistTabName) ? (
           <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
@@ -390,7 +390,7 @@ export function DesktopLayout({
             // horizontal scroller full-bleed), so it opts out of this one.
             {...(isStockCategory
               ? { width: '100%' as const }
-              : MARKET_DESKTOP_CONTENT_FRAME_PROPS)}
+              : MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS)}
             px={isStockCategory ? '$0' : '$3'}
             flex={1}
           >
@@ -402,7 +402,11 @@ export function DesktopLayout({
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+            <YStack
+              {...MARKET_DESKTOP_PORTAL_CONTENT_FRAME_PROPS}
+              px="$3"
+              flex={1}
+            >
               {hasActivated(perpsTabName) ? (
                 <Suspense fallback={null}>
                   <LazyMarketPerpsTokenList
