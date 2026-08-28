@@ -206,7 +206,6 @@ function buildFeeResultFromSelectedFeeInfo(
       selectedFeeInfo.totalNativeForDisplay ?? selectedFeeInfo.totalNative,
     totalFiatForDisplay:
       selectedFeeInfo.totalFiatForDisplay ?? selectedFeeInfo.totalFiat,
-    totalNativeMinForDisplay: selectedFeeInfo.totalNativeMinForDisplay,
   };
 }
 
@@ -812,7 +811,6 @@ function BulkSendProcessContent({
             totalFiat: feeResult.totalFiat,
             totalNativeForDisplay: feeResult.totalNativeForDisplay,
             totalFiatForDisplay: feeResult.totalFiatForDisplay,
-            totalNativeMinForDisplay: feeResult.totalNativeMinForDisplay,
           };
 
           // Sign and send
