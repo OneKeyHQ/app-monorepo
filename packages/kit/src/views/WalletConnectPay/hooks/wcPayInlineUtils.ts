@@ -1,4 +1,16 @@
+import { extractWcPayTypedDataMessage } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
+import { extractWcPaySolanaTransaction } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
+import {
+  type IWcPayResolvedToken,
+  type IWcPayTypedDataSummary,
+  checkWcPayTypedDataMatchesOrder,
+  readWcPayPermitTokenAddress,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayMessageConsistency';
 import { checkWcPayEvmActionMatchesOrder } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayOrderConsistency';
+import {
+  type IWcPaySolanaSummary,
+  checkWcPaySolanaTxMatchesOrder,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EWcPayActionMethod,
@@ -25,6 +37,16 @@ export type IWcPayInlinePlan =
       // the user; UI must key off `mode`.
       reason: string;
     };
+
+// Same contract as IWcPayInlinePlan, plus the proven payload the inline UI
+// needs to describe what is being signed (`reason` stays diagnostic-only).
+export type IWcPayInlineMessagePlan =
+  | { mode: 'inline'; summary: IWcPayTypedDataSummary }
+  | { mode: 'fallback'; reason: string };
+
+export type IWcPayInlineSolanaPlan =
+  | { mode: 'inline'; summary: IWcPaySolanaSummary; txBase64: string }
+  | { mode: 'fallback'; reason: string };
 
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
@@ -101,6 +123,9 @@ export function isWcPayInlinePostSignError(error: unknown): boolean {
  * - `signing`: covers signing AND broadcasting. `signAndSendTransaction` is a
  *   single atomic background call, so there is no observable moment between
  *   the two; the UI must label this phase accordingly.
+ * - `signingMessage`: a headless signature that produces no broadcast at all
+ *   (Permit2 typed data, and the sign-only half of the Solana path), so it
+ *   must not be labelled with the broadcasting copy `signing` carries.
  * - `recording`: post-broadcast bookkeeping (signature record, local history).
  *   The transfer is already on its way by the time this is emitted.
  *
@@ -112,6 +137,8 @@ export type IWcPayInlinePhase =
   | 'estimating'
   | 'checking'
   | 'signing'
+  // headless message / sign-only signature in progress
+  | 'signingMessage'
   | 'recording';
 
 // Result contract of `wcPayInlineSendTx`, which re-exports this type. Only the
@@ -123,28 +150,25 @@ export type IWcPayInlineSendResult =
   | { status: 'inlineError'; failure: IWcPayInlineFailure };
 
 /**
- * Phase 1 gate: inline only a single plain EVM send whose shape matches the
- * approved order; everything else uses the existing confirm-page path. Must
- * never throw — `actions` crosses a trust boundary (server response), and
- * this is the decision layer that never fails.
+ * The plain-EVM-send gate, evaluated per action: inline a send whose shape
+ * matches the approved order, whatever position it holds in the sequence
+ * (the surrounding sequence length is no longer part of the decision — every
+ * action of a multi-action sequence is gated on its own). Everything else
+ * uses the existing confirm-page path.
+ *
+ * Must never throw — `action` crosses a trust boundary (server response),
+ * and this is the decision layer that never fails.
  */
-export function getWcPayInlinePlan({
-  actions,
+export function getWcPayInlineTxPlan({
+  action,
   option,
 }: {
-  actions: IWcPayAction[];
+  action: IWcPayAction;
   option: IWcPayOption | undefined;
 }): IWcPayInlinePlan {
   if (!option) {
     return { mode: 'fallback', reason: 'no selected option' };
   }
-  if (!Array.isArray(actions) || actions.length !== 1) {
-    return {
-      mode: 'fallback',
-      reason: actions?.length === 0 ? 'no actions' : 'multi-action sequence',
-    };
-  }
-  const action = actions[0];
   const method = action?.walletRpc?.method;
   if (!method) {
     return { mode: 'fallback', reason: 'malformed action' };
@@ -157,6 +181,127 @@ export function getWcPayInlinePlan({
     return { mode: 'fallback', reason: consistency.reason };
   }
   return { mode: 'inline' };
+}
+
+// Re-exported from this leaf module so a caller can resolve the permit's
+// token through its own registry — the input `getWcPayInlineMessagePlan`
+// demands — without importing kit-bg's validator directly.
+export { readWcPayPermitTokenAddress };
+
+/**
+ * The Permit2 typed-data gate. `resolvedToken` is the caller's registry
+ * lookup of the permit's own token address (see `readWcPayPermitTokenAddress`)
+ * — the validator refuses when it is missing or disagrees with the option, so
+ * a payload's self-declared token can never stand in for the wallet's own
+ * identity of it.
+ *
+ * Must never throw — `action` crosses a trust boundary (server response).
+ */
+export function getWcPayInlineMessagePlan({
+  action,
+  option,
+  nowMs,
+  resolvedToken,
+  maxDeadlineS,
+}: {
+  action: IWcPayAction;
+  option: IWcPayOption | undefined;
+  nowMs: number;
+  resolvedToken: IWcPayResolvedToken | undefined;
+  maxDeadlineS?: number;
+}): IWcPayInlineMessagePlan {
+  if (!option) {
+    return { mode: 'fallback', reason: 'no selected option' };
+  }
+  const method = action?.walletRpc?.method;
+  if (method !== EWcPayActionMethod.EthSignTypedDataV4) {
+    return { mode: 'fallback', reason: `method ${String(method)}` };
+  }
+  let typedData: unknown;
+  try {
+    // Both steps can throw on a hostile payload: JSON.parse on malformed
+    // params, and the extractor when no element is EIP-712 shaped.
+    typedData = JSON.parse(
+      extractWcPayTypedDataMessage(JSON.parse(action.walletRpc.params)),
+    );
+  } catch {
+    return { mode: 'fallback', reason: 'unparseable params' };
+  }
+  const consistency = checkWcPayTypedDataMatchesOrder({
+    typedData,
+    caip2ChainId: action.walletRpc.chainId,
+    option,
+    nowMs,
+    resolvedToken,
+    maxDeadlineS,
+  });
+  if (!consistency.ok) {
+    return { mode: 'fallback', reason: consistency.reason };
+  }
+  return { mode: 'inline', summary: consistency.summary };
+}
+
+/**
+ * The Solana sign-transaction gate. The validator proves the blob's shape,
+ * amount and fee bounds but deliberately stops at the mint ADDRESS: it never
+ * resolves a symbol. So for an spl leg this plan additionally demands the
+ * caller's registry lookup (`resolvedToken`) and refuses unless it agrees
+ * with both the mint and what the option displays — the same boundary
+ * `getWcPayInlineMessagePlan` draws for EVM. Native legs carry no mint and
+ * are fully judged by the validator itself.
+ *
+ * Must never throw — `action` crosses a trust boundary (server response).
+ */
+export function getWcPayInlineSolanaPlan({
+  action,
+  option,
+  resolvedToken,
+}: {
+  action: IWcPayAction;
+  option: IWcPayOption | undefined;
+  // The wallet-registry lookup of `summary.mint`; only spl legs consult it.
+  resolvedToken?: IWcPayResolvedToken;
+}): IWcPayInlineSolanaPlan {
+  if (!option) {
+    return { mode: 'fallback', reason: 'no selected option' };
+  }
+  const method = action?.walletRpc?.method;
+  if (method !== EWcPayActionMethod.SolanaSignTransaction) {
+    return { mode: 'fallback', reason: `method ${String(method)}` };
+  }
+  let txBase64: string;
+  try {
+    // JSON.parse throws on malformed params; the extractor throws when no
+    // element carries a transaction payload.
+    txBase64 = extractWcPaySolanaTransaction(
+      JSON.parse(action.walletRpc.params),
+    );
+  } catch {
+    return { mode: 'fallback', reason: 'unparseable params' };
+  }
+  const consistency = checkWcPaySolanaTxMatchesOrder({
+    txBase64,
+    caip2ChainId: action.walletRpc.chainId,
+    option,
+  });
+  if (!consistency.ok) {
+    return { mode: 'fallback', reason: consistency.reason };
+  }
+  if (consistency.summary.kind === 'spl') {
+    if (!resolvedToken) {
+      return { mode: 'fallback', reason: 'unknown token' };
+    }
+    if (resolvedToken.address !== consistency.summary.mint) {
+      return { mode: 'fallback', reason: 'token address mismatch' };
+    }
+    if (resolvedToken.symbol !== option.amount.display?.assetSymbol) {
+      return { mode: 'fallback', reason: 'token symbol mismatch' };
+    }
+    if (resolvedToken.decimals !== option.amount.display?.decimals) {
+      return { mode: 'fallback', reason: 'token decimals mismatch' };
+    }
+  }
+  return { mode: 'inline', summary: consistency.summary, txBase64 };
 }
 
 /**
@@ -242,6 +387,9 @@ export function classifyWcPayInlineFailure({
  */
 export interface IWcPayInlineController {
   onPhase: (phase: IWcPayInlinePhase) => void;
+  // What the sheet shows while a Permit2 signature is being produced: the
+  // proven payload behind the `signingMessage` phase.
+  onMessageSummary?: (summary: IWcPayTypedDataSummary) => void;
   // 'retry' re-runs the attempt (honoured only for a fee-estimate failure —
   // the one transient class), 'fallback' reroutes to the confirm page,
   // 'abort' cancels the payment.

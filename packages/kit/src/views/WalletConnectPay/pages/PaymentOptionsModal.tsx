@@ -121,6 +121,9 @@ function getWcPayPayingStepLabel(step: IWcPayPagePayingStep): string {
     // the label must not promise a separate broadcast step
     case 'signing':
       return 'Signing & broadcasting…';
+    // placeholder: real message-signing copy lands with the inline Permit2 UI
+    case 'signingMessage':
+      return 'Signing & broadcasting…';
     case 'recording':
       return 'Finalizing…';
     case 'submitting':
@@ -648,7 +651,7 @@ function PaymentOptionsPage() {
         // the flow instead of letting it sign and broadcast headless
         cancelSignal: cancelController.signal,
         // opts this call into the inline (headless) send for the action
-        // shapes getWcPayInlinePlan admits; everything else still runs
+        // shapes getWcPayInlineTxPlan admits; everything else still runs
         // through the confirm modal
         option: selectedOption,
         inlineController,

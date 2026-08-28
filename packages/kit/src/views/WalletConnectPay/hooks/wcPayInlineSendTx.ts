@@ -283,7 +283,7 @@ export async function wcPayInlineSendTx({
   } = feeForSend;
 
   // The inline path only ever runs for a single plain EVM transfer (see
-  // getWcPayInlinePlan), so the encodedTx is an EVM tx.
+  // getWcPayInlineTxPlan), so the encodedTx is an EVM tx.
   const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
   const tokenAddress = isWcPayEmptyCalldata(encodedTx.data)
     ? undefined

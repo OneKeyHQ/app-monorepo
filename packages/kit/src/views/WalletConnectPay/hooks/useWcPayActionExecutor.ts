@@ -36,7 +36,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { wcPayInlineSendTx } from './wcPayInlineSendTx';
 import {
   WcPayUserCancelledError,
-  getWcPayInlinePlan,
+  getWcPayInlineTxPlan,
   runWcPayInlineAttempts,
 } from './wcPayInlineUtils';
 
@@ -116,8 +116,8 @@ export function useWcPayActionExecutor() {
       option?: IWcPayOption;
       // observer/decider for the inline path. Supplying it together with
       // `option` opts this call into the headless send; the gate that decides
-      // whether a given action sequence is actually eligible
-      // (getWcPayInlinePlan) still runs per action. Absent — as for every
+      // whether a given action is actually eligible (getWcPayInlineTxPlan)
+      // still runs per action. Absent — as for every
       // caller today — the executor behaves exactly as before.
       inlineController?: IWcPayInlineController;
       // pre-sign cancellation boundary, fired when the page that started the
@@ -397,11 +397,9 @@ export function useWcPayActionExecutor() {
             // thrown pipeline error (post-sign tagged or pre-sign untagged)
             // must reach the page, which owns the recovery decision.
             if (inlineController && option) {
-              // getWcPayInlinePlan validates actions[0] while this loop
-              // executes actions[i]; the two coincide only because the gate
-              // requires actions.length === 1. Phase 2 multi-action inlining
-              // must re-gate per action rather than reuse this call.
-              const plan = getWcPayInlinePlan({ actions, option });
+              // the gate is evaluated per action, so it judges the very
+              // action this iteration executes
+              const plan = getWcPayInlineTxPlan({ action: actions[i], option });
               if (plan.mode === 'inline') {
                 const inlineOutcome = await runWcPayInlineAttempts({
                   controller: inlineController,

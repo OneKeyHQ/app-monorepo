@@ -1,3 +1,4 @@
+import type { IWcPaySolanaConsistencyResult } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
 import type {
   IWcPayAction,
   IWcPayOption,
@@ -7,7 +8,9 @@ import {
   EWcPayInlineFailureKind,
   WC_PAY_INLINE_POST_SIGN_FLAG,
   classifyWcPayInlineFailure,
-  getWcPayInlinePlan,
+  getWcPayInlineMessagePlan,
+  getWcPayInlineSolanaPlan,
+  getWcPayInlineTxPlan,
   isWcPayInlinePostSignError,
   nextWcPayPagePhaseAfterAttempt,
   runWcPayInlineAttempts,
@@ -18,6 +21,17 @@ import type {
   IWcPayInlineSendResult,
   IWcPayInlineStage,
 } from '../wcPayInlineUtils';
+
+// The Solana validator is exercised against real blobs in its own kit-bg
+// suite; here it is mocked so this suite tests only the plan's decision
+// logic and never depends on @solana/web3.js.
+jest.mock(
+  '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency',
+  () => ({
+    __esModule: true,
+    checkWcPaySolanaTxMatchesOrder: jest.fn(),
+  }),
+);
 
 const SENDER = '0x1111111111111111111111111111111111111111';
 
@@ -49,25 +63,24 @@ const signAction: IWcPayAction = {
   },
 };
 
-describe('getWcPayInlinePlan', () => {
-  it('inlines a single matching eth_sendTransaction', () => {
-    expect(getWcPayInlinePlan({ actions: [nativeAction], option })).toEqual({
+// An action shaped like a server response that lost its walletRpc payload:
+// every plan must refuse it instead of throwing.
+const malformedAction: IWcPayAction = { walletRpc: undefined as never };
+
+describe('getWcPayInlineTxPlan', () => {
+  it('inlines a matching transfer action regardless of sequence length', () => {
+    expect(getWcPayInlineTxPlan({ action: nativeAction, option })).toEqual({
       mode: 'inline',
     });
   });
 
-  it('falls back for multi-action sequences (Permit2)', () => {
-    const plan = getWcPayInlinePlan({
-      actions: [nativeAction, signAction],
-      option,
-    });
-    expect(plan.mode).toBe('fallback');
-  });
-
-  it('falls back for non-send methods', () => {
-    expect(getWcPayInlinePlan({ actions: [signAction], option }).mode).toBe(
+  it('falls back for a non-transfer method and without an option', () => {
+    expect(getWcPayInlineTxPlan({ action: signAction, option }).mode).toBe(
       'fallback',
     );
+    expect(
+      getWcPayInlineTxPlan({ action: nativeAction, option: undefined }),
+    ).toEqual({ mode: 'fallback', reason: 'no selected option' });
   });
 
   it('falls back on consistency mismatch', () => {
@@ -80,47 +93,368 @@ describe('getWcPayInlinePlan', () => {
         ]),
       },
     };
-    expect(getWcPayInlinePlan({ actions: [inflated], option }).mode).toBe(
+    expect(getWcPayInlineTxPlan({ action: inflated, option }).mode).toBe(
       'fallback',
     );
   });
 
-  it('falls back with no selected option', () => {
-    expect(
-      getWcPayInlinePlan({ actions: [nativeAction], option: undefined }).mode,
-    ).toBe('fallback');
+  it('falls back without throwing on a malformed action', () => {
+    expect(() =>
+      getWcPayInlineTxPlan({ action: malformedAction, option }),
+    ).not.toThrow();
+    expect(getWcPayInlineTxPlan({ action: malformedAction, option })).toEqual({
+      mode: 'fallback',
+      reason: 'malformed action',
+    });
+    const missingAction = null as unknown as IWcPayAction;
+    expect(() =>
+      getWcPayInlineTxPlan({ action: missingAction, option }),
+    ).not.toThrow();
+    expect(getWcPayInlineTxPlan({ action: missingAction, option })).toEqual({
+      mode: 'fallback',
+      reason: 'malformed action',
+    });
+  });
+});
+
+const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const SPENDER = '0x2222222222222222222222222222222222222222';
+const NOW_MS = 1_700_000_000_000;
+
+const permitOption: IWcPayOption = {
+  ...option,
+  account: `eip155:8453:${SENDER}`,
+  amount: {
+    unit: 'USDC',
+    value: '100000',
+    display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+  },
+};
+
+const permitTypedData = {
+  types: {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
+    PermitTransferFrom: [
+      { name: 'permitted', type: 'TokenPermissions' },
+      { name: 'spender', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+    TokenPermissions: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+  },
+  primaryType: 'PermitTransferFrom',
+  domain: {
+    name: 'Permit2',
+    chainId: 8453,
+    verifyingContract: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+  },
+  message: {
+    permitted: { token: USDC_BASE, amount: '100000' },
+    spender: SPENDER,
+    nonce: '7',
+    deadline: String(NOW_MS / 1000 + 600),
+  },
+};
+
+const permitAction: IWcPayAction = {
+  walletRpc: {
+    chainId: 'eip155:8453',
+    method: 'eth_signTypedData_v4',
+    params: JSON.stringify([SENDER, JSON.stringify(permitTypedData)]),
+  },
+};
+
+const brokenTypedDataAction: IWcPayAction = {
+  walletRpc: {
+    chainId: 'eip155:8453',
+    method: 'eth_signTypedData_v4',
+    params: '{',
+  },
+};
+
+describe('getWcPayInlineMessagePlan', () => {
+  const resolvedToken = { address: USDC_BASE, symbol: 'USDC', decimals: 6 };
+
+  it('inlines a matching Permit2 payload and carries the summary', () => {
+    const plan = getWcPayInlineMessagePlan({
+      action: permitAction,
+      option: permitOption,
+      nowMs: NOW_MS,
+      resolvedToken,
+    });
+    expect(plan.mode).toBe('inline');
+    expect(plan.mode === 'inline' && plan.summary.spender).toBe(SPENDER);
+    expect(plan.mode === 'inline' && plan.summary.amountRaw).toBe('100000');
   });
 
-  it('falls back without throwing on undefined actions', () => {
+  it('falls back with the validator reason', () => {
+    expect(
+      getWcPayInlineMessagePlan({
+        action: permitAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken: undefined,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'unknown token' });
+  });
+
+  it('forwards a tightened deadline bound to the validator', () => {
+    expect(
+      getWcPayInlineMessagePlan({
+        action: permitAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken,
+        maxDeadlineS: 60,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'deadline too far' });
+  });
+
+  it('falls back for unparseable params and other methods', () => {
+    expect(
+      getWcPayInlineMessagePlan({
+        action: brokenTypedDataAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'unparseable params' });
+    expect(
+      getWcPayInlineMessagePlan({
+        action: nativeAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'method eth_sendTransaction' });
+  });
+
+  it('falls back without a selected option', () => {
+    expect(
+      getWcPayInlineMessagePlan({
+        action: permitAction,
+        option: undefined,
+        nowMs: NOW_MS,
+        resolvedToken,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'no selected option' });
+  });
+
+  it('falls back without throwing on a malformed action', () => {
     expect(() =>
-      getWcPayInlinePlan({
-        actions: undefined as unknown as IWcPayAction[],
-        option,
+      getWcPayInlineMessagePlan({
+        action: malformedAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken,
       }),
     ).not.toThrow();
     expect(
-      getWcPayInlinePlan({
-        actions: undefined as unknown as IWcPayAction[],
-        option,
+      getWcPayInlineMessagePlan({
+        action: malformedAction,
+        option: permitOption,
+        nowMs: NOW_MS,
+        resolvedToken,
       }).mode,
     ).toBe('fallback');
   });
+});
 
-  it('falls back without throwing on an empty actions array', () => {
-    expect(() => getWcPayInlinePlan({ actions: [], option })).not.toThrow();
-    expect(getWcPayInlinePlan({ actions: [], option }).mode).toBe('fallback');
+describe('getWcPayInlineSolanaPlan', () => {
+  const { checkWcPaySolanaTxMatchesOrder } = jest.requireMock<{
+    checkWcPaySolanaTxMatchesOrder: jest.Mock<
+      IWcPaySolanaConsistencyResult,
+      [{ txBase64: string; caip2ChainId: string; option: IWcPayOption }]
+    >;
+  }>(
+    '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency',
+  );
+
+  const SOLANA_CHAIN = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+  const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  const TX_BASE64 = 'dW5zaWduZWQ=';
+
+  const solOption: IWcPayOption = {
+    ...option,
+    account: `${SOLANA_CHAIN}:payer`,
+    amount: {
+      unit: 'SOL',
+      value: '1500',
+      display: { assetSymbol: 'SOL', assetName: 'Solana', decimals: 9 },
+    },
+  };
+  const usdcSolOption: IWcPayOption = {
+    ...solOption,
+    amount: {
+      unit: 'USDC',
+      value: '100000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+  };
+
+  const solanaAction: IWcPayAction = {
+    walletRpc: {
+      chainId: SOLANA_CHAIN,
+      method: 'solana_signTransaction',
+      params: JSON.stringify([{ transaction: TX_BASE64 }]),
+    },
+  };
+  const brokenSolanaAction: IWcPayAction = {
+    walletRpc: {
+      chainId: SOLANA_CHAIN,
+      method: 'solana_signTransaction',
+      params: '{',
+    },
+  };
+
+  const nativeSummary = {
+    amountRaw: '1500',
+    kind: 'native' as const,
+    priorityFeeLamports: '0',
+    fundsRecipientAta: false,
+  };
+  const splSummary = {
+    amountRaw: '100000',
+    kind: 'spl' as const,
+    mint: USDC_MINT,
+    decimals: 6,
+    priorityFeeLamports: '0',
+    fundsRecipientAta: false,
+  };
+
+  beforeEach(() => {
+    checkWcPaySolanaTxMatchesOrder.mockReset();
   });
 
-  it('falls back without throwing on a null action entry', () => {
-    const actions = [null as unknown as IWcPayAction];
-    expect(() => getWcPayInlinePlan({ actions, option })).not.toThrow();
-    expect(getWcPayInlinePlan({ actions, option }).mode).toBe('fallback');
+  it('falls back for a non-solana method without consulting the validator', () => {
+    expect(
+      getWcPayInlineSolanaPlan({ action: nativeAction, option: solOption }),
+    ).toEqual({ mode: 'fallback', reason: 'method eth_sendTransaction' });
+    expect(checkWcPaySolanaTxMatchesOrder).not.toHaveBeenCalled();
   });
 
-  it('falls back without throwing on an action missing walletRpc', () => {
-    const actions = [{} as IWcPayAction];
-    expect(() => getWcPayInlinePlan({ actions, option })).not.toThrow();
-    expect(getWcPayInlinePlan({ actions, option }).mode).toBe('fallback');
+  it('falls back without a selected option', () => {
+    expect(
+      getWcPayInlineSolanaPlan({ action: solanaAction, option: undefined }),
+    ).toEqual({ mode: 'fallback', reason: 'no selected option' });
+    expect(checkWcPaySolanaTxMatchesOrder).not.toHaveBeenCalled();
+  });
+
+  it('falls back without throwing on unparseable params', () => {
+    expect(() =>
+      getWcPayInlineSolanaPlan({
+        action: brokenSolanaAction,
+        option: solOption,
+      }),
+    ).not.toThrow();
+    expect(
+      getWcPayInlineSolanaPlan({
+        action: brokenSolanaAction,
+        option: solOption,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'unparseable params' });
+    expect(() =>
+      getWcPayInlineSolanaPlan({ action: malformedAction, option: solOption }),
+    ).not.toThrow();
+  });
+
+  it('inlines a native leg and carries the summary and the blob', () => {
+    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
+      ok: true,
+      summary: nativeSummary,
+    });
+    expect(
+      getWcPayInlineSolanaPlan({ action: solanaAction, option: solOption }),
+    ).toEqual({
+      mode: 'inline',
+      summary: nativeSummary,
+      txBase64: TX_BASE64,
+    });
+    expect(checkWcPaySolanaTxMatchesOrder).toHaveBeenCalledWith({
+      txBase64: TX_BASE64,
+      caip2ChainId: SOLANA_CHAIN,
+      option: solOption,
+    });
+  });
+
+  it('carries a validator refusal reason through', () => {
+    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
+      ok: false,
+      reason: 'amount mismatch',
+    });
+    expect(
+      getWcPayInlineSolanaPlan({ action: solanaAction, option: solOption }),
+    ).toEqual({ mode: 'fallback', reason: 'amount mismatch' });
+  });
+
+  // An spl leg's mint is only an address until the wallet's own registry
+  // agrees it is the asset the option displays (the validator never resolves
+  // a symbol — see its asset-identity note).
+  it('falls back when an spl mint is unknown to the wallet registry', () => {
+    checkWcPaySolanaTxMatchesOrder.mockReturnValue({
+      ok: true,
+      summary: splSummary,
+    });
+    expect(
+      getWcPayInlineSolanaPlan({ action: solanaAction, option: usdcSolOption }),
+    ).toEqual({ mode: 'fallback', reason: 'unknown token' });
+  });
+
+  it('falls back when the resolved token disagrees with the mint or option', () => {
+    checkWcPaySolanaTxMatchesOrder.mockReturnValue({
+      ok: true,
+      summary: splSummary,
+    });
+    expect(
+      getWcPayInlineSolanaPlan({
+        action: solanaAction,
+        option: usdcSolOption,
+        resolvedToken: {
+          address: 'So11111111111111111111111111111111111111112',
+          symbol: 'USDC',
+          decimals: 6,
+        },
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'token address mismatch' });
+    expect(
+      getWcPayInlineSolanaPlan({
+        action: solanaAction,
+        option: usdcSolOption,
+        resolvedToken: { address: USDC_MINT, symbol: 'USDT', decimals: 6 },
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'token symbol mismatch' });
+    expect(
+      getWcPayInlineSolanaPlan({
+        action: solanaAction,
+        option: usdcSolOption,
+        resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 9 },
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'token decimals mismatch' });
+  });
+
+  it('inlines an spl leg the registry agrees with', () => {
+    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
+      ok: true,
+      summary: splSummary,
+    });
+    expect(
+      getWcPayInlineSolanaPlan({
+        action: solanaAction,
+        option: usdcSolOption,
+        resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 6 },
+      }),
+    ).toEqual({
+      mode: 'inline',
+      summary: splSummary,
+      txBase64: TX_BASE64,
+    });
   });
 });
 
