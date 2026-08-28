@@ -23,7 +23,6 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTokenMetadataAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -50,8 +49,7 @@ import {
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
-  type ISwapToken,
-  type ISwapTokenMetadata,
+  type ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitExpirySelect from '../../components/LimitExpirySelect';
@@ -68,6 +66,7 @@ import {
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapQuoteTokenTaxPercentages } from '../../utils/swapTokenTaxUtils';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -146,7 +145,6 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   // External-wallet accounts pay the fee estimated by the connected wallet
@@ -212,13 +210,7 @@ const SwapQuoteResult = ({
   }, [slippageItem.key, slippageItem.value]);
 
   const calculateTaxItem = useCallback(
-    (
-      tokenBuyTaxBps: BigNumber,
-      tokenSellTaxBps: BigNumber,
-      tokenInfo?: ISwapToken,
-    ) => {
-      const showTax = BigNumber.maximum(tokenBuyTaxBps, tokenSellTaxBps);
-      const finalShowTax = showTax.dividedBy(100).toNumber();
+    (taxPercentage: string, tokenInfo?: ISwapTokenBase) => {
       return (
         <SwapCommonInfoItem
           title={intl.formatMessage(
@@ -229,7 +221,7 @@ const SwapQuoteResult = ({
           )}
           isLoading={isQuotePresentationLoading}
           valueComponent={
-            <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
+            <SizableText size="$bodyMdMedium">{`${taxPercentage}%`}</SizableText>
           }
         />
       );
@@ -237,51 +229,8 @@ const SwapQuoteResult = ({
     [intl, isQuotePresentationLoading],
   );
 
-  const tokenMetadataParse = useCallback(
-    (
-      tokenMetadata: ISwapTokenMetadata,
-      fromTokenInfo?: ISwapToken,
-      toTokenInfo?: ISwapToken,
-    ) => {
-      const buyToken = tokenMetadata?.buyToken;
-      const sellToken = tokenMetadata?.sellToken;
-      let buyTaxItem = null;
-      let sellTaxItem = null;
-      const buyTokenBuyTaxBps = new BigNumber(
-        buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
-      );
-      const buyTokenSellTaxBps = new BigNumber(
-        buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
-      );
-      const sellTokenBuyTaxBps = new BigNumber(
-        sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
-      );
-      const sellTokenSellTaxBps = new BigNumber(
-        sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
-      );
-      if (buyTokenBuyTaxBps.gt(0) || buyTokenSellTaxBps.gt(0)) {
-        buyTaxItem = calculateTaxItem(
-          buyTokenBuyTaxBps,
-          buyTokenSellTaxBps,
-          toTokenInfo,
-        );
-      }
-      if (sellTokenBuyTaxBps.gt(0) || sellTokenSellTaxBps.gt(0)) {
-        sellTaxItem = calculateTaxItem(
-          sellTokenBuyTaxBps,
-          sellTokenSellTaxBps,
-          fromTokenInfo,
-        );
-      }
-      return (
-        <>
-          {sellTaxItem}
-          {buyTaxItem}
-        </>
-      );
-    },
-    [calculateTaxItem],
-  );
+  const { buyTaxPercentage, sellTaxPercentage } =
+    getSwapQuoteTokenTaxPercentages(quoteResultForDisplay);
 
   const quoting = isQuotePresentationLoading;
 
@@ -542,12 +491,14 @@ const SwapQuoteResult = ({
             }
           />
         ) : null}
-        {swapTokenMetadata?.swapTokenMetadata
-          ? tokenMetadataParse(
-              swapTokenMetadata?.swapTokenMetadata,
-              fromToken,
-              toToken,
+        {sellTaxPercentage
+          ? calculateTaxItem(
+              sellTaxPercentage,
+              quoteResultForDisplay?.fromTokenInfo,
             )
+          : null}
+        {buyTaxPercentage
+          ? calculateTaxItem(buyTaxPercentage, quoteResultForDisplay?.toTokenInfo)
           : null}
       </SwapQuoteResultAccordion>
     );
