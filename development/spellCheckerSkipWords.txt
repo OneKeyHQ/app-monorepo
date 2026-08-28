@@ -418,6 +418,7 @@ fs
 fucntion
 func
 Func
+funder
 Geist
 getr
 gif
@@ -519,6 +520,7 @@ keyring
 keysend
 keytag
 krc20
+Lamport
 Lamports
 lang
 lasttime

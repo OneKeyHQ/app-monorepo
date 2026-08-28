@@ -18,11 +18,20 @@ export type IWcPaySolanaSummary = {
   // absent for native legs, which have no mint.
   mint?: string;
   decimals?: number;
+  // Always present. '0' when the blob carries no SetComputeUnitPrice ix.
+  priorityFeeLamports: string;
 };
 
 export type IWcPaySolanaConsistencyResult =
   | { ok: true; summary: IWcPaySolanaSummary }
   | { ok: false; reason: string };
+
+// 0.01 SOL. This path signs the server's bytes verbatim — unlike the EVM
+// validator (which the inline pipeline re-estimates fees for before
+// signing, see wcPayOrderConsistency.ts's ALLOWED_TX_KEYS comment), there is
+// no later re-estimation step to catch an inflated priority fee, so it must
+// be bounded here.
+export const WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS = 10_000_000;
 
 const TOKEN_PROGRAM_ID = new PublicKey(
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
@@ -47,10 +56,39 @@ const TOKEN_2022_PROGRAM_ID_STR = TOKEN_2022_PROGRAM_ID.toBase58();
 
 // SystemInstruction enum index for `Transfer`.
 const SYSTEM_TRANSFER_INDEX = 2;
+const SYSTEM_TRANSFER_KEY_COUNT = 2;
 // SPL Token instruction discriminants (same byte layout on both the classic
 // Token program and Token-2022 for these two variants).
 const SPL_TRANSFER = 3;
 const SPL_TRANSFER_CHECKED = 12;
+const TRANSFER_CHECKED_KEY_COUNT = 4;
+const TRANSFER_CHECKED_MINT_INDEX = 1;
+const TRANSFER_CHECKED_DESTINATION_INDEX = 2;
+const TRANSFER_CHECKED_AUTHORITY_INDEX = 3;
+const TRANSFER_CHECKED_DECIMALS_OFFSET = 9;
+
+// ComputeBudget instruction discriminants — see @solana/web3.js
+// COMPUTE_BUDGET_INSTRUCTION_LAYOUTS (programs/compute-budget.ts).
+// 0x00 (RequestUnitsDeprecated) has no named constant: it is refused by the
+// same fallback branch as any other unrecognized discriminant.
+const CU_REQUEST_HEAP_FRAME = 0x01;
+const CU_SET_COMPUTE_UNIT_LIMIT = 0x02;
+const CU_SET_COMPUTE_UNIT_PRICE = 0x03;
+const CU_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 0x04;
+// The runtime's own cap on compute units per transaction — the ceiling a
+// SetComputeUnitLimit value is clamped to, and the assumed limit when no
+// limit ix is present at all (the conservative, i.e. most expensive, case).
+const MAX_COMPUTE_UNITS = 1_400_000;
+const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000;
+
+// Associated Token Account program: [funder, ata, owner, mint,
+// systemProgram, tokenProgram].
+const ATA_KEY_COUNT = 6;
+const ATA_ADDRESS_INDEX = 1;
+const ATA_MINT_INDEX = 3;
+const ATA_TOKEN_PROGRAM_INDEX = 5;
+const ATA_CREATE = 0;
+const ATA_CREATE_IDEMPOTENT = 1;
 
 // A plain decimal order amount. 78 is the digit length of uint256 max —
 // the same cap used by wcPayOrderConsistency.ts / wcPayMessageConsistency.ts
@@ -82,89 +120,185 @@ function readU64LE(data: Uint8Array, offset: number): BigNumber | undefined {
   return value;
 }
 
-type IPaymentLeg = {
-  kind: 'native' | 'spl';
-  amount: BigNumber;
-  sender: string;
-  mint?: string;
-  decimals?: number;
+type IPaymentLeg =
+  | { kind: 'native'; amount: BigNumber; sender: string }
+  | {
+      kind: 'spl';
+      amount: BigNumber;
+      sender: string;
+      mint: string;
+      decimals: number;
+      destination: string;
+      programId: string;
+    };
+
+type IAtaOutcome = {
+  address: string;
+  mint: string;
+  tokenProgram: string;
 };
 
 type IInstructionOutcome =
   | { kind: 'skip' }
   | { kind: 'leg'; leg: IPaymentLeg }
+  | { kind: 'computeBudgetLimit'; units: number }
+  | { kind: 'computeBudgetPrice'; microLamports: BigNumber }
+  | { kind: 'ata'; ata: IAtaOutcome }
   | { kind: 'error'; reason: string };
 
+// SystemProgram.transfer only — exactly 2 keys ([from, to]); an extra key
+// is a shape this validator does not understand and must not silently
+// tolerate (see the "pin key counts" hardening note).
+function classifySystemInstruction(
+  ix: TransactionInstruction,
+): IInstructionOutcome {
+  const data = Buffer.from(ix.data);
+  const index = data.length >= 4 ? data.readUInt32LE(0) : -1;
+  const lamports = readU64LE(data, 4);
+  if (
+    index !== SYSTEM_TRANSFER_INDEX ||
+    lamports === undefined ||
+    ix.keys.length !== SYSTEM_TRANSFER_KEY_COUNT
+  ) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  return {
+    kind: 'leg',
+    leg: {
+      kind: 'native',
+      amount: lamports,
+      sender: ix.keys[0].pubkey.toBase58(),
+    },
+  };
+}
+
+// TokenProgram / Token-2022 only. Plain `Transfer` carries no mint/decimals
+// in its instruction data — the asset behind the raw amount cannot be tied
+// to the order offline, so it is refused rather than risk approving a
+// payment in the wrong token (the confirm page, which resolves the source
+// account's mint through RPC, still handles this case). Only
+// `TransferChecked` with exactly 4 keys yields an spl leg — multisig
+// authorities and Token-2022 transfer-hook extra accounts fall back to the
+// confirm page instead of being silently accepted.
+function classifyTokenInstruction(
+  ix: TransactionInstruction,
+  programId: string,
+): IInstructionOutcome {
+  const data = Buffer.from(ix.data);
+  const discriminator = data[0];
+  if (discriminator === SPL_TRANSFER) {
+    return { kind: 'error', reason: 'unverifiable mint' };
+  }
+  if (discriminator !== SPL_TRANSFER_CHECKED) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  const amount = readU64LE(data, 1);
+  if (
+    amount === undefined ||
+    data.length <= TRANSFER_CHECKED_DECIMALS_OFFSET ||
+    ix.keys.length !== TRANSFER_CHECKED_KEY_COUNT
+  ) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  return {
+    kind: 'leg',
+    leg: {
+      kind: 'spl',
+      amount,
+      sender: ix.keys[TRANSFER_CHECKED_AUTHORITY_INDEX].pubkey.toBase58(),
+      mint: ix.keys[TRANSFER_CHECKED_MINT_INDEX].pubkey.toBase58(),
+      decimals: data[TRANSFER_CHECKED_DECIMALS_OFFSET],
+      destination:
+        ix.keys[TRANSFER_CHECKED_DESTINATION_INDEX].pubkey.toBase58(),
+      programId,
+    },
+  };
+}
+
+// Every accompaniment is parsed, not merely allow-listed by program id —
+// this path signs the server's bytes verbatim (no fee re-estimation),
+// unlike the EVM path, so an unparsed ComputeBudget/ATA instruction could
+// hide an arbitrary priority fee or rent payment beyond the order amount.
+function classifyComputeBudgetInstruction(
+  ix: TransactionInstruction,
+): IInstructionOutcome {
+  const data = Buffer.from(ix.data);
+  const discriminator = data.length >= 1 ? data[0] : -1;
+  if (discriminator === CU_SET_COMPUTE_UNIT_LIMIT) {
+    if (data.length < 5) {
+      return { kind: 'error', reason: 'unsupported instruction' };
+    }
+    return { kind: 'computeBudgetLimit', units: data.readUInt32LE(1) };
+  }
+  if (discriminator === CU_SET_COMPUTE_UNIT_PRICE) {
+    const microLamports = readU64LE(data, 1);
+    if (microLamports === undefined) {
+      return { kind: 'error', reason: 'unsupported instruction' };
+    }
+    return { kind: 'computeBudgetPrice', microLamports };
+  }
+  if (
+    discriminator === CU_REQUEST_HEAP_FRAME ||
+    discriminator === CU_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT
+  ) {
+    return { kind: 'skip' };
+  }
+  // RequestUnitsDeprecated (0x00, carries a direct `additional_fee` in
+  // lamports outside this validator's fee accounting) and any unrecognized
+  // discriminator.
+  return { kind: 'error', reason: 'unsupported instruction' };
+}
+
+// Create / CreateIdempotent only, with the exact 6-key layout; RecoverNested
+// and any other shape fall back to the confirm page.
+function classifyAtaInstruction(
+  ix: TransactionInstruction,
+): IInstructionOutcome {
+  const data = Buffer.from(ix.data);
+  const discriminator = data.length === 0 ? ATA_CREATE : data[0];
+  if (
+    data.length > 1 ||
+    (discriminator !== ATA_CREATE && discriminator !== ATA_CREATE_IDEMPOTENT)
+  ) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  if (ix.keys.length < ATA_KEY_COUNT) {
+    return { kind: 'error', reason: 'unsupported instruction' };
+  }
+  return {
+    kind: 'ata',
+    ata: {
+      address: ix.keys[ATA_ADDRESS_INDEX].pubkey.toBase58(),
+      mint: ix.keys[ATA_MINT_INDEX].pubkey.toBase58(),
+      tokenProgram: ix.keys[ATA_TOKEN_PROGRAM_INDEX].pubkey.toBase58(),
+    },
+  };
+}
+
 // Classifies one decompiled instruction: an allowed accompaniment to skip
-// (never counted as a payment leg), a single payment leg, or an outright
+// (never counted as a payment leg), a single payment leg, a ComputeBudget /
+// ATA accompaniment the caller must accumulate and bound, or an outright
 // refusal reason. Kept as its own function (rather than a for-loop with
 // `continue`) so every instruction has exactly one exit path.
 function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
   const programId = ix.programId.toBase58();
-  if (
-    programId === COMPUTE_BUDGET_PROGRAM_ID ||
-    MEMO_PROGRAM_IDS.has(programId) ||
-    programId === ASSOCIATED_TOKEN_PROGRAM_ID_STR
-  ) {
+  if (MEMO_PROGRAM_IDS.has(programId)) {
     return { kind: 'skip' };
   }
+  if (programId === COMPUTE_BUDGET_PROGRAM_ID) {
+    return classifyComputeBudgetInstruction(ix);
+  }
+  if (programId === ASSOCIATED_TOKEN_PROGRAM_ID_STR) {
+    return classifyAtaInstruction(ix);
+  }
   if (programId === SYSTEM_PROGRAM_ID) {
-    const data = Buffer.from(ix.data);
-    const index = data.length >= 4 ? data.readUInt32LE(0) : -1;
-    const lamports = readU64LE(data, 4);
-    if (index !== SYSTEM_TRANSFER_INDEX || !lamports || ix.keys.length < 2) {
-      return { kind: 'error', reason: 'unsupported instruction' };
-    }
-    return {
-      kind: 'leg',
-      leg: {
-        kind: 'native',
-        amount: lamports,
-        sender: ix.keys[0].pubkey.toBase58(),
-      },
-    };
+    return classifySystemInstruction(ix);
   }
   if (
     programId === TOKEN_PROGRAM_ID_STR ||
     programId === TOKEN_2022_PROGRAM_ID_STR
   ) {
-    const data = Buffer.from(ix.data);
-    const kind = data[0];
-    if (kind === SPL_TRANSFER) {
-      // Plain `Transfer` carries no mint/decimals in its instruction data —
-      // the asset behind the raw amount cannot be tied to the order offline,
-      // so it is refused here rather than risk approving a payment in the
-      // wrong token. The confirm page (which resolves the source account's
-      // mint through RPC) still handles this case.
-      return { kind: 'error', reason: 'unverifiable mint' };
-    }
-    if (kind !== SPL_TRANSFER_CHECKED) {
-      return { kind: 'error', reason: 'unsupported instruction' };
-    }
-    const amount = readU64LE(data, 1);
-    // transferChecked keys: [source, mint, destination, authority]; data:
-    // [discriminator(1), amount(8), decimals(1)] — the decimals byte must
-    // be present before it is read.
-    const AUTHORITY_INDEX = 3;
-    const MINT_INDEX = 1;
-    const DECIMALS_OFFSET = 9;
-    if (
-      !amount ||
-      data.length <= DECIMALS_OFFSET ||
-      ix.keys.length <= AUTHORITY_INDEX
-    ) {
-      return { kind: 'error', reason: 'unsupported instruction' };
-    }
-    return {
-      kind: 'leg',
-      leg: {
-        kind: 'spl',
-        amount,
-        sender: ix.keys[AUTHORITY_INDEX].pubkey.toBase58(),
-        mint: ix.keys[MINT_INDEX].pubkey.toBase58(),
-        decimals: data[DECIMALS_OFFSET],
-      },
-    };
+    return classifyTokenInstruction(ix, programId);
   }
   return { kind: 'error', reason: 'unsupported instruction' };
 }
@@ -174,19 +308,22 @@ function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
  * matches the order the user approved: same chain, same fee payer as the
  * option account, and exactly one payment instruction (native SOL transfer
  * or SPL `TransferChecked`) for the order amount and asset from that same
- * account. A plain SPL `Transfer` is refused (see `classifyInstruction`) —
- * it carries no mint, so the asset it moves cannot be verified offline.
- * ComputeBudget, Memo, and Associated-Token-Account program instructions are
- * tolerated alongside the payment leg since the inline pipeline never
- * injects fee instructions of its own for this path (the sol vault only
- * adds a ComputeBudget priority-fee ix when `feeInfoEditable`, which this
- * headless path never sets — see Vault.ts) but the server or a wallet
- * default might still carry one.
+ * account. A plain SPL `Transfer` is refused (see `classifyTokenInstruction`)
+ * — it carries no mint, so the asset it moves cannot be verified offline.
+ *
+ * Fee/rent boundary: because this path signs the server's bytes verbatim
+ * (no later fee re-estimation, unlike the EVM path), every accompanying
+ * instruction is parsed rather than merely allow-listed by program id. This
+ * validator bounds: the payment amount, the priority fee (capped at
+ * `WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS`), and at most one Associated
+ * Token Account rent payment for the payment leg's own recipient. It does
+ * NOT bound the base signature fee (5 000 lamports/signature), which the
+ * caller must budget for separately.
  *
  * Asset identity: this validator only proves the instruction *kind* (native
- * vs spl) and, for spl, the mint's on-chain `decimals` agree with what the
- * option displays — it does NOT resolve the mint address to a symbol. The
- * caller must still confirm `summary.mint`'s symbol against the option
+ * vs spl) and, for spl, that the mint's on-chain `decimals` agree with what
+ * the option displays — it does NOT resolve the mint address to a symbol.
+ * The caller must still confirm `summary.mint`'s symbol against the option
  * through the wallet's own token registry (the same boundary
  * `checkWcPayTypedDataMatchesOrder`'s `resolvedToken` draws for EVM), since
  * a hostile mint address can claim any decimals.
@@ -241,7 +378,7 @@ export function checkWcPaySolanaTxMatchesOrder({
     return { ok: false, reason: 'fee payer mismatch' };
   }
 
-  let instructions;
+  let instructions: TransactionInstruction[];
   try {
     instructions = TransactionMessage.decompile(message).instructions;
   } catch {
@@ -249,6 +386,9 @@ export function checkWcPaySolanaTxMatchesOrder({
   }
 
   const legs: IPaymentLeg[] = [];
+  let computeUnitLimit: number | undefined;
+  let priceMicroLamports: BigNumber | undefined;
+  let ata: IAtaOutcome | undefined;
   for (const ix of instructions) {
     const outcome = classifyInstruction(ix);
     if (outcome.kind === 'error') {
@@ -256,10 +396,54 @@ export function checkWcPaySolanaTxMatchesOrder({
     }
     if (outcome.kind === 'leg') {
       legs.push(outcome.leg);
+    } else if (outcome.kind === 'computeBudgetLimit') {
+      // The runtime itself rejects a duplicate SetComputeUnitLimit — a
+      // second one here is already a shape the real runtime never produces.
+      if (computeUnitLimit !== undefined) {
+        return { ok: false, reason: 'unsupported instruction' };
+      }
+      computeUnitLimit = outcome.units;
+    } else if (outcome.kind === 'computeBudgetPrice') {
+      if (priceMicroLamports !== undefined) {
+        return { ok: false, reason: 'unsupported instruction' };
+      }
+      priceMicroLamports = outcome.microLamports;
+    } else if (outcome.kind === 'ata') {
+      if (ata !== undefined) {
+        return {
+          ok: false,
+          reason: 'unexpected associated token account instruction',
+        };
+      }
+      ata = outcome.ata;
     }
+    // 'skip' needs no handling.
   }
 
-  if (legs.length !== 1) {
+  // effectiveLimit: the explicit limit clamped to the runtime ceiling, or
+  // the ceiling itself when no limit ix is present (the conservative case —
+  // the runtime default is the max, so an unset limit must be assumed to
+  // cost the max).
+  const effectiveLimit =
+    computeUnitLimit === undefined
+      ? MAX_COMPUTE_UNITS
+      : Math.min(computeUnitLimit, MAX_COMPUTE_UNITS);
+  const priorityFeeLamports = priceMicroLamports
+    ? priceMicroLamports
+        .multipliedBy(effectiveLimit)
+        .dividedBy(MICRO_LAMPORTS_PER_LAMPORT)
+        .integerValue(BigNumber.ROUND_CEIL)
+    : new BigNumber(0);
+  if (
+    priorityFeeLamports.isGreaterThan(WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS)
+  ) {
+    return { ok: false, reason: 'priority fee too high' };
+  }
+
+  if (legs.length === 0) {
+    return { ok: false, reason: 'no payment instruction' };
+  }
+  if (legs.length > 1) {
     return { ok: false, reason: 'unexpected instruction count' };
   }
   const [leg] = legs;
@@ -288,6 +472,23 @@ export function checkWcPaySolanaTxMatchesOrder({
     }
   }
 
+  if (ata) {
+    // The one accepted cost beyond the amount and the bounded priority fee
+    // is funding the payment recipient's own ATA rent (~0.002 SOL) — never
+    // an unrelated account.
+    if (
+      leg.kind !== 'spl' ||
+      ata.address !== leg.destination ||
+      ata.mint !== leg.mint ||
+      ata.tokenProgram !== leg.programId
+    ) {
+      return {
+        ok: false,
+        reason: 'unexpected associated token account instruction',
+      };
+    }
+  }
+
   if (!leg.amount.isEqualTo(orderAmount)) {
     return { ok: false, reason: 'amount mismatch' };
   }
@@ -297,6 +498,7 @@ export function checkWcPaySolanaTxMatchesOrder({
       amountRaw: leg.amount.toFixed(),
       kind: leg.kind,
       ...(leg.kind === 'spl' ? { mint: leg.mint, decimals: leg.decimals } : {}),
+      priorityFeeLamports: priorityFeeLamports.toFixed(),
     },
   };
 }
