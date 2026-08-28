@@ -80,50 +80,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsLayoutStateAtom: () => [mockLayoutState, mockSetLayoutState],
 }));
 
-jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return {
-    Spotlight: ({
-      children,
-      containerProps,
-      highlightBackgroundOpacity,
-      isVisible,
-      message,
-      replaceChildren,
-      showHighlightBackground,
-      tourName,
-    }: {
-      children?: ReactNode;
-      containerProps?: { testID?: string };
-      highlightBackgroundOpacity?: number;
-      isVisible?: boolean;
-      message: string;
-      replaceChildren?: ReactNode;
-      showHighlightBackground?: boolean;
-      tourName: string;
-    }) => {
-      const replacementProps = React.isValidElement(replaceChildren)
-        ? (replaceChildren.props as { bg?: string; h?: number })
-        : undefined;
-      return (
-        <div
-          data-testid={containerProps?.testID}
-          data-visible={String(isVisible)}
-          data-message={message}
-          data-highlight-background-opacity={String(highlightBackgroundOpacity)}
-          data-has-replace-children={String(Boolean(replaceChildren))}
-          data-replace-background={replacementProps?.bg}
-          data-replace-height={String(replacementProps?.h)}
-          data-show-highlight-background={String(showHighlightBackground)}
-          data-tour-name={tourName}
-        >
-          {children}
-        </div>
-      );
-    },
-  };
-});
-
 jest.mock('allotment', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Allotment = React.forwardRef<
@@ -311,23 +267,13 @@ describe('PerpDesktopLayout web chart split', () => {
     expect(boundary.style.borderTopColor).toBe('#AABBCC');
   });
 
-  it('introduces the draggable chart boundary with a one-time spotlight', () => {
+  it('keeps the draggable chart boundary free of a spotlight overlay', () => {
     const view = render(<PerpDesktopLayout />);
-    const spotlight = view.getByTestId('perp-desktop-chart-resize-spotlight');
 
-    expect(spotlight.dataset.visible).toBe('true');
-    expect(spotlight.dataset.tourName).toBe('perpDesktopChartResize');
-    expect(spotlight.dataset.message).toBe('perps_desktop_resize_panels__desc');
-    expect(spotlight.dataset.showHighlightBackground).toBe('true');
-    expect(spotlight.dataset.highlightBackgroundOpacity).toBe('0.6');
-    expect(spotlight.dataset.hasReplaceChildren).toBe('true');
-    expect(spotlight.dataset.replaceBackground).toBe('$borderActive');
-    expect(spotlight.dataset.replaceHeight).toBe('4');
-
-    mockLayoutState = { ...mockLayoutState, chartExpanded: true };
-    view.rerender(<PerpDesktopLayout />);
-
-    expect(spotlight.dataset.visible).toBe('false');
+    expect(view.getByTestId('perp-desktop-chart-boundary')).toBeTruthy();
+    expect(
+      view.queryByTestId('perp-desktop-chart-resize-spotlight'),
+    ).toBeNull();
   });
 
   it('uses a 1px line on the account panel boundary', () => {

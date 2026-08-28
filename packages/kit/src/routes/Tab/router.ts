@@ -196,7 +196,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradeSolid' : 'TradeOutline',
-        translationId: ETranslations.global_perp,
+        translationId: ETranslations.perps__action,
         nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: perpTabShowWeb ? '/perps' : undefined,
@@ -209,7 +209,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
           focused ? 'TradeSolid' : 'TradeOutline',
-        translationId: ETranslations.global_perp,
+        translationId: ETranslations.perps__action,
         nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         children: perpRouters,

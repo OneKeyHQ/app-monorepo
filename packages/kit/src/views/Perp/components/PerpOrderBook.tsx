@@ -301,7 +301,7 @@ function FundingDialogContent({
   );
 }
 
-function MobileHeader() {
+export function MobileHeader() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
@@ -386,7 +386,7 @@ function MobileHeader() {
         <YStack
           alignItems="flex-start"
           mb="$2"
-          h={32}
+          minHeight={32}
           justifyContent="center"
           onLayout={handleLayout}
         >
