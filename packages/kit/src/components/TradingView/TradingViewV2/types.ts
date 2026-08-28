@@ -1,9 +1,56 @@
 export interface ITradingViewHistoryData {
   method: string;
+  requestId?: string;
   resolution: string;
   from: number;
   to: number;
+  countBack?: number;
   firstDataRequest: boolean;
+}
+
+export interface ITradingViewHistoryReadyData {
+  requestId: string;
+  resolution: string;
+  firstDataRequest: boolean;
+  status: 'success' | 'empty' | 'failed';
+  symbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
+}
+
+export interface ITradingViewLegacyHistoryReadyData {
+  status: 'success' | 'empty' | 'failed';
+  period: string;
+  symbol: string;
+  tokenAddress: string;
+  networkId: string;
+  webViewLoadGeneration: number;
+}
+
+export interface ITradingViewFirstPaintReadyData {
+  requestId: string;
+  resolution: string;
+  firstDataRequest: boolean;
+  status: 'rendered' | 'empty' | 'failed';
+  returnedCount: number;
+  source: 'bootstrap' | 'bridge';
+  bootstrapId?: string;
+  symbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
+}
+
+export interface ITradingViewChartReadyData {
+  symbol?: string;
+  containerId?: string;
+  capabilities?: {
+    marketSymbolSync?: boolean;
+    marketSymbolSyncStudies?: boolean;
+    marketAppKlineTransport?: boolean;
+    intervalAck?: boolean;
+    historyReadyAck?: boolean;
+    firstPaintReady?: boolean;
+  };
 }
 
 export interface ITradingViewLayoutData {
@@ -45,6 +92,7 @@ export interface ITradingViewIntervalOption {
 export interface ITradingViewIntervalConfigData {
   intervals: ITradingViewIntervalOption[];
   activeInterval: string;
+  persist?: boolean;
   timestamp?: number;
 }
 
@@ -103,24 +151,38 @@ export interface ITradingViewNativeChartControlsConfigData {
 
 export type ITradingViewKLineLoadStatus = 'empty' | 'failed';
 
+export interface ITradingViewKLineRequestRange {
+  from: number;
+  to: number;
+  countBack?: number;
+  firstDataRequest: boolean;
+}
+
 export interface ITradingViewKLineDataReadyData {
   period: string;
+  requestRange?: ITradingViewKLineRequestRange;
+  storageNamespace?: string;
 }
 
 export interface ITradingViewKLinePeriodChangeData {
   fromPeriod: string;
   toPeriod: string;
+  storageNamespace?: string;
 }
 
 export interface ITradingViewKLineLoadErrorData {
   status: ITradingViewKLineLoadStatus;
   period: string;
   message?: string;
+  requestRange?: ITradingViewKLineRequestRange;
+  storageNamespace?: string;
 }
 
 // Union type to support different data structures
 type ITradingViewData =
   | ITradingViewHistoryData
+  | ITradingViewChartReadyData
+  | ITradingViewFirstPaintReadyData
   | ITradingViewLayoutData
   | ITradingViewTouchScrollData
   | ITradingViewIndicatorsDialogData

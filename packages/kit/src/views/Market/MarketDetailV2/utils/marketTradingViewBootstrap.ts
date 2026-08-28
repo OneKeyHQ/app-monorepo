@@ -9,7 +9,9 @@ export interface IMarketTradingViewBootstrap {
   networkId: string;
   tokenSymbol: string;
   decimal: number;
+  marketPrice?: string | number;
   isNative: boolean;
+  historyStartTime?: number;
 }
 
 interface IBuildMarketTradingViewBootstrapOptions {
@@ -30,6 +32,16 @@ export function normalizeChartTokenAddress(
       contractAddress: address?.trim(),
     }) ?? ''
   );
+}
+
+export function normalizeMarketHistoryStartTimeSeconds(value: unknown) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return undefined;
+  }
+  return numericValue > 10_000_000_000
+    ? Math.floor(numericValue / 1000)
+    : Math.floor(numericValue);
 }
 
 export function isMatchingMarketTokenIdentity(
@@ -89,7 +101,11 @@ export function buildMarketTradingViewBootstrap({
     networkId,
     tokenSymbol: chartToken.symbol,
     decimal: chartToken.decimals,
+    marketPrice: detail?.price ?? preview?.price,
     isNative,
+    historyStartTime: normalizeMarketHistoryStartTimeSeconds(
+      detail?.firstTradeTime ?? preview?.firstTradeTime,
+    ),
   };
 }
 
@@ -103,6 +119,7 @@ export function isSameMarketTradingViewBootstrap(
       normalizeChartTokenAddress(next.tokenAddress, next.networkId) &&
     current.tokenSymbol === next.tokenSymbol &&
     current.decimal === next.decimal &&
-    current.isNative === next.isNative
+    current.isNative === next.isNative &&
+    current.historyStartTime === next.historyStartTime
   );
 }

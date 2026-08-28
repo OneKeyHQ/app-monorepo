@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import {
   TRADING_VIEW_DISABLED_FEATURES,
@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type {
   ITradingViewDisabledFeature,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewNativeIndicatorQuickBarState,
   ITradingViewPriceUpdateData,
   ITradingViewV2KLineDataFallback,
@@ -14,6 +16,13 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
+import {
+  getMarketTradingViewSessionPreference,
+  hydrateMarketTradingViewPreferences,
+  saveMarketTradingViewFirstScreenRequestPreference,
+  saveMarketTradingViewResolutionPreference,
+  updateMarketTradingViewSessionResolution,
+} from '../../utils/marketTradingViewResolutionPreference';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 import { MarketChartFullscreenHeader } from './MarketChartFullscreenHeader';
@@ -89,6 +98,8 @@ export interface IMarketTradingViewProps {
   networkId: string;
   tokenSymbol?: string;
   decimal?: number;
+  marketPrice?: string | number;
+  historyStartTime?: number;
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
   dataSource: 'websocket' | 'polling';
@@ -129,6 +140,8 @@ export const MarketTradingView = memo(
     networkId,
     tokenSymbol = '',
     decimal = 8,
+    marketPrice,
+    historyStartTime,
     dataSource,
     storageNamespace,
     pageWidth,
@@ -157,6 +170,29 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
+    const resolutionNamespace =
+      storageNamespace === 'market-hyperliquid'
+        ? 'market-hyperliquid'
+        : 'market';
+    const initialKLineResolutions = useMemo(
+      () => ({
+        market: getMarketTradingViewSessionPreference({
+          tokenAddress,
+          networkId,
+          namespace: 'market',
+        }).resolution,
+        marketHyperLiquid: getMarketTradingViewSessionPreference({
+          tokenAddress,
+          networkId,
+          namespace: 'market-hyperliquid',
+        }).resolution,
+      }),
+      [networkId, tokenAddress],
+    );
+
+    useEffect(() => {
+      void hydrateMarketTradingViewPreferences();
+    }, []);
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
@@ -191,6 +227,33 @@ export const MarketTradingView = memo(
       },
       [disableChartPriceUpdate, networkId, tokenAddress, tokenDetailActions],
     );
+    const handleKLineDataReady = useCallback(
+      (data: ITradingViewKLineDataReadyData) => {
+        if (data.requestRange) {
+          void saveMarketTradingViewFirstScreenRequestPreference({
+            resolution: data.period,
+            ...data.requestRange,
+            namespace: resolutionNamespace,
+          });
+        }
+      },
+      [resolutionNamespace],
+    );
+    const handleKLinePeriodChange = useCallback(
+      (data: ITradingViewKLinePeriodChangeData) => {
+        void saveMarketTradingViewResolutionPreference(
+          data.toPeriod,
+          resolutionNamespace,
+        );
+        updateMarketTradingViewSessionResolution({
+          tokenAddress,
+          networkId,
+          resolution: data.toPeriod,
+          namespace: resolutionNamespace,
+        });
+      },
+      [networkId, resolutionNamespace, tokenAddress],
+    );
 
     return (
       <TradingViewV2
@@ -199,6 +262,12 @@ export const MarketTradingView = memo(
         tokenAddress={tokenAddress}
         networkId={networkId}
         decimal={decimal}
+        marketPrice={marketPrice}
+        historyStartTime={historyStartTime}
+        initialKLineResolution={initialKLineResolutions.market}
+        initialHyperLiquidKLineResolution={
+          initialKLineResolutions.marketHyperLiquid
+        }
         dataSource={dataSource}
         storageNamespace={storageNamespace}
         accountAddress={accountAddress}
@@ -211,6 +280,8 @@ export const MarketTradingView = memo(
         onPriceUpdate={handlePriceUpdate}
         kLineDataFallback={kLineDataFallback}
         primaryKLineDataUnavailable={primaryKLineDataUnavailable}
+        onKLineDataReady={handleKLineDataReady}
+        onKLinePeriodChange={handleKLinePeriodChange}
         onChartError={onChartError}
         onChartReady={onChartReady}
         onVisualReady={onVisualReady}
