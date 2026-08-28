@@ -1,0 +1,176 @@
+diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
+index c712e48..017823f 100644
+--- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
++++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
+@@ -8,6 +8,7 @@ import com.facebook.react.ReactInstanceEventListener
+ import com.facebook.react.ReactPackage
+ import com.facebook.react.ReactPackageTurboModuleManagerDelegate
+ import com.facebook.react.bridge.JSBundleLoader
++import com.facebook.react.bridge.JSBundleLoaderDelegate
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.common.annotations.UnstableReactNativeAPI
+ import com.facebook.react.common.build.ReactBuildConfig
+@@ -20,11 +21,77 @@ import com.facebook.react.runtime.ReactHostDelegate
+ import com.facebook.react.runtime.ReactHostImpl
+ import com.facebook.react.runtime.hermes.HermesInstance
+ import expo.modules.core.interfaces.ReactNativeHostHandler
++import java.io.File
+ import java.lang.ref.WeakReference
+ 
+ object ExpoReactHostFactory {
+   private var reactHost: ReactHost? = null
+ 
++  private fun hasCommonBundleInAssets(context: Context): Boolean {
++    return try {
++      context.assets.open("common.bundle").close()
++      true
++    } catch (_: Exception) {
++      false
++    }
++  }
++
++  private fun resolveCommonBundlePath(entryBundlePath: String): String? {
++    val parentDir = File(entryBundlePath).parentFile ?: return null
++    val commonFile = File(parentDir, "common.bundle")
++    return if (commonFile.exists()) commonFile.absolutePath else null
++  }
++
++  private fun createSequentialAssetBundleLoader(
++    context: Context,
++    commonAssetName: String,
++    entryAssetName: String
++  ): JSBundleLoader {
++    return object : JSBundleLoader() {
++      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        val commonStart = System.nanoTime()
++        delegate.loadScriptFromAssets(context.assets, "assets://$commonAssetName", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from assets in ${String.format("%.1f", commonMs)}ms: $commonAssetName")
++
++        val entryStart = System.nanoTime()
++        delegate.loadScriptFromAssets(context.assets, "assets://$entryAssetName", false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from assets in ${String.format("%.1f", entryMs)}ms: $entryAssetName")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential asset load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++        return "assets://$entryAssetName"
++      }
++    }
++  }
++
++  private fun createSequentialFileBundleLoader(commonPath: String, entryPath: String): JSBundleLoader {
++    return object : JSBundleLoader() {
++      override fun loadScript(delegate: JSBundleLoaderDelegate): String {
++        val totalStart = System.nanoTime()
++
++        android.util.Log.i("SplitBundle", "main common bundle file: ${File(commonPath).length() / 1024}KB")
++        val commonStart = System.nanoTime()
++        delegate.loadScriptFromFile(commonPath, "common.bundle", false)
++        val commonMs = (System.nanoTime() - commonStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main common bundle loaded from file in ${String.format("%.1f", commonMs)}ms: $commonPath")
++
++        android.util.Log.i("SplitBundle", "main entry bundle file: ${File(entryPath).length() / 1024}KB")
++        val entryStart = System.nanoTime()
++        delegate.loadScriptFromFile(entryPath, entryPath, false)
++        val entryMs = (System.nanoTime() - entryStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main entry bundle loaded from file in ${String.format("%.1f", entryMs)}ms: $entryPath")
++
++        val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
++        android.util.Log.i("SplitBundle", "main sequential file load total: ${String.format("%.1f", totalMs)}ms (common=${String.format("%.1f", commonMs)}ms + entry=${String.format("%.1f", entryMs)}ms)")
++        return entryPath
++      }
++    }
++  }
++
+   @UnstableReactNativeAPI
+   private class ExpoReactHostDelegate(
+     private val weakContext: WeakReference<Context>,
+@@ -69,11 +136,22 @@ object ExpoReactHostFactory {
+           ?: throw IllegalStateException("Unable to get concrete Context")
+         hostDelegateJsBundleFilePath?.let { jsBundleFile ->
+           if (jsBundleFile.startsWith("assets://")) {
++            val entryAssetName = jsBundleFile.removePrefix("assets://")
++            if (hasCommonBundleInAssets(context)) {
++              return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
++            }
+             return JSBundleLoader.createAssetLoader(context, jsBundleFile, true)
+           }
++          resolveCommonBundlePath(jsBundleFile)?.let { commonPath ->
++            return createSequentialFileBundleLoader(commonPath, jsBundleFile)
++          }
+           return JSBundleLoader.createFileLoader(jsBundleFile)
+         }
+ 
++        if (hasCommonBundleInAssets(context)) {
++          val entryAssetName = hostDelegateJSBundleAssetPath ?: jsBundleAssetPath ?: "index.android.bundle"
++          return createSequentialAssetBundleLoader(context, "common.bundle", entryAssetName)
++        }
+         return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
+       }
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
+--- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
++++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
+@@ -42 +42,10 @@
+-  _appContext = [[EXAppContext alloc] init];
++  // A reload command is delivered to every RCTHost in the process. Apps with
++  // a foreground and background runtime can therefore initialize multiple
++  // Expo module registries at once, and rapid reload requests can add another
++  // overlapping foreground host. Expo module definitions and shared native
++  // managers are not safe to register concurrently, so serialize this short
++  // initialization phase across factories. Normal cold start is unaffected
++  // because the foreground host starts the background host only after its own
++  // initialization completes.
++  @synchronized ([EXReactNativeFactory class]) {
++    _appContext = [[EXAppContext alloc] init];
+@@ -44,17 +53,17 @@
+-  // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
+-  // the JS thread. Doing it here (rather than inside the xcframework) keeps
+-  // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
+-  // That matters for source-built RN, where those symbols are hidden after link
+-  // and unreachable via -undefined dynamic_lookup.
+-  //
+-  // The handle references the scheduler weakly, so dispatching after the React
+-  // instance tore it down (e.g. on reload) drops the task instead of calling
+-  // into freed memory. See `EXReactSchedulerDispatch.h`.
+-  //
+-  // If RN didn't install a RuntimeSchedulerBinding for some reason, pass nullptr
+-  // for both. AppContext.setRuntime falls back to a synchronous no-op scheduler
+-  // so the app still launches; modules that require async dispatch can gate on
+-  // `JavaScriptRuntime.supportsAsyncScheduling`.
+-  auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
+-  auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
+-  void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
++    // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
++    // the JS thread. Doing it here (rather than inside the xcframework) keeps
++    // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
++    // That matters for source-built RN, where those symbols are hidden after link
++    // and unreachable via -undefined dynamic_lookup.
++    //
++    // The handle references the scheduler weakly, so dispatching after the React
++    // instance tore it down (e.g. on reload) drops the task instead of calling
++    // into freed memory. See `EXReactSchedulerDispatch.h`.
++    //
++    // If RN didn't install a RuntimeSchedulerBinding for some reason, pass nullptr
++    // for both. AppContext.setRuntime falls back to a synchronous no-op scheduler
++    // so the app still launches; modules that require async dispatch can gate on
++    // `JavaScriptRuntime.supportsAsyncScheduling`.
++    auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
++    auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
++    void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
+@@ -62,4 +71,4 @@
+-  [_appContext setRuntime:&runtime
+-                scheduler:schedulerHandle
+-                 dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
+-  [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
++    [_appContext setRuntime:&runtime
++                  scheduler:schedulerHandle
++                   dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
++    [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
+@@ -67 +76,2 @@
+-  [_appContext registerNativeModules];
++    [_appContext registerNativeModules];
++  }

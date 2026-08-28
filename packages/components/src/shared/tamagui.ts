@@ -1,6 +1,28 @@
+import type {
+  GestureResponderEvent,
+  TextProps as RNTextProps,
+} from 'react-native';
+
+type TamaguiDataSet = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
+declare module '@tamagui/web' {
+  interface ExtendBaseStackProps {
+    dataSet?: TamaguiDataSet;
+    onHoverIn?: (event: GestureResponderEvent) => void;
+    onHoverOut?: (event: GestureResponderEvent) => void;
+  }
+
+  interface ExtendBaseTextProps {
+    dataSet?: TamaguiDataSet;
+    onTextLayout?: RNTextProps['onTextLayout'];
+  }
+}
+
 // Core exports (only exports not available in web)
 export {
-  Stack,
   TamaguiProvider as OGProvider,
   useComposedRefs,
   themeable,
@@ -35,8 +57,9 @@ export {
   getConfig,
   useProps,
   withStaticProperties,
-  Unspaced,
 } from '@tamagui/web';
+
+export { Unspaced } from '@tamagui/spacer';
 
 export type {
   GetProps,
@@ -45,18 +68,22 @@ export type {
   FontSizeTokens,
   FontTokens,
   Variable,
-  StackProps,
   StackStyle,
   Tokens,
   ColorTokens,
   TamaguiElement,
-  UseThemeResult,
   Token,
   ThemeProps,
 } from '@tamagui/web';
 
+export type StackProps = import('@tamagui/web').GetProps<
+  typeof import('@tamagui/core').View
+>;
+export type UseThemeResult = ReturnType<typeof import('@tamagui/web').useTheme>;
+
 // Stacks
-export { ThemeableStack, YStack, XStack, ZStack } from '@tamagui/stacks';
+export { Stack, ThemeableStack, YStack, XStack } from './stacks';
+export { ZStack } from '@tamagui/stacks';
 export type {
   ThemeableStackProps,
   YStackProps,

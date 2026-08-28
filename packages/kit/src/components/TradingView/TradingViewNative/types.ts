@@ -34,6 +34,10 @@ export type ITradingViewNativeSource =
       tokenAddress: string;
       symbol: string;
       realtime: 'disabled' | 'websocket';
+    }
+  | {
+      kind: 'stock';
+      stockId: string;
     };
 
 export type ITradingViewNativeDataStatus =

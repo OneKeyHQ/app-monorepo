@@ -414,7 +414,7 @@ function NetworkGroupItem({
       </ListItem>
       {shouldShowExtraPanel ? (
         <YStack
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{
             opacity: 0,

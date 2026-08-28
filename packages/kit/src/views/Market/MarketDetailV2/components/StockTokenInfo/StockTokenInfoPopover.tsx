@@ -19,11 +19,6 @@ import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { getIssuerLabel } from '../TokenSelector/StockTokenVariantSelector';
 
-import {
-  STOCK_PROTECTION_COUNT,
-  showStockProtectionsDialog,
-} from './StockProtectionsDialog';
-
 // Matches the trade panel's own Output row (Figma 25672:55964). The design
 // never specs an empty state for Shares Per Token, whose ratio some issuers
 // omit, so that row reuses this convention pending design sign-off.
@@ -94,11 +89,9 @@ function InfoValueText({ children }: { children: ReactNode }) {
 function StockTokenInfoContent({
   variant,
   stockId,
-  closePopover,
 }: {
   variant: IMarketStockTokenVariant;
   stockId?: string;
-  closePopover: () => void;
 }) {
   const { copyText } = useClipboard();
 
@@ -112,12 +105,6 @@ function StockTokenInfoContent({
     if (!variant.contractAddress) return;
     copyText(variant.contractAddress);
   }, [copyText, variant.contractAddress]);
-
-  const handleOpenProtections = useCallback(() => {
-    // Close the popover first, otherwise the dialog stacks on top of it.
-    closePopover();
-    showStockProtectionsDialog();
-  }, [closePopover]);
 
   const ticker = stockId || variant.symbol || '';
   const sharesPerToken = variant.tokenToAssetRatio?.trim();
@@ -192,27 +179,6 @@ function StockTokenInfoContent({
           <InfoValueText>{VALUE_FALLBACK}</InfoValueText>
         )}
       </InfoRow>
-
-      <InfoRow
-        label="Tokenholder Protections"
-        testID="stock-token-info-protections"
-      >
-        <XStack
-          alignItems="center"
-          gap="$1"
-          cursor="pointer"
-          hoverStyle={PRESSABLE_HOVER_STYLE}
-          onPress={handleOpenProtections}
-          testID="stock-token-info-protections-trigger"
-        >
-          <InfoValueText>{`${STOCK_PROTECTION_COUNT} items`}</InfoValueText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$4.5"
-            color="$iconSubdued"
-          />
-        </XStack>
-      </InfoRow>
     </YStack>
   );
 }
@@ -249,11 +215,10 @@ export function StockTokenInfoPopover() {
           variant="tertiary"
         />
       }
-      renderContent={({ closePopover }) => (
+      renderContent={() => (
         <StockTokenInfoContent
           variant={selectedTokenVariant}
           stockId={stockId}
-          closePopover={closePopover}
         />
       )}
     />

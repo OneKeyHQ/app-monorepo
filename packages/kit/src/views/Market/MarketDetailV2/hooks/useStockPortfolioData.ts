@@ -7,6 +7,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   equalTokenNoCaseSensitive,
@@ -59,6 +60,31 @@ function getNetworkAccountXpub(account: INetworkAccount) {
     return account.xpub;
   }
   return undefined;
+}
+
+export function resolveStockPortfolioDeriveType({
+  activeDeriveType,
+  networkDefaultDeriveType,
+  networkId,
+  portfolioNetworkId,
+  selectedDeriveType,
+}: {
+  activeDeriveType?: IAccountDeriveTypes;
+  networkDefaultDeriveType?: IAccountDeriveTypes;
+  networkId: string;
+  portfolioNetworkId?: string;
+  selectedDeriveType?: IAccountDeriveTypes;
+}): IAccountDeriveTypes {
+  if (networkId !== portfolioNetworkId) {
+    return networkDefaultDeriveType ?? 'default';
+  }
+
+  return (
+    selectedDeriveType ??
+    networkDefaultDeriveType ??
+    activeDeriveType ??
+    'default'
+  );
 }
 
 export async function fetchStockPortfolioData({
@@ -149,7 +175,7 @@ export function useStockPortfolioData() {
     activeAccount: { account, indexedAccount, deriveType, ready },
   } = useActiveAccount({ num: 0 });
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const { stockId, tokenVariants } = useStockDetail();
+  const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -180,11 +206,16 @@ export function useStockPortfolioData() {
           accountId: indexedAccount?.id ? undefined : account?.id,
           indexedAccountId: indexedAccount?.id,
           networkId,
-          deriveType:
-            getSelectedDeriveTypeForNetwork(selectedDeriveType, networkId) ??
-            networkDefaultDeriveType ??
-            deriveType ??
-            'default',
+          deriveType: resolveStockPortfolioDeriveType({
+            activeDeriveType: deriveType,
+            networkDefaultDeriveType,
+            networkId,
+            portfolioNetworkId,
+            selectedDeriveType: getSelectedDeriveTypeForNetwork(
+              selectedDeriveType,
+              networkId,
+            ),
+          }),
         });
       return {
         id: networkAccount.id,
@@ -192,7 +223,13 @@ export function useStockPortfolioData() {
         xpub: getNetworkAccountXpub(networkAccount),
       };
     },
-    [account?.id, deriveType, indexedAccount?.id, selectedDeriveType],
+    [
+      account?.id,
+      deriveType,
+      indexedAccount?.id,
+      portfolioNetworkId,
+      selectedDeriveType,
+    ],
   );
 
   const {

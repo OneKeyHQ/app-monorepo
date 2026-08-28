@@ -5,6 +5,9 @@ import { fetchStockSimpleChartPoints } from './stockSimpleChartData';
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceMarket: {
+      fetchTokenChart: jest.fn(),
+    },
     serviceMarketV2: {
       fetchMarketStockChart: jest.fn(),
       fetchMarketTokenKline: jest.fn(),
@@ -13,6 +16,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 describe('fetchStockSimpleChartPoints', () => {
+  const serviceMarket = backgroundApiProxy.serviceMarket as jest.Mocked<
+    typeof backgroundApiProxy.serviceMarket
+  >;
   const serviceMarketV2 = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
     typeof backgroundApiProxy.serviceMarketV2
   >;
@@ -106,5 +112,27 @@ describe('fetchStockSimpleChartPoints', () => {
     ]);
     expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toHaveLength(0);
     expect(result).toEqual([[nowSeconds - 60, 100]]);
+  });
+
+  it('uses CoinGecko chart data when V2 detail is unsupported', async () => {
+    serviceMarket.fetchTokenChart.mockResolvedValue([
+      [(nowSeconds - 2 * 24 * 60 * 60) * 1000, 80],
+      [(nowSeconds - 60) * 1000, 84],
+    ]);
+
+    const result = await fetchStockSimpleChartPoints({
+      coinGeckoId: 'hyperliquid',
+      isNative: true,
+      networkId: 'evm--999',
+      priceMode: 'token',
+      range: '1D',
+      tokenAddress: '',
+    });
+
+    expect(serviceMarket.fetchTokenChart.mock.calls).toEqual([
+      ['hyperliquid', '1', { requestCurrency: 'usd' }],
+    ]);
+    expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
+    expect(result).toEqual([[nowSeconds - 60, 84]]);
   });
 });

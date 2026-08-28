@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, Ref } from 'react';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -1061,7 +1062,7 @@ export const TradingViewNativeChart = memo(
 
     return (
       <Stack
-        ref={containerRef}
+        ref={containerRef as unknown as Ref<IElement>}
         flex={1}
         minHeight={0}
         position="relative"

@@ -1,61 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, RefObject } from 'react';
 
+import { Spinner, Stack, useOverlayZIndex } from '@onekeyhq/components';
 import {
-  Divider,
-  Spinner,
-  Stack,
-  XStack,
-  YStack,
-  useOverlayZIndex,
-} from '@onekeyhq/components';
-import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+  type ITradingViewNativeSource,
+  TradingViewNative,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
+import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import { MARKET_DESKTOP_CONTENT_MAX_WIDTH } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
-import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
-import { SwapPanel } from '../components/SwapPanel/SwapPanel';
-import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
-import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
-import { StockTradingActivity } from '../components/TokenSupplementaryInfo/StockTradingActivity';
-import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
+import { buildCoinGeckoKLineFallback } from '../utils/fetchCoinGeckoKLineFallback';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
+import { TokenDesktopLayout } from './TokenDesktopLayout';
+import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const MARKET_DETAIL_LAYOUT = {
-  chartHeight: 550,
-  chartFullscreenHeaderFillHeight: 48,
+  chartHeight: 360,
   infoTabsHeight: 480,
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
-const MARKET_CHART_FULLSCREEN_STYLE = {
-  position: 'fixed',
-  left: 0,
-  top: 0,
-  right: 0,
-  bottom: platformEnv.isWeb ? 40 : 0,
-} as const;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
 
 type IDesktopInformationTabsProps = ComponentProps<
@@ -141,6 +130,9 @@ export interface IDesktopLayoutProps {
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
+  marketTokenId?: string;
+  marketTokenCategory?: string;
+  disableTrade?: boolean;
   showFavoriteButton?: boolean;
 }
 
@@ -152,6 +144,9 @@ export function DesktopLayout({
   isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
+  marketTokenId,
+  marketTokenCategory,
+  disableTrade,
   showFavoriteButton = true,
 }: IDesktopLayoutProps) {
   const {
@@ -162,10 +157,22 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
-    isStockToken,
   } = useTokenDetail();
+  const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
   const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
+  const shouldUseTopCoinsDesktopLayout =
+    !shouldUseStockDesktopLayout &&
+    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
+  const legacyCoinGeckoChartId =
+    shouldUseTopCoinsDesktopLayout &&
+    marketTokenId &&
+    routeNetworkId === 'coingecko'
+      ? marketTokenId
+      : undefined;
+  const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
+  const isStockSharePrice =
+    shouldUseStockDesktopLayout && stockPriceSource === 'share';
   const networkId =
     selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
   const tokenAddress =
@@ -195,20 +202,24 @@ export function DesktopLayout({
     () => ({
       networkId: selectedTokenVariant?.networkId || networkId,
       contractAddress:
-        tokenDetail?.address || selectedTokenVariant?.contractAddress || '',
-      symbol: tokenDetail?.symbol || selectedTokenVariant?.symbol || '',
-      decimals: tokenDetail?.decimals || 0,
-      logoURI: tokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
-      price: tokenDetail?.price || selectedTokenVariant?.price,
+        displayTokenDetail?.address ||
+        selectedTokenVariant?.contractAddress ||
+        '',
+      symbol: displayTokenDetail?.symbol || selectedTokenVariant?.symbol || '',
+      decimals: displayTokenDetail?.decimals || 0,
+      logoURI: displayTokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
+      price: displayTokenDetail?.price || selectedTokenVariant?.price,
+      isNative,
     }),
     [
       networkId,
       selectedTokenVariant,
-      tokenDetail?.address,
-      tokenDetail?.symbol,
-      tokenDetail?.decimals,
-      tokenDetail?.logoUrl,
-      tokenDetail?.price,
+      displayTokenDetail?.address,
+      displayTokenDetail?.symbol,
+      displayTokenDetail?.decimals,
+      displayTokenDetail?.logoUrl,
+      displayTokenDetail?.price,
+      isNative,
     ],
   );
 
@@ -242,39 +253,78 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
-  const tradingViewNativeSource = useMemo(
+  const effectiveMarketTradingViewParams = useMemo(
     () =>
-      getMarketDetailTradingViewNativeSource({
-        hyperliquidCoin: nativeHyperliquidCoin,
-        isNative,
-        marketDataSource: marketTradingViewParams?.dataSource,
-        networkId,
-        symbol: tokenDetail?.symbol ?? '',
-        tokenAddress,
-      }),
+      marketTradingViewParams ??
+      (legacyCoinGeckoChartId
+        ? {
+            tokenAddress: legacyCoinGeckoChartId,
+            networkId: 'coingecko',
+            tokenSymbol:
+              displayTokenDetail?.symbol ??
+              legacyCoinGeckoChartId.toUpperCase(),
+            isNative: false,
+            dataSource: 'polling' as const,
+          }
+        : undefined),
     [
-      marketTradingViewParams?.dataSource,
-      nativeHyperliquidCoin,
-      isNative,
-      networkId,
-      tokenAddress,
-      tokenDetail?.symbol,
+      displayTokenDetail?.symbol,
+      legacyCoinGeckoChartId,
+      marketTradingViewParams,
     ],
   );
-  // The stock detail layout has no toolbar row of its own in Pro: it lays the
-  // Simple/Pro switch over the trailing edge of this widget's control row
-  // (Figma 25476:88969, which shows that row ending in Simple/Pro). The row's
-  // own trailing controls — the chart-source dropdown and the expand toggle —
-  // are dropped there to make room for it. Every other assembly keeps both.
-  // The expand toggle is not lost: the overlay renders its own copy of it and
-  // drives it through onEnterChartFullscreen below, so the switch can stay
-  // pinned to the trailing edge in both modes instead of stepping aside for a
-  // control that only exists in Pro.
-  // Gated on the same condition that renders StockDesktopLayout, minus
-  // fullscreen: only that layout overlays the switch, and in fullscreen the
-  // expand toggle is the way back out, so it has to stay.
-  const hideChartTrailingControls =
-    shouldUseStockDesktopLayout && !isChartFullscreen;
+  const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
+    if (isStockSharePrice && stockId) {
+      return { kind: 'stock', stockId };
+    }
+    return getMarketDetailTradingViewNativeSource({
+      fallbackCoinGeckoId: legacyCoinGeckoChartId,
+      hyperliquidCoin: nativeHyperliquidCoin,
+      isNative: legacyCoinGeckoChartId ? false : isNative,
+      marketDataSource: marketTradingViewParams?.dataSource,
+      networkId: legacyCoinGeckoChartId ? '' : networkId,
+      symbol:
+        tokenDetail?.symbol ??
+        displayTokenDetail?.symbol ??
+        legacyCoinGeckoChartId?.toUpperCase() ??
+        '',
+      tokenAddress: legacyCoinGeckoChartId ? '' : tokenAddress,
+    });
+  }, [
+    isStockSharePrice,
+    marketTradingViewParams?.dataSource,
+    nativeHyperliquidCoin,
+    isNative,
+    legacyCoinGeckoChartId,
+    networkId,
+    stockId,
+    tokenAddress,
+    tokenDetail?.symbol,
+    displayTokenDetail?.symbol,
+  ]);
+  const stockKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+    () =>
+      stockId
+        ? ({ timeFrom, timeTo }) =>
+            fetchMarketStockKLineData({ stockId, timeFrom, timeTo })
+        : undefined,
+    [stockId],
+  );
+  const legacyKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+    () =>
+      legacyCoinGeckoChartId
+        ? buildCoinGeckoKLineFallback(legacyCoinGeckoChartId)
+        : undefined,
+    [legacyCoinGeckoChartId],
+  );
+  // Redesigned desktop detail pages lay their Simple/Pro switch over the
+  // trailing edge of the Pro widget's control row. Drop the row's own trailing
+  // controls there to make room for the stable outer switch.
+  // The outer overlay renders the chart-source and expand controls alongside
+  // Simple/Pro, so the complete trailing group stays pinned to one place.
+  // In fullscreen the widget restores its own expand toggle so it remains the
+  // way back out.
+  const hideChartTrailingControls = !isChartFullscreen;
   const stockAwareChartSwitch = hideChartTrailingControls
     ? undefined
     : onChartSwitch;
@@ -291,7 +341,9 @@ export function DesktopLayout({
   );
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId ? (
+      return networkId ||
+        legacyCoinGeckoChartId ||
+        tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
@@ -302,7 +354,7 @@ export function DesktopLayout({
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
-          isChartSwitchDisabled={!marketTradingViewParams}
+          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the
           // plot's leading edge instead of sitting over it.
@@ -313,18 +365,31 @@ export function DesktopLayout({
       ) : null;
     }
 
-    if (!marketTradingViewParams) {
+    if (!effectiveMarketTradingViewParams && !isStockSharePrice) {
       return null;
     }
 
     return (
       <LazyDesktopMarketTradingView
-        tokenAddress={marketTradingViewParams.tokenAddress}
-        networkId={marketTradingViewParams.networkId}
-        tokenSymbol={marketTradingViewParams.tokenSymbol}
-        decimal={marketTradingViewParams.decimal}
-        isNative={marketTradingViewParams.isNative}
-        dataSource={marketTradingViewParams.dataSource}
+        key={
+          isStockSharePrice
+            ? `stock-share:${stockId ?? ''}`
+            : `token:${legacyCoinGeckoChartId ?? ''}`
+        }
+        tokenAddress={effectiveMarketTradingViewParams?.tokenAddress ?? ''}
+        networkId={effectiveMarketTradingViewParams?.networkId ?? ''}
+        tokenSymbol={
+          isStockSharePrice
+            ? stockId
+            : effectiveMarketTradingViewParams?.tokenSymbol
+        }
+        isNative={effectiveMarketTradingViewParams?.isNative}
+        decimal={marketTradingViewParams?.decimal}
+        dataSource={
+          isStockSharePrice
+            ? 'polling'
+            : (effectiveMarketTradingViewParams?.dataSource ?? 'polling')
+        }
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -334,6 +399,13 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
+        kLineDataFallback={
+          isStockSharePrice ? stockKLineDataFallback : legacyKLineDataFallback
+        }
+        primaryKLineDataUnavailable={
+          isStockSharePrice || Boolean(legacyCoinGeckoChartId)
+        }
+        disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
@@ -343,11 +415,17 @@ export function DesktopLayout({
     hideChartTrailingControls,
     isChartFullscreen,
     isTradingViewNative,
+    isStockSharePrice,
     shouldUseStockDesktopLayout,
-    marketTradingViewParams,
+    effectiveMarketTradingViewParams,
+    legacyCoinGeckoChartId,
+    legacyKLineDataFallback,
+    marketTradingViewParams?.decimal,
     networkId,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
+    stockId,
+    stockKLineDataFallback,
     tradingViewNativeSource,
   ]);
 
@@ -371,91 +449,57 @@ export function DesktopLayout({
     );
   }
 
+  if (shouldUseTopCoinsDesktopLayout) {
+    return (
+      <Stack
+        ref={scrollContainerRef as any}
+        flex={1}
+        style={SCROLL_CONTAINER_STYLE}
+      >
+        <TopCoinsDesktopLayout
+          marketTradingView={marketTradingView}
+          swapToken={swapToken}
+          portfolioData={portfolioData}
+          accountAddress={accountAddress}
+          isRefreshing={isRefreshing}
+          tokenLogoUrl={displayTokenDetail?.logoUrl}
+          marketTokenId={marketTokenId}
+          disableTrade={disableTrade}
+          showFavoriteButton={showFavoriteButton}
+          isChartFullscreen={isChartFullscreen}
+          chartFullscreenZIndex={chartFullscreenZIndex}
+          chartMode={isTradingViewNative ? 'native' : 'tradingView'}
+          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+          onChartSwitch={onChartSwitch}
+          onEnterChartFullscreen={handleEnterChartFullscreen}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
-      testID="market-token-detail-standard-desktop"
       ref={scrollContainerRef as any}
       flex={1}
       style={SCROLL_CONTAINER_STYLE}
     >
-      {/* Centered 1240 frame, shared with the market list and stock detail
-          pages. Fullscreen drops the cap so the chart still fills the viewport:
-          the chart itself is `position: fixed` and escapes the frame anyway,
-          but the columns behind it must not reflow to a narrower band. */}
-      <XStack
-        width="100%"
-        maxWidth={
-          isChartFullscreen ? undefined : MARKET_DESKTOP_CONTENT_MAX_WIDTH
-        }
-        alignSelf="center"
-      >
-        {/* Left column */}
-        <YStack
-          flex={1}
-          borderRightWidth="$px"
-          borderRightColor="$borderSubdued"
-        >
-          <TokenDetailHeader showFavoriteButton={showFavoriteButton} />
-
-          <Stack
-            h={isChartFullscreen ? undefined : MARKET_DETAIL_LAYOUT.chartHeight}
-            overflow="hidden"
-            bg="$bgApp"
-            zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
-            style={
-              isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
-            }
-          >
-            {isChartFullscreen && platformEnv.isDesktop ? (
-              <Stack
-                h={MARKET_DETAIL_LAYOUT.chartFullscreenHeaderFillHeight}
-                bg="$bgApp"
-                flexShrink={0}
-              />
-            ) : null}
-            {marketTradingView}
-          </Stack>
-
-          <Stack
-            minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight}
-            borderTopWidth="$px"
-            borderTopColor="$borderSubdued"
-          >
-            <LazyDesktopInformationTabs
-              portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
-              isBTCNetwork={isBTCNetwork}
-              tokenLogoUrl={tokenDetail?.logoUrl}
-            />
-          </Stack>
-        </YStack>
-
-        {/* Right column */}
-        <Stack w={340}>
-          <Stack w={340} pb={platformEnv.isWeb ? '$12' : undefined}>
-            <PerpetualTradingBanner pl="$3" pr="$5" />
-            <Stack pl="$3" pr="$5" pt="$4" pb="$3">
-              <SwapPanel swapToken={swapToken} />
-            </Stack>
-
-            <Divider my="$1" />
-
-            {isStockToken ? (
-              <StockTradingActivity />
-            ) : (
-              <>
-                {isBTCMainnet ? null : (
-                  <>
-                    <TokenActivityOverview pl="$3" pr="$5" />
-                    <Divider />
-                  </>
-                )}
-                <TokenSupplementaryInfo />
-              </>
-            )}
-          </Stack>
-        </Stack>
-      </XStack>
+      <TokenDesktopLayout
+        marketTradingView={marketTradingView}
+        swapToken={swapToken}
+        portfolioData={portfolioData}
+        isRefreshing={isRefreshing}
+        isBTCNetwork={isBTCNetwork}
+        isBTCMainnet={isBTCMainnet}
+        tokenLogoUrl={tokenDetail?.logoUrl}
+        showFavoriteButton={showFavoriteButton}
+        isChartFullscreen={isChartFullscreen}
+        chartFullscreenZIndex={chartFullscreenZIndex}
+        chartMode={isTradingViewNative ? 'native' : 'tradingView'}
+        isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+        onChartSwitch={onChartSwitch}
+        onEnterChartFullscreen={handleEnterChartFullscreen}
+        InformationTabsComponent={LazyDesktopInformationTabs}
+      />
     </Stack>
   );
 }

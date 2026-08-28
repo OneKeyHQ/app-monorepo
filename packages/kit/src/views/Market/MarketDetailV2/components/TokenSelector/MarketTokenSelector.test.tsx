@@ -10,6 +10,7 @@ import { MarketTokenSelector } from './MarketTokenSelector';
 
 const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
+const mockTopCoinPress = jest.fn();
 let mockSpotCategories: IMarketSpotCategory[] = [];
 
 jest.mock('@react-navigation/native', () => ({
@@ -103,6 +104,29 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins',
+  () => ({
+    useMarketTopCoins: () => ({
+      data: [
+        {
+          coingeckoId: 'bitcoin',
+          name: 'Bitcoin',
+          symbol: 'btc',
+          price: 100,
+          priceChangePercentage24H: 1,
+          marketCap: 1000,
+          totalVolume: 500,
+          image: 'bitcoin.png',
+          iconUrl: '',
+        },
+      ],
+      handleItemPress: mockTopCoinPress,
+      isLoading: false,
+    }),
+  }),
+);
+
 jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapPro', () => ({
   useSwapProTokenSearch: () => ({
     searchLoading: false,
@@ -142,14 +166,17 @@ jest.mock('./MarketStockSelectorList', () => {
 
 jest.mock('./MarketTokenSelectorList', () => ({
   MarketTokenSelectorList: ({
+    dataOverride,
     isWatchlistMode,
     selectedCategory,
   }: {
+    dataOverride?: unknown[];
     isWatchlistMode: boolean;
     selectedCategory?: string;
   }) => (
     <div
       data-category={selectedCategory}
+      data-override-count={dataOverride?.length ?? 0}
       data-testid="token-list"
       data-watchlist={String(isWatchlistMode)}
     />
@@ -160,10 +187,36 @@ describe('MarketTokenSelector stock default category', () => {
   beforeEach(() => {
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
+    mockTopCoinPress.mockReset();
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
     ];
+  });
+
+  it('adds Top Coins before Stocks and renders its selector data', async () => {
+    renderOpenStockSelector();
+
+    const topCoinsTab = screen.getByTestId(
+      'market-token-selector-tab-top_coins',
+    );
+    const stocksTab = screen.getByTestId('market-token-selector-tab-stocks');
+    expect(
+      topCoinsTab.compareDocumentPosition(stocksTab) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(topCoinsTab);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('stock-list')).toBeNull();
+      expect(
+        screen.getByTestId('token-list').getAttribute('data-category'),
+      ).toBe('top_coins');
+      expect(
+        screen.getByTestId('token-list').getAttribute('data-override-count'),
+      ).toBe('1');
+    });
   });
 
   function renderOpenStockSelector() {

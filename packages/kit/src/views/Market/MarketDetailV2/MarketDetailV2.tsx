@@ -11,6 +11,7 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -23,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
@@ -48,6 +50,22 @@ function normalizeRouteBooleanParam(
     return value === 'true';
   }
   return value ?? defaultValue;
+}
+
+function LegacyTokenPreviewInitializer({
+  preview,
+}: {
+  preview?: IMarketTokenDetailPreview;
+}) {
+  const tokenDetailActions = useTokenDetailActions();
+
+  useLayoutEffect(() => {
+    if (preview) {
+      tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    }
+  }, [preview, tokenDetailActions]);
+
+  return null;
 }
 
 function MarketDetail({
@@ -79,6 +97,14 @@ function MarketDetail({
     '';
   const isNative = 'isNative' in params ? params.isNative : false;
   const disableTrade = params.disableTrade;
+  const marketTokenId =
+    'marketTokenId' in params ? params.marketTokenId : undefined;
+  const marketTokenCategory =
+    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const skipMarketDataFetch = normalizeRouteBooleanParam(
+    'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
+    false,
+  );
   const showFavoriteButton = normalizeRouteBooleanParam(
     params.showFavoriteButton,
     true,
@@ -104,6 +130,7 @@ function MarketDetail({
     tokenAddress,
     networkId,
     isNative: isNativeBoolean,
+    skipMarketDataFetch,
   });
 
   const media = useMedia();
@@ -149,6 +176,8 @@ function MarketDetail({
             isNative={isNativeBoolean}
             networkId={networkId}
             tokenAddress={tokenAddress}
+            marketTokenId={marketTokenId}
+            marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={disableTrade}
           />
@@ -179,6 +208,10 @@ function MarketDetailV2(
     ? networkUtils.getNetworkIdFromShortCode({ shortCode: initialNetwork }) ||
       initialNetwork
     : undefined;
+  const legacyTokenPreview =
+    'legacyTokenPreview' in props.route.params
+      ? props.route.params.legacyTokenPreview
+      : undefined;
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
@@ -272,6 +305,7 @@ function MarketDetailV2(
         <MarketWatchListProviderMirrorV2
           storeName={EJotaiContextStoreNames.marketWatchListV2}
         >
+          <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
           <StockDetailProvider
             stockId={stockId}
             initialNetworkId={initialNetworkId}

@@ -5,7 +5,10 @@ import type {
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { fetchStockPortfolioData } from './useStockPortfolioData';
+import {
+  fetchStockPortfolioData,
+  resolveStockPortfolioDeriveType,
+} from './useStockPortfolioData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -228,5 +231,29 @@ describe('fetchStockPortfolioData', () => {
     });
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('resolveStockPortfolioDeriveType', () => {
+  it('uses the selected derivation type only for the selected network', () => {
+    expect(
+      resolveStockPortfolioDeriveType({
+        activeDeriveType: 'ledgerLive',
+        networkDefaultDeriveType: 'default',
+        networkId: 'evm--1',
+        portfolioNetworkId: 'evm--1',
+        selectedDeriveType: 'ledgerLegacy',
+      }),
+    ).toBe('ledgerLegacy');
+
+    expect(
+      resolveStockPortfolioDeriveType({
+        activeDeriveType: 'ledgerLive',
+        networkDefaultDeriveType: 'default',
+        networkId: 'sol--101',
+        portfolioNetworkId: 'evm--1',
+        selectedDeriveType: 'ledgerLegacy',
+      }),
+    ).toBe('default');
   });
 });

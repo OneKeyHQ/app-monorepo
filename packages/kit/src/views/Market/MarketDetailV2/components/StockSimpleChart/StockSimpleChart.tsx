@@ -35,10 +35,12 @@ type IStockSimpleChartState = {
 };
 
 export function StockSimpleChart({
+  coinGeckoId,
   range,
   priceMode,
   onHoverChange,
 }: {
+  coinGeckoId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
   // Forwarded to the line chart so the price header above can follow the
@@ -57,6 +59,7 @@ export function StockSimpleChart({
     async () => {
       try {
         const data = await fetchStockSimpleChartPoints({
+          coinGeckoId,
           isNative,
           networkId,
           priceMode,
@@ -73,7 +76,7 @@ export function StockSimpleChart({
         return { data: [], status: 'error' };
       }
     },
-    [isNative, networkId, priceMode, range, stockId, tokenAddress],
+    [coinGeckoId, isNative, networkId, priceMode, range, stockId, tokenAddress],
     {
       initResult: { data: [], status: 'pending' },
       watchLoading: true,

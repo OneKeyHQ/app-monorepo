@@ -18,6 +18,7 @@ export function navigateToMarketTokenDetail(
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
     beforeNavigate?: () => void;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -51,6 +52,9 @@ export function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(opts.marketTokenCategory
+      ? { marketTokenCategory: opts.marketTokenCategory }
+      : undefined),
     ...(typeof opts.showFavoriteButton === 'boolean'
       ? { showFavoriteButton: opts.showFavoriteButton }
       : undefined),

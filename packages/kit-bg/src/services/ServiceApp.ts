@@ -403,12 +403,25 @@ class ServiceApp extends ServiceBase {
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;
+    marketTokenId?: string;
+    skipMarketDataFetch?: boolean;
+    disableTrade?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
   }) {
-    const { tokenAddress, network, isNative, from, showFavoriteButton } =
-      params;
+    const {
+      tokenAddress,
+      network,
+      marketTokenId,
+      skipMarketDataFetch,
+      disableTrade,
+      isNative,
+      from,
+      showFavoriteButton,
+      marketTokenCategory,
+    } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
     if (typeof isNative === 'boolean') {
@@ -419,6 +432,18 @@ class ServiceApp extends ServiceBase {
     }
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;
+    }
+    if (marketTokenCategory) {
+      routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenId) {
+      routeParams.marketTokenId = marketTokenId;
+    }
+    if (skipMarketDataFetch) {
+      routeParams.skipMarketDataFetch = true;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
     }
 
     return extUtils.openExpandTab({

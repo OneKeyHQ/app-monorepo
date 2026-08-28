@@ -1,15 +1,13 @@
-// Every desktop Market surface (home list, token detail, stock detail) renders
-// its content inside the same frame: a fixed 1240 band centered in the viewport,
-// instead of a viewport-relative width that kept growing on wide screens.
-// Windows narrower than the band still shrink naturally, because the frame is
-// `width: 100%` capped by `maxWidth`.
-export const MARKET_DESKTOP_CONTENT_MAX_WIDTH = 1240;
+const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1480;
 
-// Spread this on every element that has to sit on the band: content columns and
-// the sticky column headers portalled above them. Sharing one object is what
-// keeps a sticky header aligned with the rows it labels.
+// The Market desktop design has 62px gutters inside its 1364px content area.
+// Keep those gutters stable through ordinary desktop widths, then cap the
+// content at 1480px so wide windows retain balanced breathing room. The same
+// frame is shared by home lists, detail pages, and portalled sticky headers so
+// their outer edges stay aligned.
 export const MARKET_DESKTOP_CONTENT_FRAME_PROPS = {
-  width: '100%',
-  maxWidth: MARKET_DESKTOP_CONTENT_MAX_WIDTH,
+  width: 'calc(100% - 124px)',
+  maxWidth: MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH,
   alignSelf: 'center',
+  mx: 'auto',
 } as const;

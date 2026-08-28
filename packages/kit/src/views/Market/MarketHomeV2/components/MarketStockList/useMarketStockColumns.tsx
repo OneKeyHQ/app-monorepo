@@ -28,22 +28,20 @@ const EMPTY_VALUE = '--';
 // column redistributes the freed space instead of leaving a gap in the row.
 const COMPANY_COLUMN_UNITS = 150;
 const METRIC_COLUMN_UNITS = 122;
-const SELECTOR_COMPANY_COLUMN_PERCENTAGE = 32;
-
-type IMarketStockColumnVariant = 'default' | 'selector';
+const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
 
 function getStockColumnWidths(
   metricColumnCount: number,
-  variant: IMarketStockColumnVariant,
+  compact: boolean,
 ): {
   companyColumnWidth: `${number}%`;
   metricColumnWidth: `${number}%`;
 } {
-  if (variant === 'selector') {
+  if (compact) {
     return {
-      companyColumnWidth: `${SELECTOR_COMPANY_COLUMN_PERCENTAGE}%`,
+      companyColumnWidth: `${COMPACT_COMPANY_COLUMN_PERCENTAGE}%`,
       metricColumnWidth: `${
-        (100 - SELECTOR_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
+        (100 - COMPACT_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
       }%`,
     };
   }
@@ -73,23 +71,22 @@ const metricColumnProps = {
 } as const;
 
 export function useMarketStockColumns({
+  compact = false,
   showSparkline = true,
-  variant = 'default',
 }: {
+  /** Use the selector layout with a wider company column and denser rows. */
+  compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
-  /** Selector surfaces give the company column more room and use compact metrics. */
-  variant?: IMarketStockColumnVariant;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
   return useMemo(() => {
     const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
       showSparkline ? 5 : 4,
-      variant,
+      compact,
     );
-    const metricTextSize =
-      variant === 'selector' ? '$bodyMdMedium' : '$bodyLgMedium';
+    const metricTextSize = compact ? '$bodyMdMedium' : '$bodyLgMedium';
     const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
@@ -121,23 +118,28 @@ export function useMarketStockColumns({
             <Stack width={24} alignItems="center" justifyContent="center">
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
-            <XStack flex={1} minWidth={0} alignItems="center" gap={14}>
+            <XStack
+              flex={1}
+              minWidth={0}
+              alignItems="center"
+              gap={compact ? '$1.5' : 14}
+            >
               <Token
-                size="lg"
+                size={compact ? 'xs' : 'lg'}
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
               <YStack flex={1} minWidth={0} justifyContent="center">
                 <SizableText
-                  size="$bodyLgMedium"
+                  size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>
                 <SizableText
-                  size="$bodyMd"
+                  size={compact ? '$bodySm' : '$bodyMd'}
                   color="$textSubdued"
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -149,9 +151,13 @@ export function useMarketStockColumns({
           </XStack>
         ),
         renderSkeleton: () => (
-          <XStack alignItems="center" gap={14}>
+          <XStack alignItems="center" gap={compact ? '$1.5' : 14}>
             <Skeleton width={24} height={16} />
-            <Skeleton width={40} height={40} borderRadius="$full" />
+            <Skeleton
+              width={compact ? 20 : 40}
+              height={compact ? 20 : 40}
+              borderRadius="$full"
+            />
             <YStack gap="$1">
               <Skeleton width={64} height={16} />
               <Skeleton width={96} height={14} />
@@ -160,37 +166,33 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title:
-          variant === 'selector' ? (
-            <Tooltip
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  dashThickness={0.5}
-                  dashSpacing={0}
-                  color="$textSubdued"
-                  cursor="help"
-                >
-                  {intl.formatMessage({ id: ETranslations.global_price })}
-                </DashText>
-              }
-              renderContent={
-                <SizableText size="$bodySm">
-                  The displayed price is the underlying stock price.
-                </SizableText>
-              }
-              placement="top"
-            />
-          ) : (
-            intl.formatMessage({ id: ETranslations.global_price })
-          ),
+        title: compact ? (
+          <Tooltip
+            renderTrigger={
+              <DashText
+                size="$bodySm"
+                dashThickness={0.5}
+                dashSpacing={0}
+                color="$textSubdued"
+                cursor="help"
+              >
+                {intl.formatMessage({ id: ETranslations.global_price })}
+              </DashText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                The displayed price is the underlying stock price.
+              </SizableText>
+            }
+            placement="top"
+          />
+        ) : (
+          intl.formatMessage({ id: ETranslations.global_price })
+        ),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps:
-          variant === 'selector'
-            ? undefined
-            : { textDecorationLine: 'underline' },
+        titleProps: compact ? undefined : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
@@ -301,5 +303,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [intl, showSparkline, variant]);
+  }, [compact, intl, showSparkline]);
 }

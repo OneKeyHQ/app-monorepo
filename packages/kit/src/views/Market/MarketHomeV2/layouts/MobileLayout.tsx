@@ -15,6 +15,7 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
@@ -33,6 +34,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList';
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
@@ -106,7 +108,9 @@ function MarketHomeTabBar({
       ctx.stockDataCategoryMap[currentSpotCategoryId]),
   );
   const showSpotFilterBar = Boolean(
-    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+    currentSpotCategoryId &&
+    currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
+    !currentSpotCategoryHasStockData,
   );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
@@ -440,22 +444,34 @@ function MobileLayoutComponent({
         filterBarProps.categories,
         item.categoryId,
       );
+      let tabContent;
+      if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+        tabContent = (
+          <MobileMarketTopCoinsFlatList
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else if (isStockCategory) {
+        tabContent = (
+          <MobileMarketStockFlatList
+            selectedCategoryId={selectedStockCategoryId}
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else {
+        tabContent = (
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            selectedCategory={item.categoryId}
+            timeRange={filterBarProps.timeRange}
+            listContainerProps={listContainerProps}
+            onStockDataChange={handleStockDataChange}
+          />
+        );
+      }
       return (
         <Tabs.Tab key={item.categoryId} name={item.tabName}>
-          {isStockCategory ? (
-            <MobileMarketStockFlatList
-              selectedCategoryId={selectedStockCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          ) : (
-            <MobileMarketTokenFlatList
-              networkId={selectedNetworkId}
-              selectedCategory={item.categoryId}
-              timeRange={filterBarProps.timeRange}
-              listContainerProps={listContainerProps}
-              onStockDataChange={handleStockDataChange}
-            />
-          )}
+          {tabContent}
         </Tabs.Tab>
       );
     }),

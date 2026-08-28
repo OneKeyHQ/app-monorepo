@@ -157,7 +157,6 @@ describe('usePortfolioData', () => {
     expect(mockCapturedOptions).toEqual({
       watchLoading: true,
       pollingInterval: 5000,
-      undefinedResultIfReRun: true,
     });
   });
 });

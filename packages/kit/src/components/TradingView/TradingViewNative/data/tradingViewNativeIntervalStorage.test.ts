@@ -57,6 +57,12 @@ describe('TradingViewNative active interval storage', () => {
         kind: 'hyperliquid',
       }),
     ).toBe('market-hyperliquid');
+    expect(
+      getTradingViewNativeIntervalStorageNamespace({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    ).toBe('stock');
   });
 
   it('restores only supported saved intervals', () => {
