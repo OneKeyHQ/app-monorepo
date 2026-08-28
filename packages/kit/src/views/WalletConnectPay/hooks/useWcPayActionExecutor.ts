@@ -499,6 +499,17 @@ export function useWcPayActionExecutor() {
                       : undefined,
                 },
               );
+            // Re-check after the async prep above, BEFORE the inline path:
+            // an inline broadcast is a UI boundary of its own (it raises the
+            // password/hardware prompt and owns the recovery decision), so a
+            // sequence that already broadcast and then lost its page must
+            // stop with the collected prefix rather than send again from a
+            // page that is gone. Same ordering as the two signing branches
+            // below.
+            throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
             // Inline path: run the headless pipeline instead of pushing the
             // confirm modal. It receives the very unsignedTx the modal would
             // have shown — pinned nonce included — so an invalidated

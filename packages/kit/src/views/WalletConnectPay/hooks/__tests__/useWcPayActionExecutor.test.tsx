@@ -997,6 +997,41 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(pushModalMock).toHaveBeenCalledTimes(1);
   });
 
+  // Same rule for the Phase 1 send leg: an inline broadcast is a UI boundary
+  // too (password/hardware prompt), and the page that would own its recovery
+  // is already gone.
+  it('stops with the collected prefix instead of sending inline once the page closed', async () => {
+    const cancelController = new AbortController();
+    getNetworkAccount
+      .mockResolvedValueOnce({ id: 'account-1', address: SENDER })
+      .mockImplementationOnce(() => {
+        cancelController.abort();
+        return Promise.resolve({ id: 'account-1', address: SENDER });
+      });
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [
+        // does not match the order, so it takes the confirm page and leaves
+        // the inline spend budget untouched for the transfer below
+        buildAction({
+          method: EWcPayActionMethod.EthSendTransaction,
+          params: [{ from: SENDER, to: SENDER, value: '0x1' }],
+          chainId: 'eip155:8453',
+        }),
+        buildTransferAction(),
+      ],
+      accountId: 'account-1',
+      option: permitOption,
+      inlineController: buildController(),
+      cancelSignal: cancelController.signal,
+    });
+
+    expect(signatures).toEqual(['0xtxid-confirm']);
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
   // Without a controller (or without the selected option) nothing may be
   // signed inline, whatever the payload proves.
   it('never signs inline without an inline controller', async () => {
