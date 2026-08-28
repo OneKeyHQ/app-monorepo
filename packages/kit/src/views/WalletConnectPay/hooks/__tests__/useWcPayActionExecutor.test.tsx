@@ -72,6 +72,7 @@ function buildAction({
 
 type IControllerStub = IWcPayInlineController & {
   onBeforePushConfirmModal: jest.Mock<void, []>;
+  onAfterConfirmModalSettled: jest.Mock<void, []>;
 };
 
 function buildController(): IControllerStub {
@@ -80,6 +81,7 @@ function buildController(): IControllerStub {
     onInlineFailure: jest.fn().mockResolvedValue('abort'),
     onFallback: jest.fn(),
     onBeforePushConfirmModal: jest.fn<void, []>(),
+    onAfterConfirmModalSettled: jest.fn<void, []>(),
   };
 }
 
@@ -145,6 +147,9 @@ describe('useWcPayActionExecutor confirm-modal parking', () => {
       controller.onBeforePushConfirmModal.mockImplementation(() => {
         callOrder.push('park');
       });
+      controller.onAfterConfirmModalSettled.mockImplementation(() => {
+        callOrder.push('settle');
+      });
       pushModalMock.mockImplementation((_route, { params }) => {
         callOrder.push('pushModal');
         settle(params);
@@ -163,15 +168,18 @@ describe('useWcPayActionExecutor confirm-modal parking', () => {
       expect(signatures).toEqual([expected]);
       expect(controller.onBeforePushConfirmModal).toHaveBeenCalledTimes(1);
       expect(pushModalMock).toHaveBeenCalledTimes(1);
-      expect(callOrder).toEqual(['park', 'pushModal']);
+      expect(callOrder).toEqual(['park', 'pushModal', 'settle']);
     },
   );
 
-  it('parks before every confirm modal of a multi-action sequence', async () => {
+  it('parks before every confirm modal of a multi-action sequence and reveals between them', async () => {
     const controller = buildController();
     const callOrder: string[] = [];
     controller.onBeforePushConfirmModal.mockImplementation(() => {
       callOrder.push('park');
+    });
+    controller.onAfterConfirmModalSettled.mockImplementation(() => {
+      callOrder.push('settle');
     });
     pushModalMock.mockImplementation((_route, { params }) => {
       callOrder.push('pushModal');
@@ -207,7 +215,42 @@ describe('useWcPayActionExecutor confirm-modal parking', () => {
     });
 
     expect(signatures).toEqual(['0xsig-permit', '0xtxid-transfer']);
-    expect(callOrder).toEqual(['park', 'pushModal', 'park', 'pushModal']);
+    // the settle between the two parks is what keeps the paying progress on
+    // screen through the between-action stretch (P2 review finding: Permit2's
+    // mined-wait ran for minutes over a blank screen with the parked dialog
+    // swallowing new payment scans)
+    expect(callOrder).toEqual([
+      'park',
+      'pushModal',
+      'settle',
+      'park',
+      'pushModal',
+      'settle',
+    ]);
+  });
+
+  it('reveals the dialog when a confirm modal settles by failing', async () => {
+    const controller = buildController();
+    pushModalMock.mockImplementation((_route, { params }) => {
+      (params as unknown as { onFail: (e: Error) => void }).onFail(
+        new Error('signing failed'),
+      );
+    });
+
+    const { result } = renderHook(() => useWcPayActionExecutor());
+    await expect(
+      result.current.executeActions({
+        actions: [
+          buildAction({
+            method: EWcPayActionMethod.PersonalSign,
+            params: ['0xdeadbeef'],
+          }),
+        ],
+        accountId: 'account-1',
+        inlineController: controller,
+      }),
+    ).rejects.toThrow('signing failed');
+    expect(controller.onAfterConfirmModalSettled).toHaveBeenCalledTimes(1);
   });
 
   it('does not require the controller: absent hook falls back to plain pushModal', async () => {

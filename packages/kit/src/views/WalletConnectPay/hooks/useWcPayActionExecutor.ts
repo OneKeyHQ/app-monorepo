@@ -541,6 +541,12 @@ export function useWcPayActionExecutor() {
                 navigation.popStack();
               }
               throw error;
+            } finally {
+              // the confirm modal settled either way: let the host dialog
+              // come back so the paying progress stays visible through the
+              // between-action waits (the mined-wait below can run for
+              // minutes with no other UI on screen)
+              inlineController?.onAfterConfirmModalSettled?.();
             }
             // an on-chain result now exists: retire the cancel signal so
             // the remaining actions (and confirmPayment) always run
@@ -589,31 +595,38 @@ export function useWcPayActionExecutor() {
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
             inlineController?.onBeforePushConfirmModal?.();
-            const signature = await new Promise<string>((resolve, reject) => {
-              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                screen: EModalSignatureConfirmRoutes.MessageConfirm,
-                params: {
-                  networkId,
-                  accountId: account.id,
-                  unsignedMessage: {
-                    type: EMessageTypesEth.TYPED_DATA_V4,
-                    message,
-                    payload: [account.address, message],
+            let signature: string;
+            try {
+              signature = await new Promise<string>((resolve, reject) => {
+                navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                  screen: EModalSignatureConfirmRoutes.MessageConfirm,
+                  params: {
+                    networkId,
+                    accountId: account.id,
+                    unsignedMessage: {
+                      type: EMessageTypesEth.TYPED_DATA_V4,
+                      message,
+                      payload: [account.address, message],
+                    },
+                    sourceInfo: buildWcPaySourceInfo({
+                      method,
+                      params: parsed,
+                      scope: 'ethereum',
+                    }),
+                    onSuccess: (result: string) => resolve(result),
+                    onFail: (error: Error) => reject(error),
+                    onCancel: () =>
+                      reject(
+                        new WcPayUserCancelledError('User canceled payment'),
+                      ),
                   },
-                  sourceInfo: buildWcPaySourceInfo({
-                    method,
-                    params: parsed,
-                    scope: 'ethereum',
-                  }),
-                  onSuccess: (result: string) => resolve(result),
-                  onFail: (error: Error) => reject(error),
-                  onCancel: () =>
-                    reject(
-                      new WcPayUserCancelledError('User canceled payment'),
-                    ),
-                },
+                });
               });
-            });
+            } finally {
+              // reveal the host dialog once this confirm settles (see the
+              // eth_sendTransaction branch)
+              inlineController?.onAfterConfirmModalSettled?.();
+            }
             results.push(signature);
             await persistActionResult(i, signature);
             break;
@@ -636,31 +649,38 @@ export function useWcPayActionExecutor() {
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
             inlineController?.onBeforePushConfirmModal?.();
-            const signature = await new Promise<string>((resolve, reject) => {
-              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                screen: EModalSignatureConfirmRoutes.MessageConfirm,
-                params: {
-                  networkId,
-                  accountId: account.id,
-                  unsignedMessage: {
-                    type: EMessageTypesEth.PERSONAL_SIGN,
-                    message,
-                    payload: [message, account.address],
+            let signature: string;
+            try {
+              signature = await new Promise<string>((resolve, reject) => {
+                navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                  screen: EModalSignatureConfirmRoutes.MessageConfirm,
+                  params: {
+                    networkId,
+                    accountId: account.id,
+                    unsignedMessage: {
+                      type: EMessageTypesEth.PERSONAL_SIGN,
+                      message,
+                      payload: [message, account.address],
+                    },
+                    sourceInfo: buildWcPaySourceInfo({
+                      method,
+                      params: parsed,
+                      scope: 'ethereum',
+                    }),
+                    onSuccess: (result: string) => resolve(result),
+                    onFail: (error: Error) => reject(error),
+                    onCancel: () =>
+                      reject(
+                        new WcPayUserCancelledError('User canceled payment'),
+                      ),
                   },
-                  sourceInfo: buildWcPaySourceInfo({
-                    method,
-                    params: parsed,
-                    scope: 'ethereum',
-                  }),
-                  onSuccess: (result: string) => resolve(result),
-                  onFail: (error: Error) => reject(error),
-                  onCancel: () =>
-                    reject(
-                      new WcPayUserCancelledError('User canceled payment'),
-                    ),
-                },
+                });
               });
-            });
+            } finally {
+              // reveal the host dialog once this confirm settles (see the
+              // eth_sendTransaction branch)
+              inlineController?.onAfterConfirmModalSettled?.();
+            }
             results.push(signature);
             await persistActionResult(i, signature);
             break;
@@ -685,43 +705,51 @@ export function useWcPayActionExecutor() {
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
             inlineController?.onBeforePushConfirmModal?.();
-            const rawTx = await new Promise<string>((resolve, reject) => {
-              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                screen: EModalSignatureConfirmRoutes.TxConfirm,
-                params: {
-                  networkId,
-                  accountId: account.id,
-                  unsignedTxs: [unsignedTx],
-                  // WalletConnect Pay submits the signed transaction itself;
-                  // the wallet must sign only and never broadcast
-                  signOnly: true,
-                  // the Pay server fixed the fee inside the tx blob; block the
-                  // fee flow from rewriting it before signing (sol vault
-                  // attaches a priority-fee instruction unless this is false)
-                  feeInfoEditable: false,
-                  sourceInfo: buildWcPaySourceInfo({
-                    method,
-                    params: parsed,
-                    scope: 'solana',
-                  }),
-                  onSuccess: (txs: ISendTxOnSuccessData[]) => {
-                    const raw = txs?.[0]?.signedTx?.rawTx;
-                    if (raw) {
-                      resolve(raw);
-                    } else {
+            let rawTx: string;
+            try {
+              rawTx = await new Promise<string>((resolve, reject) => {
+                navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                  screen: EModalSignatureConfirmRoutes.TxConfirm,
+                  params: {
+                    networkId,
+                    accountId: account.id,
+                    unsignedTxs: [unsignedTx],
+                    // WalletConnect Pay submits the signed transaction itself;
+                    // the wallet must sign only and never broadcast
+                    signOnly: true,
+                    // the Pay server fixed the fee inside the tx blob; block
+                    // the fee flow from rewriting it before signing (sol vault
+                    // attaches a priority-fee instruction unless this is
+                    // false)
+                    feeInfoEditable: false,
+                    sourceInfo: buildWcPaySourceInfo({
+                      method,
+                      params: parsed,
+                      scope: 'solana',
+                    }),
+                    onSuccess: (txs: ISendTxOnSuccessData[]) => {
+                      const raw = txs?.[0]?.signedTx?.rawTx;
+                      if (raw) {
+                        resolve(raw);
+                      } else {
+                        reject(
+                          new OneKeyLocalError('Missing signed transaction'),
+                        );
+                      }
+                    },
+                    onFail: (error: Error) => reject(error),
+                    onCancel: () =>
                       reject(
-                        new OneKeyLocalError('Missing signed transaction'),
-                      );
-                    }
+                        new WcPayUserCancelledError('User canceled payment'),
+                      ),
                   },
-                  onFail: (error: Error) => reject(error),
-                  onCancel: () =>
-                    reject(
-                      new WcPayUserCancelledError('User canceled payment'),
-                    ),
-                },
+                });
               });
-            });
+            } finally {
+              // reveal the host dialog once this confirm settles (see the
+              // eth_sendTransaction branch)
+              inlineController?.onAfterConfirmModalSettled?.();
+            }
             // confirmPayment expects the full signed transaction; sol
             // signedTx.rawTx is already base64, pass through unchanged
             results.push(rawTx);

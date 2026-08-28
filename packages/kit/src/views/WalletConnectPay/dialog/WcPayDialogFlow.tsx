@@ -483,11 +483,21 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // which enter the inline attempts loop. The pushed RN-layer confirm
         // page would otherwise sit under this system-level sheet while the
         // paying phase keeps it non-dismissible — an unrecoverable deadlock.
-        // handlePay's finally reveals the dialog once the sequence settles;
-        // between consecutive confirm modals the dialog stays parked
-        // (hideWcPayDialog is idempotent, reveal happens exactly once).
+        // Paired with onAfterConfirmModalSettled below; both calls are
+        // idempotent.
         onBeforePushConfirmModal: () => {
           hideWcPayDialog();
+        },
+        // Reveals the dialog the moment a confirm modal settles, so the
+        // paying progress owns the screen through the between-action waits
+        // (Permit2's mined-wait between the approve confirm and the
+        // follow-up typed-data confirm can run for minutes; a parked dialog
+        // there means minutes of blank screen with the entry guard silently
+        // refusing new scans). The next confirm parks it again via
+        // onBeforePushConfirmModal; handlePay's finally stays as the
+        // terminal reveal on every exit path.
+        onAfterConfirmModalSettled: () => {
+          revealWcPayDialog();
         },
         // Single owner of the transition out of inline execution. The dialog
         // parks so the pushed confirm modal owns the screen (it would sit

@@ -270,10 +270,25 @@ export interface IWcPayInlineController {
    * the paying phase — a deadlock. Parking only in `onFallback` is not
    * enough: multi-action sequences and the non-EVM-send branches push
    * confirm modals without ever entering the inline attempts loop.
-   * Idempotent; the flow's own finally reveals the dialog once the whole
-   * action sequence settles.
+   * Idempotent; paired with `onAfterConfirmModalSettled`, which fires when
+   * that confirm modal resolves either way.
    */
   onBeforePushConfirmModal?: () => void;
+  /**
+   * Called when a confirm modal pushed after `onBeforePushConfirmModal`
+   * settles — success, failure, or cancellation alike.
+   *
+   * The dialog host uses this to reveal its sheet again between actions of a
+   * multi-action sequence: Permit2's mined-wait between the approve confirm
+   * and the follow-up typed-data confirm can run for minutes, and without
+   * this reveal the screen stays blank for that whole stretch (the dialog is
+   * parked, the confirm page is gone) while the entry guard silently refuses
+   * any new payment scan. The next confirm parks the dialog again via
+   * `onBeforePushConfirmModal`; the flow's own finally remains the terminal
+   * reveal for every exit path. Reveal is idempotent, so the pairing is safe
+   * on single-action sequences too.
+   */
+  onAfterConfirmModalSettled?: () => void;
 }
 
 /**
