@@ -25,6 +25,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
@@ -150,12 +151,22 @@ export function isWcPayInlinePostSignError(error: unknown): boolean {
 }
 
 /**
- * The two ways a user declines a headless signature: dismissing the
- * password/passcode prompt (`servicePassword.promptPasswordVerifyByAccount`
- * rejects with `PasswordPromptDialogCancel`) or refusing on the hardware
- * device. Matched on error class and hardware code — never on message text,
- * which is localized and vendor-supplied. Anything else is a real failure and
- * must keep its identity.
+ * How a user declines a headless signature: dismissing the password/passcode
+ * prompt (`servicePassword.promptPasswordVerifyByAccount` rejects with
+ * `PasswordPromptDialogCancel`), closing the AirGap QR dialog
+ * (`AirGapQrcodeDialogContainer` rejects with `SecureQRCodeDialogCancel`), or
+ * refusing/interrupting on the hardware device.
+ *
+ * Matched on error class and hardware code — NEVER on message text, which is
+ * localized and vendor-supplied, so a device that phrases its refusal
+ * differently would silently become a "real" failure and a plain failure that
+ * happens to read like a rejection would silently become a cancellation.
+ * Anything not on these lists is a real failure and must keep its identity.
+ *
+ * The class/code sets mirror the abort classification in
+ * `ServiceBatchCreateAccount` (its "unplug device" and "password cancel"
+ * branches), minus `DeviceNotFound` — a vanished device is a fault to report,
+ * not a decision the user made.
  *
  * Lives in this leaf module because every headless signing leg (typed data,
  * Solana sign-only) has to draw the same line, and a second copy of this list
@@ -163,9 +174,14 @@ export function isWcPayInlinePostSignError(error: unknown): boolean {
  * only, and reaches for no service.
  */
 export function isWcPayInlineUserCancel(error: unknown): boolean {
-  const oneKeyError = error as IOneKeyError | undefined;
   if (
-    oneKeyError?.className === EOneKeyErrorClassNames.PasswordPromptDialogCancel
+    errorUtils.isErrorByClassName({
+      error,
+      className: [
+        EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+        EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      ],
+    })
   ) {
     return true;
   }
@@ -173,11 +189,17 @@ export function isWcPayInlineUserCancel(error: unknown): boolean {
   // than `false`, so the verdict is narrowed here instead of leaking out.
   return Boolean(
     isHardwareErrorByCode({
-      error: oneKeyError,
+      error: error as IOneKeyError | undefined,
       code: [
         HardwareErrorCode.ActionCancelled,
         HardwareErrorCode.PinCancelled,
         HardwareErrorCode.CallQueueActionCancelled,
+        // The device stopped mid-flow rather than answering. There is no
+        // `HardwareErrorCode.UserCancelFromOutside`: the shared
+        // `UserCancelFromOutside` error class carries
+        // `DeviceInterruptedFromOutside`, so listing the codes covers it.
+        HardwareErrorCode.DeviceInterruptedFromUser,
+        HardwareErrorCode.DeviceInterruptedFromOutside,
       ],
     }),
   );
@@ -219,6 +241,25 @@ export type IWcPayInlineSendResult =
   | { status: 'ok'; txid: string }
   | { status: 'fallback'; failure: IWcPayInlineFailure }
   | { status: 'inlineError'; failure: IWcPayInlineFailure };
+
+/**
+ * Result contract of `wcPayInlineSignTypedData`, declared beside its send-leg
+ * counterpart and for the same reason: a caller can type the result without
+ * importing the pipeline (and with it `backgroundApiProxy`).
+ *
+ * Unlike the send result there is no failure classification — a signature that
+ * did not happen leaves nothing behind, so the only distinctions worth drawing
+ * are "the confirm page should take over" and "the flow already ended".
+ */
+export type IWcPayInlineSignResult =
+  // the signature the caller must hand back to the Pay server
+  | { status: 'ok'; signature: string }
+  // a pre-sign blocker: the confirm page owns the decision from here.
+  // Diagnostic text for logs/telemetry only — never render it to the user.
+  | { status: 'fallback'; reason: string }
+  // ended without a signature and without an error to report — another
+  // component has already told the user why
+  | { status: 'abort' };
 
 /**
  * The action's RPC method, and only when it is a non-empty string. Anything

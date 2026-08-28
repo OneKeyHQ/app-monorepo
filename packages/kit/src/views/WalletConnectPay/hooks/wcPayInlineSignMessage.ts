@@ -1,7 +1,9 @@
 import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { validateTypedSignMessageDataV3V4 } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -12,16 +14,10 @@ import {
   isWcPayInlineUserCancel,
 } from './wcPayInlineUtils';
 
-import type { IWcPayInlinePhase } from './wcPayInlineUtils';
-
-export type IWcPayInlineSignResult =
-  // the signature the caller must hand back to the Pay server
-  | { status: 'ok'; signature: string }
-  // a pre-sign blocker: the confirm page owns the decision from here
-  | { status: 'fallback'; reason: string }
-  // ended without a signature and without an error to report — another
-  // component has already told the user why
-  | { status: 'abort' };
+import type {
+  IWcPayInlinePhase,
+  IWcPayInlineSignResult,
+} from './wcPayInlineUtils';
 
 /**
  * Headless counterpart of `MessageConfirmActions.handleSignMessage` for the WC
@@ -40,12 +36,17 @@ export type IWcPayInlineSignResult =
  *
  * `status: 'abort'` is not an error: the wallet-backup dialog has already told
  * the user what to do, so the caller must end the flow silently.
+ *
+ * The account-binding guard below is the one exception to "pre-sign problems
+ * fall back": it THROWS, because a mismatch there is an internal wiring bug
+ * the confirm page would reproduce rather than resolve.
  */
 export async function wcPayInlineSignTypedData({
   networkId,
   accountId,
   accountAddress,
   message,
+  option,
   sourceInfo,
   throwIfCancelled,
   onPhase,
@@ -58,12 +59,19 @@ export async function wcPayInlineSignTypedData({
   // the raw EIP-712 JSON string proven to match the order by
   // `getWcPayInlineMessagePlan`; signed verbatim, never re-serialized
   message: string;
+  // the approved order this signature belongs to; its account is what the
+  // signing account must match
+  option: IWcPayOption;
   sourceInfo: IDappSourceInfo;
   // pre-sign cancellation boundary (page unmounted), supplied by the executor
   // as its own checker so its retirement rule applies here unchanged
   throwIfCancelled: () => void;
   onPhase?: (phase: IWcPayInlinePhase) => void;
 }): Promise<IWcPayInlineSignResult> {
+  // Checked before the backup check, which RAISES A DIALOG as a side
+  // effect: an already-cancelled flow must not put one on screen.
+  throwIfCancelled();
+
   const unsignedMessage: IUnsignedMessageEth = {
     type: EMessageTypesEth.TYPED_DATA_V4,
     message,
@@ -87,6 +95,29 @@ export async function wcPayInlineSignTypedData({
     return { status: 'abort' };
   }
 
+  // Bind the signing account to the account the order names. A Permit2
+  // signature authorizes a spend from whoever signed it, and the payload's
+  // own `from` is only echoed back into `payload[0]` from this same
+  // argument — so nothing else here would notice an incorrectly wired
+  // caller authorizing a different account than the user approved. Hard
+  // abort rather than fallback: the confirm page would sign with the same
+  // wrong account just as silently.
+  const optionAddress = option.account.split(':')[2];
+  if (
+    !optionAddress ||
+    !accountAddress ||
+    optionAddress.toLowerCase() !== accountAddress.toLowerCase()
+  ) {
+    console.error(
+      'wcPay inline account mismatch: option account',
+      optionAddress,
+      'signing account',
+      accountAddress,
+    );
+    // copy pending product i18n keys
+    throw new OneKeyLocalError('This payment cannot be completed right now');
+  }
+
   try {
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
@@ -101,10 +132,12 @@ export async function wcPayInlineSignTypedData({
       network.impl,
     );
   } catch (error) {
+    // A bare string reject would otherwise lose its only diagnostic.
+    const reason =
+      typeof error === 'string' ? error : (error as Error | undefined)?.message;
     return {
       status: 'fallback',
-      reason:
-        (error as Error | undefined)?.message || 'typed data validation failed',
+      reason: reason || 'typed data validation failed',
     };
   }
 

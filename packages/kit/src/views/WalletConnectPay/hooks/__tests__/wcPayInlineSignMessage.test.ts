@@ -1,8 +1,10 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { PasswordPromptDialogCancel } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -58,9 +60,13 @@ const { validateTypedSignMessageDataV3V4 } = jest.requireMock<{
 
 const NETWORK_ID = 'evm--8453';
 const ACCOUNT_ID = "hd-1--m/44'/60'/0'/0/0";
-const ACCOUNT_ADDRESS = '0x1111111111111111111111111111111111111111';
+// Mixed case on purpose: the account binding below compares case-insensitively,
+// which an all-numeric address could not prove.
+const ACCOUNT_ADDRESS = '0xAbCdEf1111111111111111111111111111111111';
+const OTHER_ADDRESS = '0x2222222222222222222222222222222222222222';
 const SIGNATURE = '0xsig';
 const MESSAGE = '{"types":{}}';
+const GENERIC_ABORT_MESSAGE = 'This payment cannot be completed right now';
 
 const sourceInfo: IDappSourceInfo = {
   id: '',
@@ -71,6 +77,20 @@ const sourceInfo: IDappSourceInfo = {
   isWalletConnectRequest: false,
 };
 
+function buildOption(account: string): IWcPayOption {
+  return {
+    id: 'opt-1',
+    account,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+}
+
 const throwIfCancelled = jest.fn();
 const onPhase = jest.fn();
 
@@ -79,6 +99,7 @@ const baseParams = {
   accountId: ACCOUNT_ID,
   accountAddress: ACCOUNT_ADDRESS,
   message: MESSAGE,
+  option: buildOption(`eip155:8453:${ACCOUNT_ADDRESS}`),
   sourceInfo,
   throwIfCancelled,
   onPhase,
@@ -89,8 +110,8 @@ let consoleErrorSpy: jest.SpyInstance;
 describe('wcPayInlineSignTypedData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // The bookkeeping failure below is expected to be reported, not silently
-    // swallowed; spying lets a test assert that while keeping the runner quiet.
+    // Failures below are expected to be reported, not silently swallowed;
+    // spying lets a test assert that while keeping the runner quiet.
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     validateTypedSignMessageDataV3V4.mockResolvedValue(undefined);
     api.serviceAccount.checkIsWalletNotBackedUp.mockResolvedValue(false);
@@ -130,18 +151,24 @@ describe('wcPayInlineSignTypedData', () => {
     );
   });
 
-  it('validates the same unsigned message it signs, against this network chain id', async () => {
+  it('validates the very object it signs, against this network chain id', async () => {
     await wcPayInlineSignTypedData(baseParams);
 
-    expect(validateTypedSignMessageDataV3V4).toHaveBeenCalledWith(
-      {
-        type: EMessageTypesEth.TYPED_DATA_V4,
-        message: MESSAGE,
-        payload: [ACCOUNT_ADDRESS, MESSAGE],
-      },
-      '8453',
-      'evm',
-    );
+    const [validatedMessage, validatedChainId, validatedImpl] =
+      validateTypedSignMessageDataV3V4.mock.calls[0] as [
+        IUnsignedMessageEth,
+        string,
+        string,
+      ];
+    const [signArgs] = api.serviceSend.signMessage.mock.calls[0] as [
+      { unsignedMessage: IUnsignedMessageEth },
+    ];
+
+    // Reference identity, not a deep equal: two structurally equal objects
+    // would pass a deep comparison while the pipeline validated one payload
+    // and signed another.
+    expect(validatedMessage).toBe(signArgs.unsignedMessage);
+    expect([validatedChainId, validatedImpl]).toEqual(['8453', 'evm']);
   });
 
   it('aborts when the wallet is not backed up (the check shows its own dialog)', async () => {
@@ -154,6 +181,33 @@ describe('wcPayInlineSignTypedData', () => {
     expect(onPhase).not.toHaveBeenCalled();
   });
 
+  it('refuses to sign for an account the order does not name', async () => {
+    await expect(
+      wcPayInlineSignTypedData({
+        ...baseParams,
+        option: buildOption(`eip155:8453:${OTHER_ADDRESS}`),
+      }),
+    ).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
+    // the user-facing copy is generic, so the diagnostic is what tells this
+    // guard apart from the other hard aborts
+    expect(
+      consoleErrorSpy.mock.calls
+        .map((args: unknown[]) => args.map((arg) => String(arg)).join(' '))
+        .join('\n'),
+    ).toContain('wcPay inline account mismatch');
+  });
+
+  it('accepts an order account that differs only in case', async () => {
+    await expect(
+      wcPayInlineSignTypedData({
+        ...baseParams,
+        option: buildOption(`eip155:8453:${ACCOUNT_ADDRESS.toLowerCase()}`),
+      }),
+    ).resolves.toEqual({ status: 'ok', signature: SIGNATURE });
+    expect(api.serviceSend.signMessage).toHaveBeenCalled();
+  });
+
   it('turns a dismissed password prompt into a user cancellation', async () => {
     api.serviceSend.signMessage.mockRejectedValueOnce(
       new PasswordPromptDialogCancel(),
@@ -164,25 +218,42 @@ describe('wcPayInlineSignTypedData', () => {
     );
   });
 
-  // Where the code sits is part of the fixture: hd-core raises some errors
-  // with a top-level `code` and others with it nested under `payload`, and the
-  // detector has to recognize both.
-  it.each<[string, { code: number } | { payload: { code: number } }]>([
-    ['ActionCancelled', { code: HardwareErrorCode.ActionCancelled }],
-    ['PinCancelled', { code: HardwareErrorCode.PinCancelled }],
+  // Both where the code sits and what the message says are part of the
+  // fixture: hd-core raises some errors with a top-level `code` and others
+  // with it nested under `payload`, and the classification must come from the
+  // class and the code alone — never from the message text, which is
+  // localized and vendor-supplied.
+  it.each<[string, string, { code: number } | { payload: { code: number } }]>([
+    [
+      'ActionCancelled',
+      'cancelled on device',
+      { code: HardwareErrorCode.ActionCancelled },
+    ],
+    [
+      'PinCancelled',
+      'cancelled on device',
+      { code: HardwareErrorCode.PinCancelled },
+    ],
     [
       'CallQueueActionCancelled',
+      'cancelled on device',
       { code: HardwareErrorCode.CallQueueActionCancelled },
     ],
     [
       'ActionCancelled carried under payload',
+      'cancelled on device',
       { payload: { code: HardwareErrorCode.ActionCancelled } },
+    ],
+    [
+      'ActionCancelled whose message never mentions cancelling',
+      'hd bridge returned 803',
+      { code: HardwareErrorCode.ActionCancelled },
     ],
   ])(
     'turns a hardware %s into a user cancellation',
-    async (_name, codeProps) => {
+    async (_name, message, codeProps) => {
       api.serviceSend.signMessage.mockRejectedValueOnce(
-        Object.assign(new Error('cancelled on device'), {
+        Object.assign(new Error(message), {
           className: EOneKeyErrorClassNames.OneKeyHardwareError,
           ...codeProps,
         }),
@@ -204,6 +275,15 @@ describe('wcPayInlineSignTypedData', () => {
     await expect(wcPayInlineSignTypedData(baseParams)).rejects.toBe(notFound);
   });
 
+  // The inverse of the message-text rule: an error that merely READS like a
+  // rejection, with no cancel class and no cancel code, is a real failure.
+  it('rethrows a rejection-sounding error that carries no cancel class or code', async () => {
+    const sounded = new Error('User rejected the request');
+    api.serviceSend.signMessage.mockRejectedValueOnce(sounded);
+
+    await expect(wcPayInlineSignTypedData(baseParams)).rejects.toBe(sounded);
+  });
+
   it('rethrows other signing failures untouched', async () => {
     const boom = new Error('keyring exploded');
     api.serviceSend.signMessage.mockRejectedValueOnce(boom);
@@ -223,6 +303,26 @@ describe('wcPayInlineSignTypedData', () => {
     expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
   });
 
+  it('preserves a thrown string as the fallback reason', async () => {
+    validateTypedSignMessageDataV3V4.mockRejectedValueOnce(
+      'bare string reject',
+    );
+
+    await expect(wcPayInlineSignTypedData(baseParams)).resolves.toEqual({
+      status: 'fallback',
+      reason: 'bare string reject',
+    });
+  });
+
+  it('falls back with a default reason when the rejection carries no message', async () => {
+    validateTypedSignMessageDataV3V4.mockRejectedValueOnce(undefined);
+
+    await expect(wcPayInlineSignTypedData(baseParams)).resolves.toEqual({
+      status: 'fallback',
+      reason: 'typed data validation failed',
+    });
+  });
+
   it('falls back when the network cannot be resolved', async () => {
     api.serviceNetwork.getNetwork.mockRejectedValueOnce(
       new Error('unknown network'),
@@ -235,7 +335,7 @@ describe('wcPayInlineSignTypedData', () => {
     expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
   });
 
-  it('does not swallow history write failures into the result', async () => {
+  it('keeps status ok when the history write fails', async () => {
     api.serviceSignature.addItemFromSignMessage.mockRejectedValueOnce(
       new Error('db'),
     );
@@ -247,25 +347,43 @@ describe('wcPayInlineSignTypedData', () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
-  it('propagates a cancellation raised before signing without signing', async () => {
+  // The backup check raises a dialog as a side effect, so an already-cancelled
+  // flow must be stopped before it, not after.
+  it('stops on entry without running the backup check', async () => {
     const cancelled = new WcPayUserCancelledError('x');
     throwIfCancelled.mockImplementationOnce(() => {
       throw cancelled;
     });
 
     await expect(wcPayInlineSignTypedData(baseParams)).rejects.toBe(cancelled);
+    expect(api.serviceAccount.checkIsWalletNotBackedUp).not.toHaveBeenCalled();
     expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
   });
 
-  it('checks for cancellation after validation and before announcing the phase', async () => {
+  it('propagates a cancellation raised at the last pre-sign gate', async () => {
+    const cancelled = new WcPayUserCancelledError('x');
+    throwIfCancelled
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw cancelled;
+      });
+
+    await expect(wcPayInlineSignTypedData(baseParams)).rejects.toBe(cancelled);
+    expect(api.serviceAccount.checkIsWalletNotBackedUp).toHaveBeenCalled();
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
+  });
+
+  it('checks for cancellation on entry and again after validation, before announcing the phase', async () => {
     await wcPayInlineSignTypedData(baseParams);
 
-    expect(throwIfCancelled).toHaveBeenCalledTimes(1);
-    expect(throwIfCancelled.mock.invocationCallOrder[0]).toBeGreaterThan(
+    expect(throwIfCancelled).toHaveBeenCalledTimes(2);
+    const [entryCall, preSignCall] = throwIfCancelled.mock.invocationCallOrder;
+    expect(entryCall).toBeLessThan(
+      api.serviceAccount.checkIsWalletNotBackedUp.mock.invocationCallOrder[0],
+    );
+    expect(preSignCall).toBeGreaterThan(
       validateTypedSignMessageDataV3V4.mock.invocationCallOrder[0],
     );
-    expect(throwIfCancelled.mock.invocationCallOrder[0]).toBeLessThan(
-      onPhase.mock.invocationCallOrder[0],
-    );
+    expect(preSignCall).toBeLessThan(onPhase.mock.invocationCallOrder[0]);
   });
 });

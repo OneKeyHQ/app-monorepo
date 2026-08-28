@@ -1,7 +1,11 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import type { IWcPaySolanaConsistencyResult } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
-import { PasswordPromptDialogCancel } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import {
+  PasswordPromptDialogCancel,
+  SecureQRCodeDialogCancel,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IWcPayAction,
@@ -877,15 +881,67 @@ describe('isWcPayInlineUserCancel', () => {
     );
   });
 
-  it('recognizes a cancellation on the hardware device', () => {
+  // The AirGap QR flow's own dismissal, raised by
+  // AirGapQrcodeDialogContainer when the scanner dialog is closed.
+  it('recognizes a closed AirGap QR dialog', () => {
+    expect(isWcPayInlineUserCancel(new SecureQRCodeDialogCancel())).toBe(true);
+  });
+
+  it.each<[string, number]>([
+    ['ActionCancelled', HardwareErrorCode.ActionCancelled],
+    ['PinCancelled', HardwareErrorCode.PinCancelled],
+    ['CallQueueActionCancelled', HardwareErrorCode.CallQueueActionCancelled],
+    ['DeviceInterruptedFromUser', HardwareErrorCode.DeviceInterruptedFromUser],
+    [
+      'DeviceInterruptedFromOutside',
+      HardwareErrorCode.DeviceInterruptedFromOutside,
+    ],
+  ])('recognizes hardware %s', (_name, code) => {
     expect(
       isWcPayInlineUserCancel(
         Object.assign(new Error('cancelled on device'), {
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          code,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  // There is no `HardwareErrorCode.UserCancelFromOutside`; the real error is
+  // this class, which carries DeviceInterruptedFromOutside. Constructed for
+  // real so the coverage claim rests on the shipped definition, not a fixture.
+  it('recognizes a real UserCancelFromOutside instance', () => {
+    expect(isWcPayInlineUserCancel(new UserCancelFromOutside())).toBe(true);
+  });
+
+  // The rule under test: classification comes from the class and the code,
+  // never from the message text, which is localized and vendor-supplied.
+  it('recognizes a cancellation whose message never mentions cancelling', () => {
+    expect(
+      isWcPayInlineUserCancel(
+        Object.assign(new Error('hd bridge returned 803'), {
           className: EOneKeyErrorClassNames.OneKeyHardwareError,
           code: HardwareErrorCode.ActionCancelled,
         }),
       ),
     ).toBe(true);
+  });
+
+  it('does not claim a rejection-sounding message was a cancellation', () => {
+    expect(
+      isWcPayInlineUserCancel(new Error('User rejected the request')),
+    ).toBe(false);
+  });
+
+  it('does not treat a non-cancel hardware code as a cancellation', () => {
+    expect(
+      isWcPayInlineUserCancel(
+        Object.assign(new Error('device not found'), {
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          code: HardwareErrorCode.DeviceNotFound,
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('does not claim a plain failure was a cancellation', () => {
