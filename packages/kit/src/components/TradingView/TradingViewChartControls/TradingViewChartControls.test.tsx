@@ -102,6 +102,7 @@ jest.mock('@onekeyhq/components', () => ({
     alignSelf,
     children,
     flex,
+    flexShrink,
     onPress,
     gap,
     pr,
@@ -111,6 +112,7 @@ jest.mock('@onekeyhq/components', () => ({
     alignSelf?: string;
     children?: ReactNode;
     flex?: number;
+    flexShrink?: number;
     gap?: string;
     onPress?: (event: unknown) => void;
     pr?: string;
@@ -121,6 +123,7 @@ jest.mock('@onekeyhq/components', () => ({
         aria-label={accessibilityLabel}
         data-align-self={alignSelf}
         data-flex={flex}
+        data-flex-shrink={flexShrink}
         data-gap={gap}
         data-pr={pr}
         data-testid={testID}
@@ -134,6 +137,7 @@ jest.mock('@onekeyhq/components', () => ({
         aria-label={accessibilityLabel}
         data-align-self={alignSelf}
         data-flex={flex}
+        data-flex-shrink={flexShrink}
         data-gap={gap}
         data-pr={pr}
         data-testid={testID}
@@ -408,8 +412,18 @@ describe('TradingView chart controls', () => {
       getByTestId('trading-view-chart-ready-controls').getAttribute('data-gap'),
     ).toBe('$2');
     expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute(
+        'data-flex-shrink',
+      ),
+    ).toBe('1');
+    expect(
       getByTestId('interval-selector').parentElement?.getAttribute('data-flex'),
     ).toBeNull();
+    expect(
+      getByTestId('interval-selector').parentElement?.getAttribute(
+        'data-flex-shrink',
+      ),
+    ).toBe('1');
 
     const closeArea = getByTestId('trading-view-native-chart-close');
     expect(closeArea.getAttribute('aria-label')).toBe('Close chart');

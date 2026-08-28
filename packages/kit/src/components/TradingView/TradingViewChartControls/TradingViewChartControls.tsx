@@ -545,6 +545,9 @@ export const TradingViewChartControls = memo(
           <XStack
             testID="trading-view-chart-ready-controls"
             flex={onRightControlPress ? undefined : 1}
+            flexShrink={
+              compactMobileLayout && onRightControlPress ? 1 : undefined
+            }
             minWidth={0}
             gap={shouldFillIntervalSelector ? '$0' : '$2'}
             alignItems="center"
@@ -553,6 +556,9 @@ export const TradingViewChartControls = memo(
           >
             <XStack
               flex={onRightControlPress ? undefined : 1}
+              flexShrink={
+                compactMobileLayout && onRightControlPress ? 1 : undefined
+              }
               minWidth={0}
               alignItems="center"
             >

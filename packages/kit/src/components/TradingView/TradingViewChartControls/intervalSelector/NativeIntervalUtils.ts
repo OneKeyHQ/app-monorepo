@@ -283,6 +283,29 @@ export function reconcileIntervalValues(
   }, []);
 }
 
+export function mergeVisiblePreferredIntervalValues({
+  currentValues,
+  nextVisibleValues,
+  maxVisibleIntervalCount,
+  options,
+}: {
+  currentValues: string[];
+  nextVisibleValues: string[];
+  maxVisibleIntervalCount: number | null;
+  options: ITradingViewIntervalOption[];
+}) {
+  // A smaller toolbar only owns its visible prefix; keep preferences selected
+  // from layouts that expose more slots.
+  const hiddenValues =
+    maxVisibleIntervalCount === null
+      ? []
+      : currentValues.slice(maxVisibleIntervalCount);
+  return sortIntervalValues(
+    reconcileIntervalValues([...nextVisibleValues, ...hiddenValues], options),
+    options,
+  );
+}
+
 function parseStoredPreferredIntervalValues(rawValue: string | null) {
   if (!rawValue) {
     return null;

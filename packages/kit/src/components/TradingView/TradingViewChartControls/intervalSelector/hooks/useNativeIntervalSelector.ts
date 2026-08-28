@@ -12,6 +12,7 @@ import {
   getOptionsByValues,
   getOrderedIntervalOptions,
   isIntervalOptionDisabled,
+  mergeVisiblePreferredIntervalValues,
   normalizeIntervalOptions,
   readStoredPreferredIntervalValues,
   reconcileIntervalValues,
@@ -23,21 +24,12 @@ import type { ITradingViewIntervalConfigData } from '../../types';
 
 type IIntervalsDialogInstance = ReturnType<typeof Dialog.show>;
 
-function applyPreferredIntervalLimit(
-  values: string[],
-  maxPreferredIntervalCount: number | null,
-) {
-  return maxPreferredIntervalCount === null
-    ? values
-    : values.slice(0, maxPreferredIntervalCount);
-}
-
 export function useNativeIntervalSelector({
   intervalConfig,
-  maxPreferredIntervalCount,
+  visiblePreferredIntervalCount,
 }: {
   intervalConfig: ITradingViewIntervalConfigData | null;
-  maxPreferredIntervalCount: number | null;
+  visiblePreferredIntervalCount: number | null;
 }) {
   const intl = useIntl();
   const [storedPreferredIntervalValues, setStoredPreferredIntervalValues] =
@@ -116,9 +108,9 @@ export function useNativeIntervalSelector({
     () =>
       getDefaultPreferredIntervalValues(
         options,
-        maxPreferredIntervalCount ?? MAX_PREFERRED_INTERVAL_COUNT,
+        visiblePreferredIntervalCount ?? MAX_PREFERRED_INTERVAL_COUNT,
       ),
-    [maxPreferredIntervalCount, options],
+    [options, visiblePreferredIntervalCount],
   );
 
   const dialogOptions = useMemo(
@@ -126,7 +118,7 @@ export function useNativeIntervalSelector({
     [options],
   );
 
-  const preferredIntervalValues = useMemo(() => {
+  const allPreferredIntervalValues = useMemo(() => {
     const storedValues = hasLoadedStoredPreferredIntervals
       ? storedPreferredIntervalValues
       : null;
@@ -141,15 +133,22 @@ export function useNativeIntervalSelector({
       reconciledStoredValues,
       dialogOptions,
     );
-    return applyPreferredIntervalLimit(sortedValues, maxPreferredIntervalCount);
+    return sortedValues;
   }, [
     defaultPreferredIntervalValues,
     hasLoadedStoredPreferredIntervals,
     dialogOptions,
-    maxPreferredIntervalCount,
     options,
     storedPreferredIntervalValues,
   ]);
+
+  const preferredIntervalValues = useMemo(
+    () =>
+      visiblePreferredIntervalCount === null
+        ? allPreferredIntervalValues
+        : allPreferredIntervalValues.slice(0, visiblePreferredIntervalCount),
+    [allPreferredIntervalValues, visiblePreferredIntervalCount],
+  );
 
   const preferredOptions = useMemo(
     () => getOptionsByValues(preferredIntervalValues, options),
@@ -176,18 +175,18 @@ export function useNativeIntervalSelector({
 
   const handlePreferredValuesChange = useCallback(
     (values: string[]) => {
-      const reconciledValues = reconcileIntervalValues(values, options);
-      const sortedValues = sortIntervalValues(reconciledValues, dialogOptions);
-      const nextValues = applyPreferredIntervalLimit(
-        sortedValues,
-        maxPreferredIntervalCount,
-      );
+      const nextValues = mergeVisiblePreferredIntervalValues({
+        currentValues: allPreferredIntervalValues,
+        nextVisibleValues: values,
+        maxVisibleIntervalCount: visiblePreferredIntervalCount,
+        options: dialogOptions,
+      });
       hasUpdatedPreferredIntervalsRef.current = true;
       setStoredPreferredIntervalValues(nextValues);
       setHasLoadedStoredPreferredIntervals(true);
       void saveStoredPreferredIntervalValues(nextValues);
     },
-    [dialogOptions, maxPreferredIntervalCount, options],
+    [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],
   );
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
