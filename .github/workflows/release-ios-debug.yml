@@ -21,9 +21,7 @@ jobs:
       matrix:
         node-version: [24.x]
         ruby-version: [3.4.4]
-        # expo-modules-jsi (SDK 56) uses `weak let` (SE-0481), which requires
-        # the Swift 6.3 compiler shipped with Xcode 26.4+.
-        xcode-version: [26.4]
+        xcode-version: [26.0]
 
     steps:
       - name: Show executed time
@@ -66,11 +64,6 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Select Xcode
-        run: |
-          sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode-version }}.app"
-          xcodebuild -version
 
       - name: Show SDKs
         run: |

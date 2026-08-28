@@ -1,3 +1,4 @@
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
@@ -10,6 +11,7 @@ import {
 import {
   handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
+  shouldKeepSwapQuoteAliveOnFocusLoss,
 } from './useSwapQuote';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -76,6 +78,16 @@ const token = {
 } as ISwapToken;
 
 describe('Swap quote lifecycle visibility', () => {
+  it('keeps modal quoting alive while the provider picker is active', () => {
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss(EModalSwapRoutes.SwapProviderSelect),
+    ).toBe(true);
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss(EModalSwapRoutes.SwapTokenSelect),
+    ).toBe(false);
+    expect(shouldKeepSwapQuoteAliveOnFocusLoss()).toBe(false);
+  });
+
   it.each([
     {
       isFocus: true,

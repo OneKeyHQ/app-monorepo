@@ -9,72 +9,6 @@
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
-// react-native first: its InitializeCore must run before anything reads the
-// globals it defines. Then the expo host stub: this runtime is created by the
-// background-thread module and never gets ExpoModulesCore's JSI install, so
-// `globalThis.expo` does not exist here — and from SDK 56 expo-modules-core
-// reads `globalThis.expo.EventEmitter` at module scope, killing this runtime
-// at bundle evaluation ("Cannot read property 'EventEmitter' of undefined",
-// surfacing on main as "Background runtime ready timeout"). Installing expo's
-// own JS-only global polyfill (the jest-expo route) restores the SDK 54
-// semantics: expo imports succeed, native calls fail lazily per call.
-require('react-native');
-const { installExpoGlobalPolyfill } =
-  require('expo-modules-core/src/polyfill/dangerous-internal') as {
-    installExpoGlobalPolyfill: () => void;
-  };
-installExpoGlobalPolyfill();
-// The polyfill leaves `expo.modules` empty, so requireNativeModule(name)
-// throws at import time for every expo package the bg graph pulls in
-// (expo-crypto via the get-random-values fork is the first). The throw is
-// caught once by the polyfills' crypto guard, but Metro re-runs the failed
-// module factory on the next `require('crypto')` (cross-crypto/verify) and
-// the second throw is fatal. Mirror SDK 54 instead: every module name
-// resolves to an empty module whose members read as undefined, so callers'
-// feature checks (`if (ExpoCrypto.getRandomValues)`) fall through to their
-// non-expo fallbacks at call time rather than dying at import — EXCEPT the
-// RN event-emitter protocol members, which expo-modules-core's own
-// setUpJsLogger.fx calls unconditionally (`NativeJSLogger.addListener`);
-// those return subscription-shaped no-ops.
-const expoEventEmitterNoopKeys = new Set([
-  'addListener',
-  'removeListener',
-  'removeListeners',
-  'removeAllListeners',
-  'removeSubscription',
-]);
-// Uppercase members resolve to inert dummy classes because expo packages
-// extend native classes at module scope (expo-crypto's
-// `class AESEncryptionKey extends AesCryptoModule.EncryptionKey {}`) —
-// `extends undefined` is a TypeError at import time. Lowercase members stay
-// undefined so feature checks keep selecting non-expo fallbacks.
-const expoNativeClassStubs = new Map<string, unknown>();
-const emptyExpoNativeModule = new Proxy(
-  {},
-  {
-    get: (_target, prop) => {
-      if (typeof prop !== 'string') return undefined;
-      if (expoEventEmitterNoopKeys.has(prop)) {
-        return () => ({ remove: () => {} });
-      }
-      if (/^[A-Z]/.test(prop)) {
-        if (!expoNativeClassStubs.has(prop)) {
-          expoNativeClassStubs.set(prop, class {});
-        }
-        return expoNativeClassStubs.get(prop);
-      }
-      return undefined;
-    },
-    has: () => true,
-  },
-);
-// installExpoGlobalPolyfill() defines `globalThis.expo` today, but this block
-// exists precisely because such contracts shift between SDKs — never assume it.
-(globalThis as any).expo ??= {};
-(globalThis as any).expo.modules = new Proxy(
-  {},
-  { get: () => emptyExpoNativeModule, has: () => true },
-);
 require('@onekeyhq/shared/src/polyfills');
 
 // Lightweight logger for background runtime entry diagnostics.
@@ -159,36 +93,17 @@ if (!__DEV__) {
     installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
   }
   bgEntryLog(
-    `segment loader installed in ${Date.now() - segLoaderStart}ms (+${
-      Date.now() - bgEntryStart
-    }ms)`,
+    `segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - bgEntryStart}ms)`,
   );
 }
 
 const apiProxyStart = Date.now();
 bgEntryLog(`importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`);
-let backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-try {
-  backgroundApiProxy =
-    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-} catch (error) {
-  // The import above executes the whole kit-bg module graph; without this
-  // catch a throw inside it dies invisibly (no global handler is installed
-  // on this runtime yet) and the only symptom is the transport going
-  // remote-broken. Persist the failure to app-latest.log before rethrowing.
-  const err = error as Error | undefined;
-  bgEntryLog(
-    `backgroundApiProxy import FAILED: ${err?.message ?? String(error)}\n${
-      err?.stack?.slice(0, 2000) ?? ''
-    }`,
-  );
-  throw error;
-}
+const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+  require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
 
 bgEntryLog(
-  `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${
-    Date.now() - bgEntryStart
-  }ms)`,
+  `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
 );
 
 const rpcHandlerStart = Date.now();
@@ -222,11 +137,5 @@ AppRegistry.registerComponent('background', () => BackgroundThreadRoot);
 const bgEntryEnd = Date.now();
 const entryElapsed = bgEntryEnd - bgEntryStart;
 bgEntryLog(
-  `entry JS executed in ${entryElapsed}ms (polyfills→apiProxy: ${
-    apiProxyStart - bgEntryStart
-  }ms, apiProxy import: ${
-    Date.now() - apiProxyStart > entryElapsed
-      ? entryElapsed
-      : rpcHandlerStart - apiProxyStart
-  }ms, rpcHandler: ${bgEntryEnd - rpcHandlerStart}ms)`,
+  `entry JS executed in ${entryElapsed}ms (polyfills→apiProxy: ${apiProxyStart - bgEntryStart}ms, apiProxy import: ${Date.now() - apiProxyStart > entryElapsed ? entryElapsed : rpcHandlerStart - apiProxyStart}ms, rpcHandler: ${bgEntryEnd - rpcHandlerStart}ms)`,
 );

@@ -2,12 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Appearance } from 'react-native';
 
-import { normalizeSystemColorScheme } from '@onekeyhq/shared/src/config/appConfig';
-
 export function useSystemColorScheme(delay = 500) {
-  const [colorScheme, setColorScheme] = useState(() =>
-    normalizeSystemColorScheme(Appearance.getColorScheme()),
-  );
+  const [colorScheme, setColorScheme] = useState(Appearance.getColorScheme());
 
   const ref = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -22,7 +18,7 @@ export function useSystemColorScheme(delay = 500) {
       resetCurrentTimeout();
 
       ref.current = setTimeout(() => {
-        setColorScheme(normalizeSystemColorScheme(preferences.colorScheme));
+        setColorScheme(preferences.colorScheme);
       }, delay);
     },
     [ref, resetCurrentTimeout, delay],

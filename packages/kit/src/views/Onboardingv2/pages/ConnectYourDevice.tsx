@@ -8,13 +8,14 @@ import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   EVideoResizeMode,
   Empty,
   HeightTransition,
+  type IPageScreenProps,
+  type IVideoSource,
   IconButton,
   LottieView,
   Popover,
@@ -82,7 +83,6 @@ import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
-import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
 const TrezorConnectionFlow = lazy(() => import('./ConnectionFlowTrezor'));
@@ -490,20 +490,20 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
 
   // The onboarding flow is force-dark, so every device uses its dark (-D) asset
   // and no theme branching is needed.
-  const videoSource = useMemo<ReactVideoSource>(() => {
+  const videoSource = useMemo<IVideoSource>(() => {
     if (isProtocolV2Product) {
-      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
     }
     if (isMini) {
-      return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as ReactVideoSource;
+      return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
     }
     if (isClassic) {
-      return require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as ReactVideoSource;
+      return require('@onekeyhq/kit/assets/onboarding/Classic1S-D.mp4') as IVideoSource;
     }
     if (isTouch) {
-      return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as ReactVideoSource;
+      return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
-    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as ReactVideoSource;
+    return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
   }, [isClassic, isMini, isProtocolV2Product, isTouch]);
 
   return (

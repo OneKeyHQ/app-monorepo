@@ -122,6 +122,10 @@ export function normalizeTradingViewNativeChartSettings(
         options.latestPrice,
         fallback.options.latestPrice,
       ),
+      previousClose: normalizeBoolean(
+        options.previousClose,
+        fallback.options.previousClose,
+      ),
       futureEvents: normalizeBoolean(
         options.futureEvents,
         fallback.options.futureEvents,
@@ -336,6 +340,7 @@ export function getTradingViewChartSettingsValue(
       depth: normalizedSettings.options.depth,
       priceChange: normalizedSettings.options.priceChange,
       latestPrice: normalizedSettings.options.latestPrice,
+      previousClose: normalizedSettings.options.previousClose,
       futureEvents: normalizedSettings.options.futureEvents,
       pastEvents: normalizedSettings.options.pastEvents,
       clickInteraction: normalizedSettings.options.clickInteraction,
@@ -389,6 +394,7 @@ export function getTradingViewNativeChartSettings({
       depth: value.options.depth,
       priceChange: value.options.priceChange,
       latestPrice: value.options.latestPrice,
+      previousClose: value.options.previousClose,
       futureEvents: value.options.futureEvents,
       pastEvents: value.options.pastEvents,
       clickInteraction: value.options.clickInteraction,

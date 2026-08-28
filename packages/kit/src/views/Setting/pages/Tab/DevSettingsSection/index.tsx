@@ -61,7 +61,6 @@ import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
-  TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -211,7 +210,7 @@ const DevSettingsAccordionTrigger = ({
             <IconButton
               // Accordion.Trigger renders a native <button> on web; render the
               // pin control as a span to avoid invalid nested buttons.
-              tag="span"
+              render="span"
               icon={pinned ? 'StarSolid' : 'StarOutline'}
               size="small"
               variant="tertiary"
@@ -225,7 +224,7 @@ const DevSettingsAccordionTrigger = ({
             />
           ) : null}
           <View
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={open ? '0deg' : '-90deg'}
           >
@@ -488,9 +487,6 @@ const BaseDevSettingsSection = () => {
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
-  const remoteTradingViewUrl = devSettings.settings?.useTradingViewTestUrl
-    ? TRADING_VIEW_URL_TEST
-    : TRADING_VIEW_URL;
   const mockTradingViewKLineEmptyEnabled =
     devSettings.settings?.mockTradingViewKLineEmptyEnabled ?? false;
   const rawMockTradingViewKLineEmptyIntervals =
@@ -855,7 +851,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -890,7 +886,7 @@ const BaseDevSettingsSection = () => {
         title: 'Webview & WebEmbed & TrandingView',
         description: 'Webview WebEmbed TrandingView',
         keywords:
-          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL 使用TradingView测试域名 TradingViewNative 事件日志 event log',
+          'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL TradingViewNative 事件日志 event log',
       },
       {
         key: 'galleries',
@@ -1027,9 +1023,9 @@ const BaseDevSettingsSection = () => {
                     icon="InfoCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1316,9 +1312,9 @@ const BaseDevSettingsSection = () => {
                     icon="LabOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1488,6 +1484,20 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
+                      {platformEnv.isDesktop || platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="SNI Queue & Abort QA"
+                          subtitle="Run fixed /health, 20/40 request, cancellation, and recovery cases"
+                          searchKeywords="SNI Queue AbortController QA health 20 40 requests concurrency cancellation recovery Native Desktop"
+                          testID="desktop-sni-queue-qa-menu"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSniRequestQa,
+                            );
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"
@@ -1600,9 +1610,9 @@ const BaseDevSettingsSection = () => {
                     icon="ArrowTopCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1693,9 +1703,9 @@ const BaseDevSettingsSection = () => {
                     icon="ServerOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1885,9 +1895,9 @@ const BaseDevSettingsSection = () => {
                     icon="LayoutWindowOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       exitStyle={{ opacity: 0 }}
                     >
                       <LazyNavigationDiagnosticsSection />
@@ -1904,9 +1914,9 @@ const BaseDevSettingsSection = () => {
                     icon="TableOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2149,9 +2159,9 @@ const BaseDevSettingsSection = () => {
                     icon="BrowserOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2222,23 +2232,12 @@ const BaseDevSettingsSection = () => {
 
                       <SectionFieldItem
                         icon="TradeOutline"
-                        name="useTradingViewTestUrl"
-                        title="使用 TradingView 测试域名"
-                        subtitle={remoteTradingViewUrl}
-                      >
-                        <Switch
-                          testID="dev-settings-use-tradingview-test-url"
-                          size={ESwitchSize.small}
-                        />
-                      </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
                         name="useLocalTradingViewUrl"
                         title="使用本地 TradingView URL"
                         subtitle={
                           devSettings.settings?.useLocalTradingViewUrl
                             ? localTradingViewUrlSubtitle
-                            : remoteTradingViewUrl
+                            : TRADING_VIEW_URL_TEST
                         }
                       >
                         <Switch size={ESwitchSize.small} />
@@ -2312,9 +2311,9 @@ const BaseDevSettingsSection = () => {
                     icon="AiImagesOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2398,9 +2397,9 @@ const BaseDevSettingsSection = () => {
                     icon="HeadOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2588,9 +2587,9 @@ const BaseDevSettingsSection = () => {
                     icon="SignatureOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >

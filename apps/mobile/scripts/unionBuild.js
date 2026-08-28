@@ -27,6 +27,9 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
+const {
+  patchTransformFileForPackedMaps,
+} = require('@expo/metro-config/build/serializer/packedMap');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
@@ -112,25 +115,10 @@ const { sourceMapStringNonBlocking } = require(
     'metro/src/DeltaBundler/Serializers/sourceMapString',
   ),
 );
-// Expo SDK 56's transform worker stores each module's source map as a packed
-// `SerializableSourceMap` object instead of the tuple array that the vanilla
-// metro serializers used by this script expect (`fromRawMappings` throws
-// "Unexpected module with full source map found" otherwise). Wrapping
-// `Bundler.transformFile` — the same hook `@expo/cli` installs in
-// `instantiateMetro` — converts packed maps into `Array.isArray`-true proxies
-// for both fresh worker results and cache hits.
-const { patchTransformFileForPackedMaps } = require(
-  path.resolve(
-    __dirname,
-    '../../../node_modules',
-    '@expo/metro-config/build/serializer/packedMap',
-  ),
-);
 
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
-const projectRootPath = path.resolve(mobileDirPath, '../..');
 
 // Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256
@@ -141,23 +129,12 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 // tolerated and went unnoticed).
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
-// RN 0.85 moved the prebuilt hermesc out of react-native/sdks into the
-// standalone `hermes-compiler` package; keep the legacy path as a fallback.
-// When neither exists, keep the primary candidate so the spawn ENOENT names
-// the expected location instead of `undefined`.
-const HERMES_COMMAND_CANDIDATES = [
-  path.join(
-    projectRootPath,
-    `node_modules/hermes-compiler/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-  ),
-  path.join(
-    projectRootPath,
-    `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-  ),
-];
-const HERMES_COMMAND =
-  HERMES_COMMAND_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
-  HERMES_COMMAND_CANDIDATES[0];
+const HERMES_COMMAND = path.join(
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
+);
 
 function runHermescAsync({ outPath, inputPath }) {
   return new Promise((resolve, reject) => {
@@ -1960,7 +1937,7 @@ async function main() {
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
-  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v3`;
 
   // On EAS Android workers the main + background graphs are held in memory at
   // the same time; with Metro's default worker count (6 on the 8-vCPU `large`

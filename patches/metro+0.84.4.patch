@@ -1,5 +1,5 @@
 diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
-index b34df88..9083e92 100644
+index 2cdbbb9..f1f78d7 100644
 --- a/node_modules/metro/src/Assets.js
 +++ b/node_modules/metro/src/Assets.js
 @@ -203,6 +203,8 @@ async function getAssetFiles(assetPath, platform = null) {
@@ -11,12 +11,12 @@ index b34df88..9083e92 100644
  async function getAsset(
    relativePath,
    projectRoot,
-@@ -211,12 +213,16 @@ async function getAsset(
+@@ -211,12 +213,19 @@ async function getAsset(
    assetExts,
    fileExistsInFileMap,
  ) {
 +  if (relativePath.startsWith(GET_TOP_DIR_SYMBOL)) {
-+    relativePath = relativePath.replaceAll(GET_TOP_DIR_SYMBOL, '..');
++    relativePath = relativePath.replaceAll(GET_TOP_DIR_SYMBOL, "..");
 +  }
    const assetData = AssetPaths.parse(
      relativePath,
@@ -24,15 +24,21 @@ index b34df88..9083e92 100644
    );
    const absolutePath = _path.default.resolve(projectRoot, relativePath);
    if (!assetExts.includes(assetData.type)) {
-+    console.error(`'${relativePath}' cannot be loaded as its extension is not registered in assetExts`, absolutePath);
++    console.error(
++      `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
++      absolutePath,
++    );
      throw new Error(
        `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
      );
-@@ -225,6 +231,7 @@ async function getAsset(
+@@ -225,6 +234,10 @@ async function getAsset(
      fileExistsInFileMap == null &&
      !pathBelongsToRoots(absolutePath, [projectRoot, ...watchFolders])
    ) {
-+    console.error(`'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`, absolutePath);
++    console.error(
++      `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
++      absolutePath,
++    );
      throw new Error(
        `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
      );

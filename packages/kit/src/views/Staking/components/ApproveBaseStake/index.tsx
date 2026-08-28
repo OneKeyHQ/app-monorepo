@@ -1026,7 +1026,7 @@ export function ApproveBaseStake({
                       </SizableText>
                     )}
                     <YStack
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={
                         open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
@@ -1047,9 +1047,9 @@ export function ApproveBaseStake({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
+            <Accordion.HeightAnimator transition="quick">
               <Accordion.Content
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 px={0}

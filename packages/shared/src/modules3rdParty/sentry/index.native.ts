@@ -10,10 +10,10 @@ import {
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions } from './basicOptions';
+import { buildBasicOptions, sanitizeSentryEvent } from './basicOptions';
 
+import type { ISentrySanitizationErrorHandler } from './basicOptions';
 import type { FallbackRender } from '@sentry/react';
-import type { ReactNativeOptions } from '@sentry/react-native';
 
 // oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react-native';
@@ -33,27 +33,32 @@ export const initSentry = () => {
   // regardless of `enableAutoPerformanceTracing: false`. Removing the key makes
   // hasTracingEnabled=false so none of them are installed. profilesSampleRate is
   // likewise stripped to keep hermesProfilingIntegration off.
+  const onError: ISentrySanitizationErrorHandler = (
+    errorMessage,
+    stacktrace,
+  ) => {
+    appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
+  };
   const {
     tracesSampleRate: _tracesSampleRate,
     profilesSampleRate: _profilesSampleRate,
     ...basicOptions
   } = buildBasicOptions({
-    onError: (errorMessage, stacktrace) => {
-      appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
-    },
+    onError,
   });
+  type INativeSentryOptions = Parameters<typeof init>[0];
+  const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
+    event,
+  ) => sanitizeSentryEvent(event, onError);
+  const nativeBasicOptions = {
+    enabled: basicOptions.enabled,
+    maxBreadcrumbs: basicOptions.maxBreadcrumbs,
+    beforeSend: nativeBeforeSend,
+  };
 
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    // buildBasicOptions is typed against @sentry/browser, which resolves
-    // @sentry/core 8, while @sentry/react-native pins @sentry/core 10.37.0
-    // exactly - SDK 56 dropped the @sentry/* resolutions that used to hold
-    // both on 8, and the RN SDK cannot go back. The option shape is the same;
-    // only the two vendored copies of the types disagree, on DataCategory
-    // ('log_byte' is 10-only), PropagationContext.sampleRand and the like.
-    // Cast the shared block rather than strip its keys one at a time; every
-    // option this file sets below stays checked.
-    ...(basicOptions as ReactNativeOptions),
+    ...nativeBasicOptions,
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,

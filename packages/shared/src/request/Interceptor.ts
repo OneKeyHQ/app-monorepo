@@ -9,10 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import appDeviceInfo from '../appDeviceInfo/appDeviceInfo';
-import {
-  defaultColorScheme,
-  normalizeSystemColorScheme,
-} from '../config/appConfig';
+import { defaultColorScheme } from '../config/appConfig';
 
 import { headerPlatform } from './InterceptorConsts';
 import requestHelper from './requestHelper';
@@ -52,10 +49,10 @@ async function resolveThemeVariantFromSettings(
   }
 
   if (!platformEnv.isExtension) {
-    return (
-      normalizeSystemColorScheme(Appearance.getColorScheme()) ??
-      defaultColorScheme
-    );
+    const colorScheme = Appearance.getColorScheme();
+    return colorScheme === 'light' || colorScheme === 'dark'
+      ? colorScheme
+      : defaultColorScheme;
   }
 
   const fromExtStorage = await getThemeFromExtensionStorage();
@@ -116,7 +113,7 @@ export async function getRequestHeaders() {
   theme = await resolveThemeVariantFromSettings(theme);
 
   const requestId = generateUUID();
-  return {
+  const headers = {
     [HEADER_REQUEST_ID_KEY]: requestId,
     [normalizeHeaderKey('X-Amzn-Trace-Id')]: requestId,
     [normalizeHeaderKey('X-Onekey-Request-Currency')]: settings.currencyInfo.id,
@@ -138,4 +135,8 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-JSBundle-Version')]:
       platformEnv.bundleVersion as string,
   };
+
+  return Object.fromEntries(
+    Object.entries(headers).filter(([, value]) => typeof value === 'string'),
+  );
 }

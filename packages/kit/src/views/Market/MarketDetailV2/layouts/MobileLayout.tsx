@@ -66,6 +66,7 @@ import { InformationPanel } from '../components/InformationPanel/InformationPane
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
+import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import {
   useMarketTradingViewParams,
@@ -79,7 +80,6 @@ import {
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
-import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
@@ -104,22 +104,8 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
   );
 }
 
-const chartLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
 const swapPanelLoadingFallback = <ModuleLoadingFallback minHeight={96} />;
 const overviewLoadingFallback = <ModuleLoadingFallback minHeight={240} />;
-
-const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
-    ).then(({ MarketTradingView }) => ({
-      default: (props: IMarketTradingViewProps) => (
-        <MarketTradingView {...props} />
-      ),
-    })),
-  undefined,
-  chartLoadingFallback,
-);
 
 const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   () =>
@@ -212,6 +198,7 @@ function MobileMarketTradingView({
   tokenAddress,
   networkId,
   tokenSymbol,
+  decimal,
   dataSource,
   storageNamespace,
   pageWidth,
@@ -224,6 +211,7 @@ function MobileMarketTradingView({
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
+  decimal: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
@@ -246,10 +234,11 @@ function MobileMarketTradingView({
   }, [onIndicatorsDialogOpenChange, onInteractionOverlayOpenChange]);
 
   return (
-    <LazyMarketTradingView
+    <LazyMobileMarketTradingView
       tokenAddress={tokenAddress}
       networkId={networkId}
       tokenSymbol={tokenSymbol}
+      decimal={decimal}
       dataSource={dataSource}
       storageNamespace={storageNamespace}
       pageWidth={pageWidth}
@@ -291,6 +280,7 @@ export function MobileLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
@@ -307,6 +297,7 @@ export function MobileLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -798,6 +789,7 @@ export function MobileLayout({
                       tokenAddress={marketTradingViewParams.tokenAddress}
                       networkId={marketTradingViewParams.networkId}
                       tokenSymbol={marketTradingViewParams.tokenSymbol}
+                      decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
                       pageWidth={layoutPageWidth}
@@ -818,10 +810,11 @@ export function MobileLayout({
                   );
                 }
                 return (
-                  <LazyMarketTradingView
+                  <LazyMobileMarketTradingView
                     tokenAddress={marketTradingViewParams.tokenAddress}
                     networkId={marketTradingViewParams.networkId}
                     tokenSymbol={marketTradingViewParams.tokenSymbol}
+                    decimal={marketTradingViewParams.decimal}
                     dataSource={marketTradingViewParams.dataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}

@@ -31,16 +31,6 @@ const { Base64 } = require('js-base64');
 
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
-// react-native first on native runtimes: its InitializeCore defines the
-// globals (`window` included) that expo-modules-core's import-time `expo`
-// install checks — from SDK 56, evaluating expo modules (cross-crypto/verify
-// pulls them in right after these polyfills) before react-native leaves
-// `globalThis.expo` missing and the runtime dies on the next read. Owning
-// the order here keeps bundle entry files free of it.
-if (platformEnv.isNative) {
-  require('react-native');
-}
-
 const shimsInjectedLog = (str) => console.log(`Shims Injected log: ${str}`);
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
@@ -101,24 +91,6 @@ if (platformEnv.isNative || typeof TextDecoder === 'undefined') {
 if (platformEnv.isNative || typeof TextEncoder === 'undefined') {
   shimsInjectedLog('TextEncoder');
   global.TextEncoder = require('text-encoding').TextEncoder;
-}
-
-// WHATWG streams for Hermes. From SDK 56 expo's winter runtime replaces the
-// global fetch with expo/fetch, whose Response body is built on a bare
-// `new ReadableStream(...)` — expo expects its own Metro distribution to
-// inject the global, which `react-native start` never does, so every reader
-// of the global fetch (e.g. the reachability health check) throws
-// "Property 'ReadableStream' doesn't exist" the moment a response arrives.
-if (typeof ReadableStream === 'undefined') {
-  shimsInjectedLog('ReadableStream');
-  const webStreams = require('web-streams-polyfill/ponyfill');
-  global.ReadableStream = webStreams.ReadableStream;
-  if (typeof WritableStream === 'undefined') {
-    global.WritableStream = webStreams.WritableStream;
-  }
-  if (typeof TransformStream === 'undefined') {
-    global.TransformStream = webStreams.TransformStream;
-  }
 }
 
 // Buffer polyfill

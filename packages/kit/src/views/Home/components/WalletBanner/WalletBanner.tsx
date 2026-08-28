@@ -415,7 +415,7 @@ function WebBannerScroller({
           pr="$4"
           opacity={showLeftArrow ? 1 : 0}
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
@@ -451,7 +451,7 @@ function WebBannerScroller({
           pl="$4"
           opacity={showRightArrow ? 1 : 0}
           pointerEvents={showRightArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).

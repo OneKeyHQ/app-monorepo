@@ -25,14 +25,12 @@ import {
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
-  MAIN_NATIVE_UTILS_RESPONSE_KEY_PREFIX,
   WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   buildBackgroundThreadAppEventKey,
   buildBackgroundThreadBridgeSendKey,
   buildBackgroundThreadJotaiStateBatchKey,
   buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
-  buildMainNativeUtilsRequestKey,
   buildSafeBackgroundThreadErrorData,
   buildWebEmbedBridgeRequestKey,
   parseBackgroundThreadCallId,
@@ -136,10 +134,6 @@ const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
 let handleWebEmbedBridgeResponse: (
-  key: string,
-  value: string | number | boolean,
-) => void = () => {};
-let handleMainNativeUtilsResponse: (
   key: string,
   value: string | number | boolean,
 ) => void = () => {};
@@ -578,12 +572,6 @@ function installBackgroundRequestHandler() {
         return;
       }
 
-      // Handle main-thread native-utils responses (secure storage / biometrics)
-      if (callId.startsWith(MAIN_NATIVE_UTILS_RESPONSE_KEY_PREFIX)) {
-        handleMainNativeUtilsResponse(callId, value);
-        return;
-      }
-
       // Main published new capabilities (+ "main is up") to SharedStore and
       // woke us; re-read the latched value.
       if (callId === BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY) {
@@ -736,98 +724,6 @@ export function callWebEmbedBridgeViaMainThread(
 
 // --- end WebEmbed bridge reverse RPC ---
 
-// --- Main-thread native-utils reverse RPC (background → main thread) ---
-// Forwards expo-secure-store and biometric operations to the main runtime,
-// where the real expo native modules live (they are inert stubs here) and
-// where a biometric prompt must present from anyway.
-
-const MAIN_NATIVE_UTILS_CALL_TIMEOUT_MS = 30_000;
-// The biometric prompt waits on the user; give it its own generous budget.
-const MAIN_NATIVE_UTILS_AUTH_TIMEOUT_MS = 5 * 60_000;
-let mainNativeUtilsCallSequence = 0;
-const pendingMainNativeUtilsCalls = new Map<
-  string,
-  {
-    resolve: (value: unknown) => void;
-    reject: (reason: unknown) => void;
-    timer: ReturnType<typeof setTimeout>;
-  }
->();
-
-handleMainNativeUtilsResponse = (
-  key: string,
-  value: string | number | boolean,
-) => {
-  const callId = key.slice(MAIN_NATIVE_UTILS_RESPONSE_KEY_PREFIX.length);
-  const pending = pendingMainNativeUtilsCalls.get(callId);
-  if (!pending) {
-    return;
-  }
-  pendingMainNativeUtilsCalls.delete(callId);
-  clearTimeout(pending.timer);
-
-  try {
-    const response = typeof value === 'string' ? JSON.parse(value) : undefined;
-    if (response?.ok) {
-      pending.resolve(response.result);
-    } else {
-      pending.reject(
-        new OneKeyLocalError(
-          response?.error?.message || 'Main-thread native-utils call failed',
-        ),
-      );
-    }
-  } catch (error) {
-    pending.reject(error);
-  }
-};
-
-export interface IMainNativeUtilsRequest {
-  module: 'secureStorage' | 'biologyAuth';
-  method: string;
-  params?: unknown[];
-}
-
-export function callMainThreadNativeUtils(
-  request: IMainNativeUtilsRequest,
-): Promise<unknown> {
-  const sharedRPC = getSharedRPC();
-  if (!sharedRPC) {
-    return Promise.reject(
-      new OneKeyLocalError('SharedRPC unavailable for native-utils call'),
-    );
-  }
-
-  mainNativeUtilsCallSequence += 1;
-  const callId = `${mainNativeUtilsCallSequence}`;
-  const timeoutMs =
-    request.module === 'biologyAuth' && request.method === 'biologyAuthenticate'
-      ? MAIN_NATIVE_UTILS_AUTH_TIMEOUT_MS
-      : MAIN_NATIVE_UTILS_CALL_TIMEOUT_MS;
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pendingMainNativeUtilsCalls.delete(callId);
-      reject(
-        new OneKeyLocalError(
-          `Main-thread native-utils call timeout (${timeoutMs / 1000}s): ${
-            request.module
-          }.${request.method}`,
-        ),
-      );
-    }, timeoutMs);
-
-    pendingMainNativeUtilsCalls.set(callId, { resolve, reject, timer });
-
-    sharedRPC.write(
-      buildMainNativeUtilsRequestKey(callId),
-      JSON.stringify(request),
-    );
-  });
-}
-
-// --- end Main-thread native-utils reverse RPC ---
-
 export function setupBackgroundThreadRPCHandler() {
   const runtimeGlobal = globalThis as IBackgroundRuntimeGlobal;
 
@@ -848,11 +744,6 @@ export function setupBackgroundThreadRPCHandler() {
   // Expose reverse RPC for webEmbed bridge calls from background thread
   (globalThis as any).__onekeyCallWebEmbedBridgeViaMainThread =
     callWebEmbedBridgeViaMainThread;
-  // Expose reverse RPC for main-thread native utils (secure storage /
-  // biometrics); consumed by the shared-layer native implementations when
-  // they detect the background runtime.
-  (globalThis as any).__onekeyCallMainThreadNativeUtils =
-    callMainThreadNativeUtils;
 
   ensureBackgroundRequestHandlerInstalled();
   startBackgroundRuntimeHeartbeat();

@@ -72,21 +72,12 @@ const resolveWebEmbedSentryRelease = () => {
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 // cspell:ignore hermesc
-// RN 0.85 moved the prebuilt hermesc out of react-native/sdks into the
-// standalone `hermes-compiler` package; keep the legacy path as a fallback.
-const HERMES_COMMAND_CANDIDATES = [
-  path.join(
-    projectRootPath,
-    `node_modules/hermes-compiler/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-  ),
-  path.join(
-    projectRootPath,
-    `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
-  ),
-];
-const HERMES_COMMAND =
-  HERMES_COMMAND_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
-  HERMES_COMMAND_CANDIDATES[0];
+const HERMES_COMMAND = path.join(
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
+);
 
 const webEmbedOutputPath = path.join(
   projectRootPath,
@@ -400,17 +391,27 @@ const runReactNativeBundle = ({
   sourceMapOutput,
   runtimeTarget,
 }) => {
-  execSync(
-    `npx react-native bundle \
-    --dev false \
-    --minify false \
-    --platform ${platform} \
-    --entry-file ${entryFile} \
-    --reset-cache \
-    --assets-dest ${assetsDest} \
-    --bundle-output ${bundleOutput} \
-    --sourcemap-output ${sourceMapOutput}
-    `,
+  execFileSync(
+    'npx',
+    [
+      'react-native',
+      'bundle',
+      '--dev',
+      'false',
+      '--minify',
+      'false',
+      '--platform',
+      platform,
+      '--entry-file',
+      entryFile,
+      '--reset-cache',
+      '--assets-dest',
+      assetsDest,
+      '--bundle-output',
+      bundleOutput,
+      '--sourcemap-output',
+      sourceMapOutput,
+    ],
     {
       stdio: 'inherit',
       cwd: mobileDirPath,
@@ -431,22 +432,39 @@ const composeSourceMaps = ({
   outputPath,
   label,
 }) => {
-  const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
+  const composeSourceMapsScript = path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
-  )} ${packagerMapPath} ${hermesMapPath} -o ${outputPath}`;
-  log(`${label} compose source maps command`, composeSourceMapsCommand);
-  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  );
+  log(
+    `${label} compose source maps command`,
+    nodeExecutablePath,
+    composeSourceMapsScript,
+    packagerMapPath,
+    hermesMapPath,
+    '-o',
+    outputPath,
+  );
+  execFileSync(
+    nodeExecutablePath,
+    [composeSourceMapsScript, packagerMapPath, hermesMapPath, '-o', outputPath],
+    { stdio: 'inherit' },
+  );
   log(`${label} compose source maps done`);
 };
 
 const copyDebugIdToSourceMap = ({ packagerMapPath, sourceMapPath, label }) => {
   log(`${label} copy debugid`);
-  execSync(
-    `${nodeExecutablePath} ${path.join(
-      projectRootPath,
-      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
-    )} ${packagerMapPath} ${sourceMapPath}`,
+  execFileSync(
+    nodeExecutablePath,
+    [
+      path.join(
+        projectRootPath,
+        'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+      ),
+      packagerMapPath,
+      sourceMapPath,
+    ],
     { stdio: 'inherit' },
   );
   log(`${label} copy debugid done`);
@@ -674,8 +692,15 @@ const buildBackgroundBundle = async ({
   log(`build ${platform} background bundle done`);
 
   log(`build ${platform} background bundle compress to hbc`);
-  execSync(
-    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+  execFileSync(
+    HERMES_COMMAND,
+    [
+      '-O',
+      '-emit-binary',
+      '-output-source-map',
+      `-out=${backgroundBundleHbcPath}`,
+      backgroundBundleJsPath,
+    ],
     { stdio: 'inherit' },
   );
   log(`build ${platform} background bundle compress to hbc done`);
@@ -878,11 +903,27 @@ const runUnionBuild = ({
   assetsDest,
 }) => {
   log(`union build: platform=${platform}`);
-  execSync(
-    `${nodeExecutablePath} ${path.join(
-      mobileDirPath,
-      'scripts/unionBuild.js',
-    )} --platform ${platform} --main-bundle-output ${mainBundleOutput} --main-sourcemap-output ${mainSourceMapOutput} --common-bundle-output ${commonBundleOutput} --common-sourcemap-output ${commonSourceMapOutput} --background-bundle-output ${backgroundBundleOutput} --background-sourcemap-output ${backgroundSourceMapOutput} --assets-dest ${assetsDest}`,
+  execFileSync(
+    nodeExecutablePath,
+    [
+      path.join(mobileDirPath, 'scripts/unionBuild.js'),
+      '--platform',
+      platform,
+      '--main-bundle-output',
+      mainBundleOutput,
+      '--main-sourcemap-output',
+      mainSourceMapOutput,
+      '--common-bundle-output',
+      commonBundleOutput,
+      '--common-sourcemap-output',
+      commonSourceMapOutput,
+      '--background-bundle-output',
+      backgroundBundleOutput,
+      '--background-sourcemap-output',
+      backgroundSourceMapOutput,
+      '--assets-dest',
+      assetsDest,
+    ],
     {
       stdio: 'inherit',
       env: {
@@ -902,11 +943,9 @@ const runUnionBuild = ({
   // bypass during local debugging (never in CI).
   if (process.env.ONEKEY_SKIP_SPLIT_INTEGRITY_CHECK !== '1') {
     log('union build: split-bundle integrity check');
-    execSync(
-      `${nodeExecutablePath} ${path.join(
-        mobileDirPath,
-        'scripts/check-split-bundle-integrity.js',
-      )}`,
+    execFileSync(
+      nodeExecutablePath,
+      [path.join(mobileDirPath, 'scripts/check-split-bundle-integrity.js')],
       { stdio: 'inherit' },
     );
     log('union build: split-bundle integrity check passed');

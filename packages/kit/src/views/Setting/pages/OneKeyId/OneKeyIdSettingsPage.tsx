@@ -102,7 +102,7 @@ function OneKeyIdUserProfile() {
           inset={0}
           borderRadius="$full"
           overflow="hidden"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           opacity={0}
           hoverStyle={{

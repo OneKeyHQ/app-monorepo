@@ -98,11 +98,6 @@ export type IImageV2Props = Omit<
   | 'resizeMode'
   | 'tintColor'
   | 'onProgress'
-  // expo-image 56 added `loading?: 'lazy' | 'eager'`, the HTML img attribute.
-  // Nothing here uses it, and it collides with this repo's own `loading`, the
-  // element rendered while an image loads (see AccountAvatar). Drop the
-  // upstream one so the repo's meaning wins wherever these props are extended.
-  | 'loading'
 > &
   IStackStyle & {
     /** Enable animated image support */

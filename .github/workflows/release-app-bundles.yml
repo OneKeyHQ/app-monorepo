@@ -440,3 +440,37 @@ jobs:
       SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  verify-web-bundle-artifact:
+    needs: [prepare-params, web-bundle]
+    if: ${{ !cancelled() && needs.web-bundle.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-params.outputs.commit }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Download Web Bundle Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-monorepo-test-${{ needs.prepare-params.outputs.commit }}-${{ needs.prepare-params.outputs.build_number }}
+          path: apps/web/web-build
+
+      - name: Verify Uploaded Service Worker Bundle
+        run: |
+          node apps/web/scripts/validate-built-service-worker.mjs apps/web/web-build
+
+      - name: Report Validation Scope
+        run: |
+          {
+            echo '### Web bundle Service Worker validation'
+            echo
+            echo '- ✅ Uploaded artifact structure and compiled Service Worker were validated.'
+            echo '- ⏭️ Runtime registration and Cache Storage behavior were not exercised because this workflow does not deploy the artifact.'
+          } >> "$GITHUB_STEP_SUMMARY"

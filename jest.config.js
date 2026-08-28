@@ -52,6 +52,7 @@ module.exports = async () => {
     ],
     // 'extensionsToTreatAsEsm': ['.wasm', '.ts'],
     moduleNameMapper: {
+      '^react-native$': 'react-native-web',
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
         '<rootDir>/__mocks__/fileMock.js',
@@ -66,13 +67,6 @@ module.exports = async () => {
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
       '^lodash-es$': 'lodash',
-      // jest-expo 56 inherits @react-native/jest-preset's
-      // '^react-native($|/.*)' -> real react-native mapping, which is ordered
-      // before the web preset's '^react-native$' -> 'react-native-web' alias.
-      // Jest picks the first matching rule, so bare 'react-native' imports
-      // resolve to RN 0.85's Flow-syntax entry and fail to parse. Config-level
-      // mappings precede preset mappings, so restore the web alias here.
-      '^react-native$': 'react-native-web',
       // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
       // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
     },

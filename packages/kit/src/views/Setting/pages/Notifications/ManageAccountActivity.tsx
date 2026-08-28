@@ -453,7 +453,7 @@ function WalletAccordionItem({
         {({ open }: { open: boolean }) => (
           <>
             <XStack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               flex={1}
               alignItems="center"
@@ -461,7 +461,7 @@ function WalletAccordionItem({
               opacity={isWalletEnabled ? 1 : 0.5}
             >
               <YStack
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
               >
@@ -498,12 +498,12 @@ function WalletAccordionItem({
         )}
       </Accordion.Trigger>
 
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           unstyled
           // bg="$transparent"
           bg="$bgDefault"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{
             opacity: 0,

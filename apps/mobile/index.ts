@@ -87,11 +87,7 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
         require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
       _NL.write(
         _LL.Info,
-        `[StartupTiming] MMKV contextAtom snapshot pre-read: ${
-          Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length
-        } keys (+${
-          Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__
-        }ms)`,
+        `[StartupTiming] MMKV contextAtom snapshot pre-read: ${Object.keys((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__).length} keys (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
       );
     }
   } catch {
@@ -118,9 +114,7 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     _NL2.write(
       _LL2.Info,
-      `[StartupTiming] segment loader installed in ${
-        Date.now() - _segStart
-      }ms (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
+      `[StartupTiming] segment loader installed in ${Date.now() - _segStart}ms (+${Date.now() - (globalThis as any).__ONEKEY_MAIN_ENTRY_START__}ms)`,
     );
   }
 
@@ -182,9 +176,7 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
         }
         NativeLogger.write(
           LogLevel.Error,
-          `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${
-            error?.message || error
-          }\n${error?.stack?.slice(0, 500) || ''}`,
+          `[JSError] ${isFatal ? 'FATAL' : 'ERROR'}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ''}`,
         );
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         origHandler?.(error, isFatal);
@@ -210,9 +202,7 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     _NL3.write(
       _LL3.Info,
-      `[StartupTiming] BG transport setup in ${
-        Date.now() - _transportStart
-      }ms (+${Date.now() - _e}ms)`,
+      `[StartupTiming] BG transport setup in ${Date.now() - _transportStart}ms (+${Date.now() - _e}ms)`,
     );
     _NL3.write(
       _LL3.Info,

@@ -30,6 +30,7 @@ export function createWebEmbedConfig({
     enableSentryMinimalCompat: true,
     removeFirstPartyConsole: true,
     transpileDependencies: [
+      /node_modules[\\/]@sentry(-internal)?[\\/]/,
       /node_modules[\\/]@onekeyfe[\\/]kaspa-wasm/,
       /node_modules[\\/]@revenuecat[\\/]purchases-js/,
     ],

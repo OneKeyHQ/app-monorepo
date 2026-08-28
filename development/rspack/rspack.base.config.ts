@@ -237,7 +237,7 @@ const baseResolve = ({
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
 // explicit/build-derived keys. Collapsing all three into one map; overlapping
 // keys are resolved by spread order — `explicitDefines` is spread LAST so the
-// pinned build-derived values win (parity with the previous hand-written map:
+// explicit build-derived values win (parity with the previous hand-written map:
 // e.g. NODE_ENV stays pinned to `nodeEnv`, not the raw process.env value).
 function buildDefineMap(
   platform: string,
@@ -254,8 +254,8 @@ function buildDefineMap(
   //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
   //     NOT here: rspack.DefinePlugin does not replace member expressions on
   //     the imported `platformEnv` binding.
-  // (3) explicit / build-derived (win last) + EXPO_OS (web only, parity with
-  //     babel-preset-expo which sets process.env.EXPO_OS).
+  // (3) explicit / build-derived (win last) + EXPO_OS (all Rspack targets use
+  //     web runtime semantics, parity with babel-preset-expo).
   const explicitDefines = {
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
@@ -280,9 +280,7 @@ function buildDefineMap(
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
     'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
-    ...(platform === 'web'
-      ? { 'process.env.EXPO_OS': JSON.stringify('web') }
-      : {}),
+    'process.env.EXPO_OS': JSON.stringify('web'),
   };
   return { ...envDefines, ...explicitDefines };
 }

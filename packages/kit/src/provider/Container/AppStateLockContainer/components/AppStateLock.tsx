@@ -28,13 +28,12 @@ import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/v4migration';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
-
-import { DevPerpsWebSocketUpdateView } from '../../FullWindowOverlayContainer/DevOverlayWindow';
 
 import { AppStateContainer } from './AppStateContainer';
 
@@ -44,6 +43,14 @@ interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
   lockContainerRef: ForwardedRef<IView>;
 }
+
+const DevPerpsWebSocketUpdateView = LazyLoad(async () => {
+  const { DevPerpsWebSocketUpdateView: Component } =
+    await import('../../FullWindowOverlayContainer/DevOverlayWindow');
+  return {
+    default: () => <Component />,
+  };
+});
 
 // Diagnostic sink: mirror to console unconditionally (defaultLogger's local
 // transport only console-logs in dev and its background bridge can be down on
@@ -160,11 +167,6 @@ const AppStateLock = ({
       }
     }
     diagLog('[KeychainLogUploadDiag] passing gate -> showExportLogsDialog');
-    // Loaded on demand: the export-logs dialog statically pulls the whole
-    // request stack (appApiClient, ipTableAdapter, Interceptor, ua-parser)
-    // into the lock screen — and therefore into the web startup graph.
-    // This diagnostic path is rare and already async, so the extra chunk
-    // load is unnoticeable.
     const { showExportLogsDialog } =
       await import('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog');
     showExportLogsDialog({

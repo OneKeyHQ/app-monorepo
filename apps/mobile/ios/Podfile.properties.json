@@ -1,7 +1,6 @@
 {
   "expo.jsEngine": "hermes",
   "expo.newArchEnabled": "true",
-  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
   "ios.deploymentTarget": "16.4",
-  "expo-image.disable-libdav1d": true
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true"
 }
