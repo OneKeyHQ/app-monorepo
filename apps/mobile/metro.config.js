@@ -30,6 +30,17 @@ const defaultConfig = getDefaultConfig(projectRoot);
 const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
 
+// Expo CLI normally injects this polyfill around Metro. Our native release and
+// union builders call Metro directly, so include it in the shared config too.
+const originalGetPolyfills = config.serializer.getPolyfills;
+config.serializer.getPolyfills = (options) =>
+  Array.from(
+    new Set([
+      ...originalGetPolyfills(options),
+      require.resolve('expo/virtual/streams.js'),
+    ]),
+  );
+
 config.projectRoot = projectRoot;
 config.watchFolders = Array.from(
   new Set([...(config.watchFolders || []), monorepoRoot]),

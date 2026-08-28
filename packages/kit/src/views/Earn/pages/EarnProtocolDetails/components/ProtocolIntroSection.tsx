@@ -1442,7 +1442,7 @@ function AuditAccordionItem({
               jc="flex-end"
             >
               <Stack
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
               >
@@ -1457,12 +1457,12 @@ function AuditAccordionItem({
         )}
       </Accordion.Trigger>
       {hasContent ? (
-        <Accordion.HeightAnimator animation="quick">
+        <Accordion.HeightAnimator transition="quick">
           <Accordion.Content
             unstyled
             pt="$3"
             pb="$4"
-            animation="100ms"
+            transition="100ms"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}

@@ -1,4 +1,5 @@
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   memo,
   useCallback,
@@ -4369,7 +4370,7 @@ function SendAmountInputContainer() {
             }}
             onPress={handleTogglePrivateSendQuoteDetails}
             {...(!platformEnv.isNative && {
-              onKeyDown: (event: KeyboardEvent) => {
+              onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
                 if (event.key !== 'Enter' && event.key !== ' ') return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -4423,7 +4424,7 @@ function SendAmountInputContainer() {
               borderRadius="$full"
             >
               <Stack
-                animation="quick"
+                transition="quick"
                 rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
                 transformOrigin="center"
               >

@@ -766,7 +766,7 @@ export function NotificationListView({
           zIndex={10}
           bg="$bg"
           $platform-web={{
-            position: 'sticky',
+            position: '-webkit-sticky',
             top: 0,
           }}
         >

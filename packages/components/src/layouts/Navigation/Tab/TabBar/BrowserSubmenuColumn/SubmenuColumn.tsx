@@ -57,7 +57,7 @@ export function SubmenuColumn({
         pt={8}
         px="$3"
         zIndex={10}
-        animation="quick"
+        transition="quick"
         animateOnly={ANIMATE_ONLY_WIDTH}
         borderTopRightRadius={isExpanded ? '$3' : 0}
         borderBottomRightRadius={isExpanded ? '$3' : 0}

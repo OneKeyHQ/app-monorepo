@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
-index 0062693..07a0f0b 100644
+index cf531e8..53d3b5d 100644
 --- a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
 +++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
-@@ -492,6 +492,28 @@ bool ReanimatedModuleProxy::handleEvent(
+@@ -680,6 +680,28 @@ bool ReanimatedModuleProxy::handleEvent(
  bool ReanimatedModuleProxy::handleRawEvent(const RawEvent &rawEvent, double currentTime) {
    ReanimatedSystraceSection s("ReanimatedModuleProxy::handleRawEvent");
  
@@ -32,7 +32,7 @@ index 0062693..07a0f0b 100644
    if (eventTarget == nullptr) {
      // after app reload scrollView is unmounted and its content offset is set
 diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/domUtils.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/domUtils.js
-index ee9e030..c610eb7 100644
+index b035eaf..f9068fb 100644
 --- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/domUtils.js
 +++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/domUtils.js
 @@ -148,10 +148,18 @@ export function addHTMLMutationObserver() {
@@ -58,35 +58,48 @@ index ee9e030..c610eb7 100644
  }
  export function areDOMRectsEqual(r1, r2) {
    // There are 4 more fields, but checking these should suffice
+diff --git a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
+index 3546fd2..6d73e8d 100644
+--- a/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
++++ b/node_modules/react-native-reanimated/lib/module/ReanimatedModule/js-reanimated/index.js
+@@ -24,7 +24,7 @@ export default class JSReanimated extends ReanimatedModule {
+       // React Native Web 0.19+ no longer provides setNativeProps function,
+       // so we need to update DOM nodes directly.
+       updatePropsDOM(component, rawStyles, isAnimatedProps);
+-    } else if (Object.keys(component.props).length > 0) {
++    } else if (component.props && Object.keys(component.props).length > 0) {
+       Object.keys(component.props).forEach(key => {
+         if (!rawStyles[key]) {
+           return;
 diff --git a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
-index 42d2c09..57dd400 100644
+index 3a09187..ffaf1d0 100644
 --- a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
 +++ b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
-@@ -204,6 +204,9 @@ export function processColor(
+@@ -221,6 +221,9 @@ export function processColor(
    }
  
    if (result === null) {
-+    if (process.env.NODE_ENV === 'production') { 
++    if (process.env.NODE_ENV === 'production') {
 +      return 0x00000000;
 +    }
-     throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+     throw new Error(`[Reanimated] ${ERROR_MESSAGES.invalidColor(value)}`);
    }
  
 diff --git a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
-index 7682466..2eef347 100644
+index 63495ba..6f4fd9e 100644
 --- a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
 +++ b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
-@@ -29,5 +29,8 @@ export const processColorSVG: ValueProcessor<
+@@ -31,5 +31,8 @@ export const processColorSVG: ValueProcessor<
      return 'currentColor';
    }
  
 +  if (process.env.NODE_ENV === 'production') {
 +    return 0x00000000;
 +  }
-   throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+   throw new Error(`[Reanimated] ${ERROR_MESSAGES.invalidColor(value)}`);
  };
 diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/domUtils.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/domUtils.ts
-index b2bfc74..b0de118 100644
+index 5c97018..3ef92d7 100644
 --- a/node_modules/react-native-reanimated/src/layoutReanimation/web/domUtils.ts
 +++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/domUtils.ts
 @@ -248,7 +248,9 @@ export function addHTMLMutationObserver() {
@@ -100,3 +113,16 @@ index b2bfc74..b0de118 100644
  }
  
  export function areDOMRectsEqual(r1: DOMRect, r2: DOMRect) {
+diff --git a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
+index f180dfd..96eeb6a 100644
+--- a/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
++++ b/node_modules/react-native-reanimated/src/ReanimatedModule/js-reanimated/index.ts
+@@ -67,7 +67,7 @@ export default class JSReanimated extends ReanimatedModule<ReanimatedModuleProxy
+       // React Native Web 0.19+ no longer provides setNativeProps function,
+       // so we need to update DOM nodes directly.
+       updatePropsDOM(component, rawStyles, isAnimatedProps);
+-    } else if (Object.keys(component.props).length > 0) {
++    } else if (component.props && Object.keys(component.props).length > 0) {
+       Object.keys(component.props).forEach((key) => {
+         if (!rawStyles[key]) {
+           return;

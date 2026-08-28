@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
@@ -172,7 +172,7 @@ export function ImageV2({
     ],
   );
 
-  const ImageComponent = useMemo(() => {
+  const ImageComponent = useMemo<ComponentType<any>>(() => {
     if (animated) {
       return AnimatedExpoImage;
     }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PointerEvent } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,8 +32,6 @@ import type {
   ITradingViewSettingsMockLineStyle,
   ITradingViewSettingsMockNumberParam,
 } from './TradingViewSettingsMockState';
-import type { PointerEvent } from 'react-native';
-
 const TRADING_VIEW_INDICATOR_FIELD_LABEL_WIDTH = 136;
 const TRADING_VIEW_INDICATOR_COMPACT_SLIDER_WIDTH = 210;
 const TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH = 370;
@@ -540,14 +539,9 @@ export function TradingViewIndicatorOpacitySlider({
     : TRADING_VIEW_INDICATOR_DEFAULT_SLIDER_WIDTH;
   const sliderTouchWidth = sliderWidth + 16;
   const handleSliderPointerMove = useCallback(
-    (event: PointerEvent) => {
-      const currentTarget = event.currentTarget as unknown as {
-        getBoundingClientRect?: () => { left: number };
-      };
-      const bounds = currentTarget.getBoundingClientRect?.();
-      const pointerX = bounds
-        ? event.nativeEvent.pageX - bounds.left
-        : event.nativeEvent.offsetX;
+    (event: PointerEvent<HTMLDivElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const pointerX = event.clientX - bounds.left;
       const currentPointX = 8 + (value / 100) * sliderWidth;
       setIsSliderHovered(Math.abs(pointerX - currentPointX) <= 8);
     },
@@ -629,7 +623,11 @@ export function TradingViewIndicatorOpacitySlider({
           h={34}
           opacity={0.001}
           cursor="pointer"
-          onPointerEnter={handleSliderPointerMove}
+          onPointerEnter={(event) =>
+            handleSliderPointerMove(
+              event as unknown as PointerEvent<HTMLDivElement>,
+            )
+          }
           onPointerMove={handleSliderPointerMove}
           onPointerLeave={() => setIsSliderHovered(false)}
         >

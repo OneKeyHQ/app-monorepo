@@ -34,8 +34,8 @@ uname -s
 
 | Platform | Minimum Version | Notes |
 |----------|----------------|-------|
-| **Android** | API 24 (Android 7.0 Nougat) | Set by Expo SDK |
-| **iOS** | 15.5 | Deployment target |
+| **Android** | API 26 (Android 8.0 Oreo) | Explicit app minimum |
+| **iOS** | 16.4 | Deployment target |
 | **Chrome Extension** | Chrome 111+ | Required for MAIN world injection |
 | **Firefox Extension** | Latest stable | Follows Chrome manifest v2 |
 | **Desktop (Electron)** | Electron 39.x | See OS requirements below |
@@ -47,7 +47,7 @@ uname -s
 
 ### Android minSdkVersion
 
-**Location**: Set by Expo, referenced in `apps/mobile/android/app/build.gradle:142`
+**Location**: `apps/mobile/android/gradle.properties`, referenced in `apps/mobile/android/app/build.gradle:142`
 
 **How to check current value**:
 ```bash
@@ -56,8 +56,8 @@ cd apps/mobile/android && ./gradlew -q properties 2>&1 | grep -i "minSdk"
 
 **Configuration chain**:
 1. `apps/mobile/android/app/build.gradle` references `rootProject.ext.minSdkVersion`
-2. Value set by `expo-modules-autolinking` in `ExpoRootProjectPlugin.kt`
-3. Default is 24 unless overridden in expo version catalog
+2. `apps/mobile/android/gradle.properties` explicitly sets `android.minSdkVersion=26`
+3. `expo-root-project` exposes the configured value as `rootProject.ext.minSdkVersion`
 
 ### iOS Deployment Target
 
@@ -70,7 +70,7 @@ grep "platform :ios" apps/mobile/ios/Podfile
 
 **Configuration**:
 ```ruby
-platform :ios, podfile_properties['ios.deploymentTarget'] || '15.5'
+platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'
 ```
 
 Can also verify in Xcode project:
@@ -123,7 +123,7 @@ cd apps/mobile/android && ./gradlew -q --no-configuration-cache properties 2>&1 
 Expected output format:
 ```
 - buildTools:  36.0.0
-- minSdk:      24
+- minSdk:      26
 - compileSdk:  36
 - targetSdk:   36
 - ndk:         27.1.12297006

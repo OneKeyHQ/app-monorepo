@@ -254,7 +254,6 @@ export function TabStackNavigator<RouteName extends string>({
       labeled
       hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
       disablePageAnimations
-      ignoreBottomInsets
       sidebarAdaptable={false}
       tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}

@@ -499,7 +499,7 @@ function TableListRow<T>({
             flexShrink={0}
             ai="center"
             jc="center"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
@@ -515,7 +515,7 @@ function TableListRow<T>({
         <YStack
           px="$5"
           py={isExpanded ? '$4' : '$0'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           opacity={isExpanded ? 1 : 0}
           maxHeight={isExpanded ? 1000 : 0}
