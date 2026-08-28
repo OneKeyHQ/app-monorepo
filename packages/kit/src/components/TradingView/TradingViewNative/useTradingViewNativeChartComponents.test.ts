@@ -41,18 +41,25 @@ function getReferenceLine(
 describe('useTradingViewNativeChartComponents', () => {
   it('captures the first finite price for each data source', () => {
     const { result, rerender } = renderHook(
-      ({ dataProviderKey, latestPrice, referenceLineColor }) =>
+      ({
+        dataProviderKey,
+        latestPrice,
+        referenceLineColor,
+        showPreviousClose,
+      }) =>
         useTradingViewNativeChartComponents({
           chartComponents: CUSTOM_COMPONENT_TREE,
           dataProviderKey,
           latestPrice,
           referenceLineColor,
+          showPreviousClose,
         }),
       {
         initialProps: {
           dataProviderKey: 'source-a',
           latestPrice: 100,
           referenceLineColor: '#initial',
+          showPreviousClose: true,
         },
       },
     );
@@ -76,6 +83,7 @@ describe('useTradingViewNativeChartComponents', () => {
       dataProviderKey: 'source-a',
       latestPrice: 120,
       referenceLineColor: '#updated',
+      showPreviousClose: true,
     });
 
     expect(
@@ -90,6 +98,7 @@ describe('useTradingViewNativeChartComponents', () => {
       dataProviderKey: 'source-b',
       latestPrice: 200,
       referenceLineColor: '#updated',
+      showPreviousClose: true,
     });
 
     expect(
@@ -101,11 +110,13 @@ describe('useTradingViewNativeChartComponents', () => {
       dataProviderKey: 'source-without-data',
       latestPrice: Number.NaN,
       referenceLineColor: '#updated',
+      showPreviousClose: true,
     });
     rerender({
       dataProviderKey: 'source-a',
       latestPrice: 300,
       referenceLineColor: '#updated',
+      showPreviousClose: true,
     });
 
     expect(
@@ -122,6 +133,7 @@ describe('useTradingViewNativeChartComponents', () => {
           dataProviderKey: 'source-a',
           latestPrice,
           referenceLineColor: '#initial',
+          showPreviousClose: true,
         }),
       { initialProps: { latestPrice: Number.NaN } },
     );
@@ -131,5 +143,34 @@ describe('useTradingViewNativeChartComponents', () => {
     rerender({ latestPrice: 100 });
 
     expect(result.current[0]?.id).toBe('system.initialPriceReferenceLine');
+  });
+
+  it('keeps the previous close hidden until enabled', () => {
+    const { result, rerender } = renderHook(
+      ({ latestPrice, showPreviousClose }) =>
+        useTradingViewNativeChartComponents({
+          chartComponents: CUSTOM_COMPONENT_TREE,
+          dataProviderKey: 'source-a',
+          latestPrice,
+          referenceLineColor: '#initial',
+          showPreviousClose,
+        }),
+      {
+        initialProps: {
+          latestPrice: 100,
+          showPreviousClose: false,
+        },
+      },
+    );
+
+    expect(result.current).toEqual([CUSTOM_REFERENCE_LINE]);
+
+    rerender({ latestPrice: 120, showPreviousClose: false });
+    rerender({ latestPrice: 120, showPreviousClose: true });
+
+    expect(
+      getReferenceLine(result.current, 'system.initialPriceReferenceLine')
+        ?.props.anchor.price,
+    ).toBe(100);
   });
 });
