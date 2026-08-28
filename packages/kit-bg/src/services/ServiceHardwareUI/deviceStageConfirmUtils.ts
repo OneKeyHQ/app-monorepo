@@ -8,6 +8,7 @@ import type {
   IDeviceStageConfirmContent,
   IDeviceStageConfirmDetail,
 } from '@onekeyhq/shared/types/deviceStage';
+import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 
 /**
  * Confirm-channel content builders (OK-59934): translate what the business
@@ -16,14 +17,34 @@ import type {
  * card plays its plain "check on device" shape.
  */
 
+/** The fee row for the confirm card — only callers that already resolved a
+ * fee (the send pipelines) can offer one; flows without it show no row. */
+function buildStageFeeDetail(
+  stageFeeInfo: ISendSelectedFeeInfo | undefined,
+): IDeviceStageConfirmDetail | undefined {
+  const amount = stageFeeInfo?.totalNativeForDisplay;
+  if (!amount) {
+    return undefined;
+  }
+  const symbol = stageFeeInfo.feeInfo?.common?.nativeSymbol;
+  return {
+    label: appLocale.intl.formatMessage({
+      id: ETranslations.global_est_network_fee,
+    }),
+    value: symbol ? `${amount} ${symbol}` : amount,
+  };
+}
+
 export function buildStageConfirmContentForSignTx(
   unsignedTx: IUnsignedTxPro | undefined,
+  stageFeeInfo?: ISendSelectedFeeInfo,
 ): IDeviceStageConfirmContent | undefined {
   if (!unsignedTx) {
     return undefined;
   }
   const { intl } = appLocale;
   const amountLabel = intl.formatMessage({ id: ETranslations.content__amount });
+  const feeDetail = buildStageFeeDetail(stageFeeInfo);
 
   const transfer = unsignedTx.transfersInfo?.[0];
   if (transfer?.to) {
@@ -40,6 +61,9 @@ export function buildStageConfirmContentForSignTx(
         label: amountLabel,
         value: symbol ? `${transfer.amount} ${symbol}` : transfer.amount,
       });
+    }
+    if (feeDetail) {
+      details.push(feeDetail);
     }
     return { details };
   }
@@ -67,6 +91,9 @@ export function buildStageConfirmContentForSignTx(
         label: amountLabel,
         value: symbol ? `${approve.amount} ${symbol}` : approve.amount,
       });
+    }
+    if (feeDetail) {
+      details.push(feeDetail);
     }
     return { details };
   }
