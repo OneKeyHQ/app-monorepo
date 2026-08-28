@@ -10,7 +10,10 @@ import type {
   IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
-import { useWcPayActionExecutor } from '../useWcPayActionExecutor';
+import {
+  WC_PAY_INLINE_BUDGET_REASON,
+  useWcPayActionExecutor,
+} from '../useWcPayActionExecutor';
 import {
   EWcPayInlineFailureKind,
   WC_PAY_INLINE_POST_SIGN_FLAG,
@@ -482,7 +485,7 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     ]);
     expect(errorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
     errorSpy.mockRestore();
   });
@@ -550,7 +553,7 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     expect(signatures).toEqual(['0xsig-earlier', '0xtxid-confirm']);
     expect(errorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
     errorSpy.mockRestore();
   });
@@ -573,7 +576,7 @@ describe('useWcPayActionExecutor sequence invariants', () => {
     expect(signatures).toEqual(['rawtx-earlier', '0xtxid-confirm']);
     expect(errorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
     errorSpy.mockRestore();
   });
@@ -901,7 +904,7 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(wcPayInlineSignTypedData).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
   });
 
@@ -920,7 +923,7 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(pushModalMock).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
   });
 
@@ -1457,7 +1460,7 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(wcPayInlineSignSolanaTx).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
   });
 
@@ -1482,7 +1485,7 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(wcPayInlineSendTx).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
-      'inline spend budget exhausted',
+      WC_PAY_INLINE_BUDGET_REASON,
     );
   });
 

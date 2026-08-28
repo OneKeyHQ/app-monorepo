@@ -182,7 +182,10 @@ export async function wcPayInlineSignSolanaTx({
         { unsignedBase64: txBase64, signedBase64: rawTx },
       )
     : false;
-  if (!rawTx || !isUnchanged) {
+  // Compared against `true` rather than merely tested for truth: the verdict
+  // is produced in the background and crosses the proxy, so only an explicit
+  // `true` proves the message survived signing.
+  if (!rawTx || isUnchanged !== true) {
     // Never a fallback: a transaction that no longer carries the checked
     // message must not be submitted at all, by this path or the confirm page.
     // copy pending product i18n keys

@@ -58,6 +58,7 @@ import type {
   IWcPayInlineController,
   IWcPayInlineSignResult,
   IWcPayInlineSigningSummary,
+  IWcPayInlineSolanaPlan,
   IWcPayInlineSolanaSignResult,
   IWcPayResolvedToken,
 } from './wcPayInlineUtils';
@@ -65,9 +66,10 @@ import type {
 // re-exported from its leaf module for the existing import sites
 export { WcPayUserCancelledError };
 
-// The one fallback reason this file produces itself; kept in one place so
-// the refusal and the plan that carries it can never drift apart.
-const WC_PAY_INLINE_BUDGET_REASON = 'inline spend budget exhausted';
+// The one fallback reason this file produces itself; kept in one place — and
+// exported — so the refusal, the plans that carry it and the tests that pin
+// it can never drift apart.
+export const WC_PAY_INLINE_BUDGET_REASON = 'inline spend budget exhausted';
 
 /**
  * How many inline-eligible spends a resumed run must consider already made.
@@ -1005,47 +1007,51 @@ export function useWcPayActionExecutor() {
                 action: actions[i],
                 option,
               });
-              // The order check decodes the blob with @solana/web3.js, which
-              // lives in the background runtime only (spec §5 "Runtime
-              // placement").
-              const consistency =
-                request.mode === 'request'
-                  ? await backgroundApiProxy.serviceWalletConnectPay.checkSolanaTxMatchesOrder(
-                      {
-                        txBase64: request.txBase64,
-                        caip2ChainId: request.caip2ChainId,
-                        option,
-                      },
-                    )
-                  : { ok: false as const, reason: request.reason };
-              // spl legs: the mint must resolve through the wallet registry
-              // and agree with the option asset (the rule the EVM Permit2
-              // token check draws); native legs carry no mint and are fully
-              // judged by the validator itself.
-              const mint = consistency.ok
-                ? consistency.summary.mint
-                : undefined;
-              const resolvedToken = mint
-                ? await resolveWcPayToken({
-                    networkId,
-                    accountId: account.id,
-                    address: mint,
-                  })
-                : undefined;
-              let plan = getWcPayInlineSolanaPlan({
-                option,
-                // The blob the verdict was produced for, so check → plan →
-                // sign is one value by construction. It is the same string as
-                // the case-local `txBase64` above — both come from
-                // extractWcPaySolanaTransaction on these very params — which
-                // stays only as what wcPaySolanaTxToEncodedTx built the
-                // unsignedTx from. A refused request never reaches the plan's
-                // inline branch, so the substitution below is never signed.
-                txBase64:
-                  request.mode === 'request' ? request.txBase64 : txBase64,
-                consistency,
-                resolvedToken,
-              });
+              // Everything the plan is built from is sourced from the
+              // REQUEST, so check → plan → sign is one value by construction:
+              // a refused request never reaches the check, and carries its
+              // own reason straight into the fallback plan. The blob the
+              // request holds is the same string as the case-local
+              // `txBase64` above — both come from
+              // extractWcPaySolanaTransaction on these very params — which
+              // stays only as what wcPaySolanaTxToEncodedTx built the
+              // unsignedTx from.
+              let plan: IWcPayInlineSolanaPlan;
+              if (request.mode === 'request') {
+                // The order check decodes the blob with @solana/web3.js,
+                // which lives in the background runtime only (spec §5
+                // "Runtime placement").
+                const consistency =
+                  await backgroundApiProxy.serviceWalletConnectPay.checkSolanaTxMatchesOrder(
+                    {
+                      txBase64: request.txBase64,
+                      caip2ChainId: request.caip2ChainId,
+                      option,
+                    },
+                  );
+                // spl legs: the mint must resolve through the wallet registry
+                // and agree with the option asset (the rule the EVM Permit2
+                // token check draws); native legs carry no mint and are fully
+                // judged by the validator itself.
+                const mint = consistency.ok
+                  ? consistency.summary.mint
+                  : undefined;
+                const resolvedToken = mint
+                  ? await resolveWcPayToken({
+                      networkId,
+                      accountId: account.id,
+                      address: mint,
+                    })
+                  : undefined;
+                plan = getWcPayInlineSolanaPlan({
+                  option,
+                  txBase64: request.txBase64,
+                  consistency,
+                  resolvedToken,
+                });
+              } else {
+                plan = { mode: 'fallback', reason: request.reason };
+              }
               if (plan.mode === 'inline' && !takeInlineSpend()) {
                 plan = {
                   mode: 'fallback',

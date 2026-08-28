@@ -14,6 +14,7 @@ import {
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import {
+  WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS,
   checkWcPaySolanaTxMatchesOrder,
   isWcPaySolanaMessageUnchanged,
 } from './wcPaySolanaConsistency';
@@ -440,6 +441,48 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
     expect(
       checkWcPaySolanaTxMatchesOrder({
         txBase64: overCapTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'priority fee too high' });
+  });
+
+  // The cap is a ceiling the transaction may sit exactly on: the check is
+  // `isGreaterThan`, so the boundary lamport passes and the next one does
+  // not. Asserted against the exported constant rather than a literal, so
+  // moving the cap moves this test with it.
+  it('admits a priority fee exactly at the cap and refuses one lamport more', () => {
+    // a 1,000,000 CU limit makes the fee equal the price in lamports:
+    // ceil(price * 1_000_000 / 1_000_000)
+    const buildTx = (microLamports: number) =>
+      toBase64([
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000_000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports }),
+        SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: recipient.publicKey,
+          lamports: 1500,
+        }),
+      ]);
+
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: buildTx(WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS),
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: String(WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS),
+        fundsRecipientAta: false,
+      },
+    });
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: buildTx(WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS + 1),
         caip2ChainId: CHAIN,
         option: buildOption('1500'),
       }),

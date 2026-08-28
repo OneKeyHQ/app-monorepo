@@ -317,6 +317,21 @@ describe('wcPayInlineSignSolanaTx', () => {
     expect(api.serviceSignature.addItemFromSendProcess).not.toHaveBeenCalled();
   });
 
+  // The verdict is produced in the background and crosses the proxy, so it
+  // is read strictly: a truthy non-boolean proves nothing about the message
+  // surviving signing, and a transaction that may have changed under us must
+  // never be submitted.
+  it('refuses a non-boolean identity verdict from the background', async () => {
+    api.serviceWalletConnectPay.isSolanaMessageUnchanged.mockResolvedValue(
+      'yes',
+    );
+
+    await expect(wcPayInlineSignSolanaTx(baseParams)).rejects.toThrow(
+      MISMATCH_MESSAGE,
+    );
+    expect(api.serviceSignature.addItemFromSendProcess).not.toHaveBeenCalled();
+  });
+
   it('refuses a signing result that carries no raw transaction', async () => {
     api.serviceSend.signTransaction.mockResolvedValue({ txid: 'txid-1' });
 

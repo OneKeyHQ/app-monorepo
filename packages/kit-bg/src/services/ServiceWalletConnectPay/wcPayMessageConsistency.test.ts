@@ -355,6 +355,21 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     });
   });
 
+  // The bound is inclusive: the check is `isGreaterThan(nowSec + bound)`, so
+  // a deadline landing exactly on it passes and the next second does not.
+  it('admits a deadline exactly at the effective bound and refuses one second more', () => {
+    expect(
+      check(buildTypedData({ message: { deadline: String(NOW_S + 600) } }), {
+        maxDeadlineS: 600,
+      }).ok,
+    ).toBe(true);
+    expect(
+      check(buildTypedData({ message: { deadline: String(NOW_S + 601) } }), {
+        maxDeadlineS: 600,
+      }),
+    ).toEqual({ ok: false, reason: 'deadline too far' });
+  });
+
   it('falls back to the default maxDeadlineS when given a non-positive value', () => {
     // A deadline just inside the default 24h bound must still pass even
     // though the caller passed a bogus maxDeadlineS.
