@@ -72,7 +72,7 @@ index eb34427..8998787 100644
 +
  @end
 diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-index f385284..6c099fc 100644
+index f385284..d47e174 100644
 --- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
 +++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
 @@ -248,3 +248,18 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
@@ -94,6 +94,7 @@ index f385284..6c099fc 100644
 +    content.preferredColorScheme(colorScheme.toNativeColorScheme())
 +  }
 +}
+\ No newline at end of file
 diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
 index fbaa436..7f644b8 100644
 --- a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
@@ -112,11 +113,15 @@ index fbaa436..7f644b8 100644
        return try ContentTransitionModifier(from: params, appContext: appContext)
      }
 diff --git a/node_modules/@expo/ui/ios/RNHostView.swift b/node_modules/@expo/ui/ios/RNHostView.swift
-index 4cf3893..ce61c9c 100644
+index 4cf3893..804e2cb 100644
 --- a/node_modules/@expo/ui/ios/RNHostView.swift
 +++ b/node_modules/@expo/ui/ios/RNHostView.swift
-@@ -63,6 +63,9 @@ private final class RNHostTouchHandler: ObservableObject {
-     detach()
+@@ -60,19 +60,64 @@ private final class RNHostTouchHandler: ObservableObject {
+     if attachedView === view, touchHandler != nil {
+       return
+     }
+-    detach()
++    detachNow()
      touchHandler = ExpoUITouchHandlerHelper.createAndAttachTouchHandler(for: view)
      attachedView = view
 +    // OneKey patch: restore UIKit view-touch delivery for native controls
@@ -124,4 +129,58 @@ index 4cf3893..ce61c9c 100644
 +    ExpoUITouchHandlerHelper.relaxSheetGestureInterference(from: view)
    }
  
++  // OneKey patch: SwiftUI evaluates sheet content through transient copies of
++  // this host while the sheet presents. The copy that created the touch
++  // handler can disappear right after a surviving copy appeared (which found
++  // the handler already attached and owns nothing), so an eager detach here
++  // strips the only RCTSurfaceTouchHandler off the hosted RN tree and every
++  // Pressable inside the sheet goes dead. Release ownership immediately but
++  // only remove the recognizer once the view has really left its SwiftUI
++  // host; a view that is still hosted keeps it.
    func detach() {
+-    if let touchHandler, let attachedView {
+-      ExpoUITouchHandlerHelper.detachTouchHandler(touchHandler, from: attachedView)
++    guard let handler = touchHandler, let view = attachedView else {
++      touchHandler = nil
++      attachedView = nil
++      return
++    }
++    touchHandler = nil
++    attachedView = nil
++    Self.detachWhenUnhosted(handler, from: view)
++  }
++
++  private func detachNow() {
++    if let handler = touchHandler, let view = attachedView {
++      ExpoUITouchHandlerHelper.detachTouchHandler(handler, from: view)
+     }
+     touchHandler = nil
+     attachedView = nil
+   }
+ 
++  private static func isSwiftUIHosted(_ view: UIView) -> Bool {
++    var current = view.superview
++    var depth = 0
++    while let candidate = current, depth < 60 {
++      if NSStringFromClass(type(of: candidate)).contains("HostingView") {
++        return true
++      }
++      current = candidate.superview
++      depth += 1
++    }
++    return false
++  }
++
++  private static func detachWhenUnhosted(_ handler: UIGestureRecognizer, from view: UIView) {
++    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
++      if view.superview != nil, isSwiftUIHosted(view) {
++        detachWhenUnhosted(handler, from: view)
++        return
++      }
++      ExpoUITouchHandlerHelper.detachTouchHandler(handler, from: view)
++    }
++  }
++
+   deinit {
+     detach()
+   }
