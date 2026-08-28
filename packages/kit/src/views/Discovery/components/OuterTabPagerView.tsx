@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
 import type {
@@ -29,8 +30,10 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
-// ViewPager2 otherwise detaches Browser (index 2) while Market (index 0) is active.
-const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = 2;
+// Keep Android at one retained page to limit ViewPager2 native-view memory.
+// Browser (index 2) may detach while Market (index 0) is active, so changing
+// this trade-off requires Android memory data and the full DApp regression.
+const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = platformEnv.isNativeAndroid ? 1 : 2;
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
