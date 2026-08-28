@@ -369,7 +369,7 @@ PODS:
     - ExpoModulesCore
   - ExpoSplashScreen (57.0.7):
     - ExpoModulesCore
-  - ExpoUI (57.0.14):
+  - ExpoUI (57.0.13):
     - ExpoModulesCore
     - ExpoModulesWorklets
     - React-RCTFabric
@@ -4407,7 +4407,7 @@ SPEC CHECKSUMS:
   ExpoSecureStore: 94793113049a2d7478dfe1a13aa15081e9f61755
   ExpoSharing: 1a4831b3a52dead83c3ed6a8e1541b04fef02c1d
   ExpoSplashScreen: 9c11c0c7dd0c57853244d0ae640a63e42ede8ffd
-  ExpoUI: 6867422a567a251dcc25444c706b53f479e457ae
+  ExpoUI: eab792a266aec6a73161023b9623ce1166d27393
   ExpoWebBrowser: 9b98d939d5f1c5dd8f523f0a0683056fb1204434
   FBLazyVector: d153c0a7ab3a2c865dd311cb3a5418cd66b658e6
   GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d

@@ -112,10 +112,10 @@ index 8c426df..f62956e 100644
        return try ContentTransitionModifier(from: params, appContext: appContext)
      }
 diff --git a/node_modules/@expo/ui/ios/RNHostView.swift b/node_modules/@expo/ui/ios/RNHostView.swift
-index dbb1882..65f0e37 100644
+index c33be7e..ec2167b 100644
 --- a/node_modules/@expo/ui/ios/RNHostView.swift
 +++ b/node_modules/@expo/ui/ios/RNHostView.swift
-@@ -124,6 +124,9 @@ private final class RNHostTouchHandler: ObservableObject {
+@@ -68,6 +68,9 @@ private final class RNHostTouchHandler: ObservableObject {
      detach()
      touchHandler = ExpoUITouchHandlerHelper.createAndAttachTouchHandler(for: view)
      attachedView = view
