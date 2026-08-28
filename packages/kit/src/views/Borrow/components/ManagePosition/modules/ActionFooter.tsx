@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -52,6 +52,7 @@ export function ActionFooter({
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
   const {
     approving,
+    approvalProgressStarted,
     loadingAllowance,
     shouldApprove,
     ensureReadyToSubmit,
@@ -59,7 +60,6 @@ export function ActionFooter({
   } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
-  const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
   const businessActionLabel = useMemo(
     () =>
@@ -143,18 +143,11 @@ export function ActionFooter({
       if (!confirmed) {
         return;
       }
-      showStakeProgressRef.current[amountValue] = true;
       await onApprove();
       return;
     }
     await handleSubmit();
-  }, [
-    amountValue,
-    confirmBorrowLiquidationRisk,
-    handleSubmit,
-    onApprove,
-    shouldApprove,
-  ]);
+  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
 
   const confirmText = useMemo(() => {
     if (shouldApprove) {
@@ -180,15 +173,12 @@ export function ActionFooter({
   );
 
   const isShowStakeProgress =
-    !!amountValue &&
-    (shouldApprove || showStakeProgressRef.current[amountValue]);
+    !!amountValue && (shouldApprove || approvalProgressStarted);
 
   const progressContent = isShowStakeProgress ? (
     <StakeProgress
       currentStep={
-        isButtonDisabled || shouldApprove
-          ? EStakeProgressStep.approve
-          : EStakeProgressStep.deposit
+        shouldApprove ? EStakeProgressStep.approve : EStakeProgressStep.deposit
       }
       step1LabelId={ETranslations.global_approve}
       step2Label={businessActionLabel}
@@ -209,9 +199,11 @@ export function ActionFooter({
               jc: 'space-between',
             }}
           >
-            <Stack pl="$5" $md={{ pt: '$5' }}>
-              {progressContent}
-            </Stack>
+            {progressContent ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {progressContent}
+              </Stack>
+            ) : null}
             {footerContent}
           </Stack>
           <PercentageStageOnKeyboard
