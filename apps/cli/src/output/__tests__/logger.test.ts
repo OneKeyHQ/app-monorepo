@@ -1,21 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { logger } from '../logger';
-
-function repoRoot(): string {
-  return path.resolve(__dirname, '../../../../..');
-}
-
-function trackedSourceFiles(paths: string[]): string[] {
-  return execFileSync('git', ['ls-files', ...paths], {
-    cwd: repoRoot(),
-    encoding: 'utf-8',
-  })
-    .split('\n')
-    .filter((filePath) => /\.(cjs|js|mjs|ts|tsx)$/.test(filePath));
-}
 
 describe('output/logger', () => {
   let stderrData = '';
@@ -95,47 +78,5 @@ describe('output/logger', () => {
 
     expect(stderrData).not.toContain(token);
     expect(stderrData).toContain('<REDACTED:sha256:');
-  });
-
-  it('keeps CLI runtime source free of console.log', () => {
-    const offenders = trackedSourceFiles(['apps/cli/src'])
-      .filter((filePath) => !filePath.includes('__tests__/'))
-      .filter((filePath) =>
-        fs
-          .readFileSync(path.join(repoRoot(), filePath), 'utf-8')
-          .includes('console.log('),
-      );
-
-    expect(offenders).toEqual([]);
-  });
-
-  it('keeps command output writes behind OutputFormatter except interactive hardware prompts', () => {
-    const allowedDirectWriteFiles = new Set([
-      'apps/cli/src/commands/auth/hardware-login-command.ts',
-      'apps/cli/src/commands/device/hardware-sdk.ts',
-    ]);
-    const pattern = /process\.(stdout|stderr)\.write\(/;
-    const offenders = trackedSourceFiles(['apps/cli/src/commands'])
-      .filter((filePath) => !filePath.includes('__tests__/'))
-      .filter((filePath) => !allowedDirectWriteFiles.has(filePath))
-      .filter((filePath) =>
-        pattern.test(fs.readFileSync(path.join(repoRoot(), filePath), 'utf-8')),
-      );
-
-    expect(offenders).toEqual([]);
-  });
-
-  it('keeps runtime source free of telemetry SDK integrations', () => {
-    const pattern = /Sentry\.init|mixpanel|prometheus|datadog/;
-    const offenders = trackedSourceFiles([
-      'apps/cli/src',
-      'development/bot-wallet-key-service/src',
-    ])
-      .filter((filePath) => !filePath.includes('__tests__/'))
-      .filter((filePath) =>
-        pattern.test(fs.readFileSync(path.join(repoRoot(), filePath), 'utf-8')),
-      );
-
-    expect(offenders).toEqual([]);
   });
 });

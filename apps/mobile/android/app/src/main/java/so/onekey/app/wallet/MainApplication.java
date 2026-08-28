@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.content.SharedPreferences;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
 import android.net.Uri;
@@ -40,8 +41,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
+
+import org.json.JSONObject;
 
 public class MainApplication extends Application implements ReactApplication {
 
@@ -84,6 +91,21 @@ public class MainApplication extends Application implements ReactApplication {
   @Nullable
   private ReactHost mReactHost;
   private boolean isDefaultMainProcess = true;
+  @Nullable
+  private DevVendorBundleInfo devVendorBundleInfo;
+
+  private static final String DEV_VENDOR_ASSET_ROOT = "onekey-dev-vendor";
+  private static final String DEV_VENDOR_COMMON_ASSET = DEV_VENDOR_ASSET_ROOT + "/common.hbc";
+  private static final String DEV_VENDOR_MANIFEST_ASSET = DEV_VENDOR_ASSET_ROOT + "/manifest.json";
+  private static final Pattern DEV_VENDOR_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+
+  private static final class DevVendorBundleInfo {
+    private final String fingerprint;
+
+    private DevVendorBundleInfo(@NonNull String fingerprint) {
+      this.fingerprint = fingerprint;
+    }
+  }
 
   @Override
   public ReactNativeHost getReactNativeHost() {
@@ -98,6 +120,7 @@ public class MainApplication extends Application implements ReactApplication {
           return null;
         }
         if (mReactHost == null) {
+          DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -107,10 +130,105 @@ public class MainApplication extends Application implements ReactApplication {
               mReactNativeHost.getJSBundleFile(),
               null,
               BuildConfig.DEBUG,
-              null
+              null,
+              devVendor == null ? null : DEV_VENDOR_COMMON_ASSET,
+              devVendor == null ? null : buildDevVendorEntryUrl("main", devVendor.fingerprint),
+              devVendor == null ? null : devVendor.fingerprint
             );
         }
         return mReactHost;
+    }
+
+    @Nullable
+    private synchronized DevVendorBundleInfo getDevVendorBundleInfo() {
+      if (!BuildConfig.DEBUG || !BuildConfig.ONEKEY_DEV_VENDOR) {
+        return null;
+      }
+      if (devVendorBundleInfo != null) {
+        return devVendorBundleInfo;
+      }
+
+      try {
+        String manifestText;
+        try (InputStream input = getAssets().open(DEV_VENDOR_MANIFEST_ASSET)) {
+          BufferedReader reader = new BufferedReader(
+            new InputStreamReader(input, StandardCharsets.UTF_8)
+          );
+          StringBuilder manifestBuilder = new StringBuilder();
+          String line;
+          while ((line = reader.readLine()) != null) {
+            manifestBuilder.append(line);
+          }
+          manifestText = manifestBuilder.toString();
+        }
+        JSONObject manifest = new JSONObject(manifestText);
+        if (manifest.optInt("schemaVersion", -1) != 2) {
+          throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
+        }
+        if (manifest.optInt("strategyVersion", -1) != 1) {
+          throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
+        }
+        if (!"android".equals(manifest.optString("platform"))) {
+          throw new IllegalStateException("Dev-vendor manifest platform is not android");
+        }
+        String fingerprint = manifest.optString("fingerprint");
+        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(fingerprint).matches()) {
+          throw new IllegalStateException("Dev-vendor manifest fingerprint is invalid");
+        }
+        JSONObject bytecode = manifest.getJSONObject("common").getJSONObject("bytecode");
+        if (!"common.hbc".equals(bytecode.optString("file"))) {
+          throw new IllegalStateException("Dev-vendor manifest bytecode name is invalid");
+        }
+        long expectedBytes = bytecode.optLong("bytes", -1L);
+        try (AssetFileDescriptor descriptor = getAssets().openFd(DEV_VENDOR_COMMON_ASSET)) {
+          if (expectedBytes <= 0 || descriptor.getLength() != expectedBytes) {
+            throw new IllegalStateException("Dev-vendor common.hbc size does not match manifest");
+          }
+        }
+        devVendorBundleInfo = new DevVendorBundleInfo(fingerprint);
+        OneKeyLog.info(
+          "DevVendor",
+          "native cache enabled platform=android fingerprint=" + fingerprint
+        );
+        return devVendorBundleInfo;
+      } catch (Exception error) {
+        throw new IllegalStateException(
+          "ONEKEY_DEV_VENDOR=true but Android common.hbc/manifest is invalid. "
+            + "Rebuild the dev-vendor cache and native app.",
+          error
+        );
+      }
+    }
+
+    @NonNull
+    private String buildDevVendorEntryUrl(
+      @NonNull String runtimeTarget,
+      @NonNull String fingerprint
+    ) {
+      String host = AndroidInfoHelpers.getServerHost(this);
+      String bundlePath = "background".equals(runtimeTarget)
+        ? "background.bundle"
+        : ".expo/.virtual-metro-entry.bundle";
+      Uri.Builder builder = new Uri.Builder()
+        .scheme("http")
+        .encodedAuthority(host)
+        .path(bundlePath)
+        .appendQueryParameter("platform", "android")
+        .appendQueryParameter("dev", "true")
+        .appendQueryParameter("lazy", "false")
+        .appendQueryParameter("minify", "false")
+        .appendQueryParameter("inlineSourceMap", "false")
+        .appendQueryParameter("modulesOnly", "true")
+        .appendQueryParameter("runModule", "true")
+        .appendQueryParameter("resolver.devVendor", "true")
+        .appendQueryParameter("resolver.devVendorNative", "true")
+        .appendQueryParameter("resolver.devVendorFingerprint", fingerprint)
+        .appendQueryParameter("resolver.runtimeTarget", runtimeTarget)
+        .appendQueryParameter("unstable_transformProfile", "hermes-stable");
+      if ("background".equals(runtimeTarget) && BuildConfig.ONEKEY_DEV_BG_HMR) {
+        builder.appendQueryParameter("resolver.devVendorBackgroundHMR", "true");
+      }
+      return builder.build().toString();
     }
 
     @Nullable
@@ -132,6 +250,12 @@ public class MainApplication extends Application implements ReactApplication {
     @NonNull
     private String getBackgroundRunnerEntryUrl() {
       if (BuildConfig.DEBUG) {
+        DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
+        if (devVendor != null) {
+          String entryUrl = buildDevVendorEntryUrl("background", devVendor.fingerprint);
+          OneKeyLog.info("BackgroundThread", "getBackgroundRunnerEntryUrl(DEV_VENDOR): " + entryUrl);
+          return entryUrl;
+        }
         String host = AndroidInfoHelpers.getServerHost(this);
         String entryUrl =
           "http://" + host
@@ -226,11 +350,17 @@ public class MainApplication extends Application implements ReactApplication {
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       String entryUrl = getBackgroundRunnerEntryUrl();
+      DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
       long startTime = System.currentTimeMillis();
-      boolean startScheduled = manager.ensureBackgroundRunnerWithEntryURL(
-        getApplicationContext(),
-        entryUrl
-      );
+      boolean startScheduled = devVendor == null
+        ? manager.ensureBackgroundRunnerWithEntryURL(getApplicationContext(), entryUrl)
+        : manager.ensureBackgroundRunnerWithDevVendor(
+            getApplicationContext(),
+            entryUrl,
+            DEV_VENDOR_COMMON_ASSET,
+            devVendor.fingerprint,
+            BuildConfig.ONEKEY_DEV_BG_HMR
+          );
       OneKeyLog.info(
         "BackgroundThread",
         "ensure background runner: trigger=" + trigger

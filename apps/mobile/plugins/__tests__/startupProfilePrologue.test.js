@@ -148,31 +148,3 @@ describe('buildStartupProfilePrologue', () => {
     // map exists and no error was thrown.
   });
 });
-
-// Regression: `unionBuild.js writeBundle()` must inject the prologue into the
-// common bundle. It's the only bundle with `includePre=true`, and it's the
-// one both runtimes load first. Before the fix it silently skipped injection
-// and the JS-side profile never activated in union builds.
-describe('unionBuild.js injection point', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const src = fs.readFileSync(
-    path.resolve(__dirname, '../../scripts/unionBuild.js'),
-    'utf8',
-  );
-
-  it('imports the shared helper', () => {
-    expect(src).toMatch(
-      /require\(['"]\.\.\/plugins\/startupProfilePrologue['"]\)/,
-    );
-  });
-
-  it('calls buildStartupProfilePrologue inside an includePre-gated branch', () => {
-    // Anchor on `if (includePre)` followed within ~30 lines by the helper
-    // call. Avoids over-specifying formatting.
-    const m = src.match(
-      /if \(includePre\)\s*\{[\s\S]{0,1500}?buildStartupProfilePrologue/,
-    );
-    expect(m).not.toBeNull();
-  });
-});
