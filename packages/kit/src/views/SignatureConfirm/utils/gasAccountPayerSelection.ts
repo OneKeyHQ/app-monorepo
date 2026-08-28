@@ -27,6 +27,13 @@ export interface IResolveSponsorPayerStateParams {
   gasAccountQuoteEligible: boolean;
   isCustomRpcEnabled: boolean;
   sponsorDisabledForBatch: boolean;
+  /**
+   * External-wallet accounts sign and broadcast through the connected wallet
+   * (`ServiceSend` skips the OneKey broadcast for them), so neither megafuel
+   * nor a gas account quote can actually sponsor the tx — suppress both and
+   * fall back to user-paid.
+   */
+  sponsorDisabledForExternalAccount: boolean;
   megafuelDisabledForPrivateSend: boolean;
   gasAccountDisabledByScenario: boolean;
   gasAccountTemporarilyDisabled: boolean;
@@ -55,6 +62,7 @@ export function resolveSponsorPayerState({
   gasAccountQuoteEligible,
   isCustomRpcEnabled,
   sponsorDisabledForBatch,
+  sponsorDisabledForExternalAccount,
   megafuelDisabledForPrivateSend,
   gasAccountDisabledByScenario,
   gasAccountTemporarilyDisabled,
@@ -62,11 +70,13 @@ export function resolveSponsorPayerState({
   const gasAccountSuppressed =
     isCustomRpcEnabled ||
     sponsorDisabledForBatch ||
+    sponsorDisabledForExternalAccount ||
     gasAccountDisabledByScenario ||
     gasAccountTemporarilyDisabled;
   const megafuelSuppressed =
     isCustomRpcEnabled ||
     sponsorDisabledForBatch ||
+    sponsorDisabledForExternalAccount ||
     megafuelDisabledForPrivateSend;
 
   const megafuelAvailable = !megafuelSuppressed && megafuelSponsorable;
@@ -87,6 +97,7 @@ export function resolveSponsorPayerState({
   if (
     isCustomRpcEnabled ||
     sponsorDisabledForBatch ||
+    sponsorDisabledForExternalAccount ||
     (!gasAccountQuoteEligible && serverPayer === 'gasAccount') ||
     (gasAccountDisabledByScenario && serverPayer === 'gasAccount') ||
     (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
