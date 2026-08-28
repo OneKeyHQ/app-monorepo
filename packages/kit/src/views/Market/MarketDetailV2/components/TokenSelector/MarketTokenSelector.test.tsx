@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketSpotCategory } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTokenSelector } from './MarketTokenSelector';
@@ -11,7 +12,9 @@ import { MarketTokenSelector } from './MarketTokenSelector';
 const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
+const mockNavigateToMarketTokenDetail = jest.fn();
 let mockSpotCategories: IMarketSpotCategory[] = [];
+let mockSearchTokenList: IMarketToken[] = [];
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: undefined }),
@@ -63,7 +66,19 @@ jest.mock('@onekeyhq/components', () => {
         </>
       );
     },
-    SearchBar: () => null,
+    SearchBar: ({
+      value,
+      onChangeText,
+    }: {
+      value: string;
+      onChangeText: (value: string) => void;
+    }) => (
+      <input
+        data-testid="market-token-selector-search"
+        value={value}
+        onChange={(event) => onChangeText(event.currentTarget.value)}
+      />
+    ),
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
@@ -130,7 +145,7 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapPro', () => ({
   useSwapProTokenSearch: () => ({
     searchLoading: false,
-    searchTokenList: [],
+    searchTokenList: mockSearchTokenList,
   }),
 }));
 
@@ -168,19 +183,40 @@ jest.mock('./MarketTokenSelectorList', () => ({
   MarketTokenSelectorList: ({
     dataOverride,
     isWatchlistMode,
+    onItemPress,
+    searchResults,
     selectedCategory,
   }: {
-    dataOverride?: unknown[];
+    dataOverride?: IMarketToken[];
     isWatchlistMode: boolean;
+    onItemPress: (item: IMarketToken) => void;
+    searchResults?: IMarketToken[];
     selectedCategory?: string;
   }) => (
-    <div
-      data-category={selectedCategory}
-      data-override-count={dataOverride?.length ?? 0}
-      data-testid="token-list"
-      data-watchlist={String(isWatchlistMode)}
-    />
+    <>
+      <div
+        data-category={selectedCategory}
+        data-override-count={dataOverride?.length ?? 0}
+        data-testid="token-list"
+        data-watchlist={String(isWatchlistMode)}
+      />
+      {searchResults?.[0] ? (
+        <button
+          data-testid="market-token-selector-search-result"
+          type="button"
+          onClick={() => onItemPress(searchResults[0])}
+        >
+          Select search result
+        </button>
+      ) : null}
+    </>
   ),
+}));
+
+jest.mock('./navigateToMarketTokenDetail', () => ({
+  navigateToMarketTokenDetail: (...args: unknown[]) => {
+    mockNavigateToMarketTokenDetail(...args);
+  },
 }));
 
 describe('MarketTokenSelector stock default category', () => {
@@ -188,6 +224,8 @@ describe('MarketTokenSelector stock default category', () => {
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
+    mockNavigateToMarketTokenDetail.mockReset();
+    mockSearchTokenList = [];
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
       { type: 'stocks', name: 'Stocks' },
@@ -280,5 +318,43 @@ describe('MarketTokenSelector stock default category', () => {
 
     expect(screen.getByTestId('stock-list')).toBeTruthy();
     expect(mockStockListMount).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not carry the Top Coins category into a DEX search result', () => {
+    mockSearchTokenList = [
+      {
+        id: 'dex-token',
+        name: 'DEX Token',
+        symbol: 'DEX',
+        address: '0xdex',
+        decimals: 18,
+        price: 1,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        networkId: 'evm--1',
+      },
+    ];
+
+    render(<MarketTokenSelector defaultCategory="top_coins" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'DEX' },
+    });
+    fireEvent.click(screen.getByTestId('market-token-selector-search-result'));
+
+    expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '0xdex',
+        networkId: 'evm--1',
+      }),
+      expect.objectContaining({ marketTokenCategory: undefined }),
+    );
   });
 });

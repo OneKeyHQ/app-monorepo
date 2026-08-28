@@ -45,6 +45,10 @@ function normalizeRouteBooleanParam(
   return value ?? defaultValue;
 }
 
+function parseOptionalRouteBooleanParam(value: string | null) {
+  return value === null ? undefined : value === 'true';
+}
+
 export function getMarketTokenDetailNavigationTargetFromHash(
   hash: string = globalThis.location?.hash ?? '',
 ): IMarketTokenDetailNavigationTarget | undefined {
@@ -62,8 +66,21 @@ export function getMarketTokenDetailNavigationTargetFromHash(
 
   try {
     const searchParams = new URLSearchParams(query);
-    const isNativeParam = searchParams.get('isNative');
-    const showFavoriteButtonParam = searchParams.get('showFavoriteButton');
+    const isNative = parseOptionalRouteBooleanParam(
+      searchParams.get('isNative'),
+    );
+    const showFavoriteButton = parseOptionalRouteBooleanParam(
+      searchParams.get('showFavoriteButton'),
+    );
+    const disableTrade = parseOptionalRouteBooleanParam(
+      searchParams.get('disableTrade'),
+    );
+    const skipMarketDataFetch = parseOptionalRouteBooleanParam(
+      searchParams.get('skipMarketDataFetch'),
+    );
+    const marketTokenId = searchParams.get('marketTokenId') || undefined;
+    const marketTokenCategory =
+      searchParams.get('marketTokenCategory') || undefined;
     const from = searchParams.get('from');
 
     if (segments[1] === 'stock') {
@@ -77,13 +94,12 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           stockId,
           ...(tokenAddress ? { tokenAddress } : undefined),
           ...(network ? { network } : undefined),
-          ...(isNativeParam === null
-            ? undefined
-            : { isNative: isNativeParam === 'true' }),
+          ...(isNative === undefined ? undefined : { isNative }),
           ...(from ? { from: from as EEnterWay } : undefined),
-          ...(showFavoriteButtonParam === null
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
             ? undefined
-            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+            : { showFavoriteButton }),
         },
       };
     }
@@ -99,10 +115,16 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
-          ...(from ? { from: from as EEnterWay } : undefined),
-          ...(showFavoriteButtonParam === null
+          ...(marketTokenId ? { marketTokenId } : undefined),
+          ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(skipMarketDataFetch === undefined
             ? undefined
-            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+            : { skipMarketDataFetch }),
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
+            ? undefined
+            : { showFavoriteButton }),
         },
       };
     }
@@ -112,13 +134,17 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       params: {
         network,
         tokenAddress,
-        ...(isNativeParam === null
+        ...(marketTokenId ? { marketTokenId } : undefined),
+        ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(skipMarketDataFetch === undefined
           ? undefined
-          : { isNative: isNativeParam === 'true' }),
+          : { skipMarketDataFetch }),
+        ...(isNative === undefined ? undefined : { isNative }),
         ...(from ? { from: from as EEnterWay } : undefined),
-        ...(showFavoriteButtonParam === null
+        ...(disableTrade === undefined ? undefined : { disableTrade }),
+        ...(showFavoriteButton === undefined
           ? undefined
-          : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+          : { showFavoriteButton }),
       },
     };
   } catch {
@@ -158,6 +184,13 @@ function isCurrentMarketTokenDetailTarget(
     return false;
   }
 
+  if (
+    normalizeRouteBooleanParam(params.disableTrade, false) !==
+    normalizeRouteBooleanParam(target.params.disableTrade, false)
+  ) {
+    return false;
+  }
+
   if (params.from !== target.params.from) {
     return false;
   }
@@ -168,6 +201,15 @@ function isCurrentMarketTokenDetailTarget(
       params.network === target.params.network &&
       params.tokenAddress === target.params.tokenAddress
     );
+  }
+
+  if (
+    params.marketTokenId !== target.params.marketTokenId ||
+    params.marketTokenCategory !== target.params.marketTokenCategory ||
+    normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
+      normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
+  ) {
+    return false;
   }
 
   if (params.network !== target.params.network) {

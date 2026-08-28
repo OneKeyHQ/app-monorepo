@@ -274,13 +274,15 @@ function BaseMarketTokenSelectorContent({
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
-        marketTokenCategory: startListSelect ? undefined : selectedCategory,
+        marketTokenCategory:
+          startListSelect || searchValueDebounce ? undefined : selectedCategory,
       });
     },
     [
       tokenDetailActions,
       closePopover,
       navigateToPerps,
+      searchValueDebounce,
       selectedCategory,
       showFavoriteButton,
       startListSelect,
