@@ -7,6 +7,7 @@ import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import {
   classifyFirmwareUpdateFailure,
   isFirmwareUpdateCancellationError,
+  resolveFirmwareUpdateErrorCode,
   shouldHideFirmwareUpdateInternalError,
   toUserFacingFirmwareUpdateError,
 } from './firmwareUpdateErrorUtils';
@@ -76,8 +77,70 @@ describe('firmwareUpdateErrorUtils', () => {
     [HardwareErrorCode.FirmwareError, 'install'],
     [HardwareErrorCode.FirmwareVerificationFailed, 'verification'],
     [HardwareErrorCode.BleTimeoutError, 'timeout'],
+    [HardwareErrorCode.BleDeviceBondError, 'device_disconnected'],
+    [HardwareErrorCode.BleDeviceDisconnected, 'device_disconnected'],
+    [HardwareErrorCode.BlePeerRemovedPairingInformation, 'device_disconnected'],
   ] as const)('classifies firmware error code %s as %s', (code, expected) => {
     expect(classifyFirmwareUpdateFailure({ code })).toBe(expected);
+  });
+
+  it.each([
+    HardwareErrorCode.PinCancelled,
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+    HardwareErrorCode.DeviceInterruptedFromOutside,
+    HardwareErrorCode.DeviceInterruptedFromUser,
+    HardwareErrorCode.PollingStop,
+    HardwareErrorCode.BleTransportCallCanceled,
+  ])('classifies cancellation error code %s as cancelled', (code) => {
+    expect(classifyFirmwareUpdateFailure({ code })).toBe('cancelled');
+  });
+
+  it('does not replace an SDK cancellation with the disconnected message', () => {
+    const error = {
+      code: HardwareErrorCode.ActionCancelled,
+      message: 'Action cancelled by user',
+    };
+
+    expect(shouldHideFirmwareUpdateInternalError(error)).toBe(false);
+    expect(toUserFacingFirmwareUpdateError(error).message).toBe(
+      'Action cancelled by user',
+    );
+  });
+
+  it('prefers the raw SDK payload code over a wrapper code', () => {
+    const error = {
+      code: HardwareErrorCode.RuntimeError,
+      payload: {
+        code: HardwareErrorCode.FirmwareError,
+      },
+    };
+
+    expect(classifyFirmwareUpdateFailure(error)).toBe('install');
+    expect(resolveFirmwareUpdateErrorCode(error)).toBe(
+      String(HardwareErrorCode.FirmwareError),
+    );
+  });
+
+  it.each([
+    ['ARTIFACT_NETWORK_FAILED: request failed', 'download'],
+    ['ARTIFACT_HTTP_503: unavailable', 'download'],
+    ['ARTIFACT_TLS_FAILED: validation failed', 'download'],
+    ['ARTIFACT_INTEGRITY_FAILED: hash mismatch', 'download'],
+    ['ARTIFACT_ARCHIVE_INVALID: invalid package', 'download'],
+    ['ARTIFACT_PROTOCOL_INVALID: invalid response', 'download'],
+    ['ARTIFACT_CANCELLED', 'cancelled'],
+    ['ARTIFACT_LEASE_CREATE_TIMEOUT', 'timeout'],
+  ] as const)('classifies %s as %s', (message, expected) => {
+    expect(classifyFirmwareUpdateFailure({ message })).toBe(expected);
+  });
+
+  it('resolves a stable artifact error code from the message', () => {
+    expect(
+      resolveFirmwareUpdateErrorCode({
+        message: 'ARTIFACT_HTTP_503: unavailable',
+      }),
+    ).toBe('ARTIFACT_HTTP_503');
   });
 
   it('keeps unknown failures in a bounded fallback category', () => {

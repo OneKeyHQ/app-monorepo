@@ -83,10 +83,13 @@ export class FirmwareScene extends BaseScene {
     updateFlow: 'v1' | 'v2';
     firmwareVersions: IFirmwareVersions;
     attempt: number;
-    status: 'success' | 'failed';
+    status: 'success' | 'failed' | 'cancelled';
     failureType?: IFirmwareUpdateFailureType;
     errorCode?: string;
-    errorMessage?: string;
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    transferElapsedMs?: number;
   }) {
     return params;
   }
@@ -100,10 +103,9 @@ export class FirmwareScene extends BaseScene {
     firmwareVersions: IFirmwareVersions;
     fromFirmwareType: EFirmwareType | undefined;
     toFirmwareType: EFirmwareType | undefined;
-    status: 'success' | 'failed';
+    status: 'success' | 'failed' | 'cancelled';
     failureType?: IFirmwareUpdateFailureType;
     errorCode?: string;
-    errorMessage?: string;
     retryCount?: number;
     durationMs?: number;
     totalDurationMs?: number;

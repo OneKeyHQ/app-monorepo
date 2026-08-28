@@ -18,23 +18,67 @@ export type IFirmwareUpdateFailureType =
   | 'timeout'
   | 'unknown';
 
+const FIRMWARE_ARTIFACT_ERROR_CODE_PATTERN = /\b(ARTIFACT_[A-Z0-9_]+)\b/u;
+
+const FIRMWARE_ARTIFACT_DOWNLOAD_ERROR_CODES = new Set([
+  'ARTIFACT_NETWORK_FAILED',
+  'ARTIFACT_TLS_FAILED',
+  'ARTIFACT_INTEGRITY_FAILED',
+  'ARTIFACT_ARCHIVE_INVALID',
+  'ARTIFACT_PROTOCOL_INVALID',
+]);
+
 function getErrorText(error: IOneKeyError | undefined): string {
-  return [error?.className, error?.name, error?.message]
+  return [
+    error?.className,
+    error?.name,
+    error?.message,
+    error?.payload?.error,
+    error?.payload?.message,
+  ]
     .filter((value): value is string => Boolean(value))
     .join(' ');
+}
+
+function getFirmwareUpdateErrorCodes(
+  error: IOneKeyError | undefined,
+): (number | string)[] {
+  return [error?.payload?.code, error?.code].filter(
+    (code): code is number | string =>
+      typeof code === 'number' || typeof code === 'string',
+  );
+}
+
+function getFirmwareArtifactErrorCode(
+  error: IOneKeyError | undefined,
+): string | undefined {
+  return FIRMWARE_ARTIFACT_ERROR_CODE_PATTERN.exec(getErrorText(error))?.[1];
+}
+
+export function resolveFirmwareUpdateErrorCode(
+  error: IOneKeyError | undefined,
+): string | undefined {
+  const rawCode = getFirmwareUpdateErrorCodes(error).find((code) =>
+    typeof code === 'number' ? Number.isFinite(code) : code.trim().length > 0,
+  );
+  if (rawCode !== undefined) {
+    return String(rawCode).trim();
+  }
+  return getFirmwareArtifactErrorCode(error);
 }
 
 function hasFirmwareUpdateErrorCode(
   error: IOneKeyError | undefined,
   codes: number[],
 ) {
-  const errorCode = error?.code ?? error?.payload?.code;
-  const normalizedCode =
-    typeof errorCode === 'string' ? Number(errorCode) : errorCode;
-  return typeof normalizedCode === 'number' && codes.includes(normalizedCode);
+  return getFirmwareUpdateErrorCodes(error).some((errorCode) => {
+    const normalizedCode =
+      typeof errorCode === 'string' ? Number(errorCode) : errorCode;
+    return Number.isFinite(normalizedCode) && codes.includes(normalizedCode);
+  });
 }
 
-export function isFirmwareUpdateCancellationError(
+function isFirmwareUpdateInternalCancellationError(
   error: IOneKeyError | undefined,
 ): boolean {
   if (!error) {
@@ -57,6 +101,29 @@ export function isFirmwareUpdateCancellationError(
   );
 }
 
+export function isFirmwareUpdateCancellationError(
+  error: IOneKeyError | undefined,
+): boolean {
+  if (isFirmwareUpdateInternalCancellationError(error)) {
+    return true;
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.PinCancelled,
+      HardwareErrorCode.ActionCancelled,
+      HardwareErrorCode.CallQueueActionCancelled,
+      HardwareErrorCode.DeviceInterruptedFromOutside,
+      HardwareErrorCode.DeviceInterruptedFromUser,
+      HardwareErrorCode.PollingStop,
+      HardwareErrorCode.BleTransportCallCanceled,
+    ]) ||
+    getFirmwareArtifactErrorCode(error) === 'ARTIFACT_CANCELLED'
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function isFirmwareUpdateDeviceDisconnectedError(
   error: IOneKeyError | undefined,
 ): boolean {
@@ -72,11 +139,17 @@ export function isFirmwareUpdateDeviceDisconnectedError(
       code: [
         HardwareErrorCode.DeviceNotFound,
         HardwareErrorCode.BridgeDeviceDisconnected,
+        HardwareErrorCode.BleDeviceBondError,
+        HardwareErrorCode.BleDeviceDisconnected,
+        HardwareErrorCode.BlePeerRemovedPairingInformation,
       ],
     }) ||
     hasFirmwareUpdateErrorCode(error, [
       HardwareErrorCode.DeviceNotFound,
       HardwareErrorCode.BridgeDeviceDisconnected,
+      HardwareErrorCode.BleDeviceBondError,
+      HardwareErrorCode.BleDeviceDisconnected,
+      HardwareErrorCode.BlePeerRemovedPairingInformation,
     ]),
   );
 }
@@ -94,7 +167,11 @@ export function classifyFirmwareUpdateFailure(
     hasFirmwareUpdateErrorCode(error, [
       HardwareErrorCode.FirmwareUpdateDownloadFailed,
       HardwareErrorCode.CheckDownloadFileError,
-    ])
+    ]) ||
+    FIRMWARE_ARTIFACT_DOWNLOAD_ERROR_CODES.has(
+      getFirmwareArtifactErrorCode(error) ?? '',
+    ) ||
+    /^ARTIFACT_HTTP_\d+$/u.test(getFirmwareArtifactErrorCode(error) ?? '')
   ) {
     return 'download';
   }
@@ -143,7 +220,7 @@ export function shouldHideFirmwareUpdateInternalError(
   error: IOneKeyError | undefined,
 ): boolean {
   return (
-    isFirmwareUpdateCancellationError(error) ||
+    isFirmwareUpdateInternalCancellationError(error) ||
     isFirmwareUpdateDeviceDisconnectedError(error)
   );
 }

@@ -1153,6 +1153,139 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     );
   });
 
+  it('tracks an SDK cancellation separately from failed attempts', async () => {
+    const attemptResultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+    const error = Object.assign(new Error('cancelled by user'), {
+      code: HardwareErrorCode.RuntimeError,
+      payload: {
+        code: HardwareErrorCode.ActionCancelled,
+      },
+    });
+
+    await service.trackUpdateTaskAttemptResult({
+      workflowId,
+      status: 'failed',
+      error,
+    });
+
+    expect(attemptResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'cancelled',
+        failureType: 'cancelled',
+        errorCode: String(HardwareErrorCode.ActionCancelled),
+      }),
+    );
+  });
+
+  it('includes the latest transfer sample in each attempt result', async () => {
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValueOnce({
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 512_000,
+          totalBytes: 2_048_000,
+          rateBytesPerSecond: 32_000,
+          elapsedMs: 16_000,
+        },
+      },
+    } as never);
+    jest
+      .mocked(hardwareUiStateCompletedAtom.get)
+      .mockResolvedValueOnce(undefined);
+    const attemptResultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    await service.trackUpdateTaskAttemptResult({
+      workflowId,
+      status: 'failed',
+      error: new Error('transfer failed'),
+    });
+
+    expect(attemptResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transferredBytes: 512_000,
+        totalBytes: 2_048_000,
+        rateBytesPerSecond: 32_000,
+        transferElapsedMs: 16_000,
+      }),
+    );
+    expect(attemptResultSpy.mock.calls[0][0]).not.toHaveProperty(
+      'errorMessage',
+    );
+  });
+
+  it('tracks a cancelled workflow separately from failed workflows', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
+      .mockImplementation((params) => params);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.BLE),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const releaseResult = {
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: false,
+        releaseResult,
+      },
+      error: new Error('ARTIFACT_CANCELLED'),
+    });
+
+    expect(resultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'cancelled',
+        failureType: 'cancelled',
+        errorCode: 'ARTIFACT_CANCELLED',
+      }),
+    );
+    expect(resultSpy.mock.calls[0][0]).not.toHaveProperty('errorMessage');
+  });
+
   it('reports transfer metrics and wall-clock workflow duration', async () => {
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
     jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({

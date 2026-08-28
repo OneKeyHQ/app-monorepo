@@ -36,6 +36,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   classifyFirmwareUpdateFailure,
+  resolveFirmwareUpdateErrorCode,
   toUserFacingFirmwareUpdateError,
 } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import {
@@ -2049,18 +2050,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
       const attempt = tracking.attemptCount;
       const err =
         error === undefined ? undefined : toPlainErrorObject(error as any);
-      const hardwareTransportType = await this.getActiveTransportType();
+      const failureType =
+        status === 'failed' ? classifyFirmwareUpdateFailure(err) : undefined;
+      // Start reading the attempt metrics before transport lookup or a later
+      // retry can clear the firmware UI state that owns the last sample.
+      const trackingInfoPromise = this.getUpdateWorkflowTrackingInfo();
+      const [hardwareTransportType, trackingInfo] = await Promise.all([
+        this.getActiveTransportType(),
+        trackingInfoPromise,
+      ]);
       defaultLogger.update.firmware.firmwareUpdateAttemptResult({
         deviceType: tracking.releaseResult.deviceType,
         transportType: hardwareTransportType,
         updateFlow: tracking.updateFlow,
         firmwareVersions: parseFirmwareVersions(tracking.releaseResult),
         attempt,
-        status,
-        failureType:
-          status === 'failed' ? classifyFirmwareUpdateFailure(err) : undefined,
-        errorCode: err?.code,
-        errorMessage: err?.message,
+        status: failureType === 'cancelled' ? 'cancelled' : status,
+        failureType,
+        errorCode: resolveFirmwareUpdateErrorCode(err),
+        transferredBytes: trackingInfo.transferredBytes,
+        totalBytes: trackingInfo.totalBytes,
+        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
+        transferElapsedMs: trackingInfo.transferElapsedMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -2445,6 +2456,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     const err = toPlainErrorObject(error as any);
     const displayError = toUserFacingFirmwareUpdateError(err);
+    const failureType = classifyFirmwareUpdateFailure(err);
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
@@ -2476,10 +2488,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
         firmwareVersions: parseFirmwareVersions(params.releaseResult),
         fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
         toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-        status: 'failed',
-        failureType: classifyFirmwareUpdateFailure(err),
-        errorCode: err?.code,
-        errorMessage: err?.message,
+        status: failureType === 'cancelled' ? 'cancelled' : 'failed',
+        failureType,
+        errorCode: resolveFirmwareUpdateErrorCode(err),
         retryCount: trackingInfo.retryCount,
         durationMs: trackingInfo.durationMs,
         totalDurationMs: trackingInfo.totalDurationMs,
