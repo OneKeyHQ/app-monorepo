@@ -407,8 +407,10 @@ function OuterTabPagerViewComponent({
     () =>
       visitedPages[2] ? (
         <View key="browser" style={styles.page}>
-          {/* Keep the mobile Browser native subtree attached across DApp
-          minimization and outer tab switches. */}
+          {/* Keep Browser out of react-freeze so its React subtree survives
+          DApp minimization and outer tab switches. Native attachment still
+          follows OUTER_PAGER_OFFSCREEN_PAGE_LIMIT; Android may detach Browser
+          across Market (index 0) and Browser (index 2). */}
           {browserContent}
         </View>
       ) : (
