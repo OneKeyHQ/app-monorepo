@@ -182,11 +182,48 @@ index 7c183bd..fca09d0 100644
    }
  }
  
+diff --git a/node_modules/expo/src/async-require/fetchThenEvalJs.ts b/node_modules/expo/src/async-require/fetchThenEvalJs.ts
+index 0cd6a0f..523dc14 100644
+--- a/node_modules/expo/src/async-require/fetchThenEvalJs.ts
++++ b/node_modules/expo/src/async-require/fetchThenEvalJs.ts
+@@ -22,6 +22,17 @@ export function fetchThenEvalAsync(url: string): Promise<void> {
+     }
+ 
+     if (status === 200) {
++      // OneKey patch: bare `eval` forces Hermes to EAGERLY compile every
++      // function in the chunk and retain the CodeBlocks forever - a few
++      // hundred dev lazy chunks ballooned to ~3GB of native memory and got
++      // the dev app jetsam-killed (per-process-limit) seconds after wallet
++      // home load. `globalEvalWithSourceUrl` routes through the native
++      // evaluator with lazy compilation (and correct stack URLs), exactly
++      // like metro-runtime's HMRClient and RN's loadBundleFromServer do.
++      const globalEvalWithSourceUrl = (globalThis as any).globalEvalWithSourceUrl;
++      if (globalEvalWithSourceUrl) {
++        return globalEvalWithSourceUrl(body, url);
++      }
+       // eslint-disable-next-line no-eval
+       return eval(body);
+     } else {
 diff --git a/node_modules/expo/src/async-require/hmr.ts b/node_modules/expo/src/async-require/hmr.ts
-index bd226af..2fde8f1 100644
+index bd226af..41ff5a0 100644
 --- a/node_modules/expo/src/async-require/hmr.ts
 +++ b/node_modules/expo/src/async-require/hmr.ts
-@@ -316,6 +316,17 @@ function setHMRUnavailableReason(reason: string) {
+@@ -92,6 +92,14 @@ const HMRClient = {
+   },
+ 
+   registerBundle(requestUrl: string) {
++    // OneKey patch: the background JS runtime never receives the native
++    // `HMRClient.setup` callable-module call (RCTInstance only wires the
++    // main surface), so lazy chunk loads there would assert and wedge the
++    // runtime. HMR registration is Fast-Refresh sugar — the chunk already
++    // evaluated — so on native just skip when no client was ever set up.
++    if (process.env.EXPO_OS !== 'web' && !hmrClient) {
++      return;
++    }
+     assert(hmrClient, 'Expected HMRClient.setup() call at startup.');
+     pendingEntryPoints.push(requestUrl);
+     registerBundleEntryPoints(hmrClient);
+@@ -316,6 +324,17 @@ function setHMRUnavailableReason(reason: string) {
  
  function registerBundleEntryPoints(client: MetroHMRClient | null) {
    if (hmrUnavailableReason != null) {

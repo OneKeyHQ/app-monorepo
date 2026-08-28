@@ -505,17 +505,17 @@ config.server.rewriteRequestUrl = (url) => {
   // 0.85 (~15k modules × 2 Hermes heaps compiling ~230MB of dev JS) pushes
   // the app past the iOS per-process memory limit — jetsam kills the dev app
   // at ~3.4GB right after wallet home loads (JetsamEvent-2026-08-27-210649).
-  // The main runtime now honors the client's lazy=true (Expo's dev default;
-  // its lazy chunk requests correctly pick up resolver.runtimeTarget=main
-  // below). The background bundle stays eager: its lazy chunk requests carry
-  // module paths, not the background bundle path this rewrite keys off, so
-  // lazy background modules would transform under the main resolver.
-  const isBackgroundBundleRequest =
-    rewrittenUrl.startsWith('/background.bundle') ||
-    rewrittenUrl.startsWith('/apps/mobile/background.bundle');
-  if (isBackgroundBundleRequest) {
-    rewrittenUrl = rewrittenUrl.replace('&lazy=true', '&lazy=false');
-  }
+  // Force lazy=false for BOTH runtimes. Bridgeless RN never installs
+  // `globalEvalWithSourceUrl` (only the legacy JSIExecutor did), so every
+  // dev lazy chunk falls back to bare `eval()`, which Hermes compiles
+  // EAGERLY and retains forever — a few hundred chunks of this app's graph
+  // ballooned to ~6GB (simulator-measured) and jetsam killed the device app
+  // at the 3.4GB per-process limit. Eager bundles load through the native
+  // script loader with lazy compilation and stay within budget. Revisit if
+  // RN adds a bridgeless globalEvalWithSourceUrl (or we polyfill one
+  // natively); the HMRClient alias below stays — HMR updates are small and
+  // it fixes the split-brain HMR client either way.
+  rewrittenUrl = rewrittenUrl.replace('&lazy=true', '&lazy=false');
 
   if (rewrittenUrl.startsWith('/background.bundle')) {
     rewrittenUrl = rewrittenUrl.replace(

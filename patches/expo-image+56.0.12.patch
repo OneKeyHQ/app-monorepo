@@ -153,10 +153,10 @@ index de6e2c3..688ba97 100644
            continuation.resume(returning: image)
          } else {
 diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
-index 6aa92cc..a49a922 100644
+index 6aa92cc..d25fcb6 100644
 --- a/node_modules/expo-image/ios/ImageModule.swift
 +++ b/node_modules/expo-image/ios/ImageModule.swift
-@@ -283,7 +283,12 @@ public final class ImageModule: Module {
+@@ -283,7 +283,14 @@ public final class ImageModule: Module {
      SDImageCodersManager.shared.addCoder(WebPCoder.shared)
      SDImageCodersManager.shared.addCoder(PSDCoder.shared)
      SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
@@ -166,6 +166,8 @@ index 6aa92cc..a49a922 100644
 +    // (UIGraphicsBeginImageContext() failed to allocate CGBitmapContext) on
 +    // remote SVG sources (DApp icons, NFT metadata, token logos), and there
 +    // is no Podfile switch for it unlike AVIF's disable-libdav1d.
++    // (Ruled out as the 2026-08-27 dev jetsam cause — that was the dual
++    // Hermes runtimes' dev compile footprint crossing the iOS limit.)
 +    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }
