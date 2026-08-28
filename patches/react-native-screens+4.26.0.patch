@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 7055a0d..81ee02b 100644
+index 0fcccb3..99d9506 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 @@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
@@ -37,18 +37,18 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..2771e08 100644
+index 9b66012..09393b0 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -9,6 +9,7 @@
- #ifdef RCT_NEW_ARCH_ENABLED
+@@ -8,6 +8,7 @@
+ 
  #import <React/RCTConversions.h>
  #import <React/RCTFabricComponentsPlugins.h>
 +#import <React/RCTMountingTransactionObserving.h>
  #import <React/RCTRootComponentView.h>
  #import <React/RCTScrollViewComponentView.h>
  #import <React/RCTSurfaceTouchHandler.h>
-@@ -49,6 +50,20 @@
+@@ -37,6 +38,20 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -69,33 +69,29 @@ index 1c44762..2771e08 100644
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -61,11 +76,16 @@ @interface RNSScreenView () <
+@@ -48,7 +63,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
+                              UISheetPresentationControllerDelegate,
  #endif
- #ifdef RCT_NEW_ARCH_ENABLED
-     RCTRNSScreenViewProtocol,
--    CAAnimationDelegate>
-+    CAAnimationDelegate,
-+    RCTMountingTransactionObserving>
- #else
-     RCTInvalidating>
- #endif
- 
+                              RCTRNSScreenViewProtocol,
+-                             CAAnimationDelegate>
++                             CAAnimationDelegate,
++                             RCTMountingTransactionObserving>
++
 +- (BOOL)hasCustomScrollEdgeEffects;
 +- (nullable UIScrollView *)contentScrollViewForEdgeEffects;
 +- (void)resetLastContentScrollViewEdgeEffects;
-+
  @end
  
  @implementation RNSScreenView {
-@@ -76,6 +96,7 @@ @implementation RNSScreenView {
+@@ -59,6 +79,7 @@ @implementation RNSScreenView {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
 +  __weak UIScrollView *_lastContentScrollViewForEdgeEffects;
- #ifdef RCT_NEW_ARCH_ENABLED
+   UITapGestureRecognizer *_backdropTapGestureRecognizer;
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -137,6 +158,7 @@ - (void)initCommonProps
+@@ -95,6 +116,7 @@ - (void)initCommonProps
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
@@ -103,7 +99,7 @@ index 1c44762..2771e08 100644
  #if !TARGET_OS_TV
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -766,6 +788,20 @@ - (void)didMoveToWindow
+@@ -599,6 +621,20 @@ - (void)didMoveToWindow
    } else {
      [_touchHandler detachFromView:self];
    }
@@ -123,8 +119,8 @@ index 1c44762..2771e08 100644
 +  }
  }
  
- - (nullable RNS_TOUCH_HANDLER_ARCH_TYPE *)touchHandler
-@@ -1298,10 +1334,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+ - (nullable RCTSurfaceTouchHandler *)touchHandler
+@@ -1105,10 +1141,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
    }
  }
  
@@ -173,7 +169,7 @@ index 1c44762..2771e08 100644
  }
  
  #pragma mark - RNSSafeAreaProviding
-@@ -1543,6 +1615,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+@@ -1385,6 +1457,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
  #endif // !TARGET_OS_TV && !TARGET_OS_VISION
  }
  
@@ -185,10 +181,10 @@ index 1c44762..2771e08 100644
 +  }
 +}
 +
- #pragma mark - Paper specific
- #else
+ #pragma mark - Dynamic frameworks support
  
-@@ -1643,6 +1723,28 @@ - (instancetype)initWithView:(UIView *)view
+ // Needed because of this: https://github.com/facebook/react-native/pull/37274
+@@ -1437,6 +1517,28 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -218,12 +214,12 @@ index 1c44762..2771e08 100644
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..1e95f36 100644
+index 192f5d2..2b6dcd1 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-@@ -31,6 +31,55 @@
+@@ -20,6 +20,55 @@
+ #import "RNSScrollViewFinder.h"
  #import "RNSTabsScreenViewController.h"
- #import "RNSViewInteractionAware.h"
  #import "UIScrollView+RNScreens.h"
 +
 +// MARK: - OneKey Native Logger Bridge (ObjC, for RNSScreenStack diagnostics)
@@ -277,19 +273,19 @@ index e37e40a..1e95f36 100644
  #import "UIView+RNSUtility.h"
  #import "integrations/RNSDismissibleModalProtocol.h"
  #import "utils/UINavigationBar+RNSUtility.h"
-@@ -212,6 +261,11 @@ @implementation RNSScreenStackView {
+@@ -175,6 +224,11 @@ @implementation RNSScreenStackView {
    RNSPercentDrivenInteractiveTransition *_interactionController;
    __weak RNSScreenStackManager *_manager;
    BOOL _updateScheduled;
-+  BOOL _pendingContainerUpdate; // Set when push/modal updates are skipped due to window==nil
-+  BOOL _pendingUpdateRetryScheduled; // Prevent duplicate retry timer scheduling
-+  NSInteger _pendingUpdateRetryCount; // Guard against endless retry loops
-+  NSInteger _pendingContainerUpdateRequestId; // Current pending request id
-+  NSInteger _pendingContainerUpdateSeq; // Monotonic request id sequence
-   UIPanGestureRecognizer *_sinkEventsPanGestureRecognizer;
- #ifdef RCT_NEW_ARCH_ENABLED
-   /// Screens that are subject of `ShadowViewMutation::Type::Delete` mutation
-@@ -267,6 +321,24 @@ - (void)initCommonProps
++  BOOL _pendingContainerUpdate;
++  BOOL _pendingUpdateRetryScheduled;
++  NSInteger _pendingUpdateRetryCount;
++  NSInteger _pendingContainerUpdateRequestId;
++  NSInteger _pendingContainerUpdateSeq;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -213,6 +267,24 @@ - (void)initCommonProps
    // the header will render in collapsed state which is perhaps a bug
    // in UIKit but ¯\_(ツ)_/¯
    [_controller setViewControllers:@[ [UIViewController new] ]];
@@ -314,8 +310,8 @@ index e37e40a..1e95f36 100644
  }
  
  #pragma mark - helper methods
-@@ -300,6 +372,153 @@ - (void)emitOnFinishTransitioningEvent
- #endif
+@@ -240,6 +312,153 @@ - (void)emitOnFinishTransitioningEvent
+   }
  }
  
 +- (BOOL)isContainerWindowReady
@@ -468,7 +464,7 @@ index e37e40a..1e95f36 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -355,6 +574,13 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -278,21 +497,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
  
  - (void)didMoveToWindow
  {
@@ -480,27 +476,14 @@ index e37e40a..1e95f36 100644
 +        (long)_pendingContainerUpdateRequestId,
 +        RNSSceneSummary(self.window)]);
    [super didMoveToWindow];
- #ifdef RCT_NEW_ARCH_ENABLED
    // for handling nested stacks
-@@ -367,6 +593,14 @@ - (void)didMoveToWindow
-     [self maybeAddToParentAndUpdateContainer];
-   }
- #endif
-+
-+  // When window is restored after a detach (e.g. iOS 26 SwiftUI TabView recreating
-+  // UITabBarController), retry any push/modal operations that were skipped due to window==nil.
+   [self maybeAddToParentAndUpdateContainer];
 +  if (self.window != nil && _pendingContainerUpdate) {
 +    RNSScreenStackLog(@"didMoveToWindow: retrying pending container update after window restored");
 +    [self schedulePendingContainerUpdateRetry:@"didMoveToWindow-window-restored"];
 +  }
++}
 +
-   if (self.window == nil) {
-     // When hot reload happens that would remove the whole stack, disabling the interaction on a screen out transition
-     // will not be matched with enabling the interactions on another screen's in transition. We need to make sure
-@@ -375,16 +609,29 @@ - (void)didMoveToWindow
-   }
- }
- 
 +- (void)didMoveToSuperview
 +{
 +  [super didMoveToSuperview];
@@ -510,8 +493,8 @@ index e37e40a..1e95f36 100644
 +                                                 RNSSceneSummary(self.window)]);
 +    [self schedulePendingContainerUpdateRetry:@"didMoveToSuperview"];
 +  }
-+}
-+
+ }
+ 
  - (void)maybeAddToParentAndUpdateContainer
  {
    BOOL wasScreenMounted = _controller.parentViewController != nil;
@@ -531,7 +514,7 @@ index e37e40a..1e95f36 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -405,10 +652,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -313,10 +556,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -577,7 +560,7 @@ index e37e40a..1e95f36 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -417,7 +697,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -325,7 +601,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -586,7 +569,7 @@ index e37e40a..1e95f36 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -467,6 +747,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -375,6 +651,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -595,7 +578,7 @@ index e37e40a..1e95f36 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -475,12 +757,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -383,12 +661,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -618,7 +601,7 @@ index e37e40a..1e95f36 100644
      return;
    }
  
-@@ -521,6 +813,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -429,6 +717,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -626,7 +609,7 @@ index e37e40a..1e95f36 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -536,6 +829,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -444,6 +733,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    };
  
    void (^finish)(void) = ^{
@@ -634,7 +617,7 @@ index e37e40a..1e95f36 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -544,10 +838,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -452,10 +742,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -652,7 +635,7 @@ index e37e40a..1e95f36 100644
        afterTransitions();
        return;
      }
-@@ -624,16 +921,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -532,16 +825,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -680,7 +663,7 @@ index e37e40a..1e95f36 100644
                                  finish();
                                }];
          }
-@@ -670,12 +974,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -578,12 +878,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -712,7 +695,7 @@ index e37e40a..1e95f36 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -685,6 +1007,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -593,6 +911,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -720,7 +703,7 @@ index e37e40a..1e95f36 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -750,8 +1073,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -659,8 +978,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -736,7 +719,7 @@ index e37e40a..1e95f36 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -765,6 +1095,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -674,6 +1000,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -746,7 +729,7 @@ index e37e40a..1e95f36 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -816,6 +1149,10 @@ - (void)layoutSubviews
+@@ -743,6 +1072,10 @@ - (void)layoutSubviews
        modal.view.frame = correctFrame;
      }
    }
@@ -756,32 +739,12 @@ index e37e40a..1e95f36 100644
 +  }
  }
  
- - (void)dismissOnReload
-@@ -868,13 +1205,17 @@ - (void)rnscreens_disableInteractions
- {
-   // When transitioning between screens, disable interactions on stack subview which wraps the screens
-   // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
--  self.subviews[0].userInteractionEnabled = NO;
-+  if (self.subviews.count > 0) {
-+    self.subviews[0].userInteractionEnabled = NO;
-+  }
-   [self addGestureRecognizer:_sinkEventsPanGestureRecognizer];
- }
- 
- - (void)rnscreens_enableInteractions
- {
--  self.subviews[0].userInteractionEnabled = YES;
-+  if (self.subviews.count > 0) {
-+    self.subviews[0].userInteractionEnabled = YES;
-+  }
-   [self removeGestureRecognizer:_sinkEventsPanGestureRecognizer];
- }
- 
+ #pragma mark methods connected to transitioning
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 3270127..3df3e65 100644
+index 1c84484..6b3cbaa 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -451,7 +451,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -381,7 +381,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
        appearance.shadowImage = shadowImage;
      }
    } else {
@@ -801,7 +764,7 @@ index 3270127..3df3e65 100644
    }
  
    // set background color if specified
-@@ -461,7 +472,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -391,7 +402,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
  
    switch (config.blurEffect) {
      case RNSBlurEffectStyleNone:
@@ -819,176 +782,21 @@ index 3270127..3df3e65 100644
        break;
  
      case RNSBlurEffectStyleSystemDefault:
-diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-index fc6257e..37067c0 100644
---- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-+++ b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
-@@ -147,22 +147,52 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
- {
-   if (!controller.parentViewController) {
-     UIView *parentView = (UIView *)self.reactSuperview;
-+    BOOL isInsideSwiftUIContainer = NO;
-     while (parentView) {
-       if (parentView.reactViewController) {
--        [parentView.reactViewController addChildViewController:controller];
--        [self addSubview:controller.view];
--
--        // Enable auto-layout to ensure valid size of tabBarController.view.
--        // In host tree, tabBarController.view is the only child of HostComponentView.
--        controller.view.translatesAutoresizingMaskIntoConstraints = NO;
--        [NSLayoutConstraint activateConstraints:@[
--          [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
--          [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
--          [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
--          [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
--        ]];
--
--        [controller didMoveToParentViewController:parentView.reactViewController];
-+        UIViewController *candidateParent = parentView.reactViewController;
-+        // Skip UIHostingController to avoid hierarchy inconsistency when used
-+        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
-+        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
-+          isInsideSwiftUIContainer = YES;
-+          parentView = (UIView *)parentView.reactSuperview;
-+          continue;
-+        }
-+        @try {
-+          [candidateParent addChildViewController:controller];
-+          [self addSubview:controller.view];
-+        } @catch (NSException *exception) {
-+          if (isInsideSwiftUIContainer &&
-+              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
-+            if (![controller.view isDescendantOfView:self]) {
-+              @try {
-+                [self addSubview:controller.view];
-+              } @catch (NSException *innerException) {
-+                // addSubview triggered the same hierarchy exception again —
-+                // the view will be managed by SwiftUI's container instead.
-+              }
-+            }
-+          } else {
-+            @throw;
-+          }
-+        }
-+
-+        // Only set up auto-layout constraints if the view was successfully added.
-+        // If both addSubview attempts failed (caught by @try/@catch), setting constraints
-+        // on views without a common ancestor would create invalid/unsatisfiable constraints.
-+        if ([controller.view isDescendantOfView:self]) {
-+          // Enable auto-layout to ensure valid size of tabBarController.view.
-+          // In host tree, tabBarController.view is the only child of HostComponentView.
-+          controller.view.translatesAutoresizingMaskIntoConstraints = NO;
-+          [NSLayoutConstraint activateConstraints:@[
-+            [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
-+            [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
-+            [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-+            [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
-+          ]];
-+        }
-+
-+        [controller didMoveToParentViewController:controller.parentViewController];
-         break;
-       }
-       parentView = (UIView *)parentView.reactSuperview;
-diff --git a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
-index 40e92b6..9092dbc 100644
---- a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
-+++ b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
-@@ -128,11 +128,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
- {
-   if (!controller.parentViewController) {
-     UIView *parentView = (UIView *)self.reactSuperview;
-+    BOOL isInsideSwiftUIContainer = NO;
-     while (parentView) {
-       if (parentView.reactViewController) {
--        [parentView.reactViewController addChildViewController:controller];
--        [self addSubview:controller.view];
--        [controller didMoveToParentViewController:parentView.reactViewController];
-+        UIViewController *candidateParent = parentView.reactViewController;
-+        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
-+          isInsideSwiftUIContainer = YES;
-+          parentView = (UIView *)parentView.reactSuperview;
-+          continue;
-+        }
-+        @try {
-+          [candidateParent addChildViewController:controller];
-+          [self addSubview:controller.view];
-+        } @catch (NSException *exception) {
-+          if (isInsideSwiftUIContainer &&
-+              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
-+            if (![controller.view isDescendantOfView:self]) {
-+              @try {
-+                [self addSubview:controller.view];
-+              } @catch (NSException *innerException) {
-+                // addSubview triggered the same hierarchy exception again —
-+                // the view will be managed by SwiftUI's container instead.
-+              }
-+            }
-+          } else {
-+            @throw;
-+          }
-+        }
-+        [controller didMoveToParentViewController:controller.parentViewController];
-         break;
-       }
-       parentView = (UIView *)parentView.reactSuperview;
-diff --git a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
-index 3e21388..e4f4785 100644
---- a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
-+++ b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
-@@ -52,11 +52,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
- {
-   if (!controller.parentViewController) {
-     UIView *parentView = (UIView *)self.reactSuperview;
-+    BOOL isInsideSwiftUIContainer = NO;
-     while (parentView) {
-       if (parentView.reactViewController) {
--        [parentView.reactViewController addChildViewController:controller];
--        [self addSubview:controller.view];
--        [controller didMoveToParentViewController:parentView.reactViewController];
-+        UIViewController *candidateParent = parentView.reactViewController;
-+        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
-+          isInsideSwiftUIContainer = YES;
-+          parentView = (UIView *)parentView.reactSuperview;
-+          continue;
-+        }
-+        @try {
-+          [candidateParent addChildViewController:controller];
-+          [self addSubview:controller.view];
-+        } @catch (NSException *exception) {
-+          if (isInsideSwiftUIContainer &&
-+              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
-+            if (![controller.view isDescendantOfView:self]) {
-+              @try {
-+                [self addSubview:controller.view];
-+              } @catch (NSException *innerException) {
-+                // addSubview triggered the same hierarchy exception again —
-+                // the view will be managed by SwiftUI's container instead.
-+              }
-+            }
-+          } else {
-+            @throw;
-+          }
-+        }
-+        [controller didMoveToParentViewController:controller.parentViewController];
-         break;
-       }
-       parentView = (UIView *)parentView.reactSuperview;
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
-index 20abb7c..66a74aa 100644
+index b1c43b7..8678802 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
-@@ -11,4 +11,5 @@
- 
+@@ -12,4 +12,5 @@
  @interface RNSScrollEdgeEffectApplicator : NSObject
- + (void)applyToScrollView:(UIScrollView *)scrollView withProvider:(id<RNSScrollEdgeEffectProviding>)provider;
-++ (void)resetScrollView:(UIScrollView *)scrollView;
+ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
+              withProvider:(nonnull id<RNSScrollEdgeEffectProviding>)provider;
+++ (void)resetScrollView:(nonnull UIScrollView *)scrollView;
  @end
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
-index 0723b64..90dafd2 100644
+index c0fb133..90d75f8 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
-@@ -19,6 +19,22 @@ + (void)applyToScrollView:(UIScrollView *)scrollView withProvider:(id<RNSScrollE
+@@ -20,6 +20,22 @@ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
  #endif
  }
  
@@ -1011,7 +819,7 @@ index 0723b64..90dafd2 100644
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
  + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
                 withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
-@@ -26,20 +42,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+@@ -27,20 +43,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
    if (@available(iOS 26, *)) {
      switch (effectEnum) {
        case RNSScrollEdgeEffectAutomatic:
@@ -1157,66 +965,3 @@ index 2434c61..e24018e 100644
 +}
 +
  @end
-diff --git a/node_modules/react-native-screens/src/components/ScreenStackItem.tsx b/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
-index 43db4ae..0ea0dc8 100644
---- a/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
-+++ b/node_modules/react-native-screens/src/components/ScreenStackItem.tsx
-@@ -44,6 +44,7 @@ function ScreenStackItem(
-     style,
-     screenId,
-     onHeaderHeightChange,
-+    scrollEdgeEffects,
-     // eslint-disable-next-line camelcase
-     unstable_sheetFooter,
-     ...rest
-@@ -78,8 +79,8 @@ function ScreenStackItem(
-   }, [headerConfigHiddenWithDefault, stackPresentationWithDefault]);
- 
-   const hasEdgeEffects =
--    rest?.scrollEdgeEffects === undefined ||
--    Object.values(rest.scrollEdgeEffects).some(
-+    scrollEdgeEffects === undefined ||
-+    Object.values(scrollEdgeEffects).some(
-       propValue => propValue !== 'hidden',
-     );
-   const hasBlurEffect =
-@@ -180,6 +181,7 @@ function ScreenStackItem(
-       hasLargeHeader={headerConfig?.largeTitle ?? false}
-       sheetAllowedDetents={sheetAllowedDetents}
-       style={[style, internalScreenStyle]}
-+      scrollEdgeEffects={isHeaderInModal ? undefined : scrollEdgeEffects}
-       onHeaderHeightChange={isHeaderInModal ? undefined : onHeaderHeightChange}
-       {...rest}>
-       {isHeaderInModal ? (
-@@ -190,6 +192,7 @@ function ScreenStackItem(
-             activityState={activityState}
-             shouldFreeze={shouldFreeze}
-             hasLargeHeader={headerConfig?.largeTitle ?? false}
-+            scrollEdgeEffects={scrollEdgeEffects}
-             style={StyleSheet.absoluteFill}
-             onHeaderHeightChange={onHeaderHeightChange}>
-             {content}
-diff --git a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
-index 9005280..98fc9bb 100644
---- a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
-+++ b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
-@@ -59,6 +59,8 @@ type SwipeDirection = 'vertical' | 'horizontal';
- 
- type ReplaceAnimation = 'pop' | 'push';
- 
-+type ScrollEdgeEffect = 'automatic' | 'hard' | 'soft' | 'hidden';
-+
- type OptionalBoolean = 'undefined' | 'false' | 'true';
- 
- export interface NativeProps extends ViewProps {
-@@ -107,6 +109,10 @@ export interface NativeProps extends ViewProps {
-   navigationBarTranslucent?: boolean;
-   navigationBarHidden?: boolean;
-   nativeBackButtonDismissalEnabled?: boolean;
-+  bottomScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
-+  leftScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
-+  rightScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
-+  topScrollEdgeEffect?: CT.WithDefault<ScrollEdgeEffect, 'automatic'>;
-   synchronousShadowStateUpdatesEnabled?: CT.WithDefault<boolean, false>;
- }
- 

@@ -77,7 +77,7 @@ index 00e8ca9..f872d02 100644
    }
  
 diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
-index f08807d..1123b3c 100644
+index 2adb8be..368fadf 100644
 --- a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
 +++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageModule.kt
 @@ -41,7 +41,7 @@ import expo.modules.kotlin.modules.Module
@@ -89,7 +89,7 @@ index f08807d..1123b3c 100644
  import expo.modules.kotlin.types.toKClass
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.withContext
-@@ -219,7 +219,7 @@ class ExpoImageModule : Module() {
+@@ -313,7 +313,7 @@ class ExpoImageModule : Module() {
          "onDisplay"
        )
  
@@ -98,7 +98,7 @@ index f08807d..1123b3c 100644
          if (sources == null) {
            view.sources = emptyList()
            return@Prop
-@@ -230,6 +230,17 @@ class ExpoImageModule : Module() {
+@@ -324,6 +324,17 @@ class ExpoImageModule : Module() {
            return@Prop
          }
  
@@ -128,39 +128,31 @@ index ce18dad..4043e77 100644
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/node_modules/expo-image/ios/ExpoImage.podspec b/node_modules/expo-image/ios/ExpoImage.podspec
-index 818e050..271ae26 100644
+index ea72ce8..2ef7585 100644
 --- a/node_modules/expo-image/ios/ExpoImage.podspec
 +++ b/node_modules/expo-image/ios/ExpoImage.podspec
-@@ -20,10 +20,10 @@ Pod::Spec.new do |s|
+@@ -29,10 +29,11 @@ Pod::Spec.new do |s|
  
    s.dependency 'ExpoModulesCore'
    s.dependency 'SDWebImage', '~> 5.21.0'
 -  s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
++  # Disabled by OneKey: AVIF decoding has caused excessive memory usage for large images.
 +  # s.dependency 'SDWebImageAVIFCoder', '~> 0.11.0'
    s.dependency 'SDWebImageSVGCoder', '~> 1.7.0'
    s.dependency 'SDWebImageWebPCoder', '~> 0.14.6'
--  s.dependency 'libavif/libdav1d'
-+  # s.dependency 'libavif/libdav1d'
+-  s.dependency 'libavif/libdav1d' unless disable_libdav1d
++  # s.dependency 'libavif/libdav1d' unless disable_libdav1d
  
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
 diff --git a/node_modules/expo-image/ios/ImageLoader.swift b/node_modules/expo-image/ios/ImageLoader.swift
-index a0dacf9..60c38ce 100644
+index de6e2c3..fbb43fa 100644
 --- a/node_modules/expo-image/ios/ImageLoader.swift
 +++ b/node_modules/expo-image/ios/ImageLoader.swift
-@@ -6,12 +6,18 @@ import ExpoModulesCore
- internal final class ImageLoader {
-   static let shared = ImageLoader()
- 
--  lazy var imageManager = SDWebImageManager(
-+  let imageManager = SDWebImageManager(
-     cache: SDImageCache.shared,
-     loader: SDImageLoadersManager.shared
+@@ -12,6 +12,10 @@ internal final class ImageLoader {
    )
  
-   func load(_ source: ImageSource, maxSize: CGSize? = nil) async throws -> UIImage {
-+    // PATCHED: Guard against nil or empty URI to prevent EXC_BAD_ACCESS crash in SDWebImageManager.cacheKeyForURL
-+    // When source.uri is nil or empty, SDWebImage crashes when trying to generate a cache key.
+   func load(_ source: ImageSource, options: ImageLoadOptions) async throws -> UIImage {
 +    guard let sourceUri = source.uri, !sourceUri.absoluteString.isEmpty else {
 +      throw ImageLoadingFailed()
 +    }
@@ -168,61 +160,54 @@ index a0dacf9..60c38ce 100644
      // This loader uses only the disk cache. We may want to give more control on this, but the memory cache
      // doesn't make much sense for shared refs as they're kept in memory as long as their JS objects.
      var context = createSDWebImageContext(forSource: source, cachePolicy: .disk)
-@@ -20,14 +26,87 @@ internal final class ImageLoader {
-       context[.imageThumbnailPixelSize] = maxSize
+@@ -22,14 +26,81 @@ internal final class ImageLoader {
      }
+     context[.imagePreserveAspectRatio] = true
  
--    return try await withCheckedThrowingContinuation { continuation in
+-    let image = try await withCheckedThrowingContinuation { continuation in
 -      imageManager.loadImage(with: source.uri, context: context, progress: nil) { image, _, error, _, _, _ in
 -        if let image {
 -          continuation.resume(returning: image)
 -        } else {
 -          continuation.resume(throwing: ImageLoadingFailed().causedBy(error))
-+    // PATCHED: Fix EXC_BAD_ACCESS crash when ImageLoader is deallocated during async operation.
-+    // Use a class to hold the operation and continuation references, ensuring the continuation
-+    // is resumed exactly once. SDWebImage's cancel() does NOT invoke the completion handler,
-+    // so the onCancel handler must resume the continuation with CancellationError to prevent
-+    // the Task from hanging indefinitely and leaking resources.
 +    final class OperationHolder: @unchecked Sendable {
-+      var operation: SDWebImageCombinedOperation?
-+      var continuation: CheckedContinuation<UIImage, Error>?
++      private var operation: SDWebImageCombinedOperation?
++      private var continuation: CheckedContinuation<UIImage, any Error>?
 +      private var didResume = false
-+      let lock = NSLock()
++      private let lock = NSLock()
 +
-+      func setOperation(_ op: SDWebImageCombinedOperation?) {
++      func setOperation(_ operation: SDWebImageCombinedOperation?) {
 +        lock.lock()
 +        if didResume {
-+          // cancel() was already called, cancel the operation immediately to avoid resource leak
 +          lock.unlock()
-+          op?.cancel()
++          operation?.cancel()
 +          return
 +        }
-+        operation = op
++        self.operation = operation
 +        lock.unlock()
 +      }
 +
-+      func setContinuation(_ cont: CheckedContinuation<UIImage, Error>) {
++      func setContinuation(_ continuation: CheckedContinuation<UIImage, any Error>) {
 +        lock.lock()
 +        if didResume {
-+          // cancel() was already called before we got the continuation
 +          lock.unlock()
-+          cont.resume(throwing: CancellationError())
++          continuation.resume(throwing: CancellationError())
 +          return
 +        }
-+        continuation = cont
++        self.continuation = continuation
 +        lock.unlock()
 +      }
 +
-+      func resume(with result: Result<UIImage, Error>) {
++      func resume(with result: Result<UIImage, any Error>) {
 +        lock.lock()
-+        guard !didResume, let cont = continuation else {
++        guard !didResume, let continuation else {
 +          lock.unlock()
 +          return
 +        }
 +        didResume = true
-+        continuation = nil
++        self.continuation = nil
 +        lock.unlock()
-+        cont.resume(with: result)
++        continuation.resume(with: result)
 +      }
 +
 +      func cancel() {
@@ -230,25 +215,26 @@ index a0dacf9..60c38ce 100644
 +        operation?.cancel()
 +        operation = nil
 +        let shouldResume = !didResume
-+        let cont = continuation
++        let continuation = continuation
 +        if shouldResume {
 +          didResume = true
-+          continuation = nil
++          self.continuation = nil
 +        }
 +        lock.unlock()
-+        if shouldResume, let cont {
-+          cont.resume(throwing: CancellationError())
++        if shouldResume, let continuation {
++          continuation.resume(throwing: CancellationError())
 +        }
 +      }
 +    }
 +
 +    let operationHolder = OperationHolder()
-+
-+    return try await withTaskCancellationHandler {
++    let image = try await withTaskCancellationHandler {
 +      try await withCheckedThrowingContinuation { continuation in
 +        operationHolder.setContinuation(continuation)
-+        let operation = self.imageManager.loadImage(with: sourceUri, context: context, progress: nil) { image, _, error, _, finished, _ in
-+          guard finished else { return }
++        let operation = imageManager.loadImage(with: sourceUri, context: context, progress: nil) { image, _, error, _, finished, _ in
++          guard finished else {
++            return
++          }
 +          if let image {
 +            operationHolder.resume(with: .success(image))
 +          } else {
@@ -260,38 +246,38 @@ index a0dacf9..60c38ce 100644
 +    } onCancel: {
 +      operationHolder.cancel()
      }
-   }
- }
+ 
+     if let tintColor = options.tintColor {
 diff --git a/node_modules/expo-image/ios/ImageModule.swift b/node_modules/expo-image/ios/ImageModule.swift
-index b44f431..9a51548 100644
+index 033da40..0db13f9 100644
 --- a/node_modules/expo-image/ios/ImageModule.swift
 +++ b/node_modules/expo-image/ios/ImageModule.swift
 @@ -2,7 +2,7 @@
  
  import ExpoModulesCore
- import SDWebImage
--import SDWebImageAVIFCoder
-+// import SDWebImageAVIFCoder
- import SDWebImageSVGCoder
+ internal import SDWebImage
+-internal import SDWebImageAVIFCoder
++// internal import SDWebImageAVIFCoder
+ internal import SDWebImageSVGCoder
  
  public final class ImageModule: Module {
-@@ -251,8 +251,9 @@ public final class ImageModule: Module {
- 
+@@ -352,8 +352,9 @@ public final class ImageModule: Module {
    static func registerCoders() {
      SDImageCodersManager.shared.addCoder(WebPCoder.shared)
+     SDImageCodersManager.shared.addCoder(PSDCoder.shared)
 -    SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
 -    SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
++    // Disabled by OneKey after decoder allocation crashes on large AVIF/SVG images.
 +    // SDImageCodersManager.shared.addCoder(SDImageAVIFCoder.shared)
-+    // uncaught exception 'NSInternalInconsistencyException', reason: 'UIGraphicsBeginImageContext() failed to allocate CGBitampContext
 +    // SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
      SDImageCodersManager.shared.addCoder(SDImageHEICCoder.shared)
    }
  
 diff --git a/node_modules/expo-image/ios/ImageView.swift b/node_modules/expo-image/ios/ImageView.swift
-index c33ec33..fbc50ae 100644
+index 45c13d3..9afbfe0 100644
 --- a/node_modules/expo-image/ios/ImageView.swift
 +++ b/node_modules/expo-image/ios/ImageView.swift
-@@ -177,10 +177,17 @@ public final class ImageView: ExpoView {
+@@ -204,10 +204,17 @@ public final class ImageView: ExpoView {
        return
      }
  
@@ -310,7 +296,7 @@ index c33ec33..fbc50ae 100644
        options: loadingOptions,
        context: context,
        progress: imageLoadProgress(_:_:_:),
-@@ -336,7 +343,12 @@ public final class ImageView: ExpoView {
+@@ -439,7 +446,12 @@ public final class ImageView: ExpoView {
  
      let isPlaceholderHash = placeholder.isBlurhash || placeholder.isThumbhash
  
@@ -325,10 +311,10 @@ index c33ec33..fbc50ae 100644
          return
        }
 diff --git a/node_modules/expo-image/src/index.ts b/node_modules/expo-image/src/index.ts
-index 6fa0066..ea0ad81 100644
+index c972a55..61558f6 100644
 --- a/node_modules/expo-image/src/index.ts
 +++ b/node_modules/expo-image/src/index.ts
-@@ -2,3 +2,4 @@ export * from './Image.types';
+@@ -10,3 +10,4 @@ export * from './Image.types';
  export { Image } from './Image';
  export { ImageBackground } from './ImageBackground';
  export { useImage } from './useImage';

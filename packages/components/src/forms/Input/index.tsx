@@ -13,7 +13,6 @@ import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/sr
 import noop from 'lodash/noop';
 
 import {
-  Group,
   getFontSize,
   useProps,
   useThemeName,
@@ -24,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
-import { Icon } from '../../primitives';
+import { Group, Icon } from '../../primitives';
 
 import { Input as TMInput } from './Input';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';

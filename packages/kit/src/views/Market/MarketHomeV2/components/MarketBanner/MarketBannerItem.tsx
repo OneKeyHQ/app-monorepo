@@ -115,7 +115,7 @@ function MarketBannerItemComponent({
       alignItems="flex-start"
       justifyContent="space-between"
       onPress={handlePress}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_BORDER_COLOR}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"

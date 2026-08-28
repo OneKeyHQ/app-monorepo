@@ -186,7 +186,7 @@ index 07f73fd..709de64 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 5932fc1..17245f9 100644
+index 80c6803..8958637 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -44,6 +44,8 @@ import com.reactnativecommunity.webview.events.TopMessageEvent;
@@ -207,7 +207,7 @@ index 5932fc1..17245f9 100644
  
      /**
       * WebView must be created with an context of the current activity
-@@ -111,6 +115,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -107,6 +111,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
          this.nestedScrollEnabled = nestedScrollEnabled;
      }
  
@@ -243,7 +243,7 @@ index 5932fc1..17245f9 100644
      public void onHostResume() {
          // do nothing
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-index 438ab6a..90df081 100644
+index f83033b..e0b3c40 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 @@ -27,6 +27,7 @@ import org.json.JSONObject
@@ -272,7 +272,7 @@ index 438ab6a..90df081 100644
      }
  
      private val TAG = "RNCWebViewManagerImpl"
-@@ -148,7 +160,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -147,7 +159,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              val webChromeClient: RNCWebChromeClient =
                  object : RNCWebChromeClient(webView) {
                      override fun getDefaultVideoPoster(): Bitmap? {
@@ -281,7 +281,7 @@ index 438ab6a..90df081 100644
                      }
  
                      override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-@@ -215,7 +227,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -214,7 +226,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              webChromeClient?.onHideCustomView()
              webChromeClient = object : RNCWebChromeClient(webView) {
                  override fun getDefaultVideoPoster(): Bitmap? {
@@ -290,7 +290,7 @@ index 438ab6a..90df081 100644
                  }
              }
              webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
-@@ -722,4 +734,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -721,4 +733,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              WebSettingsCompat.setPaymentRequestEnabled(view.settings, enabled)
          }
      }
@@ -311,10 +311,10 @@ index 438ab6a..90df081 100644
 +    }
  }
 diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index e20ae03..2c6c0e4 100644
+index 4709e28..e4d48a1 100644
 --- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-@@ -337,6 +337,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+@@ -338,6 +338,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
          mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
      }
  
@@ -327,10 +327,10 @@ index e20ae03..2c6c0e4 100644
      @Override
      public void setAllowingReadAccessToURL(RNCWebViewWrapper view, @Nullable String value) {}
 diff --git a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index 44d3378..8e0cc1f 100644
+index 974337f..d4f774d 100644
 --- a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-@@ -278,6 +278,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
+@@ -279,6 +279,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
          mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
      }
  
@@ -343,10 +343,10 @@ index 44d3378..8e0cc1f 100644
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
 diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
-index 95c0fcc..39c353d 100644
+index c0816b6..3a32f01 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
-@@ -45,6 +45,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
+@@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
  
  @implementation RNCWebView {
      RNCWebViewImpl * _view;
@@ -354,7 +354,7 @@ index 95c0fcc..39c353d 100644
  }
  
  + (ComponentDescriptorProvider)componentDescriptorProvider
-@@ -56,6 +57,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
+@@ -76,6 +77,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
  // Reproduce the idea from here: https://github.com/facebook/react-native/blob/8bd3edec88148d0ab1f225d2119435681fbbba33/React/Fabric/Mounting/ComponentViews/InputAccessory/RCTInputAccessoryComponentView.mm#L142
  - (void)prepareForRecycle {
      [super prepareForRecycle];
@@ -362,7 +362,7 @@ index 95c0fcc..39c353d 100644
      [_view destroyWebView];
  }
  #endif // !TARGET_OS_OSX
-@@ -492,7 +494,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -512,7 +514,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
      if (!newViewProps.newSource.method.empty()) {
          [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
      }
@@ -375,7 +375,7 @@ index 95c0fcc..39c353d 100644
  
      [super updateProps:props oldProps:oldProps];
  }
-@@ -520,7 +526,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+@@ -540,7 +546,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
  }
  
  - (void)loadUrl:(nonnull NSString *)url {
@@ -628,7 +628,7 @@ index f8f375f..a83678d 100644
  QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
  QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
 diff --git a/node_modules/react-native-webview/index.d.ts b/node_modules/react-native-webview/index.d.ts
-index a85ac85..f0ca9a9 100644
+index a3eef13..b7c14a1 100644
 --- a/node_modules/react-native-webview/index.d.ts
 +++ b/node_modules/react-native-webview/index.d.ts
 @@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
@@ -644,10 +644,10 @@ index a85ac85..f0ca9a9 100644
       * Executes the JavaScript string.
       */
 diff --git a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-index d0de585..d92d783 100644
+index 8dd6cef..af2e239 100644
 --- a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
 +++ b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-@@ -225,6 +225,7 @@ export interface NativeProps extends ViewProps {
+@@ -226,6 +226,7 @@ export interface NativeProps extends ViewProps {
      userAgent?: string;
      injectedJavaScriptObject?: string;
      paymentRequestEnabled?: boolean;
@@ -656,10 +656,10 @@ index d0de585..d92d783 100644
  export interface NativeCommands {
      goBack: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
 diff --git a/node_modules/react-native-webview/lib/WebViewTypes.d.ts b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
-index 8cbc89f..42869c0 100644
+index 998cc88..59407fc 100644
 --- a/node_modules/react-native-webview/lib/WebViewTypes.d.ts
 +++ b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
-@@ -1106,5 +1106,11 @@ export interface WebViewSharedProps extends ViewProps {
+@@ -1113,5 +1113,11 @@ export interface WebViewSharedProps extends ViewProps {
       * Enables support for the Payment Request API for the WebView
       */
      paymentRequestEnabled?: boolean;
@@ -672,10 +672,10 @@ index 8cbc89f..42869c0 100644
  }
  export {};
 diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-index 16b65ac..b563ea7 100644
+index 7f4e6c4..e9a75a2 100644
 --- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 +++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-@@ -294,6 +294,7 @@ export interface NativeProps extends ViewProps {
+@@ -295,6 +295,7 @@ export interface NativeProps extends ViewProps {
    userAgent?: string;
    injectedJavaScriptObject?: string;
    paymentRequestEnabled?: boolean;
@@ -684,10 +684,10 @@ index 16b65ac..b563ea7 100644
  
  export interface NativeCommands {
 diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
-index edf06fa..a4be43e 100644
+index 6497a8b..233bb7a 100644
 --- a/node_modules/react-native-webview/src/WebView.android.tsx
 +++ b/node_modules/react-native-webview/src/WebView.android.tsx
-@@ -165,6 +165,8 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
+@@ -168,6 +168,8 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
          },
          stopLoading: () =>
            webViewRef.current && Commands.stopLoading(webViewRef.current),
@@ -710,7 +710,7 @@ index deb179b..40385db 100644
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
-index 08905ea..4889a1f 100644
+index 3b0a38b..52e4bce 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
 +++ b/node_modules/react-native-webview/src/WebViewShared.tsx
 @@ -19,6 +19,10 @@ import styles from './WebView.styles';
@@ -724,7 +724,7 @@ index 08905ea..4889a1f 100644
  const extractOrigin = (url: string): string => {
    const result = /^[A-Za-z][A-Za-z0-9+\-.]+:(\/\/)?[^/]*/.exec(url);
    return result === null ? '' : result[0];
-@@ -234,9 +238,22 @@ export const useWebViewLogic = ({
+@@ -243,9 +247,22 @@ export const useWebViewLogic = ({
        } = event;
        // patch for Android only
        if (Platform.OS === 'android' && progress === 1) {
@@ -751,10 +751,10 @@ index 08905ea..4889a1f 100644
        // !patch for Android only
        onLoadProgress?.(event);
 diff --git a/node_modules/react-native-webview/src/WebViewTypes.ts b/node_modules/react-native-webview/src/WebViewTypes.ts
-index c534d17..408f444 100644
+index eca8141..7387db3 100644
 --- a/node_modules/react-native-webview/src/WebViewTypes.ts
 +++ b/node_modules/react-native-webview/src/WebViewTypes.ts
-@@ -1349,4 +1349,11 @@ export interface WebViewSharedProps extends ViewProps {
+@@ -1357,4 +1357,11 @@ export interface WebViewSharedProps extends ViewProps {
     * Enables support for the Payment Request API for the WebView
     */
    paymentRequestEnabled?: boolean;
