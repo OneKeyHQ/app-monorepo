@@ -536,10 +536,10 @@ function MobileBrowser() {
   const browserDashboardContent = (
     <View
       collapsable={false}
-      pointerEvents={isBrowserDashboardActive ? 'auto' : 'none'}
-      accessibilityElementsHidden={!isBrowserDashboardActive}
+      pointerEvents={showDiscoveryPage ? 'auto' : 'none'}
+      accessibilityElementsHidden={!showDiscoveryPage}
       importantForAccessibility={
-        isBrowserDashboardActive ? 'auto' : 'no-hide-descendants'
+        showDiscoveryPage ? 'auto' : 'no-hide-descendants'
       }
       style={{
         flex: 1,
