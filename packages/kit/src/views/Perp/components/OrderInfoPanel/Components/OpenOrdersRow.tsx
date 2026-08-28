@@ -214,7 +214,7 @@ const OpenOrdersRow = memo(
     ]);
 
     const tpslInfo = useMemo(() => {
-      const tpslChildren = (order.children ?? []) as IPerpsFrontendOrder[];
+      const tpslChildren = order.children ?? [];
       let tpPrice = '--';
       let slPrice = '--';
       if (tpslChildren && tpslChildren.length > 0) {

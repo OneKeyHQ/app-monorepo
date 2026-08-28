@@ -733,6 +733,13 @@ export const {
   read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.midPrice,
 });
 
+export const {
+  target: perpsActiveAssetCtxMarkPriceAtom,
+  use: usePerpsActiveAssetCtxMarkPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.markPrice,
+});
+
 export type IPerpsActiveAssetCtxMidPriceSource =
   | 'live'
   | 'display'

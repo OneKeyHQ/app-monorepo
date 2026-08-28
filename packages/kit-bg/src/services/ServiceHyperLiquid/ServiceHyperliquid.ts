@@ -94,6 +94,7 @@ import type {
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
   IRecentTrade,
+  ISpotBalance,
   ISpotMetaAndAssetCtxsResponse,
   ISpotUniverse,
   ITwapHistoryParameters,
@@ -2152,7 +2153,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Active-account alignment: only process data for current account
     if (!activeAddress || activeAddress !== dataUser) return;
 
-    const balances = spotStateData?.spotState?.balances || [];
+    const allBalances = spotStateData?.spotState?.balances || [];
+    const balances = allBalances.filter(
+      (balance): balance is ISpotBalance => 'token' in balance,
+    );
+    // Outcome-market balances have no token id or price feed, so they cannot
+    // be valued or rendered; the warn keeps the omission diagnosable.
+    const droppedPositiveCount = allBalances.filter(
+      (balance) => !('token' in balance) && new BigNumber(balance.total).gt(0),
+    ).length;
+    if (droppedPositiveCount > 0) {
+      console.warn(
+        `[updateSpotBalances] excluded ${droppedPositiveCount} unsupported outcome balance(s)`,
+      );
+    }
 
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
@@ -3387,7 +3401,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               });
               return null;
             }
-            if (agent.validUntil <= validThreshold) {
+            const validUntil = agent.validUntil ?? Number.MAX_SAFE_INTEGER;
+            if (validUntil <= validThreshold) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_near_expiry',
                 accountAddress,
@@ -3397,7 +3412,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3412,7 +3427,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3431,12 +3446,12 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agent.name,
                   chainAgentAddress: agent.address,
                   localAgentAddress: credential.agentAddress,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
             }
-            credential.validUntil = agent.validUntil;
+            credential.validUntil = validUntil;
             return credential;
           }),
         )
@@ -3484,7 +3499,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           );
           const agentToRemove = (
             nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-          ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
+          ).toSorted(
+            (a, b) =>
+              (a.validUntil ?? Number.MAX_SAFE_INTEGER) -
+              (b.validUntil ?? Number.MAX_SAFE_INTEGER),
+          )?.[0];
           const agentNameToRemove = agentToRemove?.name as
             | EHyperLiquidAgentName
             | undefined;

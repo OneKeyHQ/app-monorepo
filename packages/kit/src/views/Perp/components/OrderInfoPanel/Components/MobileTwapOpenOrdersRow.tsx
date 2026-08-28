@@ -12,12 +12,17 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatTwapPriceForDisplay,
+  getTwapElapsedMs,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { ITwapHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
 import { getOrderAssetDisplayName } from '../utils';
@@ -35,6 +40,8 @@ const valueFormatter: INumberFormatProps = {
 
 interface IMobileTwapOpenOrdersRowProps {
   order: IPerpsActiveTwapOrder;
+  status: ITwapHistoryRecord['status']['status'];
+  activatedAt?: number;
   onCancelOrder: () => void;
 }
 
@@ -80,7 +87,12 @@ function MobileTwapInfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const MobileTwapOpenOrdersRow = memo(
-  ({ order, onCancelOrder }: IMobileTwapOpenOrdersRowProps) => {
+  ({
+    order,
+    status,
+    activatedAt,
+    onCancelOrder,
+  }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
     const [now, setNow] = useState(Date.now());
@@ -88,9 +100,12 @@ const MobileTwapOpenOrdersRow = memo(
     const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
 
     useEffect(() => {
+      if (status === 'waitingForTrigger') {
+        return undefined;
+      }
       const timer = setInterval(() => setNow(Date.now()), 1000);
       return () => clearInterval(timer);
-    }, []);
+    }, [status]);
 
     const assetSymbol = useMemo(
       () =>
@@ -129,15 +144,19 @@ const MobileTwapOpenOrdersRow = memo(
               .multipliedBy(100)
               .toFixed(0)
           : undefined;
-      const progressText =
-        totalSize.gt(0) && executedSize.gte(0)
-          ? `${numberFormat(
-              executedSize.toFixed(),
-              balanceFormatter,
-            )} / ${numberFormat(totalSize.toFixed(), balanceFormatter)}${
-              progressPercent ? ` · ${progressPercent}%` : ''
-            }`
-          : `${state.executedSz} / ${state.sz}`;
+      const isWaitingForTrigger = status === 'waitingForTrigger';
+      let progressText = '--';
+      if (!isWaitingForTrigger) {
+        progressText =
+          totalSize.gt(0) && executedSize.gte(0)
+            ? `${numberFormat(
+                executedSize.toFixed(),
+                balanceFormatter,
+              )} / ${numberFormat(totalSize.toFixed(), balanceFormatter)}${
+                progressPercent ? ` · ${progressPercent}%` : ''
+              }`
+            : `${state.executedSz} / ${state.sz}`;
+      }
       const minuteUnit = intl
         .formatMessage({ id: ETranslations.Limit_expire_minutes })
         .toLowerCase();
@@ -146,25 +165,32 @@ const MobileTwapOpenOrdersRow = memo(
           ? ` · ${intl.formatMessage({ id: ETranslations.global_randomized })}`
           : ''
       }`;
-      const elapsedMs = Math.min(
-        Math.max(now - state.timestamp, 0),
-        state.minutes * 60_000,
-      );
+      const elapsedMs = getTwapElapsedMs({
+        status,
+        timestamp: state.timestamp,
+        activatedAt,
+        now,
+        minutes: state.minutes,
+      });
       return {
         progressText,
         avgPriceFormatted: avgPriceValue
           ? formatLocalizedNumberString(avgPriceValue)
           : '--',
         executedValueFormatted: numberFormat(state.executedNtl, valueFormatter),
+        triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
+        stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
         execution,
-        runningTimeText: `${formatElapsedDuration(
-          elapsedMs,
-        )} / ${formatTotalDuration(state.minutes)}`,
+        runningTimeText: isWaitingForTrigger
+          ? '--'
+          : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
+              state.minutes,
+            )}`,
         reduceOnlyText: state.reduceOnly
           ? intl.formatMessage({ id: ETranslations.perp_yes__title })
           : intl.formatMessage({ id: ETranslations.perp_no__title }),
       };
-    }, [intl, now, state]);
+    }, [activatedAt, intl, now, state, status]);
 
     const sideText = useMemo(() => {
       if (state.side === 'B') {
@@ -177,6 +203,12 @@ const MobileTwapOpenOrdersRow = memo(
         : intl.formatMessage({ id: ETranslations.perp_short });
     }, [intl, state.reduceOnly, state.side]);
     const typeColor = state.side === 'B' ? '$green11' : '$red11';
+    const statusText = intl.formatMessage({
+      id:
+        status === 'waitingForTrigger'
+          ? ETranslations.global_pending
+          : ETranslations.perp_twap_status_activated__title,
+    });
 
     return (
       <ListItem
@@ -236,6 +268,25 @@ const MobileTwapOpenOrdersRow = memo(
               id: ETranslations.perp_twap_duration__title,
             })}
             value={baseInfo.execution}
+          />
+          <MobileTwapInfoRow
+            label={intl.formatMessage({ id: ETranslations.global_status })}
+            value={statusText}
+          />
+          <MobileTwapInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_pro_trigger_price,
+            })}
+            value={baseInfo.triggerPriceFormatted}
+          />
+          <MobileTwapInfoRow
+            label={intl.formatMessage({
+              id:
+                state.side === 'B'
+                  ? ETranslations.perp_scale_upper_price_label__title
+                  : ETranslations.perp_scale_lower_price_label__title,
+            })}
+            value={baseInfo.stopPriceFormatted}
           />
           <MobileTwapInfoRow
             label={intl.formatMessage({

@@ -25,6 +25,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatTwapPriceForOrder } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -254,10 +255,34 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
+    // The user must confirm the exact wire prices the submit path sends.
+    const triggerPrice = formatTwapPriceForOrder({
+      price: formData.twapTriggerPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
+    const stopPrice = formatTwapPriceForOrder({
+      price: formData.twapStopPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
     return {
       minutes: Number(formData.twapDurationMinutes ?? 0),
+      triggerPrice: triggerPrice
+        ? `$${formatLocalizedNumberString(triggerPrice)}`
+        : undefined,
+      stopPrice: stopPrice
+        ? `$${formatLocalizedNumberString(stopPrice)}`
+        : undefined,
     };
-  }, [formData.twapDurationMinutes, isTwapMode]);
+  }, [
+    formData.twapDurationMinutes,
+    formData.twapStopPrice,
+    formData.twapTriggerPrice,
+    isSpot,
+    isTwapMode,
+    szDecimals,
+  ]);
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -723,6 +748,33 @@ function OrderConfirmContent({
                 {twapPreview.minutes} {minuteUnit}
               </SizableText>
             </XStack>
+            {twapPreview.triggerPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_pro_trigger_price,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.triggerPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
+            {twapPreview.stopPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id:
+                      effectiveSide === 'long'
+                        ? ETranslations.perp_scale_upper_price_label__title
+                        : ETranslations.perp_scale_lower_price_label__title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.stopPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
           </>
         ) : null}
 

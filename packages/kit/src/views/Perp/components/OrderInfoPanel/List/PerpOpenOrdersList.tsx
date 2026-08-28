@@ -18,6 +18,7 @@ import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
+  usePerpsTwapHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
@@ -25,6 +26,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  buildActiveTwapRuntimeInfoByKey,
+  getActiveTwapRuntimeStatus,
+  getTwapRuntimeInfoKey,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
@@ -215,6 +221,7 @@ function PerpOpenOrdersList({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [twapHistoryState] = usePerpsTwapHistoryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
@@ -263,6 +270,23 @@ function PerpOpenOrdersList({
       twapOrdersState.accountAddress,
       twapOrdersState.twapOrders,
     ],
+  );
+  const scopedTwapHistory = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: twapHistoryState.accountAddress,
+        data: twapHistoryState.history,
+      }),
+    [
+      accountScopedAddress,
+      twapHistoryState.accountAddress,
+      twapHistoryState.history,
+    ],
+  );
+  const activeTwapRuntimeInfoByKey = useMemo(
+    () => buildActiveTwapRuntimeInfoByKey(scopedTwapHistory),
+    [scopedTwapHistory],
   );
   const openOrders = useMemo(
     () =>
@@ -483,9 +507,21 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(
+        getTwapRuntimeInfoKey(item.order.state),
+      );
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );

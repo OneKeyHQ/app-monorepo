@@ -121,9 +121,7 @@ type IHyperliquidWsClient = {
   transport: WebSocketTransport;
   dispose: () => Promise<void>;
   hlEventTarget: IHyperliquidEventTarget;
-  wsRequester: {
-    request: (method: string, payload: any) => Promise<void>;
-  };
+  ping: () => Promise<void>;
   subscribe: <T extends ESubscriptionType>(
     type: T,
     params: IPerpsSubscriptionParams[T],
@@ -185,6 +183,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _pingIntervalTimer: ReturnType<typeof setInterval> | null = null;
+
+  private _pingMeasurementClient: IHyperliquidWsClient | null = null;
 
   private _lastMessageAt: number | null = null;
 
@@ -1636,9 +1636,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       transport.socket.addEventListener('open', this.socketOpenHandler);
       // transport.socket.addEventListener('message', this.socketMessageHandler);
       const innerClient = new SubscriptionClient({ transport });
-      const innerTransport = transport;
-      // @ts-ignore
-      const hlEventTarget = innerTransport._hlEvents;
+      // OneKey reconciles subscriptions itself, so it needs the SDK's parsed
+      // events and raw dispatcher without delegating ownership to the client.
+      const { _hlEvents: hlEventTarget, _dispatcher: subscriptionDispatcher } =
+        transport as unknown as {
+          _hlEvents: IHyperliquidEventTarget;
+          _dispatcher: {
+            request: (
+              method: 'subscribe' | 'unsubscribe',
+              payload: unknown,
+            ) => Promise<void>;
+          };
+        };
 
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
@@ -1707,15 +1716,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         registerSubscriptionHandler(type);
       });
 
-      // @ts-ignore
-      const wsRequester = innerTransport._postRequest as {
-        request: (method: string, payload: any) => Promise<void>;
-      };
       const subscribe = async <T extends ESubscriptionType>(
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        return wsRequester.request('subscribe', {
+        return subscriptionDispatcher.request('subscribe', {
           type,
           ...params,
         });
@@ -1724,35 +1729,50 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        return wsRequester.request('unsubscribe', {
+        return subscriptionDispatcher.request('unsubscribe', {
           type,
           ...params,
         });
       };
+      const ping = () =>
+        new Promise<void>((resolve, reject) => {
+          const listenerController = new AbortController();
+          const timeout = setTimeout(() => {
+            listenerController.abort();
+            reject(new Error('Hyperliquid WebSocket ping timed out'));
+          }, transport.timeout ?? 10_000);
+          hlEventTarget.addEventListener(
+            'pong',
+            () => {
+              clearTimeout(timeout);
+              listenerController.abort();
+              resolve();
+            },
+            { once: true, signal: listenerController.signal },
+          );
+          try {
+            transport.socket.send('{"method":"ping"}');
+          } catch (error) {
+            clearTimeout(timeout);
+            listenerController.abort();
+            reject(error);
+          }
+        });
       this._client = {
         clientId,
         transport,
         hlEventTarget,
-        wsRequester,
+        ping,
         subscribe,
         unsubscribe,
         dispose: async () => {
-          // OneKey: dispose order matters for orphan-timer cleanup. We must
-          // close the underlying socket BEFORE removing OUR listeners — the
-          // close() triggers rews's internal `cleanup` listener (registered
-          // with { once: true } on close/error/open) which calls clearTimeout
-          // on its connection-timeout timer. If we removed listeners first,
-          // any in-flight close event might be dropped before rews can clean
-          // up its 5s setTimeout, leaving an orphan timer that could fire
-          // after dispose and re-trigger the dispatchEvent path (now caught
-          // defensively by the rews patch, but harmless cleanup is preferred).
+          // Closing first lets the socket release reconnect timers before our
+          // listeners are detached.
           defaultLogger.perp.hyperliquid.subscriptionTransportDispose({
             clientId,
           });
           try {
-            // Close socket first so rews's internal close listener fires and
-            // clears its connection-timeout setTimeout.
-            transport.socket.close();
+            transport.close();
           } catch (error) {
             console.error('dispose__transport.socket.close__error', error);
           }
@@ -2522,12 +2542,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _measurePing(): Promise<void> {
     const client = this._client;
-    if (!client) {
+    if (!client || this._pingMeasurementClient === client) {
       return;
     }
+    this._pingMeasurementClient = client;
     try {
       const start = Date.now();
-      await client.wsRequester.request('ping', undefined);
+      await client.ping();
       // Guard: client may have been replaced/closed during await
       if (this._client !== client) return;
       const pingMs = Date.now() - start;
@@ -2535,10 +2556,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
       );
     } catch {
+      if (this._client !== client) return;
       // Ping failed — clear displayed value without marking disconnected
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
       );
+    } finally {
+      if (this._pingMeasurementClient === client) {
+        this._pingMeasurementClient = null;
+      }
     }
   }
 
