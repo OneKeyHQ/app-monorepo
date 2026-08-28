@@ -26,6 +26,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/hardware', () => ({
 
 import {
   isWcPayHardwarePromptActive,
+  isWcPayPromptParkingEnabled,
   useWcPayPromptParking,
 } from '../useWcPayPromptParking';
 
@@ -177,6 +178,26 @@ describe('useWcPayPromptParking', () => {
     expect(reveal).toHaveBeenCalledTimes(1);
   });
 
+  it('does not re-park across an identity change between two prompts', () => {
+    // The atom swaps one prompting action for another (confirm-on-device ->
+    // the processing dialog the state machine emits after it). The sheet is
+    // already parked, so nothing should move until the state clears.
+    const { park, reveal, rerender } = setup();
+    hardwareState = hardwareUiState(EHardwareUiStateAction.REQUEST_BUTTON);
+    rerender({ enabled: true });
+    expect(park).toHaveBeenCalledTimes(1);
+
+    hardwareState = hardwareUiState(EHardwareUiStateAction.ProcessLoading);
+    rerender({ enabled: true });
+    expect(park).toHaveBeenCalledTimes(1);
+    expect(reveal).not.toHaveBeenCalled();
+
+    hardwareState = undefined;
+    rerender({ enabled: true });
+
+    expect(reveal).toHaveBeenCalledTimes(1);
+  });
+
   it('classifier check: REQUEST_PIN then CLOSE_UI_PIN_WINDOW reveals', () => {
     // Classification only, NOT a runtime path: ServiceHardware never writes
     // CLOSE_UI_PIN_WINDOW to the atom (SKIPPED_EVENTS) and the state machine
@@ -300,5 +321,83 @@ describe('isWcPayHardwarePromptActive', () => {
     const values = Object.values(EXPECTED_PROMPT_ACTIVE);
     expect(values).toContain(true);
     expect(values).toContain(false);
+  });
+});
+
+describe('isWcPayPromptParkingEnabled', () => {
+  // All 8 combinations: only the native + paying + no-sub-flow row enables.
+  it.each([
+    {
+      isNative: true,
+      pagePhaseName: 'paying',
+      isSubFlowOwningScreen: false,
+      expected: true,
+    },
+    {
+      isNative: true,
+      pagePhaseName: 'paying',
+      isSubFlowOwningScreen: true,
+      expected: false,
+    },
+    {
+      isNative: true,
+      pagePhaseName: 'idle',
+      isSubFlowOwningScreen: false,
+      expected: false,
+    },
+    {
+      isNative: true,
+      pagePhaseName: 'idle',
+      isSubFlowOwningScreen: true,
+      expected: false,
+    },
+    {
+      isNative: false,
+      pagePhaseName: 'paying',
+      isSubFlowOwningScreen: false,
+      expected: false,
+    },
+    {
+      isNative: false,
+      pagePhaseName: 'paying',
+      isSubFlowOwningScreen: true,
+      expected: false,
+    },
+    {
+      isNative: false,
+      pagePhaseName: 'idle',
+      isSubFlowOwningScreen: false,
+      expected: false,
+    },
+    {
+      isNative: false,
+      pagePhaseName: 'idle',
+      isSubFlowOwningScreen: true,
+      expected: false,
+    },
+  ] as const)(
+    'isNative=$isNative phase=$pagePhaseName subFlow=$isSubFlowOwningScreen -> $expected',
+    ({ expected, ...params }) => {
+      expect(isWcPayPromptParkingEnabled(params)).toBe(expected);
+    },
+  );
+
+  it('the terminal result phase never parks, on either platform', () => {
+    // Guarded separately from the table: `result` is terminal and its polling
+    // must own the screen, so it must not be lumped in with `paying`.
+    expect(
+      isWcPayPromptParkingEnabled({
+        isNative: true,
+        pagePhaseName: 'result',
+        isSubFlowOwningScreen: false,
+      }),
+    ).toBe(false);
+    expect(
+      isWcPayPromptParkingEnabled({
+        isNative: false,
+        pagePhaseName: 'result',
+        isSubFlowOwningScreen: false,
+      }),
+    ).toBe(false);
   });
 });

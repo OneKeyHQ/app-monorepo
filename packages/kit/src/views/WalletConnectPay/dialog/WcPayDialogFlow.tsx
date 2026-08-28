@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 
 import { DialogV2 } from '@onekeyhq/components/src/composite/DialogV2';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalWalletConnectPayRoutes,
@@ -48,7 +49,10 @@ import {
   nextWcPayPagePhaseAfterAttempt,
 } from '../hooks/wcPayInlineUtils';
 
-import { useWcPayPromptParking } from './useWcPayPromptParking';
+import {
+  isWcPayPromptParkingEnabled,
+  useWcPayPromptParking,
+} from './useWcPayPromptParking';
 import {
   WcPayConfirmingStep,
   WcPayDamagedStep,
@@ -292,15 +296,23 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     [],
   );
   // The password prompt and the hardware dialogs/toasts are RN-layer surfaces
-  // the system sheet covers: park it while one is up, reveal it when it
-  // clears. Reveal ownership is split — this hook only undoes its OWN park,
-  // and only while no sub-flow owns the screen: revealing after a confirm
-  // page belongs to onAfterConfirmModalSettled (the sheet would otherwise pop
-  // up over a confirm page that is still open, since the page's own password
-  // prompt clears while the page stays), and the terminal reveal on every
-  // exit path belongs to handlePay's finally.
+  // the system sheet covers on native: park it while one is up, reveal it
+  // when it clears (web/desktop already paint those above the DialogV2 popup,
+  // so the rule is native-only — see isWcPayPromptParkingEnabled). Reveal
+  // ownership is split — this hook only undoes its OWN park, and only while
+  // no sub-flow owns the screen: revealing after a confirm page belongs to
+  // onAfterConfirmModalSettled (the sheet would otherwise pop up over a
+  // confirm page that is still open, since the page's own password prompt
+  // clears while the page stays), and the terminal reveal on every exit path
+  // belongs to handlePay's finally.
   useWcPayPromptParking({
-    enabled: pagePhase.name === 'paying' && !isSubFlowOwningScreen,
+    enabled: isWcPayPromptParkingEnabled({
+      // platformEnv flags are optional booleans; narrow at the boundary so
+      // the rule itself stays a plain boolean predicate
+      isNative: Boolean(platformEnv.isNative),
+      pagePhaseName: pagePhase.name,
+      isSubFlowOwningScreen,
+    }),
     park: parkWcPayDialog,
     reveal: revealWcPayDialogAfterTransition,
   });
@@ -577,7 +589,13 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // parks so the pushed confirm modal owns the screen (it would sit
         // under the iOS system sheet otherwise); handlePay's finally reveals
         // it again.
+        // Every park is paired with the flag, here as everywhere: a confirm
+        // modal follows this park, and relying on onBeforePushConfirmModal
+        // (a few statements later) to raise the flag would make the pairing
+        // an ordering accident. Cleared by onAfterConfirmModalSettled and, on
+        // any exit path, by handlePay's finally.
         onFallback: () => {
+          setIsSubFlowOwningScreen(true);
           parkWcPayDialog();
           setPagePhase({ name: 'paying', step: 'preparing' });
         },

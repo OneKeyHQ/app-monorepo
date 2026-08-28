@@ -52,11 +52,45 @@ export function isWcPayHardwarePromptActive(
 }
 
 /**
+ * Phase names the parking rule distinguishes. Not imported from the flow (that
+ * would be a cycle): the flow passes `pagePhase.name`, so a phase added there
+ * and missing here is a compile error at the call site — the sync guard.
+ */
+export type IWcPayPromptParkingPhaseName = 'idle' | 'paying' | 'result';
+
+/**
+ * When the prompt parking applies at all. Split out from the flow so the rule
+ * is testable on its own — every term below is load-bearing.
+ *
+ * NATIVE ONLY. The problem it solves is native-specific: there the sheet is a
+ * system presentation (@expo/ui BottomSheet / Android M3 ModalBottomSheet)
+ * that covers every RN-layer surface. On web/desktop the ordering is already
+ * correct — the password prompt renders at z-index 160000
+ * (PASSWORD_VERIFY_CONTAINER_Z_INDEX) and the hardware dialogs above the
+ * DialogV2 web popup at z-index 50 (dialog.css) — so parking there would fix
+ * nothing and cost something: hiding the dialog unmounts and remounts it
+ * through its exit/entry animation and races base-ui's focus restore against
+ * the password input the user is typing into.
+ */
+export function isWcPayPromptParkingEnabled({
+  isNative,
+  pagePhaseName,
+  isSubFlowOwningScreen,
+}: {
+  isNative: boolean;
+  pagePhaseName: IWcPayPromptParkingPhaseName;
+  isSubFlowOwningScreen: boolean;
+}): boolean {
+  return isNative && pagePhaseName === 'paying' && !isSubFlowOwningScreen;
+}
+
+/**
  * The pay sheet is a system-level presentation that covers the RN-layer
  * password and hardware dialogs. While a prompt is on screen the sheet must
  * park (hide) so the user can answer it, and come back once it is gone.
  * Cached-password and biometric paths never set these atoms, so they keep the
- * sheet up.
+ * sheet up. Native only — see isWcPayPromptParkingEnabled for why the hook is
+ * left disabled on web/desktop rather than made harmless there.
  *
  * The parking is REACTIVE, and that is a known timing caveat: the pipelines
  * emit `onPhase('signingMessage')` fire-and-forget and there is no awaited
