@@ -140,9 +140,13 @@ export function useMarketStockColumns({
                 every surface: `compact` only affects column widths and the
                 metric columns. */}
             <XStack flex={1} minWidth={0} alignItems="center" gap={14}>
+              {/* Stock logos are often white artwork on a transparent
+                  background (QQQ, SPY), which vanishes against the `$bgApp`
+                  default this component uses in the light theme. */}
               <Token
                 size="lg"
                 borderRadius="$full"
+                bg="$bgStrong"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
