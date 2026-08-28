@@ -48,6 +48,7 @@ import {
   nextWcPayPagePhaseAfterAttempt,
 } from '../hooks/wcPayInlineUtils';
 
+import { useWcPayPromptParking } from './useWcPayPromptParking';
 import {
   WcPayConfirmingStep,
   WcPayDamagedStep,
@@ -240,6 +241,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const [damagedContext, setDamagedContext] = useState<IWcPayDamagedContext>();
   const [damagedDiscardLoading, setDamagedDiscardLoading] = useState(false);
   const [damagedDiscardFailed, setDamagedDiscardFailed] = useState(false);
+  // A pushed RN-layer page (the compliance form route, or a confirm modal)
+  // owns the screen while the sheet is parked for it. State, not a ref: the
+  // prompt parking below has to react to it. See useWcPayPromptParking.
+  const [isSubFlowOwningScreen, setIsSubFlowOwningScreen] = useState(false);
 
   // Pre-sign cancellation for the attempt in flight. Aborted when this flow
   // unmounts (the container unmounts it on close), preserving the page's
@@ -286,6 +291,19 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     },
     [],
   );
+  // The password prompt and the hardware dialogs/toasts are RN-layer surfaces
+  // the system sheet covers: park it while one is up, reveal it when it
+  // clears. Reveal ownership is split — this hook only undoes its OWN park,
+  // and only while no sub-flow owns the screen: revealing after a confirm
+  // page belongs to onAfterConfirmModalSettled (the sheet would otherwise pop
+  // up over a confirm page that is still open, since the page's own password
+  // prompt clears while the page stays), and the terminal reveal on every
+  // exit path belongs to handlePay's finally.
+  useWcPayPromptParking({
+    enabled: pagePhase.name === 'paying' && !isSubFlowOwningScreen,
+    park: parkWcPayDialog,
+    reveal: revealWcPayDialogAfterTransition,
+  });
 
   // Mounted unconditionally (hooks order); idle until the result phase.
   const resultParams =
@@ -476,6 +494,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         }
         // The form is a full-screen route (Q10): the dialog parks while the
         // form owns the screen and returns when it settles either way.
+        setIsSubFlowOwningScreen(true);
         await parkWcPayDialogAndWait();
         try {
           await new Promise<void>((resolve, reject) => {
@@ -491,6 +510,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
             });
           });
         } finally {
+          setIsSubFlowOwningScreen(false);
           revealWcPayDialogAfterTransition();
         }
       }
@@ -538,6 +558,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // Paired with onAfterConfirmModalSettled below; both calls are
         // idempotent.
         onBeforePushConfirmModal: async () => {
+          setIsSubFlowOwningScreen(true);
           await parkWcPayDialogAndWait();
         },
         // Reveals the dialog the moment a confirm modal settles, so the
@@ -549,6 +570,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // onBeforePushConfirmModal; handlePay's finally stays as the
         // terminal reveal on every exit path.
         onAfterConfirmModalSettled: () => {
+          setIsSubFlowOwningScreen(false);
           revealWcPayDialogAfterTransition();
         },
         // Single owner of the transition out of inline execution. The dialog
@@ -708,6 +730,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         payCancelControllerRef.current = undefined;
       }
       setIsPaying(false);
+      // no sub-flow can outlive the attempt that pushed it; releasing the
+      // flag here keeps a stuck `true` from disabling the prompt parking for
+      // every later attempt
+      setIsSubFlowOwningScreen(false);
       // the dialog may still be parked behind a sub-flow exit path
       revealWcPayDialogAfterTransition();
       // Reduced through the updater rather than the captured `pagePhase`,
