@@ -42,8 +42,8 @@ describe('useMarketStockColumns', () => {
   it('uses the stock selector layout and Perps tooltip pattern', () => {
     const { result } = renderHook(() =>
       useMarketStockColumns({
+        compact: true,
         showSparkline: false,
-        variant: 'selector',
       }),
     );
 
