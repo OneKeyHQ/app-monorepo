@@ -3539,7 +3539,9 @@ export function useSwapBuildTx({
         // apply (external-wallet accounts) can still show a real fee.
         const originalGasFeeFiatValueAll = gasFeeResults.reduce((acc, curr) => {
           return acc.plus(
-            new BigNumber(curr.originalTotalFiat ?? curr.totalFiatMinForDisplay),
+            new BigNumber(
+              curr.originalTotalFiat ?? curr.totalFiatMinForDisplay,
+            ),
           );
         }, new BigNumber(0));
         const netWorkFee: ISwapPreSwapData['netWorkFee'] = {
