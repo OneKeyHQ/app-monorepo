@@ -7,9 +7,14 @@ import {
   readWcPayPermitTokenAddress,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayMessageConsistency';
 import { checkWcPayEvmActionMatchesOrder } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayOrderConsistency';
-import {
-  type IWcPaySolanaSummary,
-  checkWcPaySolanaTxMatchesOrder,
+// Type-only, and it must stay that way: the module it names decodes
+// transactions with @solana/web3.js, which must not enter this (UI) bundle —
+// the check itself runs in the background
+// (ServiceWalletConnectPay.checkSolanaTxMatchesOrder) and its verdict is
+// handed to getWcPayInlineSolanaPlan below.
+import type {
+  IWcPaySolanaConsistencyResult,
+  IWcPaySolanaSummary,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -46,6 +51,12 @@ export type IWcPayInlineMessagePlan =
 
 export type IWcPayInlineSolanaPlan =
   | { mode: 'inline'; summary: IWcPaySolanaSummary; txBase64: string }
+  | { mode: 'fallback'; reason: string };
+
+// What the UI must ask the background to check, once the action's method and
+// params alone prove it is a Solana payment request.
+export type IWcPayInlineSolanaRequest =
+  | { mode: 'request'; txBase64: string; caip2ChainId: string }
   | { mode: 'fallback'; reason: string };
 
 // Failure stages of the inline pipeline. The stage — not the error content —
@@ -242,26 +253,21 @@ export function getWcPayInlineMessagePlan({
 }
 
 /**
- * The Solana sign-transaction gate. The validator proves the blob's shape,
- * amount and fee bounds but deliberately stops at the mint ADDRESS: it never
- * resolves a symbol. So for an spl leg this plan additionally demands the
- * caller's registry lookup (`resolvedToken`) and refuses unless it agrees
- * with both the mint and what the option displays — the same boundary
- * `getWcPayInlineMessagePlan` draws for EVM. Native legs carry no mint and
- * are fully judged by the validator itself.
+ * First half of the Solana gate: the part that can be decided from the
+ * action alone (method + params). The order check itself needs
+ * @solana/web3.js and therefore runs in the background — hand `txBase64`
+ * and `caip2ChainId` to `ServiceWalletConnectPay.checkSolanaTxMatchesOrder`
+ * and feed its verdict to `getWcPayInlineSolanaPlan`.
  *
  * Must never throw — `action` crosses a trust boundary (server response).
  */
-export function getWcPayInlineSolanaPlan({
+export function getWcPayInlineSolanaRequest({
   action,
   option,
-  resolvedToken,
 }: {
   action: IWcPayAction;
   option: IWcPayOption | undefined;
-  // The wallet-registry lookup of `summary.mint`; only spl legs consult it.
-  resolvedToken?: IWcPayResolvedToken;
-}): IWcPayInlineSolanaPlan {
+}): IWcPayInlineSolanaRequest {
   if (!option) {
     return { mode: 'fallback', reason: 'no selected option' };
   }
@@ -279,11 +285,34 @@ export function getWcPayInlineSolanaPlan({
   } catch {
     return { mode: 'fallback', reason: 'unparseable params' };
   }
-  const consistency = checkWcPaySolanaTxMatchesOrder({
-    txBase64,
-    caip2ChainId: action.walletRpc.chainId,
-    option,
-  });
+  return { mode: 'request', txBase64, caip2ChainId: action.walletRpc.chainId };
+}
+
+/**
+ * Second half: turns the background's verdict into a plan. The validator
+ * proves the blob's shape, amount and fee bounds but deliberately stops at
+ * the mint ADDRESS — it never resolves a symbol. So for an spl leg this plan
+ * additionally demands the caller's registry lookup (`resolvedToken`) and
+ * refuses unless it agrees with both the mint and what the option displays —
+ * the same boundary `getWcPayInlineMessagePlan` draws for EVM. Native legs
+ * carry no mint and are fully judged by the validator itself.
+ *
+ * Must never throw — `consistency` reflects a server-supplied payload.
+ */
+export function getWcPayInlineSolanaPlan({
+  option,
+  txBase64,
+  consistency,
+  resolvedToken,
+}: {
+  option: IWcPayOption;
+  // The blob the verdict was produced for, carried through so the caller
+  // signs exactly what was checked.
+  txBase64: string;
+  consistency: IWcPaySolanaConsistencyResult;
+  // The wallet-registry lookup of `summary.mint`; only spl legs consult it.
+  resolvedToken?: IWcPayResolvedToken;
+}): IWcPayInlineSolanaPlan {
   if (!consistency.ok) {
     return { mode: 'fallback', reason: consistency.reason };
   }

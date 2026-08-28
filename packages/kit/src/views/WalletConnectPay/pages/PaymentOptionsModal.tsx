@@ -121,9 +121,10 @@ function getWcPayPayingStepLabel(step: IWcPayPagePayingStep): string {
     // the label must not promise a separate broadcast step
     case 'signing':
       return 'Signing & broadcasting…';
-    // placeholder: real message-signing copy lands with the inline Permit2 UI
+    // a message signature never broadcasts; placeholder until the inline
+    // Permit2 UI brings the real copy
     case 'signingMessage':
-      return 'Signing & broadcasting…';
+      return 'Signing…';
     case 'recording':
       return 'Finalizing…';
     case 'submitting':

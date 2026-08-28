@@ -19,17 +19,6 @@ jest.mock('@onekeyhq/shared/src/utils/messageUtils', () => ({
   autoFixPersonalSignMessage: ({ message }: { message: string }) => message,
 }));
 
-// same jsdom limitation: wcPayInlineUtils reaches the Solana validator,
-// which imports @solana/web3.js → @noble at module load; its verdicts play
-// no part in the choreography under test
-jest.mock(
-  '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency',
-  () => ({
-    __esModule: true,
-    checkWcPaySolanaTxMatchesOrder: jest.fn(),
-  }),
-);
-
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const services = {
     serviceNetwork: {

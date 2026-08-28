@@ -27,6 +27,7 @@ import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes'
 import type {
   IWcPayAction,
   IWcPayConfirmResult,
+  IWcPayOption,
   IWcPayOptionsResult,
   IWcPayPreBroadcastRecord,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
@@ -44,6 +45,7 @@ import {
   wcPaySolanaTxToEncodedTx,
 } from './solPayUtils';
 
+import type { IWcPaySolanaConsistencyResult } from './wcPaySolanaConsistency';
 import type {
   IWcPayBroadcastMeta,
   IWcPayStoredProgress,
@@ -751,6 +753,49 @@ class ServiceWalletConnectPay extends ServiceBase {
     return this.backgroundApi.simpleDb.walletConnectPay.findBroadcastMetaByTxid(
       { txid },
     );
+  }
+
+  /**
+   * Proves a server-supplied `solana_signTransaction` blob matches the
+   * approved order. Exposed as a background method rather than called from
+   * the UI directly because the validator decodes the blob with
+   * `@solana/web3.js`, which must not enter the `@onekeyhq/kit` bundle — on
+   * mobile/extension `main` and `bg` are separate JS runtimes (see
+   * solPayUtils.ts, which transcodes base64→bs58 for the same reason). The
+   * background is also the runtime that signs, so the check runs next to it.
+   *
+   * The validator module is loaded on demand: a static import would pull
+   * @solana/web3.js into the background STARTUP graph for every user, while
+   * today it only arrives with the sol vault's own lazy chunk (vaults/
+   * factory.ts) — the same rule isPaymentLink applies to walletkit.
+   */
+  @backgroundMethod()
+  async checkSolanaTxMatchesOrder(params: {
+    txBase64: string;
+    caip2ChainId: string;
+    option: IWcPayOption;
+  }): Promise<IWcPaySolanaConsistencyResult> {
+    const { checkWcPaySolanaTxMatchesOrder } =
+      await import('./wcPaySolanaConsistency');
+    return checkWcPaySolanaTxMatchesOrder(params);
+  }
+
+  /**
+   * True when signing changed nothing but the signatures — the belt to
+   * checkSolanaTxMatchesOrder's suspenders. Same runtime placement and
+   * on-demand load as above.
+   */
+  @backgroundMethod()
+  async isSolanaMessageUnchanged({
+    unsignedBase64,
+    signedBase64,
+  }: {
+    unsignedBase64: string;
+    signedBase64: string;
+  }): Promise<boolean> {
+    const { isWcPaySolanaMessageUnchanged } =
+      await import('./wcPaySolanaConsistency');
+    return isWcPaySolanaMessageUnchanged(unsignedBase64, signedBase64);
   }
 }
 

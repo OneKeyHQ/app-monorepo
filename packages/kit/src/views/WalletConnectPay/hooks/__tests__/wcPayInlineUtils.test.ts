@@ -10,6 +10,7 @@ import {
   classifyWcPayInlineFailure,
   getWcPayInlineMessagePlan,
   getWcPayInlineSolanaPlan,
+  getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
   isWcPayInlinePostSignError,
   nextWcPayPagePhaseAfterAttempt,
@@ -21,17 +22,6 @@ import type {
   IWcPayInlineSendResult,
   IWcPayInlineStage,
 } from '../wcPayInlineUtils';
-
-// The Solana validator is exercised against real blobs in its own kit-bg
-// suite; here it is mocked so this suite tests only the plan's decision
-// logic and never depends on @solana/web3.js.
-jest.mock(
-  '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency',
-  () => ({
-    __esModule: true,
-    checkWcPaySolanaTxMatchesOrder: jest.fn(),
-  }),
-);
 
 const SENDER = '0x1111111111111111111111111111111111111111';
 
@@ -267,155 +257,164 @@ describe('getWcPayInlineMessagePlan', () => {
   });
 });
 
-describe('getWcPayInlineSolanaPlan', () => {
-  const { checkWcPaySolanaTxMatchesOrder } = jest.requireMock<{
-    checkWcPaySolanaTxMatchesOrder: jest.Mock<
-      IWcPaySolanaConsistencyResult,
-      [{ txBase64: string; caip2ChainId: string; option: IWcPayOption }]
-    >;
-  }>(
-    '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency',
-  );
+const SOLANA_CHAIN = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const TX_BASE64 = 'dW5zaWduZWQ=';
 
-  const SOLANA_CHAIN = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
-  const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-  const TX_BASE64 = 'dW5zaWduZWQ=';
+const solOption: IWcPayOption = {
+  ...option,
+  account: `${SOLANA_CHAIN}:payer`,
+  amount: {
+    unit: 'SOL',
+    value: '1500',
+    display: { assetSymbol: 'SOL', assetName: 'Solana', decimals: 9 },
+  },
+};
+const usdcSolOption: IWcPayOption = {
+  ...solOption,
+  amount: {
+    unit: 'USDC',
+    value: '100000',
+    display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+  },
+};
 
-  const solOption: IWcPayOption = {
-    ...option,
-    account: `${SOLANA_CHAIN}:payer`,
-    amount: {
-      unit: 'SOL',
-      value: '1500',
-      display: { assetSymbol: 'SOL', assetName: 'Solana', decimals: 9 },
-    },
-  };
-  const usdcSolOption: IWcPayOption = {
-    ...solOption,
-    amount: {
-      unit: 'USDC',
-      value: '100000',
-      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
-    },
-  };
+const solanaAction: IWcPayAction = {
+  walletRpc: {
+    chainId: SOLANA_CHAIN,
+    method: 'solana_signTransaction',
+    params: JSON.stringify([{ transaction: TX_BASE64 }]),
+  },
+};
+const brokenSolanaAction: IWcPayAction = {
+  walletRpc: {
+    chainId: SOLANA_CHAIN,
+    method: 'solana_signTransaction',
+    params: '{',
+  },
+};
 
-  const solanaAction: IWcPayAction = {
-    walletRpc: {
-      chainId: SOLANA_CHAIN,
-      method: 'solana_signTransaction',
-      params: JSON.stringify([{ transaction: TX_BASE64 }]),
-    },
-  };
-  const brokenSolanaAction: IWcPayAction = {
-    walletRpc: {
-      chainId: SOLANA_CHAIN,
-      method: 'solana_signTransaction',
-      params: '{',
-    },
-  };
+// Verdicts the background validator would return; this suite feeds them in
+// directly, so the plan's own decision logic is what is under test (the
+// validator itself is exercised against real blobs in its kit-bg suite).
+const nativeSummary = {
+  amountRaw: '1500',
+  kind: 'native' as const,
+  priorityFeeLamports: '0',
+  fundsRecipientAta: false,
+};
+const splSummary = {
+  amountRaw: '100000',
+  kind: 'spl' as const,
+  mint: USDC_MINT,
+  decimals: 6,
+  priorityFeeLamports: '0',
+  fundsRecipientAta: false,
+};
 
-  const nativeSummary = {
-    amountRaw: '1500',
-    kind: 'native' as const,
-    priorityFeeLamports: '0',
-    fundsRecipientAta: false,
-  };
-  const splSummary = {
-    amountRaw: '100000',
-    kind: 'spl' as const,
-    mint: USDC_MINT,
-    decimals: 6,
-    priorityFeeLamports: '0',
-    fundsRecipientAta: false,
-  };
-
-  beforeEach(() => {
-    checkWcPaySolanaTxMatchesOrder.mockReset();
+describe('getWcPayInlineSolanaRequest', () => {
+  it('reads the blob and chain out of a solana action', () => {
+    expect(
+      getWcPayInlineSolanaRequest({ action: solanaAction, option: solOption }),
+    ).toEqual({
+      mode: 'request',
+      txBase64: TX_BASE64,
+      caip2ChainId: SOLANA_CHAIN,
+    });
   });
 
-  it('falls back for a non-solana method without consulting the validator', () => {
+  it('falls back for a non-solana method', () => {
     expect(
-      getWcPayInlineSolanaPlan({ action: nativeAction, option: solOption }),
+      getWcPayInlineSolanaRequest({ action: nativeAction, option: solOption }),
     ).toEqual({ mode: 'fallback', reason: 'method eth_sendTransaction' });
-    expect(checkWcPaySolanaTxMatchesOrder).not.toHaveBeenCalled();
   });
 
   it('falls back without a selected option', () => {
     expect(
-      getWcPayInlineSolanaPlan({ action: solanaAction, option: undefined }),
+      getWcPayInlineSolanaRequest({ action: solanaAction, option: undefined }),
     ).toEqual({ mode: 'fallback', reason: 'no selected option' });
-    expect(checkWcPaySolanaTxMatchesOrder).not.toHaveBeenCalled();
   });
 
   it('falls back without throwing on unparseable params', () => {
     expect(() =>
-      getWcPayInlineSolanaPlan({
+      getWcPayInlineSolanaRequest({
         action: brokenSolanaAction,
         option: solOption,
       }),
     ).not.toThrow();
     expect(
-      getWcPayInlineSolanaPlan({
+      getWcPayInlineSolanaRequest({
         action: brokenSolanaAction,
         option: solOption,
       }),
     ).toEqual({ mode: 'fallback', reason: 'unparseable params' });
+  });
+
+  it('falls back without throwing on a malformed action', () => {
     expect(() =>
-      getWcPayInlineSolanaPlan({ action: malformedAction, option: solOption }),
+      getWcPayInlineSolanaRequest({
+        action: malformedAction,
+        option: solOption,
+      }),
     ).not.toThrow();
-  });
-
-  it('inlines a native leg and carries the summary and the blob', () => {
-    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
-      ok: true,
-      summary: nativeSummary,
-    });
     expect(
-      getWcPayInlineSolanaPlan({ action: solanaAction, option: solOption }),
-    ).toEqual({
-      mode: 'inline',
-      summary: nativeSummary,
-      txBase64: TX_BASE64,
-    });
-    expect(checkWcPaySolanaTxMatchesOrder).toHaveBeenCalledWith({
-      txBase64: TX_BASE64,
-      caip2ChainId: SOLANA_CHAIN,
-      option: solOption,
-    });
+      getWcPayInlineSolanaRequest({
+        action: malformedAction,
+        option: solOption,
+      }).mode,
+    ).toBe('fallback');
   });
+});
 
-  it('carries a validator refusal reason through', () => {
-    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
-      ok: false,
-      reason: 'amount mismatch',
-    });
+describe('getWcPayInlineSolanaPlan', () => {
+  const okNative: IWcPaySolanaConsistencyResult = {
+    ok: true,
+    summary: nativeSummary,
+  };
+  const okSpl: IWcPaySolanaConsistencyResult = {
+    ok: true,
+    summary: splSummary,
+  };
+
+  it('carries a background refusal reason through', () => {
     expect(
-      getWcPayInlineSolanaPlan({ action: solanaAction, option: solOption }),
+      getWcPayInlineSolanaPlan({
+        option: solOption,
+        txBase64: TX_BASE64,
+        consistency: { ok: false, reason: 'amount mismatch' },
+      }),
     ).toEqual({ mode: 'fallback', reason: 'amount mismatch' });
   });
 
-  // An spl leg's mint is only an address until the wallet's own registry
-  // agrees it is the asset the option displays (the validator never resolves
-  // a symbol — see its asset-identity note).
-  it('falls back when an spl mint is unknown to the wallet registry', () => {
-    checkWcPaySolanaTxMatchesOrder.mockReturnValue({
-      ok: true,
-      summary: splSummary,
-    });
+  it('inlines a native leg and carries the summary and the blob', () => {
     expect(
-      getWcPayInlineSolanaPlan({ action: solanaAction, option: usdcSolOption }),
+      getWcPayInlineSolanaPlan({
+        option: solOption,
+        txBase64: TX_BASE64,
+        consistency: okNative,
+      }),
+    ).toEqual({ mode: 'inline', summary: nativeSummary, txBase64: TX_BASE64 });
+  });
+
+  // An spl leg's mint is only an address until the wallet's own registry
+  // agrees it is the asset the option displays (the background validator
+  // never resolves a symbol — see its asset-identity note).
+  it('falls back when an spl mint is unknown to the wallet registry', () => {
+    expect(
+      getWcPayInlineSolanaPlan({
+        option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
+      }),
     ).toEqual({ mode: 'fallback', reason: 'unknown token' });
   });
 
   it('falls back when the resolved token disagrees with the mint or option', () => {
-    checkWcPaySolanaTxMatchesOrder.mockReturnValue({
-      ok: true,
-      summary: splSummary,
-    });
     expect(
       getWcPayInlineSolanaPlan({
-        action: solanaAction,
         option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
         resolvedToken: {
           address: 'So11111111111111111111111111111111111111112',
           symbol: 'USDC',
@@ -425,36 +424,31 @@ describe('getWcPayInlineSolanaPlan', () => {
     ).toEqual({ mode: 'fallback', reason: 'token address mismatch' });
     expect(
       getWcPayInlineSolanaPlan({
-        action: solanaAction,
         option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
         resolvedToken: { address: USDC_MINT, symbol: 'USDT', decimals: 6 },
       }),
     ).toEqual({ mode: 'fallback', reason: 'token symbol mismatch' });
     expect(
       getWcPayInlineSolanaPlan({
-        action: solanaAction,
         option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
         resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 9 },
       }),
     ).toEqual({ mode: 'fallback', reason: 'token decimals mismatch' });
   });
 
   it('inlines an spl leg the registry agrees with', () => {
-    checkWcPaySolanaTxMatchesOrder.mockReturnValueOnce({
-      ok: true,
-      summary: splSummary,
-    });
     expect(
       getWcPayInlineSolanaPlan({
-        action: solanaAction,
         option: usdcSolOption,
+        txBase64: TX_BASE64,
+        consistency: okSpl,
         resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 6 },
       }),
-    ).toEqual({
-      mode: 'inline',
-      summary: splSummary,
-      txBase64: TX_BASE64,
-    });
+    ).toEqual({ mode: 'inline', summary: splSummary, txBase64: TX_BASE64 });
   });
 });
 

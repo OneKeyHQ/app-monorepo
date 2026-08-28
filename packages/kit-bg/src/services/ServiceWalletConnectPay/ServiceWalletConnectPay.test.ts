@@ -1,4 +1,5 @@
 import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
+import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import ServiceWalletConnectPay, {
   validateWcPayActions,
@@ -241,5 +242,44 @@ describe('validateWcPayActions solana', () => {
     expect(() =>
       validateWcPayActions([buildSolanaAction('AQID')]),
     ).not.toThrow();
+  });
+});
+
+// These two wrappers exist so the UI runtime never has to import
+// @solana/web3.js (see their doc comment in the service); the checks
+// themselves are covered exhaustively in wcPaySolanaConsistency.test.ts, so
+// this suite only proves the wrappers reach the real validators.
+describe('solana order check background methods', () => {
+  const SOLANA_CHAIN_ID = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+  const service = new ServiceWalletConnectPay({ backgroundApi: {} });
+
+  it('refuses an option whose account is not a CAIP-10 address', async () => {
+    const option: IWcPayOption = {
+      id: 'opt-1',
+      account: 'bad',
+      amount: {
+        unit: 'SOL',
+        value: '1500',
+        display: { assetSymbol: 'SOL', assetName: 'Solana', decimals: 9 },
+      },
+      etaS: 10,
+      actions: [],
+    };
+    await expect(
+      service.checkSolanaTxMatchesOrder({
+        txBase64: 'AQID',
+        caip2ChainId: SOLANA_CHAIN_ID,
+        option,
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'invalid option account shape' });
+  });
+
+  it('reports a message as changed when neither blob decodes', async () => {
+    await expect(
+      service.isSolanaMessageUnchanged({
+        unsignedBase64: '',
+        signedBase64: '',
+      }),
+    ).resolves.toBe(false);
   });
 });
