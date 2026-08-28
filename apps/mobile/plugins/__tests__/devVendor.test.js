@@ -21,6 +21,9 @@ const parseBundleOptions = require(
 const splitBundleOptions = require(
   path.join(metroRoot, 'lib/splitBundleOptions'),
 ).default;
+const hmrJSBundle = require(
+  path.join(metroRoot, 'DeltaBundler/Serializers/hmrJSBundle'),
+).default;
 const { shouldRetainModulesOnlyGraphForHmr } = require(
   path.join(metroRoot, 'Server'),
 );
@@ -35,13 +38,18 @@ const {
   computeModulesDigest,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
+  getPlatformOutputDirectory,
   isDevVendorEnabled,
   isDevVendorRequest,
   inspectDevVendorGraph,
+  loadRuntime,
+  refreshRuntimeCacheForChanges,
+  resetRuntimeCacheForTests,
   sha256,
   shouldPrependCommon,
   verifyManifest,
 } = require('../devVendor');
+const { loadRegistry } = require('../moduleIdRegistry');
 
 function loadGetDevServer(scriptURL, runtimeGlobal = {}) {
   const filename = path.join(
@@ -147,6 +155,9 @@ function loadIOSMainBundlePhaseScript() {
   );
   const phaseEnd = project.indexOf('\n\t\t};', phaseStart);
   const phase = project.slice(phaseStart, phaseEnd);
+  if (!phase.includes('shellPath = /bin/bash;')) {
+    throw new Error('The iOS main bundle phase must run with bash');
+  }
   const scriptMatch = phase.match(/shellScript = ("(?:\\.|[^"\\])*");/);
   if (!scriptMatch) {
     throw new Error('Unable to read the iOS main bundle build phase');
@@ -154,7 +165,96 @@ function loadIOSMainBundlePhaseScript() {
   return JSON.parse(scriptMatch[1]);
 }
 
+function createMetroModule(modulePath) {
+  return {
+    dependencies: new Map(),
+    inverseDependencies: new Set(),
+    output: [
+      {
+        data: { code: '__d(function() {});', lineCount: 1 },
+        type: 'js/module',
+      },
+    ],
+    path: modulePath,
+  };
+}
+
+function createTemporaryRuntimeFixture() {
+  const temporaryRepoRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-dev-vendor-runtime-'),
+  );
+  for (const relativePath of devVendorConfig.fingerprintFiles) {
+    const destination = path.join(temporaryRepoRoot, relativePath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(path.join(repoRoot, relativePath), destination);
+  }
+  for (const relativeDirectory of devVendorConfig.fingerprintDirectories) {
+    fs.mkdirSync(path.join(temporaryRepoRoot, relativeDirectory), {
+      recursive: true,
+    });
+  }
+  const modulePath = 'apps/mobile/index.ts';
+  const moduleSourcePath = path.join(temporaryRepoRoot, modulePath);
+  fs.mkdirSync(path.dirname(moduleSourcePath), { recursive: true });
+  fs.writeFileSync(moduleSourcePath, 'module.exports = "common input";\n');
+  const projectRoot = path.join(temporaryRepoRoot, 'apps/mobile');
+  const modules = [
+    { id: loadRegistry().modules[modulePath], path: modulePath },
+  ];
+
+  const writeArtifacts = (sourceCode) => {
+    const artifactDirectory = getPlatformOutputDirectory(projectRoot, 'ios');
+    fs.mkdirSync(path.join(artifactDirectory, 'stubs'), { recursive: true });
+    const source = Buffer.from(sourceCode);
+    const bytecode = Buffer.from(`hbc:${sourceCode}`);
+    fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
+    fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
+    fs.writeFileSync(path.join(artifactDirectory, 'stubs/4.js'), '');
+    const fingerprintFields = {
+      schemaVersion: devVendorConfig.SCHEMA_VERSION,
+      strategyVersion: devVendorConfig.STRATEGY_VERSION,
+      platform: 'ios',
+      registryEpoch: loadRegistry().registryEpoch,
+      configInputsDigest: computeConfigInputsDigest(temporaryRepoRoot),
+      modulesDigest: computeModulesDigest(modules, temporaryRepoRoot),
+      modules,
+    };
+    const manifest = {
+      ...fingerprintFields,
+      fingerprint: computeFingerprint(fingerprintFields),
+      common: {
+        source: {
+          file: 'common.js',
+          bytes: source.length,
+          sha256: sha256(source),
+        },
+        bytecode: {
+          file: 'common.hbc',
+          bytes: bytecode.length,
+          sha256: sha256(bytecode),
+        },
+      },
+    };
+    fs.writeFileSync(
+      path.join(artifactDirectory, 'manifest.json'),
+      `${JSON.stringify(manifest)}\n`,
+    );
+  };
+
+  writeArtifacts('first common source');
+  return {
+    moduleSourcePath,
+    projectRoot,
+    repoRoot: temporaryRepoRoot,
+    writeArtifacts,
+  };
+}
+
 describe('devVendor', () => {
+  afterEach(() => {
+    resetRuntimeCacheForTests();
+  });
+
   it('only enables the experiment for an explicit true value', () => {
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'true' })).toBe(true);
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'false' })).toBe(false);
@@ -178,6 +278,93 @@ describe('devVendor', () => {
     expect(
       getDevVendorStubModuleId('/tmp/outside/4319.js', projectRoot),
     ).toBeUndefined();
+  });
+
+  it('filters common stubs from HMR added and modified modules', () => {
+    const projectRoot = path.resolve('/tmp/onekey/apps/mobile');
+    const stubPath = path.join(
+      projectRoot,
+      'out-dir-bundle/dev-vendor/ios/stubs/4319.js',
+    );
+    const appPath = path.join(projectRoot, 'App.tsx');
+    const stubModule = createMetroModule(stubPath);
+    const appModule = createMetroModule(appPath);
+    const graph = {
+      dependencies: new Map([
+        [stubPath, stubModule],
+        [appPath, appModule],
+      ]),
+    };
+    const update = hmrJSBundle(
+      {
+        added: new Map([
+          [stubPath, stubModule],
+          [appPath, appModule],
+        ]),
+        deleted: new Set(),
+        modified: new Map([[stubPath, stubModule]]),
+      },
+      graph,
+      {
+        clientUrl: new URL('http://localhost:8081/index.bundle?dev=true'),
+        createModuleId: (modulePath) =>
+          getDevVendorStubModuleId(modulePath, projectRoot) ?? 90_001,
+        includeAsyncPaths: false,
+        processModuleFilter: (moduleData) =>
+          getDevVendorStubModuleId(moduleData.path, projectRoot) === undefined,
+        projectRoot,
+        serverRoot: projectRoot,
+      },
+    );
+
+    expect(update.added.map(({ module }) => module[0])).toEqual([90_001]);
+    expect(update.modified).toEqual([]);
+  });
+
+  it('reloads runtime artifacts when a cached manifest directory changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const first = loadRuntime(fixture.projectRoot, 'ios', {
+        repoRoot: fixture.repoRoot,
+      });
+      fixture.writeArtifacts('second common source with different bytes');
+      const second = loadRuntime(fixture.projectRoot, 'ios', {
+        repoRoot: fixture.repoRoot,
+        validateArtifacts: true,
+      });
+
+      expect(first.sourceCode).toBe('first common source');
+      expect(second.sourceCode).toBe(
+        'second common source with different bytes',
+      );
+      expect(second).not.toBe(first);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects cached runtime state after a common source file changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      loadRuntime(fixture.projectRoot, 'ios', {
+        repoRoot: fixture.repoRoot,
+      });
+      fs.writeFileSync(
+        fixture.moduleSourcePath,
+        'module.exports = "changed common input";\n',
+      );
+
+      expect(() =>
+        refreshRuntimeCacheForChanges({
+          changedFiles: new Set([fixture.moduleSourcePath]),
+          platform: 'ios',
+          projectRoot: fixture.projectRoot,
+          repoRoot: fixture.repoRoot,
+        }),
+      ).toThrow('Common module sources changed for ios');
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
   });
 
   it('creates a deterministic fingerprint from ordered manifest fields', () => {
@@ -530,7 +717,7 @@ describe('devVendor', () => {
     const splitBundlePatch = fs.readFileSync(
       path.join(
         repoRoot,
-        'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90.patch',
+        'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90+001+initial.patch',
       ),
       'utf8',
     );
@@ -572,10 +759,15 @@ describe('devVendor', () => {
       '!shouldRetainModulesOnlyGraphForHmr(resolverOptions)',
     );
     expect(metroPatch).toContain('devVendorBackgroundHMR === "true"');
+    expect(metroPatch).toContain(
+      'processModuleFilter: this._config.serializer.processModuleFilter',
+    );
+    expect(metroPatch).toContain('options.processModuleFilter?.(module)');
+    expect(metroPatch).toContain('unstable_changedFiles');
     const backgroundThreadPatch = fs.readFileSync(
       path.join(
         repoRoot,
-        'patches/@onekeyfe+react-native-background-thread+3.0.90.patch',
+        'patches/@onekeyfe+react-native-background-thread+3.0.90+001+initial.patch',
       ),
       'utf8',
     );
@@ -824,6 +1016,9 @@ describe('devVendor', () => {
 
   it('quotes iOS bundle phase tool paths containing spaces', () => {
     const script = loadIOSMainBundlePhaseScript();
+    expect(script).toContain(
+      'if ! "$NODE_BINARY" scripts/build-dev-vendor.js --check --platform ios; then',
+    );
     const invocation = script.slice(script.lastIndexOf('SENTRY_XCODE_SCRIPT='));
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey dev vendor xcode '),

@@ -141,6 +141,40 @@ function getStubPath(projectRoot, platform, moduleId) {
   return path.join(getStubRoot(projectRoot, platform), `${moduleId}.js`);
 }
 
+function getRuntimeCacheKey(projectRoot, platform, repoRoot = REPO_ROOT) {
+  return `${path.resolve(projectRoot)}:${platform}:${path.resolve(repoRoot)}`;
+}
+
+function getFileIdentity(filePath) {
+  const stat = fs.statSync(filePath, { bigint: true });
+  return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+}
+
+function captureFileIdentities(filePaths) {
+  return new Map(
+    filePaths.map((filePath) => [filePath, getFileIdentity(filePath)]),
+  );
+}
+
+function fileIdentitiesMatch(fileIdentities) {
+  try {
+    return [...fileIdentities].every(
+      ([filePath, identity]) => getFileIdentity(filePath) === identity,
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isPathInsideDirectory(filePath, directoryPath) {
+  const relativePath = path.relative(directoryPath, filePath);
+  return (
+    relativePath === '' ||
+    (!relativePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativePath))
+  );
+}
+
 function getDevVendorStubInfo(filePath, projectRoot) {
   const outputRoot = path.resolve(devVendorConfig.outputRoot(projectRoot));
   const relativePath = path.relative(outputRoot, path.resolve(filePath));
@@ -280,14 +314,24 @@ function verifyManifest({
   return manifest;
 }
 
-function loadRuntime(projectRoot, platform) {
+function loadRuntime(
+  projectRoot,
+  platform,
+  { repoRoot = REPO_ROOT, validateArtifacts = false } = {},
+) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
-  const cacheKey = `${path.resolve(projectRoot)}:${platform}`;
-  if (runtimeCache.has(cacheKey)) {
-    return runtimeCache.get(cacheKey);
+  const cacheKey = getRuntimeCacheKey(projectRoot, platform, repoRoot);
+  const cachedRuntime = runtimeCache.get(cacheKey);
+  if (
+    cachedRuntime &&
+    (!validateArtifacts ||
+      fileIdentitiesMatch(cachedRuntime.artifactFileIdentities))
+  ) {
+    return cachedRuntime;
   }
+  runtimeCache.delete(cacheKey);
   const manifestPath = getManifestPath(projectRoot, platform);
   if (!fs.existsSync(manifestPath)) {
     throw new Error(
@@ -298,10 +342,11 @@ function loadRuntime(projectRoot, platform) {
     manifest: JSON.parse(fs.readFileSync(manifestPath, 'utf8')),
     platform,
     projectRoot,
+    repoRoot,
   });
   const moduleByAbsolutePath = new Map(
     manifest.modules.map((moduleRecord) => [
-      path.resolve(REPO_ROOT, moduleRecord.path),
+      path.resolve(repoRoot, moduleRecord.path),
       moduleRecord,
     ]),
   );
@@ -309,7 +354,24 @@ function loadRuntime(projectRoot, platform) {
     getPlatformOutputDirectory(projectRoot, platform),
     manifest.common.source.file,
   );
+  const bytecodePath = path.join(
+    getPlatformOutputDirectory(projectRoot, platform),
+    manifest.common.bytecode.file,
+  );
+  const artifactPaths = [manifestPath, sourcePath, bytecodePath].map(
+    (filePath) => path.resolve(filePath),
+  );
   const runtime = {
+    artifactFileIdentities: captureFileIdentities(artifactPaths),
+    artifactPaths: new Set(artifactPaths),
+    fingerprintDirectories: devVendorConfig.fingerprintDirectories.map(
+      (relativeDirectory) => path.resolve(repoRoot, relativeDirectory),
+    ),
+    fingerprintFiles: new Set(
+      devVendorConfig.fingerprintFiles.map((relativePath) =>
+        path.resolve(repoRoot, relativePath),
+      ),
+    ),
     manifest,
     moduleByAbsolutePath,
     sourceCode: fs.readFileSync(sourcePath, 'utf8'),
@@ -319,6 +381,36 @@ function loadRuntime(projectRoot, platform) {
     `[devVendor] cache hit platform=${platform} fingerprint=${manifest.fingerprint} modules=${manifest.modules.length} commonBytes=${manifest.common.source.bytes}`,
   );
   return runtime;
+}
+
+function isRuntimeInputPath(runtime, filePath) {
+  const absolutePath = path.resolve(filePath);
+  return (
+    runtime.artifactPaths.has(absolutePath) ||
+    runtime.fingerprintFiles.has(absolutePath) ||
+    runtime.moduleByAbsolutePath.has(absolutePath) ||
+    runtime.fingerprintDirectories.some((directoryPath) =>
+      isPathInsideDirectory(absolutePath, directoryPath),
+    )
+  );
+}
+
+function refreshRuntimeCacheForChanges({
+  changedFiles,
+  platform,
+  projectRoot,
+  repoRoot = REPO_ROOT,
+}) {
+  const cacheKey = getRuntimeCacheKey(projectRoot, platform, repoRoot);
+  const runtime = runtimeCache.get(cacheKey);
+  if (
+    !runtime ||
+    ![...changedFiles].some((filePath) => isRuntimeInputPath(runtime, filePath))
+  ) {
+    return runtime;
+  }
+  runtimeCache.delete(cacheKey);
+  return loadRuntime(projectRoot, platform, { repoRoot });
 }
 
 function isDevVendorRequest(bundleOptions) {
@@ -456,7 +548,15 @@ function applyDevVendorConfig(config, projectRoot) {
     ) {
       return resolution;
     }
-    const runtime = loadRuntime(projectRoot, platform);
+    let runtime = loadRuntime(projectRoot, platform);
+    if (
+      context.customResolverOptions?.devVendorNative === 'true' &&
+      context.customResolverOptions.devVendorFingerprint !==
+        runtime.manifest.fingerprint
+    ) {
+      runtimeCache.delete(getRuntimeCacheKey(projectRoot, platform));
+      runtime = loadRuntime(projectRoot, platform);
+    }
     assertNativeDevVendorResolverContract({
       customResolverOptions: context.customResolverOptions,
       manifest: runtime.manifest,
@@ -480,6 +580,25 @@ function applyDevVendorConfig(config, projectRoot) {
     getDevVendorStubModuleId(moduleData.path, projectRoot) === undefined &&
     previousProcessModuleFilter(moduleData);
 
+  const previousExperimentalSerializerHook =
+    config.serializer.experimentalSerializerHook || (() => {});
+  config.serializer.experimentalSerializerHook = (graph, delta) => {
+    previousExperimentalSerializerHook(graph, delta);
+    const platform = graph.transformOptions?.platform;
+    const changedFiles = delta?.unstable_changedFiles;
+    if (
+      SUPPORTED_PLATFORMS.has(platform) &&
+      changedFiles instanceof Set &&
+      changedFiles.size > 0
+    ) {
+      refreshRuntimeCacheForChanges({
+        changedFiles,
+        platform,
+        projectRoot,
+      });
+    }
+  };
+
   const previousCustomSerializer = config.serializer.customSerializer;
   config.serializer.customSerializer = async (
     entryPoint,
@@ -495,7 +614,9 @@ function applyDevVendorConfig(config, projectRoot) {
         ? previousCustomSerializer(entryPoint, prepend, graph, bundleOptions)
         : serializeDefault(entryPoint, prepend, graph, bundleOptions);
     }
-    const runtime = loadRuntime(projectRoot, devVendorGraph.platform);
+    const runtime = loadRuntime(projectRoot, devVendorGraph.platform, {
+      validateArtifacts: true,
+    });
     const deltaBundleOptions = {
       ...bundleOptions,
       modulesOnly: true,
@@ -552,6 +673,8 @@ module.exports = {
   isDevVendorEnabled,
   isDevVendorRequest,
   inspectDevVendorGraph,
+  loadRuntime,
+  refreshRuntimeCacheForChanges,
   resetRuntimeCacheForTests,
   sha256,
   shouldPrependCommon,

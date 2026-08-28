@@ -227,6 +227,9 @@ function createFileToIdMap({
   };
 
   const get = (filePath) => {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      return undefined;
+    }
     let moduleKey;
     try {
       moduleKey = toModuleKey(filePath, repoRoot);

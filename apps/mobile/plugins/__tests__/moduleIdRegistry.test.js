@@ -110,6 +110,17 @@ describe('moduleIdRegistry', () => {
     );
   });
 
+  it('ignores unresolved dependency edges in strict mode', () => {
+    const fileMap = createFileToIdMap({
+      registry: createRegistry(),
+      repoRoot: path.resolve('/tmp/worktree'),
+      strict: true,
+    });
+
+    expect(fileMap.get(undefined)).toBeUndefined();
+    expect(fileMap.get('')).toBeUndefined();
+  });
+
   it('defaults union and production builds to strict with an explicit override', () => {
     expect(isStrictRegistryMode({ UNION_BUILD: 'true' })).toBe(true);
     expect(isStrictRegistryMode({ NODE_ENV: 'production' })).toBe(true);
