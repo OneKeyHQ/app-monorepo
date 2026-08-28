@@ -403,6 +403,9 @@ function collectSegmentSyncEdges(graph, moduleToSegment, eagerModuleIds) {
     }
 
     for (const [, dep] of moduleData.dependencies) {
+      if (!dep.absolutePath) {
+        continue;
+      }
       if (dep.data?.data?.asyncType === 'async') {
         continue;
       }
