@@ -34,13 +34,14 @@ import {
   COLUMN_WIDTH_NAME,
   COLUMN_WIDTH_PRICE,
   COLUMN_WIDTH_TURNOVER,
+  TOKEN_SELECTOR_ROW_HEIGHT,
 } from './constants';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
 
 interface IMarketTokenSelectorRowProps {
-  item: IMarketToken;
+  item: IMarketToken & { selectorSubtitle?: string };
   networkId?: string;
   onPress: (item: IMarketToken) => void;
   showAddress?: boolean;
@@ -86,7 +87,8 @@ const MarketTokenSelectorRow = memo(
     const star = item.perpsCoin ? perpsStar : spotStar;
 
     // Localized name shown as plain text on the second row, before the address.
-    const localizedName = item.stock?.subtitle ?? item.perpsSubtitle;
+    const localizedName =
+      item.selectorSubtitle ?? item.stock?.subtitle ?? item.perpsSubtitle;
     const shortenedAddress = item.address
       ? accountUtils.shortenAddress({
           address: item.address,
@@ -120,6 +122,7 @@ const MarketTokenSelectorRow = memo(
         onPressIn={prewarmTokenImages}
         onHoverIn={prewarmTokenImages}
         hoverStyle={{ bg: '$bgHover' }}
+        minHeight={TOKEN_SELECTOR_ROW_HEIGHT}
         px="$4"
         py="$3"
         cursor="default"

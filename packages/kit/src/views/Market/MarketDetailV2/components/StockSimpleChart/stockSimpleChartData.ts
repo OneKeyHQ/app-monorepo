@@ -25,6 +25,15 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   All: '1W',
 };
 
+const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
+  '1H': '1',
+  '1D': '1',
+  '1W': '7',
+  '1M': '30',
+  '1Y': '365',
+  All: 'max',
+};
+
 const STOCK_SHARE_CHART_PERIODS: Record<
   IStockSimpleChartRange,
   IMarketStockPublicChartPeriod
@@ -38,6 +47,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
 };
 
 export async function fetchStockSimpleChartPoints({
+  coinGeckoId,
   isNative,
   networkId,
   priceMode,
@@ -45,6 +55,7 @@ export async function fetchStockSimpleChartPoints({
   stockId,
   tokenAddress,
 }: {
+  coinGeckoId?: string;
   isNative: boolean;
   networkId: string;
   priceMode: 'share' | 'token';
@@ -56,25 +67,65 @@ export async function fetchStockSimpleChartPoints({
   if (isSharePrice && !stockId) {
     return [];
   }
-  if (!isSharePrice && (!networkId || (!tokenAddress && !isNative))) {
+  if (
+    !isSharePrice &&
+    !coinGeckoId &&
+    (!networkId || (!tokenAddress && !isNative))
+  ) {
     return [];
   }
 
   const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
   const timeTo = Math.floor(Date.now() / 1000);
   const timeFrom = rangeSeconds ? timeTo - rangeSeconds : undefined;
-  let response;
   if (isSharePrice) {
     if (!stockId) {
       return [];
     }
-    response = await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
-      stockId,
-      period: STOCK_SHARE_CHART_PERIODS[range],
-      points: range === '1M' ? 180 : 100,
-    });
-  } else {
-    response = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
+    const response =
+      await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
+        stockId,
+        period: STOCK_SHARE_CHART_PERIODS[range],
+        points: range === '1M' ? 180 : 100,
+      });
+    return response.points
+      .map((point) => [Number(point.t), Number(point.c)] as [number, number])
+      .filter(([timestamp, price]) => {
+        const isValidPoint =
+          Number.isFinite(timestamp) && Number.isFinite(price);
+        return isValidPoint && (!timeFrom || timestamp >= timeFrom);
+      })
+      .toSorted((a, b) => a[0] - b[0]);
+  }
+
+  if (coinGeckoId) {
+    const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
+      coinGeckoId,
+      COINGECKO_CHART_DAYS[range],
+      { requestCurrency: 'usd' },
+    );
+    return response
+      .map(
+        ([timestamp, price]) =>
+          [
+            timestamp > 10_000_000_000
+              ? Math.floor(timestamp / 1000)
+              : timestamp,
+            Number(price),
+          ] as [number, number],
+      )
+      .filter(
+        ([timestamp, price]) =>
+          Number.isFinite(timestamp) &&
+          Number.isFinite(price) &&
+          (!timeFrom || timestamp >= timeFrom) &&
+          timestamp <= timeTo,
+      )
+      .toSorted((a, b) => a[0] - b[0]);
+  }
+
+  const response =
+    await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
       interval: STOCK_TOKEN_CHART_INTERVALS[range],
       networkId,
       tokenAddress,
@@ -82,15 +133,12 @@ export async function fetchStockSimpleChartPoints({
       timeTo,
       autoHandleError: false,
     });
-  }
 
   return response.points
     .map((point) => [Number(point.t), Number(point.c)] as [number, number])
     .filter(([timestamp, price]) => {
       const isValidPoint = Number.isFinite(timestamp) && Number.isFinite(price);
-      return (
-        isValidPoint && (!isSharePrice || !timeFrom || timestamp >= timeFrom)
-      );
+      return isValidPoint;
     })
     .toSorted((a, b) => a[0] - b[0]);
 }

@@ -39,9 +39,9 @@ function getStockColumnWidths(metricColumnCount: number): {
   };
 }
 
-function MissingValue() {
+function MissingValue({ compact = false }: { compact?: boolean }) {
   return (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <SizableText size={compact ? '$bodySm' : '$bodyMd'} color="$textSubdued">
       {EMPTY_VALUE}
     </SizableText>
   );
@@ -53,8 +53,11 @@ const metricColumnProps = {
 } as const;
 
 export function useMarketStockColumns({
+  compact = false,
   showSparkline = true,
 }: {
+  /** Use the same icon and typography density as the token selector rows. */
+  compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
@@ -89,23 +92,28 @@ export function useMarketStockColumns({
             <Stack width={24} alignItems="center" justifyContent="center">
               <Icon name="StarOutline" size="$4" color="$iconSubdued" />
             </Stack>
-            <XStack flex={1} minWidth={0} alignItems="center" gap={14}>
+            <XStack
+              flex={1}
+              minWidth={0}
+              alignItems="center"
+              gap={compact ? '$1.5' : 14}
+            >
               <Token
-                size="lg"
+                size={compact ? 'xs' : 'lg'}
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
               <YStack flex={1} minWidth={0} justifyContent="center">
                 <SizableText
-                  size="$bodyLgMedium"
+                  size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>
                 <SizableText
-                  size="$bodyMd"
+                  size={compact ? '$bodySm' : '$bodyMd'}
                   color="$textSubdued"
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -117,9 +125,13 @@ export function useMarketStockColumns({
           </XStack>
         ),
         renderSkeleton: () => (
-          <XStack alignItems="center" gap={14}>
+          <XStack alignItems="center" gap={compact ? '$1.5' : 14}>
             <Skeleton width={24} height={16} />
-            <Skeleton width={40} height={40} borderRadius="$full" />
+            <Skeleton
+              width={compact ? 20 : 40}
+              height={compact ? 20 : 40}
+              borderRadius="$full"
+            />
             <YStack gap="$1">
               <Skeleton width={64} height={16} />
               <Skeleton width={96} height={14} />
@@ -136,10 +148,10 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue compact={compact} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
@@ -159,14 +171,14 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.priceChange24hPercent);
           if (value === undefined) {
-            return <MissingValue />;
+            return <MissingValue compact={compact} />;
           }
           const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
             priceChange: value,
           });
           return (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={compact ? '$bodySm' : '$bodyLgMedium'}
               formatter="priceChange"
               color={changeColor}
               formatterOptions={{ showPlusMinusSigns }}
@@ -185,10 +197,10 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.marketCap);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue compact={compact} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={compact ? '$bodySm' : '$bodyLgMedium'}
               formatter="marketCap"
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
@@ -208,10 +220,10 @@ export function useMarketStockColumns({
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.volume24h);
           return value === undefined ? (
-            <MissingValue />
+            <MissingValue compact={compact} />
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size={compact ? '$bodySm' : '$bodyLgMedium'}
               formatter="marketCap"
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
@@ -243,5 +255,5 @@ export function useMarketStockColumns({
       });
     }
     return columns;
-  }, [intl, showSparkline]);
+  }, [compact, intl, showSparkline]);
 }

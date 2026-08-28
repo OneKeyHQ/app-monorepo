@@ -10,6 +10,7 @@ interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
+  skipMarketDataFetch?: boolean;
 }
 
 function toFiniteNumber(value?: string | number) {
@@ -109,6 +110,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   return usePromiseResult(
     async () => {
       if (
+        data.skipMarketDataFetch ||
         !currencyInfo.id ||
         !data.networkId ||
         (!data.tokenAddress && !data.isNative)
@@ -126,6 +128,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       data.isNative,
       data.tokenAddress,
       data.networkId,
+      data.skipMarketDataFetch,
       tokenDetailActions,
     ],
     {

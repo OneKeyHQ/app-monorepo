@@ -1,4 +1,7 @@
-import type { EMarketBannerType } from '../../types/marketV2';
+import type {
+  EMarketBannerType,
+  IMarketTokenDetailPreview,
+} from '../../types/marketV2';
 import type { EEnterWay } from '../logger/scopes/dex';
 
 export enum ETabMarketRoutes {
@@ -13,6 +16,10 @@ export enum ETabMarketRoutes {
 export type IMarketTokenDetailRouteParams = {
   tokenAddress: string;
   network: string;
+  marketTokenId?: string;
+  marketTokenCategory?: string;
+  skipMarketDataFetch?: boolean;
+  legacyTokenPreview?: IMarketTokenDetailPreview;
   stockId?: never;
   isNative?: boolean;
   from?: EEnterWay;
@@ -39,6 +46,9 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.MarketStockDetail]: IMarketStockDetailRouteParams;
   [ETabMarketRoutes.MarketNativeDetail]: {
     network: string;
+    marketTokenId?: string;
+    marketTokenCategory?: string;
+    skipMarketDataFetch?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

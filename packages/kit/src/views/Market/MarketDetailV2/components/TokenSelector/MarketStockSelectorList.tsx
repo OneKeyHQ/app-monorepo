@@ -9,16 +9,19 @@ import { useMarketStockColumns } from '@onekeyhq/kit/src/views/Market/MarketHome
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_ROW_HEIGHT,
+} from './constants';
+
 type IMarketStockSelectorResult = {
   items: IMarketStockPublicItem[];
   failed?: boolean;
 };
 
 const STOCK_SELECTOR_LIST_HEIGHT = 350;
-const STOCK_SELECTOR_HEADER_HEIGHT = 36;
-const STOCK_SELECTOR_ROW_HEIGHT = 72;
 const STOCK_SELECTOR_TABLE_HEIGHT =
-  STOCK_SELECTOR_LIST_HEIGHT + STOCK_SELECTOR_HEADER_HEIGHT;
+  STOCK_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
 
 const MarketStockSelectorList = memo(
   ({
@@ -31,7 +34,10 @@ const MarketStockSelectorList = memo(
     const intl = useIntl();
     // The selector dropdown is a picker, not the full Market Stocks table, so
     // it drops the 24h price range sparkline column.
-    const columns = useMarketStockColumns({ showSparkline: false });
+    const columns = useMarketStockColumns({
+      compact: true,
+      showSparkline: false,
+    });
     const normalizedQuery = query?.trim() ?? '';
     const {
       result = { items: [] },
@@ -115,10 +121,14 @@ const MarketStockSelectorList = memo(
           columns={columns}
           dataSource={result.items}
           keyExtractor={(item) => item.stockId}
-          estimatedItemSize={STOCK_SELECTOR_ROW_HEIGHT}
+          estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
-          rowProps={{ width: '100%', height: STOCK_SELECTOR_ROW_HEIGHT }}
-          headerRowProps={{ height: STOCK_SELECTOR_HEADER_HEIGHT }}
+          rowProps={{
+            width: '100%',
+            height: TOKEN_SELECTOR_ROW_HEIGHT,
+            minHeight: TOKEN_SELECTOR_ROW_HEIGHT,
+          }}
+          headerRowProps={{ height: TOKEN_SELECTOR_HEADER_HEIGHT }}
           onRow={(item) => ({
             onPress: () => onItemPress(item.stockId),
             rowProps: {

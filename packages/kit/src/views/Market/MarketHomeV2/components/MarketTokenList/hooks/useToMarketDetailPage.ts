@@ -33,6 +33,10 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   networkId: string;
   symbol: string;
   isNative?: boolean;
+  marketTokenId?: string;
+  skipMarketDataFetch?: boolean;
+  disableTrade?: boolean;
+  showFavoriteButton?: boolean;
 }
 
 interface IUseToDetailPageOptions {
@@ -50,6 +54,11 @@ interface IUseToDetailPageOptions {
    * Controls whether the detail page displays the favorite/watchlist button.
    */
   showFavoriteButton?: boolean;
+  /**
+   * Preserves the Market list category so desktop detail can select the
+   * matching information architecture (for example Top Coins vs Trending).
+   */
+  marketTokenCategory?: string;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
@@ -103,14 +112,30 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         networkId: item.networkId,
       });
       const stockId = resolveMarketStockId(item);
+      const showFavoriteButton =
+        typeof item.showFavoriteButton === 'boolean'
+          ? item.showFavoriteButton
+          : options?.showFavoriteButton;
 
       const tokenParams = {
         tokenAddress: item.tokenAddress,
         network: shortCode || item.networkId,
         isNative: item.isNative,
         from: options?.from,
-        ...(typeof options?.showFavoriteButton === 'boolean'
-          ? { showFavoriteButton: options.showFavoriteButton }
+        ...(item.marketTokenId
+          ? { marketTokenId: item.marketTokenId }
+          : undefined),
+        ...(item.skipMarketDataFetch
+          ? { skipMarketDataFetch: true }
+          : undefined),
+        ...(typeof item.disableTrade === 'boolean'
+          ? { disableTrade: item.disableTrade }
+          : undefined),
+        ...(options?.marketTokenCategory
+          ? { marketTokenCategory: options.marketTokenCategory }
+          : undefined),
+        ...(typeof showFavoriteButton === 'boolean'
+          ? { showFavoriteButton }
           : undefined),
       };
       const stockParams = stockId
@@ -227,6 +252,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
+      options?.marketTokenCategory,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,

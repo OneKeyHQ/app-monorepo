@@ -146,6 +146,70 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it('preserves the originating market category for normal token detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards legacy top-coins compatibility params to V2 detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--999',
+        symbol: 'HYPE',
+        isNative: true,
+        marketTokenId: 'hyperliquid',
+        skipMarketDataFetch: true,
+        disableTrade: true,
+        showFavoriteButton: false,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'hyperliquid',
+      skipMarketDataFetch: true,
+      disableTrade: true,
+      showFavoriteButton: false,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
   it('opens stock detail by stockId from an extension surface', async () => {
     const { result } = renderHook(() =>
       useToDetailPage({ showFavoriteButton: false }),

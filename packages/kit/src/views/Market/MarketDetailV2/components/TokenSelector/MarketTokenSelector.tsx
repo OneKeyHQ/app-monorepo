@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -14,6 +14,7 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import type { ITokenSize } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -21,12 +22,18 @@ import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
-import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
+import {
+  ensureMarketTopCoinsCategory,
+  isMarketStockCategory,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IMarketToken as ILegacyMarketToken } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
@@ -38,16 +45,42 @@ import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
+  selectorSubtitle?: string;
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
-type IMarketTokenSelectorDefaultCategory = 'trending' | 'stocks';
+type IMarketTokenSelectorDefaultCategory = 'trending' | 'top_coins' | 'stocks';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
     return value === 'true';
   }
   return value;
+}
+
+function convertTopCoinToSelectorToken(
+  item: ILegacyMarketToken,
+): IMarketTokenSelectorItem {
+  return {
+    id: `coingecko_${item.coingeckoId}`,
+    name: item.name,
+    symbol: item.symbol.toUpperCase(),
+    address: item.coingeckoId,
+    decimals: 0,
+    price: item.price,
+    change24h: item.priceChangePercentage24H,
+    marketCap: item.marketCap,
+    liquidity: 0,
+    transactions: 0,
+    uniqueTraders: 0,
+    holders: 0,
+    turnover: item.totalVolume,
+    tokenImageUri: item.image || item.iconUrl,
+    networkLogoUri: '',
+    networkId: 'coingecko',
+    chainId: 'coingecko',
+    selectorSubtitle: item.name,
+  };
 }
 
 // Reuse perps-style underline tab
@@ -98,8 +131,16 @@ function BaseMarketTokenSelectorContent({
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const {
+    data: topCoins,
+    handleItemPress: handleTopCoinPress,
+    isLoading: isTopCoinsLoading,
+  } = useMarketTopCoins();
   const routeParams = route.params as
-    | { showFavoriteButton?: boolean | string }
+    | {
+        showFavoriteButton?: boolean | string;
+        marketTokenCategory?: string;
+      }
     | undefined;
   const showFavoriteButton = normalizeRouteBooleanParam(
     routeParams?.showFavoriteButton,
@@ -116,29 +157,31 @@ function BaseMarketTokenSelectorContent({
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => ({
-        id: c.type,
-        name: c.name,
-      }));
+      return ensureMarketTopCoinsCategory(
+        apiSpotCategories.map((c) => ({
+          id: c.type,
+          name: c.name,
+        })),
+        'Top Coins',
+      );
     }
-    if (defaultCategory === 'stocks') {
-      return [
+    // Keep the complete selector available while the remote config loads.
+    return ensureMarketTopCoinsCategory(
+      [
+        {
+          id: 'trending',
+          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+        },
         {
           id: 'stocks',
           name: intl.formatMessage({
             id: ETranslations.perps_token_selector_stocks,
           }),
         },
-      ];
-    }
-    // Fallback before API responds — use i18n keys
-    return [
-      {
-        id: 'trending',
-        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-      },
-    ];
-  }, [apiSpotCategories, defaultCategory, intl]);
+      ],
+      'Top Coins',
+    );
+  }, [apiSpotCategories, intl]);
 
   const stockCategoryId = useMemo(
     () => categories.find((category) => isMarketStockCategory(category))?.id,
@@ -148,8 +191,12 @@ function BaseMarketTokenSelectorContent({
   const [startListSelect, setStartListSelect] = useState(
     shouldDefaultToStocks ? false : isWatchlistMode,
   );
+  const routeCategory = routeParams?.marketTokenCategory;
+  const initialCategory = shouldDefaultToStocks
+    ? stockCategoryId
+    : routeCategory || defaultCategory;
   const [selectedCategory, setSelectedCategory] = useState(
-    shouldDefaultToStocks && stockCategoryId ? stockCategoryId : 'trending',
+    initialCategory || 'trending',
   );
   const hasUserSelectedTabRef = useRef(false);
 
@@ -167,6 +214,17 @@ function BaseMarketTokenSelectorContent({
 
   const isStockSelection = Boolean(
     !startListSelect && stockCategoryId && selectedCategory === stockCategoryId,
+  );
+  const isTopCoinsSelection = Boolean(
+    !startListSelect && selectedCategory === MARKET_TOP_COINS_CATEGORY_ID,
+  );
+  const topCoinsSelectorData = useMemo(
+    () => topCoins.map(convertTopCoinToSelectorToken),
+    [topCoins],
+  );
+  const topCoinsById = useMemo(
+    () => new Map(topCoins.map((item) => [item.coingeckoId, item])),
+    [topCoins],
   );
 
   const [searchValue, setSearchValue] = useState('');
@@ -216,20 +274,43 @@ function BaseMarketTokenSelectorContent({
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
+        marketTokenCategory: startListSelect ? undefined : selectedCategory,
       });
     },
-    [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
+    [
+      tokenDetailActions,
+      closePopover,
+      navigateToPerps,
+      selectedCategory,
+      showFavoriteButton,
+      startListSelect,
+    ],
   );
 
   const handleSelectToken = useCallback(
     (item: IMarketTokenSelectorItem) => {
+      if (isTopCoinsSelection && !searchValueDebounce) {
+        const topCoin = topCoinsById.get(item.address);
+        if (topCoin) {
+          void closePopover?.();
+          void handleTopCoinPress(topCoin);
+          return;
+        }
+      }
       navigateToTokenDetail({
         ...item,
         tokenDetailPreview:
           item.tokenDetailPreview ?? buildMarketTokenDetailPreview(item),
       });
     },
-    [navigateToTokenDetail],
+    [
+      closePopover,
+      handleTopCoinPress,
+      isTopCoinsSelection,
+      navigateToTokenDetail,
+      searchValueDebounce,
+      topCoinsById,
+    ],
   );
 
   const handleSelectStock = useCallback(
@@ -307,6 +388,12 @@ function BaseMarketTokenSelectorContent({
             searchQuery={searchValueDebounce}
             searchLoading={searchLoading}
             searchResults={searchTokenList}
+            dataOverride={
+              isTopCoinsSelection && !searchValueDebounce
+                ? topCoinsSelectorData
+                : undefined
+            }
+            dataOverrideLoading={isTopCoinsLoading}
           />
         )}
       </YStack>
@@ -331,12 +418,14 @@ const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
 function BaseMarketTokenSelector({
   showAddress = false,
+  showName = false,
   variant = 'default',
   defaultCategory = 'trending',
   renderTrigger,
 }: {
   showAddress?: boolean;
-  variant?: 'default' | 'compact';
+  showName?: boolean;
+  variant?: 'default' | 'compact' | 'large';
   defaultCategory?: IMarketTokenSelectorDefaultCategory;
   renderTrigger?: ReactElement;
 }) {
@@ -351,11 +440,33 @@ function BaseMarketTokenSelector({
 
   const {
     symbol = '',
+    name = '',
     address = '',
     logoUrl = '',
     logoUrls,
   } = tokenDetail || {};
   const isCompact = variant === 'compact';
+  const isLarge = variant === 'large';
+  let triggerPaddingLeft: ComponentProps<typeof XStack>['pl'] = '$2';
+  let triggerPaddingRight: ComponentProps<typeof XStack>['pr'] = '$2';
+  let triggerPaddingVertical: ComponentProps<typeof XStack>['py'] = '$1.5';
+  let triggerGap: ComponentProps<typeof XStack>['gap'] = '$2';
+  let triggerTokenSize: ITokenSize = 'md';
+  let triggerTextSize: ComponentProps<typeof SizableText>['size'] =
+    '$heading2xl';
+  if (isLarge) {
+    triggerPaddingLeft = '$0';
+    triggerPaddingRight = '$0';
+    triggerPaddingVertical = '$0';
+    triggerGap = 14;
+    triggerTokenSize = 'xl';
+    triggerTextSize = '$headingXl';
+  } else if (isCompact) {
+    triggerPaddingLeft = '$1';
+    triggerPaddingRight = '$0';
+    triggerTokenSize = 'sm';
+    triggerTextSize = '$headingMd';
+  }
   const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
   const stableLogoUrlsRef = useRef(logoUrls);
   const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
@@ -394,25 +505,25 @@ function BaseMarketTokenSelector({
             // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
             <XStack
               testID="market-token-selector-trigger"
-              gap="$2"
               alignItems="center"
               cursor="pointer"
               bg="$bgApp"
-              pl={isCompact ? '$1' : '$2'}
-              pr={isCompact ? '$0' : '$2'}
-              py="$1.5"
+              pl={triggerPaddingLeft}
+              pr={triggerPaddingRight}
+              py={triggerPaddingVertical}
+              gap={triggerGap}
               borderRadius="$full"
               hoverStyle={{ bg: '$bgHover' }}
               pressStyle={{ bg: '$bgActive' }}
             >
               <Token
-                size={isCompact ? 'sm' : 'md'}
+                size={triggerTokenSize}
                 tokenImageUri={logoUrl}
                 tokenImageUris={stableLogoUrls}
                 networkImageUri={effectiveNetworkLogoUri}
                 fallbackIcon="CryptoCoinOutline"
               />
-              {showAddress ? (
+              {showAddress || showName ? (
                 <YStack minWidth={0} flexShrink={1}>
                   <XStack alignItems="center" gap="$1">
                     <SizableText
@@ -431,7 +542,17 @@ function BaseMarketTokenSelector({
                       color="$iconSubdued"
                     />
                   </XStack>
-                  {address ? (
+                  {showName && name ? (
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      pr="$1"
+                    >
+                      {name}
+                    </SizableText>
+                  ) : null}
+                  {!showName && showAddress && address ? (
                     <SizableText
                       size="$bodySm"
                       color="$textSubdued"
@@ -449,7 +570,7 @@ function BaseMarketTokenSelector({
               ) : (
                 <>
                   <SizableText
-                    size={isCompact ? '$headingMd' : '$heading2xl'}
+                    size={triggerTextSize}
                     color="$text"
                     numberOfLines={1}
                     ellipsizeMode="tail"
@@ -481,8 +602,16 @@ function BaseMarketTokenSelector({
       renderTrigger,
       renderSelectorContent,
       showAddress,
+      showName,
       stableLogoUrls,
       symbol,
+      name,
+      triggerGap,
+      triggerPaddingLeft,
+      triggerPaddingRight,
+      triggerPaddingVertical,
+      triggerTextSize,
+      triggerTokenSize,
     ],
   );
 

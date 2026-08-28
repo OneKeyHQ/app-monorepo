@@ -83,4 +83,43 @@ describe('navigateToMarketTokenDetail', () => {
       },
     });
   });
+
+  it('keeps the current category when selecting another normal token', () => {
+    navigateToMarketTokenDetail(
+      {
+        address: '',
+        networkId: 'evm--1',
+        isNative: true,
+      },
+      {
+        marketTokenCategory: 'top_coins',
+        tokenDetailActions: {
+          current: {
+            clearTokenDetail: clearTokenDetailMock,
+            changeActiveToken: changeActiveTokenMock,
+          },
+        } as never,
+        tokenDetailPreview: {
+          symbol: 'ETH',
+          name: 'Ethereum',
+        } as never,
+      },
+    );
+
+    jest.runAllTimers();
+
+    expect(changeActiveTokenMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith('main', {
+      screen: 'Market',
+      params: {
+        screen: 'MarketDetailV2',
+        params: {
+          tokenAddress: '',
+          network: 'eth',
+          isNative: true,
+          marketTokenCategory: 'top_coins',
+        },
+      },
+    });
+  });
 });

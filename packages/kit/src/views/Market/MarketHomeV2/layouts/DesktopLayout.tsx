@@ -10,6 +10,7 @@ import {
 
 import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
@@ -20,7 +21,9 @@ import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketTopCoinsList } from '../components/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
+import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategoryById,
@@ -218,8 +221,11 @@ export function DesktopLayout({
           stockDataCategoryMapRef.current[currentSpotCategoryId]),
       );
       const showSpotControls = Boolean(
-        currentSpotCategoryId && !currentSpotCategoryHasStockData,
+        currentSpotCategoryId &&
+        currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
+        !currentSpotCategoryHasStockData,
       );
+      const isTrendingCategory = currentSpotCategoryId === 'trending';
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -245,10 +251,12 @@ export function DesktopLayout({
               alignItems="center"
               pr="$5"
             >
-              <TimeRangeDropdown
-                value={currentFilterBarProps.timeRange}
-                onChange={currentFilterBarProps.onTimeRangeChange}
-              />
+              {isTrendingCategory ? null : (
+                <TimeRangeDropdown
+                  value={currentFilterBarProps.timeRange}
+                  onChange={currentFilterBarProps.onTimeRangeChange}
+                />
+              )}
               <CompactNetworkSelector
                 selectedNetworkId={currentFilterBarProps.selectedNetworkId}
                 onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
@@ -338,7 +346,16 @@ export function DesktopLayout({
               />
             </Suspense>
           );
+        } else if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+          tabContent = (
+            <MarketTopCoinsList
+              tabIntegrated
+              tabName={item.tabName}
+              listContainerProps={listContainerProps}
+            />
+          );
         } else {
+          const isTrendingCategory = item.categoryId === 'trending';
           tabContent = (
             <MarketNormalTokenList
               networkId={selectedNetworkId}
@@ -353,6 +370,15 @@ export function DesktopLayout({
               onStockDataChange={handleStockDataChange}
               enableWebSocket={activeTabName === item.tabName}
               centerDesktopPortalContent
+              desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
+              toolbar={
+                isTrendingCategory ? (
+                  <TrendingDesktopToolbar
+                    timeRange={filterBarProps.timeRange}
+                    onTimeRangeChange={filterBarProps.onTimeRangeChange}
+                  />
+                ) : undefined
+              }
             />
           );
         }

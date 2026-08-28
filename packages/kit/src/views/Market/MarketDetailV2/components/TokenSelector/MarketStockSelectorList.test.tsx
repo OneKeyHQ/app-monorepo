@@ -34,6 +34,9 @@ const mockStock: IMarketStockPublicItem = {
 };
 
 const mockTableProps = jest.fn();
+const mockUseMarketStockColumns = jest.fn(
+  (_options?: { compact?: boolean; showSparkline?: boolean }) => mockColumns,
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -50,16 +53,28 @@ jest.mock('@onekeyhq/components', () => ({
   Table: ({
     columns,
     dataSource,
+    estimatedItemSize,
+    headerRowProps,
     onRow,
+    rowProps,
   }: {
     columns: ITableColumn<IMarketStockPublicItem>[];
     dataSource: IMarketStockPublicItem[];
+    estimatedItemSize: number;
+    headerRowProps: { height: number };
     onRow: (
       item: IMarketStockPublicItem,
       index: number,
     ) => { onPress?: () => void } | undefined;
+    rowProps: { height: number; minHeight: number };
   }) => {
-    mockTableProps({ columns, dataSource });
+    mockTableProps({
+      columns,
+      dataSource,
+      estimatedItemSize,
+      headerRowProps,
+      rowProps,
+    });
     return (
       <div data-testid="stock-table">
         {dataSource.map((item, index) => (
@@ -94,7 +109,10 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/useMarketStockColumns',
   () => ({
-    useMarketStockColumns: () => mockColumns,
+    useMarketStockColumns: (options: {
+      compact?: boolean;
+      showSparkline?: boolean;
+    }) => mockUseMarketStockColumns(options),
   }),
 );
 
@@ -102,15 +120,23 @@ describe('MarketStockSelectorList', () => {
   beforeEach(() => {
     mockOnItemPress.mockReset();
     mockTableProps.mockClear();
+    mockUseMarketStockColumns.mockClear();
   });
 
   it('uses the Market Stocks columns and selects stocks by stockId', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
+    expect(mockUseMarketStockColumns).toHaveBeenCalledWith({
+      compact: true,
+      showSparkline: false,
+    });
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,
       dataSource: [mockStock],
+      estimatedItemSize: 56,
+      headerRowProps: { height: 40 },
+      rowProps: { width: '100%', height: 56, minHeight: 56 },
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));

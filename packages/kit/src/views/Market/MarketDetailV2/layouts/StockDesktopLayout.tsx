@@ -36,6 +36,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
@@ -71,7 +72,6 @@ import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
 import {
   STOCK_DETAIL_COLUMN_GAP,
-  STOCK_DETAIL_CONTENT_MAX_WIDTH,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
   STOCK_DETAIL_TRADE_PANEL_WIDTH,
 } from './stockDesktopLayoutConstants';
@@ -1166,9 +1166,7 @@ export function StockDesktopLayout({
   return (
     <Stack
       testID="stock-token-detail-desktop"
-      width="100%"
-      maxWidth={STOCK_DETAIL_CONTENT_MAX_WIDTH}
-      alignSelf="center"
+      {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
       py="$5"
     >
       <StockPageHeader showFavoriteButton={showFavoriteButton} />

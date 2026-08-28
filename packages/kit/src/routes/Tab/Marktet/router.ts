@@ -23,7 +23,7 @@ const MarketHome = LazyLoadRootTabPage(
 );
 
 const MarketDetail = LazyLoadPage(
-  () => import('../../../views/Market/MarketDetail'),
+  () => import('../../../views/Market/LegacyMarketDetailRoute'),
 );
 
 const MarketDetailV2 = createMarketDetailV2Route(
