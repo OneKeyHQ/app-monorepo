@@ -14,15 +14,22 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
  * RN-layer surfaces the system sheet would cover. Firmware actions cannot
  * occur mid-payment; they are listed so the two lists stay recognizably equal.
  *
- * Two deliberate divergences from `hasDialogAction`:
+ * Deliberate divergences from `hasDialogAction` / `hasToastAction`:
  * - CLOSE_UI_PIN_WINDOW is a close, not a surface. The container does not
  *   exclude it, but ServiceHardware never writes it to the atom (SKIPPED_EVENTS
  *   there; the state machine renders it as ProcessLoading instead), so listing
  *   it only makes the intent explicit.
+ * - FIRMWARE_TIP is listed even though `hasToastAction` DOES toast it for the
+ *   ConfirmOnDevice / InstallingFirmware messages: a firmware flow cannot run
+ *   mid-payment, so no such toast can appear under the pay sheet.
  * - DEVICE_PROGRESS is NOT listed: the container hides its dialog only while
  *   `globalShowDeviceProgressDialogEnabled` is false, and the only producer of
  *   that flag is the batch-create-account dialog. During a payment the flag is
  *   its default `true`, so DEVICE_PROGRESS does open a dialog and must park.
+ * - BLUETOOTH_UNSUPPORTED / BLUETOOTH_POWERED_OFF are NOT listed, so they
+ *   classify as parking; like the closes above they are in SKIPPED_EVENTS and
+ *   never reach the atom. Parking is the fail-safe direction for anything that
+ *   does render, so they stay out of the set.
  */
 const HARDWARE_ACTIONS_WITHOUT_UI = new Set<EHardwareUiStateAction>([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
@@ -50,6 +57,15 @@ export function isWcPayHardwarePromptActive(
  * park (hide) so the user can answer it, and come back once it is gone.
  * Cached-password and biometric paths never set these atoms, so they keep the
  * sheet up.
+ *
+ * The parking is REACTIVE, and that is a known timing caveat: the pipelines
+ * emit `onPhase('signingMessage')` fire-and-forget and there is no awaited
+ * hook at the prompt boundary, so the prompt mounts UNDER the sheet first and
+ * becomes reachable only once this park has dismissed it. Device QA on iOS and
+ * Android must confirm the prompt does become reachable; if it gets stuck, the
+ * fallback design is an awaited `onBeforePrompt` hook on the controller (park
+ * plus a WC_PAY_SHEET_DISMISS_MS wait, exactly like
+ * `onBeforePushConfirmModal`), which this hook cannot substitute for.
  *
  * Reveal ownership: this hook only ever reveals what it parked, and only while
  * `enabled`. The terminal reveal on every exit path stays with the flow

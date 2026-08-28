@@ -163,7 +163,25 @@ describe('useWcPayPromptParking', () => {
     expect(park).not.toHaveBeenCalled();
   });
 
-  it('reveals on the transition from REQUEST_PIN to CLOSE_UI_PIN_WINDOW', () => {
+  it('reveals when the hardware state clears (the real teardown path)', () => {
+    // How a hardware interaction actually ends: CLOSE_UI_WINDOW makes the
+    // background set hardwareUiStateAtom to undefined.
+    const { park, reveal, rerender } = setup();
+    hardwareState = hardwareUiState(EHardwareUiStateAction.REQUEST_PIN);
+    rerender({ enabled: true });
+
+    hardwareState = undefined;
+    rerender({ enabled: true });
+
+    expect(park).toHaveBeenCalledTimes(1);
+    expect(reveal).toHaveBeenCalledTimes(1);
+  });
+
+  it('classifier check: REQUEST_PIN then CLOSE_UI_PIN_WINDOW reveals', () => {
+    // Classification only, NOT a runtime path: ServiceHardware never writes
+    // CLOSE_UI_PIN_WINDOW to the atom (SKIPPED_EVENTS) and the state machine
+    // rewrites that event to ProcessLoading, which parks. Kept so the
+    // classifier's treatment of a close action stays pinned.
     const { park, reveal, rerender } = setup();
     hardwareState = hardwareUiState(EHardwareUiStateAction.REQUEST_PIN);
     rerender({ enabled: true });
@@ -205,18 +223,54 @@ describe('useWcPayPromptParking', () => {
   });
 });
 
-// Hardware actions that render nothing the user has to see or answer, so the
-// sheet may stay up. Everything else opens the hardware dialog or the
-// confirm-on-device toast.
-const NO_UI_ACTIONS: EHardwareUiStateAction[] = [
-  EHardwareUiStateAction.CLOSE_UI_WINDOW,
-  EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
-  EHardwareUiStateAction.FIRMWARE_TIP,
-  EHardwareUiStateAction.FIRMWARE_PROGRESS,
-  EHardwareUiStateAction.PREVIOUS_ADDRESS,
-  EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
-  EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE,
-];
+/**
+ * Expected classification of EVERY hardware UI action, spelled out rather
+ * than derived from the implementation's set — a derived table would agree
+ * with any future change instead of catching it.
+ *
+ * `Record<EHardwareUiStateAction, boolean>` is the real guard: a member added
+ * to the enum is a missing-property COMPILE error here (this file is inside
+ * packages/kit's tsconfig), so it cannot ship unclassified. `true` = the
+ * container puts a dialog or a toast on screen, which the system sheet would
+ * cover, so the sheet must park.
+ */
+const EXPECTED_PROMPT_ACTIVE: Record<EHardwareUiStateAction, boolean> = {
+  [EHardwareUiStateAction.DeviceChecking]: true,
+  [EHardwareUiStateAction.EnterPinOnDevice]: true,
+  [EHardwareUiStateAction.ProcessLoading]: true,
+  [EHardwareUiStateAction.REQUEST_PIN]: true,
+  [EHardwareUiStateAction.REQUEST_PIN_TYPE_PIN_ENTRY]: true,
+  [EHardwareUiStateAction.REQUEST_PIN_TYPE_ATTACH_PIN]: true,
+  [EHardwareUiStateAction.INVALID_PIN]: true,
+  // the "confirm on device" toast
+  [EHardwareUiStateAction.REQUEST_BUTTON]: true,
+  [EHardwareUiStateAction.REQUEST_PASSPHRASE]: true,
+  [EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE]: true,
+  // routed to the app event bus, never written to the atom
+  [EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE]: false,
+  [EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE]: false,
+  [EHardwareUiStateAction.CLOSE_UI_WINDOW]: false,
+  [EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW]: false,
+  // dialog unless globalShowDeviceProgressDialogEnabled is false, which only
+  // the batch-create-account dialog does — never during a payment
+  [EHardwareUiStateAction.DEVICE_PROGRESS]: true,
+  [EHardwareUiStateAction.BLUETOOTH_PERMISSION]: true,
+  [EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE]: true,
+  [EHardwareUiStateAction.LOCATION_PERMISSION]: true,
+  [EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION]: true,
+  [EHardwareUiStateAction.FIRMWARE_PROCESSING]: true,
+  [EHardwareUiStateAction.FIRMWARE_PROGRESS]: false,
+  [EHardwareUiStateAction.FIRMWARE_TIP]: false,
+  [EHardwareUiStateAction.PREVIOUS_ADDRESS]: false,
+  [EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION]: true,
+  [EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION]: true,
+  [EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED]: true,
+  [EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING]: true,
+  // never reach the atom (SKIPPED_EVENTS) but classify as parking: for a
+  // surface that does render, parking is the fail-safe direction
+  [EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED]: true,
+  [EHardwareUiStateAction.BLUETOOTH_POWERED_OFF]: true,
+};
 
 describe('isWcPayHardwarePromptActive', () => {
   it('is false without a state or an action', () => {
@@ -224,22 +278,27 @@ describe('isWcPayHardwarePromptActive', () => {
     expect(isWcPayHardwarePromptActive({} as IHardwareUiState)).toBe(false);
   });
 
-  // Exhaustive by construction: a member added to the enum later is in
-  // neither list and fails here until it is deliberately classified.
   it.each(Object.values(EHardwareUiStateAction))(
     'classifies %s',
     (action: EHardwareUiStateAction) => {
       expect(isWcPayHardwarePromptActive(hardwareUiState(action))).toBe(
-        !NO_UI_ACTIONS.includes(action),
+        EXPECTED_PROMPT_ACTIVE[action],
       );
     },
   );
 
-  it('the no-UI list is a subset of the enum and does not cover it', () => {
-    const allActions = new Set<string>(Object.values(EHardwareUiStateAction));
-    for (const action of NO_UI_ACTIONS) {
-      expect(allActions.has(action)).toBe(true);
+  // The Record catches an ADDED member at compile time; this catches the
+  // runtime shape the sweep above depends on — a table key that no longer
+  // corresponds to an enum value, and a table that has collapsed to one class.
+  it('the table covers exactly the enum, in both classes', () => {
+    const allActions = Object.values(EHardwareUiStateAction);
+    const tableKeys = new Set(Object.keys(EXPECTED_PROMPT_ACTIVE));
+    expect(tableKeys.size).toBe(allActions.length);
+    for (const action of allActions) {
+      expect(tableKeys.has(action)).toBe(true);
     }
-    expect(NO_UI_ACTIONS.length).toBeLessThan(allActions.size);
+    const values = Object.values(EXPECTED_PROMPT_ACTIVE);
+    expect(values).toContain(true);
+    expect(values).toContain(false);
   });
 });
