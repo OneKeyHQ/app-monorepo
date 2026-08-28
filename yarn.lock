@@ -44437,17 +44437,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"reselect@npm:5.2.0":
+  version: 5.2.0
+  resolution: "reselect@npm:5.2.0"
+  checksum: 10/e53d37a35f84132682b0a819d942ff7debea90fe126f4bb5eef0f21b1f48f45dec89d27990f2ef5865f5e05d64bb88fb41e4341eb276674aee6f1f7f7362c3e8
+  languageName: node
+  linkType: hard
+
 "reselect@npm:^4.1.7":
   version: 4.1.8
   resolution: "reselect@npm:4.1.8"
   checksum: 10/199984d9872f71cd207f4aa6e6fd2bd48d95154f7aa9b3aee3398335f39f5491059e732f28c12e9031d5d434adab2c458dc8af5afb6564d0ad37e1644445e09c
-  languageName: node
-  linkType: hard
-
-"reselect@npm:^5.2.0":
-  version: 5.3.0
-  resolution: "reselect@npm:5.3.0"
-  checksum: 10/743d82c7012133d035e13343cb33e6b45c26cd0b0f95868d692ac9736973b1b8050f28938c1d36f51105926a1a947a0f56c4f52d6c66a61db4995535efb3837b
   languageName: node
   linkType: hard
 
