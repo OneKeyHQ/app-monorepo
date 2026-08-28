@@ -533,9 +533,14 @@ function MobileBrowser() {
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
   const browserDashboardContent = (
     <View
+      pointerEvents={showDiscoveryPage ? 'auto' : 'none'}
+      accessibilityElementsHidden={!showDiscoveryPage}
+      importantForAccessibility={
+        showDiscoveryPage ? 'auto' : 'no-hide-descendants'
+      }
       style={{
-        display: showDiscoveryPage ? 'flex' : 'none',
-        flex: showDiscoveryPage ? 1 : undefined,
+        flex: 1,
+        opacity: showDiscoveryPage ? 1 : 0,
       }}
     >
       <DashboardContent onScroll={handleScroll} />

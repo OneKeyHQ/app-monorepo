@@ -401,14 +401,16 @@ function OuterTabPagerViewComponent({
     () =>
       visitedPages[2] ? (
         <View key="browser" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(2)}>{browserContent}</Freeze>
+          {/* Keep the mobile Browser native subtree attached across DApp
+          minimization and outer tab switches. */}
+          {browserContent}
         </View>
       ) : (
         <View key="browser" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, browserContent],
+    [visitedPages, browserContent],
   );
 
   return (
