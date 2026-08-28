@@ -286,6 +286,9 @@ export type ISendSelectedFeeInfo = {
   totalFiat: string;
   totalNativeForDisplay: string;
   totalFiatForDisplay: string;
+  /** Expected-case display fee (display gas limit × base+tip) — the value
+   * fee footers render; totalNativeForDisplay is the max-price variant. */
+  totalNativeMinForDisplay?: string;
 };
 
 export type IEstimateGasResp = {
