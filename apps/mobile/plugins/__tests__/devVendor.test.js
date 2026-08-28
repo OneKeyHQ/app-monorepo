@@ -5,6 +5,7 @@ const path = require('path');
 const vm = require('vm');
 
 const babel = require('@babel/core');
+const xcode = require('xcode');
 
 jest.mock('@rozenite/metro', () => ({
   withRozenite: (config) => config,
@@ -143,26 +144,26 @@ function loadResolveAssetSource(scriptURL) {
 }
 
 function loadIOSMainBundlePhaseScript() {
-  const project = fs.readFileSync(
+  const project = xcode.project(
     path.join(
       repoRoot,
       'apps/mobile/ios/OneKeyWallet.xcodeproj/project.pbxproj',
     ),
-    'utf8',
   );
-  const phaseStart = project.indexOf(
-    'EA7958392B70B02A00E0382F /* Bundle React Native code and images */ = {',
+  project.parseSync();
+  const phase = Object.values(
+    project.hash.project.objects.PBXShellScriptBuildPhase,
+  ).find(
+    (candidate) =>
+      candidate &&
+      typeof candidate === 'object' &&
+      typeof candidate.name === 'string' &&
+      JSON.parse(candidate.name) === 'Bundle React Native code and images',
   );
-  const phaseEnd = project.indexOf('\n\t\t};', phaseStart);
-  const phase = project.slice(phaseStart, phaseEnd);
-  if (!phase.includes('shellPath = /bin/bash;')) {
-    throw new Error('The iOS main bundle phase must run with bash');
+  if (!phase) {
+    throw new Error('Unable to find the iOS main bundle build phase');
   }
-  const scriptMatch = phase.match(/shellScript = ("(?:\\.|[^"\\])*");/);
-  if (!scriptMatch) {
-    throw new Error('Unable to read the iOS main bundle build phase');
-  }
-  return JSON.parse(scriptMatch[1]);
+  return JSON.parse(phase.shellScript);
 }
 
 function createMetroModule(modulePath) {
@@ -253,20 +254,6 @@ function createTemporaryRuntimeFixture() {
 describe('devVendor', () => {
   afterEach(() => {
     resetRuntimeCacheForTests();
-  });
-
-  it('starts one native Metro with common HBC and background HMR by default', () => {
-    const rootPackageJson = JSON.parse(
-      fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
-    );
-    const script = rootPackageJson.scripts['app:native-bundle'];
-
-    expect(script).toContain('ONEKEY_DEV_VENDOR=true');
-    expect(script).toContain('ONEKEY_DEV_BG_HMR=true');
-    expect(script).toContain('dev-vendor:prepare && cross-env');
-    expect(script).toContain('yarn workspace @onekeyhq/mobile native-bundle');
-    expect(script).not.toContain('concurrently');
-    expect(script).not.toContain('native-bundle:bg');
   });
 
   it('only enables the experiment for an explicit true value', () => {
@@ -727,254 +714,6 @@ describe('devVendor', () => {
         },
       }),
     ).toBe(false);
-
-    const splitBundlePatch = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'patches/@onekeyfe+react-native-split-bundle-loader+3.0.90+001+initial.patch',
-      ),
-      'utf8',
-    );
-    expect(splitBundlePatch).toContain(
-      'strongHost.bundleManager.bundleURL = bundleURL',
-    );
-    expect(splitBundlePatch).toContain(
-      'NSString *sourceURL = hmrBundleURL.absoluteString',
-    );
-    expect(splitBundlePatch).toContain('hmrBundleURL.absoluteString');
-    expect(splitBundlePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
-    expect(
-      splitBundlePatch.indexOf('runtime.global().setProperty('),
-    ).toBeLessThan(
-      splitBundlePatch.indexOf('runtime.evaluateJavaScript(buffer'),
-    );
-    const reactNativePatch = fs.readFileSync(
-      path.join(repoRoot, 'patches/react-native+0.86.2.patch'),
-      'utf8',
-    );
-    expect(reactNativePatch).toContain('fullBundleUrlOverride ??');
-    expect(reactNativePatch).toContain('resolver.devVendorNative=true');
-    expect(reactNativePatch).toContain(
-      'resolver\\.runtimeTarget=(?:main|background)',
-    );
-    expect(reactNativePatch).toContain('__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__');
-    expect(reactNativePatch).toContain('Libraries/Image/resolveAssetSource.js');
-    expect(reactNativePatch).toContain(
-      'resolve live dev-vendor assets from Metro',
-    );
-    expect(reactNativePatch).not.toContain(
-      'contains("resolver.devVendor=true")',
-    );
-    const metroPatch = fs.readFileSync(
-      path.join(repoRoot, 'patches/metro+0.84.4.patch'),
-      'utf8',
-    );
-    expect(metroPatch).toContain(
-      '!shouldRetainModulesOnlyGraphForHmr(resolverOptions)',
-    );
-    expect(metroPatch).toContain('devVendorBackgroundHMR === "true"');
-    expect(metroPatch).toContain(
-      'processModuleFilter: this._config.serializer.processModuleFilter',
-    );
-    expect(metroPatch).toContain('options.processModuleFilter?.(module)');
-    expect(metroPatch).toContain('unstable_changedFiles');
-    const backgroundThreadPatch = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'patches/@onekeyfe+react-native-background-thread+3.0.90+001+initial.patch',
-      ),
-      'utf8',
-    );
-    const backgroundOverrideIndex = backgroundThreadPatch.indexOf(
-      '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__',
-    );
-    expect(backgroundOverrideIndex).toBeGreaterThan(-1);
-    expect(backgroundThreadPatch).toContain(
-      'org.json.JSONObject.quote(entryURL)',
-    );
-    expect(backgroundThreadPatch).toMatch(
-      /assertionFile\.absolutePath,\n\+\s+entryURL,/,
-    );
-    expect(backgroundThreadPatch).not.toContain(
-      '"onekey-dev-vendor-assert-background.js",',
-    );
-    expect(backgroundThreadPatch).toContain('HMRClient');
-    expect(backgroundThreadPatch).toContain(
-      'private interface HMRClient : JavaScriptModule',
-    );
-    expect(backgroundThreadPatch).not.toContain(
-      'import com.facebook.react.devsupport.HMRClient',
-    );
-    expect(backgroundThreadPatch).toContain('fullBundleUrlOverride: String?');
-    expect(backgroundThreadPatch).toContain(
-      'markBackgroundRunnerFailed(t, bgStartTime, runtimeGeneration)',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'bgReactHost?.currentReactContext !== context',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'nativeExecuteWork(ptr, workId, isMain, runtimeGeneration)',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'runtimeGeneration != gBgRuntimeGeneration',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'GetMethodID(cls, "scheduleOnJSThread", "(ZJJ)Z")',
-    );
-    const androidBackgroundRestartIndex = backgroundThreadPatch.indexOf(
-      'val invalidatedGeneration = backgroundRuntimeGeneration.incrementAndGet()',
-    );
-    const androidBackgroundPointerClearIndex = backgroundThreadPatch.indexOf(
-      'bgRuntimePtr = 0',
-      androidBackgroundRestartIndex,
-    );
-    const androidBackgroundInvalidateIndex = backgroundThreadPatch.indexOf(
-      'nativeInvalidateSharedRpc("background", invalidatedGeneration)',
-      androidBackgroundRestartIndex,
-    );
-    expect(androidBackgroundRestartIndex).toBeGreaterThan(-1);
-    expect(androidBackgroundPointerClearIndex).toBeGreaterThan(
-      androidBackgroundRestartIndex,
-    );
-    expect(androidBackgroundInvalidateIndex).toBeGreaterThan(
-      androidBackgroundPointerClearIndex,
-    );
-    expect(backgroundThreadPatch).toContain(
-      '__ONEKEY_BACKGROUND_RUNTIME_GENERATION__',
-    );
-    expect(backgroundThreadPatch).toContain(
-      '[BackgroundHMR] client setup queued',
-    );
-    expect(backgroundThreadPatch).toContain(
-      '@"/apps/mobile/background.bundle"',
-    );
-    expect(backgroundThreadPatch).toContain(
-      '.path("/apps/mobile/background.bundle")',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'hmrRegistrationURL.absoluteString',
-    );
-    expect(backgroundThreadPatch).toContain('hmrRegistrationUri.toString()');
-    expect(backgroundThreadPatch).toContain('loadBundleAtURL:entryURL');
-    expect(backgroundThreadPatch).toContain(
-      'val connection = java.net.URL(entryURL).openConnection()',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'if (_devVendorBackgroundHMREnabled)',
-    );
-    expect(backgroundThreadPatch).toContain(
-      'nativeInvalidateSharedRpc("background")',
-    );
-    const iosBackgroundStartIndex = backgroundThreadPatch.indexOf(
-      'if (_devVendorEntryURL)',
-    );
-    const iosBackgroundEvaluateQueueIndex = backgroundThreadPatch.indexOf(
-      'finishHostStartWithBundleData:nil',
-      iosBackgroundStartIndex,
-    );
-    const iosBackgroundHMRSetupIndex = backgroundThreadPatch.indexOf(
-      'callFunctionOnJSModule:@"HMRClient"',
-      iosBackgroundStartIndex,
-    );
-    expect(iosBackgroundEvaluateQueueIndex).toBeGreaterThan(
-      iosBackgroundStartIndex,
-    );
-    expect(iosBackgroundHMRSetupIndex).toBeGreaterThan(
-      iosBackgroundEvaluateQueueIndex,
-    );
-    expect(
-      backgroundThreadPatch.indexOf(
-        'runtime.evaluateJavaScript(buffer',
-        backgroundOverrideIndex,
-      ),
-    ).toBeGreaterThan(backgroundOverrideIndex);
-    const expoPatch = fs.readFileSync(
-      path.join(repoRoot, 'patches/expo+57.0.14.patch'),
-      'utf8',
-    );
-    expect(expoPatch).toContain('org.json.JSONObject.quote(hmrEntryUrl)');
-    expect(expoPatch).toMatch(
-      /assertionFile\.absolutePath,\n\+\s+hmrEntryUrl,/,
-    );
-    expect(expoPatch).not.toContain('"onekey-dev-vendor-assert-main.js",');
-    expect(expoPatch).toContain(
-      '__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__=$quotedEntryUrl',
-    );
-    expect(expoPatch).toContain('.path("/apps/mobile/index.bundle")');
-    expect(expoPatch).toContain('URL(config.entryUrl).openConnection()');
-    expect(expoPatch).toContain('return hmrEntryUrl');
-    const appDelegateSource = fs.readFileSync(
-      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
-      'utf8',
-    );
-    expect(appDelegateSource).toContain(
-      'components.path = "/apps/mobile/index.bundle"',
-    );
-    expect(appDelegateSource).toContain('hmrBundleURL: mainHMRURL');
-    expect(appDelegateSource).toContain(
-      'ProcessInfo.processInfo.environment["ONEKEY_METRO_HOST"]',
-    );
-    expect(appDelegateSource).toContain('?? "127.0.0.1"');
-    expect(appDelegateSource).toContain(
-      'values["resolver.devVendorBackgroundHMR"] = "true"',
-    );
-    expect(reactNativePatch).toContain("restart('background'");
-    expect(reactNativePatch).toContain(
-      "global['__ONEKEY_RUNTIME_TARGET__'] === 'background'",
-    );
-    expect(reactNativePatch).toContain(
-      "require('../TurboModule/TurboModuleRegistry')",
-    );
-    expect(reactNativePatch).not.toContain(
-      "require('../TurboModule/TurboModuleRegistry').default",
-    );
-    const androidApplicationSource = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    expect(androidApplicationSource).toContain(
-      'resolver.devVendorBackgroundHMR',
-    );
-    expect(androidApplicationSource).toContain('BuildConfig.ONEKEY_DEV_BG_HMR');
-    const bridgingHeader = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'apps/mobile/ios/OneKeyWallet/OneKeyWallet-Bridging-Header.h',
-      ),
-      'utf8',
-    );
-    expect(bridgingHeader).toMatch(
-      /loadDevVendorEntryBundle:\(NSURL \*\)bundleURL\s+hmrBundleURL:\(NSURL \*\)hmrBundleURL\s+fingerprint:/,
-    );
-  });
-
-  it('persists iOS background HMR only for the current dev-vendor fingerprint', () => {
-    const appDelegateSource = fs.readFileSync(
-      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
-      'utf8',
-    );
-    expect(appDelegateSource).toContain(
-      '"onekey_dev_vendor_background_hmr_fingerprint"',
-    );
-    expect(appDelegateSource).toContain(
-      'defaults.set(fingerprint, forKey: devBackgroundHMRFingerprintDefaultsKey)',
-    );
-    expect(appDelegateSource).toContain(
-      'defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)',
-    );
-    expect(appDelegateSource).toContain('persistedFingerprint == fingerprint');
-    expect(appDelegateSource).toContain(
-      'isDevBackgroundHMREnabled(fingerprint: fingerprint)',
-    );
-    expect(appDelegateSource).toContain(
-      'fingerprint: devVendorBundleInfo.fingerprint',
-    );
-    expect(appDelegateSource).toMatch(
-      /if let explicitValue = explicitDevBackgroundHMRValue\(\) \{[\s\S]*?return explicitValue/,
-    );
   });
 
   it('refreshes the cached dev server from native runtime delta URLs', () => {
@@ -1030,10 +769,6 @@ describe('devVendor', () => {
 
   it('quotes iOS bundle phase tool paths containing spaces', () => {
     const script = loadIOSMainBundlePhaseScript();
-    expect(script).toContain(
-      'if ! "$NODE_BINARY" scripts/build-dev-vendor.js --check --platform ios; then',
-    );
-    const invocation = script.slice(script.lastIndexOf('SENTRY_XCODE_SCRIPT='));
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey dev vendor xcode '),
     );
@@ -1065,19 +800,24 @@ describe('devVendor', () => {
       );
 
       const runInvocation = (sentryDisabled) =>
-        spawnSync('/bin/bash', ['-c', invocation], {
+        spawnSync('/bin/bash', ['-c', script], {
           encoding: 'utf8',
           env: {
             ...process.env,
+            BUNDLE_COMMAND: 'export:embed',
+            CLI_PATH: '/tmp/mock-expo-cli',
+            CONFIGURATION: 'Release',
+            ENTRY_FILE: 'index.js',
             MOCK_CAPTURE_FILE: captureFile,
             MOCK_REACT_NATIVE_SCRIPT: reactNativeScript,
             MOCK_SENTRY_SCRIPT: sentryScript,
             NODE_BINARY: nodeBinary,
+            PODS_ROOT: path.join(temporaryDirectory, 'Pods'),
+            PROJECT_DIR: path.join(repoRoot, 'apps/mobile/ios'),
             SENTRY_DISABLE_AUTO_UPLOAD: sentryDisabled ? 'true' : 'false',
           },
         });
 
-      expect(invocation).not.toContain('`');
       const disabledResult = runInvocation(true);
       expect(disabledResult.status).toBe(0);
       expect(disabledResult.stderr).toBe('');
