@@ -3,6 +3,7 @@ import {
   ComputeBudgetProgram,
   Keypair,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
   SystemProgram,
   Transaction,
   TransactionInstruction,
@@ -159,6 +160,41 @@ function ataInstruction({
       { pubkey: tokenProgramId, isSigner: false, isWritable: false },
     ],
     data: idempotent ? Buffer.from([1]) : Buffer.alloc(0),
+  });
+}
+
+const COMPUTE_BUDGET_PROGRAM_ID = ComputeBudgetProgram.programId;
+
+// Hand-built ComputeBudget instruction with arbitrary raw `data`, for
+// testing data-length rules the SDK's own factory methods cannot produce.
+function rawComputeBudgetInstruction(data: Buffer): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: COMPUTE_BUDGET_PROGRAM_ID,
+    keys: [],
+    data,
+  });
+}
+
+function setLoadedAccountsDataSizeLimitInstruction(
+  bytes: number,
+): TransactionInstruction {
+  const data = Buffer.alloc(5);
+  data.writeUInt8(4, 0);
+  data.writeUInt32LE(bytes, 1);
+  return rawComputeBudgetInstruction(data);
+}
+
+// Hand-built ATA instruction with arbitrary raw `keys`/`data`, for testing
+// key-count and data-shape rules the `ataInstruction` helper's fixed 6-key
+// layout cannot produce.
+function rawAtaInstruction(
+  keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[],
+  data: Buffer = Buffer.alloc(0),
+): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    keys,
+    data,
   });
 }
 
@@ -440,6 +476,165 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
     ).toEqual({ ok: false, reason: 'unsupported instruction' });
   });
 
+  it('refuses a duplicate SetComputeUnitLimit instruction', () => {
+    const tx = toBase64([
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('clamps an explicit limit above the runtime ceiling before computing the priority fee', () => {
+    const tx = toBase64([
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 10_000_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 7_000_000 }),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    // effectiveLimit = min(10_000_000, 1_400_000) = 1_400_000
+    // ceil(7_000_000 * 1_400_000 / 1_000_000) = 9_800_000
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '9800000',
+      },
+    });
+  });
+
+  it('accepts one RequestHeapFrame instruction and refuses a duplicate', () => {
+    const okTx = toBase64([
+      ComputeBudgetProgram.requestHeapFrame({ bytes: 65_536 }),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: okTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+    });
+
+    const dupTx = toBase64([
+      ComputeBudgetProgram.requestHeapFrame({ bytes: 65_536 }),
+      ComputeBudgetProgram.requestHeapFrame({ bytes: 32_768 }),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: dupTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('accepts one SetLoadedAccountsDataSizeLimit instruction, refuses a duplicate and a malformed one', () => {
+    const okTx = toBase64([
+      setLoadedAccountsDataSizeLimitInstruction(64 * 1024),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: okTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: { amountRaw: '1500', kind: 'native', priorityFeeLamports: '0' },
+    });
+
+    const dupTx = toBase64([
+      setLoadedAccountsDataSizeLimitInstruction(64 * 1024),
+      setLoadedAccountsDataSizeLimitInstruction(32 * 1024),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: dupTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+
+    // 3 bytes total instead of the exact 5 (u8 discriminator + u32 LE).
+    const malformedTx = toBase64([
+      rawComputeBudgetInstruction(Buffer.from([4, 1, 2])),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: malformedTx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('refuses a SetComputeUnitLimit instruction with the wrong data length', () => {
+    // 6 bytes total instead of the exact 5 (u8 discriminator + u32 LE).
+    const tx = toBase64([
+      rawComputeBudgetInstruction(Buffer.from([2, 1, 2, 3, 4, 5])),
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
   it('refuses a native leg accompanied by an ATA create instruction', () => {
     const attacker = Keypair.generate().publicKey;
     const tx = toBase64([
@@ -556,6 +751,270 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         owner: Keypair.generate().publicKey,
         mintKey: mint,
       }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('refuses an ATA instruction whose created account differs from the leg destination', () => {
+    const destination = Keypair.generate().publicKey;
+    const wrongAta = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      ataInstruction({
+        funder: payer.publicKey,
+        ata: wrongAta,
+        owner: Keypair.generate().publicKey,
+        mintKey: mint,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('refuses an ATA instruction whose token program differs from the leg program', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      ataInstruction({
+        funder: payer.publicKey,
+        ata: destination,
+        owner: Keypair.generate().publicKey,
+        mintKey: mint,
+        tokenProgramId: TOKEN_2022_PROGRAM_ID,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('refuses an ATA instruction with 5 keys', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      rawAtaInstruction([
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ]),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('accepts an ATA instruction with a legacy trailing Rent sysvar key', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      rawAtaInstruction([
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+      ]),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '100000',
+        kind: 'spl',
+        mint: mint.toBase58(),
+        decimals: 6,
+        priorityFeeLamports: '0',
+      },
+    });
+  });
+
+  it('refuses an ATA instruction with 7 keys whose trailing key is not the Rent sysvar', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      rawAtaInstruction([
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+      ]),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('refuses an ATA instruction with 9 keys', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      rawAtaInstruction([
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+      ]),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: false,
+      reason: 'unexpected associated token account instruction',
+    });
+  });
+
+  it('refuses an ATA RecoverNested instruction', () => {
+    const destination = Keypair.generate().publicKey;
+    const tx = toBase64([
+      splTransferChecked(
+        100_000n,
+        payer.publicKey,
+        6,
+        TOKEN_PROGRAM_ID,
+        destination,
+      ),
+      rawAtaInstruction(
+        [
+          { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+          { pubkey: destination, isSigner: false, isWritable: true },
+          {
+            pubkey: Keypair.generate().publicKey,
+            isSigner: false,
+            isWritable: false,
+          },
+          { pubkey: mint, isSigner: false, isWritable: false },
+          {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+          },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ],
+        Buffer.from([2]), // RecoverNested
+      ),
     ]);
     expect(
       checkWcPaySolanaTxMatchesOrder({

@@ -1,6 +1,7 @@
 import {
   ComputeBudgetProgram,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
   SystemProgram,
   TransactionMessage,
   VersionedTransaction,
@@ -75,6 +76,10 @@ const CU_REQUEST_HEAP_FRAME = 0x01;
 const CU_SET_COMPUTE_UNIT_LIMIT = 0x02;
 const CU_SET_COMPUTE_UNIT_PRICE = 0x03;
 const CU_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT = 0x04;
+// Exact instruction data lengths (1-byte discriminator + payload) — anything
+// shorter OR longer is refused, not merely "at least this many bytes".
+const CU_U32_PAYLOAD_DATA_LEN = 5; // discriminator(1) + u32 LE
+const CU_U64_PAYLOAD_DATA_LEN = 9; // discriminator(1) + u64 LE
 // The runtime's own cap on compute units per transaction — the ceiling a
 // SetComputeUnitLimit value is clamped to, and the assumed limit when no
 // limit ix is present at all (the conservative, i.e. most expensive, case).
@@ -82,13 +87,18 @@ const MAX_COMPUTE_UNITS = 1_400_000;
 const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000;
 
 // Associated Token Account program: [funder, ata, owner, mint,
-// systemProgram, tokenProgram].
+// systemProgram, tokenProgram], with an optional legacy 7th key (the Rent
+// sysvar, still passed by some older clients).
 const ATA_KEY_COUNT = 6;
 const ATA_ADDRESS_INDEX = 1;
 const ATA_MINT_INDEX = 3;
 const ATA_TOKEN_PROGRAM_INDEX = 5;
+const ATA_LEGACY_RENT_SYSVAR_INDEX = 6;
+const ATA_LEGACY_KEY_COUNT = 7;
 const ATA_CREATE = 0;
 const ATA_CREATE_IDEMPOTENT = 1;
+const SYSVAR_RENT_PUBKEY_STR = SYSVAR_RENT_PUBKEY.toBase58();
+const ATA_REASON = 'unexpected associated token account instruction';
 
 // A plain decimal order amount. 78 is the digit length of uint256 max —
 // the same cap used by wcPayOrderConsistency.ts / wcPayMessageConsistency.ts
@@ -143,6 +153,10 @@ type IInstructionOutcome =
   | { kind: 'leg'; leg: IPaymentLeg }
   | { kind: 'computeBudgetLimit'; units: number }
   | { kind: 'computeBudgetPrice'; microLamports: BigNumber }
+  // RequestHeapFrame / SetLoadedAccountsDataSizeLimit: tolerated, but still
+  // subject to the same "at most one of each" rule as limit/price — the
+  // discriminator is carried through so the caller can dedupe by it.
+  | { kind: 'computeBudgetOther'; discriminator: number }
   | { kind: 'ata'; ata: IAtaOutcome }
   | { kind: 'error'; reason: string };
 
@@ -225,12 +239,15 @@ function classifyComputeBudgetInstruction(
   const data = Buffer.from(ix.data);
   const discriminator = data.length >= 1 ? data[0] : -1;
   if (discriminator === CU_SET_COMPUTE_UNIT_LIMIT) {
-    if (data.length < 5) {
+    if (data.length !== CU_U32_PAYLOAD_DATA_LEN) {
       return { kind: 'error', reason: 'unsupported instruction' };
     }
     return { kind: 'computeBudgetLimit', units: data.readUInt32LE(1) };
   }
   if (discriminator === CU_SET_COMPUTE_UNIT_PRICE) {
+    if (data.length !== CU_U64_PAYLOAD_DATA_LEN) {
+      return { kind: 'error', reason: 'unsupported instruction' };
+    }
     const microLamports = readU64LE(data, 1);
     if (microLamports === undefined) {
       return { kind: 'error', reason: 'unsupported instruction' };
@@ -241,7 +258,10 @@ function classifyComputeBudgetInstruction(
     discriminator === CU_REQUEST_HEAP_FRAME ||
     discriminator === CU_SET_LOADED_ACCOUNTS_DATA_SIZE_LIMIT
   ) {
-    return { kind: 'skip' };
+    if (data.length !== CU_U32_PAYLOAD_DATA_LEN) {
+      return { kind: 'error', reason: 'unsupported instruction' };
+    }
+    return { kind: 'computeBudgetOther', discriminator };
   }
   // RequestUnitsDeprecated (0x00, carries a direct `additional_fee` in
   // lamports outside this validator's fee accounting) and any unrecognized
@@ -249,8 +269,13 @@ function classifyComputeBudgetInstruction(
   return { kind: 'error', reason: 'unsupported instruction' };
 }
 
-// Create / CreateIdempotent only, with the exact 6-key layout; RecoverNested
-// and any other shape fall back to the confirm page.
+// Create / CreateIdempotent only, with exactly the 6-key layout (or 7 when
+// the trailing key is the legacy Rent sysvar); RecoverNested and any other
+// shape fall back to the confirm page. Every refusal on this program — bad
+// data, bad key count, or (post-loop, in the caller) a mismatch against the
+// leg or a second occurrence — reports the single ATA reason, since this
+// program is never a fallback candidate: any instruction routed here is
+// either exactly the accepted rent-payment shape or refused outright.
 function classifyAtaInstruction(
   ix: TransactionInstruction,
 ): IInstructionOutcome {
@@ -260,10 +285,14 @@ function classifyAtaInstruction(
     data.length > 1 ||
     (discriminator !== ATA_CREATE && discriminator !== ATA_CREATE_IDEMPOTENT)
   ) {
-    return { kind: 'error', reason: 'unsupported instruction' };
+    return { kind: 'error', reason: ATA_REASON };
   }
-  if (ix.keys.length < ATA_KEY_COUNT) {
-    return { kind: 'error', reason: 'unsupported instruction' };
+  const hasLegacyRentSysvar =
+    ix.keys.length === ATA_LEGACY_KEY_COUNT &&
+    ix.keys[ATA_LEGACY_RENT_SYSVAR_INDEX].pubkey.toBase58() ===
+      SYSVAR_RENT_PUBKEY_STR;
+  if (ix.keys.length !== ATA_KEY_COUNT && !hasLegacyRentSysvar) {
+    return { kind: 'error', reason: ATA_REASON };
   }
   return {
     kind: 'ata',
@@ -388,6 +417,11 @@ export function checkWcPaySolanaTxMatchesOrder({
   const legs: IPaymentLeg[] = [];
   let computeUnitLimit: number | undefined;
   let priceMicroLamports: BigNumber | undefined;
+  // "At most one of each" applies to all four ComputeBudget variants, not
+  // just limit/price — RequestHeapFrame and SetLoadedAccountsDataSizeLimit
+  // carry no value this validator needs, so their duplicate check lives in
+  // this shared discriminator set rather than a value-holding variable.
+  const seenComputeBudgetDiscriminators = new Set<number>();
   let ata: IAtaOutcome | undefined;
   for (const ix of instructions) {
     const outcome = classifyInstruction(ix);
@@ -399,21 +433,25 @@ export function checkWcPaySolanaTxMatchesOrder({
     } else if (outcome.kind === 'computeBudgetLimit') {
       // The runtime itself rejects a duplicate SetComputeUnitLimit — a
       // second one here is already a shape the real runtime never produces.
-      if (computeUnitLimit !== undefined) {
+      if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_LIMIT)) {
         return { ok: false, reason: 'unsupported instruction' };
       }
+      seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_LIMIT);
       computeUnitLimit = outcome.units;
     } else if (outcome.kind === 'computeBudgetPrice') {
-      if (priceMicroLamports !== undefined) {
+      if (seenComputeBudgetDiscriminators.has(CU_SET_COMPUTE_UNIT_PRICE)) {
         return { ok: false, reason: 'unsupported instruction' };
       }
+      seenComputeBudgetDiscriminators.add(CU_SET_COMPUTE_UNIT_PRICE);
       priceMicroLamports = outcome.microLamports;
+    } else if (outcome.kind === 'computeBudgetOther') {
+      if (seenComputeBudgetDiscriminators.has(outcome.discriminator)) {
+        return { ok: false, reason: 'unsupported instruction' };
+      }
+      seenComputeBudgetDiscriminators.add(outcome.discriminator);
     } else if (outcome.kind === 'ata') {
       if (ata !== undefined) {
-        return {
-          ok: false,
-          reason: 'unexpected associated token account instruction',
-        };
+        return { ok: false, reason: ATA_REASON };
       }
       ata = outcome.ata;
     }
@@ -482,10 +520,7 @@ export function checkWcPaySolanaTxMatchesOrder({
       ata.mint !== leg.mint ||
       ata.tokenProgram !== leg.programId
     ) {
-      return {
-        ok: false,
-        reason: 'unexpected associated token account instruction',
-      };
+      return { ok: false, reason: ATA_REASON };
     }
   }
 
