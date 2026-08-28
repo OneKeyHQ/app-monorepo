@@ -1,0 +1,42 @@
+diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
+index 421eb93..c6a975f 100644
+--- a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
++++ b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
+@@ -70,7 +70,8 @@ var webPropsToSkip = {
+   onScroll: 1,
+   onCopy: 1,
+   onCut: 1,
+-  onPaste: 1,
++  // OneKey patch: React Native TextInput emits this custom event on native.
++  // onPaste: 1,
+   // Other web-only props
+   htmlFor: 1,
+   dangerouslySetInnerHTML: 1
+diff --git a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
+index a976632..d5f0121 100644
+--- a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
++++ b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
+@@ -41,7 +41,8 @@ var webPropsToSkip = {
+   onScroll: 1,
+   onCopy: 1,
+   onCut: 1,
+-  onPaste: 1,
++  // OneKey patch: React Native TextInput emits this custom event on native.
++  // onPaste: 1,
+   // Other web-only props
+   htmlFor: 1,
+   dangerouslySetInnerHTML: 1
+diff --git a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
+index 08cc802..8f8c675 100644
+--- a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
++++ b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
+@@ -48,7 +48,8 @@ export const webPropsToSkip = {
+   onScroll: 1,
+   onCopy: 1,
+   onCut: 1,
+-  onPaste: 1,
++  // OneKey patch: React Native TextInput emits this custom event on native.
++  // onPaste: 1,
+ 
+   // Other web-only props
+   htmlFor: 1,

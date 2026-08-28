@@ -88,7 +88,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
-  } & IStackProps
+  } & Omit<IStackProps, 'onChange'>
 >;
 
 export function AmountInput({

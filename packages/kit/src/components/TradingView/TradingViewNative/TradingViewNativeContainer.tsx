@@ -426,6 +426,7 @@ export const TradingViewNativeContainer = memo(
       latestPrice,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
+      showPreviousClose: normalizedChartSettings.options.previousClose,
     });
 
     useEffect(() => {

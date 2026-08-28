@@ -3919,6 +3919,7 @@ class ServicePrime extends ServiceBase {
    * persisted Legacy or pre-upgrade Keyless-backed login is repaired first;
    * every other state is delegated to the durable identity-exit coordinator.
    */
+  @backgroundMethod()
   async clearOneKeyIdAuthStateIfNoActiveToken({
     callerName,
   }: {

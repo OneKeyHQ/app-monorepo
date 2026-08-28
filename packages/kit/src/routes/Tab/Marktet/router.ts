@@ -15,7 +15,7 @@ import { RootTabLoadingFallback } from '../RootTabLoadingFallback';
 import { MarketDetailV2LoadingFallback } from './MarketDetailV2LoadingFallback';
 
 const MarketHome = LazyLoadRootTabPage(
-  () => import(/* webpackPrefetch: true */ '../../../views/Market/MarketHome'),
+  () => import('../../../views/Market/MarketHome'),
   createElement(RootTabLoadingFallback, {
     tabRoute: ETabRoutes.Market,
     mobileContentFallback: createElement(MarketHomeLoadingFallback),
