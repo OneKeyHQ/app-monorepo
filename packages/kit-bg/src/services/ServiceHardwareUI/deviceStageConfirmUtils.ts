@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type {
   IUnsignedMessage,
   IUnsignedTxPro,
@@ -46,8 +48,39 @@ export function buildStageConfirmContentForSignTx(
   const amountLabel = intl.formatMessage({ id: ETranslations.content__amount });
   const feeDetail = buildStageFeeDetail(stageFeeInfo);
 
-  const transfer = unsignedTx.transfersInfo?.[0];
+  const transfers = unsignedTx.transfersInfo ?? [];
+  const transfer = transfers[0];
   if (transfer?.to) {
+    // A multi-transfer tx rides a bulk-send contract (or a multi-output
+    // UTXO tx): the device screen shows that aggregate, so a single
+    // recipient row would contradict the very screen the card asks the
+    // person to check. Show the batch's shape instead.
+    if (transfers.length > 1) {
+      const details: IDeviceStageConfirmDetail[] = [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_recipient }),
+          value: intl.formatMessage(
+            { id: ETranslations.global_count_addresses },
+            { count: transfers.length },
+          ),
+        },
+      ];
+      const symbol = transfer.tokenInfo?.symbol;
+      const total = transfers.reduce(
+        (acc, item) => acc.plus(item.amount || 0),
+        new BigNumber(0),
+      );
+      if (total.gt(0)) {
+        details.push({
+          label: amountLabel,
+          value: symbol ? `${total.toFixed()} ${symbol}` : total.toFixed(),
+        });
+      }
+      if (feeDetail) {
+        details.push(feeDetail);
+      }
+      return { details };
+    }
     const details: IDeviceStageConfirmDetail[] = [
       {
         label: intl.formatMessage({ id: ETranslations.global_recipient }),
