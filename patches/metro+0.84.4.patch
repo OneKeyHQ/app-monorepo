@@ -1,5 +1,5 @@
 diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
-index 2cdbbb9..f1f78d7 100644
+index b34df88..b6a18d9 100644
 --- a/node_modules/metro/src/Assets.js
 +++ b/node_modules/metro/src/Assets.js
 @@ -203,6 +203,8 @@ async function getAssetFiles(assetPath, platform = null) {
@@ -42,19 +42,106 @@ index 2cdbbb9..f1f78d7 100644
      throw new Error(
        `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
      );
+diff --git a/node_modules/metro/src/DeltaBundler/DeltaCalculator.js b/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
+index 0aa44c3..5524227 100644
+--- a/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
++++ b/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
+@@ -53,6 +53,12 @@ class DeltaCalculator extends _events.default {
+     this._deletedFiles = new Set();
+     const addedFiles = this._addedFiles;
+     this._addedFiles = new Set();
++    // OneKey patch: let serializers invalidate external runtime inputs exactly.
++    const unstable_changedFiles = new Set([
++      ...modifiedFiles,
++      ...deletedFiles,
++      ...addedFiles,
++    ]);
+     const requiresReset = this._requiresReset;
+     this._requiresReset = false;
+     if (requiresReset) {
+@@ -89,9 +95,10 @@ class DeltaCalculator extends _events.default {
+         deleted: new Set(),
+         modified: new Map(),
+         reset: true,
++        unstable_changedFiles,
+       };
+     }
+-    return result;
++    return { ...result, unstable_changedFiles };
+   }
+   getGraph() {
+     return this._graph;
+diff --git a/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js b/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
+index 3f610fa..0c27d60 100644
+--- a/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
++++ b/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
+@@ -42,7 +42,11 @@ const debug = require("debug")("Metro:HMR");
+ function generateModules(sourceModules, graph, options) {
+   const modules = [];
+   for (const module of sourceModules) {
+-    if ((0, _js.isJsModule)(module)) {
++    // OneKey patch: HMR must honor the same module filter as full bundles.
++    if (
++      (0, _js.isJsModule)(module) &&
++      options.processModuleFilter?.(module) !== false
++    ) {
+       const getPathname = (extension) => {
+         return _path.default
+           .relative(
+diff --git a/node_modules/metro/src/HmrServer.js b/node_modules/metro/src/HmrServer.js
+index 80e3d44..55ec843 100644
+--- a/node_modules/metro/src/HmrServer.js
++++ b/node_modules/metro/src/HmrServer.js
+@@ -317,6 +317,8 @@ class HmrServer {
+         clientUrl: new URL(group.clientUrl),
+         createModuleId: this._createModuleId,
+         includeAsyncPaths: group.graphOptions.lazy,
++        // OneKey patch: never publish external common-module stubs over HMR.
++        processModuleFilter: this._config.serializer.processModuleFilter,
+         projectRoot: this._config.projectRoot,
+         serverRoot:
+           this._config.server.unstable_serverRoot ?? this._config.projectRoot,
 diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
-index f8eb36c..e1066b1 100644
+index f8eb36c..73da185 100644
 --- a/node_modules/metro/src/Server.js
 +++ b/node_modules/metro/src/Server.js
-@@ -939,6 +939,13 @@ class Server {
+@@ -3,7 +3,7 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true,
+ });
+-exports.default = void 0;
++exports.shouldRetainModulesOnlyGraphForHmr = exports.default = void 0;
+ var _Assets = require("./Assets");
+ var _baseJSBundle = _interopRequireDefault(
+   require("./DeltaBundler/Serializers/baseJSBundle"),
+@@ -59,6 +59,17 @@ var _nullthrows = _interopRequireDefault(require("nullthrows"));
+ var _path = _interopRequireDefault(require("path"));
+ var _perf_hooks = require("perf_hooks");
+ var _querystring = _interopRequireDefault(require("querystring"));
++function shouldRetainModulesOnlyGraphForHmr(resolverOptions) {
++  const customResolverOptions = resolverOptions.customResolverOptions;
++  return (
++    customResolverOptions?.devVendorNative === "true" &&
++    (customResolverOptions.runtimeTarget === "main" ||
++      (customResolverOptions.runtimeTarget === "background" &&
++        customResolverOptions.devVendorBackgroundHMR === "true"))
++  );
++}
++exports.shouldRetainModulesOnlyGraphForHmr =
++  shouldRetainModulesOnlyGraphForHmr;
+ function _interopRequireWildcard(e, t) {
+   if ("function" == typeof WeakMap)
+     var r = new WeakMap(),
+@@ -939,6 +950,14 @@ class Server {
        );
        bundlePerfLogger.point("serializingBundle_end");
        const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
-+      // Release the dependency graph for modulesOnly bundles (e.g. harness
-+      // test files) immediately after serialization.  These one-shot bundles
-+      // are never requested again, so keeping their graph in memory only
-+      // causes linear memory growth until OOM.
-+      if (serializerOptions.modulesOnly) {
++      // Keep only native dev-vendor graphs that have an HMR client. Other
++      // modulesOnly bundles are one-shot and should release their graph.
++      if (
++        serializerOptions.modulesOnly &&
++        !shouldRetainModulesOnlyGraphForHmr(resolverOptions)
++      ) {
 +        await this._bundler.endGraph(graphId);
 +      }
        return {
