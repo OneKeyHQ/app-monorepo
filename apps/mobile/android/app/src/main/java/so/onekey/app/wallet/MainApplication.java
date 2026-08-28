@@ -187,7 +187,7 @@ public class MainApplication extends Application implements ReactApplication {
         if (manifest.optInt("schemaVersion", -1) != 2) {
           throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
         }
-        if (manifest.optInt("strategyVersion", -1) != 1) {
+        if (manifest.optInt("strategyVersion", -1) != 2) {
           throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
         }
         if (!"android".equals(manifest.optString("platform"))) {

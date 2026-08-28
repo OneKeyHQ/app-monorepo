@@ -416,7 +416,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       guard
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
         (manifest["schemaVersion"] as? NSNumber)?.intValue == 2,
-        (manifest["strategyVersion"] as? NSNumber)?.intValue == 1,
+        (manifest["strategyVersion"] as? NSNumber)?.intValue == 2,
         manifest["platform"] as? String == "ios",
         let fingerprint = manifest["fingerprint"] as? String,
         fingerprint.range(
