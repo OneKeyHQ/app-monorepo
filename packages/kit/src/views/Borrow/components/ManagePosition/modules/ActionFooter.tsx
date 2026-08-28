@@ -161,6 +161,7 @@ export function ActionFooter({
 
   const footerContent = (
     <Page.FooterActions
+      $gtMd={{ flex: 1 }}
       onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
