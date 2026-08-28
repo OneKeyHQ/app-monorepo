@@ -110,6 +110,17 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
   it.each([
     ['not an object', 'x', 'invalid typed data shape'],
     [
+      'a PermitTransferFrom type entry that is not an array',
+      {
+        ...buildTypedData(),
+        types: {
+          ...buildTypedData().types,
+          PermitTransferFrom: { not: 'an array' },
+        },
+      },
+      'invalid typed data shape',
+    ],
+    [
       'unknown primaryType',
       buildTypedData({ primaryType: 'PermitSingle' }),
       'unsupported primaryType',
@@ -125,6 +136,11 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       'chain mismatch',
     ],
     [
+      'a permitted value that is not an object',
+      buildTypedData({ message: { permitted: 'x' } }),
+      'invalid permitted shape',
+    ],
+    [
       'amount mismatch',
       buildTypedData({ permitted: { amount: '100001' } }),
       'amount mismatch',
@@ -133,6 +149,16 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       'non-integer amount',
       buildTypedData({ permitted: { amount: '1e5' } }),
       'invalid amount',
+    ],
+    [
+      'a token address that is too short',
+      buildTypedData({ permitted: { token: '0x12' } }),
+      'invalid token address',
+    ],
+    [
+      'a non-numeric deadline',
+      buildTypedData({ message: { deadline: 'soon' } }),
+      'invalid deadline',
     ],
     [
       'expired deadline',
@@ -175,6 +201,46 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       ok: false,
       reason: 'chain mismatch',
     });
+  });
+
+  it('refuses an option account with too few CAIP-10 segments', () => {
+    const twoSegments: IWcPayOption = { ...option, account: 'eip155:8453' };
+    expect(check(buildTypedData(), { option: twoSegments })).toEqual({
+      ok: false,
+      reason: 'invalid option account shape',
+    });
+  });
+
+  it('refuses a non-eip155 account namespace as an account-shape error, not a chain mismatch', () => {
+    const nonEip155: IWcPayOption = {
+      ...option,
+      account: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:abc',
+    };
+    expect(check(buildTypedData(), { option: nonEip155 })).toEqual({
+      ok: false,
+      reason: 'invalid option account shape',
+    });
+  });
+
+  it('refuses an option amount that is not a valid decimal string', () => {
+    const badAmountOption: IWcPayOption = {
+      ...option,
+      amount: { ...option.amount, value: 'abc' },
+    };
+    expect(check(buildTypedData(), { option: badAmountOption })).toEqual({
+      ok: false,
+      reason: 'invalid order amount format',
+    });
+  });
+
+  it('accepts option.amount.value with leading zeros matching permitted.amount', () => {
+    const leadingZeroOption: IWcPayOption = {
+      ...option,
+      amount: { ...option.amount, value: '0100000' },
+    };
+    expect(check(buildTypedData(), { option: leadingZeroOption }).ok).toBe(
+      true,
+    );
   });
 
   it('refuses an unknown or mismatching token', () => {

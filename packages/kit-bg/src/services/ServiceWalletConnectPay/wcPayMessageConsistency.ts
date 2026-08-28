@@ -35,6 +35,12 @@ const UINT_DEC_RE = new RegExp(
   `^(0|[1-9][0-9]{0,${MAX_DECIMAL_UINT_CHARS - 1}})$`,
 );
 const HEX_RE = new RegExp(`^0x[0-9a-fA-F]{1,${MAX_HEX_UINT_CHARS}}$`);
+// The order's own `amount.value` mirrors wcPayOrderConsistency.ts's decimal
+// rule (leading zeros accepted) so the same server field is never judged by
+// two different formats depending on which validator ran. The typed-data
+// fields (permitted.amount, nonce, deadline, domain.chainId) keep the
+// stricter no-leading-zero UINT_DEC_RE above.
+const ORDER_AMOUNT_RE = new RegExp(`^[0-9]{1,${MAX_DECIMAL_UINT_CHARS}}$`);
 const PERMIT_TRANSFER_FROM = 'PermitTransferFrom';
 const MESSAGE_KEYS = ['permitted', 'spender', 'nonce', 'deadline'];
 const PERMITTED_KEYS = ['token', 'amount'];
@@ -128,9 +134,15 @@ export function checkWcPayTypedDataMatchesOrder({
     return { ok: false, reason: 'invalid option account shape' };
   }
   const [namespace, optionChainReference] = accountParts;
+  // The eip155 prefix is part of the account's own shape, not a chain
+  // comparison — an account on a foreign namespace (e.g. "solana:...") is
+  // malformed input for this EVM-only validator, distinct from an eip155
+  // account whose chain simply disagrees with the typed data.
+  if (namespace !== 'eip155') {
+    return { ok: false, reason: 'invalid option account shape' };
+  }
   const domainChainId = parseUint(domain.chainId);
   if (
-    namespace !== 'eip155' ||
     !domainChainId ||
     !domainChainId.isEqualTo(optionChainReference) ||
     caip2ChainId !== `eip155:${optionChainReference}`
@@ -160,7 +172,7 @@ export function checkWcPayTypedDataMatchesOrder({
   }
   if (
     typeof option.amount?.value !== 'string' ||
-    !UINT_DEC_RE.test(option.amount.value)
+    !ORDER_AMOUNT_RE.test(option.amount.value)
   ) {
     return { ok: false, reason: 'invalid order amount format' };
   }
