@@ -98,9 +98,9 @@ describe('build-dev-vendor', () => {
       .mockImplementation(() => {});
 
     try {
-      await expect(
-        preparePlatform('ios', { build, check }),
-      ).rejects.toBe(error);
+      await expect(preparePlatform('ios', { build, check })).rejects.toBe(
+        error,
+      );
       expect(consoleError).toHaveBeenCalledWith(
         expect.stringContaining('yarn app:native-bundle:legacy'),
       );
