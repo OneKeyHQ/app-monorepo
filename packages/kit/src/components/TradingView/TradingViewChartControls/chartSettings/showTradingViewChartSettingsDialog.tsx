@@ -1,8 +1,16 @@
 import { Dialog } from '@onekeyhq/components';
 
-import { TradingViewChartSettings } from './TradingViewChartSettings';
+import {
+  type ITradingViewChartSettingsProps,
+  TradingViewChartSettings,
+} from './TradingViewChartSettings';
 
 const TRADING_VIEW_CHART_SETTINGS_DIALOG_WIDTH = 552;
+const TRADING_VIEW_WEBVIEW_HIDDEN_OPTION_IDS = [
+  'previousClose',
+] as const satisfies NonNullable<
+  ITradingViewChartSettingsProps['hiddenOptionIds']
+>;
 
 export function showTradingViewChartSettingsDialog() {
   const dialogInstanceRef: {
@@ -31,6 +39,7 @@ export function showTradingViewChartSettingsDialog() {
     },
     renderContent: (
       <TradingViewChartSettings
+        hiddenOptionIds={TRADING_VIEW_WEBVIEW_HIDDEN_OPTION_IDS}
         onCancel={closeDialog}
         onConfirmSuccess={closeDialog}
       />
