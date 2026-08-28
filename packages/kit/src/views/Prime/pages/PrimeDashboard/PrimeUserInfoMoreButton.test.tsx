@@ -109,12 +109,10 @@ jest.mock('@onekeyhq/components', () => {
     ActionList,
     Dialog: {
       debugMessage: jest.fn(),
-      loading: jest.fn(() => ({ close: jest.fn() })),
     },
     IconButton: () => null,
     SizableText: Container,
     Stack: Container,
-    Toast: { error: jest.fn() },
     XStack: Container,
   };
 });
@@ -159,14 +157,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: false }],
-}));
-
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: {
-    showToastOfError: jest.fn(),
-    toastIfError: jest.fn(),
-  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
