@@ -20,23 +20,24 @@ import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
  */
 
 /** The fee row for the confirm card — only callers that already resolved a
- * fee (the send pipelines) can offer one; flows without it show no row. */
+ * fee (the send pipelines) can offer one; flows without it show no row.
+ *
+ * The row mirrors the device screen, like every other row on the card:
+ * `totalNative` is the signed budget (gas limit × max fee price), the same
+ * formula firmware renders as "Maximum fee". The page footer keeps its
+ * expected-case estimate — different label, different promise. On chains
+ * whose fee is exact (UTXO, fixed-fee), the two collapse into one value. */
 function buildStageFeeDetail(
   stageFeeInfo: ISendSelectedFeeInfo | undefined,
 ): IDeviceStageConfirmDetail | undefined {
-  // Prefer the expected-case value the fee footer renders: the card and
-  // the page share screenshots, so they must agree. The device screen
-  // stays the max-fee cap it always showed — that gap is firmware's.
-  const amount =
-    stageFeeInfo?.totalNativeMinForDisplay ??
-    stageFeeInfo?.totalNativeForDisplay;
+  const amount = stageFeeInfo?.totalNative;
   if (!stageFeeInfo || !amount) {
     return undefined;
   }
   const symbol = stageFeeInfo.feeInfo?.common?.nativeSymbol;
   return {
     label: appLocale.intl.formatMessage({
-      id: ETranslations.global_est_network_fee,
+      id: ETranslations.fee_max_fee,
     }),
     value: symbol ? `${amount} ${symbol}` : amount,
   };
