@@ -2330,71 +2330,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-video (6.18.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - react-native-video/Video (= 6.18.0)
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - react-native-video/Fabric (6.18.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - react-native-video/Video (6.18.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - react-native-video/Fabric
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
   - react-native-view-shot (5.1.0):
     - hermes-engine
     - RCTRequired
@@ -3162,6 +3097,28 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
+  - ReactNativeVideo (7.0.0-beta.11):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - ReactNativeZipArchive (3.0.90):
     - hermes-engine
     - NitroModules
@@ -3894,7 +3851,6 @@ DEPENDENCIES:
   - "react-native-skia (from `../../../node_modules/@shopify/react-native-skia`)"
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-view (from `../../../node_modules/@onekeyfe/react-native-tab-view`)"
-  - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - react-native-webview-cleaner (from `../../../node_modules/react-native-webview-cleaner`)
@@ -3949,6 +3905,7 @@ DEPENDENCIES:
   - "ReactNativePerfStats (from `../../../node_modules/@onekeyfe/react-native-perf-stats`)"
   - "ReactNativeRangeDownloader (from `../../../node_modules/@onekeyfe/react-native-range-downloader`)"
   - "ReactNativeSplashScreen (from `../../../node_modules/@onekeyfe/react-native-splash-screen`)"
+  - ReactNativeVideo (from `../../../node_modules/react-native-video`)
   - ReactNativeZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
@@ -4225,8 +4182,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@react-native-community/slider"
   react-native-tab-view:
     :path: "../../../node_modules/@onekeyfe/react-native-tab-view"
-  react-native-video:
-    :path: "../../../node_modules/react-native-video"
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
@@ -4335,6 +4290,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-range-downloader"
   ReactNativeSplashScreen:
     :path: "../../../node_modules/@onekeyfe/react-native-splash-screen"
+  ReactNativeVideo:
+    :path: "../../../node_modules/react-native-video"
   ReactNativeZipArchive:
     :path: "../../../node_modules/react-native-zip-archive"
   RealmJS:
@@ -4516,7 +4473,6 @@ SPEC CHECKSUMS:
   react-native-skia: 65a19b18cfddadd1ba5f267216763a0b8467f2ec
   react-native-slider: 8a70a9fbb0253489730cc274171dc78b44600b46
   react-native-tab-view: 088191968c4f1d91a3697d1ab806f4ff3427a2fa
-  react-native-video: e7083fc6e6a5533b4d7a23d5f775103c2886eb2f
   react-native-view-shot: e31564b1d0c57add676123f74ed1b6e7c7e22851
   react-native-webview: d2b92fc3878f206cc5fecd618f4fb5b8d1652bd6
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
@@ -4571,6 +4527,7 @@ SPEC CHECKSUMS:
   ReactNativePerfStats: f49ff03f5c661c4398c9db62d02d39693f1e0170
   ReactNativeRangeDownloader: d541e64003743eb0c863fb61a4623e479cccf8bd
   ReactNativeSplashScreen: 435db1144ba89ebee9c35cd91d174354f36fdbad
+  ReactNativeVideo: 36938964abd84cb1355c5844d89feb501f3fbf93
   ReactNativeZipArchive: 23f01818eda2c3efcaeaf9973bd535263c3732e3
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 72d1e14966339bf38c41d9b2841ef64c8fd79646
