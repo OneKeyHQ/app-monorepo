@@ -766,7 +766,8 @@ export function NotificationListView({
           zIndex={10}
           bg="$bg"
           $platform-web={{
-            position: '-webkit-sticky',
+            // Tamagui's web type still exposes the unsupported legacy value.
+            position: 'sticky' as '-webkit-sticky',
             top: 0,
           }}
         >
