@@ -128,7 +128,7 @@ describe('firmware config provider', () => {
       config,
     );
     expect(directGet).toHaveBeenCalledWith(CONFIG_URL, {
-      timeout: 15_000,
+      timeout: 10_000,
       signal: expect.any(AbortSignal),
     });
     expect(mockedSniRequest).not.toHaveBeenCalled();
@@ -142,7 +142,7 @@ describe('firmware config provider', () => {
       config,
     );
     expect(directGet).toHaveBeenCalledWith(PRE_RELEASE_CONFIG_URL, {
-      timeout: 15_000,
+      timeout: 10_000,
       signal: expect.any(AbortSignal),
     });
   });
@@ -181,7 +181,7 @@ describe('firmware config provider', () => {
       method: 'GET',
       headers: {},
       body: null,
-      timeout: 15_000,
+      timeout: 10_000,
     });
   });
 
@@ -243,20 +243,104 @@ describe('firmware config provider', () => {
     );
 
     const result = fetchFirmwareConfig({ preRelease: false });
-    await jest.advanceTimersByTimeAsync(24_000);
+    await jest.advanceTimersByTimeAsync(19_000);
 
     await expect(result).resolves.toEqual(config);
     expect(mockedSniRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ timeout: 15_000 }),
+      expect.objectContaining({ timeout: 10_000 }),
     );
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('shares the remaining total budget across SNI candidates', async () => {
+  it.each(['timeout', 'null'])(
+    'reaches the third builtin after timed-out attempts return %s',
+    async (failureMode) => {
+      const config = buildRemoteConfig();
+      directGet.mockImplementation(
+        (_url: string, { timeout }: { timeout: number }) =>
+          new Promise((_resolve, reject) => {
+            setTimeout(() => reject(transportError()), timeout);
+          }),
+      );
+      mockedIsProxyActiveForUrl.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(false), 4000);
+          }),
+      );
+      mockedSniRequest.mockImplementation(
+        ({ ip, timeout }: { ip: string; timeout: number }) =>
+          new Promise((resolve, reject) => {
+            const isLastCandidate = ip === '216.19.3.115';
+            setTimeout(
+              () => {
+                if (isLastCandidate) {
+                  resolve({
+                    statusCode: 200,
+                    headers: {},
+                    body: JSON.stringify(config),
+                  });
+                } else if (failureMode === 'timeout') {
+                  reject(transportError('SNI_TIMEOUT'));
+                } else {
+                  resolve(null);
+                }
+              },
+              isLastCandidate ? 9000 : timeout,
+            );
+          }),
+      );
+
+      const result = fetchFirmwareConfig({ preRelease: false });
+      await jest.advanceTimersByTimeAsync(43_000);
+
+      await expect(result).resolves.toEqual(config);
+      expect(
+        mockedSniRequest.mock.calls.map(
+          ([request]) => (request as { ip: string }).ip,
+        ),
+      ).toEqual([BUILTIN_FIRST_IP, '104.18.21.233', '216.19.3.115']);
+      expect(mockedSniRequest).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({ timeout: 10_000 }),
+      );
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('finishes all three SNI timeouts before the total deadline', async () => {
+    directGet.mockImplementation(
+      (_url: string, { timeout }: { timeout: number }) =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(transportError()), timeout);
+        }),
+    );
+    mockedSniRequest.mockImplementation(
+      ({ timeout }: { timeout: number }) =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(transportError('SNI_TIMEOUT')), timeout);
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(40_000);
+
+    await expect(result).resolves.toBeNull();
+    expect(mockedSniRequest).toHaveBeenCalledTimes(3);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('caps SNI attempts to the budget remaining after slow preflight', async () => {
     directGet.mockImplementation(
       () =>
         new Promise((_resolve, reject) => {
-          setTimeout(() => reject(transportError()), 15_000);
+          setTimeout(() => reject(transportError()), 10_000);
+        }),
+    );
+    mockedIsProxyActiveForUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(false), 20_000);
         }),
     );
     mockedSniRequest.mockImplementation(
@@ -267,12 +351,12 @@ describe('firmware config provider', () => {
     );
 
     const result = fetchFirmwareConfig({ preRelease: false });
-    await jest.advanceTimersByTimeAsync(30_000);
+    await jest.advanceTimersByTimeAsync(45_000);
 
     await expect(result).resolves.toBeNull();
     expect(mockedSniRequest).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ timeout: 15_000 }),
+      expect.objectContaining({ timeout: 10_000 }),
     );
     expect(mockedSniRequest).toHaveBeenNthCalledWith(
       2,
@@ -294,6 +378,8 @@ describe('firmware config provider', () => {
 
     const result = fetchFirmwareConfig({ preRelease: false });
     await jest.advanceTimersByTimeAsync(30_000);
+    expect(requestSignal?.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(15_000);
 
     await expect(result).resolves.toBeNull();
     expect(requestSignal?.aborted).toBe(true);
@@ -306,12 +392,12 @@ describe('firmware config provider', () => {
     mockedIsProxyActiveForUrl.mockImplementation(
       () =>
         new Promise((resolve) => {
-          setTimeout(() => resolve(false), 31_000);
+          setTimeout(() => resolve(false), 46_000);
         }),
     );
 
     const result = fetchFirmwareConfig({ preRelease: false });
-    await jest.advanceTimersByTimeAsync(30_000);
+    await jest.advanceTimersByTimeAsync(45_000);
     await expect(result).resolves.toBeNull();
     await jest.advanceTimersByTimeAsync(1000);
 
@@ -334,13 +420,13 @@ describe('firmware config provider', () => {
                 headers: {},
                 body: JSON.stringify(config),
               }),
-            31_000,
+            46_000,
           );
         }),
     );
 
     const result = fetchFirmwareConfig({ preRelease: false });
-    await jest.advanceTimersByTimeAsync(30_000);
+    await jest.advanceTimersByTimeAsync(45_000);
     await expect(result).resolves.toBeNull();
     await jest.advanceTimersByTimeAsync(1000);
 

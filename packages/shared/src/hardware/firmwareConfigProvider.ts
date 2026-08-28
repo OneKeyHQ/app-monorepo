@@ -19,9 +19,9 @@ import { getOrderedIpTableCandidates } from '../utils/ipTableUtils';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
-// Leave time for SNI fallback within the shared deadline.
-const CONFIG_FETCH_TIMEOUT_MS = 15_000;
-const CONFIG_FETCH_TOTAL_TIMEOUT_MS = 30_000;
+// Budget for the domain and three SNI attempts, plus preflight overhead.
+const CONFIG_FETCH_TIMEOUT_MS = 10_000;
+const CONFIG_FETCH_TOTAL_TIMEOUT_MS = 45_000;
 const CONFIG_FETCH_MAX_SNI_CANDIDATES = 3;
 const STABLE_CONFIG_URL = 'https://data.onekey.so/config.json';
 const PRE_RELEASE_CONFIG_URL = 'https://data.onekey.so/pre-config.json';

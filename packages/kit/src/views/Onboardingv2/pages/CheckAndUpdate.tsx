@@ -85,7 +85,7 @@ const STEP_STATE_TONE: Partial<
   [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
-// Allow the 30s manifest fetch budget in addition to hardware checks.
+// Keep normal checks within 60s, including the 45s manifest fetch budget.
 // Post-update rounds must outlast the reconnect loop in
 // retryDeviceConnectionAfterUpdate (pRetry delays alone sum to ~63s — a
 // rebooting device after a firmware flash is expected to be away that long),
