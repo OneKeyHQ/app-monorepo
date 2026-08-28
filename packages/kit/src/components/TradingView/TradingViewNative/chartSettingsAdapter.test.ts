@@ -35,6 +35,7 @@ describe('TradingViewNative chart settings adapter', () => {
     value.options.yAxis = true;
     value.options.countdown = false;
     value.options.latestPrice = false;
+    value.options.previousClose = true;
     value.latestPriceLine.upColor = '#123456';
     value.latestPriceLine.downColor = '#654321';
     value.background.style = 'gradient';
@@ -49,6 +50,7 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(nextSettings.options.yAxis).toBe(true);
     expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
+    expect(nextSettings.options.previousClose).toBe(true);
     expect(nextSettings.latestPriceLine).toEqual({
       ...currentSettings.latestPriceLine,
       upColor: '#123456',
@@ -113,6 +115,23 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(migrated.background.colors).toEqual(['#000000', '#171717']);
     expect(migrated.grid.horizontalColor).toBe('#171717');
     expect(migrated.grid.verticalColor).toBe('#171717');
+  });
+
+  it('keeps the previous-close line hidden when migrating schema version 3 settings', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+    const { previousClose: _previousClose, ...legacyOptions } =
+      previousSettings.options;
+
+    const migrated = normalizeTradingViewNativeChartSettings({
+      ...previousSettings,
+      schemaVersion: 3,
+      options: legacyOptions,
+    });
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.options.previousClose).toBe(false);
   });
 
   it('sanitizes malformed nested values in the current persisted schema', () => {
