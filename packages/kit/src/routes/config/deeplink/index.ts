@@ -44,6 +44,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -140,6 +141,13 @@ type IOneKeyAppLinkTarget =
   | { type: 'swapHome' }
   | { type: 'market' }
   | {
+      type: 'marketDetail';
+      tokenAddress: string;
+      network: string;
+      isNative?: boolean;
+    }
+  | { type: 'appClipWeb'; url: string }
+  | {
       // Earn protocol detail universal link, mirroring the web route
       // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
       type: 'earnProtocolDetail';
@@ -162,10 +170,65 @@ const ONEKEY_PERPS_APP_LINK_HOSTS = new Set<string>([
   ONEKEY_PERPS_TEST_APP_LINK_HOST,
 ]);
 const ONEKEY_SWAP_APP_LINK_HOSTS = new Set<string>([ONEKEY_SWAP_APP_LINK_HOST]);
+const ONEKEY_APP_CLIP_WEB_HOSTS = new Set<string>([
+  ONEKEY_UNIVERSAL_LINK_HOST,
+  ONEKEY_UNIVERSAL_TEST_LINK_HOST,
+]);
+const ONEKEY_APP_CLIP_HANDOFF_PATH = 'app-clip';
 
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
 function normalizeAppLinkPath(path?: string | null) {
   return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
+}
+
+function parseAppClipWebUrl(value: unknown): string | undefined {
+  const rawUrl = getStringQueryParam(value);
+  if (!rawUrl || rawUrl.length > 2048) {
+    return undefined;
+  }
+  try {
+    const url = new URL(rawUrl);
+    if (
+      url.protocol !== 'https:' ||
+      !ONEKEY_APP_CLIP_WEB_HOSTS.has(url.hostname.toLowerCase()) ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== '443')
+    ) {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function parseAppClipMarketTarget(
+  queryParams?: Linking.ParsedURL['queryParams'],
+): IOneKeyAppLinkTarget {
+  const tokenAddress = getStringQueryParam(queryParams?.address) ?? '';
+  const network = getStringQueryParam(queryParams?.network);
+  const rawIsNative = getStringQueryParam(queryParams?.is_native);
+  const isNative = rawIsNative === 'true';
+  const isValidAddress =
+    (isNative && tokenAddress === '') ||
+    /^[A-Za-z0-9._:%~-]{1,256}$/u.test(tokenAddress);
+  if (
+    !isValidAddress ||
+    !network ||
+    !/^[A-Za-z0-9._:-]{1,64}$/u.test(network) ||
+    (rawIsNative !== undefined &&
+      rawIsNative !== 'true' &&
+      rawIsNative !== 'false')
+  ) {
+    return { type: 'market' };
+  }
+  return {
+    type: 'marketDetail',
+    tokenAddress,
+    network,
+    isNative: rawIsNative === undefined ? undefined : isNative,
+  };
 }
 
 function parseOneKeyAppLinkTarget({
@@ -203,6 +266,13 @@ function parseOneKeyAppLinkTarget({
   }
   if (normalizedPath === 'market') {
     return { type: 'market' };
+  }
+  if (normalizedPath === 'clip/market') {
+    return parseAppClipMarketTarget(queryParams);
+  }
+  if (normalizedPath === 'clip/web' || normalizedPath.startsWith('clip/web/')) {
+    const url = parseAppClipWebUrl(queryParams?.web_url);
+    return url ? { type: 'appClipWeb', url } : undefined;
   }
   // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
   // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
@@ -318,6 +388,20 @@ async function processOneKeyAppUniversalLink(
     }
     return true;
   }
+  if (target.type === 'marketDetail') {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          tokenAddress: target.tokenAddress,
+          network: target.network,
+          isNative: target.isNative,
+        },
+      },
+    });
+    return true;
+  }
   if (target.type === 'earnProtocolDetail') {
     // Reuse the safe Earn navigation: it handles the native Discovery
     // sub-tab switch, earn-mode switch, and stack push; if the protocol does
@@ -330,6 +414,13 @@ async function processOneKeyAppUniversalLink(
     });
     return true;
   }
+  if (target.type === 'appClipWeb') {
+    openWebView({
+      url: target.url,
+      source: 'deeplink',
+    });
+    return true;
+  }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
   if (perpsTabRoute) {
     // switchTabAsync serializes overlay dismiss and tab switch; the sync
@@ -337,6 +428,44 @@ async function processOneKeyAppUniversalLink(
     await navigation.switchTabAsync(perpsTabRoute);
   }
   return true;
+}
+
+async function processAppClipHandoff(
+  params: IProcessDeepLinkParams,
+): Promise<boolean> {
+  if (
+    getOneKeyDeepLinkPath(params.parsedUrl) !== ONEKEY_APP_CLIP_HANDOFF_PATH
+  ) {
+    return false;
+  }
+  const canonicalUrl = getStringQueryParam(params.parsedUrl.queryParams?.url);
+  if (!canonicalUrl || canonicalUrl.length > 4096) {
+    return true;
+  }
+  try {
+    const parsedUrl = Linking.parse(canonicalUrl);
+    const normalizedPath = normalizeAppLinkPath(parsedUrl.path);
+    if (
+      normalizedPath !== 'clip/market' &&
+      normalizedPath !== 'clip/web' &&
+      !normalizedPath.startsWith('clip/web/')
+    ) {
+      return true;
+    }
+    if (!parseOneKeyAppLinkTarget(parsedUrl)) {
+      return true;
+    }
+    if (platformEnv.isNativeIOS) {
+      void reportInstallAttribution().catch(() => undefined);
+    }
+    await processOneKeyAppUniversalLink({
+      url: canonicalUrl,
+      parsedUrl,
+    });
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 async function processDeepLinkUrlAccount(
@@ -585,6 +714,12 @@ const processDeepLinkUrl = memoizee(
         });
       }
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
+        return;
+      }
+      if (
+        getOneKeyDeepLinkPath(parsedUrl) === ONEKEY_APP_CLIP_HANDOFF_PATH &&
+        (await processAppClipHandoff({ url, parsedUrl }))
+      ) {
         return;
       }
       if (await processOneKeyAppUniversalLink({ url, parsedUrl })) {

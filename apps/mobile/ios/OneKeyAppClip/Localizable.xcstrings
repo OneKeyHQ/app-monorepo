@@ -1,0 +1,84 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "campaign.secure_webview" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Secure OneKey web experience" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "OneKey 安全活动页面" } }
+      }
+    },
+    "campaign.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Featured experience" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "精选活动" } }
+      }
+    },
+    "chart.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Chart data is unavailable" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图表数据暂不可用" } }
+      }
+    },
+    "cta.note" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get the full OneKey experience from the App Store" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "前往 App Store 获取完整 OneKey 体验" } }
+      }
+    },
+    "cta.trade" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Trade now" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "立即交易" } }
+      }
+    },
+    "cta.trade_symbol" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Trade %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "立即交易 %@" } }
+      }
+    },
+    "global.retry" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试" } }
+      }
+    },
+    "market.powered_by" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Market data by OneKey" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "行情数据来自 OneKey" } }
+      }
+    },
+    "market.realtime" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Live · Data by OneKey" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "实时更新 · 数据来自 OneKey" } }
+      }
+    },
+    "market.refreshing" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Updating market data…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在更新行情…" } }
+      }
+    },
+    "market.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Market highlights" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "热门行情" } }
+      }
+    },
+    "market.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Market data is unavailable" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "行情数据暂不可用" } }
+      }
+    },
+    "market.update_failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Update failed · Last updated %@" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "更新失败 · 上次更新 %@" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

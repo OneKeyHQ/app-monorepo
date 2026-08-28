@@ -1,0 +1,33 @@
+diff --git a/node_modules/expo-constants/ios/EXConstants.podspec b/node_modules/expo-constants/ios/EXConstants.podspec
+index fc4608a..e2d7dfe 100644
+--- a/node_modules/expo-constants/ios/EXConstants.podspec
++++ b/node_modules/expo-constants/ios/EXConstants.podspec
+@@ -38,6 +38,10 @@ Pod::Spec.new do |s|
+-  env_vars = ENV['PROJECT_ROOT'] ? "PROJECT_ROOT=#{ENV['PROJECT_ROOT']} " : ""
++  # OneKey patch: Preserve external-drive paths that contain spaces.
++  # env_vars = ENV['PROJECT_ROOT'] ? "PROJECT_ROOT=#{ENV['PROJECT_ROOT']} " : ""
++  env_vars = ENV['PROJECT_ROOT'] ? "PROJECT_ROOT=\"#{ENV['PROJECT_ROOT']}\" " : ""
+   script_phase = {
+     :name => 'Generate app.config for prebuilt Constants.manifest',
+-    :script => "bash -l -c \"#{env_vars}$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",
++    # OneKey patch: Invoke the script directly so bash does not reparse an unquoted path.
++    # :script => "bash -l -c \"#{env_vars}$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",
++    :script => "#{env_vars}bash \"$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh\"",
+     :execution_position => :before_compile
+   }
+   # :always_out_of_date is only available in CocoaPods 1.13.0 and later
+diff --git a/node_modules/expo-constants/scripts/get-app-config-ios.sh b/node_modules/expo-constants/scripts/get-app-config-ios.sh
+index b612e09..a976a31 100755
+--- a/node_modules/expo-constants/scripts/get-app-config-ios.sh
++++ b/node_modules/expo-constants/scripts/get-app-config-ios.sh
+@@ -11,7 +11,9 @@ EXPO_CONSTANTS_PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+ # `$PROJECT_DIR` is passed by Xcode as the directory to the xcodeproj file.
+ # in classic main project setup it is something like /path/to/app/ios
+ # in new style pod project setup it is something like /path/to/app/ios/Pods
+-PROJECT_DIR_BASENAME=$(basename $PROJECT_DIR)
++# OneKey patch: Preserve external-drive paths that contain spaces.
++# PROJECT_DIR_BASENAME=$(basename $PROJECT_DIR)
++PROJECT_DIR_BASENAME=$(basename "$PROJECT_DIR")
+ if [ "x$PROJECT_DIR_BASENAME" != "xPods" ]; then
+   exit 0
+ fi
