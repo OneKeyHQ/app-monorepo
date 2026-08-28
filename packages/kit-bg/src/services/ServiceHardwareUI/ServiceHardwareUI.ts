@@ -171,7 +171,15 @@ class ServiceHardwareUI extends ServiceBase {
 
   /** OK-59934: the DeviceStage burst scope — owns every deviceStageAtom
    * write. See DeviceStageBurst.ts. */
-  deviceStageBurst = new DeviceStageBurstScope();
+  deviceStageBurst = new DeviceStageBurstScope({
+    // Backs end()'s disconnect fallback: tracker verdict plus a WebUSB
+    // re-enumeration, so a cleared tracker (SDK reset) is not mistaken
+    // for an unplug.
+    isDeviceStillConnected: (connectId) =>
+      this.backgroundApi.serviceHardware.isHardwareDeviceConnected({
+        connectId,
+      }),
+  });
 
   private onHardwareDeviceStateUpdate = async ({
     connectId,
