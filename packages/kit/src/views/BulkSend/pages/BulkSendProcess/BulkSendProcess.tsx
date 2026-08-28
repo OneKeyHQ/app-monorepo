@@ -206,6 +206,7 @@ function buildFeeResultFromSelectedFeeInfo(
       selectedFeeInfo.totalNativeForDisplay ?? selectedFeeInfo.totalNative,
     totalFiatForDisplay:
       selectedFeeInfo.totalFiatForDisplay ?? selectedFeeInfo.totalFiat,
+    totalNativeMinForDisplay: selectedFeeInfo.totalNativeMinForDisplay,
   };
 }
 
