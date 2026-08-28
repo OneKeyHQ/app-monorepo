@@ -74,7 +74,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - BackgroundThread (3.0.90):
+  - BackgroundThread (3.0.91):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -530,6 +530,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - OneKeyTextInput (3.0.91):
+    - React-Core
   - OpenSSL-Universal (3.6.2000)
   - Pbkdf2 (3.0.90):
     - hermes-engine
@@ -3686,7 +3688,7 @@ PODS:
     - Yoga
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
-  - SplitBundleLoader (3.0.90):
+  - SplitBundleLoader (3.0.91):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3798,6 +3800,7 @@ DEPENDENCIES:
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
+  - "OneKeyTextInput (from `../../../node_modules/@onekeyfe/react-native-text-input`)"
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
@@ -4078,6 +4081,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   NitroModules:
     :path: "../../../node_modules/react-native-nitro-modules"
+  OneKeyTextInput:
+    :path: "../../../node_modules/@onekeyfe/react-native-text-input"
   Pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   PerpDepthBar:
@@ -4351,7 +4356,7 @@ SPEC CHECKSUMS:
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   AsyncStorage: 22c900c2954ab2381dc0987b2d59df42f1b2f4e6
   AutoSizeInput: 28e181d75d00e8a8bbcc1af8d7f8dc4cb265c495
-  BackgroundThread: 72a716e38c4f2bca036812666c123068d63d705e
+  BackgroundThread: e02ecf274151fb5f5f73abfb04a93cee9d1894e9
   BleUtils: 00f63c6bf8115301f8f47774b6e978f7174b4bc1
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 60fc449576e6a1bab1780cddc48ddfd3b60dc9bb
@@ -4418,6 +4423,7 @@ SPEC CHECKSUMS:
   NetworkInfo: 3efc46edc173ecd6fdf35887219b201fea0dd906
   NitroMmkv: 437a1303946283cfefe556d74e989228874aa8c0
   NitroModules: 2251afef5376b85060f7e4779f03094310598974
+  OneKeyTextInput: ec5aff644a21ee96a82bf8526458102f2d7c5d21
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 1a4bd2e81fa5a16d30238241767e1bf96c1b30e0
   PerpDepthBar: 3aa83d732a5ed762ba686ca72a521be20d52ad84
@@ -4554,7 +4560,7 @@ SPEC CHECKSUMS:
   SniConnect: b2e8238d1ddacb9ebfa0f0c7faaff6fe2ad57b6b
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
-  SplitBundleLoader: eb7fde095077df8a4c141fe92ef004d0281034d2
+  SplitBundleLoader: 875770617aaffa8ad1f1e14d8788caa5a32da0ed
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: 80a8742429501bf77e83ebb7bb4586b6756d4fdc
   TOCropViewController: 5fa42dd0ac8c32790c06fc6057831d17b3b16857

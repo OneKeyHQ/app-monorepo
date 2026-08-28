@@ -9612,14 +9612,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-background-thread@npm:3.0.90":
-  version: 3.0.90
-  resolution: "@onekeyfe/react-native-background-thread@npm:3.0.90"
+"@onekeyfe/react-native-background-thread@npm:3.0.91":
+  version: 3.0.91
+  resolution: "@onekeyfe/react-native-background-thread@npm:3.0.91"
   peerDependencies:
     "@onekeyfe/react-native-bundle-update": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/ca4ed161e06d265827cf8c328a02cd395d680916ab85eb07132f36c3c85fb0105c0d014763116be3c22979eccb0910e85b45ac8b828c870827b06eada291dc86
+  checksum: 10/ddc1a590ee3279a9f61d995f43559d017734ac2a18ecb5e69b655c25c731aae882a3c790b7d71b106bcd42f96c660e4aa705bc6823353381143c812db44c733f
   languageName: node
   linkType: hard
 
@@ -9839,14 +9839,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-split-bundle-loader@npm:3.0.90":
-  version: 3.0.90
-  resolution: "@onekeyfe/react-native-split-bundle-loader@npm:3.0.90"
+"@onekeyfe/react-native-split-bundle-loader@npm:3.0.91":
+  version: 3.0.91
+  resolution: "@onekeyfe/react-native-split-bundle-loader@npm:3.0.91"
   peerDependencies:
     "@onekeyfe/react-native-bundle-update": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/519b030ffad1b0a26deb4f1adb6205bce7c8800cfdca03df6702e5b0ac71eba2c884f23ba824529997e205747a609b9a89f97f43e0d94caf9c43080e20382998
+  checksum: 10/ea14d3a66378d44f40ca8c8080b6880d8f6d62c7a8fabed3a8aa36504075adc95e44983b79d4459a1be257c97417c883f9426ef16fe5aa70072dccf454ddea58
   languageName: node
   linkType: hard
 
@@ -9864,13 +9864,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-text-input@npm:0.3.0":
-  version: 0.3.0
-  resolution: "@onekeyfe/react-native-text-input@npm:0.3.0"
+"@onekeyfe/react-native-text-input@npm:3.0.91":
+  version: 3.0.91
+  resolution: "@onekeyfe/react-native-text-input@npm:3.0.91"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/84f4e2e83f2d85cfbf01ad6dae7709db4c659fb5db980e6b37c5b5a08b5138f46c5b4b6288f19e398620f29d0fc33e4e89a5455cfae54d12366b31daa17990dd
+  checksum: 10/fda320a3d0141c406536ac12f688d57826258da31b2706c4d110c7bef490cafde4fc267e46d10c33d5667db0d80676e80f2ae921e9887651b8d868f8069e3ac8
   languageName: node
   linkType: hard
 
@@ -10320,7 +10320,7 @@ __metadata:
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-app-update": "npm:3.0.90"
     "@onekeyfe/react-native-auto-size-input": "npm:3.0.90"
-    "@onekeyfe/react-native-background-thread": "npm:3.0.90"
+    "@onekeyfe/react-native-background-thread": "npm:3.0.91"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.6"
     "@onekeyfe/react-native-bundle-crypto": "npm:3.0.90"
     "@onekeyfe/react-native-bundle-update": "npm:3.0.90"
@@ -10341,9 +10341,9 @@ __metadata:
     "@onekeyfe/react-native-skeleton": "npm:3.0.90"
     "@onekeyfe/react-native-sni-connect": "npm:3.0.90"
     "@onekeyfe/react-native-splash-screen": "npm:3.0.90"
-    "@onekeyfe/react-native-split-bundle-loader": "npm:3.0.90"
+    "@onekeyfe/react-native-split-bundle-loader": "npm:3.0.91"
     "@onekeyfe/react-native-tab-view": "npm:3.0.90"
-    "@onekeyfe/react-native-text-input": "npm:0.3.0"
+    "@onekeyfe/react-native-text-input": "npm:3.0.91"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
