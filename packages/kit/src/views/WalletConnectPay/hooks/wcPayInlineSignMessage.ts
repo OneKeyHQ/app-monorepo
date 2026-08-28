@@ -12,25 +12,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   WcPayUserCancelledError,
   isWcPayInlineUserCancel,
+  wcPayInlineSignFallbackReason,
 } from './wcPayInlineUtils';
 
 import type {
   IWcPayInlinePhase,
   IWcPayInlineSignResult,
 } from './wcPayInlineUtils';
-
-/**
- * Diagnostic text for a returned fallback. A bare string reject (RPC and some
- * validators throw one) would otherwise lose its only diagnostic.
- */
-function wcPayInlineSignFallbackReason(
-  error: unknown,
-  defaultReason: string,
-): string {
-  const reason =
-    typeof error === 'string' ? error : (error as Error | undefined)?.message;
-  return reason || defaultReason;
-}
 
 /**
  * Headless counterpart of `MessageConfirmActions.handleSignMessage` for the WC

@@ -271,6 +271,38 @@ export type IWcPayInlineSignResult =
   | { status: 'abort' };
 
 /**
+ * Result contract of `wcPayInlineSignSolanaTx`. Same three dispositions as its
+ * typed-data sibling, and declared here for the same reason; only the success
+ * payload differs, because a Solana payment is answered with the whole signed
+ * transaction rather than a detached signature.
+ */
+export type IWcPayInlineSolanaSignResult =
+  // the base64 signed transaction the caller must hand back to the Pay server
+  | { status: 'ok'; rawTx: string }
+  // a pre-sign blocker: the confirm page owns the decision from here.
+  // Diagnostic text for logs/telemetry only — never render it to the user.
+  | { status: 'fallback'; reason: string }
+  // ended without a signature and without an error to report — another
+  // component has already told the user why
+  | { status: 'abort' };
+
+/**
+ * Diagnostic text for a returned fallback. A bare string reject (RPC and some
+ * validators throw one) would otherwise lose its only diagnostic.
+ *
+ * Lives in this leaf module because both headless signing legs return the same
+ * shape of fallback, and a second copy would be free to drift.
+ */
+export function wcPayInlineSignFallbackReason(
+  error: unknown,
+  defaultReason: string,
+): string {
+  const reason =
+    typeof error === 'string' ? error : (error as Error | undefined)?.message;
+  return reason || defaultReason;
+}
+
+/**
  * The action's RPC method, and only when it is a non-empty string. Anything
  * else is a malformed action rather than an unsupported method: `action`
  * crosses a trust boundary, so the three plans below must not report a
