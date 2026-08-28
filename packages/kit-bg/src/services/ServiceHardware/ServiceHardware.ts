@@ -35,7 +35,10 @@ import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
-import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import {
+  getValidDeviceStateVersionKeys,
+  projectLegacyDeviceFeaturesFromState,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -404,6 +407,50 @@ class ServiceHardware extends ServiceBase {
       tasks = queueKeys
         .map((key) => this.deviceStateSyncQueues.get(key))
         .filter((task): task is Promise<void> => Boolean(task));
+    }
+  }
+
+  private async persistFirmwareSnapshot({
+    connectId,
+    state,
+  }: {
+    connectId: string | undefined;
+    state: IOneKeyDeviceState;
+  }) {
+    const changedKeys = getValidDeviceStateVersionKeys(state);
+    if (!connectId || changedKeys.length === 0) {
+      return;
+    }
+    const syncConnectIds = [
+      connectId,
+      state.identity.serialNo,
+      state.identity.deviceId,
+    ];
+    await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+    const event: DeviceStateEvent = {
+      changedKeys,
+      connectId,
+      revision: state.revision,
+      source: 'device-info',
+      state,
+    };
+    try {
+      const persistResult = await localDb.updateDeviceState(event);
+      await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+      serviceHardwareUtils.hardwareLog('firmware read-back', {
+        kind: persistResult.kind,
+        protocol: state.protocol,
+        revision: state.revision,
+        firmwareVersion: state.versions.firmware,
+      });
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'firmware read-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
     }
   }
 
@@ -3061,11 +3108,18 @@ class ServiceHardware extends ServiceBase {
           hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
-    return this._getDeviceStateWithMutex({
+    const state = await this._getDeviceStateWithMutex({
       ...options,
       connectId: compatibleConnectId,
       hardwareCallContext,
     });
+    if (options.params?.scope === 'firmware') {
+      await this.persistFirmwareSnapshot({
+        connectId: compatibleConnectId,
+        state,
+      });
+    }
+    return state;
   }
 
   @backgroundMethod()
@@ -3750,6 +3804,19 @@ class ServiceHardware extends ServiceBase {
     });
     if (!dbDevice || !connectId) {
       return;
+    }
+    try {
+      await this.getDeviceState({
+        connectId,
+        params: { scope: 'firmware' },
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        silentMode: true,
+      });
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'refresh firmware state after update ERROR',
+        error,
+      );
     }
     const versionInfo: IDeviceVersionCacheInfo = {
       firmwareVersion: undefined,
