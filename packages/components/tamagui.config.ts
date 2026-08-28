@@ -571,6 +571,7 @@ const config = createTamagui({
   defaultTheme: 'light',
 
   settings: {
+    defaultFont: '$body',
     styleCompat: isTamaguiNative ? 'react-native' : 'legacy',
     defaultPosition: 'relative',
     shouldAddPrefersColorThemes: false,
