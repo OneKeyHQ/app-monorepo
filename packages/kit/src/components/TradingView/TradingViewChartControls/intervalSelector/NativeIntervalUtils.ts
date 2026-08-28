@@ -4,8 +4,8 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { ITradingViewIntervalOption } from '../types';
 import type { IntlShape } from 'react-intl';
 
-export const MAX_VISIBLE_INTERVAL_COUNT = 4;
 export const MAX_PREFERRED_INTERVAL_COUNT = 4;
+export const COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT = 6;
 export const INTERVAL_GRID_COLUMN_COUNT = 4;
 
 const PREFERRED_INTERVAL_STORAGE_KEY =
@@ -200,9 +200,27 @@ export function getOrderedIntervalOptions(
   return allOptions;
 }
 
-export function getDefaultPreferredIntervalValues(
+export function sortIntervalValues(
+  values: string[],
   options: ITradingViewIntervalOption[],
 ) {
+  const optionOrderMap = new Map<string, number>();
+  options.forEach((option, index) => {
+    optionOrderMap.set(option.value, index);
+  });
+
+  return values.toSorted(
+    (valueA, valueB) =>
+      (optionOrderMap.get(valueA) ?? Number.MAX_SAFE_INTEGER) -
+      (optionOrderMap.get(valueB) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+export function getDefaultPreferredIntervalValues(
+  options: ITradingViewIntervalOption[],
+  maxPreferredIntervalCount = MAX_PREFERRED_INTERVAL_COUNT,
+) {
+  const orderedOptions = getOrderedIntervalOptions(options);
   const defaultValues = DEFAULT_PREFERRED_INTERVAL_LABELS.reduce<string[]>(
     (result, label) => {
       const normalizedLabel = normalizeIntervalLabel(label);
@@ -219,9 +237,9 @@ export function getDefaultPreferredIntervalValues(
     [],
   );
 
-  options.forEach((option) => {
+  orderedOptions.forEach((option) => {
     if (
-      defaultValues.length < MAX_PREFERRED_INTERVAL_COUNT &&
+      defaultValues.length < maxPreferredIntervalCount &&
       !isIntervalOptionDisabled(option) &&
       !defaultValues.includes(option.value)
     ) {
@@ -229,7 +247,10 @@ export function getDefaultPreferredIntervalValues(
     }
   });
 
-  return defaultValues.slice(0, MAX_PREFERRED_INTERVAL_COUNT);
+  return sortIntervalValues(defaultValues, orderedOptions).slice(
+    0,
+    maxPreferredIntervalCount,
+  );
 }
 
 export function reconcileIntervalValues(
@@ -260,22 +281,6 @@ export function reconcileIntervalValues(
     result.push(normalizedValue);
     return result;
   }, []);
-}
-
-export function sortIntervalValues(
-  values: string[],
-  options: ITradingViewIntervalOption[],
-) {
-  const optionOrderMap = new Map<string, number>();
-  options.forEach((option, index) => {
-    optionOrderMap.set(option.value, index);
-  });
-
-  return values.toSorted(
-    (valueA, valueB) =>
-      (optionOrderMap.get(valueA) ?? Number.MAX_SAFE_INTEGER) -
-      (optionOrderMap.get(valueB) ?? Number.MAX_SAFE_INTEGER),
-  );
 }
 
 function parseStoredPreferredIntervalValues(rawValue: string | null) {

@@ -25,13 +25,13 @@ import type {
   ICalendarPanelAvailableTimeRange,
   ICalendarPanelSubmitPayload,
 } from './calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewChartTypeOption,
   ITradingViewIndicatorOption,
   ITradingViewIntervalConfigData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewNativeControlsLayoutMode,
+  ITradingViewNativeIntervalControlMode,
   ITradingViewPriceMarketCapMode,
 } from './types';
 
@@ -418,9 +418,25 @@ export const TradingViewChartControls = memo(
       return null;
     }
 
+    const hasLeftChartTools = Boolean(
+      chartTypeControl ||
+      indicatorControl ||
+      calendarControl ||
+      settingsControl,
+    );
+    const shouldFillIntervalSelector =
+      compactMobileLayout &&
+      hasVisibleIntervalSelector &&
+      !hasLeftChartTools &&
+      !priceMarketCapControl &&
+      !chartSwitchControl &&
+      !fullscreenControl &&
+      !rightControl &&
+      !onRightControlPress;
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
         compactMobileLayout={compactMobileLayout}
+        fullWidth={shouldFillIntervalSelector}
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
         showActiveBackground={isDesktopLayout || !compactMobileLayout}
@@ -428,12 +444,6 @@ export const TradingViewChartControls = memo(
         onControlInteraction={onControlInteraction}
       />
     ) : null;
-    const hasLeftChartTools = Boolean(
-      chartTypeControl ||
-      indicatorControl ||
-      calendarControl ||
-      settingsControl,
-    );
 
     if (isDesktopLayout) {
       return (
@@ -536,7 +546,7 @@ export const TradingViewChartControls = memo(
             testID="trading-view-chart-ready-controls"
             flex={onRightControlPress ? undefined : 1}
             minWidth={0}
-            gap="$2"
+            gap={shouldFillIntervalSelector ? '$0' : '$2'}
             alignItems="center"
             opacity={isControlsReady ? 1 : 0}
             pointerEvents={isControlsReady ? 'auto' : 'none'}

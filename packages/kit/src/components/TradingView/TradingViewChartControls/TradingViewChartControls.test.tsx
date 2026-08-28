@@ -103,6 +103,7 @@ jest.mock('@onekeyhq/components', () => ({
     children,
     flex,
     onPress,
+    gap,
     pr,
     testID,
   }: {
@@ -110,6 +111,7 @@ jest.mock('@onekeyhq/components', () => ({
     alignSelf?: string;
     children?: ReactNode;
     flex?: number;
+    gap?: string;
     onPress?: (event: unknown) => void;
     pr?: string;
     testID?: string;
@@ -119,6 +121,7 @@ jest.mock('@onekeyhq/components', () => ({
         aria-label={accessibilityLabel}
         data-align-self={alignSelf}
         data-flex={flex}
+        data-gap={gap}
         data-pr={pr}
         data-testid={testID}
         onClick={onPress}
@@ -131,6 +134,7 @@ jest.mock('@onekeyhq/components', () => ({
         aria-label={accessibilityLabel}
         data-align-self={alignSelf}
         data-flex={flex}
+        data-gap={gap}
         data-pr={pr}
         data-testid={testID}
       >
@@ -329,6 +333,7 @@ describe('TradingView chart controls', () => {
     expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
       expect.objectContaining({
         compactMobileLayout: false,
+        fullWidth: false,
         showActiveBackground: true,
       }),
     );
@@ -337,9 +342,15 @@ describe('TradingView chart controls', () => {
     expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
       expect.objectContaining({
         compactMobileLayout: true,
+        fullWidth: true,
         showActiveBackground: false,
       }),
     );
+    expect(
+      screen
+        .getByTestId('trading-view-chart-ready-controls')
+        .getAttribute('data-gap'),
+    ).toBe('$0');
   });
   it('tightens vertical padding only for compact mobile charts', () => {
     const view = render(
@@ -390,6 +401,12 @@ describe('TradingView chart controls', () => {
 
     fireEvent.click(getByTestId('interval-selector'));
     expect(handleClose).not.toHaveBeenCalled();
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fullWidth: false }),
+    );
+    expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute('data-gap'),
+    ).toBe('$2');
     expect(
       getByTestId('interval-selector').parentElement?.getAttribute('data-flex'),
     ).toBeNull();
