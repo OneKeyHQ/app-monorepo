@@ -28,8 +28,30 @@ const option: IWcPayOption = {
 
 const resolvedToken = { address: USDC_BASE, symbol: 'USDC', decimals: 6 };
 
+const EIP712_DOMAIN_FIELDS = [
+  { name: 'name', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+];
+const PERMIT_TRANSFER_FROM_FIELDS = [
+  { name: 'permitted', type: 'TokenPermissions' },
+  { name: 'spender', type: 'address' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint256' },
+];
+const TOKEN_PERMISSIONS_FIELDS = [
+  { name: 'token', type: 'address' },
+  { name: 'amount', type: 'uint256' },
+];
+const DEFAULT_TYPES = {
+  EIP712Domain: EIP712_DOMAIN_FIELDS,
+  PermitTransferFrom: PERMIT_TRANSFER_FROM_FIELDS,
+  TokenPermissions: TOKEN_PERMISSIONS_FIELDS,
+};
+
 function buildTypedData(
   overrides: {
+    types?: Record<string, unknown>;
     domain?: Record<string, unknown>;
     message?: Record<string, unknown>;
     permitted?: Record<string, unknown>;
@@ -37,18 +59,7 @@ function buildTypedData(
   } = {},
 ) {
   return {
-    types: {
-      PermitTransferFrom: [
-        { name: 'permitted', type: 'TokenPermissions' },
-        { name: 'spender', type: 'address' },
-        { name: 'nonce', type: 'uint256' },
-        { name: 'deadline', type: 'uint256' },
-      ],
-      TokenPermissions: [
-        { name: 'token', type: 'address' },
-        { name: 'amount', type: 'uint256' },
-      ],
-    },
+    types: overrides.types ?? DEFAULT_TYPES,
     primaryType: overrides.primaryType ?? 'PermitTransferFrom',
     domain: {
       name: 'Permit2',
@@ -98,7 +109,7 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     });
   });
 
-  it('accepts hex and decimal-string chainIds and a missing EIP712Domain type', () => {
+  it('accepts hex and decimal-string chainIds for domain.chainId', () => {
     expect(check(buildTypedData({ domain: { chainId: '0x2105' } })).ok).toBe(
       true,
     );
@@ -107,23 +118,93 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     );
   });
 
+  it('summary.tokenAddress uses the registry-canonical casing, not the payload casing', () => {
+    const lowerCaseToken = USDC_BASE.toLowerCase();
+    const result = check(
+      buildTypedData({ permitted: { token: lowerCaseToken } }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '100000',
+        tokenAddress: USDC_BASE,
+        spender: SPENDER,
+        deadlineSec: NOW_S + 600,
+        chainReference: '8453',
+      },
+    });
+  });
+
   it.each([
     ['not an object', 'x', 'invalid typed data shape'],
     [
       'a PermitTransferFrom type entry that is not an array',
-      {
-        ...buildTypedData(),
+      buildTypedData({
+        types: { ...DEFAULT_TYPES, PermitTransferFrom: { not: 'an array' } },
+      }),
+      'unsupported typed data types',
+    ],
+    [
+      'a types object missing TokenPermissions',
+      buildTypedData({
         types: {
-          ...buildTypedData().types,
-          PermitTransferFrom: { not: 'an array' },
+          EIP712Domain: EIP712_DOMAIN_FIELDS,
+          PermitTransferFrom: PERMIT_TRANSFER_FROM_FIELDS,
         },
-      },
-      'invalid typed data shape',
+      }),
+      'unsupported typed data types',
+    ],
+    [
+      'an empty PermitTransferFrom field list',
+      buildTypedData({
+        types: { ...DEFAULT_TYPES, PermitTransferFrom: [] },
+      }),
+      'unsupported typed data types',
+    ],
+    [
+      'an extra witness field on PermitTransferFrom',
+      buildTypedData({
+        types: {
+          ...DEFAULT_TYPES,
+          PermitTransferFrom: [
+            ...PERMIT_TRANSFER_FROM_FIELDS,
+            { name: 'witness', type: 'Witness' },
+          ],
+        },
+      }),
+      'unsupported typed data types',
+    ],
+    [
+      'an extra struct in types',
+      buildTypedData({
+        types: { ...DEFAULT_TYPES, Witness: [{ name: 'foo', type: 'string' }] },
+      }),
+      'unsupported typed data types',
     ],
     [
       'unknown primaryType',
       buildTypedData({ primaryType: 'PermitSingle' }),
       'unsupported primaryType',
+    ],
+    [
+      'primaryType PermitWitnessTransferFrom',
+      buildTypedData({ primaryType: 'PermitWitnessTransferFrom' }),
+      'unsupported primaryType',
+    ],
+    [
+      'primaryType PermitBatchTransferFrom',
+      buildTypedData({ primaryType: 'PermitBatchTransferFrom' }),
+      'unsupported primaryType',
+    ],
+    [
+      'a domain carrying an extra salt field',
+      buildTypedData({ domain: { salt: '0x00' } }),
+      'unsupported domain',
+    ],
+    [
+      'a domain name other than Permit2',
+      buildTypedData({ domain: { name: 'NotPermit2' } }),
+      'unsupported domain',
     ],
     [
       'non-Permit2 verifyingContract',
@@ -139,6 +220,11 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
       'a permitted value that is not an object',
       buildTypedData({ message: { permitted: 'x' } }),
       'invalid permitted shape',
+    ],
+    [
+      'a zero permitted amount',
+      buildTypedData({ permitted: { amount: '0' } }),
+      'invalid amount',
     ],
     [
       'amount mismatch',
@@ -241,6 +327,32 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     expect(check(buildTypedData(), { option: leadingZeroOption }).ok).toBe(
       true,
     );
+  });
+
+  it('refuses a non-finite clock before any deadline check', () => {
+    expect(check(buildTypedData(), { nowMs: NaN })).toEqual({
+      ok: false,
+      reason: 'invalid clock',
+    });
+  });
+
+  it('refuses a deadline beyond a caller-provided maxDeadlineS', () => {
+    const typedData = buildTypedData({
+      message: { deadline: String(NOW_S + 601) },
+    });
+    expect(check(typedData, { maxDeadlineS: 600 })).toEqual({
+      ok: false,
+      reason: 'deadline too far',
+    });
+  });
+
+  it('falls back to the default maxDeadlineS when given a non-positive value', () => {
+    // A deadline just inside the default 24h bound must still pass even
+    // though the caller passed a bogus maxDeadlineS.
+    const typedData = buildTypedData({
+      message: { deadline: String(NOW_S + 600) },
+    });
+    expect(check(typedData, { maxDeadlineS: -1 }).ok).toBe(true);
   });
 
   it('refuses an unknown or mismatching token', () => {

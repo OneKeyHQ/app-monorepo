@@ -26,6 +26,11 @@ export type IWcPayMessageConsistencyResult =
   | { ok: true; summary: IWcPayTypedDataSummary }
   | { ok: false; reason: string };
 
+interface ITypedDataField {
+  name: string;
+  type: string;
+}
+
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 // A raw hex word is at most 64 hex chars (32 bytes); 78 is the digit length
 // of uint256 max (2^256 - 1) — same caps as wcPayOrderConsistency.ts.
@@ -44,9 +49,77 @@ const ORDER_AMOUNT_RE = new RegExp(`^[0-9]{1,${MAX_DECIMAL_UINT_CHARS}}$`);
 const PERMIT_TRANSFER_FROM = 'PermitTransferFrom';
 const MESSAGE_KEYS = ['permitted', 'spender', 'nonce', 'deadline'];
 const PERMITTED_KEYS = ['token', 'amount'];
+const DOMAIN_KEYS = ['name', 'chainId', 'verifyingContract'];
+
+// The exact EIP-712 type definitions Permit2's canonical PermitTransferFrom
+// signature is built from — struct name, field order, and each field's
+// name/type must all match verbatim. `@metamask/eth-sig-util`'s V4 encoder
+// either throws on a struct it cannot resolve (a missing/renamed referenced
+// type) or silently hashes a different struct/domain separator when the
+// field list disagrees with what it infers from `domain`/`message` — either
+// way a wrong hash signs something other than the payload shown on screen.
+// Pinning every type exactly makes this validator, not the signer's own
+// error handling, the place that catches a malformed payload before it is
+// trusted for headless inline signing.
+const CANONICAL_TYPES: Record<string, ITypedDataField[]> = {
+  EIP712Domain: [
+    { name: 'name', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'verifyingContract', type: 'address' },
+  ],
+  PermitTransferFrom: [
+    { name: 'permitted', type: 'TokenPermissions' },
+    { name: 'spender', type: 'address' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+  TokenPermissions: [
+    { name: 'token', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+  ],
+};
+const CANONICAL_TYPE_NAMES = Object.keys(CANONICAL_TYPES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  record: Record<string, unknown>,
+  allowed: string[],
+): boolean {
+  const keys = Object.keys(record);
+  return (
+    keys.length === allowed.length && allowed.every((key) => keys.includes(key))
+  );
+}
+
+function fieldsMatchCanonical(
+  actual: unknown,
+  expected: ITypedDataField[],
+): boolean {
+  if (!Array.isArray(actual) || actual.length !== expected.length) {
+    return false;
+  }
+  return expected.every((field, index) => {
+    const entry: unknown = actual[index];
+    return (
+      isRecord(entry) && entry.name === field.name && entry.type === field.type
+    );
+  });
+}
+
+// `types` must carry exactly the three canonical Permit2 struct
+// definitions — no fourth struct, none missing, and no reordered, extra, or
+// mistyped field within any of them (see CANONICAL_TYPES for why this must
+// be exact rather than merely "present").
+function isCanonicalPermit2Types(types: Record<string, unknown>): boolean {
+  if (!hasExactKeys(types, CANONICAL_TYPE_NAMES)) {
+    return false;
+  }
+  return CANONICAL_TYPE_NAMES.every((name) =>
+    fieldsMatchCanonical(types[name], CANONICAL_TYPES[name]),
+  );
 }
 
 // uint256-ish inputs (chainId/amount/nonce/deadline) arrive as numbers,
@@ -57,7 +130,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // wcPayOrderConsistency.ts).
 function parseUint(value: unknown): BigNumber | undefined {
   if (typeof value === 'number') {
-    return Number.isInteger(value) && value >= 0
+    return Number.isSafeInteger(value) && value >= 0
       ? new BigNumber(value)
       : undefined;
   }
@@ -91,6 +164,7 @@ export function checkWcPayTypedDataMatchesOrder({
   option,
   nowMs,
   resolvedToken,
+  maxDeadlineS,
 }: {
   typedData: unknown;
   // The option's CAIP-2 chain (e.g. "eip155:8453").
@@ -101,7 +175,17 @@ export function checkWcPayTypedDataMatchesOrder({
   // the typed-data payload's `permitted.token` alone is not trusted for
   // symbol/decimals identity.
   resolvedToken: IWcPayResolvedToken | undefined;
+  // Overrides WC_PAY_PERMIT_MAX_DEADLINE_S. Any non-finite or non-positive
+  // value is ignored in favor of the default — a bad caller input must
+  // never silently disable the deadline bound.
+  maxDeadlineS?: number;
 }): IWcPayMessageConsistencyResult {
+  // BigNumber comparisons against NaN silently return false, which would
+  // let both deadline checks below pass regardless of the actual deadline —
+  // the clock itself must be sane before it is trusted for any comparison.
+  if (!Number.isFinite(nowMs)) {
+    return { ok: false, reason: 'invalid clock' };
+  }
   if (!isRecord(typedData)) {
     return { ok: false, reason: 'invalid typed data shape' };
   }
@@ -117,8 +201,11 @@ export function checkWcPayTypedDataMatchesOrder({
   if (primaryType !== PERMIT_TRANSFER_FROM) {
     return { ok: false, reason: 'unsupported primaryType' };
   }
-  if (!Array.isArray(types[primaryType])) {
-    return { ok: false, reason: 'invalid typed data shape' };
+  if (!isCanonicalPermit2Types(types)) {
+    return { ok: false, reason: 'unsupported typed data types' };
+  }
+  if (!hasExactKeys(domain, DOMAIN_KEYS) || domain.name !== 'Permit2') {
+    return { ok: false, reason: 'unsupported domain' };
   }
   const { verifyingContract } = domain;
   if (
@@ -167,7 +254,10 @@ export function checkWcPayTypedDataMatchesOrder({
   }
 
   const amount = parseUint(permitted.amount);
-  if (!amount) {
+  // A zero amount can never equal a real (positive) order amount, but is
+  // rejected here directly — mirrors wcPayOrderConsistency.ts's own
+  // positive-amount guard rather than relying on the equality check below.
+  if (!amount || amount.isZero()) {
     return { ok: false, reason: 'invalid amount' };
   }
   if (
@@ -212,7 +302,13 @@ export function checkWcPayTypedDataMatchesOrder({
   if (deadline.isLessThan(nowSec)) {
     return { ok: false, reason: 'deadline expired' };
   }
-  if (deadline.isGreaterThan(nowSec + WC_PAY_PERMIT_MAX_DEADLINE_S)) {
+  const effectiveMaxDeadlineS =
+    typeof maxDeadlineS === 'number' &&
+    Number.isFinite(maxDeadlineS) &&
+    maxDeadlineS > 0
+      ? maxDeadlineS
+      : WC_PAY_PERMIT_MAX_DEADLINE_S;
+  if (deadline.isGreaterThan(nowSec + effectiveMaxDeadlineS)) {
     return { ok: false, reason: 'deadline too far' };
   }
 
@@ -220,7 +316,10 @@ export function checkWcPayTypedDataMatchesOrder({
     ok: true,
     summary: {
       amountRaw: amount.toFixed(),
-      tokenAddress: token,
+      // resolvedToken.address (registry-canonical casing), not the
+      // payload's own `token` string — the two are only known to be
+      // case-insensitively equal at this point.
+      tokenAddress: resolvedToken.address,
       spender,
       deadlineSec: deadline.toNumber(),
       chainReference: optionChainReference,
