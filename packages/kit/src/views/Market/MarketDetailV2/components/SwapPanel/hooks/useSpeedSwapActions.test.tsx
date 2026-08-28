@@ -48,6 +48,7 @@ import {
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
+  isMarketQuoteResultForPair,
   isMarketUserCancelledError,
   parseMarketTokenBalance,
   useSpeedSwapActions,
@@ -477,6 +478,36 @@ describe('isMarketUserCancelledError', () => {
   });
 });
 
+describe('isMarketQuoteResultForPair', () => {
+  const quoteResult: IFetchQuoteResult = {
+    info: {
+      provider: 'liquidMesh',
+      providerName: 'liquidMesh',
+    },
+    fromTokenInfo: usdcToken,
+    toTokenInfo: stockToken,
+    fromAmount: '1',
+    toAmount: '0.01',
+  };
+
+  it('accepts only a quote for the currently selected pair', () => {
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: usdcToken,
+        quoteResult,
+        toToken: stockToken,
+      }),
+    ).toBe(true);
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: stockToken,
+        quoteResult,
+        toToken: usdcToken,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('useSpeedSwapActions', () => {
   beforeEach(() => {
     mockFetchSwapTokenDetails.mockReset();
@@ -842,6 +873,51 @@ describe('useSpeedSwapActions', () => {
         slippagePercentage: 0.5,
         source: ESwapQuoteSource.MARKET,
       }),
+    );
+  });
+
+  it('allows the rate row to force-refresh a current Market quote', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), false);
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteNeedsRefresh).toBe(false);
+    });
+    act(() => {
+      result.current.forceRefreshMarketQuote();
+    });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        source: ESwapQuoteSource.MARKET,
+      }),
+    );
+    expect(mockSwapStore.get(swapQuoteActionLockAtom()).manualRefresh).toBe(
+      true,
     );
   });
 
