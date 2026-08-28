@@ -13,6 +13,8 @@ import type {
 import { useWcPayActionExecutor } from '../useWcPayActionExecutor';
 import {
   EWcPayInlineFailureKind,
+  WC_PAY_PERMIT_EXPIRY_GRACE_S,
+  WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
 } from '../wcPayInlineUtils';
 
@@ -72,6 +74,23 @@ jest.mock('../wcPayInlineSignSolana', () => ({
   __esModule: true,
   wcPayInlineSignSolanaTx: jest.fn(),
 }));
+
+// The executor's own arithmetic for the permit deadline bound is observable
+// only in what it hands the plan gate, and the gate's exported binding cannot
+// be spied on (an ES module export is not configurable). So the leaf module is
+// mocked PARTIALLY: every export keeps its real implementation — the plans
+// below still decide for real — and the message plan additionally records its
+// arguments.
+jest.mock('../wcPayInlineUtils', () => {
+  const actual = jest.requireActual<typeof import('../wcPayInlineUtils')>(
+    '../wcPayInlineUtils',
+  );
+  return {
+    __esModule: true,
+    ...actual,
+    getWcPayInlineMessagePlan: jest.fn(actual.getWcPayInlineMessagePlan),
+  };
+});
 
 // what the executor's four confirm-modal push sites hand to navigation —
 // only the fields this test interacts with
@@ -574,6 +593,7 @@ describe('useWcPayActionExecutor inline signing', () => {
 
   const services = jest.requireMock<{
     default: {
+      serviceNetwork: { getGlobalDeriveTypeOfNetwork: jest.Mock };
       serviceAccount: { getNetworkAccount: jest.Mock };
       serviceToken: { fetchTokensDetails: jest.Mock };
       serviceWalletConnectPay: {
@@ -584,6 +604,7 @@ describe('useWcPayActionExecutor inline signing', () => {
     };
   }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
   const { getNetworkAccount } = services.serviceAccount;
+  const { getGlobalDeriveTypeOfNetwork } = services.serviceNetwork;
   const { fetchTokensDetails } = services.serviceToken;
   const { waitForTxMined, isTxNeverBroadcast, checkSolanaTxMatchesOrder } =
     services.serviceWalletConnectPay;
@@ -1186,6 +1207,174 @@ describe('useWcPayActionExecutor inline signing', () => {
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
+  });
+
+  // The permit's own deadline bound: the payload may not stay signable for
+  // much longer than the order it pays. Asserted on the value handed to the
+  // validator, because three of the four cases produce the same visible
+  // outcome (an inlined signature) and would not tell the bounds apart.
+  describe('permit deadline bound', () => {
+    const { getWcPayInlineMessagePlan } = jest.requireMock<{
+      getWcPayInlineMessagePlan: jest.Mock;
+    }>('../wcPayInlineUtils');
+
+    beforeEach(() => {
+      getWcPayInlineMessagePlan.mockClear();
+    });
+
+    const readMaxDeadlineS = () =>
+      (getWcPayInlineMessagePlan.mock.calls[0][0] as { maxDeadlineS?: number })
+        .maxDeadlineS;
+
+    const runPermit = async (expiryMs?: number) => {
+      const { result } = renderHook(() => useWcPayActionExecutor());
+      return result.current.executeActions({
+        actions: [permitAction],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: buildController(),
+        expiryMs,
+      });
+    };
+
+    it('narrows the bound to the order life plus the grace window', async () => {
+      await runPermit(Date.now() + 600 * 1000);
+
+      const maxDeadlineS = readMaxDeadlineS();
+      // the clock advances between building expiryMs and reading nowMs, so
+      // the remainder may lose a second or two
+      expect(maxDeadlineS).toBeLessThanOrEqual(
+        600 + WC_PAY_PERMIT_EXPIRY_GRACE_S,
+      );
+      expect(maxDeadlineS).toBeGreaterThanOrEqual(
+        600 + WC_PAY_PERMIT_EXPIRY_GRACE_S - 2,
+      );
+    });
+
+    // The race the executor documents: the loop-top expiry check passes, the
+    // background round-trips take longer than what was left, and `nowMs`
+    // lands past the deadline. The bound must floor at the grace window
+    // rather than go negative.
+    it('floors the bound at the grace window when the order expires mid-preparation', async () => {
+      getGlobalDeriveTypeOfNetwork.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve('default'), 150);
+          }),
+      );
+
+      await runPermit(Date.now() + 40);
+
+      expect(readMaxDeadlineS()).toBe(WC_PAY_PERMIT_EXPIRY_GRACE_S);
+    });
+
+    it('never widens the bound past the validator ceiling', async () => {
+      await runPermit(Date.now() + 48 * 60 * 60 * 1000);
+
+      expect(readMaxDeadlineS()).toBe(WC_PAY_PERMIT_MAX_DEADLINE_S);
+    });
+
+    it('leaves the bound to the validator when the payment has no deadline', async () => {
+      await runPermit(undefined);
+
+      expect(readMaxDeadlineS()).toBeUndefined();
+    });
+  });
+
+  // The inline branches persist their result the way the modal path does:
+  // AWAITED, so the durable record normally lands before the sequence moves
+  // on. Pinned by holding the persist open and proving the next action's
+  // confirm modal waits for it — a dropped `await` would push it on time.
+  describe('inline persistence ordering', () => {
+    const buildBlockedPersist = () => {
+      const order: string[] = [];
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const onActionComplete = jest.fn(async () => {
+        order.push('persist:start');
+        await gate;
+        order.push('persist:end');
+      });
+      return { order, release: () => release(), onActionComplete };
+    };
+
+    // longer than the executor's own between-action wait, so a persist that
+    // is merely started (not awaited) would have let the next modal through
+    const AFTER_MODAL_TRANSITION_MS = 500;
+
+    it('persists an inline permit signature before the next action opens its modal', async () => {
+      const { order, release, onActionComplete } = buildBlockedPersist();
+      pushModalMock.mockImplementation((_route, { params }) => {
+        order.push('pushModal');
+        params.onSuccess([
+          { signedTx: { txid: '0xtxid-confirm', rawTx: 'rawtx-confirm' } },
+        ]);
+      });
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const pending = result.current.executeActions({
+        actions: [permitAction, buildTransferAction()],
+        accountId: 'account-1',
+        option: permitOption,
+        inlineController: buildController(),
+        onActionComplete,
+      });
+      await new Promise((resolve) => {
+        setTimeout(resolve, AFTER_MODAL_TRANSITION_MS);
+      });
+      expect(pushModalMock).not.toHaveBeenCalled();
+
+      release();
+      await expect(pending).resolves.toEqual(['0xpermit', '0xtxid-confirm']);
+      // the confirm-page action persists as well, after its own modal
+      expect(order).toEqual([
+        'persist:start',
+        'persist:end',
+        'pushModal',
+        'persist:start',
+        'persist:end',
+      ]);
+    });
+
+    it('persists an inline Solana signature before the next action opens its modal', async () => {
+      getNetworkAccount.mockResolvedValue({
+        id: 'account-1',
+        address: SOL_PAYER,
+      });
+      const { order, release, onActionComplete } = buildBlockedPersist();
+      pushModalMock.mockImplementation((_route, { params }) => {
+        order.push('pushModal');
+        params.onSuccess([
+          { signedTx: { txid: '0xtxid-confirm', rawTx: 'rawtx-confirm' } },
+        ]);
+      });
+      const { result } = renderHook(() => useWcPayActionExecutor());
+
+      const pending = result.current.executeActions({
+        actions: [solanaAction, buildTransferAction()],
+        accountId: 'account-1',
+        option: solOption,
+        inlineController: buildController(),
+        onActionComplete,
+      });
+      await new Promise((resolve) => {
+        setTimeout(resolve, AFTER_MODAL_TRANSITION_MS);
+      });
+      expect(pushModalMock).not.toHaveBeenCalled();
+
+      release();
+      await expect(pending).resolves.toEqual(['c2lnbmVk', '0xtxid-confirm']);
+      // the confirm-page action persists as well, after its own modal
+      expect(order).toEqual([
+        'persist:start',
+        'persist:end',
+        'pushModal',
+        'persist:start',
+        'persist:end',
+      ]);
+    });
   });
 
   // Without a controller (or without the selected option) nothing may be
