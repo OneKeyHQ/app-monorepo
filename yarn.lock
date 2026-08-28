@@ -5885,9 +5885,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/ui@npm:57.0.13":
-  version: 57.0.13
-  resolution: "@expo/ui@npm:57.0.13"
+"@expo/ui@npm:57.0.12":
+  version: 57.0.12
+  resolution: "@expo/ui@npm:57.0.12"
   dependencies:
     sf-symbols-typescript: "npm:^2.1.0"
     vaul: "npm:^1.1.2"
@@ -5905,7 +5905,7 @@ __metadata:
       optional: true
     react-native-worklets:
       optional: true
-  checksum: 10/f290b0d7aa5e5471fde0456da47c139427e31c0e7ee336cc6eea6c4308d07e6f7e6b353178fdeda4258c168c60b0d4a211bac517c9538b684d67f2b2b919da10
+  checksum: 10/d803baaa620c12fde189e3801e6ef8ee2ede62cd2cb23b370d31a85e9b13b95b4e1e3ac21ec86fc58ba8e79154f1da16f33f3840237c3786c4459081da5a1b78
   languageName: node
   linkType: hard
 
@@ -10210,7 +10210,7 @@ __metadata:
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
     "@base-ui/react": "npm:1.6.0"
-    "@expo/ui": "npm:57.0.13"
+    "@expo/ui": "npm:57.0.12"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.90"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.90"
     "@onekeyfe/react-native-tab-view": "npm:3.0.90"
@@ -10384,7 +10384,7 @@ __metadata:
     "@babel/core": "npm:7.29.7"
     "@backpackapp-io/react-native-toast": "npm:0.14.0"
     "@expo-google-fonts/inter": "npm:^0.2.3"
-    "@expo/ui": "npm:57.0.13"
+    "@expo/ui": "npm:57.0.12"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"

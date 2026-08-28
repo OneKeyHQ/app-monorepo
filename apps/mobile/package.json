@@ -58,7 +58,7 @@
   "dependencies": {
     "@backpackapp-io/react-native-toast": "0.14.0",
     "@expo-google-fonts/inter": "^0.2.3",
-    "@expo/ui": "57.0.13",
+    "@expo/ui": "57.0.12",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
