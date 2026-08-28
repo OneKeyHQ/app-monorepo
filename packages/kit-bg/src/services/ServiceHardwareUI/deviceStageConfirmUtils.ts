@@ -24,7 +24,12 @@ import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 function buildStageFeeDetail(
   stageFeeInfo: ISendSelectedFeeInfo | undefined,
 ): IDeviceStageConfirmDetail | undefined {
-  const amount = stageFeeInfo?.totalNativeForDisplay;
+  // Prefer the expected-case value the fee footer renders: the card and
+  // the page share screenshots, so they must agree. The device screen
+  // stays the max-fee cap it always showed — that gap is firmware's.
+  const amount =
+    stageFeeInfo?.totalNativeMinForDisplay ??
+    stageFeeInfo?.totalNativeForDisplay;
   if (!amount) {
     return undefined;
   }
