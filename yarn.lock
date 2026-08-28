@@ -21541,79 +21541,79 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@videojs/core@npm:10.0.0-beta.32":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/core@npm:10.0.0-beta.32"
+"@videojs/core@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/core@npm:10.0.0-beta.31"
   dependencies:
-    "@videojs/media": "npm:10.0.0-beta.32"
-    "@videojs/store": "npm:10.0.0-beta.32"
-    "@videojs/utils": "npm:10.0.0-beta.32"
-  checksum: 10/ac06fde584b0eb93ee20a90dbe1c9f2c435102aab3d9b6dd07b956e53d45213a61294e0201d1b4609b4633513ca37356e01e2bd4e073b32a0ca6e98aeb3ce912
+    "@videojs/media": "npm:10.0.0-beta.31"
+    "@videojs/store": "npm:10.0.0-beta.31"
+    "@videojs/utils": "npm:10.0.0-beta.31"
+  checksum: 10/43ee78f8b7de28075ff76564e607c15e66571b241dce67a2c9c44304e836ab9e0d880cbd4a847cd018841d0718382fc626683d4fd7d0189bfe45d462f3ed839b
   languageName: node
   linkType: hard
 
-"@videojs/media@npm:10.0.0-beta.32":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/media@npm:10.0.0-beta.32"
+"@videojs/media@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/media@npm:10.0.0-beta.31"
   dependencies:
-    "@videojs/utils": "npm:10.0.0-beta.32"
+    "@videojs/utils": "npm:10.0.0-beta.31"
     "@vimeo/player": "npm:^2.30.3"
     dashjs: "npm:^5.2.0"
     hls.js: "npm:^1.6.7"
     mux-embed: "npm:^5.17.10"
     shaka-player: "npm:^5.2.4"
-  checksum: 10/cb439132620a06f0c419f995e5d63ce9884dec928ffe821b5283968e496badd3935f62b342a1be2ba39bcda9ddf129090d0a70d3cd4a8255abd92cc9b2b825e8
+  checksum: 10/8fe40011af31d0b5bac5149828d1a182bb163f6f154c2f91fc7964493ea6496cc572bfc5eb0dbc0d98638773a5b22950af1afd21d0f546e1615b92d25eb31251
   languageName: node
   linkType: hard
 
-"@videojs/react@npm:^10.0.0-beta.11":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/react@npm:10.0.0-beta.32"
+"@videojs/react@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/react@npm:10.0.0-beta.31"
   dependencies:
-    "@videojs/core": "npm:10.0.0-beta.32"
-    "@videojs/media": "npm:10.0.0-beta.32"
-    "@videojs/spf": "npm:10.0.0-beta.32"
-    "@videojs/store": "npm:10.0.0-beta.32"
-    "@videojs/utils": "npm:10.0.0-beta.32"
+    "@videojs/core": "npm:10.0.0-beta.31"
+    "@videojs/media": "npm:10.0.0-beta.31"
+    "@videojs/spf": "npm:10.0.0-beta.31"
+    "@videojs/store": "npm:10.0.0-beta.31"
+    "@videojs/utils": "npm:10.0.0-beta.31"
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
-  checksum: 10/d462d6b051caa3173b9d99fb668d097d0cd423793b4bc97ab037375cf7b43337e0e4b68487a7fc884bd09eb5671329b937a4ac8dd1ae4b5611b937ee6e827453
+  checksum: 10/38ee322ac17f03c0a5438d12b88f053cb73d5d62c2e6e2f2fd287357d623fe76411a49bb640feb89b128b1f4c84f49f157dad6dd721acf47c8d421970c990a7d
   languageName: node
   linkType: hard
 
-"@videojs/spf@npm:10.0.0-beta.32":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/spf@npm:10.0.0-beta.32"
+"@videojs/spf@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/spf@npm:10.0.0-beta.31"
   dependencies:
-    "@videojs/media": "npm:10.0.0-beta.32"
-    "@videojs/utils": "npm:10.0.0-beta.32"
+    "@videojs/media": "npm:10.0.0-beta.31"
+    "@videojs/utils": "npm:10.0.0-beta.31"
     signal-polyfill: "npm:^0.2.2"
-  checksum: 10/6ab5dbd3207e041211072a663efc77a72cada7c791cd01d4d4486b5aa53c1beed50defa145a985c998e284265b8b2550f087b24bb41fc947339bf172fd9b2d30
+  checksum: 10/0d224bad081135d943a63243253e6373702c1a813bd81a58d0ea407434b28d0c4533d1126b3ea65da66588c6f5dde5b7ee4e490f98013c8cb736fc9b9e492a68
   languageName: node
   linkType: hard
 
-"@videojs/store@npm:10.0.0-beta.32":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/store@npm:10.0.0-beta.32"
+"@videojs/store@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/store@npm:10.0.0-beta.31"
   dependencies:
-    "@videojs/utils": "npm:10.0.0-beta.32"
+    "@videojs/utils": "npm:10.0.0-beta.31"
   peerDependencies:
-    "@videojs/element": 10.0.0-beta.32
+    "@videojs/element": 10.0.0-beta.31
     react: ^18.0.0 || ^19.0.0
   peerDependenciesMeta:
     "@videojs/element":
       optional: true
     react:
       optional: true
-  checksum: 10/07aa7ea3d9a4423a51a6faa7add26d555045533a456f0b369e3ea6e649b9fcc78e549c60da0ea8246f17e61f2ab64782ed61443c9ea00f6f3db69e00773d37ce
+  checksum: 10/4f07e37da006c32edc17fb0554754d0ca0ebc71b8044b3167f5c508bcead97dc429bc968718f1f3ae4f140be1085ee223640e52e168d2bfe007385d169225d13
   languageName: node
   linkType: hard
 
-"@videojs/utils@npm:10.0.0-beta.32":
-  version: 10.0.0-beta.32
-  resolution: "@videojs/utils@npm:10.0.0-beta.32"
-  checksum: 10/942b4728d498aae1265be8cefbd134b7f1223a04c97b4c43dc52eaeec30f07fcc8ac9039957c028dc7cfee14fdf3d496820cf5d0d6d37701ddc97a31d0a70020
+"@videojs/utils@npm:10.0.0-beta.31":
+  version: 10.0.0-beta.31
+  resolution: "@videojs/utils@npm:10.0.0-beta.31"
+  checksum: 10/855078efb498d24f8b1de73ac78d3de3ca698e8fbd70a45a0eab2437fdca5ccd16f07e52205fc2eb83fb9489c7ad946f671edc38e5c8c4cd5b567eda295a767b
   languageName: node
   linkType: hard
 
@@ -45304,10 +45304,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"shaka-player@npm:^5.2.4":
-  version: 5.2.7
-  resolution: "shaka-player@npm:5.2.7"
-  checksum: 10/23dcb392082748566b043c961a711645d530896231b626fc8c4f0b90a3b0b1af1f107c3ce6abc5374cdfff42c4106b679da58b8b17e1f836e1c2c4257cdd17ad
+"shaka-player@npm:5.2.6":
+  version: 5.2.6
+  resolution: "shaka-player@npm:5.2.6"
+  checksum: 10/4caa292ac524497c94976cb0cccc4b279fd339ae65f9989a049b2d5327235845a64563834c9034fbc0ca09682b564d43946eddc688b29d35dd0ed29628fb09ec
   languageName: node
   linkType: hard
 
