@@ -856,7 +856,7 @@ describe('devVendor', () => {
       );
 
       const runInvocation = (sentryDisabled) =>
-        spawnSync('/bin/sh', ['-c', invocation], {
+        spawnSync('/bin/bash', ['-c', invocation], {
           encoding: 'utf8',
           env: {
             ...process.env,
