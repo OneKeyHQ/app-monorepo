@@ -53,7 +53,10 @@ import {
   useMarketHomeTokenListWebSocket,
 } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
-import { useTrendingColumnsDesktop } from './hooks/useMarketTokenColumns/useTrendingColumnsDesktop';
+import {
+  MARKET_TOKEN_ROW_GROUP_NAME,
+  useTrendingColumnsDesktop,
+} from './hooks/useMarketTokenColumns/useTrendingColumnsDesktop';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
@@ -515,10 +518,16 @@ function MarketTokenListBase({
     networkId,
     timeRange,
   });
-  const marketTokenColumns =
-    desktopColumnVariant === 'trending' && !md
-      ? trendingColumnsDesktop
-      : defaultMarketTokenColumns;
+  const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
+  const marketTokenColumns = useTrendingDesktopColumns
+    ? trendingColumnsDesktop
+    : defaultMarketTokenColumns;
+  // Trending desktop rows expose a hover group so the name cell can swap the
+  // token age for the contract address. Only data rows opt in: `rowProps` below
+  // is shared with the header row, which must not become a hover group.
+  const rowHoverGroupName = useTrendingDesktopColumns
+    ? MARKET_TOKEN_ROW_GROUP_NAME
+    : undefined;
 
   const data = useMemo(() => {
     if (!liveTokenOverride) {
@@ -701,6 +710,7 @@ function MarketTokenListBase({
           : undefined,
         rowProps: {
           testID: MarketTestIDs.tokenRow(item.symbol),
+          ...(rowHoverGroupName ? { group: rowHoverGroupName } : undefined),
           ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
@@ -716,6 +726,7 @@ function MarketTokenListBase({
       debugSubscriptionRangeEnd,
       debugSubscriptionRangeStart,
       navigateToPerps,
+      rowHoverGroupName,
       showWebSocketDebugRows,
       toMarketDetailPage,
     ],
