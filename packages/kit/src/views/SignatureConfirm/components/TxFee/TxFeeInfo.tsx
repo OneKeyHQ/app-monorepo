@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -225,30 +226,39 @@ function TxFeeInfo(props: IProps) {
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
+  // External-wallet accounts sign and broadcast through the connected wallet,
+  // which estimates and charges its own network fee, so OneKey sponsorship
+  // never actually applies. The estimate handler strips the sponsor state at
+  // the source for them (payer forced to 'user', eligibility reset, zeroed
+  // megafuel gas price restored from `originalGasPrice`), so every downstream
+  // consumer — fee display, balance precheck, confirm button, history flags —
+  // behaves like a regular user-paid tx; the component-level `!isExternalAccount`
+  // gates below are defense-in-depth for transient pre-estimate state
+  // (OK-61254).
+  const isExternalAccount = useMemo(
+    () => accountUtils.isExternalAccount({ accountId }),
+    [accountId],
+  );
   const gasAccountQuote = gasAccountUiState.gasAccountQuote;
   const gasAccountMaxFee = gasAccountQuote?.maxFee ?? '0';
   const isGasAccountEligible =
     gasAccountUiState.gasAccountEligible && !!gasAccountQuote?.quoteId;
   const isGasAccountSelected =
-    isGasAccountEligible && gasAccountUiState.selectedPayer === 'gasAccount';
-  // External-wallet accounts sign and broadcast through the connected wallet,
-  // which estimates and charges its own network fee, so OneKey sponsorship
-  // never actually applies. Keep them out of the sponsored fee state entirely
-  // so they fall back to the regular fee UI; sponsor eligibility is surfaced
-  // only as a promo hint next to the real fee (OK-61254).
-  const isExternalAccount = useMemo(
-    () => accountUtils.isExternalAccount({ accountId }),
-    [accountId],
-  );
+    !isExternalAccount &&
+    isGasAccountEligible &&
+    gasAccountUiState.selectedPayer === 'gasAccount';
   const isMegafuelSponsored =
     !isExternalAccount &&
     (effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable);
   const isGasAccountSponsored =
     !isExternalAccount && effectiveFeePayer === 'gasAccount';
   const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
+  // The sponsor atoms are reset for external accounts, so remember the raw
+  // server eligibility separately to drive the promo hint next to the fee.
+  const [externalSponsorPromoEligible, setExternalSponsorPromoEligible] =
+    useState(false);
   const showExternalSponsorPromoHint =
-    isExternalAccount &&
-    (effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable);
+    isExternalAccount && externalSponsorPromoEligible;
   const isDarkMode = /dark/.test(themeName);
   const gasSponsoredAccentColor = theme.bgAccent.val;
   const sponsoredCouponBgColor = theme.brand3.val;
@@ -598,16 +608,23 @@ function TxFeeInfo(props: IProps) {
           }),
           isCustomRpcEnabled,
           sponsorDisabledForBatch,
+          sponsorDisabledForExternalAccount: isExternalAccount,
           megafuelDisabledForPrivateSend,
           gasAccountDisabledByScenario,
           gasAccountTemporarilyDisabled,
         });
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
+        // The sponsor state below is stripped for external accounts, so keep
+        // the raw eligibility around for the promo hint before it is cleared.
+        setExternalSponsorPromoEligible(
+          isExternalAccount && !!r.megafuelEligible?.sponsorable,
+        );
         if (
           r.megafuelEligible &&
           !sponsorDisabledForBatch &&
-          !megafuelDisabledForPrivateSend
+          !megafuelDisabledForPrivateSend &&
+          !isExternalAccount
         ) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
@@ -624,7 +641,14 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (sponsorDisabledForBatch || megafuelDisabledForPrivateSend) {
+          if (
+            sponsorDisabledForBatch ||
+            megafuelDisabledForPrivateSend ||
+            isExternalAccount
+          ) {
+            // Megafuel zeroes `gasPrice` in the estimate (real price kept in
+            // `originalGasPrice`); restore it so the regular fee UI and the
+            // native-balance precheck operate on the real fee.
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -638,6 +662,7 @@ function TxFeeInfo(props: IProps) {
           isCustomRpcEnabled ||
           gasAccountTemporarilyDisabled ||
           sponsorDisabledForBatch ||
+          isExternalAccount ||
           gasAccountDisabledByScenario
         ) {
           resetGasAccountUiState();
@@ -649,6 +674,7 @@ function TxFeeInfo(props: IProps) {
           } else if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
+            isExternalAccount ||
             gasAccountDisabledByScenario
           ) {
             // The default state already flags `selectedPayer='user'`,
@@ -890,6 +916,7 @@ function TxFeeInfo(props: IProps) {
     },
     [
       accountId,
+      isExternalAccount,
       isLastSwapTxWithFeeInfo,
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,

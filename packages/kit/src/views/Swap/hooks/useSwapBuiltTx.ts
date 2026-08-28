@@ -3519,7 +3519,7 @@ export function useSwapBuildTx({
         if (!checkLatestNativeBalanceRes.isSufficient) {
           throw new OneKeyAppError('checkLatestNativeTokenBalance failed');
         }
-        const gasFeeFiatValues = await Promise.all(
+        const gasFeeResults = await Promise.all(
           gasFeeInfos.map(async (item) => {
             const { gasInfo } = item;
             const { common } = gasInfo;
@@ -3528,16 +3528,27 @@ export function useSwapBuildTx({
               nativeTokenPrice: common?.nativeTokenPrice ?? 0,
               txSize: item.txSize,
             });
-            return feeResult.totalFiatMinForDisplay;
+            return feeResult;
           }),
         );
-        const gasFeeFiatValueAll = gasFeeFiatValues.reduce((acc, curr) => {
-          return acc.plus(new BigNumber(curr));
+        const gasFeeFiatValueAll = gasFeeResults.reduce((acc, curr) => {
+          return acc.plus(new BigNumber(curr.totalFiatMinForDisplay));
+        }, new BigNumber(0));
+        // Megafuel zeroes `gasPrice` in sponsored estimates; keep the
+        // original-price total so surfaces where the sponsorship does not
+        // apply (external-wallet accounts) can still show a real fee.
+        const originalGasFeeFiatValueAll = gasFeeResults.reduce((acc, curr) => {
+          return acc.plus(
+            new BigNumber(curr.originalTotalFiat ?? curr.totalFiatMinForDisplay),
+          );
         }, new BigNumber(0));
         const netWorkFee: ISwapPreSwapData['netWorkFee'] = {
           gasInfos: [...gasFeeInfos],
           gasFeeFiatValue: !gasFeeFiatValueAll.isZero()
             ? gasFeeFiatValueAll.toFixed()
+            : undefined,
+          originalGasFeeFiatValue: !originalGasFeeFiatValueAll.isZero()
+            ? originalGasFeeFiatValueAll.toFixed()
             : undefined,
         };
         if (updateReviewState) {

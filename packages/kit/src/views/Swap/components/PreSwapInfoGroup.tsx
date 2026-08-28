@@ -255,6 +255,14 @@ const PreSwapInfoGroup = ({
     if (isGasSponsored && !isExternalAccount) {
       return <SwapSponsoredNetworkFee />;
     }
+    // Megafuel-sponsored estimates zero out `gasPrice`, which empties
+    // `gasFeeFiatValue`; external accounts pay the real fee, so fall back to
+    // the original-price total for them.
+    const networkFeeFiatValue =
+      preSwapData.netWorkFee?.gasFeeFiatValue ??
+      (isExternalAccount
+        ? preSwapData.netWorkFee?.originalGasFeeFiatValue
+        : undefined);
     const feeLevelSelect = (
       <XStack alignItems="center" gap="$2">
         <Select
@@ -286,7 +294,7 @@ const PreSwapInfoGroup = ({
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >
-            {preSwapData.netWorkFee?.gasFeeFiatValue ?? ''}
+            {networkFeeFiatValue ?? ''}
           </NumberSizeableText>
         )}
       </XStack>
@@ -313,6 +321,7 @@ const PreSwapInfoGroup = ({
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
+    preSwapData.netWorkFee?.originalGasFeeFiatValue,
     settings.currencyInfo.symbol,
     preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,

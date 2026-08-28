@@ -653,6 +653,11 @@ export interface ISwapPreSwapData {
       txSize?: number;
     }[];
     gasFeeFiatValue?: string;
+    // Megafuel-sponsored estimates zero out `gasPrice` (real price kept in
+    // `originalGasPrice`), which zeroes `gasFeeFiatValue`; this keeps the
+    // un-sponsored fee so external-wallet accounts — which the sponsorship
+    // never applies to — can still show a real amount.
+    originalGasFeeFiatValue?: string;
   };
 }
 
