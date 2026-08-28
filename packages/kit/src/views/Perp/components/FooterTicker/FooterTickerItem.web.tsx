@@ -2,10 +2,7 @@ import { memo, useCallback, useState } from 'react';
 
 import { SizableText } from '@onekeyhq/components';
 
-import {
-  TABULAR_NUMS_STYLE,
-  getStablePriceMinWidth,
-} from '../FavoritesBar/FavoriteTokenItem';
+import { TABULAR_NUMS_STYLE } from '../FavoritesBar/FavoriteTokenItem';
 
 import { getFooterTickerDisplayText } from './footerTickerUtils';
 
@@ -38,7 +35,6 @@ function FooterTickerItem({
     change24hPercent,
     markPrice,
   });
-  const priceMinWidth = getStablePriceMinWidth(priceText);
   const handlePress = useCallback(() => {
     onPress({
       displayName,
@@ -95,8 +91,6 @@ function FooterTickerItem({
         color={color}
         style={TABULAR_NUMS_STYLE}
         flexShrink={0}
-        minWidth="7ch"
-        textAlign="right"
         whiteSpace="nowrap"
       >
         {changeText}
@@ -106,8 +100,6 @@ function FooterTickerItem({
         color={isHovered ? '$text' : '$textSubdued'}
         style={TABULAR_NUMS_STYLE}
         flexShrink={0}
-        minWidth={priceMinWidth}
-        textAlign="right"
         whiteSpace="nowrap"
       >
         {priceText}
