@@ -2,8 +2,10 @@ import bs58 from 'bs58';
 
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
-// generous multiple of Solana's 1232-byte packet limit
-const WC_PAY_SOLANA_TX_MAX_BYTES = 4096;
+// generous multiple of Solana's 1232-byte packet limit. Exported so the UI
+// can refuse an oversize blob before it crosses the background proxy, using
+// the very bound this module enforces.
+export const WC_PAY_SOLANA_TX_MAX_BYTES = 4096;
 
 /**
  * Extract the base64-encoded transaction from `solana_signTransaction`

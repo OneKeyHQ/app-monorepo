@@ -35,6 +35,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { wcPayInlineSendTx } from './wcPayInlineSendTx';
 import {
+  WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
   WcPayUserCancelledError,
   getWcPayInlineTxPlan,
   runWcPayInlineAttempts,
@@ -44,6 +45,35 @@ import type { IWcPayInlineController } from './wcPayInlineUtils';
 
 // re-exported from its leaf module for the existing import sites
 export { WcPayUserCancelledError };
+
+/**
+ * How many inline-eligible spends a resumed run must consider already made.
+ *
+ * Fail-closed: an action completed in an EARLIER run may well have been
+ * inlined, and nothing in the stored progress records how it was signed. So
+ * every shape Phase 2 can inline counts — typed data and Solana
+ * unconditionally (both are inline-eligible spends), a transfer when the very
+ * gate that would have inlined it says so — and a resumed sequence cannot spend
+ * the budget a second time.
+ */
+function countWcPayCompletedInlineSpends({
+  completedActions,
+  option,
+}: {
+  completedActions: IWcPayAction[];
+  option: IWcPayOption | undefined;
+}): number {
+  return completedActions.filter((action) => {
+    const method = action?.walletRpc?.method;
+    if (
+      method === EWcPayActionMethod.EthSignTypedDataV4 ||
+      method === EWcPayActionMethod.SolanaSignTransaction
+    ) {
+      return true;
+    }
+    return getWcPayInlineTxPlan({ action, option }).mode === 'inline';
+  }).length;
+}
 
 // small pause so a finished confirm modal fully dismisses before the next one
 const MODAL_TRANSITION_MS = 300;
@@ -325,6 +355,23 @@ export function useWcPayActionExecutor() {
         }
       }
 
+      // Sequence spend budget (§3.1 invariant 1, see
+      // WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE). Seeded from the prefix this
+      // run will SKIP, so a resumed sequence cannot inline a second spend.
+      let inlinedSpends = countWcPayCompletedInlineSpends({
+        completedActions: actions.slice(0, effectiveStartIndex),
+        option,
+      });
+      // Consumed before an inline path is ENTERED — an attempt may broadcast,
+      // so the budget must be spent at the attempt, not at its success.
+      const takeInlineSpend = () => {
+        if (inlinedSpends >= WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE) {
+          return false;
+        }
+        inlinedSpends += 1;
+        return true;
+      };
+
       for (let i = effectiveStartIndex; i < actions.length; i += 1) {
         // the page owning this flow may have unmounted during the resume
         // probes above (waitForTxMined can block for minutes) or between
@@ -396,10 +443,23 @@ export function useWcPayActionExecutor() {
             // re-execution keeps its nonce here too. Nothing is caught: a
             // thrown pipeline error (post-sign tagged or pre-sign untagged)
             // must reach the page, which owns the recovery decision.
+            // Assigned by whichever path produces the broadcast — inline or
+            // confirm page — so both join the one post-broadcast tail below.
+            let txid: string | undefined;
             if (inlineController && option) {
               // the gate is evaluated per action, so it judges the very
               // action this iteration executes
-              const plan = getWcPayInlineTxPlan({ action: actions[i], option });
+              let plan = getWcPayInlineTxPlan({ action: actions[i], option });
+              if (plan.mode === 'inline' && !takeInlineSpend()) {
+                plan = {
+                  mode: 'fallback',
+                  reason: 'inline spend budget exhausted',
+                };
+                // the one fallback reason worth a diagnostic: it means the
+                // sequence asked to inline more spends than a legitimate
+                // payment ever contains
+                console.log('wcPay inline fallback', plan.reason);
+              }
               if (plan.mode === 'inline') {
                 const inlineOutcome = await runWcPayInlineAttempts({
                   controller: inlineController,
@@ -433,128 +493,126 @@ export function useWcPayActionExecutor() {
                     }),
                 });
                 if (inlineOutcome.status === 'ok') {
-                  // an on-chain result now exists: retire the cancel signal
-                  // so the rest of the sequence (and confirmPayment) runs
-                  hasBroadcastInThisRun = true;
-                  results.push(inlineOutcome.txid);
-                  await persistActionResult(i, inlineOutcome.txid);
-                  // the plan gate admits single-action sequences only, so
-                  // this is always the last action and the Permit2
-                  // mined-wait below can never apply
-                  break;
-                }
-                if (inlineOutcome.status === 'abort') {
+                  txid = inlineOutcome.txid;
+                } else if (inlineOutcome.status === 'abort') {
                   throw new WcPayUserCancelledError('User canceled payment');
                 }
                 // fallback: continue into the standard confirm modal below
               }
             }
-            // the async prep above (account resolution, tx preparation, a
-            // possible inline fallback) may span a page close; re-check so a
-            // confirm modal is never pushed onto a stack whose owner is gone
-            // — cancelling before a broadcast exists, stopping with the
-            // collected prefix after one does
-            throwIfCancelled();
-            if (isStoppedAfterBroadcast()) {
-              return results;
-            }
-            // park the host dialog before the confirm page takes the screen
-            // (see IWcPayInlineController.onBeforePushConfirmModal)
-            await inlineController?.onBeforePushConfirmModal?.();
-            let txid: string;
-            try {
-              txid = await new Promise<string>((resolve, reject) => {
-                navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                  screen: EModalSignatureConfirmRoutes.TxConfirm,
-                  params: {
-                    networkId,
-                    accountId: account.id,
-                    unsignedTxs: [unsignedTx],
-                    // the gas params provided by WalletConnect Pay are hints;
-                    // let the wallet estimate fees like a normal send
-                    useFeeInTx: false,
-                    // fail fast when the user confirms after the deadline:
-                    // runs before signing, so nothing irreversible has
-                    // happened when it throws
-                    onBeforeSend: () => {
-                      if (isWcPayExpired(expiryMs)) {
-                        // copy pending product i18n keys
-                        const expiredError = new OneKeyLocalError(
-                          'This payment has expired',
-                        );
-                        (expiredError as unknown as Record<string, boolean>)[
-                          deadlineBeforeSendFlag
-                        ] = true;
-                        throw expiredError;
-                      }
-                    },
-                    // hard boundary enforced by the background between
-                    // signing and broadcast; covers signing sessions
-                    // (e.g. hardware) that cross the deadline after
-                    // onBeforeSend already passed
-                    broadcastDeadline: expiryMs,
-                    // duplicate-payment boundary: the background records the
-                    // txid after signing and before broadcast, so even if
-                    // this UI runtime dies before onSuccess (or anything
-                    // after it) runs, a resumed attempt knows the transfer
-                    // was already sent
-                    wcPayPreBroadcastRecord: progressContext
-                      ? {
-                          ...progressContext,
-                          action: actions[i],
-                          index: i,
-                        }
-                      : undefined,
-                    sourceInfo: buildWcPaySourceInfo({
-                      method,
-                      params: parsed,
-                      scope: 'ethereum',
-                    }),
-                    onSuccess: (txs: ISendTxOnSuccessData[]) => {
-                      const id = txs?.[0]?.signedTx?.txid;
-                      if (id) {
-                        resolve(id);
-                      } else {
-                        reject(new OneKeyLocalError('Missing transaction id'));
-                      }
-                    },
-                    onFail: (error: Error) => reject(error),
-                    onCancel: () =>
-                      reject(
-                        new WcPayUserCancelledError('User canceled payment'),
-                      ),
-                  },
-                });
-              });
-            } catch (error) {
-              // the deadline tripped at the confirm click: no submission is
-              // in flight, so closing the (still open) confirm modal cannot
-              // lose a broadcast result — the only situation where closing
-              // it from the outside is safe
-              if (
-                (error as undefined | Record<string, unknown>)?.[
-                  deadlineBeforeSendFlag
-                ]
-              ) {
-                navigation.popStack();
+            if (txid === undefined) {
+              // the async prep above (account resolution, tx preparation, a
+              // possible inline fallback) may span a page close; re-check so
+              // a confirm modal is never pushed onto a stack whose owner is
+              // gone — cancelling before a broadcast exists, stopping with
+              // the collected prefix after one does
+              throwIfCancelled();
+              if (isStoppedAfterBroadcast()) {
+                return results;
               }
-              throw error;
-            } finally {
-              // the confirm modal settled either way: let the host dialog
-              // come back so the paying progress stays visible through the
-              // between-action waits (the mined-wait below can run for
-              // minutes with no other UI on screen)
-              inlineController?.onAfterConfirmModalSettled?.();
+              // park the host dialog before the confirm page takes the screen
+              // (see IWcPayInlineController.onBeforePushConfirmModal)
+              await inlineController?.onBeforePushConfirmModal?.();
+              try {
+                txid = await new Promise<string>((resolve, reject) => {
+                  navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                    screen: EModalSignatureConfirmRoutes.TxConfirm,
+                    params: {
+                      networkId,
+                      accountId: account.id,
+                      unsignedTxs: [unsignedTx],
+                      // the gas params provided by WalletConnect Pay are hints;
+                      // let the wallet estimate fees like a normal send
+                      useFeeInTx: false,
+                      // fail fast when the user confirms after the deadline:
+                      // runs before signing, so nothing irreversible has
+                      // happened when it throws
+                      onBeforeSend: () => {
+                        if (isWcPayExpired(expiryMs)) {
+                          // copy pending product i18n keys
+                          const expiredError = new OneKeyLocalError(
+                            'This payment has expired',
+                          );
+                          (expiredError as unknown as Record<string, boolean>)[
+                            deadlineBeforeSendFlag
+                          ] = true;
+                          throw expiredError;
+                        }
+                      },
+                      // hard boundary enforced by the background between
+                      // signing and broadcast; covers signing sessions
+                      // (e.g. hardware) that cross the deadline after
+                      // onBeforeSend already passed
+                      broadcastDeadline: expiryMs,
+                      // duplicate-payment boundary: the background records the
+                      // txid after signing and before broadcast, so even if
+                      // this UI runtime dies before onSuccess (or anything
+                      // after it) runs, a resumed attempt knows the transfer
+                      // was already sent
+                      wcPayPreBroadcastRecord: progressContext
+                        ? {
+                            ...progressContext,
+                            action: actions[i],
+                            index: i,
+                          }
+                        : undefined,
+                      sourceInfo: buildWcPaySourceInfo({
+                        method,
+                        params: parsed,
+                        scope: 'ethereum',
+                      }),
+                      onSuccess: (txs: ISendTxOnSuccessData[]) => {
+                        const id = txs?.[0]?.signedTx?.txid;
+                        if (id) {
+                          resolve(id);
+                        } else {
+                          reject(
+                            new OneKeyLocalError('Missing transaction id'),
+                          );
+                        }
+                      },
+                      onFail: (error: Error) => reject(error),
+                      onCancel: () =>
+                        reject(
+                          new WcPayUserCancelledError('User canceled payment'),
+                        ),
+                    },
+                  });
+                });
+              } catch (error) {
+                // the deadline tripped at the confirm click: no submission is
+                // in flight, so closing the (still open) confirm modal cannot
+                // lose a broadcast result — the only situation where closing
+                // it from the outside is safe
+                if (
+                  (error as undefined | Record<string, unknown>)?.[
+                    deadlineBeforeSendFlag
+                  ]
+                ) {
+                  navigation.popStack();
+                }
+                throw error;
+              } finally {
+                // the confirm modal settled either way: let the host dialog
+                // come back so the paying progress stays visible through the
+                // between-action waits (the mined-wait below can run for
+                // minutes with no other UI on screen)
+                inlineController?.onAfterConfirmModalSettled?.();
+              }
             }
-            // an on-chain result now exists: retire the cancel signal so
-            // the remaining actions (and confirmPayment) always run
+            // ONE post-broadcast tail for both routes (§3.1 invariant 2): an
+            // inlined broadcast is as on-chain as a confirmed one, so it owes
+            // the same bookkeeping and the same mined-wait before the next
+            // action — the inline path must never skip past this. An on-chain
+            // result now exists, so retire the cancel signal: the remaining
+            // actions (and confirmPayment) always run.
             hasBroadcastInThisRun = true;
             results.push(txid);
-            // the txid was already durably recorded by the background
-            // between signing and broadcast (wcPayPreBroadcastRecord above);
-            // this second write merely reaffirms it after the confirm
-            // round-trip and must still never lose it to a later-step
-            // failure (including the mined-wait below)
+            // the txid was already durably recorded by the background between
+            // signing and broadcast (wcPayPreBroadcastRecord, passed by both
+            // routes); this second write merely reaffirms it once the route
+            // that produced it returned, and must still never lose it to a
+            // later-step failure (including the mined-wait below)
             await persistActionResult(i, txid);
             // Permit2 flow: the approve must be mined before signing the
             // follow-up typed data

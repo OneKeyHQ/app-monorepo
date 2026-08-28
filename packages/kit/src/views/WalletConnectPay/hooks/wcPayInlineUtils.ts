@@ -1,5 +1,8 @@
 import { extractWcPayTypedDataMessage } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
-import { extractWcPaySolanaTransaction } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
+import {
+  WC_PAY_SOLANA_TX_MAX_BYTES,
+  extractWcPaySolanaTransaction,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
 import {
   type IWcPayResolvedToken,
   type IWcPayTypedDataSummary,
@@ -53,11 +56,29 @@ export type IWcPayInlineSolanaPlan =
   | { mode: 'inline'; summary: IWcPaySolanaSummary; txBase64: string }
   | { mode: 'fallback'; reason: string };
 
+// The proven payload behind a `signingMessage` phase, tagged so one hook
+// serves both signing kinds.
+export type IWcPayInlineSigningSummary =
+  | { kind: 'typedData'; summary: IWcPayTypedDataSummary }
+  | { kind: 'solana'; summary: IWcPaySolanaSummary };
+
 // What the UI must ask the background to check, once the action's method and
 // params alone prove it is a Solana payment request.
 export type IWcPayInlineSolanaRequest =
   | { mode: 'request'; txBase64: string; caip2ChainId: string }
   | { mode: 'fallback'; reason: string };
+
+/**
+ * Sequence-level spend budget (design doc §3.1 invariant 1). Every action
+ * this layer can inline moves or authorizes the FULL order amount — a
+ * transfer, a Permit2 signature, a Solana payment — so a legitimate sequence
+ * contains exactly one of them. The executor keeps one counter per call;
+ * once it is spent every later inline-shaped action falls back to its
+ * confirm page, where the user can still refuse it. This is what closes the
+ * "N equal transfers → N headless broadcasts" widening that dropping the
+ * old single-action gate would otherwise open.
+ */
+export const WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE = 1;
 
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
@@ -161,6 +182,17 @@ export type IWcPayInlineSendResult =
   | { status: 'inlineError'; failure: IWcPayInlineFailure };
 
 /**
+ * The action's RPC method, and only when it is a non-empty string. Anything
+ * else is a malformed action rather than an unsupported method: `action`
+ * crosses a trust boundary, so the three plans below must not report a
+ * server-controlled value (or `undefined`) as if it were a method name.
+ */
+function readWcPayActionMethod(action: IWcPayAction): string | undefined {
+  const method = action?.walletRpc?.method;
+  return typeof method === 'string' && method ? method : undefined;
+}
+
+/**
  * The plain-EVM-send gate, evaluated per action: inline a send whose shape
  * matches the approved order, whatever position it holds in the sequence
  * (the surrounding sequence length is no longer part of the decision — every
@@ -180,7 +212,7 @@ export function getWcPayInlineTxPlan({
   if (!option) {
     return { mode: 'fallback', reason: 'no selected option' };
   }
-  const method = action?.walletRpc?.method;
+  const method = readWcPayActionMethod(action);
   if (!method) {
     return { mode: 'fallback', reason: 'malformed action' };
   }
@@ -224,9 +256,12 @@ export function getWcPayInlineMessagePlan({
   if (!option) {
     return { mode: 'fallback', reason: 'no selected option' };
   }
-  const method = action?.walletRpc?.method;
+  const method = readWcPayActionMethod(action);
+  if (!method) {
+    return { mode: 'fallback', reason: 'malformed action' };
+  }
   if (method !== EWcPayActionMethod.EthSignTypedDataV4) {
-    return { mode: 'fallback', reason: `method ${String(method)}` };
+    return { mode: 'fallback', reason: `method ${method}` };
   }
   let typedData: unknown;
   try {
@@ -271,9 +306,18 @@ export function getWcPayInlineSolanaRequest({
   if (!option) {
     return { mode: 'fallback', reason: 'no selected option' };
   }
-  const method = action?.walletRpc?.method;
+  const method = readWcPayActionMethod(action);
+  if (!method) {
+    return { mode: 'fallback', reason: 'malformed action' };
+  }
   if (method !== EWcPayActionMethod.SolanaSignTransaction) {
-    return { mode: 'fallback', reason: `method ${String(method)}` };
+    return { mode: 'fallback', reason: `method ${method}` };
+  }
+  const caip2ChainId = action.walletRpc.chainId;
+  // The chain travels to the background as the validator's own chain input,
+  // so it is checked here rather than trusted to be a string.
+  if (typeof caip2ChainId !== 'string' || !caip2ChainId) {
+    return { mode: 'fallback', reason: 'malformed action' };
   }
   let txBase64: string;
   try {
@@ -285,7 +329,13 @@ export function getWcPayInlineSolanaRequest({
   } catch {
     return { mode: 'fallback', reason: 'unparseable params' };
   }
-  return { mode: 'request', txBase64, caip2ChainId: action.walletRpc.chainId };
+  // Bounded before it crosses the proxy, by the same limit solPayUtils
+  // enforces when it transcodes: base64 carries 3 bytes per 4 chars, and an
+  // oversize blob must never reach a decoder on this thread.
+  if (txBase64.length > Math.ceil(WC_PAY_SOLANA_TX_MAX_BYTES / 3) * 4) {
+    return { mode: 'fallback', reason: 'transaction too large' };
+  }
+  return { mode: 'request', txBase64, caip2ChainId };
 }
 
 /**
@@ -324,7 +374,13 @@ export function getWcPayInlineSolanaPlan({
     };
   }
   const { summary } = consistency;
-  if (!summary) {
+  // Positively identified, not merely present: an unrecognized (or absent)
+  // `kind` must not fall through to the native branch, which would inline a
+  // payment whose amount this side never saw.
+  if (
+    (summary?.kind !== 'native' && summary?.kind !== 'spl') ||
+    typeof summary.amountRaw !== 'string'
+  ) {
     return { mode: 'fallback', reason: 'invalid verdict' };
   }
   if (summary.kind === 'spl') {
@@ -431,9 +487,10 @@ export function classifyWcPayInlineFailure({
  */
 export interface IWcPayInlineController {
   onPhase: (phase: IWcPayInlinePhase) => void;
-  // What the sheet shows while a Permit2 signature is being produced: the
-  // proven payload behind the `signingMessage` phase.
-  onMessageSummary?: (summary: IWcPayTypedDataSummary) => void;
+  // What the sheet shows while a signature is being produced: the proven
+  // payload behind the `signingMessage` phase, tagged by which kind of
+  // signing it describes.
+  onSigningSummary?: (summary: IWcPayInlineSigningSummary) => void;
   // 'retry' re-runs the attempt (honoured only for a fee-estimate failure —
   // the one transient class), 'fallback' reroutes to the confirm page,
   // 'abort' cancels the payment.

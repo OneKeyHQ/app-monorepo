@@ -5,7 +5,10 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
-import type { IWcPayAction } from '@onekeyhq/shared/src/walletConnect/payTypes';
+import type {
+  IWcPayAction,
+  IWcPayOption,
+} from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import { useWcPayActionExecutor } from '../useWcPayActionExecutor';
 
@@ -35,10 +38,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
         .fn()
         .mockResolvedValue({ encodedTx: {} }),
     },
-    serviceWalletConnectPay: {},
+    serviceWalletConnectPay: {
+      waitForTxMined: jest.fn().mockResolvedValue({ isReverted: false }),
+      isTxNeverBroadcast: jest.fn().mockResolvedValue(false),
+      getBroadcastMetaByTxid: jest.fn().mockResolvedValue(undefined),
+    },
   };
   return { __esModule: true, default: services };
 });
+
+// the headless pipeline itself is covered by wcPayInlineSendTx.test.ts; here
+// it is mocked so these tests drive the executor's sequence bookkeeping
+jest.mock('../wcPayInlineSendTx', () => ({
+  __esModule: true,
+  wcPayInlineSendTx: jest.fn(),
+}));
 
 // what the executor's four confirm-modal push sites hand to navigation —
 // only the fields this test interacts with
@@ -268,5 +282,162 @@ describe('useWcPayActionExecutor confirm-modal parking', () => {
       accountId: 'account-1',
     });
     expect(signatures).toEqual(['0xsig-personal']);
+  });
+});
+
+describe('useWcPayActionExecutor sequence invariants', () => {
+  const SENDER = '0x1111111111111111111111111111111111111111';
+  const option: IWcPayOption = {
+    id: 'opt-1',
+    account: `eip155:8453:${SENDER}`,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+  // shaped to match `option` exactly, so getWcPayInlineTxPlan admits it
+  const buildTransferAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [{ from: SENDER, to: SENDER, value: '0xf4240' }],
+      chainId: 'eip155:8453',
+    });
+  const typedDataAction = buildAction({
+    method: EWcPayActionMethod.EthSignTypedDataV4,
+    params: [
+      SENDER,
+      JSON.stringify({
+        types: { EIP712Domain: [], Permit: [] },
+        domain: {},
+        primaryType: 'Permit',
+        message: {},
+      }),
+    ],
+    chainId: 'eip155:8453',
+  });
+
+  const services = jest.requireMock<{
+    default: {
+      serviceWalletConnectPay: {
+        waitForTxMined: jest.Mock;
+        isTxNeverBroadcast: jest.Mock;
+        getBroadcastMetaByTxid: jest.Mock;
+      };
+    };
+  }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+  const { waitForTxMined, isTxNeverBroadcast } =
+    services.serviceWalletConnectPay;
+  const { wcPayInlineSendTx } = jest.requireMock<{
+    wcPayInlineSendTx: jest.Mock;
+  }>('../wcPayInlineSendTx');
+
+  beforeEach(() => {
+    pushModalMock.mockReset();
+    waitForTxMined.mockReset();
+    waitForTxMined.mockResolvedValue({ isReverted: false });
+    isTxNeverBroadcast.mockReset();
+    isTxNeverBroadcast.mockResolvedValue(false);
+    wcPayInlineSendTx.mockReset();
+    wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
+    // every confirm modal settles successfully, whichever kind it is
+    pushModalMock.mockImplementation((_route, { params }) => {
+      if (params.unsignedMessage) {
+        params.onSuccess('0xsig-permit');
+      } else {
+        params.onSuccess([{ signedTx: { txid: '0xtxid-confirm' } }]);
+      }
+    });
+  });
+
+  // C1: an inlined broadcast must join the same post-action path as a
+  // confirm-page one — the mined-wait is what orders Permit2's approve
+  // before the follow-up signature.
+  it('waits for an inlined broadcast to mine before the next action', async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+    const signatures = await result.current.executeActions({
+      actions: [buildTransferAction(), typedDataAction],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(waitForTxMined).toHaveBeenCalledTimes(1);
+    expect(waitForTxMined).toHaveBeenCalledWith({
+      networkId: 'evm--8453',
+      txid: '0xinline',
+    });
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xinline', '0xsig-permit']);
+  });
+
+  it('invalidates an inlined action whose transaction reverted', async () => {
+    waitForTxMined.mockResolvedValue({ isReverted: true });
+    const onActionInvalidated = jest.fn();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: [buildTransferAction(), typedDataAction],
+        accountId: 'account-1',
+        option,
+        inlineController: buildController(),
+        onActionInvalidated,
+      }),
+    ).rejects.toThrow('Transaction reverted on chain');
+    expect(onActionInvalidated).toHaveBeenCalledTimes(1);
+    expect(onActionInvalidated).toHaveBeenCalledWith({ index: 0 });
+    // the follow-up signature must never be requested after a revert
+    expect(pushModalMock).not.toHaveBeenCalled();
+  });
+
+  // C2: N equal transfers must not become N headless broadcasts.
+  it('inlines only the first spend of a repeated-transfer sequence', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [
+        buildTransferAction(),
+        buildTransferAction(),
+        buildTransferAction(),
+      ],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).toHaveBeenCalledTimes(2);
+    expect(signatures).toEqual([
+      '0xinline',
+      '0xtxid-confirm',
+      '0xtxid-confirm',
+    ]);
+    expect(logSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      'inline spend budget exhausted',
+    );
+    logSpy.mockRestore();
+  });
+
+  it("counts a resumed run's completed spend against the budget", async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildTransferAction(), buildTransferAction()],
+      accountId: 'account-1',
+      // the first action was already paid for in an earlier run
+      completedResults: ['0xearlier'],
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xearlier', '0xtxid-confirm']);
   });
 });

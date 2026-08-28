@@ -53,9 +53,28 @@ const signAction: IWcPayAction = {
   },
 };
 
-// An action shaped like a server response that lost its walletRpc payload:
-// every plan must refuse it instead of throwing.
-const malformedAction: IWcPayAction = { walletRpc: undefined as never };
+// Actions shaped like a server response that lost — or lied about — its
+// walletRpc payload. A method that is not a non-empty string is a malformed
+// action, not a named one: no plan may echo a server-controlled value as if
+// it were an RPC method.
+const MALFORMED_ACTIONS: Array<[string, IWcPayAction]> = [
+  ['an action without walletRpc', { walletRpc: undefined as never }],
+  ['a missing action', null as unknown as IWcPayAction],
+  [
+    'an empty method',
+    { walletRpc: { chainId: 'eip155:8453', method: '', params: '[]' } },
+  ],
+  [
+    'a non-string method',
+    {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 7 as unknown as string,
+        params: '[]',
+      },
+    },
+  ],
+];
 
 describe('getWcPayInlineTxPlan', () => {
   it('inlines a matching transfer action regardless of sequence length', () => {
@@ -64,11 +83,14 @@ describe('getWcPayInlineTxPlan', () => {
     });
   });
 
-  it('falls back for a non-transfer method and without an option', () => {
+  it('falls back for a non-transfer method, naming it', () => {
     expect(getWcPayInlineTxPlan({ action: signAction, option })).toEqual({
       mode: 'fallback',
       reason: 'method personal_sign',
     });
+  });
+
+  it('falls back without a selected option', () => {
     expect(
       getWcPayInlineTxPlan({ action: nativeAction, option: undefined }),
     ).toEqual({ mode: 'fallback', reason: 'no selected option' });
@@ -92,23 +114,16 @@ describe('getWcPayInlineTxPlan', () => {
     });
   });
 
-  it('falls back without throwing on a malformed action', () => {
-    expect(() =>
-      getWcPayInlineTxPlan({ action: malformedAction, option }),
-    ).not.toThrow();
-    expect(getWcPayInlineTxPlan({ action: malformedAction, option })).toEqual({
-      mode: 'fallback',
-      reason: 'malformed action',
-    });
-    const missingAction = null as unknown as IWcPayAction;
-    expect(() =>
-      getWcPayInlineTxPlan({ action: missingAction, option }),
-    ).not.toThrow();
-    expect(getWcPayInlineTxPlan({ action: missingAction, option })).toEqual({
-      mode: 'fallback',
-      reason: 'malformed action',
-    });
-  });
+  it.each(MALFORMED_ACTIONS)(
+    'falls back without throwing on %s',
+    (_label, action) => {
+      expect(() => getWcPayInlineTxPlan({ action, option })).not.toThrow();
+      expect(getWcPayInlineTxPlan({ action, option })).toEqual({
+        mode: 'fallback',
+        reason: 'malformed action',
+      });
+    },
+  );
 });
 
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -241,24 +256,20 @@ describe('getWcPayInlineMessagePlan', () => {
     ).toEqual({ mode: 'fallback', reason: 'no selected option' });
   });
 
-  it('falls back without throwing on a malformed action', () => {
-    expect(() =>
-      getWcPayInlineMessagePlan({
-        action: malformedAction,
-        option: permitOption,
-        nowMs: NOW_MS,
-        resolvedToken,
-      }),
-    ).not.toThrow();
-    expect(
-      getWcPayInlineMessagePlan({
-        action: malformedAction,
-        option: permitOption,
-        nowMs: NOW_MS,
-        resolvedToken,
-      }).mode,
-    ).toBe('fallback');
-  });
+  it.each(MALFORMED_ACTIONS)(
+    'falls back without throwing on %s',
+    (_label, action) => {
+      const call = () =>
+        getWcPayInlineMessagePlan({
+          action,
+          option: permitOption,
+          nowMs: NOW_MS,
+          resolvedToken,
+        });
+      expect(call).not.toThrow();
+      expect(call()).toEqual({ mode: 'fallback', reason: 'malformed action' });
+    },
+  );
 });
 
 const SOLANA_CHAIN = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
@@ -354,19 +365,51 @@ describe('getWcPayInlineSolanaRequest', () => {
     ).toEqual({ mode: 'fallback', reason: 'unparseable params' });
   });
 
-  it('falls back without throwing on a malformed action', () => {
-    expect(() =>
-      getWcPayInlineSolanaRequest({
-        action: malformedAction,
-        option: solOption,
-      }),
-    ).not.toThrow();
+  it.each(MALFORMED_ACTIONS)(
+    'falls back without throwing on %s',
+    (_label, action) => {
+      const call = () =>
+        getWcPayInlineSolanaRequest({ action, option: solOption });
+      expect(call).not.toThrow();
+      expect(call()).toEqual({ mode: 'fallback', reason: 'malformed action' });
+    },
+  );
+
+  // The chain reaches the background as the validator's own chain input, so
+  // a non-string one is refused here rather than sent on.
+  it.each([
+    ['a numeric chainId', 7 as unknown as string],
+    ['a missing chainId', undefined as unknown as string],
+    ['an object chainId', {} as unknown as string],
+    ['an empty chainId', ''],
+  ])('falls back on %s', (_label, chainId) => {
     expect(
       getWcPayInlineSolanaRequest({
-        action: malformedAction,
+        action: {
+          walletRpc: {
+            chainId,
+            method: 'solana_signTransaction',
+            params: JSON.stringify([{ transaction: TX_BASE64 }]),
+          },
+        },
         option: solOption,
-      }).mode,
-    ).toBe('fallback');
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'malformed action' });
+  });
+
+  it('refuses an oversize blob before it crosses the proxy', () => {
+    expect(
+      getWcPayInlineSolanaRequest({
+        action: {
+          walletRpc: {
+            chainId: SOLANA_CHAIN,
+            method: 'solana_signTransaction',
+            params: JSON.stringify([{ transaction: 'A'.repeat(200_000) }]),
+          },
+        },
+        option: solOption,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'transaction too large' });
   });
 });
 
@@ -413,36 +456,39 @@ describe('getWcPayInlineSolanaPlan', () => {
     ).toEqual({ mode: 'fallback', reason: 'unknown token' });
   });
 
-  it('falls back when the resolved token disagrees with the mint or option', () => {
-    expect(
-      getWcPayInlineSolanaPlan({
-        option: usdcSolOption,
-        txBase64: TX_BASE64,
-        consistency: okSpl,
-        resolvedToken: {
-          address: 'So11111111111111111111111111111111111111112',
-          symbol: 'USDC',
-          decimals: 6,
-        },
-      }),
-    ).toEqual({ mode: 'fallback', reason: 'token address mismatch' });
-    expect(
-      getWcPayInlineSolanaPlan({
-        option: usdcSolOption,
-        txBase64: TX_BASE64,
-        consistency: okSpl,
-        resolvedToken: { address: USDC_MINT, symbol: 'USDT', decimals: 6 },
-      }),
-    ).toEqual({ mode: 'fallback', reason: 'token symbol mismatch' });
-    expect(
-      getWcPayInlineSolanaPlan({
-        option: usdcSolOption,
-        txBase64: TX_BASE64,
-        consistency: okSpl,
-        resolvedToken: { address: USDC_MINT, symbol: 'USDC', decimals: 9 },
-      }),
-    ).toEqual({ mode: 'fallback', reason: 'token decimals mismatch' });
-  });
+  it.each([
+    [
+      'the address',
+      {
+        address: 'So11111111111111111111111111111111111111112',
+        symbol: 'USDC',
+        decimals: 6,
+      },
+      'token address mismatch',
+    ],
+    [
+      'the symbol',
+      { address: USDC_MINT, symbol: 'USDT', decimals: 6 },
+      'token symbol mismatch',
+    ],
+    [
+      'the decimals',
+      { address: USDC_MINT, symbol: 'USDC', decimals: 9 },
+      'token decimals mismatch',
+    ],
+  ])(
+    'falls back when the resolved token disagrees on %s',
+    (_label, resolvedToken, reason) => {
+      expect(
+        getWcPayInlineSolanaPlan({
+          option: usdcSolOption,
+          txBase64: TX_BASE64,
+          consistency: okSpl,
+          resolvedToken,
+        }),
+      ).toEqual({ mode: 'fallback', reason });
+    },
+  );
 
   // The verdict now crosses a serialization boundary, so the option this
   // side holds may be shaped worse than the one the validator saw. A
@@ -473,6 +519,17 @@ describe('getWcPayInlineSolanaPlan', () => {
     ['a verdict that lost its summary', { ok: true } as never],
     ['a verdict whose summary is null', { ok: true, summary: null } as never],
     ['no verdict at all', undefined as never],
+    // fail-open guard: an unrecognized kind must not be treated as native,
+    // which would inline a payment whose amount this side never saw
+    ['a summary with no kind', { ok: true, summary: {} } as never],
+    [
+      'a summary with an unknown kind',
+      { ok: true, summary: { kind: 'weird', amountRaw: '1' } } as never,
+    ],
+    [
+      'a summary with a non-string amount',
+      { ok: true, summary: { kind: 'native', amountRaw: 1500 } } as never,
+    ],
   ])('falls back without throwing on %s', (_label, consistency) => {
     const call = () =>
       getWcPayInlineSolanaPlan({
