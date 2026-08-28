@@ -30,7 +30,7 @@ function buildStageFeeDetail(
   const amount =
     stageFeeInfo?.totalNativeMinForDisplay ??
     stageFeeInfo?.totalNativeForDisplay;
-  if (!amount) {
+  if (!stageFeeInfo || !amount) {
     return undefined;
   }
   const symbol = stageFeeInfo.feeInfo?.common?.nativeSymbol;
