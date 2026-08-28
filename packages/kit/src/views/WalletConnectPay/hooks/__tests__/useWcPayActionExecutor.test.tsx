@@ -396,7 +396,7 @@ describe('useWcPayActionExecutor sequence invariants', () => {
 
   // C2: N equal transfers must not become N headless broadcasts.
   it('inlines only the first spend of a repeated-transfer sequence', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -417,11 +417,35 @@ describe('useWcPayActionExecutor sequence invariants', () => {
       '0xtxid-confirm',
       '0xtxid-confirm',
     ]);
-    expect(logSpy).toHaveBeenCalledWith(
+    expect(warnSpy).toHaveBeenCalledWith(
       'wcPay inline fallback',
       'inline spend budget exhausted',
     );
-    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  // The seeding must follow the index the loop actually starts from: a
+  // rolled-back action is re-executed in THIS run, so its earlier spend is
+  // not spent any more. Seeding from the raw stored length instead would
+  // silently refuse to inline the very action being re-executed.
+  it('re-inlines an action the resume probe rolled back', async () => {
+    isTxNeverBroadcast.mockResolvedValue(true);
+    const onActionInvalidated = jest.fn();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildTransferAction(), typedDataAction],
+      accountId: 'account-1',
+      // recorded by an earlier run, but never actually broadcast
+      completedResults: ['0xtxid-prev'],
+      option,
+      inlineController: buildController(),
+      onActionInvalidated,
+    });
+
+    expect(onActionInvalidated).toHaveBeenCalledWith({ index: 0 });
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xinline', '0xsig-permit']);
   });
 
   it("counts a resumed run's completed spend against the budget", async () => {

@@ -329,9 +329,10 @@ export function getWcPayInlineSolanaRequest({
   } catch {
     return { mode: 'fallback', reason: 'unparseable params' };
   }
-  // Bounded before it crosses the proxy, by the same limit solPayUtils
-  // enforces when it transcodes: base64 carries 3 bytes per 4 chars, and an
-  // oversize blob must never reach a decoder on this thread.
+  // Bounded before it crosses the proxy, at approximately the same bound as
+  // solPayUtils (base64 carries 3 bytes per 4 chars, so this char cap admits
+  // up to 4098 decoded bytes): a pre-filter that keeps an oversize blob off
+  // this thread's decoders — the exact byte cap is enforced there.
   if (txBase64.length > Math.ceil(WC_PAY_SOLANA_TX_MAX_BYTES / 3) * 4) {
     return { mode: 'fallback', reason: 'transaction too large' };
   }

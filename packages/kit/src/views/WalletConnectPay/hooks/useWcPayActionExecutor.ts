@@ -46,6 +46,10 @@ import type { IWcPayInlineController } from './wcPayInlineUtils';
 // re-exported from its leaf module for the existing import sites
 export { WcPayUserCancelledError };
 
+// The one fallback reason this file produces itself; kept in one place so
+// the refusal and the plan that carries it can never drift apart.
+const WC_PAY_INLINE_BUDGET_REASON = 'inline spend budget exhausted';
+
 /**
  * How many inline-eligible spends a resumed run must consider already made.
  *
@@ -363,9 +367,14 @@ export function useWcPayActionExecutor() {
         option,
       });
       // Consumed before an inline path is ENTERED — an attempt may broadcast,
-      // so the budget must be spent at the attempt, not at its success.
+      // so the budget must be spent at the attempt, not at its success. The
+      // refusal warns from in here rather than at the call sites, so no
+      // future inline branch can take the budget and forget to report it.
       const takeInlineSpend = () => {
         if (inlinedSpends >= WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE) {
+          // worth a diagnostic on its own: the sequence asked to inline more
+          // spends than a legitimate payment ever contains
+          console.warn('wcPay inline fallback', WC_PAY_INLINE_BUDGET_REASON);
           return false;
         }
         inlinedSpends += 1;
@@ -453,12 +462,8 @@ export function useWcPayActionExecutor() {
               if (plan.mode === 'inline' && !takeInlineSpend()) {
                 plan = {
                   mode: 'fallback',
-                  reason: 'inline spend budget exhausted',
+                  reason: WC_PAY_INLINE_BUDGET_REASON,
                 };
-                // the one fallback reason worth a diagnostic: it means the
-                // sequence asked to inline more spends than a legitimate
-                // payment ever contains
-                console.log('wcPay inline fallback', plan.reason);
               }
               if (plan.mode === 'inline') {
                 const inlineOutcome = await runWcPayInlineAttempts({
