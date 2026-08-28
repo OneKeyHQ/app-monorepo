@@ -85,12 +85,13 @@ const STEP_STATE_TONE: Partial<
   [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
-// Watchdog budgets. Post-update rounds must outlast the reconnect loop in
+// Allow the 30s manifest fetch budget in addition to hardware checks.
+// Post-update rounds must outlast the reconnect loop in
 // retryDeviceConnectionAfterUpdate (pRetry delays alone sum to ~63s — a
 // rebooting device after a firmware flash is expected to be away that long),
 // otherwise the watchdog would retire a round that is working as designed.
-const STEP_TIMEOUT_MS = 30 * 1000;
-const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
+const STEP_TIMEOUT_MS = 60 * 1000;
+const POST_UPDATE_STEP_TIMEOUT_MS = 120 * 1000;
 
 const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
   function BootloaderDialogHostBridge(_props, ref) {
@@ -294,7 +295,7 @@ function CheckAndUpdatePage({
     });
   }, [actions, currentDevice, prepareUSBConnect]);
 
-  // 30s watchdog for checkFirmwareUpdate. It targets the firmware step
+  // Watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
   // genuine row when both steps are momentarily in progress. On firing it
   // retires the hung round BEFORE surfacing Retry, so that round's late

@@ -1,8 +1,10 @@
 import axios from 'axios';
 
+import { defaultLogger } from '../logger/logger';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
+  reportIpTableRequestSuccess,
 } from '../request/helpers/ipTableAdapter';
 import {
   isProxyActiveForUrl,
@@ -97,7 +99,7 @@ describe('firmware config provider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Date, 'now').mockReturnValue(1);
+    jest.useFakeTimers({ now: 1 });
     mockedAxios.create.mockReturnValue({
       get: directGet,
     } as unknown as ReturnType<typeof axios.create>);
@@ -115,6 +117,7 @@ describe('firmware config provider', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('returns a valid direct-domain response without SNI', async () => {
@@ -124,7 +127,10 @@ describe('firmware config provider', () => {
     await expect(fetchFirmwareConfig({ preRelease: false })).resolves.toBe(
       config,
     );
-    expect(directGet).toHaveBeenCalledWith(CONFIG_URL, { timeout: 7000 });
+    expect(directGet).toHaveBeenCalledWith(CONFIG_URL, {
+      timeout: 15_000,
+      signal: expect.any(AbortSignal),
+    });
     expect(mockedSniRequest).not.toHaveBeenCalled();
   });
 
@@ -136,7 +142,8 @@ describe('firmware config provider', () => {
       config,
     );
     expect(directGet).toHaveBeenCalledWith(PRE_RELEASE_CONFIG_URL, {
-      timeout: 7000,
+      timeout: 15_000,
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -174,7 +181,7 @@ describe('firmware config provider', () => {
       method: 'GET',
       headers: {},
       body: null,
-      timeout: 7000,
+      timeout: 15_000,
     });
   });
 
@@ -193,6 +200,156 @@ describe('firmware config provider', () => {
     );
     expect(mockedIsProxyActiveForUrl).toHaveBeenCalledWith(CONFIG_URL);
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a domain response that takes longer than seven seconds', async () => {
+    const config = buildRemoteConfig();
+    directGet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ data: config }), 9000);
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(9000);
+
+    await expect(result).resolves.toBe(config);
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('allows a slow SNI response after the domain attempt times out', async () => {
+    const config = buildRemoteConfig();
+    directGet.mockImplementation(
+      (_url: string, { timeout }: { timeout: number }) =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(transportError()), timeout);
+        }),
+    );
+    mockedSniRequest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () =>
+              resolve({
+                statusCode: 200,
+                headers: {},
+                body: JSON.stringify(config),
+              }),
+            9000,
+          );
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(24_000);
+
+    await expect(result).resolves.toEqual(config);
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ timeout: 15_000 }),
+    );
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('shares the remaining total budget across SNI candidates', async () => {
+    directGet.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(transportError()), 15_000);
+        }),
+    );
+    mockedSniRequest.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(transportError('SNI_TIMEOUT')), 10_000);
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(30_000);
+
+    await expect(result).resolves.toBeNull();
+    expect(mockedSniRequest).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ timeout: 15_000 }),
+    );
+    expect(mockedSniRequest).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ timeout: 5000 }),
+    );
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(mockedSniRequest).toHaveBeenCalledTimes(2);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('aborts a stalled domain request at the total deadline', async () => {
+    let requestSignal: AbortSignal | undefined;
+    directGet.mockImplementation(
+      (_url: string, { signal }: { signal: AbortSignal }) => {
+        requestSignal = signal;
+        return new Promise(() => {});
+      },
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(30_000);
+
+    await expect(result).resolves.toBeNull();
+    expect(requestSignal?.aborted).toBe(true);
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('does not start SNI when proxy preflight exhausts the total budget', async () => {
+    directGet.mockRejectedValue(transportError());
+    mockedIsProxyActiveForUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(false), 31_000);
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(30_000);
+    await expect(result).resolves.toBeNull();
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('ignores a successful SNI response after the total deadline', async () => {
+    const config = buildRemoteConfig();
+    const logInfoSpy = jest.spyOn(defaultLogger.ipTable.request, 'info');
+    directGet.mockRejectedValue(transportError());
+    mockedSniRequest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () =>
+              resolve({
+                statusCode: 200,
+                headers: {},
+                body: JSON.stringify(config),
+              }),
+            31_000,
+          );
+        }),
+    );
+
+    const result = fetchFirmwareConfig({ preRelease: false });
+    await jest.advanceTimersByTimeAsync(30_000);
+    await expect(result).resolves.toBeNull();
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(reportIpTableRequestSuccess).not.toHaveBeenCalled();
+    expect(logInfoSpy).not.toHaveBeenCalledWith({
+      info: expect.stringContaining('outcome=success'),
+    });
+    expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('limits SNI fallback to one candidate when the proxy preflight fails', async () => {
