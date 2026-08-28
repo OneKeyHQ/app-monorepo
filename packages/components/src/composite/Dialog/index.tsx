@@ -64,8 +64,9 @@ import {
 } from '../../utils/animationConstants';
 
 import { Content } from './Content';
-import { DialogContext } from './context';
+import { DialogContext, DialogSheetContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
+import { DialogScrollView } from './DialogScrollView';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -425,10 +426,12 @@ function DialogFrame({
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
-            <Stack>
-              {!disableDrag ? <SheetGrabber /> : null}
-              {renderDialogContent}
-            </Stack>
+            <DialogSheetContext.Provider value>
+              <Stack>
+                {!disableDrag ? <SheetGrabber /> : null}
+                {renderDialogContent}
+              </Stack>
+            </DialogSheetContext.Provider>
           </FocusScope>
         </Sheet.Frame>
       </Sheet>
@@ -848,6 +851,7 @@ function dialogLoading(props: IDialogLoadingProps) {
 
 export const Dialog = {
   Header: SetDialogHeader,
+  ScrollView: DialogScrollView,
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,

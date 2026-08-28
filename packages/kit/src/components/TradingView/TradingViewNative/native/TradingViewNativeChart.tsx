@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
@@ -71,6 +72,7 @@ import {
   shouldReplaceTradingViewNativeIndicatorSeries,
 } from './chartRuntimeData';
 import {
+  createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
 } from './chartSkiaRenderer';
@@ -104,6 +106,7 @@ export const TradingViewNativeChart = memo(
     indicatorSeriesSettingsKey,
     initialRightOffset,
     isSwitchingInterval,
+    locale,
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     priceAxisTickCount,
     showLegend = true,
@@ -207,6 +210,17 @@ export const TradingViewNativeChart = memo(
     );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+    const legendText = `${candleLabels.open}${candleLabels.high}${candleLabels.low}${candleLabels.close}`;
+    const legendFont = useMemo(
+      () =>
+        createTradingViewNativeSkiaFontForText({
+          fontFamily: SYSTEM_FONT_FAMILY,
+          fontSize: TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+          locale,
+          requiredText: legendText,
+        }),
+      [legendText, locale],
+    );
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
@@ -220,6 +234,7 @@ export const TradingViewNativeChart = memo(
             up: chartSettings.candles.body.upColor,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
+          legendFont,
           priceAxisFont,
           priceAxisFontSize,
           timeAxisFontSize,
@@ -232,6 +247,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.candles.body.downColor,
         chartSettings.candles.body.upColor,
         grid,
+        legendFont,
         line,
         priceAxisFont,
         priceAxisFontSize,

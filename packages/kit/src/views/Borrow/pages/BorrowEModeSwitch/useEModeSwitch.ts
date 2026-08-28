@@ -177,6 +177,11 @@ export function useEModeSwitch({
           onSwitched();
         },
       });
+      // undefined = the flow never started (risk disclaimer declined); leave the
+      // switch state exactly as it was, the finally below releases the lock.
+      if (!latestCheck) {
+        return;
+      }
       if (!latestCheck.canSwitch) {
         applyAuthoritativeCheck({
           eModeId: targetEModeId,
