@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "registryEpoch": 1,
   "modules": {
+    "\u0000polyfill:assets-registry": 23776,
     "__prelude__": 23451,
     "apps/desktop/app/config.ts": 1,
     "apps/mobile/App.tsx": 2,

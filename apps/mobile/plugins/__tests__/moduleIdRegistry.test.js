@@ -4,6 +4,7 @@ const {
   collectRegistryErrors,
   createFileToIdMap,
   isStrictRegistryMode,
+  loadRegistry,
   toModuleKey,
 } = require('../moduleIdRegistry');
 
@@ -107,6 +108,19 @@ describe('moduleIdRegistry', () => {
     );
     expect(() => fileMap.get('/tmp/external/module.js')).toThrow(
       'outside the monorepo root',
+    );
+  });
+
+  it('resolves the Expo native asset registry virtual module in strict mode', () => {
+    const virtualModulePath = '\0polyfill:assets-registry';
+    const registry = loadRegistry();
+    const fileMap = createFileToIdMap({
+      registry,
+      strict: true,
+    });
+
+    expect(fileMap.get(virtualModulePath)).toBe(
+      registry.modules[virtualModulePath],
     );
   });
 
