@@ -11,13 +11,13 @@ import {
   getDefaultPreferredIntervalValues,
   getOptionsByValues,
   getOrderedIntervalOptions,
+  getVisiblePreferredIntervalValues,
   isIntervalOptionDisabled,
   mergeVisiblePreferredIntervalValues,
   normalizeIntervalOptions,
   readStoredPreferredIntervalValues,
   reconcileIntervalValues,
   saveStoredPreferredIntervalValues,
-  sortIntervalValues,
 } from '../NativeIntervalUtils';
 
 import type { ITradingViewIntervalConfigData } from '../../types';
@@ -129,25 +129,22 @@ export function useNativeIntervalSelector({
     if (!reconciledStoredValues.length) {
       return defaultPreferredIntervalValues;
     }
-    const sortedValues = sortIntervalValues(
-      reconciledStoredValues,
-      dialogOptions,
-    );
-    return sortedValues;
+    return reconciledStoredValues;
   }, [
     defaultPreferredIntervalValues,
     hasLoadedStoredPreferredIntervals,
-    dialogOptions,
     options,
     storedPreferredIntervalValues,
   ]);
 
   const preferredIntervalValues = useMemo(
     () =>
-      visiblePreferredIntervalCount === null
-        ? allPreferredIntervalValues
-        : allPreferredIntervalValues.slice(0, visiblePreferredIntervalCount),
-    [allPreferredIntervalValues, visiblePreferredIntervalCount],
+      getVisiblePreferredIntervalValues({
+        preferredValues: allPreferredIntervalValues,
+        maxVisibleIntervalCount: visiblePreferredIntervalCount,
+        options: dialogOptions,
+      }),
+    [allPreferredIntervalValues, dialogOptions, visiblePreferredIntervalCount],
   );
 
   const preferredOptions = useMemo(

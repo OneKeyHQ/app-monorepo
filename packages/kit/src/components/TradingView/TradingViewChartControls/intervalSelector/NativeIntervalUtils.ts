@@ -283,6 +283,27 @@ export function reconcileIntervalValues(
   }, []);
 }
 
+export function getVisiblePreferredIntervalValues({
+  preferredValues,
+  maxVisibleIntervalCount,
+  options,
+}: {
+  preferredValues: string[];
+  maxVisibleIntervalCount: number | null;
+  options: ITradingViewIntervalOption[];
+}) {
+  // The stored suffix belongs to layouts with more slots. Slice before sorting
+  // so those values cannot move back into a smaller toolbar's visible prefix.
+  const visibleValues =
+    maxVisibleIntervalCount === null
+      ? preferredValues
+      : preferredValues.slice(0, maxVisibleIntervalCount);
+  return sortIntervalValues(
+    reconcileIntervalValues(visibleValues, options),
+    options,
+  );
+}
+
 export function mergeVisiblePreferredIntervalValues({
   currentValues,
   nextVisibleValues,
@@ -294,16 +315,33 @@ export function mergeVisiblePreferredIntervalValues({
   maxVisibleIntervalCount: number | null;
   options: ITradingViewIntervalOption[];
 }) {
-  // A smaller toolbar only owns its visible prefix; keep preferences selected
-  // from layouts that expose more slots.
-  const hiddenValues =
-    maxVisibleIntervalCount === null
-      ? []
-      : currentValues.slice(maxVisibleIntervalCount);
-  return sortIntervalValues(
-    reconcileIntervalValues([...nextVisibleValues, ...hiddenValues], options),
+  const visibleValues = getVisiblePreferredIntervalValues({
+    preferredValues: nextVisibleValues,
+    maxVisibleIntervalCount,
+    options,
+  });
+  // A shorter selection intentionally replaces the complete list; otherwise
+  // a preserved suffix would immediately refill a slot the user removed.
+  if (
+    maxVisibleIntervalCount === null ||
+    visibleValues.length < maxVisibleIntervalCount
+  ) {
+    return visibleValues;
+  }
+
+  // A full smaller toolbar only owns its visible prefix. Preserve the suffix
+  // selected in layouts with more slots without globally reordering the groups.
+  const visibleValueSet = new Set(visibleValues);
+  const hiddenValues = sortIntervalValues(
+    reconcileIntervalValues(
+      currentValues
+        .slice(maxVisibleIntervalCount)
+        .filter((value) => !visibleValueSet.has(value)),
+      options,
+    ),
     options,
   );
+  return [...visibleValues, ...hiddenValues];
 }
 
 function parseStoredPreferredIntervalValues(rawValue: string | null) {
