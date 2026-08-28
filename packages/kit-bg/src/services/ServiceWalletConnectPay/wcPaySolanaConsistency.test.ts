@@ -25,20 +25,30 @@ const mint = Keypair.generate().publicKey;
 const TOKEN_PROGRAM_ID = new PublicKey(
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 );
+const TOKEN_2022_PROGRAM_ID = new PublicKey(
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+);
 const MEMO_PROGRAM_ID = new PublicKey(
   'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
 );
 const BLOCKHASH = '11111111111111111111111111111111';
 const CHAIN = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
-function buildOption(value: string, decimals = 9): IWcPayOption {
+// `assetSymbol` defaults to 'SOL' for native-leg tests; spl-leg tests must
+// pass a non-'SOL' symbol (e.g. 'USDC') so they don't trip the validator's
+// own asset-kind consistency check.
+function buildOption(
+  value: string,
+  decimals = 9,
+  assetSymbol = 'SOL',
+): IWcPayOption {
   return {
     id: 'opt-sol',
     account: `${CHAIN}:${payer.publicKey.toBase58()}`,
     amount: {
-      unit: 'SOL',
+      unit: assetSymbol,
       value,
-      display: { assetSymbol: 'SOL', assetName: 'Solana', decimals },
+      display: { assetSymbol, assetName: 'Solana', decimals },
     },
     etaS: 5,
     actions: [],
@@ -56,13 +66,18 @@ function toBase64(instructions: TransactionInstruction[]): string {
   );
 }
 
-function splTransferChecked(amount: bigint, authority: PublicKey) {
+function splTransferChecked(
+  amount: bigint,
+  authority: PublicKey,
+  decimals = 6,
+  programId: PublicKey = TOKEN_PROGRAM_ID,
+) {
   const data = Buffer.alloc(10);
   data.writeUInt8(12, 0); // TransferChecked
   data.writeBigUInt64LE(amount, 1);
-  data.writeUInt8(6, 9); // decimals
+  data.writeUInt8(decimals, 9);
   return new TransactionInstruction({
-    programId: TOKEN_PROGRAM_ID,
+    programId,
     keys: [
       {
         pubkey: Keypair.generate().publicKey,
@@ -131,25 +146,110 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
   });
 
   it('accepts a single SPL transferChecked of the order amount signed by the option account', () => {
-    const tx = toBase64([splTransferChecked(100_000n, payer.publicKey)]);
+    const tx = toBase64([splTransferChecked(100_000n, payer.publicKey, 6)]);
     expect(
       checkWcPaySolanaTxMatchesOrder({
         txBase64: tx,
         caip2ChainId: CHAIN,
-        option: buildOption('100000', 6),
+        option: buildOption('100000', 6, 'USDC'),
       }),
-    ).toEqual({ ok: true, summary: { amountRaw: '100000', kind: 'spl' } });
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '100000',
+        kind: 'spl',
+        mint: mint.toBase58(),
+        decimals: 6,
+      },
+    });
   });
 
-  it('accepts a single plain SPL transfer of the order amount signed by the option account', () => {
+  it('accepts a Token-2022 transferChecked of the order amount signed by the option account', () => {
+    const tx = toBase64([
+      splTransferChecked(100_000n, payer.publicKey, 6, TOKEN_2022_PROGRAM_ID),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '100000',
+        kind: 'spl',
+        mint: mint.toBase58(),
+        decimals: 6,
+      },
+    });
+  });
+
+  it('refuses a plain SPL transfer as an unverifiable mint', () => {
     const tx = toBase64([splTransfer(50_000n, payer.publicKey)]);
     expect(
       checkWcPaySolanaTxMatchesOrder({
         txBase64: tx,
         caip2ChainId: CHAIN,
-        option: buildOption('50000', 6),
+        option: buildOption('50000', 6, 'USDC'),
       }),
-    ).toEqual({ ok: true, summary: { amountRaw: '50000', kind: 'spl' } });
+    ).toEqual({ ok: false, reason: 'unverifiable mint' });
+  });
+
+  it('refuses a transferChecked whose decimals disagree with the order', () => {
+    const tx = toBase64([splTransferChecked(100_000n, payer.publicKey, 9)]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'USDC'),
+      }),
+    ).toEqual({ ok: false, reason: 'decimals mismatch' });
+  });
+
+  it('refuses a native transfer whose order asset is not SOL', () => {
+    const tx = toBase64([
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500', 9, 'USDC'),
+      }),
+    ).toEqual({ ok: false, reason: 'asset mismatch' });
+  });
+
+  it('refuses an spl transfer whose order asset is SOL', () => {
+    const tx = toBase64([splTransferChecked(100_000n, payer.publicKey, 6)]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('100000', 6, 'SOL'),
+      }),
+    ).toEqual({ ok: false, reason: 'asset mismatch' });
+  });
+
+  it('refuses a zero order amount', () => {
+    const tx = toBase64([
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
+        lamports: 1500,
+      }),
+    ]);
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('0'),
+      }),
+    ).toEqual({ ok: false, reason: 'invalid order amount format' });
   });
 
   it('accepts a transfer alongside allowed ComputeBudget and Memo instructions', () => {

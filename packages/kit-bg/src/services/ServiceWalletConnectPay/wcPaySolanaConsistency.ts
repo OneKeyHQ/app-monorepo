@@ -14,6 +14,10 @@ import type { TransactionInstruction } from '@solana/web3.js';
 export type IWcPaySolanaSummary = {
   amountRaw: string;
   kind: 'native' | 'spl';
+  // Present for spl legs only (read from the TransferChecked instruction);
+  // absent for native legs, which have no mint.
+  mint?: string;
+  decimals?: number;
 };
 
 export type IWcPaySolanaConsistencyResult =
@@ -82,6 +86,8 @@ type IPaymentLeg = {
   kind: 'native' | 'spl';
   amount: BigNumber;
   sender: string;
+  mint?: string;
+  decimals?: number;
 };
 
 type IInstructionOutcome =
@@ -124,16 +130,29 @@ function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
   ) {
     const data = Buffer.from(ix.data);
     const kind = data[0];
-    const amount = readU64LE(data, 1);
-    // transfer: [source, destination, authority]
-    // transferChecked: [source, mint, destination, authority]
-    let authorityIndex = -1;
     if (kind === SPL_TRANSFER) {
-      authorityIndex = 2;
-    } else if (kind === SPL_TRANSFER_CHECKED) {
-      authorityIndex = 3;
+      // Plain `Transfer` carries no mint/decimals in its instruction data —
+      // the asset behind the raw amount cannot be tied to the order offline,
+      // so it is refused here rather than risk approving a payment in the
+      // wrong token. The confirm page (which resolves the source account's
+      // mint through RPC) still handles this case.
+      return { kind: 'error', reason: 'unverifiable mint' };
     }
-    if (authorityIndex < 0 || !amount || ix.keys.length <= authorityIndex) {
+    if (kind !== SPL_TRANSFER_CHECKED) {
+      return { kind: 'error', reason: 'unsupported instruction' };
+    }
+    const amount = readU64LE(data, 1);
+    // transferChecked keys: [source, mint, destination, authority]; data:
+    // [discriminator(1), amount(8), decimals(1)] — the decimals byte must
+    // be present before it is read.
+    const AUTHORITY_INDEX = 3;
+    const MINT_INDEX = 1;
+    const DECIMALS_OFFSET = 9;
+    if (
+      !amount ||
+      data.length <= DECIMALS_OFFSET ||
+      ix.keys.length <= AUTHORITY_INDEX
+    ) {
       return { kind: 'error', reason: 'unsupported instruction' };
     }
     return {
@@ -141,7 +160,9 @@ function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
       leg: {
         kind: 'spl',
         amount,
-        sender: ix.keys[authorityIndex].pubkey.toBase58(),
+        sender: ix.keys[AUTHORITY_INDEX].pubkey.toBase58(),
+        mint: ix.keys[MINT_INDEX].pubkey.toBase58(),
+        decimals: data[DECIMALS_OFFSET],
       },
     };
   }
@@ -152,16 +173,27 @@ function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
  * Proves a server-supplied `solana_signTransaction` blob structurally
  * matches the order the user approved: same chain, same fee payer as the
  * option account, and exactly one payment instruction (native SOL transfer
- * or SPL `Transfer`/`TransferChecked`) for the order amount from that same
- * account. ComputeBudget, Memo, and Associated-Token-Account program
- * instructions are tolerated alongside the payment leg since the inline
- * pipeline never injects fee instructions of its own for this path (the sol
- * vault only adds a ComputeBudget priority-fee ix when `feeInfoEditable`,
- * which this headless path never sets — see Vault.ts) but the server or a
- * wallet default might still carry one. Any uncertainty returns ok:false;
- * the caller falls back to the full confirm UI, never refuses the payment
- * outright. Must never throw on hostile input — `txBase64` crosses a trust
- * boundary (server response).
+ * or SPL `TransferChecked`) for the order amount and asset from that same
+ * account. A plain SPL `Transfer` is refused (see `classifyInstruction`) —
+ * it carries no mint, so the asset it moves cannot be verified offline.
+ * ComputeBudget, Memo, and Associated-Token-Account program instructions are
+ * tolerated alongside the payment leg since the inline pipeline never
+ * injects fee instructions of its own for this path (the sol vault only
+ * adds a ComputeBudget priority-fee ix when `feeInfoEditable`, which this
+ * headless path never sets — see Vault.ts) but the server or a wallet
+ * default might still carry one.
+ *
+ * Asset identity: this validator only proves the instruction *kind* (native
+ * vs spl) and, for spl, the mint's on-chain `decimals` agree with what the
+ * option displays — it does NOT resolve the mint address to a symbol. The
+ * caller must still confirm `summary.mint`'s symbol against the option
+ * through the wallet's own token registry (the same boundary
+ * `checkWcPayTypedDataMatchesOrder`'s `resolvedToken` draws for EVM), since
+ * a hostile mint address can claim any decimals.
+ *
+ * Any uncertainty returns ok:false; the caller falls back to the full
+ * confirm UI, never refuses the payment outright. Must never throw on
+ * hostile input — `txBase64` crosses a trust boundary (server response).
  */
 export function checkWcPaySolanaTxMatchesOrder({
   txBase64,
@@ -234,12 +266,38 @@ export function checkWcPaySolanaTxMatchesOrder({
   if (leg.sender !== optionAddress) {
     return { ok: false, reason: 'sender mismatch' };
   }
+
+  const displaySymbol = option.amount.display?.assetSymbol;
+  const displayDecimals = option.amount.display?.decimals;
+  if (leg.kind === 'native') {
+    // SOL's decimals are a network constant (9), not something the leg
+    // itself carries — assert it against what the option displays rather
+    // than trusting the option blindly.
+    const NATIVE_SOL_DECIMALS = 9;
+    if (displaySymbol !== 'SOL' || displayDecimals !== NATIVE_SOL_DECIMALS) {
+      return { ok: false, reason: 'asset mismatch' };
+    }
+  } else {
+    // An spl leg paying out as 'SOL' would silently swap the asset the user
+    // approved on screen.
+    if (displaySymbol === 'SOL') {
+      return { ok: false, reason: 'asset mismatch' };
+    }
+    if (leg.decimals !== displayDecimals) {
+      return { ok: false, reason: 'decimals mismatch' };
+    }
+  }
+
   if (!leg.amount.isEqualTo(orderAmount)) {
     return { ok: false, reason: 'amount mismatch' };
   }
   return {
     ok: true,
-    summary: { amountRaw: leg.amount.toFixed(), kind: leg.kind },
+    summary: {
+      amountRaw: leg.amount.toFixed(),
+      kind: leg.kind,
+      ...(leg.kind === 'spl' ? { mint: leg.mint, decimals: leg.decimals } : {}),
+    },
   };
 }
 
