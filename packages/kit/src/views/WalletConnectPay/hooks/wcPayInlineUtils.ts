@@ -273,7 +273,10 @@ export interface IWcPayInlineController {
    * Idempotent; paired with `onAfterConfirmModalSettled`, which fires when
    * that confirm modal resolves either way.
    */
-  onBeforePushConfirmModal?: () => void;
+  // May return a promise: the host awaits it so a system sheet has finished
+  // dismissing before the RN-layer confirm modal is pushed (pushing while the
+  // sheet is still animating out leaves the modal under a stuck sheet).
+  onBeforePushConfirmModal?: () => void | Promise<void>;
   /**
    * Called when a confirm modal pushed after `onBeforePushConfirmModal`
    * settles — success, failure, or cancellation alike.

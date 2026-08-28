@@ -462,7 +462,7 @@ export function useWcPayActionExecutor() {
             }
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
-            inlineController?.onBeforePushConfirmModal?.();
+            await inlineController?.onBeforePushConfirmModal?.();
             let txid: string;
             try {
               txid = await new Promise<string>((resolve, reject) => {
@@ -594,7 +594,7 @@ export function useWcPayActionExecutor() {
             }
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
-            inlineController?.onBeforePushConfirmModal?.();
+            await inlineController?.onBeforePushConfirmModal?.();
             let signature: string;
             try {
               signature = await new Promise<string>((resolve, reject) => {
@@ -648,7 +648,7 @@ export function useWcPayActionExecutor() {
             }
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
-            inlineController?.onBeforePushConfirmModal?.();
+            await inlineController?.onBeforePushConfirmModal?.();
             let signature: string;
             try {
               signature = await new Promise<string>((resolve, reject) => {
@@ -704,7 +704,7 @@ export function useWcPayActionExecutor() {
             }
             // park the host dialog before the confirm page takes the screen
             // (see IWcPayInlineController.onBeforePushConfirmModal)
-            inlineController?.onBeforePushConfirmModal?.();
+            await inlineController?.onBeforePushConfirmModal?.();
             let rawTx: string;
             try {
               rawTx = await new Promise<string>((resolve, reject) => {

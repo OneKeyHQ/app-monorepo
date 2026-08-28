@@ -10,6 +10,7 @@ import {
   EModalWalletConnectPayRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE,
   WC_PAY_PROGRESS_DAMAGED_MESSAGE,
@@ -74,6 +75,12 @@ import type {
   IWcPayInlineFailure,
   IWcPayInlinePhase,
 } from '../hooks/wcPayInlineUtils';
+
+// Longest standard modal dismissal on iOS/Android (~350ms) plus slack.
+const WC_PAY_MODAL_TRANSITION_MS = 500;
+// Time for the system sheet to finish dismissing before an RN-layer modal is
+// pushed over the same presenter (see parkWcPayDialogAndWait).
+const WC_PAY_SHEET_DISMISS_MS = 450;
 
 // stable fallback so render never fabricates a fresh array identity
 const EMPTY_OPTIONS: IWcPayOption[] = [];
@@ -232,6 +239,39 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   // an action has broadcast, the executor stops aborting on it. See
   // PaymentOptionsModal for the full rationale.
   const payCancelControllerRef = useRef<AbortController | undefined>(undefined);
+  // The host sheet is a system presentation (SwiftUI sheet on iOS). Presenting
+  // it again while the RN-layer confirm modal is still animating out attaches
+  // the sheet to a controller that is being torn down: it stays visible but
+  // never receives touches (Retry/Done dead on device). Reveal only after the
+  // modal's dismissal transition has had time to finish; park cancels any
+  // pending reveal so a follow-up confirm never races a stale timer.
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const clearPendingReveal = useCallback(() => {
+    if (revealTimerRef.current !== undefined) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = undefined;
+    }
+  }, []);
+  const parkWcPayDialog = useCallback(() => {
+    clearPendingReveal();
+    hideWcPayDialog();
+  }, [clearPendingReveal]);
+  // Park and wait for the sheet's dismissal transition: a modal pushed while
+  // the sheet is still presented lands under it (or gets torn down with it),
+  // leaving the flow waiting on a confirm page the user can never see.
+  const parkWcPayDialogAndWait = useCallback(async () => {
+    parkWcPayDialog();
+    await timerUtils.wait(WC_PAY_SHEET_DISMISS_MS);
+  }, [parkWcPayDialog]);
+  const revealWcPayDialogAfterTransition = useCallback(() => {
+    clearPendingReveal();
+    revealTimerRef.current = setTimeout(() => {
+      revealTimerRef.current = undefined;
+      revealWcPayDialog();
+    }, WC_PAY_MODAL_TRANSITION_MS);
+  }, [clearPendingReveal]);
   useEffect(
     () => () => {
       payCancelControllerRef.current?.abort();
@@ -427,7 +467,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         }
         // The form is a full-screen route (Q10): the dialog parks while the
         // form owns the screen and returns when it settles either way.
-        hideWcPayDialog();
+        await parkWcPayDialogAndWait();
         try {
           await new Promise<void>((resolve, reject) => {
             navigation.pushModal(EModalRoutes.WalletConnectPayModal, {
@@ -442,7 +482,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
             });
           });
         } finally {
-          revealWcPayDialog();
+          revealWcPayDialogAfterTransition();
         }
       }
 
@@ -485,8 +525,8 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // paying phase keeps it non-dismissible — an unrecoverable deadlock.
         // Paired with onAfterConfirmModalSettled below; both calls are
         // idempotent.
-        onBeforePushConfirmModal: () => {
-          hideWcPayDialog();
+        onBeforePushConfirmModal: async () => {
+          await parkWcPayDialogAndWait();
         },
         // Reveals the dialog the moment a confirm modal settles, so the
         // paying progress owns the screen through the between-action waits
@@ -497,14 +537,14 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // onBeforePushConfirmModal; handlePay's finally stays as the
         // terminal reveal on every exit path.
         onAfterConfirmModalSettled: () => {
-          revealWcPayDialog();
+          revealWcPayDialogAfterTransition();
         },
         // Single owner of the transition out of inline execution. The dialog
         // parks so the pushed confirm modal owns the screen (it would sit
         // under the iOS system sheet otherwise); handlePay's finally reveals
         // it again.
         onFallback: () => {
-          hideWcPayDialog();
+          parkWcPayDialog();
           setPagePhase({ name: 'paying', step: 'preparing' });
         },
         onInlineFailure: (failure) => {
@@ -657,7 +697,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       }
       setIsPaying(false);
       // the dialog may still be parked behind a sub-flow exit path
-      revealWcPayDialog();
+      revealWcPayDialogAfterTransition();
       // Reduced through the updater rather than the captured `pagePhase`,
       // which is stale inside this closure.
       setPagePhase(nextWcPayPagePhaseAfterAttempt);
@@ -669,6 +709,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     isLoading,
     isPaymentActionable,
     pagePhase.name,
+    parkWcPayDialog,
+    parkWcPayDialogAndWait,
+    revealWcPayDialogAfterTransition,
     inlineFailure,
     effectiveExpiryMs,
     navigation,
@@ -740,8 +783,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   useEffect(
     () => () => {
       setWcPayDialogGuarded(false);
+      clearPendingReveal();
     },
-    [],
+    [clearPendingReveal],
   );
 
   const handleClose = useCallback(() => {
