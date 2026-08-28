@@ -301,7 +301,7 @@ function FundingDialogContent({
   );
 }
 
-export function MobileHeader() {
+function MobileHeader() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();

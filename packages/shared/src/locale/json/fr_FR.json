@@ -1806,7 +1806,7 @@
   "global.pay": "Payer",
   "global.pct_complete": "{ptc}% terminé",
   "global.pending": "En attente",
-  "global.perp": "Contrats perpétuels",
+  "global.perp": "Perpétuels",
   "global.perp_history_notification_banner": "Activez les notifications pour rester informé des changements de position et des risques de liquidation.",
   "global.perps_trading": "Trading de contrats perpétuels",
   "global.pin_to_top": "Épingler",
