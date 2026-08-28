@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { extractWcPayTypedDataMessage } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
 import {
   WC_PAY_SOLANA_TX_MAX_BYTES,
@@ -20,6 +22,9 @@ import type {
   IWcPaySolanaSummary,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
@@ -141,6 +146,40 @@ export function isWcPayInlinePostSignError(error: unknown): boolean {
   }
   return (
     (error as Record<string, unknown>)[WC_PAY_INLINE_POST_SIGN_FLAG] === true
+  );
+}
+
+/**
+ * The two ways a user declines a headless signature: dismissing the
+ * password/passcode prompt (`servicePassword.promptPasswordVerifyByAccount`
+ * rejects with `PasswordPromptDialogCancel`) or refusing on the hardware
+ * device. Matched on error class and hardware code — never on message text,
+ * which is localized and vendor-supplied. Anything else is a real failure and
+ * must keep its identity.
+ *
+ * Lives in this leaf module because every headless signing leg (typed data,
+ * Solana sign-only) has to draw the same line, and a second copy of this list
+ * would be free to drift. Pure like the rest of the module: it reads the error
+ * only, and reaches for no service.
+ */
+export function isWcPayInlineUserCancel(error: unknown): boolean {
+  const oneKeyError = error as IOneKeyError | undefined;
+  if (
+    oneKeyError?.className === EOneKeyErrorClassNames.PasswordPromptDialogCancel
+  ) {
+    return true;
+  }
+  // `isHardwareErrorByCode` answers `undefined` for a missing error rather
+  // than `false`, so the verdict is narrowed here instead of leaking out.
+  return Boolean(
+    isHardwareErrorByCode({
+      error: oneKeyError,
+      code: [
+        HardwareErrorCode.ActionCancelled,
+        HardwareErrorCode.PinCancelled,
+        HardwareErrorCode.CallQueueActionCancelled,
+      ],
+    }),
   );
 }
 

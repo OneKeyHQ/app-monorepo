@@ -1,4 +1,8 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import type { IWcPaySolanaConsistencyResult } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPaySolanaConsistency';
+import { PasswordPromptDialogCancel } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IWcPayAction,
   IWcPayOption,
@@ -13,6 +17,7 @@ import {
   getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
   isWcPayInlinePostSignError,
+  isWcPayInlineUserCancel,
   nextWcPayPagePhaseAfterAttempt,
   runWcPayInlineAttempts,
 } from '../wcPayInlineUtils';
@@ -860,5 +865,34 @@ describe('nextWcPayPagePhaseAfterAttempt', () => {
         step: 'signing' as const,
       }),
     ).toEqual({ name: 'idle' });
+  });
+});
+
+// Shared by every headless signing leg (typed data, Solana sign-only), so it
+// is pinned here directly rather than only through the pipelines that use it.
+describe('isWcPayInlineUserCancel', () => {
+  it('recognizes a dismissed password prompt', () => {
+    expect(isWcPayInlineUserCancel(new PasswordPromptDialogCancel())).toBe(
+      true,
+    );
+  });
+
+  it('recognizes a cancellation on the hardware device', () => {
+    expect(
+      isWcPayInlineUserCancel(
+        Object.assign(new Error('cancelled on device'), {
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not claim a plain failure was a cancellation', () => {
+    expect(isWcPayInlineUserCancel(new Error('keyring exploded'))).toBe(false);
+  });
+
+  it('returns a boolean for a missing error rather than propagating it', () => {
+    expect(isWcPayInlineUserCancel(undefined)).toBe(false);
   });
 });

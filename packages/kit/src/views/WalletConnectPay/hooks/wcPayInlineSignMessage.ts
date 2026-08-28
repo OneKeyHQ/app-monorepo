@@ -1,9 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-
 import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { validateTypedSignMessageDataV3V4 } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -12,7 +7,10 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import { WcPayUserCancelledError } from './wcPayInlineUtils';
+import {
+  WcPayUserCancelledError,
+  isWcPayInlineUserCancel,
+} from './wcPayInlineUtils';
 
 import type { IWcPayInlinePhase } from './wcPayInlineUtils';
 
@@ -24,37 +22,6 @@ export type IWcPayInlineSignResult =
   // ended without a signature and without an error to report — another
   // component has already told the user why
   | { status: 'abort' };
-
-/**
- * The two ways a user declines a headless signature: dismissing the
- * password/passcode prompt (`servicePassword.promptPasswordVerifyByAccount`
- * rejects with `PasswordPromptDialogCancel`) or refusing on the hardware
- * device. Matched on error class and hardware code — never on message text,
- * which is localized and vendor-supplied. Anything else is a real failure and
- * must keep its identity.
- *
- * Exported because every headless signing leg (typed data here, Solana
- * sign-only) has to draw the same line, and a second copy of this list would
- * be free to drift.
- */
-export function isWcPayInlineUserCancel(error: unknown): boolean {
-  const oneKeyError = error as IOneKeyError | undefined;
-  if (
-    oneKeyError?.className === EOneKeyErrorClassNames.PasswordPromptDialogCancel
-  ) {
-    return true;
-  }
-  return Boolean(
-    isHardwareErrorByCode({
-      error: oneKeyError,
-      code: [
-        HardwareErrorCode.ActionCancelled,
-        HardwareErrorCode.PinCancelled,
-        HardwareErrorCode.CallQueueActionCancelled,
-      ],
-    }),
-  );
-}
 
 /**
  * Headless counterpart of `MessageConfirmActions.handleSignMessage` for the WC
