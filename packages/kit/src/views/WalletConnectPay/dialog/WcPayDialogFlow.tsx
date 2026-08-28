@@ -69,11 +69,15 @@ import {
 } from './wcPayDialogStore';
 import { deriveWcPayDialogView } from './wcPayDialogView';
 
-import type { IWcPaySceneBanner, IWcPaySceneOption } from './WcPayDialogScene';
+import type {
+  IWcPayConfirmingPhase,
+  IWcPaySceneBanner,
+  IWcPaySceneOption,
+} from './WcPayDialogScene';
 import type {
   IWcPayInlineController,
   IWcPayInlineFailure,
-  IWcPayInlinePhase,
+  IWcPayInlineSigningSummary,
 } from '../hooks/wcPayInlineUtils';
 
 // Longest standard modal dismissal on iOS/Android (~350ms) plus slack.
@@ -95,7 +99,8 @@ const EMPTY_SIGNATURES: string[] = [];
  */
 type IWcPayPagePhase =
   | { name: 'idle' }
-  | { name: 'paying'; step: 'preparing' | IWcPayInlinePhase | 'submitting' }
+  // The step type is the scene's own prop type, so the two cannot drift.
+  | { name: 'paying'; step: IWcPayConfirmingPhase }
   | {
       name: 'result';
       params: {
@@ -216,6 +221,12 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   const [isPaying, setIsPaying] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [pagePhase, setPagePhase] = useState<IWcPayPagePhase>({ name: 'idle' });
+  // What the headless signature in flight commits to, as proven by the
+  // consistency validator. Reported by the executor right before it enters
+  // the `signingMessage` phase, which is the only phase that renders it.
+  const [signingSummary, setSigningSummary] = useState<
+    IWcPayInlineSigningSummary | undefined
+  >(undefined);
   // failures the dialog keeps on screen (persistent banner) instead of
   // toasting: an insufficient balance the user resolves by switching option,
   // and a post-sign send failure whose retry must re-enter the recovery
@@ -430,6 +441,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     setIsPaying(true);
     // a new attempt supersedes whatever the previous one left on screen
     setInlineFailure(undefined);
+    setSigningSummary(undefined);
     setGenericFailure(undefined);
     setPagePhase({ name: 'paying', step: 'preparing' });
     // one cancel scope per attempt; aborted by the unmount cleanup above
@@ -517,6 +529,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       // fallback.
       const inlineController: IWcPayInlineController = {
         onPhase: (step) => setPagePhase({ name: 'paying', step }),
+        // Always reported before the matching `signingMessage` phase, so the
+        // sheet never labels a signature with the previous action's payload.
+        onSigningSummary: (summary) => setSigningSummary(summary),
         // Parks the dialog before EVERY confirm modal the executor pushes —
         // the inline fallback as well as the typed-data/personal-sign/Solana
         // branches and later actions of a multi-action sequence, none of
@@ -701,6 +716,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       // Reduced through the updater rather than the captured `pagePhase`,
       // which is stale inside this closure.
       setPagePhase(nextWcPayPagePhaseAfterAttempt);
+      // A summary describes one signature of one attempt; it must never
+      // outlive it, whichever way the attempt ended.
+      setSigningSummary(undefined);
     }
   }, [
     payResult,
@@ -914,7 +932,17 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       );
       break;
     case 'confirming':
-      content = <WcPayConfirmingStep />;
+      content = (
+        <WcPayConfirmingStep
+          phase={pagePhase.name === 'paying' ? pagePhase.step : 'preparing'}
+          amountText={
+            selectedOption
+              ? formatPayAmount(selectedOption.amount)
+              : orderAmountText
+          }
+          signingSummary={signingSummary}
+        />
+      );
       break;
     case 'damaged':
       content = (

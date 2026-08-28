@@ -14,7 +14,13 @@ import {
 } from '@onekeyhq/components';
 import { WC_PAY_BROADCAST_UNSUPPORTED_MESSAGE } from '@onekeyhq/shared/src/walletConnect/payBroadcastUtils';
 
+import { describeWcPaySigningSummary } from './wcPaySigningSummary';
+
 import type { IWcPayDialogTerminalReason } from './wcPayDialogView';
+import type {
+  IWcPayInlinePhase,
+  IWcPayInlineSigningSummary,
+} from '../hooks/wcPayInlineUtils';
 
 // Presentational layer of the WalletConnect Pay dialog. The skeleton —
 // Header (64pt visual over centered text, 48pt/16pt vertical padding),
@@ -477,10 +483,45 @@ export function WcPayOptionsStep({
   );
 }
 
-export function WcPayConfirmingStep() {
+/**
+ * The step the flow is on while an attempt runs. Declared here — not in the
+ * flow — so the flow's own `paying` step and this prop cannot drift: the flow
+ * imports this type for its phase union.
+ */
+export type IWcPayConfirmingPhase =
+  | 'preparing'
+  | IWcPayInlinePhase
+  | 'submitting';
+
+// Product decision Q5 (2026-08-27): one confirming label for every step, no
+// per-step copy. The phase stays a prop so the signing summary can key off it.
+// copy pending product i18n keys
+const CONFIRMING_HEADLINE = 'Confirming your payment...';
+
+export function WcPayConfirmingStep({
+  phase,
+  amountText,
+  signingSummary,
+}: {
+  phase: IWcPayConfirmingPhase;
+  amountText: string;
+  /** What the headless signature in flight commits to; `signingMessage` only. */
+  signingSummary?: IWcPayInlineSigningSummary;
+}) {
   return (
     <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
-      <WcPayHeaderLine>Confirming your payment...</WcPayHeaderLine>
+      <WcPayHeaderLine>{CONFIRMING_HEADLINE}</WcPayHeaderLine>
+      {phase === 'signingMessage' && signingSummary ? (
+        <YStack pt="$3" gap="$1" alignItems="center">
+          {/* copy pending product i18n keys */}
+          <SizableText size="$bodyMd" color="$text" textAlign="center">
+            {`Authorize ${amountText} for this payment`}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+            {describeWcPaySigningSummary(signingSummary)}
+          </SizableText>
+        </YStack>
+      ) : null}
     </WcPayHeader>
   );
 }
