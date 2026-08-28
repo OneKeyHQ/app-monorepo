@@ -608,14 +608,12 @@ function PrimeInfiniInternalWaitingMonitor({
   const intl = useIntl();
   const { baseline, asset, plan, featureName, selectedSubscriptionPeriod } =
     session;
-  const clearPendingSession = useCallback(
-    () =>
-      backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
-        onekeyUserId: baseline.onekeyUserId,
-        expectedPaymentCacheIdentity: session.paymentCacheKey,
-      }),
-    [baseline.onekeyUserId, session.paymentCacheKey],
-  );
+  const clearPendingSession = useCallback(async () => {
+    await backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
+      onekeyUserId: baseline.onekeyUserId,
+      expectedPaymentCacheIdentity: session.paymentCacheKey,
+    });
+  }, [baseline.onekeyUserId, session.paymentCacheKey]);
   const { completePurchase } = usePrimeInfiniPurchaseCompletion({
     plan,
     onekeyUserId: baseline.onekeyUserId,

@@ -1,15 +1,12 @@
 /* cspell:ignore Infini infini */
-import type {
-  IPrimeInfiniSubscription,
-  IPrimeUserInfo,
-} from '@onekeyhq/shared/types/prime/primeTypes';
-
-import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 type IPrimeSubscriptionManagementUserInfo = Pick<
   IPrimeUserInfo,
-  'primeSubscription' | 'subscriptionManageUrl'
->;
+  'primeSubscription'
+> & {
+  subscriptionManageUrl?: string;
+};
 
 export type IPrimeSubscriptionManagementTarget =
   | {
@@ -21,9 +18,6 @@ export type IPrimeSubscriptionManagementTarget =
     }
   | {
       type: 'unavailable';
-      reason:
-        | 'missing-channel-and-management-url'
-        | 'channel-without-management-url';
     };
 
 function getDeclaredSubscriptionChannels({
@@ -33,7 +27,7 @@ function getDeclaredSubscriptionChannels({
 }) {
   return (
     userInfo.primeSubscription?.subscriptions
-      ?.map((subscription) => subscription.channel?.trim())
+      ?.map((subscription) => subscription.channel?.trim().toLowerCase())
       .filter((channel): channel is string => Boolean(channel)) ?? []
   );
 }
@@ -46,14 +40,13 @@ export function getPrimeSubscriptionManagementTarget({
   isInfiniManageSupported: boolean;
 }): IPrimeSubscriptionManagementTarget {
   const channels = getDeclaredSubscriptionChannels({ userInfo });
-  if (
-    isInfiniManageSupported &&
-    channels.some((channel) => channel.toLowerCase() === 'infini')
-  ) {
+  if (isInfiniManageSupported && channels.includes('infini')) {
     return { type: 'infini' };
   }
 
-  const managementUrl = userInfo.subscriptionManageUrl?.trim();
+  const managementUrl = userInfo.primeSubscription?.subscriptions
+    ?.map((subscription) => subscription.managementUrl?.trim())
+    .find((url): url is string => Boolean(url));
   if (managementUrl) {
     return {
       type: 'external',
@@ -61,52 +54,13 @@ export function getPrimeSubscriptionManagementTarget({
     };
   }
 
-  return {
-    type: 'unavailable',
-    reason:
-      channels.length === 0
-        ? 'missing-channel-and-management-url'
-        : 'channel-without-management-url',
-  };
-}
-
-export async function resolvePrimeSubscriptionManagementTarget({
-  currentUserInfo,
-  isInfiniManageSupported,
-  fetchFreshUserInfo,
-  fetchInfiniSubscription,
-}: {
-  currentUserInfo: IPrimeSubscriptionManagementUserInfo;
-  isInfiniManageSupported: boolean;
-  fetchFreshUserInfo: () => Promise<IPrimeSubscriptionManagementUserInfo>;
-  fetchInfiniSubscription: () => Promise<IPrimeInfiniSubscription | undefined>;
-}): Promise<IPrimeSubscriptionManagementTarget> {
-  const currentTarget = getPrimeSubscriptionManagementTarget({
-    userInfo: currentUserInfo,
-    isInfiniManageSupported,
-  });
-  if (currentTarget.type !== 'unavailable') {
-    return currentTarget;
+  const revenueCatManagementUrl = userInfo.subscriptionManageUrl?.trim();
+  if (channels.includes('revenuecat') && revenueCatManagementUrl) {
+    return {
+      type: 'external',
+      url: revenueCatManagementUrl,
+    };
   }
 
-  const freshUserInfo = await fetchFreshUserInfo();
-  const freshTarget = getPrimeSubscriptionManagementTarget({
-    userInfo: freshUserInfo,
-    isInfiniManageSupported,
-  });
-  if (freshTarget.type !== 'unavailable') {
-    return freshTarget;
-  }
-
-  if (
-    isInfiniManageSupported &&
-    freshTarget.reason === 'missing-channel-and-management-url'
-  ) {
-    const infiniSubscription = await fetchInfiniSubscription();
-    if (isInfiniSubscriptionInPeriod(infiniSubscription)) {
-      return { type: 'infini' };
-    }
-  }
-
-  return freshTarget;
+  return { type: 'unavailable' };
 }

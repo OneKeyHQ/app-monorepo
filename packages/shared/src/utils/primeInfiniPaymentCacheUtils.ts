@@ -355,7 +355,7 @@ export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
   );
 }
 
-export function isPrimeInfiniPurchaseCompletedSnapshot({
+export function isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
   baseline,
   purchaseStatusSnapshot,
 }: {
@@ -380,6 +380,38 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
     baseline.infiniPeriodEnd !== undefined &&
     infiniSubscription?.currentPeriodEnd &&
     infiniSubscription.currentPeriodEnd > baseline.infiniPeriodEnd,
+  );
+}
+
+export function isPrimeInfiniPurchaseCompletedSnapshot({
+  baseline,
+  purchaseStatusSnapshot,
+}: {
+  baseline: Pick<
+    IPrimeInfiniPendingPaymentSession['baseline'],
+    'wasPrimeActive' | 'primeExpiresAt' | 'infiniPeriodEnd'
+  >;
+  purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+}) {
+  const { primeSubscription, infiniSubscription } = purchaseStatusSnapshot;
+  // Initial-purchase sessions created before this baseline was persisted have
+  // no Infini period. Renewals still require their explicit previous period.
+  const baselineInfiniPeriodEnd =
+    baseline.infiniPeriodEnd ?? (baseline.wasPrimeActive ? undefined : 0);
+  const hasNewInfiniPeriod = Boolean(
+    baselineInfiniPeriodEnd !== undefined &&
+    infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription.currentPeriodEnd > baselineInfiniPeriodEnd,
+  );
+  if (baseline.wasPrimeActive) {
+    return hasNewInfiniPeriod;
+  }
+
+  const hasInfiniChannel = primeSubscription?.subscriptions?.some(
+    (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
+  );
+  return Boolean(
+    primeSubscription?.isActive && (hasInfiniChannel || hasNewInfiniPeriod),
   );
 }
 

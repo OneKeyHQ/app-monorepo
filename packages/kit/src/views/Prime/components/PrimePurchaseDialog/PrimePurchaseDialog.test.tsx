@@ -16,6 +16,7 @@ type IPrimeInfiniPaymentEntryGuard = {
   isLoggedIn: boolean;
   hasPendingPayment: boolean;
   onekeyUserId: string | undefined;
+  pendingSubscriptionPeriod?: 'P1M' | 'P1Y';
 };
 
 type IMockDialogConfig = {
@@ -40,6 +41,10 @@ const mockDialogShow = jest.fn<
 const mockDialogFooter = jest.fn<null, [props: IMockDialogFooterProps]>(
   () => null,
 );
+const mockAlert = jest.fn<
+  null,
+  [props: { description?: string; title?: string }]
+>(() => null);
 const mockPaymentMethodDialogClose = jest.fn(async () => undefined);
 const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   Promise<IPrimeInfiniPaymentEntryGuard>,
@@ -90,6 +95,8 @@ jest.mock('@onekeyhq/components', () => {
     return children ?? null;
   }
   return {
+    Alert: (props: { description?: string; title?: string }) =>
+      mockAlert(props),
     Dialog: {
       show: (config: IMockDialogConfig) => mockDialogShow(config),
       Footer: (props: IMockDialogFooterProps) => mockDialogFooter(props),
@@ -236,6 +243,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       isLoggedIn: true,
       hasPendingPayment: true,
       onekeyUserId: 'user-1',
+      pendingSubscriptionPeriod: 'P1M',
     });
     const onPurchase = jest.fn(async () => undefined);
     const { result } = renderHook(() =>
@@ -250,8 +258,9 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
     expect(onPurchase).toHaveBeenCalledTimes(1);
     expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
-      selectedSubscriptionPeriod: 'P1Y',
+      selectedSubscriptionPeriod: 'P1M',
       featureName: undefined,
+      createNewPayment: false,
     });
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
@@ -286,6 +295,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       freeTrial,
     );
     render(dialogConfig.renderContent);
+    expect(mockAlert).not.toHaveBeenCalled();
     expect(mockListItem).toHaveBeenCalledTimes(2);
     expect(
       mockListItem.mock.calls.find(
@@ -484,6 +494,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
       selectedSubscriptionPeriod: 'P1Y',
       featureName: undefined,
+      createNewPayment: false,
     });
     expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
   });

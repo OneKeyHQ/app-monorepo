@@ -140,6 +140,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: 1_800_000_000_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),
