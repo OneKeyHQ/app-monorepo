@@ -395,7 +395,7 @@ describe('devVendor', () => {
     ).not.toThrow();
   });
 
-  it('registers the native main HMR client against the live Metro graph', async () => {
+  it('registers independent native HMR clients against live Metro graphs', async () => {
     const fingerprint = 'a'.repeat(64);
     const query = new URLSearchParams({
       app: 'so.onekey.app.wallet',
@@ -439,6 +439,45 @@ describe('devVendor', () => {
         new Set(['android', 'ios']),
       ),
     );
+    const backgroundHmrUrl = new URL(liveUrl);
+    backgroundHmrUrl.pathname = '/background.bundle';
+    backgroundHmrUrl.searchParams.set('resolver.runtimeTarget', 'background');
+    backgroundHmrUrl.searchParams.set(
+      'resolver.devVendorBackgroundHMR',
+      'true',
+    );
+    const backgroundHmrOptions = splitBundleOptions(
+      parseBundleOptions(
+        backgroundHmrUrl.toString(),
+        new Set(['android', 'ios']),
+      ),
+    );
+    const backgroundHmrRegistrationUrl = new URL(backgroundHmrUrl);
+    backgroundHmrRegistrationUrl.pathname = '/apps/mobile/background.bundle';
+    const backgroundHmrRegistrationOptions = splitBundleOptions(
+      parseBundleOptions(
+        backgroundHmrRegistrationUrl.toString(),
+        new Set(['android', 'ios']),
+      ),
+    );
+    const backgroundHmrDeltaUrl = new URL(backgroundHmrRegistrationUrl);
+    backgroundHmrDeltaUrl.searchParams.set('shallow', 'true');
+    const backgroundHmrDeltaOptions = splitBundleOptions(
+      parseBundleOptions(
+        backgroundHmrDeltaUrl.toString(),
+        new Set(['android', 'ios']),
+      ),
+    );
+    const backgroundWithoutHmrUrl = new URL(backgroundHmrUrl);
+    backgroundWithoutHmrUrl.searchParams.delete(
+      'resolver.devVendorBackgroundHMR',
+    );
+    const backgroundWithoutHmrOptions = splitBundleOptions(
+      parseBundleOptions(
+        backgroundWithoutHmrUrl.toString(),
+        new Set(['android', 'ios']),
+      ),
+    );
 
     expect(fs.existsSync(path.join(repoRoot, 'apps/mobile/index.ts'))).toBe(
       true,
@@ -457,13 +496,32 @@ describe('devVendor', () => {
       routerRoot: 'app',
     });
     expect(canonicalHmrOptions).toEqual(liveOptions);
+    expect(backgroundHmrOptions.entryFile).toBe('./background');
+    expect(backgroundHmrRegistrationOptions.entryFile).toBe(
+      './apps/mobile/background',
+    );
+    expect(backgroundHmrRegistrationOptions.resolverOptions).toEqual(
+      backgroundHmrOptions.resolverOptions,
+    );
+    expect(backgroundHmrDeltaOptions.entryFile).toBe(
+      './apps/mobile/background',
+    );
+    expect(backgroundHmrDeltaOptions.graphOptions.shallow).toBe(true);
     expect(
       shouldRetainModulesOnlyGraphForHmr(liveOptions.resolverOptions),
     ).toBe(true);
     expect(
+      shouldRetainModulesOnlyGraphForHmr(
+        backgroundWithoutHmrOptions.resolverOptions,
+      ),
+    ).toBe(false);
+    expect(
+      shouldRetainModulesOnlyGraphForHmr(backgroundHmrOptions.resolverOptions),
+    ).toBe(true);
+    expect(
       shouldRetainModulesOnlyGraphForHmr({
         customResolverOptions: {
-          devVendorNative: 'true',
+          devVendorBackgroundHMR: 'true',
           runtimeTarget: 'background',
         },
       }),
@@ -506,12 +564,14 @@ describe('devVendor', () => {
     expect(reactNativePatch).not.toContain(
       'contains("resolver.devVendor=true")',
     );
-    expect(
-      fs.readFileSync(
-        path.join(repoRoot, 'patches/metro+0.84.4.patch'),
-        'utf8',
-      ),
-    ).toContain('!shouldRetainModulesOnlyGraphForHmr(resolverOptions)');
+    const metroPatch = fs.readFileSync(
+      path.join(repoRoot, 'patches/metro+0.84.4.patch'),
+      'utf8',
+    );
+    expect(metroPatch).toContain(
+      '!shouldRetainModulesOnlyGraphForHmr(resolverOptions)',
+    );
+    expect(metroPatch).toContain('devVendorBackgroundHMR === "true"');
     const backgroundThreadPatch = fs.readFileSync(
       path.join(
         repoRoot,
@@ -532,7 +592,90 @@ describe('devVendor', () => {
     expect(backgroundThreadPatch).not.toContain(
       '"onekey-dev-vendor-assert-background.js",',
     );
-    expect(backgroundThreadPatch).not.toContain('HMRClient');
+    expect(backgroundThreadPatch).toContain('HMRClient');
+    expect(backgroundThreadPatch).toContain(
+      'private interface HMRClient : JavaScriptModule',
+    );
+    expect(backgroundThreadPatch).not.toContain(
+      'import com.facebook.react.devsupport.HMRClient',
+    );
+    expect(backgroundThreadPatch).toContain('fullBundleUrlOverride: String?');
+    expect(backgroundThreadPatch).toContain(
+      'markBackgroundRunnerFailed(t, bgStartTime, runtimeGeneration)',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'bgReactHost?.currentReactContext !== context',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'nativeExecuteWork(ptr, workId, isMain, runtimeGeneration)',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'runtimeGeneration != gBgRuntimeGeneration',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'GetMethodID(cls, "scheduleOnJSThread", "(ZJJ)Z")',
+    );
+    const androidBackgroundRestartIndex = backgroundThreadPatch.indexOf(
+      'val invalidatedGeneration = backgroundRuntimeGeneration.incrementAndGet()',
+    );
+    const androidBackgroundPointerClearIndex = backgroundThreadPatch.indexOf(
+      'bgRuntimePtr = 0',
+      androidBackgroundRestartIndex,
+    );
+    const androidBackgroundInvalidateIndex = backgroundThreadPatch.indexOf(
+      'nativeInvalidateSharedRpc("background", invalidatedGeneration)',
+      androidBackgroundRestartIndex,
+    );
+    expect(androidBackgroundRestartIndex).toBeGreaterThan(-1);
+    expect(androidBackgroundPointerClearIndex).toBeGreaterThan(
+      androidBackgroundRestartIndex,
+    );
+    expect(androidBackgroundInvalidateIndex).toBeGreaterThan(
+      androidBackgroundPointerClearIndex,
+    );
+    expect(backgroundThreadPatch).toContain(
+      '__ONEKEY_BACKGROUND_RUNTIME_GENERATION__',
+    );
+    expect(backgroundThreadPatch).toContain(
+      '[BackgroundHMR] client setup queued',
+    );
+    expect(backgroundThreadPatch).toContain(
+      '@"/apps/mobile/background.bundle"',
+    );
+    expect(backgroundThreadPatch).toContain(
+      '.path("/apps/mobile/background.bundle")',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'hmrRegistrationURL.absoluteString',
+    );
+    expect(backgroundThreadPatch).toContain('hmrRegistrationUri.toString()');
+    expect(backgroundThreadPatch).toContain('loadBundleAtURL:entryURL');
+    expect(backgroundThreadPatch).toContain(
+      'val connection = java.net.URL(entryURL).openConnection()',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'if (_devVendorBackgroundHMREnabled)',
+    );
+    expect(backgroundThreadPatch).toContain(
+      'nativeInvalidateSharedRpc("background")',
+    );
+    const iosBackgroundStartIndex = backgroundThreadPatch.indexOf(
+      'if (_devVendorEntryURL)',
+    );
+    const iosBackgroundEvaluateQueueIndex = backgroundThreadPatch.indexOf(
+      'finishHostStartWithBundleData:nil',
+      iosBackgroundStartIndex,
+    );
+    const iosBackgroundHMRSetupIndex = backgroundThreadPatch.indexOf(
+      'callFunctionOnJSModule:@"HMRClient"',
+      iosBackgroundStartIndex,
+    );
+    expect(iosBackgroundEvaluateQueueIndex).toBeGreaterThan(
+      iosBackgroundStartIndex,
+    );
+    expect(iosBackgroundHMRSetupIndex).toBeGreaterThan(
+      iosBackgroundEvaluateQueueIndex,
+    );
     expect(
       backgroundThreadPatch.indexOf(
         'runtime.evaluateJavaScript(buffer',
@@ -562,6 +705,34 @@ describe('devVendor', () => {
       'components.path = "/apps/mobile/index.bundle"',
     );
     expect(appDelegateSource).toContain('hmrBundleURL: mainHMRURL');
+    expect(appDelegateSource).toContain(
+      'ProcessInfo.processInfo.environment["ONEKEY_METRO_HOST"]',
+    );
+    expect(appDelegateSource).toContain('?? "127.0.0.1"');
+    expect(appDelegateSource).toContain(
+      'values["resolver.devVendorBackgroundHMR"] = "true"',
+    );
+    expect(reactNativePatch).toContain("restart('background'");
+    expect(reactNativePatch).toContain(
+      "global['__ONEKEY_RUNTIME_TARGET__'] === 'background'",
+    );
+    expect(reactNativePatch).toContain(
+      "require('../TurboModule/TurboModuleRegistry')",
+    );
+    expect(reactNativePatch).not.toContain(
+      "require('../TurboModule/TurboModuleRegistry').default",
+    );
+    const androidApplicationSource = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      ),
+      'utf8',
+    );
+    expect(androidApplicationSource).toContain(
+      'resolver.devVendorBackgroundHMR',
+    );
+    expect(androidApplicationSource).toContain('BuildConfig.ONEKEY_DEV_BG_HMR');
     const bridgingHeader = fs.readFileSync(
       path.join(
         repoRoot,
@@ -571,6 +742,32 @@ describe('devVendor', () => {
     );
     expect(bridgingHeader).toMatch(
       /loadDevVendorEntryBundle:\(NSURL \*\)bundleURL\s+hmrBundleURL:\(NSURL \*\)hmrBundleURL\s+fingerprint:/,
+    );
+  });
+
+  it('persists iOS background HMR only for the current dev-vendor fingerprint', () => {
+    const appDelegateSource = fs.readFileSync(
+      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
+      'utf8',
+    );
+    expect(appDelegateSource).toContain(
+      '"onekey_dev_vendor_background_hmr_fingerprint"',
+    );
+    expect(appDelegateSource).toContain(
+      'defaults.set(fingerprint, forKey: devBackgroundHMRFingerprintDefaultsKey)',
+    );
+    expect(appDelegateSource).toContain(
+      'defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)',
+    );
+    expect(appDelegateSource).toContain('persistedFingerprint == fingerprint');
+    expect(appDelegateSource).toContain(
+      'isDevBackgroundHMREnabled(fingerprint: fingerprint)',
+    );
+    expect(appDelegateSource).toContain(
+      'fingerprint: devVendorBundleInfo.fingerprint',
+    );
+    expect(appDelegateSource).toMatch(
+      /if let explicitValue = explicitDevBackgroundHMRValue\(\) \{[\s\S]*?return explicitValue/,
     );
   });
 

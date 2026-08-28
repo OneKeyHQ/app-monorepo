@@ -209,7 +209,7 @@ public class MainApplication extends Application implements ReactApplication {
       String bundlePath = "background".equals(runtimeTarget)
         ? "background.bundle"
         : ".expo/.virtual-metro-entry.bundle";
-      return new Uri.Builder()
+      Uri.Builder builder = new Uri.Builder()
         .scheme("http")
         .encodedAuthority(host)
         .path(bundlePath)
@@ -224,9 +224,11 @@ public class MainApplication extends Application implements ReactApplication {
         .appendQueryParameter("resolver.devVendorNative", "true")
         .appendQueryParameter("resolver.devVendorFingerprint", fingerprint)
         .appendQueryParameter("resolver.runtimeTarget", runtimeTarget)
-        .appendQueryParameter("unstable_transformProfile", "hermes-stable")
-        .build()
-        .toString();
+        .appendQueryParameter("unstable_transformProfile", "hermes-stable");
+      if ("background".equals(runtimeTarget) && BuildConfig.ONEKEY_DEV_BG_HMR) {
+        builder.appendQueryParameter("resolver.devVendorBackgroundHMR", "true");
+      }
+      return builder.build().toString();
     }
 
     @Nullable
@@ -356,7 +358,8 @@ public class MainApplication extends Application implements ReactApplication {
             getApplicationContext(),
             entryUrl,
             DEV_VENDOR_COMMON_ASSET,
-            devVendor.fingerprint
+            devVendor.fingerprint,
+            BuildConfig.ONEKEY_DEV_BG_HMR
           );
       OneKeyLog.info(
         "BackgroundThread",

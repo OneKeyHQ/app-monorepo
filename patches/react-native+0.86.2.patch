@@ -887,23 +887,72 @@ index 3873632..6c0683f 100644
              infoPlistFiles.each do |infoPlistFile|
                  # If infoPlistFile contains Pods or tests, skip it
 diff --git a/node_modules/react-native/Libraries/Utilities/HMRClient.js b/node_modules/react-native/Libraries/Utilities/HMRClient.js
-index 5911eaa..6804d8d 100644
+index 5911eaa..2b3e8cf 100644
 --- a/node_modules/react-native/Libraries/Utilities/HMRClient.js
 +++ b/node_modules/react-native/Libraries/Utilities/HMRClient.js
-@@ -53,2 +53,3 @@ export type HMRClientNativeInterface = {
+@@ -51,6 +51,7 @@ export type HMRClientNativeInterface = {
+     port: number | string,
+     isEnabled: boolean,
      scheme?: string,
 +    fullBundleUrlOverride?: ?string,
    ): void,
-@@ -158,2 +159,3 @@ const HMRClient: HMRClientNativeInterface = {
+ };
+
+@@ -156,6 +157,7 @@ const HMRClient: HMRClientNativeInterface = {
+     port: number | string,
+     isEnabled: boolean,
      scheme?: string = 'http',
 +    fullBundleUrlOverride?: ?string,
    ) {
-@@ -184,3 +186,4 @@ const HMRClient: HMRClientNativeInterface = {
+     invariant(platform, 'Missing required parameter `platform`');
+     invariant(bundleEntry, 'Missing required parameter `bundleEntry`');
+@@ -182,7 +184,8 @@ const HMRClient: HMRClientNativeInterface = {
+       // HMRServer understands regular bundle URLs, so prefer that in case
+       // there are any important URL parameters we can't reconstruct from
        // `setup()`'s arguments.
 -      fullBundleUrl ??
 +      fullBundleUrlOverride ??
 +        fullBundleUrl ??
          `${serverScheme}://${serverHost}/hot?bundleEntry=${bundleEntry}&platform=${platform}`,
+     );
+
+@@ -322,7 +325,35 @@ function setHMRUnavailableReason(reason: string) {
+
+ function registerBundleEntryPoints(client: MetroHMRClient) {
+   if (hmrUnavailableReason != null) {
+-    DevSettings.reload('Bundle Splitting – Metro disconnected');
++    if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
++      const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
++      const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
++      const backgroundThread: any =
++        TurboModuleRegistry.get('BackgroundThread');
++      if (
++        typeof generation === 'number' &&
++        backgroundThread != null &&
++        typeof backgroundThread.restart === 'function'
++      ) {
++        backgroundThread
++          .restart(
++            'background',
++            `onekey-bg-hmr:${generation}:Bundle Splitting – Metro disconnected`,
++          )
++          .catch(error => {
++            console.error(
++              '[BackgroundHMR] Background-only reconnect failed.',
++              error,
++            );
++          });
++      } else {
++        console.error(
++          '[BackgroundHMR] Background-only reconnect is unavailable; the main runtime was left running.',
++        );
++      }
++    } else {
++      DevSettings.reload('Bundle Splitting – Metro disconnected');
++    }
+     return;
+   }
+
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
 index 286dcb6..04f3459 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
@@ -994,16 +1043,70 @@ index a158d98..bd961d9 100644
 +    _cachedFullBundleURL = match ? devVendorFullBundleURL : null;
 +  } else if (_cachedDevServerURL === undefined) {
      const scriptUrl = NativeSourceCode.getConstants().scriptURL;
+diff --git a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
+index be8844d..3e79707 100644
+--- a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
++++ b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
+@@ -17,12 +17,37 @@ if (__DEV__) {
+     throw new Error('Could not find the reload() implementation.');
+   }
+
++  const restartBackgroundRuntime = (reason: string) => {
++    const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
++    const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
++    const backgroundThread: any = TurboModuleRegistry.get('BackgroundThread');
++    if (
++      typeof generation !== 'number' ||
++      backgroundThread == null ||
++      typeof backgroundThread.restart !== 'function'
++    ) {
++      console.error(
++        '[BackgroundHMR] Background-only restart is unavailable; the main runtime was left running.',
++      );
++      return;
++    }
++    backgroundThread
++      .restart('background', `onekey-bg-hmr:${generation}:${reason}`)
++      .catch(error => {
++        console.error('[BackgroundHMR] Background-only restart failed.', error);
++      });
++  };
++
+   // This needs to run before the renderer initializes.
+   const ReactRefreshRuntime = require('react-refresh/runtime');
+   ReactRefreshRuntime.injectIntoGlobalHook(global);
+
+   const Refresh = {
+     performFullRefresh(reason: string) {
++      if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
++        restartBackgroundRuntime(reason);
++        return;
++      }
+       DevSettings.reload(reason);
+     },
+
 diff --git a/node_modules/react-native/Libraries/Image/resolveAssetSource.js b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
 index e08a6c8..de078a2 100644
 --- a/node_modules/react-native/Libraries/Image/resolveAssetSource.js
 +++ b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
-@@ -16,0 +17 @@ import type {ImageSource} from './ImageSource';
+@@ -14,6 +14,7 @@ import type {ResolvedAssetSource} from './AssetSourceResolver';
+ import typeof AssetSourceResolverT from './AssetSourceResolver';
+ import type {ImageSource} from './ImageSource';
+
 +import getDevServer from '../Core/Devtools/getDevServer';
-@@ -42,0 +44,6 @@ function getDevServerURL(): ?string {
+ import SourceCode from '../NativeModules/specs/NativeSourceCode';
+
+ const AssetSourceResolver: AssetSourceResolverT =
+@@ -40,6 +41,12 @@ function getSourceCodeScriptURL(): ?string {
+ }
+
+ function getDevServerURL(): ?string {
 +  // OneKey patch: resolve live dev-vendor assets from Metro after local common HBC startup.
 +  const devServer = getDevServer();
 +  if (devServer.bundleLoadedFromServer) {
 +    return devServer.url;
 +  }
 +
+   if (_serverURL === undefined) {
+     const sourceCodeScriptURL = getSourceCodeScriptURL();
+     const match = sourceCodeScriptURL?.match(/^https?:\/\/.*?\//);

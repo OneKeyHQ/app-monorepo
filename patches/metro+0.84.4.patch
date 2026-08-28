@@ -1,5 +1,5 @@
 diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
-index 2cdbbb9..f1f78d7 100644
+index b34df88..b6a18d9 100644
 --- a/node_modules/metro/src/Assets.js
 +++ b/node_modules/metro/src/Assets.js
 @@ -203,6 +203,8 @@ async function getAssetFiles(assetPath, platform = null) {
@@ -43,30 +43,42 @@ index 2cdbbb9..f1f78d7 100644
        `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
      );
 diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
-index f8eb36c..1dd18c7 100644
+index f8eb36c..7139025 100644
 --- a/node_modules/metro/src/Server.js
 +++ b/node_modules/metro/src/Server.js
-@@ -5,3 +5,3 @@ Object.defineProperty(exports, "__esModule", {
+@@ -3,7 +3,7 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true,
  });
 -exports.default = void 0;
 +exports.shouldRetainModulesOnlyGraphForHmr = exports.default = void 0;
  var _Assets = require("./Assets");
-@@ -61,2 +61,11 @@ var _perf_hooks = require("perf_hooks");
+ var _baseJSBundle = _interopRequireDefault(
+   require("./DeltaBundler/Serializers/baseJSBundle"),
+@@ -59,6 +59,17 @@ var _nullthrows = _interopRequireDefault(require("nullthrows"));
+ var _path = _interopRequireDefault(require("path"));
+ var _perf_hooks = require("perf_hooks");
  var _querystring = _interopRequireDefault(require("querystring"));
 +function shouldRetainModulesOnlyGraphForHmr(resolverOptions) {
 +  const customResolverOptions = resolverOptions.customResolverOptions;
 +  return (
 +    customResolverOptions?.devVendorNative === "true" &&
-+    customResolverOptions.runtimeTarget === "main"
++    (customResolverOptions.runtimeTarget === "main" ||
++      (customResolverOptions.runtimeTarget === "background" &&
++        customResolverOptions.devVendorBackgroundHMR === "true"))
 +  );
 +}
 +exports.shouldRetainModulesOnlyGraphForHmr =
 +  shouldRetainModulesOnlyGraphForHmr;
  function _interopRequireWildcard(e, t) {
-@@ -941,2 +950,10 @@ class Server {
+   if ("function" == typeof WeakMap)
+     var r = new WeakMap(),
+@@ -939,6 +950,14 @@ class Server {
+       );
+       bundlePerfLogger.point("serializingBundle_end");
        const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
-+      // Keep the native dev-vendor main graph for HMR. Other modulesOnly
-+      // bundles are one-shot and should release their graph to avoid OOM.
++      // Keep only native dev-vendor graphs that have an HMR client. Other
++      // modulesOnly bundles are one-shot and should release their graph.
 +      if (
 +        serializerOptions.modulesOnly &&
 +        !shouldRetainModulesOnlyGraphForHmr(resolverOptions)
@@ -74,3 +86,5 @@ index f8eb36c..1dd18c7 100644
 +        await this._bundler.endGraph(graphId);
 +      }
        return {
+         numModifiedFiles: delta.reset
+           ? delta.added.size + revision.prepend.length

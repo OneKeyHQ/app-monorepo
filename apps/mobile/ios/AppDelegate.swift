@@ -333,8 +333,90 @@ class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private let devBackgroundHMRFingerprintDefaultsKey =
+    "onekey_dev_vendor_background_hmr_fingerprint"
   private var initialBundleKind: InitialBundleKind = .none
   private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
+
+  private func canonicalDevMetroURL(_ url: URL?) -> URL? {
+#if DEBUG && targetEnvironment(simulator)
+    guard
+      let url,
+      var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+    else {
+      return url
+    }
+    let configuredHost = ProcessInfo.processInfo.environment["ONEKEY_METRO_HOST"] ??
+      (Bundle.main.object(forInfoDictionaryKey: "ONEKEY_METRO_HOST") as? String)
+    let trimmedHost = configuredHost?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let host = trimmedHost.flatMap { isIPv4Address($0) ? $0 : nil } ?? "127.0.0.1"
+    if let trimmedHost, !trimmedHost.isEmpty, host != trimmedHost {
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "Ignoring invalid ONEKEY_METRO_HOST=\(trimmedHost); using 127.0.0.1"
+      )
+    }
+    components.host = host
+    return components.url
+#else
+    return url
+#endif
+  }
+
+  private func isIPv4Address(_ value: String) -> Bool {
+    let octets = value.split(separator: ".", omittingEmptySubsequences: false)
+    return octets.count == 4 && octets.allSatisfy {
+      guard let number = Int($0) else { return false }
+      return number >= 0 && number <= 255
+    }
+  }
+
+  private func explicitDevBackgroundHMRValue() -> Bool? {
+    if let envValue = ProcessInfo.processInfo.environment["ONEKEY_DEV_BG_HMR"] {
+      return ["1", "true", "yes", "on"].contains(
+        envValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      )
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_DEV_BG_HMR") as? NSNumber {
+      return enabled.boolValue
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_DEV_BG_HMR") as? String {
+      return ["1", "true", "yes", "on"].contains(
+        enabled.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      )
+    }
+    return nil
+  }
+
+  private func isDevBackgroundHMREnabled(fingerprint: String) -> Bool {
+#if DEBUG
+    let defaults = UserDefaults.standard
+    if let explicitValue = explicitDevBackgroundHMRValue() {
+      if explicitValue {
+        if defaults.string(forKey: devBackgroundHMRFingerprintDefaultsKey) != fingerprint {
+          defaults.set(fingerprint, forKey: devBackgroundHMRFingerprintDefaultsKey)
+          defaults.synchronize()
+        }
+      } else if defaults.object(forKey: devBackgroundHMRFingerprintDefaultsKey) != nil {
+        defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)
+        defaults.synchronize()
+      }
+      return explicitValue
+    }
+
+    let persistedFingerprint = defaults.string(
+      forKey: devBackgroundHMRFingerprintDefaultsKey
+    )
+    if persistedFingerprint == fingerprint {
+      return true
+    }
+    if persistedFingerprint != nil {
+      defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)
+      defaults.synchronize()
+    }
+#endif
+    return false
+  }
 
   private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
 #if DEBUG
@@ -401,9 +483,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       ? "background.bundle"
       : ".expo/.virtual-metro-entry.bundle"
     let fallbackURL = URL(string: "http://localhost:8081/\(fallbackPath)")
-    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
+    let providerURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
       forBundleRoot: ".expo/.virtual-metro-entry"
     ) ?? fallbackURL
+    let metroURL = canonicalDevMetroURL(providerURL)
     guard var components = metroURL.flatMap({
       URLComponents(url: $0, resolvingAgainstBaseURL: false)
     }) else {
@@ -413,7 +496,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       components.path = "/background.bundle"
     }
 
-    let values = [
+    var values = [
       "platform": "ios",
       "dev": "true",
       "lazy": "false",
@@ -427,6 +510,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       "resolver.runtimeTarget": runtimeTarget,
       "unstable_transformProfile": "hermes-stable",
     ]
+    if runtimeTarget == "background", isDevBackgroundHMREnabled(fingerprint: fingerprint) {
+      values["resolver.devVendorBackgroundHMR"] = "true"
+    }
     let overriddenNames = Set(values.keys)
     var queryItems = (components.queryItems ?? []).filter {
       !overriddenNames.contains($0.name)
@@ -480,7 +566,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   private func backgroundDebugBundleURLString() -> String? {
-    if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
+    if let mainMetroURL = canonicalDevMetroURL(
+         RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+       ),
        var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
       components.path = "/background.bundle"
       return components.url?.absoluteString
@@ -488,7 +576,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     let packagerHostPort = RCTBundleURLProvider.sharedSettings().packagerServerHostPort()
     if !packagerHostPort.isEmpty {
-      return "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      let url = URL(string: "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true")
+      return canonicalDevMetroURL(url)?.absoluteString
     }
 
     return nil
@@ -496,8 +585,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   private func backgroundBundleEntryURL() -> String {
 #if DEBUG
+    let fallbackURL = URL(string: "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true")
     let debugURL = backgroundDebugBundleURLString() ??
-      "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      canonicalDevMetroURL(fallbackURL)?.absoluteString ?? fallbackURL!.absoluteString
     NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
     return debugURL
 #else
@@ -532,7 +622,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       )
       return devVendorBundleInfo.commonBundleURL
     }
-    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    let metroURL = canonicalDevMetroURL(
+      RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    )
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
@@ -669,6 +761,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
             "commonBundlePath": devVendorBundleInfo.commonBundleURL.path,
             "entryURL": backgroundEntryURL.absoluteString,
             "fingerprint": devVendorBundleInfo.fingerprint,
+            "backgroundHMREnabled": isDevBackgroundHMREnabled(
+              fingerprint: devVendorBundleInfo.fingerprint
+            ) ? "true" : "false",
           ]
         )
       } else {
