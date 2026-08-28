@@ -45,40 +45,201 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
-// Below this spread there's no real split to find — a near-solid color with
-// JPEG block noise — so Otsu would binarize the noise into a checkerboard.
+// Wide enough to cut on brightness alone. Below it the image still may be a real
+// two-tone pattern, so a narrow spread only sends the decision to the separability
+// test — on its own it never means "nothing to show".
 const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
 
-// Cutting a near-solid image at any threshold would only binarize its noise, and a spread
-// that straddles the cut point is where it shows up as a checkerboard. Such an image goes
-// out solid black: polarity cannot survive here anyway, because a solid white field is
-// inverted straight back by shouldInvertForMajorityWhite.
-export function hasSplittableLuminanceRange(
-  luminanceMin: number,
-  luminanceMax: number,
-): boolean {
-  return luminanceMax - luminanceMin >= MIN_LUMINANCE_RANGE_FOR_OTSU;
+// Spread is measured between these quantiles, not between min and max: max-min is
+// decided by two pixels out of thousands, so one specular highlight or dead pixel
+// declared a flat photo separable.
+const SPREAD_OUTLIER_QUANTILE = 0.02;
+
+type IThresholdAxis = {
+  name: string;
+  project: (red: number, green: number, blue: number) => number;
+};
+
+const LUMINANCE_AXIS: IThresholdAxis = {
+  name: 'luminance',
+  project: toGrayScale,
+};
+
+// How cleanly the best cut separates the image into two clusters, 0..1. A two-tone
+// pattern scores ~1 however little it spans; flat noise peaks around 0.65.
+const MIN_SEPARABILITY = 0.85;
+
+// Both sides of the cut must be a real share of the image. Without this, a few
+// blown-out pixels form their own perfect "cluster" and score 1.
+const MIN_CLUSTER_FRACTION = 0.01;
+
+// Luminance is blind to two hues of equal brightness — red against a green of the
+// same brightness leaves a single-spike histogram — so these give the cut somewhere
+// else to look. Only reached when luminance has nothing to cut.
+const CHROMA_AXES: IThresholdAxis[] = [
+  { name: 'red', project: (red) => red },
+  { name: 'green', project: (_red, green) => green },
+  { name: 'blue', project: (_red, _green, blue) => blue },
+  {
+    name: 'redGreen',
+    project: (red, green) => Math.round((red - green + 255) / 2),
+  },
+  {
+    name: 'blueYellow',
+    project: (red, green, blue) =>
+      Math.round((blue - (red + green) / 2 + 255) / 2),
+  },
+];
+
+function projectPixels(data: Uint8ClampedArray, axis: IThresholdAxis) {
+  const pixelCount = data.length / 4;
+  const values = new Uint8ClampedArray(pixelCount);
+  const histogram = new Array<number>(256).fill(0);
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    values[p] = axis.project(data[i], data[i + 1], data[i + 2]);
+    histogram[values[p]] += 1;
+  }
+  return { values, histogram, pixelCount };
+}
+
+export function robustSpread(histogram: number[], pixelCount: number): number {
+  if (pixelCount <= 0) {
+    return 0;
+  }
+  const quantile = (q: number) => {
+    const target = pixelCount * q;
+    let seen = 0;
+    for (let t = 0; t < 256; t += 1) {
+      seen += histogram[t];
+      if (seen >= target) {
+        return t;
+      }
+    }
+    return 255;
+  };
+  return (
+    quantile(1 - SPREAD_OUTLIER_QUANTILE) - quantile(SPREAD_OUTLIER_QUANTILE)
+  );
+}
+
+// Picks the axis to cut on, its threshold, and whether anything is separable at all.
+export function pickThresholdAxis(data: Uint8ClampedArray) {
+  const brightness = projectPixels(data, LUMINANCE_AXIS);
+  const { values: luminance, histogram, pixelCount } = brightness;
+
+  // Brightness spans enough to cut on: unchanged from what every working image does today.
+  if (robustSpread(histogram, pixelCount) >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
+    return {
+      axis: LUMINANCE_AXIS.name,
+      values: luminance,
+      luminance,
+      threshold: otsuFromHistogram(histogram, pixelCount).threshold,
+      canSplit: true,
+    };
+  }
+
+  // Too narrow to judge by spread, and the two cases look alike there: a two-tone
+  // pattern is still two clean clusters, compression noise is one smear. Separability
+  // tells them apart, on whichever axis sees it.
+  let best:
+    | {
+        axis: string;
+        values: Uint8ClampedArray;
+        threshold: number;
+        separability: number;
+      }
+    | undefined;
+  for (const axis of [LUMINANCE_AXIS, ...CHROMA_AXES]) {
+    const projected =
+      axis === LUMINANCE_AXIS ? brightness : projectPixels(data, axis);
+    const { threshold, separability, minClusterFraction } = otsuFromHistogram(
+      projected.histogram,
+      pixelCount,
+    );
+    const isCleanSplit =
+      separability >= MIN_SEPARABILITY &&
+      minClusterFraction >= MIN_CLUSTER_FRACTION;
+    if (isCleanSplit && (!best || separability > best.separability)) {
+      best = {
+        axis: axis.name,
+        values: projected.values,
+        threshold,
+        separability,
+      };
+    }
+  }
+
+  if (best) {
+    return {
+      axis: best.axis,
+      values: best.values,
+      luminance,
+      threshold: best.threshold,
+      canSplit: true,
+    };
+  }
+
+  return {
+    axis: LUMINANCE_AXIS.name,
+    values: luminance,
+    luminance,
+    threshold: 128,
+    canSplit: false,
+  };
+}
+
+// The chosen axis need not run dark-to-bright, so which side becomes white is
+// decided from the two clusters' luminance rather than from the axis direction.
+export function isAboveThresholdBrighter({
+  values,
+  luminance,
+  threshold,
+}: {
+  values: Uint8ClampedArray;
+  luminance: Uint8ClampedArray;
+  threshold: number;
+}): boolean {
+  let sumAbove = 0;
+  let sumBelow = 0;
+  let countAbove = 0;
+  for (let p = 0; p < values.length; p += 1) {
+    if (values[p] > threshold) {
+      sumAbove += luminance[p];
+      countAbove += 1;
+    } else {
+      sumBelow += luminance[p];
+    }
+  }
+  const countBelow = values.length - countAbove;
+  if (countAbove === 0 || countBelow === 0) {
+    return true;
+  }
+  return sumAbove / countAbove >= sumBelow / countBelow;
 }
 
 // Only invert when white is unambiguously the majority; near 50% the Otsu
 // threshold tracks the image's own median, so the ratio is noise-sensitive.
 const INVERT_DEAD_ZONE = 0.05;
 
-// Threshold that maximizes between-class variance, separating an image's own bright/dark clusters.
-export function otsuThreshold(luminance: Uint8ClampedArray): number {
-  const histogram = new Array<number>(256).fill(0);
-  for (let p = 0; p < luminance.length; p += 1) {
-    histogram[luminance[p]] += 1;
-  }
-
-  const total = luminance.length;
+// Threshold that maximizes between-class variance, separating an image's own
+// bright/dark clusters, plus how convincing that split is: separability is the
+// between-class share of total variance, and minClusterFraction the smaller side.
+function otsuFromHistogram(histogram: number[], total: number) {
   let sum = 0;
   for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
+
+  const mean = total === 0 ? 0 : sum / total;
+  let totalVariance = 0;
+  for (let t = 0; t < 256; t += 1) {
+    totalVariance += histogram[t] * (t - mean) * (t - mean);
+  }
+  totalVariance = total === 0 ? 0 : totalVariance / total;
 
   let sumBackground = 0;
   let weightBackground = 0;
   let maxVariance = 0;
   let threshold = 128;
+  let weightAtThreshold = 0;
   for (let t = 0; t < 256; t += 1) {
     weightBackground += histogram[t];
     if (weightBackground !== 0) {
@@ -89,17 +250,34 @@ export function otsuThreshold(luminance: Uint8ClampedArray): number {
       const meanBackground = sumBackground / weightBackground;
       const meanForeground = (sum - sumBackground) / weightForeground;
       const betweenClassVariance =
-        weightBackground *
-        weightForeground *
+        (weightBackground / total) *
+        (weightForeground / total) *
         (meanBackground - meanForeground) *
         (meanBackground - meanForeground);
       if (betweenClassVariance > maxVariance) {
         maxVariance = betweenClassVariance;
         threshold = t;
+        weightAtThreshold = weightBackground;
       }
     }
   }
-  return threshold;
+
+  return {
+    threshold,
+    separability: totalVariance === 0 ? 0 : maxVariance / totalVariance,
+    minClusterFraction:
+      total === 0
+        ? 0
+        : Math.min(weightAtThreshold, total - weightAtThreshold) / total,
+  };
+}
+
+export function otsuThreshold(luminance: Uint8ClampedArray): number {
+  const histogram = new Array<number>(256).fill(0);
+  for (let p = 0; p < luminance.length; p += 1) {
+    histogram[luminance[p]] += 1;
+  }
+  return otsuFromHistogram(histogram, luminance.length).threshold;
 }
 
 // Reverse only when white is unambiguously the majority. Near 50% the Otsu
@@ -175,34 +353,23 @@ function convertToBlackAndWhiteImageBase64(
       const data = imageData.data;
       const pixelCount = data.length / 4;
 
-      // Perceptual luminance instead of a plain RGB average, which under-weights green.
-      const luminance = new Uint8ClampedArray(pixelCount);
-      let luminanceMin = 255;
-      let luminanceMax = 0;
-      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const value = toGrayScale(data[i], data[i + 1], data[i + 2]);
-        luminance[p] = value;
-        if (value < luminanceMin) luminanceMin = value;
-        if (value > luminanceMax) luminanceMax = value;
-      }
+      // Perceptual luminance where the image separates on brightness, a color
+      // axis where it does not, and nothing to cut when neither separates. The
+      // threshold is Otsu's on the chosen axis, never a fixed 128.
+      const { values, luminance, threshold, canSplit } =
+        pickThresholdAxis(data);
 
-      // Otsu threshold instead of a fixed 128 — adapts per image, unless there is nothing to split.
-      const canSplit = hasSplittableLuminanceRange(luminanceMin, luminanceMax);
-      let threshold = 128;
-      if (canSplit) {
-        try {
-          threshold = otsuThreshold(luminance);
-        } catch (error) {
-          console.error(
-            'otsuThreshold failed, falling back to threshold 128',
-            error,
-          );
-        }
-      }
+      const aboveIsBrighter = isAboveThresholdBrighter({
+        values,
+        luminance,
+        threshold,
+      });
 
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-        const bw = canSplit && luminance[p] > threshold ? 255 : 0;
+        const isAbove = values[p] > threshold;
+        const isWhite = canSplit && isAbove === aboveIsBrighter;
+        const bw = isWhite ? 255 : 0;
         if (bw === 255) {
           whiteCount += 1;
         }

@@ -2,8 +2,10 @@
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
 import {
-  hasSplittableLuminanceRange,
+  isAboveThresholdBrighter,
   otsuThreshold,
+  pickThresholdAxis,
+  robustSpread,
   shouldInvertForMajorityWhite,
   toGrayScale,
 } from './imageUtils';
@@ -50,21 +52,168 @@ describe('otsuThreshold', () => {
   });
 });
 
-describe('hasSplittableLuminanceRange', () => {
-  it('splits once the spread is wide enough', () => {
-    expect(hasSplittableLuminanceRange(100, 132)).toBe(true);
+const WIDTH = 128;
+const HEIGHT = 64;
+
+type IRgb = [number, number, number];
+
+// Vertical stripes, the shape of a flat two-color pattern.
+function stripedImage(foreground: IRgb, background: IRgb): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const color = Math.floor(x / 8) % 2 === 0 ? foreground : background;
+      const i = (y * WIDTH + x) * 4;
+      [data[i], data[i + 1], data[i + 2], data[i + 3]] = [...color, 255];
+    }
+  }
+  return data;
+}
+
+// A flat color carrying compression noise, plus a few blown-out pixels.
+function nearSolidImage(color: IRgb, speckles: number): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+  let seed = 42;
+  const random = () => {
+    seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296;
+    return seed / 4_294_967_296;
+  };
+  for (let p = 0; p < WIDTH * HEIGHT; p += 1) {
+    const i = p * 4;
+    const noise = Math.round((random() * 2 - 1) * 6);
+    [data[i], data[i + 1], data[i + 2], data[i + 3]] = [
+      color[0] + noise,
+      color[1] + noise,
+      color[2] + noise,
+      255,
+    ];
+  }
+  for (let s = 0; s < speckles; s += 1) {
+    const i = Math.floor(random() * WIDTH * HEIGHT) * 4;
+    [data[i], data[i + 1], data[i + 2]] = [255, 255, 255];
+  }
+  return data;
+}
+
+const RED: IRgb = [255, 0, 0];
+const GREEN: IRgb = [0, 255, 0];
+const BLUE: IRgb = [0, 0, 255];
+const YELLOW: IRgb = [255, 255, 0];
+const MAGENTA: IRgb = [255, 0, 255];
+const CYAN: IRgb = [0, 255, 255];
+const WHITE: IRgb = [255, 255, 255];
+const BLACK: IRgb = [0, 0, 0];
+
+describe('robustSpread', () => {
+  it('ignores the outliers that max-min was decided by', () => {
+    const histogram = new Array<number>(256).fill(0);
+    histogram[128] = 1000;
+    histogram[255] = 1; // one blown-out pixel
+    histogram[0] = 1; // one dead pixel
+    expect(robustSpread(histogram, 1002)).toBe(0);
   });
 
-  it('refuses a mid-gray spread rather than cutting it at 128', () => {
-    // The failure this guard exists for: a spread narrow enough to be noise but
-    // sitting across the cut point, which a threshold turns into a checkerboard.
-    expect(hasSplittableLuminanceRange(113, 144)).toBe(false);
-    expect(hasSplittableLuminanceRange(112, 142)).toBe(false);
+  it('reports a real spread between two populated clusters', () => {
+    const histogram = new Array<number>(256).fill(0);
+    histogram[30] = 500;
+    histogram[220] = 500;
+    expect(robustSpread(histogram, 1000)).toBe(190);
   });
 
-  it('refuses near-black and near-white spreads', () => {
-    expect(hasSplittableLuminanceRange(0, 20)).toBe(false);
-    expect(hasSplittableLuminanceRange(235, 255)).toBe(false);
+  it('returns 0 for an empty image', () => {
+    expect(robustSpread(new Array<number>(256).fill(0), 0)).toBe(0);
+  });
+});
+
+describe('pickThresholdAxis', () => {
+  it('keeps the luminance axis whenever brightness already separates the image', () => {
+    // Every pair here differs by more than the minimum spread in luminance, so the
+    // color axes must not change what these images have always done.
+    for (const [foreground, background] of [
+      [RED, GREEN],
+      [BLUE, WHITE],
+      [MAGENTA, CYAN],
+      [RED, BLACK],
+    ] as Array<[IRgb, IRgb]>) {
+      const result = pickThresholdAxis(stripedImage(foreground, background));
+      expect(result.axis).toBe('luminance');
+      expect(result.canSplit).toBe(true);
+    }
+  });
+
+  it('splits a two-tone pattern too narrow for the spread test to accept', () => {
+    // The regression. While the narrow branch still cut every pixel at 128 these
+    // split correctly, because their tones sit either side of it; filling the whole
+    // image with one value took the pattern with it. Grey pairs are the harder half:
+    // no color axis can rescue them, only the fact that they are two clean clusters.
+    const SALMON: IRgb = [255, 60, 90]; // luminance 122
+    const STEEL_BLUE: IRgb = [100, 160, 200]; // luminance 147
+    const OLIVE: IRgb = [150, 130, 40];
+    const SLATE: IRgb = [90, 140, 190];
+    const GREY_DARK: IRgb = [120, 120, 120];
+    const GREY_LIGHT: IRgb = [140, 140, 140];
+    for (const [foreground, background] of [
+      [SALMON, STEEL_BLUE],
+      [OLIVE, SLATE],
+      [GREY_DARK, GREY_LIGHT],
+      [BLUE, BLACK],
+      [RED, MAGENTA],
+      [GREEN, CYAN],
+      [YELLOW, WHITE],
+    ] as Array<[IRgb, IRgb]>) {
+      const result = pickThresholdAxis(stripedImage(foreground, background));
+      expect(result.canSplit).toBe(true);
+    }
+  });
+
+  it('reaches for a color axis when two hues share the exact same luminance', () => {
+    // Red and this green both compute to luminance 76, so the luminance histogram is
+    // a single spike and no threshold on it can separate them.
+    const RED_76: IRgb = [255, 0, 0];
+    const GREEN_76: IRgb = [0, 129, 0];
+    expect(toGrayScale(...RED_76)).toBe(toGrayScale(...GREEN_76));
+    const result = pickThresholdAxis(stripedImage(RED_76, GREEN_76));
+    expect(result.axis).not.toBe('luminance');
+    expect(result.canSplit).toBe(true);
+  });
+
+  it('still refuses a near-solid image, even one carrying blown-out pixels', () => {
+    // max-min called these separable off a single pixel, then cut the
+    // compression noise into a checkerboard.
+    expect(pickThresholdAxis(nearSolidImage([128, 128, 128], 1)).canSplit).toBe(
+      false,
+    );
+    expect(pickThresholdAxis(nearSolidImage([90, 150, 220], 3)).canSplit).toBe(
+      false,
+    );
+    expect(pickThresholdAxis(nearSolidImage([128, 128, 128], 0)).canSplit).toBe(
+      false,
+    );
+  });
+});
+
+describe('isAboveThresholdBrighter', () => {
+  it('reports the polarity of a luminance-like axis unchanged', () => {
+    const values = new Uint8ClampedArray([10, 20, 200, 210]);
+    expect(
+      isAboveThresholdBrighter({ values, luminance: values, threshold: 100 }),
+    ).toBe(true);
+  });
+
+  it('flips when the axis runs opposite to brightness', () => {
+    // Blue channel high where the image is dark: above-threshold is the darker cluster.
+    const values = new Uint8ClampedArray([255, 255, 0, 0]);
+    const luminance = new Uint8ClampedArray([29, 29, 226, 226]);
+    expect(
+      isAboveThresholdBrighter({ values, luminance, threshold: 128 }),
+    ).toBe(false);
+  });
+
+  it('does not divide by zero when every pixel lands on one side', () => {
+    const values = new Uint8ClampedArray([10, 10, 10]);
+    expect(
+      isAboveThresholdBrighter({ values, luminance: values, threshold: 200 }),
+    ).toBe(true);
   });
 });
 
