@@ -117,7 +117,10 @@ export function useInputProps(props: IInputProps, ref: any) {
     theme[selectionColorProp as any]?.get() ?? selectionColorProp;
   const style = (
     isWeb && selectionColor
-      ? [props.style, { '--t_selectionColor': selectionColor }]
+      ? [
+          ...(Array.isArray(props.style) ? props.style : [props.style]),
+          { '--t_selectionColor': selectionColor },
+        ]
       : props.style
   ) as IInputProps['style'];
 
