@@ -15,6 +15,8 @@ import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
+// The default FooterActions already adds $5 (20) of bottom padding. Subtracting
+// 10 keeps a 10-unit visual gap above system UI; custom footers retain full inset.
 const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
 
 const Placeholder = () => {
