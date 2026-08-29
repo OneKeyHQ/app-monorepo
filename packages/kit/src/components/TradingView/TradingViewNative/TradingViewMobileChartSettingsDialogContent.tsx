@@ -15,17 +15,22 @@ import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/s
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ITradingViewNativeChartSettingsOptions } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
+
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
-  'yAxis'
+  'previousClose' | 'yAxis'
 >;
 
-const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = ['yAxis'];
+const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
+  'yAxis',
+  'previousClose',
+];
 
 const OPTION_TRANSLATION_IDS: Record<
-  keyof IQuickSettingOptions,
+  Exclude<keyof IQuickSettingOptions, 'previousClose'>,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
@@ -132,9 +137,13 @@ export function TradingViewMobileChartSettingsDialogContent({
             <QuickSettingOption
               key={option}
               option={option}
-              label={intl.formatMessage({
-                id: OPTION_TRANSLATION_IDS[option],
-              })}
+              label={
+                option === 'previousClose'
+                  ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
+                  : intl.formatMessage({
+                      id: OPTION_TRANSLATION_IDS[option],
+                    })
+              }
               value={normalizedSettings.options[option]}
               onChange={(value) => handleOptionChange(option, value)}
             />

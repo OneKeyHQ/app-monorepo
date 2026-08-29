@@ -15,7 +15,6 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
-import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -54,6 +53,7 @@ import {
   useTradingViewMessageHandler,
 } from './messageHandlers';
 import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
+import { TradingViewRuntimeView } from './TradingViewRuntimeView';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -152,6 +152,9 @@ interface IBaseTradingViewV2Props {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -220,6 +223,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    onChartError,
+    onChartReady,
+    onVisualReady,
     onLoadEnd,
     onLoadStart,
     ...stackStyle
@@ -467,9 +473,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLinePeriodChange,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isHyperLiquidSourceLoading,
+  } = useHyperLiquidKlineSource(networkId, tokenAddress);
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const shouldDeferWebRuntime = platformEnv.isWeb && isHyperLiquidSourceLoading;
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
@@ -775,38 +785,46 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   }, []);
 
   const webView = useMemo(
-    () => (
-      <WebView
-        key={tradingViewUrlWithParams}
-        containerProps={{ bg: '$bgApp' }}
-        containerStyle={tradingViewWebViewStyleProps.containerStyle}
-        style={tradingViewWebViewStyleProps.style}
-        customReceiveHandler={async (data) => {
-          const receiveData = data as ICustomReceiveHandlerData;
-          await customReceiveHandler(receiveData);
-        }}
-        onWebViewRef={handleWebViewRef}
-        allowsBackForwardNavigationGestures={false}
-        onLoadEnd={handleLoadEnd}
-        onLoadStart={handleLoadStart}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-        src={tradingViewUrlWithParams}
-      />
-    ),
+    () =>
+      shouldDeferWebRuntime ? null : (
+        <TradingViewRuntimeView
+          key={tradingViewUrlWithParams}
+          containerProps={{ bg: '$bgApp' }}
+          containerStyle={tradingViewWebViewStyleProps.containerStyle}
+          style={tradingViewWebViewStyleProps.style}
+          customReceiveHandler={async (data) => {
+            const receiveData = data as ICustomReceiveHandlerData;
+            await customReceiveHandler(receiveData);
+          }}
+          onChartError={onChartError}
+          onChartReady={onChartReady}
+          onVisualReady={onVisualReady}
+          onWebViewRef={handleWebViewRef}
+          allowsBackForwardNavigationGestures={false}
+          onLoadEnd={handleLoadEnd}
+          onLoadStart={handleLoadStart}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+          src={tradingViewUrlWithParams}
+        />
+      ),
     [
       customReceiveHandler,
       handleLoadEnd,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
+      onChartError,
+      onChartReady,
+      onVisualReady,
+      shouldDeferWebRuntime,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],

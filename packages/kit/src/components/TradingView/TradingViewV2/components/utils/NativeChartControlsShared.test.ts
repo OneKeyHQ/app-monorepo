@@ -67,4 +67,17 @@ describe('NativeChartControlsShared', () => {
       'ChartTrending2Outline',
     );
   });
+
+  it('uses a stable chart type id before the display label', () => {
+    expect(
+      formatChartTypeOptionLabel(intl, {
+        id: 'heikinAshi',
+        label: 'Custom label',
+        value: 8,
+      }),
+    ).toBe('HEIKIN_ASHI_I18N');
+    expect(getChartTypeIconName({ id: 'bars', label: 'Line', value: 0 })).toBe(
+      'TradingViewCandlesHlcOutline',
+    );
+  });
 });

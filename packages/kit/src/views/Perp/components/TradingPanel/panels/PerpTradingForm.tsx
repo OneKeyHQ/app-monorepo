@@ -2932,7 +2932,12 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+              <XStack
+                alignItems="center"
+                flex={platformEnv.isNative ? 1 : undefined}
+                gap="$3"
+                width="100%"
+              >
                 <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}

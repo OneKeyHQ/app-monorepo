@@ -1071,7 +1071,7 @@ export function TabBar({
       }
       if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
-        if (scrollable && listViewRef.current) {
+        if (scrollable) {
           runOnJS(scrollToTab)(result);
         }
       }

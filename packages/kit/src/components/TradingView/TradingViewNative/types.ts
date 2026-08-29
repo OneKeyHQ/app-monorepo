@@ -4,8 +4,10 @@ import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tr
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
+export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
+
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
-export type ITradingViewNativeChartType = 'candlestick' | 'line';
+export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 
 export interface ITradingViewNativeCandleLabels {
@@ -103,15 +105,18 @@ export interface ITradingViewNativeProps {
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  showNativeChartCloseControl?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
   onDataStateChange?: (state: ITradingViewNativeDataState) => void;
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
+  onNativeChartClose?: () => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;

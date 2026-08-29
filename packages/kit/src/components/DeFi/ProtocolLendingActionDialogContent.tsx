@@ -1399,7 +1399,7 @@ function ProtocolLendingActionBorrowContent({
         providerDetailName: protocolInfo?.providerDetail.name,
       });
       if (actionType === 'repay') {
-        await handleBorrowRepay({
+        const repayStarted = await handleBorrowRepay({
           amount,
           provider,
           marketAddress,
@@ -1432,6 +1432,12 @@ function ProtocolLendingActionBorrowContent({
             submitGuard.release();
           },
         });
+        // false means the flow never started (the risk disclaimer was declined,
+        // say): no callback fires and nothing throws, so the guard taken above
+        // is ours to release or the footer stays stuck loading forever.
+        if (repayStarted === false) {
+          submitGuard.release();
+        }
         return;
       }
       const receiveToken = shouldUnwrapNativeAaveReserve
@@ -1441,7 +1447,7 @@ function ProtocolLendingActionBorrowContent({
             networkId,
           })
         : effectiveToken;
-      await handleBorrowWithdraw({
+      const withdrawStarted = await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
@@ -1478,6 +1484,10 @@ function ProtocolLendingActionBorrowContent({
           submitGuard.release();
         },
       });
+      // Same "never started" release as the repay branch above.
+      if (withdrawStarted === false) {
+        submitGuard.release();
+      }
     } catch (error) {
       const shouldPropagate = submitGuard.releaseWithError(error, {
         // A detached approval has no owning input surface, so its build
@@ -1521,6 +1531,9 @@ function ProtocolLendingActionBorrowContent({
   const { shouldApprove, approving, loadingAllowance, ensureReadyToSubmit } =
     useBorrowApproval({
       action: actionType,
+      // Labels the risk-disclaimer gate inside the approve step; without it the
+      // gate has no provider and silently lets the first on-chain action pass.
+      providerName: source.provider,
       amountValue: amount,
       repayAll: !isWithdraw && isFullClose,
       withdrawAll: isWithdraw && isFullClose,

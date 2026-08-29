@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
+import { useEnsureTradingEnabled } from '@onekeyhq/kit/src/views/Perp/hooks/useEnableTradingWithDepositFallback';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -298,6 +299,7 @@ export function TradingViewPerpsV2(
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
@@ -569,15 +571,15 @@ export function TradingViewPerpsV2(
 
       // Message handler invokes this without await — swallow rejections to
       // avoid leaking them as unhandled; errors are already surfaced via
-      // withToast inside cancelChartOrder / ensureTradingEnabled.
+      // the enable-trading flow or cancelChartOrder.
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         await actions.current.cancelChartOrder({ oid });
       } catch {
         // intentional: toast owns the user-facing message
       }
     },
-    [actions, enablePerpsTradingUi],
+    [actions, enablePerpsTradingUi, ensureTradingEnabled],
   );
 
   const onOrderDraftCreate = useCallback(
@@ -656,7 +658,7 @@ export function TradingViewPerpsV2(
       }
 
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         await actions.current.amendChartOrder({
           coin: payload.symbol,
           oid,
@@ -674,7 +676,7 @@ export function TradingViewPerpsV2(
         });
       }
     },
-    [actions, enablePerpsTradingUi, webRef],
+    [actions, enablePerpsTradingUi, ensureTradingEnabled, webRef],
   );
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({

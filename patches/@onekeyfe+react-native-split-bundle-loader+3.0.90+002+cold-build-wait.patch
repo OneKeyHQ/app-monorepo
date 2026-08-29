@@ -1,0 +1,34 @@
+diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+index 7c63281..bdb5863 100644
+--- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
++++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+@@ -17,3 +17,2 @@
+ namespace {
+-constexpr int64_t kDevVendorLoadTimeoutSeconds = 60;
+ // Zero-copy jsi::Buffer over an NSData (M4/M5).
+@@ -973,19 +972,9 @@ + (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
+   // preserves common -> delta -> runApplication ordering without blocking the
+-  // main thread. Keep bundleManager on the local common HBC until this buffered
+-  // executor proves RCTInstance completed the initial read.
++  // main thread. Let RCTJavaScriptLoader completion govern the cold-build wait:
++  // a fixed deadline can crash a healthy but contended Metro serialization.
++  // Keep bundleManager on the local common HBC until this buffered executor
++  // proves RCTInstance completed the initial read.
+   [instance callFunctionOnBufferedRuntimeExecutor:^(facebook::jsi::Runtime &runtime) {
+-    dispatch_time_t deadline = dispatch_time(
+-        DISPATCH_TIME_NOW, kDevVendorLoadTimeoutSeconds * NSEC_PER_SEC);
+-    if (dispatch_semaphore_wait(downloadReady, deadline) != 0 ||
+-        dispatch_semaphore_wait(hostRegistrationReady, deadline) != 0) {
+-      NSError *timeoutError = [NSError errorWithDomain:@"SplitBundleLoader"
+-                                                  code:4
+-                                              userInfo:@{
+-                                                NSLocalizedDescriptionKey:
+-                                                    @"Timed out loading dev-vendor main delta"
+-                                              }];
+-      [SBLLogger error:@"loadDevVendorEntryBundle: timed out after 60 seconds"];
+-      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(timeoutError); });
+-      return;
+-    }
++    dispatch_semaphore_wait(downloadReady, DISPATCH_TIME_FOREVER);
++    dispatch_semaphore_wait(hostRegistrationReady, DISPATCH_TIME_FOREVER);
+     RCTHost *strongHost = weakHost;

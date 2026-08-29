@@ -98,7 +98,9 @@ export interface IManagePositionProps {
   onTokenSelect?: (item: IBorrowAsset) => void;
 
   // Callbacks
-  onConfirm?: (params: IManagePositionConfirmParams) => Promise<void>;
+  // Resolves false when the flow never started (the user rejected the risk
+  // disclaimer, say), so the form can keep what the user typed.
+  onConfirm?: (params: IManagePositionConfirmParams) => Promise<boolean | void>;
 }
 
 // ============================================================================

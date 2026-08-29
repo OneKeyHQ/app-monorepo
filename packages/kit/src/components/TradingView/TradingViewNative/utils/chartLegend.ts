@@ -11,6 +11,7 @@ import {
 } from '../chartConstants';
 
 import { formatTradingViewNativePriceTick } from './chartLayout';
+import { getTradingViewNativePrimarySeriesModel } from './chartType';
 
 import type {
   ITradingViewNativeCandleLabels,
@@ -241,10 +242,11 @@ export function getTradingViewNativeChartLegend(
     }),
     valueColorRole: 'trend',
   };
+  const primarySeries = getTradingViewNativePrimarySeriesModel(chartType);
   return {
     isUp: point.c >= changeReference,
     priceItems:
-      chartType === 'line'
+      primarySeries.priceSource === 'close'
         ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
         : [
             { label: candleLabels.open, value: formatPrice(point.o) },

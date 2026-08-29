@@ -111,12 +111,26 @@ export function useInputProps(props: IInputProps, ref: any) {
     theme[placeholderColorProp as any]?.get() ??
     placeholderColorProp ??
     theme.placeholderColor?.get();
+  const selectionColorProp = props.selectionColor;
+  const selectionColor =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    theme[selectionColorProp as any]?.get() ?? selectionColorProp;
+  const style = (
+    isWeb && selectionColor
+      ? [
+          ...(Array.isArray(props.style) ? props.style : [props.style]),
+          { '--t_selectionColor': selectionColor },
+        ]
+      : props.style
+  ) as IInputProps['style'];
 
   return {
     ref: combinedRef,
     readOnly: props.disabled,
     ...props,
     placeholderTextColor,
+    selectionColor,
+    style,
     onChangeText,
   };
 }
