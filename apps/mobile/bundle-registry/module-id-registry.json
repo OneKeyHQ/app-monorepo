@@ -21813,6 +21813,7 @@
     "packages/kit/src/views/Perp/components/PerpMobileNetworkAlert.tsx": 21488,
     "packages/kit/src/views/Perp/components/PerpMobileTopChartProvider.tsx": 23765,
     "packages/kit/src/views/Perp/components/PerpNetworkAlert.tsx": 21489,
+    "packages/kit/src/views/Perp/components/PerpNetworkStatus.tsx": 23777,
     "packages/kit/src/views/Perp/components/PerpOrderBook.tsx": 21490,
     "packages/kit/src/views/Perp/components/PerpOrderBookMobileVerticalShell.tsx": 21491,
     "packages/kit/src/views/Perp/components/PerpSettingsButton.tsx": 21492,
