@@ -68,15 +68,27 @@ describe('confirmCexDepositIfUnsupported', () => {
     const resultPromise = confirmCexDepositIfUnsupported({
       intl,
       networkId: 'evm--1',
+      tokenSymbol: 'DAI',
+      networkName: 'Ethereum',
       cexSupportedInfo: {
         cexLabel: 'Binance',
         depositEnable: false,
       },
     });
     const options = mockedDialogShow.mock.calls[0][0];
+    expect(options.description).toBeUndefined();
+    expect(options.renderContent).toMatchObject({
+      props: {
+        tokenSymbol: 'DAI',
+        networkName: 'Ethereum',
+        networkLabel: ETranslations.global_network,
+        exchangeName: 'Binance',
+        exchangeLabel: ETranslations.exchange__title,
+        body: ETranslations.cex_deposit_may_not_be_supported__desc,
+      },
+    });
     expect(options).toMatchObject({
       title: ETranslations.cex_deposit_may_not_be_supported__title,
-      description: ETranslations.cex_deposit_may_not_be_supported__desc,
       onConfirmText: ETranslations.global_continue,
       onCancelText: ETranslations.global_back,
       confirmButtonProps: {
@@ -134,6 +146,12 @@ describe('confirmCexDepositIfUnsupported', () => {
       },
     });
     const options = mockedDialogShow.mock.calls[0][0];
+    expect(options.renderContent).toMatchObject({
+      props: {
+        exchangeName: 'Binance',
+        exchangeLabel: ETranslations.exchange__title,
+      },
+    });
     let finishClose: (() => void) | undefined;
     const close = jest.fn(
       (extra?: { flag?: string }) =>

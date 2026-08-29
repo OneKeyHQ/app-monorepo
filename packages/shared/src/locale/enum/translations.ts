@@ -1132,6 +1132,7 @@ export enum ETranslations {
   enter_wallet = 'enter_wallet',
   enter_your_pin = 'enter_your_pin',
   enter_your_pin_desc = 'enter_your_pin_desc',
+  exchange__title = 'exchange__title',
   exclude_risky_transactions__action = 'exclude_risky_transactions__action',
   explore_add_bookmark = 'explore.add_bookmark',
   explore_addresses_count = 'explore.addresses_count',

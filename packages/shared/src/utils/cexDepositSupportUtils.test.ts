@@ -1,5 +1,6 @@
 import {
   getBadgeQueryTokenAddress,
+  getCexDepositWarningFacts,
   isCexDepositExplicitlyDisabled,
   mergeCexSupportedInfo,
 } from './cexDepositSupportUtils';
@@ -55,6 +56,30 @@ describe('isCexDepositExplicitlyDisabled', () => {
     expect(isCexDepositExplicitlyDisabled(true)).toBe(false);
     expect(isCexDepositExplicitlyDisabled(null)).toBe(false);
     expect(isCexDepositExplicitlyDisabled(undefined)).toBe(false);
+  });
+});
+
+describe('getCexDepositWarningFacts', () => {
+  it('trims values and falls back to the generic exchange label', () => {
+    expect(
+      getCexDepositWarningFacts({
+        tokenSymbol: ' DAI ',
+        networkName: ' Ethereum ',
+        exchangeLabel: ' Binance ',
+        fallbackExchangeLabel: 'Exchange',
+      }),
+    ).toEqual({
+      tokenSymbol: 'DAI',
+      networkName: 'Ethereum',
+      exchangeName: 'Binance',
+    });
+    expect(
+      getCexDepositWarningFacts({
+        fallbackExchangeLabel: '交易所',
+      }),
+    ).toEqual({
+      exchangeName: '交易所',
+    });
   });
 });
 

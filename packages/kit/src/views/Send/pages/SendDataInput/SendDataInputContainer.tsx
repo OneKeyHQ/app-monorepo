@@ -444,6 +444,8 @@ function SendDataInputContainer() {
           intl,
           isNFT,
           networkId: currentAccount.networkId,
+          tokenSymbol: tokenInfo?.symbol,
+          networkName: network?.name,
           cexSupportedInfo: toVal?.cexSupportedInfo,
         });
       if (!canProceed) return;
@@ -644,6 +646,7 @@ function SendDataInputContainer() {
     onFail,
     onCancel,
     intl,
+    network?.name,
   ]);
 
   const validateMemoField = useValidateMemoField({
@@ -1018,6 +1021,8 @@ function SendDataInputContainer() {
             intl,
             isNFT,
             networkId: currentAccount.networkId,
+            tokenSymbol: tokenInfo?.symbol,
+            networkName: network?.name,
             cexSupportedInfo: queryResult.cexSupportedInfo,
           });
         if (!canProceed) return;
@@ -1131,6 +1136,7 @@ function SendDataInputContainer() {
       sendAmount,
       tokenInfo,
       intl,
+      network?.name,
     ],
   );
 

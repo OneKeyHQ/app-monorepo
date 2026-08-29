@@ -2710,6 +2710,8 @@ function SendAmountInputContainer() {
       intl,
       isNFT,
       networkId,
+      tokenSymbol: tokenInfo?.symbol,
+      networkName: network?.name,
       cexSupportedInfo: queryResult.cexSupportedInfo,
       hasAcknowledgedWarning: hasAcknowledgedCexDepositWarning,
     });
@@ -2730,9 +2732,11 @@ function SendAmountInputContainer() {
     hasAcknowledgedCexDepositWarning,
     intl,
     isNFT,
+    network?.name,
     networkId,
     recipientAddress,
     recipientIsContract,
+    tokenInfo?.symbol,
   ]);
 
   const confirmPrivateSendValueDrop = useCallback(
