@@ -3303,7 +3303,6 @@ class ServiceHardware extends ServiceBase {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         connectProtocol: protocol,
-        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
   }
