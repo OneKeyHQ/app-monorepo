@@ -222,7 +222,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect
+        showChartTypeSelect={!compactMobileLayout}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
