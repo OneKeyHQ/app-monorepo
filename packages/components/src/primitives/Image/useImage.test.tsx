@@ -56,6 +56,9 @@ const mockDeleteCachedImagePath = jest.mocked(
 );
 const mockGetCachedImagePath = jest.mocked(cacheModule.getCachedImagePath);
 const mockGetCachedImageRef = jest.mocked(cacheModule.getCachedImageRef);
+const mockRefreshCachedImagePath = jest.mocked(
+  cacheModule.refreshCachedImagePath,
+);
 const mockReleaseCachedImageRef = jest.mocked(
   cacheModule.releaseCachedImageRef,
 );
@@ -104,6 +107,8 @@ describe('useImage', () => {
     mockDeleteCachedImagePath.mockReset();
     mockGetCachedImagePath.mockReset();
     mockGetCachedImageRef.mockReset();
+    mockRefreshCachedImagePath.mockReset();
+    mockRefreshCachedImagePath.mockResolvedValue(undefined);
     mockReleaseCachedImageRef.mockReset();
     mockRetainCachedImageRef.mockReset();
   });
@@ -201,6 +206,44 @@ describe('useImage', () => {
     });
   });
 
+  it('bypasses URI-only caches for request-specific sources', () => {
+    const cachedImage = createImageRef();
+    const initialSource: ImageSource = {
+      uri: 'https://example.com/a.png',
+    };
+    mockGetCachedImageRef.mockReturnValue(cachedImage.imageRef);
+    mockLoadAsync.mockImplementation(
+      () => new Promise<ImageRef>(() => undefined),
+    );
+    const { result, rerender } = renderHook(
+      ({ source }: { source: ImageSource }) => useImage(source),
+      {
+        initialProps: { source: initialSource },
+      },
+    );
+
+    expect(result.current.image).toBe(cachedImage.imageRef);
+    expect(mockLoadAsync).not.toHaveBeenCalled();
+
+    rerender({
+      source: {
+        headers: { Authorization: 'Bearer token' },
+        uri: 'https://example.com/a.png',
+      },
+    });
+    expect(result.current.image).toBeNull();
+    expect(mockLoadAsync).toHaveBeenCalledTimes(1);
+
+    rerender({
+      source: {
+        cacheKey: 'account-specific-avatar',
+        uri: 'https://example.com/a.png',
+      },
+    });
+    expect(result.current.image).toBeNull();
+    expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+  });
+
   it('releases a stale result without committing it', async () => {
     const firstLoad = createDeferred<ImageRef>();
     const secondLoad = createDeferred<ImageRef>();
@@ -220,6 +263,34 @@ describe('useImage', () => {
     rerender({ source: { uri: 'https://example.com/b.png' } });
     await resolveImage(firstLoad, staleImage.imageRef);
 
+    expect(staleImage.release).toHaveBeenCalledTimes(1);
+    expect(result.current.image).not.toBe(staleImage.imageRef);
+
+    await resolveImage(secondLoad, currentImage.imageRef);
+    expect(result.current.image).toBe(currentImage.imageRef);
+  });
+
+  it('starts a new request when a dependency changes during loading', async () => {
+    const firstLoad = createDeferred<ImageRef>();
+    const secondLoad = createDeferred<ImageRef>();
+    mockLoadAsync
+      .mockReturnValueOnce(firstLoad.promise)
+      .mockReturnValueOnce(secondLoad.promise);
+    const staleImage = createImageRef();
+    const currentImage = createImageRef();
+
+    const { result, rerender } = renderHook(
+      ({ dependency }: { dependency: number }) =>
+        useImage({ uri: 'https://example.com/a.png' }, {}, [dependency]),
+      {
+        initialProps: { dependency: 0 },
+      },
+    );
+
+    rerender({ dependency: 1 });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+
+    await resolveImage(firstLoad, staleImage.imageRef);
     expect(staleImage.release).toHaveBeenCalledTimes(1);
     expect(result.current.image).not.toBe(staleImage.imageRef);
 
@@ -288,5 +359,58 @@ describe('useImage', () => {
 
     await resolveImage(retryLoad, retryImage.imageRef);
     expect(result.current.image).toBe(retryImage.imageRef);
+  });
+
+  it('scopes retry cache bypass to the current source generation', async () => {
+    const sourceA = { uri: 'https://example.com/a.png' };
+    const sourceB = { uri: 'https://example.com/b.png' };
+    const retryLoad = createDeferred<ImageRef>();
+    const retryImage = createImageRef();
+    const cachedPaths = new Map<string, string>([
+      [sourceA.uri, 'file:///cache/a.png'],
+      [sourceB.uri, 'file:///cache/b.png'],
+    ]);
+    mockGetCachedImagePath.mockImplementation((uri) =>
+      uri ? cachedPaths.get(uri) : undefined,
+    );
+    mockDeleteCachedImagePath.mockImplementation((uri) => {
+      if (uri) {
+        cachedPaths.delete(uri);
+      }
+    });
+    mockRefreshCachedImagePath.mockImplementation(async (uri) => {
+      if (uri === sourceA.uri) {
+        const refreshedPath = 'file:///cache/a-refreshed.png';
+        cachedPaths.set(uri, refreshedPath);
+        return refreshedPath;
+      }
+      return undefined;
+    });
+    mockLoadAsync.mockReturnValueOnce(retryLoad.promise);
+
+    const { result, rerender } = renderHook(
+      ({ source }: { source: ImageSource }) => useImage(source),
+      {
+        initialProps: { source: sourceA },
+      },
+    );
+
+    expect(result.current.image).toEqual({ uri: 'file:///cache/a.png' });
+    act(() => {
+      result.current.reFetchImage();
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(1);
+
+    await resolveImage(retryLoad, retryImage.imageRef);
+    expect(result.current.image).toBe(retryImage.imageRef);
+
+    rerender({ source: sourceB });
+    expect(result.current.image).toEqual({ uri: 'file:///cache/b.png' });
+
+    rerender({ source: sourceA });
+    expect(result.current.image).toEqual({
+      uri: 'file:///cache/a-refreshed.png',
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(1);
   });
 });

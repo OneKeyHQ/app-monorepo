@@ -36,6 +36,7 @@ interface IUseImageOptions extends ImageLoadOptions {
 type IImageLoadRequest = {
   committed: boolean;
   consumerCount: number;
+  generation: IImageLoadGeneration;
   imageRef?: ImageRef;
   promise: Promise<ImageRef>;
   released: boolean;
@@ -45,15 +46,32 @@ type IImageLoadRequest = {
 };
 
 type ICommittedImage = {
+  generation: IImageSourceGeneration;
   imageRef: ImageRef;
   request: IImageLoadRequest;
-  source: ImageSource;
 };
 
 type IReloadRequest = {
-  source: ImageSource;
+  generation: IImageSourceGeneration;
   token: number;
 };
+
+type IImageSourceGeneration = {
+  source: ImageSource | null;
+};
+
+type IImageLoadGeneration = {
+  dependencies: DependencyList;
+  sourceGeneration: IImageSourceGeneration;
+};
+
+function areDependenciesEqual(left: DependencyList, right: DependencyList) {
+  return (
+    left === right ||
+    (left.length === right.length &&
+      left.every((dependency, index) => Object.is(dependency, right[index])))
+  );
+}
 
 function areImageHeadersEqual(
   left?: Record<string, string>,
@@ -135,18 +153,45 @@ export function useImage(
     null,
   );
   const resolvedSourceCandidate = resolveSource(source);
-  const resolvedSourceRef = useRef(resolvedSourceCandidate);
+  const sourceGenerationRef = useRef<IImageSourceGeneration>({
+    source: resolvedSourceCandidate,
+  });
   if (
-    !areImageSourcesEqual(resolvedSourceRef.current, resolvedSourceCandidate)
+    !areImageSourcesEqual(
+      sourceGenerationRef.current.source,
+      resolvedSourceCandidate,
+    )
   ) {
-    resolvedSourceRef.current = resolvedSourceCandidate;
+    sourceGenerationRef.current = {
+      source: resolvedSourceCandidate,
+    };
   }
-  const resolvedSource = resolvedSourceRef.current;
+  const sourceGeneration = sourceGenerationRef.current;
+  const resolvedSource = sourceGeneration.source;
+  const loadGenerationRef = useRef<IImageLoadGeneration>({
+    dependencies,
+    sourceGeneration,
+  });
+  if (
+    loadGenerationRef.current.sourceGeneration !== sourceGeneration ||
+    !areDependenciesEqual(loadGenerationRef.current.dependencies, dependencies)
+  ) {
+    loadGenerationRef.current = {
+      dependencies,
+      sourceGeneration,
+    };
+  }
+  const loadGeneration = loadGenerationRef.current;
   const reloadToken =
-    reloadRequest?.source === resolvedSource ? reloadRequest.token : 0;
+    reloadRequest?.generation === sourceGeneration ? reloadRequest.token : 0;
   const shouldBypassCache = reloadToken > 0;
+  const usesRequestSpecificCache = Boolean(
+    resolvedSource?.headers || resolvedSource?.cacheKey,
+  );
   const image =
-    committedImage?.source === resolvedSource ? committedImage.imageRef : null;
+    committedImage?.generation === sourceGeneration
+      ? committedImage.imageRef
+      : null;
   const cachedImageRef = useMemo(() => {
     if (shouldBypassCache) {
       return null;
@@ -154,12 +199,15 @@ export function useImage(
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return null;
     }
+    if (usesRequestSpecificCache) {
+      return null;
+    }
     if (platformEnv.isNativeAndroid) {
       return null;
     }
     const imageUri = resolvedSource?.uri;
     return getCachedImageRef(imageUri) ?? null;
-  }, [resolvedSource?.uri, shouldBypassCache]);
+  }, [resolvedSource?.uri, shouldBypassCache, usesRequestSpecificCache]);
 
   const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
     if (shouldBypassCache) {
@@ -169,6 +217,9 @@ export function useImage(
       return {
         uri: resolvedSource.uri,
       };
+    }
+    if (usesRequestSpecificCache) {
+      return null;
     }
     if (cachedImageRef) {
       return cachedImageRef;
@@ -184,7 +235,12 @@ export function useImage(
       };
     }
     return null;
-  }, [cachedImageRef, resolvedSource?.uri, shouldBypassCache]);
+  }, [
+    cachedImageRef,
+    resolvedSource?.uri,
+    shouldBypassCache,
+    usesRequestSpecificCache,
+  ]);
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,
   // instead of the captured ones (especially important for callbacks that may change in subsequent renders).
@@ -192,7 +248,8 @@ export function useImage(
   optionsRef.current = options;
 
   const reFetchImage = useCallback(() => {
-    const currentSource = resolvedSourceRef.current;
+    const currentGeneration = sourceGenerationRef.current;
+    const currentSource = currentGeneration.source;
     if (!currentSource) {
       return;
     }
@@ -200,8 +257,8 @@ export function useImage(
       deleteCachedImagePath(currentSource.uri);
     }
     setReloadRequest((current) => ({
-      source: currentSource,
-      token: current?.source === currentSource ? current.token + 1 : 1,
+      generation: currentGeneration,
+      token: current?.generation === currentGeneration ? current.token + 1 : 1,
     }));
   }, []);
 
@@ -272,13 +329,14 @@ export function useImage(
     let request = inFlightRequestRef.current;
     if (
       !request ||
-      request.source !== requestSource ||
+      request.generation !== loadGeneration ||
       request.reloadToken !== reloadToken ||
       request.settled
     ) {
       const createdRequest: IImageLoadRequest = {
         committed: false,
         consumerCount: 0,
+        generation: loadGeneration,
         promise: Image.loadAsync(requestSource, optionsRef.current),
         released: false,
         reloadToken,
@@ -308,9 +366,9 @@ export function useImage(
         }
         optionsRef.current.onSuccess?.(remoteImage);
         setCommittedImage({
+          generation: sourceGeneration,
           imageRef: remoteImage,
           request: activeRequest,
-          source: requestSource,
         });
         if (requestSource.uri) {
           void refreshCachedImagePath(requestSource.uri);
@@ -343,7 +401,7 @@ export function useImage(
       releaseUncommittedRequestImage(activeRequest);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedImage, reloadToken, resolvedSource, ...dependencies]);
+  }, [cachedImage, loadGeneration, reloadToken]);
 
   return useMemo(() => {
     return {
