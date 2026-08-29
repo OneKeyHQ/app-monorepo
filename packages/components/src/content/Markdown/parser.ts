@@ -68,6 +68,51 @@ interface IParsedLink {
 
 const escapedPunctuation = new Set('\\`*{}[]()#+-.!_>~|'.split(''));
 
+const MAX_MARKDOWN_DEPTH = 32;
+
+const namedEntities: Record<string, string> = {
+  amp: '&',
+  apos: "'",
+  bull: '•',
+  cent: '¢',
+  copy: '©',
+  darr: '↓',
+  deg: '°',
+  divide: '÷',
+  emsp: '\u2003',
+  euro: '€',
+  ge: '≥',
+  gt: '>',
+  harr: '↔',
+  hellip: '…',
+  laquo: '«',
+  larr: '←',
+  ldquo: '“',
+  le: '≤',
+  lsquo: '‘',
+  lt: '<',
+  mdash: '—',
+  middot: '·',
+  nbsp: '\u00A0',
+  ndash: '–',
+  ne: '≠',
+  para: '¶',
+  plusmn: '±',
+  pound: '£',
+  quot: '"',
+  raquo: '»',
+  rarr: '→',
+  rdquo: '”',
+  reg: '®',
+  rsquo: '’',
+  sect: '§',
+  thinsp: '\u2009',
+  times: '×',
+  trade: '™',
+  uarr: '↑',
+  yen: '¥',
+};
+
 function createNode(
   type: IMarkdownNodeType,
   options: Partial<Omit<IMarkdownNode, 'type'>> = {},
@@ -90,15 +135,6 @@ function unescapeMarkdown(value: string) {
 }
 
 function decodeEntity(entity: string) {
-  const namedEntities: Record<string, string> = {
-    amp: '&',
-    apos: "'",
-    gt: '>',
-    lt: '<',
-    nbsp: '\u00A0',
-    quot: '"',
-  };
-
   if (entity.startsWith('#x') || entity.startsWith('#X')) {
     const value = Number.parseInt(entity.slice(2), 16);
     return Number.isInteger(value) && value >= 0 && value <= 1_114_111
@@ -113,12 +149,12 @@ function decodeEntity(entity: string) {
       : `&${entity};`;
   }
 
-  return namedEntities[entity] ?? `&${entity};`;
+  return namedEntities[entity.toLowerCase()] ?? `&${entity};`;
 }
 
 function formatText(value: string) {
   return value
-    .replace(/&(#(?:x[\da-f]+|\d+)|amp|apos|gt|lt|nbsp|quot);/gi, (_, entity) =>
+    .replace(/&(#(?:x[\da-f]+|\d+)|[a-z][a-z\d]+);/gi, (_, entity) =>
       decodeEntity(String(entity)),
     )
     .replace(/\(c\)/gi, '©')
@@ -243,6 +279,7 @@ function parseLink(
   start: number,
   references: ReadonlyMap<string, ILinkDefinition>,
   isImage: boolean,
+  depth: number,
 ): IParsedLink | undefined {
   const openingBracket = start + (isImage ? 1 : 0);
   const closingBracket = findClosingBracket(source, openingBracket);
@@ -300,7 +337,7 @@ function parseLink(
         title: definition.title,
       },
       // eslint-disable-next-line @typescript-eslint/no-use-before-define -- Inline links can recursively contain inline Markdown.
-      children: parseInline(label, references),
+      children: parseInline(label, references, depth),
       markup: '[]',
     }),
   };
@@ -351,10 +388,58 @@ function getEmphasisAt(source: string, index: number) {
   return emphasisMarkers.find(({ marker }) => source.startsWith(marker, index));
 }
 
+function isAsciiWordCharacter(character: string | undefined) {
+  return Boolean(character && /[A-Za-z0-9]/.test(character));
+}
+
+function canOpenEmphasis(source: string, index: number, marker: string) {
+  if (!marker.includes('_')) {
+    return true;
+  }
+  const previous = source[index - 1];
+  const next = source[index + marker.length];
+  return (
+    Boolean(next && !/\s/.test(next)) &&
+    !(isAsciiWordCharacter(previous) && isAsciiWordCharacter(next))
+  );
+}
+
+function canCloseEmphasis(source: string, index: number, marker: string) {
+  if (!marker.includes('_')) {
+    return true;
+  }
+  const previous = source[index - 1];
+  const next = source[index + marker.length];
+  return (
+    Boolean(previous && !/\s/.test(previous)) &&
+    !(isAsciiWordCharacter(previous) && isAsciiWordCharacter(next))
+  );
+}
+
+function findClosingEmphasis(source: string, marker: string, from: number) {
+  let cursor = from;
+  while (cursor < source.length) {
+    const closingIndex = findUnescaped(source, marker, cursor);
+    if (closingIndex < 0) {
+      return -1;
+    }
+    if (canCloseEmphasis(source, closingIndex, marker)) {
+      return closingIndex;
+    }
+    cursor = closingIndex + marker.length;
+  }
+  return -1;
+}
+
 export function parseInline(
   source: string,
   references: ReadonlyMap<string, ILinkDefinition> = new Map(),
+  depth = 0,
 ) {
+  if (depth >= MAX_MARKDOWN_DEPTH) {
+    return [createNode('text', { content: formatText(source) })];
+  }
+
   const nodes: IMarkdownNode[] = [];
   let buffer = '';
   let index = 0;
@@ -417,7 +502,7 @@ export function parseInline(
     }
 
     if (character === '!' && source[index + 1] === '[') {
-      const image = parseLink(source, index, references, true);
+      const image = parseLink(source, index, references, true, depth + 1);
       if (image) {
         flushText();
         nodes.push(image.node);
@@ -427,7 +512,7 @@ export function parseInline(
     }
 
     if (character === '[') {
-      const link = parseLink(source, index, references, false);
+      const link = parseLink(source, index, references, false, depth + 1);
       if (link) {
         flushText();
         nodes.push(link.node);
@@ -461,14 +546,19 @@ export function parseInline(
     }
 
     const emphasis = getEmphasisAt(source, index);
-    if (emphasis) {
+    if (emphasis && canOpenEmphasis(source, index, emphasis.marker)) {
       const contentStart = index + emphasis.marker.length;
-      const closingIndex = findUnescaped(source, emphasis.marker, contentStart);
+      const closingIndex = findClosingEmphasis(
+        source,
+        emphasis.marker,
+        contentStart,
+      );
       if (closingIndex > contentStart) {
         flushText();
         let children = parseInline(
           source.slice(contentStart, closingIndex),
           references,
+          depth + 1,
         );
         if (emphasis.marker.length === 3) {
           children = [
@@ -638,17 +728,34 @@ function isBlockStart(lines: string[], index: number) {
   );
 }
 
+function isParagraphInterrupt(lines: string[], index: number) {
+  const line = lines[index];
+  const listItem = matchListItem(line);
+  const listCanInterrupt = Boolean(
+    listItem && (!listItem.ordered || listItem.start === 1),
+  );
+  return (
+    /^ {0,3}#{1,6}(?:[ \t]+|$)/.test(line) ||
+    /^ {0,3}>/.test(line) ||
+    listCanInterrupt ||
+    isFence(line) ||
+    isHorizontalRule(line) ||
+    isTableStart(lines, index)
+  );
+}
+
 function parseTable(
   lines: string[],
   index: number,
   references: ReadonlyMap<string, ILinkDefinition>,
+  depth: number,
 ) {
   const headers = splitTableRow(lines[index]);
   const alignments = getTableAlignments(lines[index + 1]) ?? [];
   const headerCells = headers.map((cell, cellIndex) =>
     createNode('th', {
       attributes: { align: alignments[cellIndex] },
-      children: parseInline(cell, references),
+      children: parseInline(cell, references, depth + 1),
     }),
   );
   const header = createNode('thead', {
@@ -668,7 +775,11 @@ function parseTable(
         children: headers.map((_, cellIndex) =>
           createNode('td', {
             attributes: { align: alignments[cellIndex] },
-            children: parseInline(cells[cellIndex] ?? '', references),
+            children: parseInline(
+              cells[cellIndex] ?? '',
+              references,
+              depth + 1,
+            ),
           }),
         ),
       }),
@@ -689,6 +800,7 @@ function parseList(
   index: number,
   references: ReadonlyMap<string, ILinkDefinition>,
   firstItem: IListMatch,
+  depth: number,
 ) {
   const items: IMarkdownNode[] = [];
   let cursor = index;
@@ -697,7 +809,8 @@ function parseList(
     if (
       !item ||
       item.indent !== firstItem.indent ||
-      item.ordered !== firstItem.ordered
+      item.ordered !== firstItem.ordered ||
+      item.delimiter !== firstItem.delimiter
     ) {
       break;
     }
@@ -711,7 +824,8 @@ function parseList(
       if (
         nextItem &&
         nextItem.indent === firstItem.indent &&
-        nextItem.ordered === firstItem.ordered
+        nextItem.ordered === firstItem.ordered &&
+        nextItem.delimiter === firstItem.delimiter
       ) {
         break;
       }
@@ -743,7 +857,7 @@ function parseList(
     items.push(
       createNode('list_item', {
         // eslint-disable-next-line @typescript-eslint/no-use-before-define -- Nested list items recursively contain block Markdown.
-        children: parseBlocks(itemLines, references),
+        children: parseBlocks(itemLines, references, depth + 1),
         markup: item.delimiter,
       }),
     );
@@ -763,7 +877,20 @@ function parseList(
 function parseBlocks(
   lines: string[],
   references: ReadonlyMap<string, ILinkDefinition>,
+  depth = 0,
 ) {
+  if (depth >= MAX_MARKDOWN_DEPTH) {
+    const content = lines.join('\n');
+    return content.trim()
+      ? [
+          createNode('paragraph', {
+            children: parseInline(content, references, depth),
+            content,
+          }),
+        ]
+      : [];
+  }
+
   const nodes: IMarkdownNode[] = [];
   let index = 0;
 
@@ -821,7 +948,7 @@ function parseBlocks(
       const content = (headingMatch[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '');
       nodes.push(
         createNode(`heading${level}` as IMarkdownNodeType, {
-          children: parseInline(content, references),
+          children: parseInline(content, references, depth + 1),
           markup: headingMatch[1],
         }),
       );
@@ -837,7 +964,7 @@ function parseBlocks(
       const markup = lines[index + 1].trim();
       nodes.push(
         createNode(markup.startsWith('=') ? 'heading1' : 'heading2', {
-          children: parseInline(line.trim(), references),
+          children: parseInline(line.trim(), references, depth + 1),
           markup,
         }),
       );
@@ -856,15 +983,22 @@ function parseBlocks(
       let cursor = index;
       while (cursor < lines.length) {
         const quoteMatch = lines[cursor].match(/^ {0,3}> ?(.*)$/);
-        if (!quoteMatch) {
+        if (quoteMatch) {
+          quoteLines.push(quoteMatch[1]);
+          cursor += 1;
+        } else if (
+          lines[cursor].trim() &&
+          !isParagraphInterrupt(lines, cursor)
+        ) {
+          quoteLines.push(lines[cursor]);
+          cursor += 1;
+        } else {
           break;
         }
-        quoteLines.push(quoteMatch[1]);
-        cursor += 1;
       }
       nodes.push(
         createNode('blockquote', {
-          children: parseBlocks(quoteLines, references),
+          children: parseBlocks(quoteLines, references, depth + 1),
           markup: '>',
         }),
       );
@@ -874,14 +1008,14 @@ function parseBlocks(
 
     const listItem = matchListItem(line);
     if (listItem) {
-      const list = parseList(lines, index, references, listItem);
+      const list = parseList(lines, index, references, listItem, depth);
       nodes.push(list.node);
       index = list.nextIndex;
       continue;
     }
 
     if (isTableStart(lines, index)) {
-      const table = parseTable(lines, index, references);
+      const table = parseTable(lines, index, references, depth);
       nodes.push(table.node);
       index = table.nextIndex;
       continue;
@@ -890,7 +1024,7 @@ function parseBlocks(
     const paragraphLines = [line];
     let cursor = index + 1;
     while (cursor < lines.length && lines[cursor].trim()) {
-      if (isBlockStart(lines, cursor)) {
+      if (isParagraphInterrupt(lines, cursor)) {
         break;
       }
       paragraphLines.push(lines[cursor]);
@@ -899,7 +1033,7 @@ function parseBlocks(
     const content = paragraphLines.join('\n');
     nodes.push(
       createNode('paragraph', {
-        children: parseInline(content, references),
+        children: parseInline(content, references, depth + 1),
         content,
       }),
     );
@@ -911,12 +1045,35 @@ function parseBlocks(
 
 function extractReferences(lines: string[]) {
   const references = new Map<string, ILinkDefinition>();
-  const contentLines = lines.map((line) => {
+  const contentLines: string[] = [];
+  let openFence = '';
+
+  lines.forEach((line) => {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (openFence) {
+      contentLines.push(line);
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === openFence[0] &&
+        fenceMatch[1].length >= openFence.length &&
+        /^ {0,3}(`+|~+)\s*$/.test(line)
+      ) {
+        openFence = '';
+      }
+      return;
+    }
+    if (fenceMatch) {
+      openFence = fenceMatch[1];
+      contentLines.push(line);
+      return;
+    }
+
     const match = line.match(
       /^ {0,3}\[([^\]]+)\]:\s*(<[^>]+>|\S+)(?:\s+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?\s*$/,
     );
     if (!match) {
-      return line;
+      contentLines.push(line);
+      return;
     }
     const rawHref = match[2];
     references.set(normalizeReference(match[1]), {
@@ -925,7 +1082,7 @@ function extractReferences(lines: string[]) {
       ),
       title: match[3] ?? match[4] ?? match[5],
     });
-    return '';
+    contentLines.push('');
   });
   return { contentLines, references };
 }

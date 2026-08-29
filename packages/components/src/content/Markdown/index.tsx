@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Image } from 'react-native';
+import { Image, Pressable } from 'react-native';
 
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -10,6 +10,7 @@ import { SizableText } from '../../primitives/SizeableText';
 import { Stack, XStack, YStack } from '../../primitives/Stack';
 
 import { parseMarkdown } from './parser';
+import { getSafeMarkdownHref, getSafeMarkdownImageUri } from './urlUtils';
 
 import type { IMarkdownNode } from './parser';
 import type { ISizableTextProps } from '../../primitives';
@@ -32,23 +33,8 @@ type IRenderBlockNode = (
   key: string,
 ) => ReactNode;
 
-function getImageUri(src: string | undefined) {
-  const normalizedSource = src?.trim();
-  if (!normalizedSource) {
-    return undefined;
-  }
-  if (
-    /^(?:https?:\/\/|data:image\/(?:png|gif|jpeg);base64,)/i.test(
-      normalizedSource,
-    )
-  ) {
-    return normalizedSource;
-  }
-  return `https://${normalizedSource}`;
-}
-
 function MarkdownImage({ alt, src }: { alt?: string; src?: string }) {
-  const uri = getImageUri(src);
+  const uri = getSafeMarkdownImageUri(src);
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
   const imageSource = useMemo(() => ({ uri: uri ?? '' }), [uri]);
   const imageStyle = useMemo(
@@ -59,13 +45,15 @@ function MarkdownImage({ alt, src }: { alt?: string; src?: string }) {
   useEffect(() => {
     let active = true;
     if (uri) {
-      void Image.getSize(uri)
-        .then(({ height, width }) => {
+      Image.getSize(
+        uri,
+        (width, height) => {
           if (active && height > 0 && width > 0) {
             setAspectRatio(width / height);
           }
-        })
-        .catch(() => undefined);
+        },
+        () => undefined,
+      );
     }
     return () => {
       active = false;
@@ -94,13 +82,14 @@ function MarkdownLink({
   children: ReactNode;
   href: string | undefined;
 }) {
+  const safeHref = useMemo(() => getSafeMarkdownHref(href), [href]);
   const handlePress = useCallback(() => {
-    if (href) {
-      openUrlExternal(href);
+    if (safeHref) {
+      openUrlExternal(safeHref);
     }
-  }, [href]);
+  }, [safeHref]);
 
-  if (!href) {
+  if (!safeHref) {
     return children;
   }
 
@@ -114,6 +103,27 @@ function MarkdownLink({
       {children}
     </SizableText>
   );
+}
+
+function MarkdownMediaLink({
+  children,
+  href,
+}: {
+  children: ReactNode;
+  href: string | undefined;
+}) {
+  const safeHref = useMemo(() => getSafeMarkdownHref(href), [href]);
+  const handlePress = useCallback(() => {
+    if (safeHref) {
+      openUrlExternal(safeHref);
+    }
+  }, [safeHref]);
+
+  if (!safeHref) {
+    return children;
+  }
+
+  return <Pressable onPress={handlePress}>{children}</Pressable>;
 }
 
 function renderInlineNode(node: IMarkdownNode, key: string): ReactNode {
@@ -166,13 +176,7 @@ function renderInlineNode(node: IMarkdownNode, key: string): ReactNode {
         </MarkdownLink>
       );
     case 'image':
-      return (
-        <MarkdownImage
-          key={key}
-          alt={node.attributes.alt}
-          src={node.attributes.src}
-        />
-      );
+      return node.attributes.alt ?? '';
     default:
       if (children.length > 0) {
         return <Fragment key={key}>{children}</Fragment>;
@@ -187,6 +191,110 @@ function renderInlineNodes(nodes: IMarkdownNode[], keyPrefix: string) {
   );
 }
 
+function hasInlineImage(node: IMarkdownNode): boolean {
+  return (
+    node.type === 'image' ||
+    node.children.some((child) => hasInlineImage(child))
+  );
+}
+
+function renderMediaNode(
+  node: IMarkdownNode,
+  key: string,
+  bodyTextSize: IBodyTextSize,
+): ReactNode {
+  if (node.type === 'image') {
+    return (
+      <MarkdownImage
+        key={key}
+        alt={node.attributes.alt}
+        src={node.attributes.src}
+      />
+    );
+  }
+
+  const children = node.children.map((child, index) => {
+    const childKey = `${key}-media-${index}`;
+    if (hasInlineImage(child)) {
+      return renderMediaNode(child, childKey, bodyTextSize);
+    }
+    return (
+      <SizableText key={childKey} color="$text" size={bodyTextSize}>
+        {renderInlineNode(child, childKey)}
+      </SizableText>
+    );
+  });
+
+  if (node.type === 'link') {
+    return (
+      <MarkdownMediaLink key={key} href={node.attributes.href}>
+        {children}
+      </MarkdownMediaLink>
+    );
+  }
+
+  return <YStack key={key}>{children}</YStack>;
+}
+
+function renderInlineContent(
+  nodes: IMarkdownNode[],
+  keyPrefix: string,
+  size: IBodyTextSize,
+  fontWeight?: ISizableTextProps['fontWeight'],
+  textAlign?: ISizableTextProps['textAlign'],
+) {
+  if (!nodes.some((node) => hasInlineImage(node))) {
+    return (
+      <SizableText
+        color="$text"
+        fontWeight={fontWeight}
+        size={size}
+        textAlign={textAlign}
+      >
+        {renderInlineNodes(nodes, keyPrefix)}
+      </SizableText>
+    );
+  }
+
+  const segments: Array<{
+    containsImage: boolean;
+    nodes: IMarkdownNode[];
+  }> = [];
+  nodes.forEach((node) => {
+    const containsImage = hasInlineImage(node);
+    const lastSegment = segments[segments.length - 1];
+    if (lastSegment?.containsImage === containsImage) {
+      lastSegment.nodes.push(node);
+    } else {
+      segments.push({ containsImage, nodes: [node] });
+    }
+  });
+
+  return (
+    <YStack>
+      {segments.map((segment, segmentIndex) => {
+        const segmentKey = `${keyPrefix}-segment-${segmentIndex}`;
+        if (segment.containsImage) {
+          return segment.nodes.map((node, nodeIndex) =>
+            renderMediaNode(node, `${segmentKey}-${nodeIndex}`, size),
+          );
+        }
+        return (
+          <SizableText
+            key={segmentKey}
+            color="$text"
+            fontWeight={fontWeight}
+            size={size}
+            textAlign={textAlign}
+          >
+            {renderInlineNodes(segment.nodes, segmentKey)}
+          </SizableText>
+        );
+      })}
+    </YStack>
+  );
+}
+
 function renderHeading(node: IMarkdownNode, key: string) {
   const config = headingConfigs[node.type as keyof typeof headingConfigs];
   return (
@@ -195,9 +303,7 @@ function renderHeading(node: IMarkdownNode, key: string) {
       mt={'mt' in config ? config.mt : undefined}
       pt={'pt' in config ? config.pt : undefined}
     >
-      <SizableText color="$text" size={config.size}>
-        {renderInlineNodes(node.children, key)}
-      </SizableText>
+      {renderInlineContent(node.children, key, config.size)}
     </Stack>
   );
 }
@@ -212,9 +318,9 @@ function renderListItemChildren(
     const key = `${keyPrefix}-content-${index}`;
     if (node.type === 'paragraph') {
       return (
-        <SizableText key={key} color="$text" size={bodyTextSize}>
-          {renderInlineNodes(node.children, key)}
-        </SizableText>
+        <Fragment key={key}>
+          {renderInlineContent(node.children, key, bodyTextSize)}
+        </Fragment>
       );
     }
     return renderBlock(node, bodyTextSize, key);
@@ -285,14 +391,13 @@ function renderTableCell(
 ) {
   return (
     <Stack key={key} flex={1} p="$2">
-      <SizableText
-        color="$text"
-        fontWeight={isHeader ? '600' : undefined}
-        size={bodyTextSize}
-        textAlign={node.attributes.align}
-      >
-        {renderInlineNodes(node.children, key)}
-      </SizableText>
+      {renderInlineContent(
+        node.children,
+        key,
+        bodyTextSize,
+        isHeader ? '600' : undefined,
+        node.attributes.align,
+      )}
     </Stack>
   );
 }
@@ -348,19 +453,10 @@ function renderBlockNode(
 
   switch (node.type) {
     case 'paragraph':
-      if (node.children.length === 1 && node.children[0].type === 'image') {
-        return (
-          <MarkdownImage
-            key={key}
-            alt={node.children[0].attributes.alt}
-            src={node.children[0].attributes.src}
-          />
-        );
-      }
       return (
-        <SizableText key={key} color="$text" my="$2.5" size={bodyTextSize}>
-          {renderInlineNodes(node.children, key)}
-        </SizableText>
+        <YStack key={key} my="$2.5">
+          {renderInlineContent(node.children, key, bodyTextSize)}
+        </YStack>
       );
     case 'bullet_list':
     case 'ordered_list':

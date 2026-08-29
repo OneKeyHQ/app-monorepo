@@ -90,11 +90,13 @@ const value = 1;
   });
 
   it('handles escapes, entities, typographic replacements, and hard breaks', () => {
-    const nodes = parseInline('Escaped \\*text\\* &amp; (c)...  \nnext');
+    const nodes = parseInline(
+      'Escaped \\*text\\* &amp; &mdash; &euro; (c)...  \nnext',
+    );
 
     expect(nodes).toHaveLength(3);
     expect(nodes[0]).toMatchObject({
-      content: 'Escaped *text* & ©…',
+      content: 'Escaped *text* & — € ©…',
       type: 'text',
     });
     expect(nodes[1].type).toBe('hardbreak');
@@ -108,5 +110,80 @@ const value = 1;
       'bullet_list',
       'paragraph',
     ]);
+  });
+
+  it('preserves underscores inside identifiers', () => {
+    const nodes = parseInline('account_id_value and _italic_ and __bold__');
+
+    expect(nodes.map((node) => node.type)).toEqual([
+      'text',
+      'em',
+      'text',
+      'strong',
+    ]);
+    expect(nodes[0].content).toBe('account_id_value and ');
+  });
+
+  it('preserves reference-like lines inside code blocks', () => {
+    const nodes = parseMarkdown(`\`\`\`
+[config]: literal fenced value
+\`\`\`
+
+    [config]: literal indented value
+
+[Config][config]
+
+[config]: https://onekey.so`);
+
+    expect(nodes.map((node) => node.type)).toEqual([
+      'fence',
+      'code_block',
+      'paragraph',
+    ]);
+    expect(nodes[0].content).toBe('[config]: literal fenced value');
+    expect(nodes[1].content.trimEnd()).toBe('[config]: literal indented value');
+    expect(nodes[2].children[0].attributes.href).toBe('https://onekey.so');
+  });
+
+  it('separates ordered lists when their delimiters change', () => {
+    const nodes = parseMarkdown('1. First\n2) Second');
+
+    expect(nodes.map((node) => node.type)).toEqual([
+      'ordered_list',
+      'ordered_list',
+    ]);
+    expect(nodes[0].attributes.start).toBe(1);
+    expect(nodes[1].attributes.start).toBe(2);
+  });
+
+  it('keeps lazy quote and non-interrupting paragraph continuations', () => {
+    const quoteNodes = parseMarkdown('> First line\ncontinued line\n\nOutside');
+    const paragraphNodes = parseMarkdown(
+      'Summary\n    indented continuation\n2. numbered continuation',
+    );
+
+    expect(quoteNodes.map((node) => node.type)).toEqual([
+      'blockquote',
+      'paragraph',
+    ]);
+    expect(quoteNodes[0].children[0].content).toBe(
+      'First line\ncontinued line',
+    );
+    expect(paragraphNodes).toHaveLength(1);
+    expect(paragraphNodes[0].type).toBe('paragraph');
+  });
+
+  it('limits recursive block parsing depth', () => {
+    const nodes = parseMarkdown(`${'> '.repeat(40)}Deep content`);
+    let depth = 0;
+    let node = nodes[0];
+
+    while (node?.type === 'blockquote') {
+      depth += 1;
+      [node] = node.children;
+    }
+
+    expect(depth).toBe(32);
+    expect(node.type).toBe('paragraph');
   });
 });
