@@ -1,3 +1,5 @@
+/* cspell:ignore blurhash thumbhash */
+
 import {
   type DependencyList,
   useCallback,
@@ -31,6 +33,71 @@ interface IUseImageOptions extends ImageLoadOptions {
   onSuccess?: (image: ImageRef) => void;
 }
 
+type IImageLoadRequest = {
+  committed: boolean;
+  consumerCount: number;
+  identity: string;
+  imageRef?: ImageRef;
+  promise: Promise<ImageRef>;
+  released: boolean;
+  reloadToken: number;
+  settled: boolean;
+};
+
+type ICommittedImage = {
+  identity: string;
+  imageRef: ImageRef;
+  request: IImageLoadRequest;
+};
+
+type IReloadRequest = {
+  identity: string;
+  token: number;
+};
+
+function getImageSourceIdentity(source: ImageSource | null) {
+  if (!source) {
+    return '';
+  }
+  const headers = source.headers
+    ? Object.entries(source.headers).toSorted(([left], [right]) =>
+        left.localeCompare(right),
+      )
+    : null;
+  return JSON.stringify([
+    source.uri ?? null,
+    headers,
+    source.width ?? null,
+    source.height ?? null,
+    source.blurhash ?? null,
+    source.thumbhash ?? null,
+    source.cacheKey ?? null,
+    source.webMaxViewportWidth ?? null,
+    source.isAnimated ?? null,
+  ]);
+}
+
+function releaseImageRef(imageRef: ImageRef) {
+  try {
+    imageRef.release();
+  } catch {
+    // The native object may already have been released during teardown.
+  }
+}
+
+function releaseUncommittedRequestImage(request: IImageLoadRequest) {
+  if (
+    request.consumerCount <= 0 &&
+    request.settled &&
+    request.imageRef &&
+    !request.committed &&
+    !request.released
+  ) {
+    request.released = true;
+    releaseImageRef(request.imageRef);
+  }
+}
+
 export function useImage(
   source: ImageSource | string | number | undefined,
   options: IUseImageOptions = {},
@@ -39,12 +106,36 @@ export function useImage(
   image: ImageRef | ImageSource | null;
   reFetchImage: () => void;
 } {
-  const [image, setImage] = useState<ImageRef | null>(null);
-  const [failedSource, setFailedSource] = useState<ImageSource | null>(null);
-  const resolvedSource = useMemo(() => {
-    return resolveSource(source);
-  }, [source]);
+  const [committedImage, setCommittedImage] = useState<ICommittedImage | null>(
+    null,
+  );
+  const [reloadRequest, setReloadRequest] = useState<IReloadRequest | null>(
+    null,
+  );
+  const resolvedSourceCandidate = resolveSource(source);
+  const sourceIdentity = getImageSourceIdentity(resolvedSourceCandidate);
+  const resolvedSourceRef = useRef({
+    identity: sourceIdentity,
+    source: resolvedSourceCandidate,
+  });
+  if (resolvedSourceRef.current.identity !== sourceIdentity) {
+    resolvedSourceRef.current = {
+      identity: sourceIdentity,
+      source: resolvedSourceCandidate,
+    };
+  }
+  const resolvedSource = resolvedSourceRef.current.source;
+  const reloadToken =
+    reloadRequest?.identity === sourceIdentity ? reloadRequest.token : 0;
+  const shouldBypassCache = reloadToken > 0;
+  const image =
+    committedImage?.identity === sourceIdentity
+      ? committedImage.imageRef
+      : null;
   const cachedImageRef = useMemo(() => {
+    if (shouldBypassCache) {
+      return null;
+    }
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return null;
     }
@@ -53,9 +144,12 @@ export function useImage(
     }
     const imageUri = resolvedSource?.uri;
     return getCachedImageRef(imageUri) ?? null;
-  }, [resolvedSource?.uri]);
+  }, [resolvedSource?.uri, shouldBypassCache]);
 
   const cachedImage: ImageRef | ImageSource | null = useMemo(() => {
+    if (shouldBypassCache) {
+      return null;
+    }
     if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
       return {
         uri: resolvedSource.uri,
@@ -75,70 +169,27 @@ export function useImage(
       };
     }
     return null;
-  }, [cachedImageRef, resolvedSource?.uri]);
-
+  }, [cachedImageRef, resolvedSource?.uri, shouldBypassCache]);
   // Since options are not dependencies of the below effect, we store them in a ref.
   // Once the image is asynchronously loaded, the effect will use the most recent options,
   // instead of the captured ones (especially important for callbacks that may change in subsequent renders).
   const optionsRef = useRef<IUseImageOptions>(options);
   optionsRef.current = options;
 
-  // We're doing some asynchronous action in this effect, so we should keep track
-  // if the effect was already cleaned up. In that case, the async action shouldn't change the state.
-  const isEffectValid = useRef(true);
-
-  const loadImage = useCallback(() => {
-    if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
-      setImage(null);
-      setFailedSource(null);
-      return;
-    }
-    setFailedSource(null);
-    Image.loadAsync(resolvedSource, optionsRef.current)
-      .then((remoteImage) => {
-        if (isEffectValid.current) {
-          setFailedSource(null);
-          optionsRef.current.onSuccess?.(remoteImage);
-          setImage(remoteImage);
-          const uri = resolvedSource?.uri;
-          if (uri) {
-            void refreshCachedImagePath(uri);
-          }
-        }
-      })
-      .catch((error) => {
-        if (!isEffectValid.current) {
-          return;
-        }
-        setImage(null);
-        setFailedSource(resolvedSource);
-        if (optionsRef.current.onError) {
-          optionsRef.current.onError(error, loadImage);
-        } else {
-          // Print unhandled errors to the console.
-          console.error(
-            `Loading an image from '${
-              resolvedSource?.uri || ''
-            }' failed, use 'onError' option to handle errors and suppress this message`,
-          );
-          console.error(error);
-        }
-      });
-  }, [resolvedSource]);
-
-  const fetchImageTimesLimit = useRef(0);
   const reFetchImage = useCallback(() => {
-    if (!resolvedSource) {
+    const currentSource = resolvedSourceRef.current.source;
+    if (!currentSource) {
       return;
     }
-    if (resolvedSource?.uri) {
-      deleteCachedImagePath(resolvedSource?.uri);
+    if (currentSource.uri) {
+      deleteCachedImagePath(currentSource.uri);
     }
-    if (isEffectValid.current) {
-      fetchImageTimesLimit.current += 1;
-      loadImage();
-    }
-  }, [loadImage, resolvedSource]);
+    const currentIdentity = resolvedSourceRef.current.identity;
+    setReloadRequest((current) => ({
+      identity: currentIdentity,
+      token: current?.identity === currentIdentity ? current.token + 1 : 1,
+    }));
+  }, []);
 
   // Track the current ImageRef for proper lifecycle management.
   // Using a ref avoids the closure capture bug where the effect cleanup
@@ -146,16 +197,18 @@ export function useImage(
   const currentImageRef = useRef<ImageRef | null>(null);
 
   // Release the previous ImageRef after the replacement has been committed.
-  // Releasing it from the effect cleanup is too early because React may still
-  // inspect the previous ImageRef while committing the new image props.
   useEffect(() => {
     const previousImage = currentImageRef.current;
-    currentImageRef.current = image;
-
-    if (previousImage && previousImage !== image) {
-      previousImage.release();
+    const nextImage = committedImage?.imageRef ?? null;
+    if (committedImage) {
+      committedImage.request.committed = true;
     }
-  }, [image]);
+    currentImageRef.current = nextImage;
+
+    if (previousImage && previousImage !== nextImage) {
+      releaseImageRef(previousImage);
+    }
+  }, [committedImage]);
 
   // Defer the final release until the current commit's cleanups have finished.
   useEffect(() => {
@@ -167,7 +220,7 @@ export function useImage(
         queueMicrotask(() => {
           // Strict Mode may remount the effect before this microtask runs.
           if (currentImageRef.current !== imageToRelease) {
-            imageToRelease.release();
+            releaseImageRef(imageToRelease);
           }
         });
       }
@@ -185,31 +238,104 @@ export function useImage(
     };
   }, [cachedImageRef, resolvedSource?.uri]);
 
+  const latestRequestIdRef = useRef(0);
+  const inFlightRequestRef = useRef<IImageLoadRequest | undefined>(undefined);
   useEffect(() => {
-    isEffectValid.current = true;
-    if (cachedImage) {
+    latestRequestIdRef.current += 1;
+    const requestId = latestRequestIdRef.current;
+    const requestSource = resolvedSource;
+    const requestSourceIdentity = sourceIdentity;
+
+    if (!requestSource || isEmptyResolvedSource(requestSource)) {
+      setCommittedImage(null);
       return;
     }
-    loadImage();
+    if (cachedImage) {
+      setCommittedImage(null);
+      return;
+    }
+
+    let cancelled = false;
+    let request = inFlightRequestRef.current;
+    if (
+      !request ||
+      request.identity !== requestSourceIdentity ||
+      request.reloadToken !== reloadToken ||
+      request.settled
+    ) {
+      const createdRequest: IImageLoadRequest = {
+        committed: false,
+        consumerCount: 0,
+        identity: requestSourceIdentity,
+        promise: Image.loadAsync(requestSource, optionsRef.current),
+        released: false,
+        reloadToken,
+        settled: false,
+      };
+      request = createdRequest;
+      inFlightRequestRef.current = createdRequest;
+      void createdRequest.promise.then(
+        (remoteImage) => {
+          createdRequest.imageRef = remoteImage;
+          createdRequest.settled = true;
+          releaseUncommittedRequestImage(createdRequest);
+        },
+        () => {
+          createdRequest.settled = true;
+        },
+      );
+    }
+    const activeRequest = request;
+    activeRequest.consumerCount += 1;
+
+    void activeRequest.promise
+      .then((remoteImage) => {
+        if (cancelled || requestId !== latestRequestIdRef.current) {
+          return;
+        }
+        optionsRef.current.onSuccess?.(remoteImage);
+        setCommittedImage({
+          identity: requestSourceIdentity,
+          imageRef: remoteImage,
+          request: activeRequest,
+        });
+        if (requestSource.uri) {
+          void refreshCachedImagePath(requestSource.uri);
+        }
+      })
+      .catch((error) => {
+        if (cancelled || requestId !== latestRequestIdRef.current) {
+          return;
+        }
+        setCommittedImage(null);
+        if (optionsRef.current.onError) {
+          optionsRef.current.onError(error, reFetchImage);
+        } else {
+          // Print unhandled errors to the console.
+          console.error(
+            `Loading an image from '${
+              requestSource.uri || ''
+            }' failed, use 'onError' option to handle errors and suppress this message`,
+          );
+          console.error(error);
+        }
+      });
+
     return () => {
-      isEffectValid.current = false;
+      cancelled = true;
+      activeRequest.consumerCount = Math.max(
+        0,
+        activeRequest.consumerCount - 1,
+      );
+      releaseUncommittedRequestImage(activeRequest);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedSource?.uri, cachedImage, loadImage, ...dependencies]);
+  }, [cachedImage, reloadToken, sourceIdentity, ...dependencies]);
 
   return useMemo(() => {
-    const sourceWhileLoading =
-      failedSource !== resolvedSource &&
-      resolvedSource &&
-      !isEmptyResolvedSource(resolvedSource)
-        ? resolvedSource
-        : null;
     return {
-      image:
-        fetchImageTimesLimit.current > 0 && image
-          ? image
-          : cachedImage || image || sourceWhileLoading,
+      image: cachedImage || image,
       reFetchImage,
     };
-  }, [cachedImage, failedSource, image, reFetchImage, resolvedSource]);
+  }, [cachedImage, image, reFetchImage]);
 }
