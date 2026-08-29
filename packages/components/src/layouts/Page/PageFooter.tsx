@@ -15,6 +15,8 @@ import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
+const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
+
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
   const style = useMemo(() => ({ height: bottom }), [bottom]);
@@ -24,7 +26,11 @@ const Placeholder = () => {
 const PageFooterContainer = ({
   children,
   disableKeyboardAnimation,
-}: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
+  hasDefaultFooterActions,
+}: PropsWithChildren & {
+  disableKeyboardAnimation: boolean;
+  hasDefaultFooterActions: boolean;
+}) => {
   const safeBottomHeight = useSafeAreaBottom();
   const tabBarHeight = useTabBarHeight();
   const { height: keyboardHeight, progress: keyboardProgress } =
@@ -36,11 +42,16 @@ const PageFooterContainer = ({
       Math.abs(keyboardHeight.value) - tabBarHeight,
       0,
     );
+    const adjustedSafeBottomHeight =
+      hasDefaultFooterActions &&
+      safeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        ? safeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        : safeBottomHeight;
 
     return {
-      paddingBottom: platformEnv.isNativeAndroid
-        ? keyboardOffset + safeBottomHeight * (1 - keyboardProgress.value)
-        : keyboardOffset,
+      paddingBottom:
+        keyboardOffset +
+        adjustedSafeBottomHeight * (1 - keyboardProgress.value),
     };
   });
 
@@ -95,6 +106,7 @@ export function BasicPageFooter() {
   return footerProps ? (
     <PageFooterContainer
       disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
+      hasDefaultFooterActions={!footerProps.children}
     >
       {footerProps.children ? (
         footerProps.children
