@@ -58,6 +58,9 @@ function listDirectoryFiles(repoRoot, relativeDirectory) {
 function getFingerprintInputPaths(repoRoot = REPO_ROOT) {
   return [
     ...devVendorConfig.fingerprintFiles,
+    ...devVendorConfig.fingerprintOptionalFiles.filter((relativePath) =>
+      fs.existsSync(path.resolve(repoRoot, relativePath)),
+    ),
     ...devVendorConfig.fingerprintDirectories.flatMap((relativeDirectory) =>
       listDirectoryFiles(repoRoot, relativeDirectory),
     ),
@@ -81,8 +84,14 @@ function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
   return hash.digest('hex');
 }
 
-function computeConfigInputsDigest(repoRoot = REPO_ROOT) {
-  return hashRepoFiles(getFingerprintInputPaths(repoRoot), repoRoot);
+function computeConfigInputsDigest(repoRoot = REPO_ROOT, env = process.env) {
+  return sha256(
+    JSON.stringify({
+      files: hashRepoFiles(getFingerprintInputPaths(repoRoot), repoRoot),
+      transformationEnvironment:
+        devVendorConfig.getTransformationEnvironment(env),
+    }),
+  );
 }
 
 function computeModulesDigest(modules, repoRoot = REPO_ROOT) {

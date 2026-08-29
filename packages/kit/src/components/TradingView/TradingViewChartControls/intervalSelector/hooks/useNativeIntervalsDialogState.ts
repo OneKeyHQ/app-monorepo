@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  MAX_PREFERRED_INTERVAL_COUNT,
   getOptionsByValues,
   isIntervalOptionDisabled,
   reconcileIntervalValues,
@@ -46,9 +47,9 @@ export function useNativeIntervalsDialogState({
     () => getOptionsByValues(preferredValues, options),
     [options, preferredValues],
   );
-  const shouldLimitPreferredIntervals =
-    typeof maxPreferredIntervalCount === 'number';
-  const editTitle = shouldLimitPreferredIntervals
+  const supportsLocalizedSelectionCounter =
+    maxPreferredIntervalCount === MAX_PREFERRED_INTERVAL_COUNT;
+  const editTitle = supportsLocalizedSelectionCounter
     ? intl.formatMessage(
         { id: ETranslations.market_select_preferred_intervals },
         { number: draftPreferredValues.length },

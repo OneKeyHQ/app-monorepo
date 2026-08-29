@@ -7,6 +7,14 @@
  */
 const path = require('path');
 
+// This must run before Metro dependencies load the Babel/environment config.
+// oxlint-disable-next-line import-js/order
+const devVendorConfig = require('./dev-vendor.config');
+
+if (process.env.ONEKEY_DEV_VENDOR === 'true') {
+  devVendorConfig.applyTransformationEnvironment(process.env);
+}
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');

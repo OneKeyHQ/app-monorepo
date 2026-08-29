@@ -87,6 +87,28 @@ describe('build-dev-vendor', () => {
     expect(build).not.toHaveBeenCalled();
   });
 
+  it('reports the legacy Metro fallback when prepare cannot rebuild', async () => {
+    const error = new TypeError('module registry is stale');
+    const check = jest.fn(() => {
+      throw error;
+    });
+    const build = jest.fn().mockRejectedValue(error);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      await expect(preparePlatform('ios', { build, check })).rejects.toBe(
+        error,
+      );
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('yarn app:native-bundle:legacy'),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('collects every main/background graph and prepend path', () => {
     const observed = new Set();
     addObservedModulePaths(

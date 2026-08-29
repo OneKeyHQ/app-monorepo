@@ -1,3 +1,4 @@
+internal import CryptoKit
 internal import Expo
 import React
 import ReactAppDependencyProvider
@@ -333,8 +334,6 @@ class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
-  private let devBackgroundHMRFingerprintDefaultsKey =
-    "onekey_dev_vendor_background_hmr_fingerprint"
   private var initialBundleKind: InitialBundleKind = .none
   private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
 
@@ -388,32 +387,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return nil
   }
 
-  private func isDevBackgroundHMREnabled(fingerprint: String) -> Bool {
+  private func isDevBackgroundHMREnabled(fingerprint _: String) -> Bool {
 #if DEBUG
-    let defaults = UserDefaults.standard
-    if let explicitValue = explicitDevBackgroundHMRValue() {
-      if explicitValue {
-        if defaults.string(forKey: devBackgroundHMRFingerprintDefaultsKey) != fingerprint {
-          defaults.set(fingerprint, forKey: devBackgroundHMRFingerprintDefaultsKey)
-          defaults.synchronize()
-        }
-      } else if defaults.object(forKey: devBackgroundHMRFingerprintDefaultsKey) != nil {
-        defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)
-        defaults.synchronize()
-      }
-      return explicitValue
-    }
-
-    let persistedFingerprint = defaults.string(
-      forKey: devBackgroundHMRFingerprintDefaultsKey
-    )
-    if persistedFingerprint == fingerprint {
-      return true
-    }
-    if persistedFingerprint != nil {
-      defaults.removeObject(forKey: devBackgroundHMRFingerprintDefaultsKey)
-      defaults.synchronize()
-    }
+    return explicitDevBackgroundHMRValue() ?? false
 #endif
     return false
   }
@@ -440,7 +416,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       guard
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
         (manifest["schemaVersion"] as? NSNumber)?.intValue == 2,
-        (manifest["strategyVersion"] as? NSNumber)?.intValue == 1,
+        (manifest["strategyVersion"] as? NSNumber)?.intValue == 2,
         manifest["platform"] as? String == "ios",
         let fingerprint = manifest["fingerprint"] as? String,
         fingerprint.range(
@@ -451,11 +427,16 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         let bytecode = common["bytecode"] as? [String: Any],
         bytecode["file"] as? String == "common.hbc",
         let expectedBytes = bytecode["bytes"] as? NSNumber,
-        let actualBytes = try FileManager.default.attributesOfItem(
-          atPath: commonURL.path
-        )[.size] as? NSNumber,
+        let expectedSha256 = bytecode["sha256"] as? String,
+        expectedSha256.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        let commonData = try? Data(contentsOf: commonURL),
         expectedBytes.int64Value > 0,
-        actualBytes.int64Value == expectedBytes.int64Value
+        commonData.count == expectedBytes.intValue,
+        SHA256.hash(data: commonData).map({ String(format: "%02x", $0) }).joined()
+          == expectedSha256
       else {
         fatalError("Dev-vendor iOS manifest or common HBC is invalid")
       }

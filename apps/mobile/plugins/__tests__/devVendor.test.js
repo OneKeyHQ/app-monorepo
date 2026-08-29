@@ -143,7 +143,7 @@ function loadResolveAssetSource(scriptURL) {
   return { resolveAssetSource: module.exports.default, runtimeGlobal };
 }
 
-function loadIOSMainBundlePhaseScript() {
+function loadIOSMainBundlePhase() {
   const project = xcode.project(
     path.join(
       repoRoot,
@@ -163,7 +163,10 @@ function loadIOSMainBundlePhaseScript() {
   if (!phase) {
     throw new Error('Unable to find the iOS main bundle build phase');
   }
-  return JSON.parse(phase.shellScript);
+  return {
+    script: JSON.parse(phase.shellScript),
+    shellPath: phase.shellPath,
+  };
 }
 
 function createMetroModule(modulePath) {
@@ -386,6 +389,33 @@ describe('devVendor', () => {
     expect(
       computeFingerprint({ ...fields, modulesDigest: 'changed' }),
     ).not.toBe(computeFingerprint(fields));
+  });
+
+  it('invalidates config digests for transitive transformer and environment changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const developmentEnv = { ...process.env, NODE_ENV: 'development' };
+    try {
+      const baseline = computeConfigInputsDigest(
+        fixture.repoRoot,
+        developmentEnv,
+      );
+      expect(
+        computeConfigInputsDigest(fixture.repoRoot, {
+          ...developmentEnv,
+          NODE_ENV: 'production',
+        }),
+      ).not.toBe(baseline);
+
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, 'development/platformEnvDefine.js'),
+        '\n// changed transformer input\n',
+      );
+      expect(
+        computeConfigInputsDigest(fixture.repoRoot, developmentEnv),
+      ).not.toBe(baseline);
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
   });
 
   it('uses code-point ordering for manifest module paths', () => {
@@ -768,7 +798,7 @@ describe('devVendor', () => {
   });
 
   it('quotes iOS bundle phase tool paths containing spaces', () => {
-    const script = loadIOSMainBundlePhaseScript();
+    const { script, shellPath } = loadIOSMainBundlePhase();
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey dev vendor xcode '),
     );
@@ -800,7 +830,7 @@ describe('devVendor', () => {
       );
 
       const runInvocation = (sentryDisabled) =>
-        spawnSync('/bin/bash', ['-c', script], {
+        spawnSync(shellPath, ['-c', script], {
           encoding: 'utf8',
           env: {
             ...process.env,

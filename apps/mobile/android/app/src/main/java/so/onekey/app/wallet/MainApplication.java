@@ -45,6 +45,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -98,6 +99,27 @@ public class MainApplication extends Application implements ReactApplication {
   private static final String DEV_VENDOR_COMMON_ASSET = DEV_VENDOR_ASSET_ROOT + "/common.hbc";
   private static final String DEV_VENDOR_MANIFEST_ASSET = DEV_VENDOR_ASSET_ROOT + "/manifest.json";
   private static final Pattern DEV_VENDOR_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+
+  @NonNull
+  private String sha256Asset(@NonNull String assetName) throws Exception {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] buffer = new byte[8192];
+    try (InputStream input = getAssets().open(assetName)) {
+      int count;
+      while ((count = input.read(buffer)) != -1) {
+        digest.update(buffer, 0, count);
+      }
+    }
+    char[] hex = new char[64];
+    char[] digits = "0123456789abcdef".toCharArray();
+    byte[] hash = digest.digest();
+    for (int index = 0; index < hash.length; index += 1) {
+      int value = hash[index] & 0xff;
+      hex[index * 2] = digits[value >>> 4];
+      hex[index * 2 + 1] = digits[value & 0x0f];
+    }
+    return new String(hex);
+  }
 
   private static final class DevVendorBundleInfo {
     private final String fingerprint;
@@ -165,7 +187,7 @@ public class MainApplication extends Application implements ReactApplication {
         if (manifest.optInt("schemaVersion", -1) != 2) {
           throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
         }
-        if (manifest.optInt("strategyVersion", -1) != 1) {
+        if (manifest.optInt("strategyVersion", -1) != 2) {
           throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
         }
         if (!"android".equals(manifest.optString("platform"))) {
@@ -180,10 +202,17 @@ public class MainApplication extends Application implements ReactApplication {
           throw new IllegalStateException("Dev-vendor manifest bytecode name is invalid");
         }
         long expectedBytes = bytecode.optLong("bytes", -1L);
+        String expectedSha256 = bytecode.optString("sha256");
+        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(expectedSha256).matches()) {
+          throw new IllegalStateException("Dev-vendor common.hbc sha256 is invalid");
+        }
         try (AssetFileDescriptor descriptor = getAssets().openFd(DEV_VENDOR_COMMON_ASSET)) {
           if (expectedBytes <= 0 || descriptor.getLength() != expectedBytes) {
             throw new IllegalStateException("Dev-vendor common.hbc size does not match manifest");
           }
+        }
+        if (!expectedSha256.equals(sha256Asset(DEV_VENDOR_COMMON_ASSET))) {
+          throw new IllegalStateException("Dev-vendor common.hbc sha256 does not match manifest");
         }
         devVendorBundleInfo = new DevVendorBundleInfo(fingerprint);
         OneKeyLog.info(
