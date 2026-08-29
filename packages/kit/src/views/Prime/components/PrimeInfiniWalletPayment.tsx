@@ -4071,16 +4071,13 @@ function PrimeInfiniWalletPaymentRoot({
                       expectedPaymentCacheIdentity,
                     },
                   ),
-                clearCompletedPaymentSession: async (
-                  expectedPaymentCacheIdentity,
-                ) => {
-                  await backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession(
+                clearCompletedPaymentSession: (expectedPaymentCacheIdentity) =>
+                  backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession(
                     {
                       onekeyUserId,
                       expectedPaymentCacheIdentity,
                     },
-                  );
-                },
+                  ),
                 persistRestoredSession: (nextRestoredSession) =>
                   backgroundApiProxy.simpleDb.prime.setInfiniPendingPaymentSession(
                     {

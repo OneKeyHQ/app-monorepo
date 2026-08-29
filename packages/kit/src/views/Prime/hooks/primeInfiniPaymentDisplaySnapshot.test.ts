@@ -31,6 +31,14 @@ describe('resolvePrimeInfiniPaymentAsset', () => {
         preferredNetworkId: 'sol--101',
       }),
     ).toBe(assets[2]);
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: 'unsupported-asset',
+        pendingAssetKey: 'bsc-usdt',
+        preferredNetworkId: 'sol--101',
+      }),
+    ).toBe(assets[2]);
   });
 
   it('uses the first supported asset on the preferred network', () => {

@@ -438,7 +438,11 @@ describe('getPrimeInfiniExternalCheckoutGuard', () => {
       isLoggedIn: true,
       hasPendingPayment: false,
       onekeyUserId: 'user-1',
-      pendingSubscriptionPeriod: 'P1M',
+      pendingSubscriptionPeriod: undefined,
+    });
+    expect(mockDiscardUnsentPaymentSession).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedPaymentCacheIdentity: { paymentId: 'payment-1' },
     });
     expect(mockLatchPendingPaymentProgress).not.toHaveBeenCalled();
   });

@@ -37,7 +37,13 @@ let mockManagementResolution:
   | {
       onekeyUserId: string;
       subscriptionSourceKey: string;
-      target: { type: 'infini' } | { type: 'external'; url: string };
+      target:
+        | { type: 'infini' }
+        | { type: 'external'; url: string }
+        | {
+            type: 'unavailable';
+            reason: 'channel-without-management-url';
+          };
     }
   | undefined;
 let mockIsManagementTargetLoading = false;
@@ -295,6 +301,41 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     });
   });
 
+  it('refreshes an available cached management target', async () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ channel: 'revenuecat' }],
+    };
+    mockUser.subscriptionManageUrl = 'https://example.com/cached-manage';
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+      },
+    });
+    const view = render(<PrimeUserInfoMoreButton />);
+
+    const resolution = {
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'unavailable',
+        reason: 'channel-without-management-url',
+      },
+    } as const;
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual(resolution);
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
+    mockManagementResolution = resolution;
+    view.rerender(<PrimeUserInfoMoreButton />);
+    expect(
+      screen.queryByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    ).toBeNull();
+  });
+
   it('restores a legacy Infini target when routing metadata is missing', async () => {
     mockUser.primeSubscription = { isActive: true };
     mockApiFetchPrimeUserInfo.mockResolvedValue({
@@ -342,6 +383,14 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
         },
       ],
     };
+    mockManagementResolution = {
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'external',
+        url: 'https://example.com/manage',
+      },
+    };
     render(<PrimeUserInfoMoreButton />);
 
     fireEvent.click(
@@ -360,6 +409,11 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     mockUser.primeSubscription = {
       isActive: true,
       subscriptions: [{ channel: 'infini' }],
+    };
+    mockManagementResolution = {
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: { type: 'infini' },
     };
     render(<PrimeUserInfoMoreButton />);
 

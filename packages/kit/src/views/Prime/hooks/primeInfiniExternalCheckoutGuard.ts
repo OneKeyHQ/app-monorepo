@@ -142,6 +142,30 @@ export async function getPrimeInfiniPaymentEntryGuard() {
       pendingSubscriptionPeriod: undefined,
     };
   }
+  const retireReplaceableSession = async () => {
+    const didRetire = await backgroundApiProxy.simpleDb.prime
+      .discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId,
+        expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
+      })
+      .catch((error) => {
+        logPrimeInfiniPaymentFlow({
+          stage: 'paymentSession',
+          status: 'failed',
+          checkoutType: 'internalWallet',
+          reason: 'entryGuardSessionRetirementFailed',
+          sendStarted: pendingPaymentSession.sendStarted,
+          error,
+        });
+        return false;
+      });
+    if (!didRetire) {
+      throw new OneKeyLocalError({
+        message: 'Infini payment session changed while it was being verified',
+        autoToast: false,
+      });
+    }
+  };
 
   let latestPayment: IPrimeInfiniPayment;
   try {
@@ -199,28 +223,7 @@ export async function getPrimeInfiniPaymentEntryGuard() {
           pendingPaymentSession.selectedSubscriptionPeriod,
       };
     }
-    const didRetireReplaceableSession = await backgroundApiProxy.simpleDb.prime
-      .discardUnsentInfiniPendingPaymentSession({
-        onekeyUserId,
-        expectedPaymentCacheIdentity: pendingPaymentSession.paymentCacheKey,
-      })
-      .catch((discardError) => {
-        logPrimeInfiniPaymentFlow({
-          stage: 'paymentSession',
-          status: 'failed',
-          checkoutType: 'internalWallet',
-          reason: 'entryGuardSessionRetirementFailed',
-          sendStarted: pendingPaymentSession.sendStarted,
-          error: discardError,
-        });
-        return false;
-      });
-    if (!didRetireReplaceableSession) {
-      throw new OneKeyLocalError({
-        message: 'Infini payment session changed while it was being verified',
-        autoToast: false,
-      });
-    }
+    await retireReplaceableSession();
     return {
       isLoggedIn: true,
       hasPendingPayment: false,
@@ -307,15 +310,21 @@ export async function getPrimeInfiniPaymentEntryGuard() {
         autoToast: false,
       });
     }
+    return {
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId,
+      // Resume the invoice already in flight, not a period selected later.
+      pendingSubscriptionPeriod:
+        pendingPaymentSession.selectedSubscriptionPeriod,
+    };
   }
 
+  await retireReplaceableSession();
   return {
     isLoggedIn: true,
-    hasPendingPayment,
+    hasPendingPayment: false,
     onekeyUserId,
-    // Resuming has to follow the invoice that is already in flight, not a
-    // period the user picked afterwards, otherwise the restore silently
-    // continues a monthly invoice for a yearly selection.
-    pendingSubscriptionPeriod: pendingPaymentSession.selectedSubscriptionPeriod,
+    pendingSubscriptionPeriod: undefined,
   };
 }

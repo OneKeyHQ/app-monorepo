@@ -14,10 +14,10 @@ export function resolvePrimeInfiniPaymentAsset<
   pendingAssetKey?: string;
   preferredNetworkId?: string;
 }): TAsset | undefined {
-  const pinnedAssetKey = selectedAssetKey || pendingAssetKey;
   const normalizedPreferredNetworkId = preferredNetworkId?.trim();
   return (
-    assets.find((asset) => asset.key === pinnedAssetKey) ??
+    assets.find((asset) => asset.key === selectedAssetKey) ??
+    assets.find((asset) => asset.key === pendingAssetKey) ??
     assets.find((asset) => asset.networkId === normalizedPreferredNetworkId) ??
     assets.find((asset) => asset.networkId === getNetworkIdsMap().eth) ??
     assets[0]

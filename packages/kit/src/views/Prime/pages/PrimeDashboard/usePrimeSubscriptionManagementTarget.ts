@@ -38,9 +38,7 @@ export function usePrimeSubscriptionManagementTarget({
     primeSubscription?.subscriptions,
     subscriptionManageUrl,
   ]);
-  const shouldResolve = Boolean(
-    isPrime && onekeyUserId && currentTarget.type === 'unavailable',
-  );
+  const shouldResolve = Boolean(isPrime && onekeyUserId);
   const shouldProbeLegacyInfini =
     isInfiniManageSupported &&
     currentTarget.type === 'unavailable' &&
@@ -90,14 +88,10 @@ export function usePrimeSubscriptionManagementTarget({
     },
   );
 
-  if (!isPrime || !onekeyUserId) {
+  if (!isPrime || !onekeyUserId || isLoading) {
     return undefined;
   }
-  if (currentTarget.type !== 'unavailable') {
-    return currentTarget;
-  }
   if (
-    isLoading ||
     !resolution ||
     resolution.onekeyUserId !== onekeyUserId ||
     resolution.subscriptionSourceKey !== subscriptionSourceKey ||
