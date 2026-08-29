@@ -184,7 +184,7 @@ export type IQueryCheckAddressArgs = {
   };
   ignoreSimilarAddressInAddressBook?: boolean;
   enableCheckSimilarAddressInAddressBook?: boolean;
-  // Required by badges on stag. Native tokens must send "". Do not omit.
+  // Undefined means no fungible-token context; native tokens use "".
   tokenAddress?: string;
 };
 

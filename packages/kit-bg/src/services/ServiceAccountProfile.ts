@@ -278,7 +278,7 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
           checkInteraction,
           xpub,
-          tokenAddress: tokenAddress ?? '',
+          ...(tokenAddress === undefined ? {} : { tokenAddress }),
         },
       });
       const {
@@ -329,8 +329,13 @@ class ServiceAccountProfile extends ServiceBase {
     checkInteractionStatus?: boolean;
     tokenAddress?: string;
   }): Promise<IAccountBadgeResult> {
-    const badgeTokenAddress = tokenAddress ?? '';
-    const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${badgeTokenAddress}:${checkInteractionStatus ? '1' : '0'}`;
+    const dedupKey = JSON.stringify([
+      networkId,
+      accountId,
+      toAddress.toLowerCase(),
+      tokenAddress,
+      Boolean(checkInteractionStatus),
+    ]);
 
     const pending = this._pendingBadgeRequests.get(dedupKey);
     if (pending) {
@@ -342,7 +347,7 @@ class ServiceAccountProfile extends ServiceBase {
       accountId,
       toAddress,
       checkInteractionStatus,
-      tokenAddress: badgeTokenAddress,
+      tokenAddress,
     })
       .then((r) => {
         this._pendingBadgeRequests.delete(dedupKey);
@@ -471,7 +476,8 @@ class ServiceAccountProfile extends ServiceBase {
     result.isCex = isCex;
     result.addressBadges = badges;
     result.similarAddress = similarAddress;
-    result.cexSupportedInfo = cexSupportedInfo;
+    result.cexSupportedInfo =
+      tokenAddress === undefined ? undefined : cexSupportedInfo;
   }
 
   private async verifyCannotSendToSelf({

@@ -150,6 +150,7 @@ function SendDataInputContainer() {
   const [tokenInfo, setTokenInfo] = useState(token);
   const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
     isNFT,
+    isNative: tokenInfo?.isNative,
     tokenAddress: tokenInfo?.address,
   });
 
@@ -357,7 +358,6 @@ function SendDataInputContainer() {
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
   const toSimilarAddress = toValue?.similarAddress;
-
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       if (
@@ -439,14 +439,13 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
-      const canProceed = await confirmCexDepositIfUnsupported({
-        intl,
-        isNFT,
-        networkId: currentAccount.networkId,
-        cexSupportedInfo: toVal?.cexSupportedInfo,
-        addressBadges: toVal?.addressBadges,
-        addressLabel: toVal?.addressLabel,
-      });
+      const { canProceed, hasAcknowledgedWarning } =
+        await confirmCexDepositIfUnsupported({
+          intl,
+          isNFT,
+          networkId: currentAccount.networkId,
+          cexSupportedInfo: toVal?.cexSupportedInfo,
+        });
       if (!canProceed) return;
 
       defaultLogger.transaction.send.addressInput({
@@ -616,6 +615,7 @@ function SendDataInputContainer() {
         amount: invoiceAmount || scannedAmount || sendAmount || undefined,
         isInvoiceAmountLocked,
         isAllNetworks,
+        hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
         onSuccess,
         onFail,
         onCancel,
@@ -1013,14 +1013,13 @@ function SendDataInputContainer() {
           queryResult.validAddress ||
           selectedAddress;
 
-        const canProceed = await confirmCexDepositIfUnsupported({
-          intl,
-          isNFT,
-          networkId: currentAccount.networkId,
-          cexSupportedInfo: queryResult.cexSupportedInfo,
-          addressBadges: queryResult.addressBadges,
-          addressLabel: queryResult.addressLabel,
-        });
+        const { canProceed, hasAcknowledgedWarning } =
+          await confirmCexDepositIfUnsupported({
+            intl,
+            isNFT,
+            networkId: currentAccount.networkId,
+            cexSupportedInfo: queryResult.cexSupportedInfo,
+          });
         if (!canProceed) return;
 
         defaultLogger.transaction.send.addressInput({
@@ -1093,6 +1092,7 @@ function SendDataInputContainer() {
           recipientNote,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
+          hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
           onSuccess,
           onFail,
           onCancel,

@@ -19,28 +19,23 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IAddressBadge,
-  IAddressValidateStatus,
-  ICexSupportedInfo,
-  IQueryCheckAddressArgs,
-} from '@onekeyhq/shared/types/address';
 import {
-  EAddressInteractionStatus,
+  type EAddressInteractionStatus,
   EInputAddressChangeType,
+  type IAddressBadge,
+  type IAddressValidateStatus,
+  type ICexSupportedInfo,
+  type IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
 import { AddressBadge } from '../AddressBadge';
@@ -49,7 +44,7 @@ import { WalletAvatarById } from '../WalletAvatar';
 
 import { AddressInputContext } from './AddressInputContext';
 import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
-import { useIsEnableTransferAllowList } from './hooks';
+import { AddressInputWarnings } from './AddressInputWarnings';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
@@ -125,8 +120,6 @@ export type IAddressInputValue = {
     translationId?: ETranslations;
   };
   similarAddress?: string;
-  addressLabel?: string;
-  addressBadges?: IAddressBadge[];
   cexSupportedInfo?: ICexSupportedInfo;
 };
 
@@ -308,99 +301,6 @@ export const createValidateAddressRule =
     return undefined;
   };
 
-function AddressInputWarnings({
-  queryResult,
-  networkId,
-}: {
-  queryResult: IAddressQueryResult;
-  networkId: string;
-}) {
-  const intl = useIntl();
-  const isEnableTransferAllowList = useIsEnableTransferAllowList();
-  const navigation = useAppNavigation();
-
-  // Interaction badges use semantic types (success/warning/critical),
-  // while label badges (OKX, CEX) use "default" or "info" type.
-  const interactionBadges = useMemo(
-    () =>
-      (queryResult?.addressBadges ?? []).filter(
-        (badge) => badge.type !== 'default' && badge.type !== 'info',
-      ),
-    [queryResult?.addressBadges],
-  );
-
-  const showAddToAddressBook = useMemo(() => {
-    // Don't show if already in address book or wallet
-    if (queryResult?.addressBookId || queryResult?.walletAccountId)
-      return false;
-    // Show for transferred addresses (add to address book guidance)
-    if (
-      queryResult?.addressInteractionStatus ===
-      EAddressInteractionStatus.INTERACTED
-    )
-      return true;
-    // Show for first-transfer addresses when allowlist is enabled
-    // (user needs to add to address book to send)
-    if (
-      isEnableTransferAllowList &&
-      queryResult?.addressInteractionStatus ===
-        EAddressInteractionStatus.NOT_INTERACTED
-    )
-      return true;
-    return false;
-  }, [
-    queryResult?.addressBookId,
-    queryResult?.walletAccountId,
-    queryResult?.addressInteractionStatus,
-    isEnableTransferAllowList,
-  ]);
-
-  const onAddToAddressBook = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AddressBookModal, {
-      screen: EModalAddressBookRoutes.EditItemModal,
-      params: {
-        address: queryResult?.input ?? '',
-        networkId,
-        isAllowListed: isEnableTransferAllowList,
-      },
-    });
-  }, [isEnableTransferAllowList, navigation, networkId, queryResult?.input]);
-
-  if (interactionBadges.length === 0 && !showAddToAddressBook) {
-    return null;
-  }
-
-  return (
-    <Stack pt="$1.5" gap="$2">
-      {interactionBadges.length > 0 || showAddToAddressBook ? (
-        <XStack gap="$2" alignItems="center" flexWrap="wrap">
-          {interactionBadges.map((badge) => (
-            <AddressBadge
-              key={badge.label}
-              title={badge.label}
-              badgeType={badge.type}
-              content={badge.tip}
-              icon={badge.icon}
-            />
-          ))}
-          {showAddToAddressBook ? (
-            <Button
-              testID="address-input-add-to-address-book-btn"
-              variant="tertiary"
-              size="small"
-              onPress={onAddToAddressBook}
-            >
-              {intl.formatMessage({
-                id: ETranslations.add_to_address_book__action,
-              })}
-            </Button>
-          ) : null}
-        </XStack>
-      ) : null}
-    </Stack>
-  );
-}
-
 export function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
@@ -428,7 +328,7 @@ export function AddressInput(props: IAddressInputProps) {
     ignoreSimilarAddressInAddressBook,
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
-    tokenAddress = '',
+    tokenAddress,
     ...rest
   } = props;
   const intl = useIntl();
@@ -456,9 +356,11 @@ export function AddressInput(props: IAddressInputProps) {
   >(undefined);
 
   const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
-  const prevTokenAddressRef = useRef(tokenAddress);
-  const tokenAddressRef = useRef(tokenAddress);
-  tokenAddressRef.current = tokenAddress;
+  const queryContextRef = useRef({ networkId, accountId, tokenAddress });
+  queryContextRef.current = { networkId, accountId, tokenAddress };
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const hasAppliedQueryContextRef = useRef(false);
 
   const setResolveAddress = useCallback((text: string) => {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
@@ -530,9 +432,12 @@ export function AddressInput(props: IAddressInputProps) {
         }
 
         const result = await queryAddressWithFallback(params);
+        const currentQueryContext = queryContextRef.current;
         if (
           result.input === textRef.current &&
-          (params.tokenAddress ?? '') === tokenAddressRef.current
+          params.networkId === currentQueryContext.networkId &&
+          params.accountId === currentQueryContext.accountId &&
+          params.tokenAddress === currentQueryContext.tokenAddress
         ) {
           setQueryResult(result);
         }
@@ -577,21 +482,20 @@ export function AddressInput(props: IAddressInputProps) {
   );
 
   useEffect(() => {
-    if (prevTokenAddressRef.current === tokenAddress) {
+    if (!hasAppliedQueryContextRef.current) {
+      hasAppliedQueryContextRef.current = true;
       return;
     }
-    prevTokenAddressRef.current = tokenAddress;
     if (!textRef.current) {
       return;
     }
-    // Drop stale badges/cexSupportedInfo so Next cannot proceed on the
-    // previous token while the new /badges request is in flight.
+    // Drop stale validation while the new account/network/token request runs.
     setQueryResult({});
-    onChange?.({
+    onChangeRef.current?.({
       raw: textRef.current,
       pending: true,
     });
-  }, [onChange, tokenAddress]);
+  }, [accountId, networkId, tokenAddress]);
 
   // Query address validation when text changes
   useEffect(() => {
@@ -614,28 +518,25 @@ export function AddressInput(props: IAddressInputProps) {
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
-    const badgeFields = {
+    const nextValue = {
+      raw: queryResult.input,
+      pending: false,
       isContract: queryResult.isContract,
       similarAddress: queryResult.similarAddress,
-      addressLabel: queryResult.addressLabel,
-      addressBadges: queryResult.addressBadges,
       cexSupportedInfo: queryResult.cexSupportedInfo,
     };
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
-        raw: queryResult.input,
+        ...nextValue,
         resolved: getAddressQueryResolvedAddress(queryResult),
-        pending: false,
-        ...badgeFields,
       });
     } else {
       const translationId = getAddressValidateTranslationId(
         queryResult.validStatus,
       );
       onChange?.({
-        raw: queryResult.input,
-        pending: false,
+        ...nextValue,
         validateError: {
           type: queryResult.validStatus,
           translationId,
@@ -643,7 +544,6 @@ export function AddressInput(props: IAddressInputProps) {
             ? intl.formatMessage({ id: translationId })
             : undefined,
         },
-        ...badgeFields,
       });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange]);

@@ -843,12 +843,14 @@ function SendAmountInputContainer() {
     onCancel,
     amount: prefillAmount,
     isInvoiceAmountLocked,
+    hasAcknowledgedCexDepositWarning,
   } = route.params;
 
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
   const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
     isNFT,
+    isNative: tokenInfo?.isNative,
     tokenAddress: tokenInfo?.address,
   });
 
@@ -2704,13 +2706,12 @@ function SendAmountInputContainer() {
       }
     }
 
-    const canProceed = await confirmCexDepositIfUnsupported({
+    const { canProceed } = await confirmCexDepositIfUnsupported({
       intl,
       isNFT,
       networkId,
       cexSupportedInfo: queryResult.cexSupportedInfo,
-      addressBadges: queryResult.addressBadges,
-      addressLabel: queryResult.addressLabel,
+      hasAcknowledgedWarning: hasAcknowledgedCexDepositWarning,
     });
     if (!canProceed) {
       return undefined;
@@ -2726,6 +2727,7 @@ function SendAmountInputContainer() {
     currentAccountId,
     enableAllowListValidation,
     getRecipientValidateMessage,
+    hasAcknowledgedCexDepositWarning,
     intl,
     isNFT,
     networkId,
