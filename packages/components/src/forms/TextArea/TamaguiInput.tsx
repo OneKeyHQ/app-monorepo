@@ -1,7 +1,5 @@
 import { useRef } from 'react';
 
-import { TextInput } from 'react-native';
-
 import {
   styled,
   useComposedRefs,
@@ -11,7 +9,11 @@ import {
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import TextInput from '../Input/TextInput';
+
 import { inputSizeVariant } from './sizeVariant';
+
+import type { TextInput as RNTextInput } from 'react-native';
 
 const isWeb = !platformEnv.isNative;
 
@@ -86,7 +88,7 @@ export const InputFrame = styled(
 
 // const x = <InputFrame selectionColor="" />
 
-export type IInput = TextInput;
+export type IInput = RNTextInput;
 
 export type IInputFrameProps = GetProps<typeof InputFrame>;
 
