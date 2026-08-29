@@ -27,14 +27,22 @@ const PageFooterContainer = ({
 }: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
   const safeBottomHeight = useSafeAreaBottom();
   const tabBarHeight = useTabBarHeight();
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
+  const { height: keyboardHeight, progress: keyboardProgress } =
+    useReanimatedKeyboardAnimation();
   const { gtMd } = useMedia();
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom:
-      Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0) +
-      safeBottomHeight,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const keyboardOffset = Math.max(
+      Math.abs(keyboardHeight.value) - tabBarHeight,
+      0,
+    );
+
+    return {
+      paddingBottom: platformEnv.isNativeAndroid
+        ? keyboardOffset + safeBottomHeight * (1 - keyboardProgress.value)
+        : keyboardOffset,
+    };
+  });
 
   return (
     <Animated.View
