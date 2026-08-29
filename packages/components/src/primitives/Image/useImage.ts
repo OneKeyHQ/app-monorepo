@@ -53,6 +53,7 @@ type ICommittedImage = {
 };
 
 type IReloadRequest = {
+  cacheKey?: string;
   generation: IImageSourceGeneration;
   token: number;
 };
@@ -124,6 +125,10 @@ function areImageSourcesEqual(
   );
 }
 
+function createPrivateImageCacheKey() {
+  return `onekey-private-image-${generateUUID()}`;
+}
+
 function createImageSourceGeneration(
   source: IResolvedImageSource | null,
 ): IImageSourceGeneration {
@@ -136,7 +141,7 @@ function createImageSourceGeneration(
       source?.headers && !source.cacheKey
         ? {
             ...source,
-            cacheKey: `onekey-private-image-${generateUUID()}`,
+            cacheKey: createPrivateImageCacheKey(),
           }
         : source,
   };
@@ -208,8 +213,10 @@ export function useImage(
     };
   }
   const loadGeneration = loadGenerationRef.current;
-  const reloadToken =
-    reloadRequest?.generation === sourceGeneration ? reloadRequest.token : 0;
+  const currentReloadRequest =
+    reloadRequest?.generation === sourceGeneration ? reloadRequest : null;
+  const reloadToken = currentReloadRequest?.token ?? 0;
+  const reloadCacheKey = currentReloadRequest?.cacheKey;
   const shouldBypassCache = reloadToken > 0;
   const usesRequestSpecificCache = Boolean(
     resolvedSource?.headers || resolvedSource?.cacheKey,
@@ -285,7 +292,12 @@ export function useImage(
     if (currentSource.uri) {
       deleteCachedImagePath(currentSource.uri);
     }
+    const cacheKey =
+      currentSource.headers || currentSource.cacheKey
+        ? createPrivateImageCacheKey()
+        : undefined;
     setReloadRequest((current) => ({
+      cacheKey,
       generation: currentGeneration,
       token: current?.generation === currentGeneration ? current.token + 1 : 1,
     }));
@@ -343,7 +355,13 @@ export function useImage(
   useEffect(() => {
     latestRequestIdRef.current += 1;
     const requestId = latestRequestIdRef.current;
-    const requestSource = sourceGeneration.requestSource;
+    const requestSource =
+      reloadCacheKey && sourceGeneration.requestSource
+        ? {
+            ...sourceGeneration.requestSource,
+            cacheKey: reloadCacheKey,
+          }
+        : sourceGeneration.requestSource;
 
     if (!requestSource || isEmptyResolvedSource(requestSource)) {
       setCommittedImage(null);
@@ -430,7 +448,7 @@ export function useImage(
       releaseUncommittedRequestImage(activeRequest);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedImage, loadGeneration, reloadToken]);
+  }, [cachedImage, loadGeneration, reloadCacheKey, reloadToken]);
 
   return useMemo(() => {
     return {

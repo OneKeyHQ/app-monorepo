@@ -342,6 +342,63 @@ describe('useImage', () => {
     expect(mockRefreshCachedImagePath).not.toHaveBeenCalled();
   });
 
+  it.each<[string, ImageSource]>([
+    [
+      'authenticated sources',
+      {
+        headers: { Authorization: 'Bearer token' },
+        uri: 'https://example.com/avatar.png',
+      },
+    ],
+    [
+      'custom cache keys',
+      {
+        cacheKey: 'account-specific-avatar',
+        uri: 'https://example.com/avatar.png',
+      },
+    ],
+  ])('uses a fresh stable native cache key when retrying %s', (_, source) => {
+    mockLoadAsync.mockImplementation(
+      () => new Promise<ImageRef>(() => undefined),
+    );
+    const { result, rerender } = renderHook(
+      ({ currentSource }: { currentSource: ImageSource }) =>
+        useImage(currentSource),
+      {
+        initialProps: { currentSource: source },
+      },
+    );
+    const initialRequestSource = mockLoadAsync.mock.calls[0][0] as ImageSource;
+
+    act(() => {
+      result.current.reFetchImage();
+    });
+
+    expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+    const firstRetrySource = mockLoadAsync.mock.calls[1][0] as ImageSource;
+    expect(firstRetrySource.cacheKey).toBeDefined();
+    expect(firstRetrySource.cacheKey).not.toBe(initialRequestSource.cacheKey);
+    expect(firstRetrySource.cacheKey).not.toContain('Bearer token');
+    const cacheKeyGenerationCount = mockGenerateUUID.mock.calls.length;
+
+    rerender({
+      currentSource: {
+        ...source,
+        headers: source.headers ? { ...source.headers } : undefined,
+      },
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+    expect(mockGenerateUUID).toHaveBeenCalledTimes(cacheKeyGenerationCount);
+
+    act(() => {
+      result.current.reFetchImage();
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(3);
+    expect((mockLoadAsync.mock.calls[2][0] as ImageSource).cacheKey).not.toBe(
+      firstRetrySource.cacheKey,
+    );
+  });
+
   it('releases a stale result without committing it', async () => {
     const firstLoad = createDeferred<ImageRef>();
     const secondLoad = createDeferred<ImageRef>();
