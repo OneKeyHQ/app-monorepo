@@ -1,3 +1,8 @@
+import {
+  useTheme as useTamaguiTheme,
+  useThemeName as useTamaguiThemeName,
+} from '@tamagui/web';
+
 import type {
   GestureResponderEvent,
   TextProps as RNTextProps,
@@ -46,9 +51,7 @@ export {
   View,
   getTokens,
   getTokenValue,
-  useTheme,
   useMedia,
-  useThemeName,
   useStyle,
   usePropsAndStyle,
   createStyledContext,
@@ -58,6 +61,19 @@ export {
   useProps,
   withStaticProperties,
 } from '@tamagui/web';
+
+export const useThemeName = useTamaguiThemeName;
+
+export function useTheme() {
+  const theme = useTamaguiTheme();
+
+  // Tamagui theme values do not always notify native `.val` consumers when
+  // the root theme changes. Subscribe to the theme name so native component
+  // props derived from raw colors are recalculated as well.
+  useTamaguiThemeName();
+
+  return theme;
+}
 
 export { Unspaced } from '@tamagui/spacer';
 
