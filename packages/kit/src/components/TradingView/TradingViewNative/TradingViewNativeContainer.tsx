@@ -12,6 +12,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
+import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
   TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
@@ -713,6 +714,8 @@ export const TradingViewNativeContainer = memo(
     const handleMobileFullscreenToggle = useCallback(() => {
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
+    const showChartLoadingMask =
+      points.length === 0 && dataState.status !== 'error';
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$transparent">
@@ -790,6 +793,11 @@ export const TradingViewNativeContainer = memo(
             testID={testID}
             viewportRequest={viewportRequest}
           />
+          {showChartLoadingMask ? (
+            <TradingViewChartLoadingMask
+              testID={testID ? `${testID}-loading` : undefined}
+            />
+          ) : null}
           {dataState.status === 'error' && points.length === 0 ? (
             <YStack
               position="absolute"

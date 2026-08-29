@@ -10,6 +10,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,
+  getTradingViewNativeSubIndicatorPaneStackLayout,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from './layout';
 import {
@@ -73,6 +74,20 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     expect(
       220 - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT - stackHeight,
     ).toBeGreaterThanOrEqual(96);
+  });
+
+  it('uses the supplied time-axis height as the pane stack boundary', () => {
+    expect(
+      getTradingViewNativeSubIndicatorPaneStackLayout({
+        height: 360,
+        paneCount: 1,
+        timeAxisHeight: 20,
+      }),
+    ).toEqual({
+      bottom: 340,
+      height: TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+      top: 284,
+    });
   });
 
   it('filters hidden panes and resolves pane hit testing', () => {
