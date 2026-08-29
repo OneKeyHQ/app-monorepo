@@ -4,6 +4,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeSubscriptionInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
+
 import {
   type IPrimeSubscriptionManagementTarget,
   getPrimeSubscriptionManagementTarget,
@@ -39,6 +41,10 @@ export function usePrimeSubscriptionManagementTarget({
   const shouldResolve = Boolean(
     isPrime && onekeyUserId && currentTarget.type === 'unavailable',
   );
+  const shouldProbeLegacyInfini =
+    isInfiniManageSupported &&
+    currentTarget.type === 'unavailable' &&
+    currentTarget.reason === 'missing-channel-and-management-url';
   const { result: resolution, isLoading } = usePromiseResult(
     async () => {
       if (!shouldResolve || !onekeyUserId) {
@@ -48,17 +54,35 @@ export function usePrimeSubscriptionManagementTarget({
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
           forceRefresh: true,
         });
-      const target = getPrimeSubscriptionManagementTarget({
+      let target = getPrimeSubscriptionManagementTarget({
         userInfo,
         isInfiniManageSupported,
       });
+      if (
+        shouldProbeLegacyInfini &&
+        target.type === 'unavailable' &&
+        target.reason === 'missing-channel-and-management-url'
+      ) {
+        const infiniSubscription =
+          await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
+            expectedOneKeyUserId: onekeyUserId,
+          });
+        if (isInfiniSubscriptionInPeriod(infiniSubscription)) {
+          target = { type: 'infini' };
+        }
+      }
       return {
         onekeyUserId,
         subscriptionSourceKey,
         target,
       };
     },
-    [onekeyUserId, shouldResolve, subscriptionSourceKey],
+    [
+      onekeyUserId,
+      shouldProbeLegacyInfini,
+      shouldResolve,
+      subscriptionSourceKey,
+    ],
     {
       watchLoading: true,
       undefinedResultIfError: true,

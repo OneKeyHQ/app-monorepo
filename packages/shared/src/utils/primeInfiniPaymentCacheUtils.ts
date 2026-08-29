@@ -410,8 +410,15 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
   const hasInfiniChannel = primeSubscription?.subscriptions?.some(
     (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
   );
+  const hasStatusOnlyActiveInfiniSubscription = Boolean(
+    !infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription?.status?.toLowerCase() === 'active',
+  );
   return Boolean(
-    primeSubscription?.isActive && (hasInfiniChannel || hasNewInfiniPeriod),
+    primeSubscription?.isActive &&
+    (hasInfiniChannel ||
+      hasNewInfiniPeriod ||
+      hasStatusOnlyActiveInfiniSubscription),
   );
 }
 

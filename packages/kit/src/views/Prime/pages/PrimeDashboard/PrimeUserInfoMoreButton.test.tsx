@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import type { IPrimeInfiniSubscription } from '@onekeyhq/shared/types/prime/primeTypes';
+
 import { PrimeTestIDs } from '../../testIDs';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
@@ -25,6 +27,10 @@ const mockApiFetchPrimeUserInfo = jest.fn<
     };
   }>,
   [{ forceRefresh: boolean }]
+>();
+const mockApiGetInfiniSubscription = jest.fn<
+  Promise<IPrimeInfiniSubscription | undefined>,
+  [{ expectedOneKeyUserId: string }]
 >();
 let mockPromiseResultMethod: (() => Promise<unknown>) | undefined;
 let mockManagementResolution:
@@ -151,6 +157,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     servicePrime: {
       apiFetchPrimeUserInfo: (params: { forceRefresh: boolean }) =>
         mockApiFetchPrimeUserInfo(params),
+      apiGetInfiniSubscription: (params: { expectedOneKeyUserId: string }) =>
+        mockApiGetInfiniSubscription(params),
     },
   },
 }));
@@ -285,6 +293,43 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
       forceRefresh: true,
     });
+  });
+
+  it('restores a legacy Infini target when routing metadata is missing', async () => {
+    mockUser.primeSubscription = { isActive: true };
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: { isActive: true },
+      },
+    });
+    mockApiGetInfiniSubscription.mockResolvedValue({
+      subscriptionId: 'legacy-infini',
+      status: 'active',
+      plan: 'monthly',
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: { type: 'infini' },
+    });
+    expect(mockApiGetInfiniSubscription).toHaveBeenCalledWith({
+      expectedOneKeyUserId: 'user-a',
+    });
+  });
+
+  it('does not probe legacy Infini when the current source is redemption', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: { isActive: true },
+      },
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await mockPromiseResultMethod?.();
+
+    expect(mockApiGetInfiniSubscription).not.toHaveBeenCalled();
   });
 
   it('opens a resolved current management URL', () => {

@@ -44,6 +44,11 @@ const buildInfiniSubscription = (currentPeriodEnd: number) => ({
   plan: 'monthly' as const,
   currentPeriodEnd,
 });
+const statusOnlyInfiniSubscription = {
+  subscriptionId: 'subscription-id',
+  status: 'active',
+  plan: 'monthly' as const,
+};
 
 describe('primeInfiniPaymentUtils', () => {
   it('builds an explicit non-EVM transfer intent from the displayed payment', () => {
@@ -645,6 +650,13 @@ describe('primeInfiniPaymentUtils', () => {
     ).toBe(true);
     expect(
       isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },
         primeSubscription: undefined,
         infiniSubscription: buildInfiniSubscription(3000),
@@ -692,6 +704,13 @@ describe('primeInfiniPaymentUtils', () => {
         },
         primeSubscription: { isActive: true, expiresAt: 5001 },
         infiniSubscription: buildInfiniSubscription(3001),
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline,
+        primeSubscription: { isActive: true, expiresAt: 5001 },
+        infiniSubscription: statusOnlyInfiniSubscription,
       }),
     ).toBe(false);
   });

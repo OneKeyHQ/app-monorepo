@@ -18,6 +18,9 @@ export type IPrimeSubscriptionManagementTarget =
     }
   | {
       type: 'unavailable';
+      reason:
+        | 'missing-channel-and-management-url'
+        | 'channel-without-management-url';
     };
 
 function getDeclaredSubscriptionChannels({
@@ -62,5 +65,11 @@ export function getPrimeSubscriptionManagementTarget({
     };
   }
 
-  return { type: 'unavailable' };
+  return {
+    type: 'unavailable',
+    reason:
+      channels.length === 0
+        ? 'missing-channel-and-management-url'
+        : 'channel-without-management-url',
+  };
 }

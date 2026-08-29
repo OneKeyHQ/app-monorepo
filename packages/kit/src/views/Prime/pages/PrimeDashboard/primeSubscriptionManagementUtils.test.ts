@@ -55,7 +55,10 @@ describe('primeSubscriptionManagementUtils', () => {
         userInfo,
         isInfiniManageSupported: true,
       }),
-    ).toEqual({ type: 'unavailable' });
+    ).toEqual({
+      type: 'unavailable',
+      reason: 'channel-without-management-url',
+    });
   });
 
   it('uses the RevenueCat URL only for a current RevenueCat subscription', () => {
