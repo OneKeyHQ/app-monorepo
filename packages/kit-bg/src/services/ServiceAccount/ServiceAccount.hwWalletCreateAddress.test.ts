@@ -324,6 +324,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
       path: "m/44'/60'/0'/0/0",
       vendor: EHardwareVendor.onekey,
       passphraseState: 'PRO2_HIDDEN_STATE',
+      useEmptyPassphrase: undefined,
     });
     expect(getEvmAddressByStandardWallet).not.toHaveBeenCalled();
   });
@@ -353,6 +354,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
       deviceId: 'PRO2_DEVICE_ID',
       path: "m/44'/60'/0'/0/0",
       vendor: EHardwareVendor.onekey,
+      passphraseState: undefined,
       useEmptyPassphrase: true,
     });
   });

@@ -94,7 +94,6 @@ export const flushPendingExistingWalletSwitchToast = () => {
 export const toastExistingWalletSwitch = (
   createResult: IWalletSwitchCreateResult,
 ) => {
-  // First import of this passphraseState is a create, not a switch.
   if (!createResult.wallet || !createResult.isOverrideWallet) {
     return;
   }

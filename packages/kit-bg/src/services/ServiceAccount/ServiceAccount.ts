@@ -94,7 +94,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { devicePassphraseParamsFromWallet } from '@onekeyhq/shared/src/hardware/devicePassphraseParams';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -3594,7 +3593,8 @@ class ServiceAccount extends ServiceBase {
       dbDevice,
       dbWallet: wallet,
       deviceCommonParams: {
-        ...devicePassphraseParamsFromWallet(wallet?.passphraseState),
+        passphraseState: wallet?.passphraseState,
+        useEmptyPassphrase: !wallet.passphraseState,
         // Pre-warm signal; only sign methods honor it (getAddress etc. just MISS)
         usePreInitialize: true,
         ...(connectProtocol === 'V1' || connectProtocol === 'V2'
@@ -3669,7 +3669,8 @@ class ServiceAccount extends ServiceBase {
       deviceId,
       path: FIRST_EVM_ADDRESS_PATH,
       vendor,
-      ...devicePassphraseParamsFromWallet(passphraseState || undefined),
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
     });
   }
 

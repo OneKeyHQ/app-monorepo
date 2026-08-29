@@ -622,6 +622,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
         path: "m/44'/60'/0'/0/0",
         showOnDevice: false,
         passphraseState: 'PASSPHRASE_STATE',
+        useEmptyPassphrase: undefined,
       },
     );
   });

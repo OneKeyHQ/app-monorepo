@@ -9,7 +9,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { devicePassphraseParamsFromWallet } from '@onekeyhq/shared/src/hardware/devicePassphraseParams';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -18,10 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import {
-  EHardwareVendor,
-  type IDevicePassphraseParams,
-} from '@onekeyhq/shared/types/device';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -540,27 +536,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * mismatch cannot be silently treated as "no address".
    */
   @backgroundMethod()
-  async getEvmAddressByWalletState(
-    params: {
-      connectId: string;
-      deviceId: string;
-      path: string;
-      vendor: EHardwareVendor;
-    } & IDevicePassphraseParams,
-  ): Promise<string | null> {
+  async getEvmAddressByWalletState(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+    vendor: EHardwareVendor;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
+  }): Promise<string | null> {
     try {
       const adapter = await this.getAdapterForVendor(params.vendor);
       if (!adapter) return null;
-      const passphraseParams = devicePassphraseParamsFromWallet(
-        params.passphraseState,
-      );
       const result = await adapter.hw.evmGetAddress(
         params.connectId,
         params.deviceId,
         {
           path: params.path,
           showOnDevice: false,
-          ...passphraseParams,
+          passphraseState: params.passphraseState,
+          useEmptyPassphrase: params.useEmptyPassphrase,
         },
       );
       if (result.success) {
@@ -589,7 +583,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }): Promise<string | null> {
     return this.getEvmAddressByWalletState({
       ...params,
-      ...devicePassphraseParamsFromWallet(),
+      useEmptyPassphrase: true,
     });
   }
 
@@ -610,9 +604,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const { connectId, deviceId, vendor, passphraseState } = params;
     const adapter = await this.getAdapterForVendor(vendor);
     if (!adapter) return undefined;
-    const passphraseParams = devicePassphraseParamsFromWallet(
-      passphraseState || undefined,
-    );
+    const passphraseParams = {
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    };
     const fingerprintResult = await adapter.hw.btcGetMasterFingerprint(
       connectId,
       deviceId,

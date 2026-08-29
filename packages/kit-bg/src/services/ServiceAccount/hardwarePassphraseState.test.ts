@@ -49,6 +49,7 @@ describe('getHwHiddenWalletPassphraseState', () => {
 
     expect(serviceHardware.getPassphraseState).toHaveBeenCalledWith({
       connectId: 'ONEKEY-USB',
+      forceInputPassphrase: true,
     });
     expect(
       serviceThirdPartyHardware.getTrezorPassphraseState,
@@ -75,6 +76,7 @@ describe('getHwHiddenWalletPassphraseState', () => {
 
     expect(serviceHardware.getPassphraseState).toHaveBeenCalledWith({
       connectId: 'PRO2-USB',
+      forceInputPassphrase: true,
     });
   });
 });

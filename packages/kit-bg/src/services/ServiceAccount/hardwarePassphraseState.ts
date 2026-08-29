@@ -19,6 +19,7 @@ export async function getHwHiddenWalletPassphraseState({
   serviceHardware: {
     getPassphraseState(params: {
       connectId: string;
+      forceInputPassphrase: boolean;
     }): Promise<string | undefined>;
   };
   serviceThirdPartyHardware: {
@@ -43,5 +44,6 @@ export async function getHwHiddenWalletPassphraseState({
 
   return serviceHardware.getPassphraseState({
     connectId,
+    forceInputPassphrase: true,
   });
 }
