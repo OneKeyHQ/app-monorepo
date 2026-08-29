@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+/* cspell:ignore blurhash thumbhash */
+
 import { act, renderHook } from '@testing-library/react';
 
 import { useImage } from './useImage';
@@ -146,6 +148,57 @@ describe('useImage', () => {
       await Promise.resolve();
     });
     expect(secondImage.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('compares source fields without depending on object or header order', () => {
+    mockLoadAsync.mockImplementation(
+      () => new Promise<ImageRef>(() => undefined),
+    );
+    const baseSource: ImageSource = {
+      headers: {
+        Accept: 'image/webp',
+        Authorization: 'Bearer token',
+      },
+      uri: 'https://example.com/a.png',
+    };
+    const { rerender } = renderHook(
+      ({ source }: { source: ImageSource }) => useImage(source),
+      { initialProps: { source: baseSource } },
+    );
+
+    rerender({
+      source: {
+        headers: {
+          Authorization: 'Bearer token',
+          Accept: 'image/webp',
+        },
+        uri: baseSource.uri,
+      },
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(1);
+
+    const distinctSources: ImageSource[] = [
+      { ...baseSource, uri: 'https://example.com/b.png' },
+      { ...baseSource, width: 32 },
+      { ...baseSource, height: 32 },
+      { ...baseSource, blurhash: 'blurhash' },
+      { ...baseSource, thumbhash: 'thumbhash' },
+      { ...baseSource, cacheKey: 'cache-key' },
+      { ...baseSource, webMaxViewportWidth: 320 },
+      { ...baseSource, isAnimated: true },
+      {
+        ...baseSource,
+        headers: {
+          ...baseSource.headers,
+          Authorization: 'Bearer updated-token',
+        },
+      },
+    ];
+
+    distinctSources.forEach((source, index) => {
+      rerender({ source });
+      expect(mockLoadAsync).toHaveBeenCalledTimes(index + 2);
+    });
   });
 
   it('releases a stale result without committing it', async () => {

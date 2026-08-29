@@ -36,45 +36,67 @@ interface IUseImageOptions extends ImageLoadOptions {
 type IImageLoadRequest = {
   committed: boolean;
   consumerCount: number;
-  identity: string;
   imageRef?: ImageRef;
   promise: Promise<ImageRef>;
   released: boolean;
   reloadToken: number;
+  source: ImageSource;
   settled: boolean;
 };
 
 type ICommittedImage = {
-  identity: string;
   imageRef: ImageRef;
   request: IImageLoadRequest;
+  source: ImageSource;
 };
 
 type IReloadRequest = {
-  identity: string;
+  source: ImageSource;
   token: number;
 };
 
-function getImageSourceIdentity(source: ImageSource | null) {
-  if (!source) {
-    return '';
+function areImageHeadersEqual(
+  left?: Record<string, string>,
+  right?: Record<string, string>,
+) {
+  if (left === right) {
+    return true;
   }
-  const headers = source.headers
-    ? Object.entries(source.headers).toSorted(([left], [right]) =>
-        left.localeCompare(right),
-      )
-    : null;
-  return JSON.stringify([
-    source.uri ?? null,
-    headers,
-    source.width ?? null,
-    source.height ?? null,
-    source.blurhash ?? null,
-    source.thumbhash ?? null,
-    source.cacheKey ?? null,
-    source.webMaxViewportWidth ?? null,
-    source.isAnimated ?? null,
-  ]);
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => left[key] === right[key])
+  );
+}
+
+function areImageSourcesEqual(
+  left: ImageSource | null,
+  right: ImageSource | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    (left.uri ?? null) === (right.uri ?? null) &&
+    (left.width ?? null) === (right.width ?? null) &&
+    (left.height ?? null) === (right.height ?? null) &&
+    (left.blurhash ?? null) === (right.blurhash ?? null) &&
+    (left.thumbhash ?? null) === (right.thumbhash ?? null) &&
+    (left.cacheKey ?? null) === (right.cacheKey ?? null) &&
+    (left.webMaxViewportWidth ?? null) ===
+      (right.webMaxViewportWidth ?? null) &&
+    (left.isAnimated ?? null) === (right.isAnimated ?? null) &&
+    areImageHeadersEqual(left.headers, right.headers)
+  );
 }
 
 function releaseImageRef(imageRef: ImageRef) {
@@ -113,25 +135,18 @@ export function useImage(
     null,
   );
   const resolvedSourceCandidate = resolveSource(source);
-  const sourceIdentity = getImageSourceIdentity(resolvedSourceCandidate);
-  const resolvedSourceRef = useRef({
-    identity: sourceIdentity,
-    source: resolvedSourceCandidate,
-  });
-  if (resolvedSourceRef.current.identity !== sourceIdentity) {
-    resolvedSourceRef.current = {
-      identity: sourceIdentity,
-      source: resolvedSourceCandidate,
-    };
+  const resolvedSourceRef = useRef(resolvedSourceCandidate);
+  if (
+    !areImageSourcesEqual(resolvedSourceRef.current, resolvedSourceCandidate)
+  ) {
+    resolvedSourceRef.current = resolvedSourceCandidate;
   }
-  const resolvedSource = resolvedSourceRef.current.source;
+  const resolvedSource = resolvedSourceRef.current;
   const reloadToken =
-    reloadRequest?.identity === sourceIdentity ? reloadRequest.token : 0;
+    reloadRequest?.source === resolvedSource ? reloadRequest.token : 0;
   const shouldBypassCache = reloadToken > 0;
   const image =
-    committedImage?.identity === sourceIdentity
-      ? committedImage.imageRef
-      : null;
+    committedImage?.source === resolvedSource ? committedImage.imageRef : null;
   const cachedImageRef = useMemo(() => {
     if (shouldBypassCache) {
       return null;
@@ -177,17 +192,16 @@ export function useImage(
   optionsRef.current = options;
 
   const reFetchImage = useCallback(() => {
-    const currentSource = resolvedSourceRef.current.source;
+    const currentSource = resolvedSourceRef.current;
     if (!currentSource) {
       return;
     }
     if (currentSource.uri) {
       deleteCachedImagePath(currentSource.uri);
     }
-    const currentIdentity = resolvedSourceRef.current.identity;
     setReloadRequest((current) => ({
-      identity: currentIdentity,
-      token: current?.identity === currentIdentity ? current.token + 1 : 1,
+      source: currentSource,
+      token: current?.source === currentSource ? current.token + 1 : 1,
     }));
   }, []);
 
@@ -244,7 +258,6 @@ export function useImage(
     latestRequestIdRef.current += 1;
     const requestId = latestRequestIdRef.current;
     const requestSource = resolvedSource;
-    const requestSourceIdentity = sourceIdentity;
 
     if (!requestSource || isEmptyResolvedSource(requestSource)) {
       setCommittedImage(null);
@@ -259,17 +272,17 @@ export function useImage(
     let request = inFlightRequestRef.current;
     if (
       !request ||
-      request.identity !== requestSourceIdentity ||
+      request.source !== requestSource ||
       request.reloadToken !== reloadToken ||
       request.settled
     ) {
       const createdRequest: IImageLoadRequest = {
         committed: false,
         consumerCount: 0,
-        identity: requestSourceIdentity,
         promise: Image.loadAsync(requestSource, optionsRef.current),
         released: false,
         reloadToken,
+        source: requestSource,
         settled: false,
       };
       request = createdRequest;
@@ -295,9 +308,9 @@ export function useImage(
         }
         optionsRef.current.onSuccess?.(remoteImage);
         setCommittedImage({
-          identity: requestSourceIdentity,
           imageRef: remoteImage,
           request: activeRequest,
+          source: requestSource,
         });
         if (requestSource.uri) {
           void refreshCachedImagePath(requestSource.uri);
@@ -330,7 +343,7 @@ export function useImage(
       releaseUncommittedRequestImage(activeRequest);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedImage, reloadToken, sourceIdentity, ...dependencies]);
+  }, [cachedImage, reloadToken, resolvedSource, ...dependencies]);
 
   return useMemo(() => {
     return {
