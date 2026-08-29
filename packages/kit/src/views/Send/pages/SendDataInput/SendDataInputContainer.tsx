@@ -148,11 +148,6 @@ function SendDataInputContainer() {
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
-  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
-    isNFT,
-    isNative: tokenInfo?.isNative,
-    tokenAddress: tokenInfo?.address,
-  });
 
   const [currentAccount, setCurrentAccount] = useState({
     accountId,
@@ -190,6 +185,15 @@ function SendDataInputContainer() {
   } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
+  });
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    isNative: tokenInfo?.isNative,
+    tokenAddress: tokenInfo?.address,
+    nativeTokenAddress:
+      vaultSettings?.networkInfo[currentAccount.networkId]
+        ?.nativeTokenAddress ??
+      vaultSettings?.networkInfo.default.nativeTokenAddress,
   });
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,

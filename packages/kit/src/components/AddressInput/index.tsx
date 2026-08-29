@@ -212,6 +212,12 @@ type IAddressInputBadgeGroupProps = {
   networkId: string;
 };
 
+type IResolvedAddressQueryContext = {
+  input: string;
+  resolveAddress: string;
+  resolveOptions: string[];
+};
+
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   const { loading, result, setResolveAddress, onRefresh } = props;
   if (loading) {
@@ -361,10 +367,7 @@ export function AddressInput(props: IAddressInputProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const hasAppliedQueryContextRef = useRef(false);
-
-  const setResolveAddress = useCallback((text: string) => {
-    setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
-  }, []);
+  const selectedResolveAddressRef = useRef<string | undefined>(undefined);
 
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
@@ -390,8 +393,10 @@ export function AddressInput(props: IAddressInputProps) {
       const normalizedText = stringUtils.stripLineBreaks(text);
       inputTypeRef.current = inputType;
       if (textRef.current !== normalizedText) {
+        selectedResolveAddressRef.current = undefined;
         textRef.current = normalizedText;
         setInputText(normalizedText);
+        setQueryResult({});
         onInputTypeChange?.(inputType);
         onChange?.({
           raw: normalizedText,
@@ -414,7 +419,10 @@ export function AddressInput(props: IAddressInputProps) {
   }, [rawAddress, onChangeText]);
 
   const queryAddress = useDebouncedCallback(
-    async (params: IQueryCheckAddressArgs) => {
+    async (
+      params: IQueryCheckAddressArgs,
+      resolvedAddressContext?: IResolvedAddressQueryContext,
+    ) => {
       if (!params.address) {
         setQueryResult({});
         return;
@@ -431,13 +439,19 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current = undefined;
         }
 
-        const result = await queryAddressWithFallback(params);
+        const queryResultResp = await queryAddressWithFallback(params);
+        const result = resolvedAddressContext
+          ? { ...queryResultResp, ...resolvedAddressContext }
+          : queryResultResp;
         const currentQueryContext = queryContextRef.current;
         if (
           result.input === textRef.current &&
           params.networkId === currentQueryContext.networkId &&
           params.accountId === currentQueryContext.accountId &&
-          params.tokenAddress === currentQueryContext.tokenAddress
+          params.tokenAddress === currentQueryContext.tokenAddress &&
+          (!resolvedAddressContext ||
+            selectedResolveAddressRef.current ===
+              resolvedAddressContext.resolveAddress)
         ) {
           setQueryResult(result);
         }
@@ -479,6 +493,25 @@ export function AddressInput(props: IAddressInputProps) {
       networkId,
       tokenAddress,
     ],
+  );
+
+  const setResolveAddress = useCallback(
+    (resolveAddress: string) => {
+      const input = textRef.current;
+      const resolveOptions = queryResult.resolveOptions ?? [];
+      selectedResolveAddressRef.current = resolveAddress;
+      setQueryResult({});
+      onChangeRef.current?.({ raw: input, pending: true });
+      void queryAddress(
+        {
+          ...buildQueryAddressParams(),
+          address: resolveAddress,
+          enableNameResolve: false,
+        },
+        { input, resolveAddress, resolveOptions },
+      );
+    },
+    [buildQueryAddressParams, queryAddress, queryResult.resolveOptions],
   );
 
   useEffect(() => {

@@ -46,6 +46,21 @@ describe('getBadgeQueryTokenAddress', () => {
       getBadgeQueryTokenAddress({ tokenAddress: undefined }),
     ).toBeUndefined();
   });
+
+  it('falls back to the network native token address when isNative is missing', () => {
+    expect(
+      getBadgeQueryTokenAddress({
+        tokenAddress: 'uatom',
+        nativeTokenAddress: 'uatom',
+      }),
+    ).toBe('');
+    expect(
+      getBadgeQueryTokenAddress({
+        tokenAddress: 'ibc/token',
+        nativeTokenAddress: 'uatom',
+      }),
+    ).toBe('ibc/token');
+  });
 });
 
 describe('isCexDepositExplicitlyDisabled', () => {

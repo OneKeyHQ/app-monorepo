@@ -4,15 +4,20 @@ export function getBadgeQueryTokenAddress({
   isNFT,
   isNative,
   tokenAddress,
+  nativeTokenAddress,
 }: {
   isNFT?: boolean;
   isNative?: boolean;
   tokenAddress?: string;
+  nativeTokenAddress?: string;
 }): string | undefined {
   if (isNFT) {
     return undefined;
   }
-  return isNative ? '' : tokenAddress;
+  const isNativeToken =
+    isNative ??
+    (nativeTokenAddress !== undefined && tokenAddress === nativeTokenAddress);
+  return isNativeToken ? '' : tokenAddress;
 }
 
 export function isCexDepositExplicitlyDisabled(

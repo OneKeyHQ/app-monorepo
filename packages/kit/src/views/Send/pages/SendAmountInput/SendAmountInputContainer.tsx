@@ -849,11 +849,6 @@ function SendAmountInputContainer() {
 
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
-  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
-    isNFT,
-    isNative: tokenInfo?.isNative,
-    tokenAddress: tokenInfo?.address,
-  });
 
   const onSubmitRef = useRef<() => Promise<void>>(undefined);
   const navigation = useAppNavigation();
@@ -865,6 +860,14 @@ function SendAmountInputContainer() {
       accountId: currentAccountId,
       networkId,
     });
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    isNative: tokenInfo?.isNative,
+    tokenAddress: tokenInfo?.address,
+    nativeTokenAddress:
+      vaultSettings?.networkInfo[networkId]?.nativeTokenAddress ??
+      vaultSettings?.networkInfo.default.nativeTokenAddress,
+  });
 
   const walletId = useMemo(
     () =>
