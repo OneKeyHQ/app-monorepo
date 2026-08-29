@@ -5,6 +5,9 @@ describe('devicePassphraseParamsFromWallet', () => {
     expect(devicePassphraseParamsFromWallet('hidden-state')).toEqual({
       passphraseState: 'hidden-state',
     });
+    expect(
+      devicePassphraseParamsFromWallet('hidden-state'),
+    ).not.toHaveProperty('useEmptyPassphrase');
   });
 
   it('binds a standard wallet as empty-passphrase only', () => {

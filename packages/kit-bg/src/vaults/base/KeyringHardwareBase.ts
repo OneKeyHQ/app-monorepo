@@ -14,6 +14,7 @@ import {
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
+  IDevicePassphraseParams,
   IDeviceResponse,
   IGetDeviceAccountDataParams,
   IHardwareGetPubOrAddressExtraInfo,
@@ -33,10 +34,7 @@ import type {
   IPrepareHardwareAccountsParams,
 } from '../types';
 
-export type IWalletPassphraseState = {
-  passphraseState?: string;
-  useEmptyPassphrase?: boolean;
-};
+export type IWalletPassphraseState = IDevicePassphraseParams;
 
 export abstract class KeyringHardwareBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hardware;

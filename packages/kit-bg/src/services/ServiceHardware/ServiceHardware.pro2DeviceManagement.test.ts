@@ -576,7 +576,7 @@ describe('ServiceHardware wallet session compatibility', () => {
         connectId: 'CLASSIC',
         mode: 'standard',
       }),
-    ).resolves.toBe('V1_PASSPHRASE_STATE');
+    ).resolves.toBeUndefined();
 
     expect(getPassphraseState).toHaveBeenCalledWith('CLASSIC', {
       useEmptyPassphrase: true,
