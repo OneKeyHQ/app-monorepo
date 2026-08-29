@@ -189,6 +189,7 @@ export type IDevicePassphraseParams =
     }
   | {
       passphraseState: string;
+      useEmptyPassphrase?: false | undefined;
     };
 
 export type IOpenHwWalletSessionParams =

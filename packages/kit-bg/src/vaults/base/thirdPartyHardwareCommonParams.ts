@@ -1,9 +1,4 @@
-import { devicePassphraseParamsFromWallet } from '@onekeyhq/shared/src/hardware/devicePassphraseParams';
-
-import type {
-  IDevicePassphraseParams,
-  IDeviceSharedCallParams,
-} from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import type { ICommonCallParams } from '@onekeyfe/hwk-adapter-core';
 
@@ -15,11 +10,12 @@ export function thirdPartyCommonCallParamsForCreateScene(scene: {
 
 export function thirdPartyPassphraseParamsFromDeviceParams(
   deviceParams: IDeviceSharedCallParams | undefined,
-): IDevicePassphraseParams | Record<string, never> {
-  if (!deviceParams?.deviceCommonParams) {
-    return {};
-  }
-  return devicePassphraseParamsFromWallet(
-    deviceParams.deviceCommonParams.passphraseState,
-  );
+): { passphraseState?: string; useEmptyPassphrase?: boolean } {
+  const passphraseState = deviceParams?.deviceCommonParams?.passphraseState;
+  const useEmptyPassphrase =
+    deviceParams?.deviceCommonParams?.useEmptyPassphrase;
+  return {
+    ...(passphraseState ? { passphraseState } : {}),
+    ...(useEmptyPassphrase !== undefined ? { useEmptyPassphrase } : {}),
+  };
 }

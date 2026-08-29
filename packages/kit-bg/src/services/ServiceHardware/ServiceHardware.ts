@@ -3307,15 +3307,9 @@ class ServiceHardware extends ServiceBase {
       };
     }
 
-    const passphraseState = await convertDeviceResponse(() =>
+    return convertDeviceResponse(() =>
       getPassphraseState(connectId, v1Params),
     );
-    // V1 getPassphraseState returns the empty-passphrase address. Do not
-    // persist it as a hidden wallet.
-    if (mode === 'standard') {
-      return undefined;
-    }
-    return passphraseState;
   }
 
   @backgroundMethod()
