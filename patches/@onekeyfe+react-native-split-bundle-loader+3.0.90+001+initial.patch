@@ -1,0 +1,188 @@
+diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
+index e3178b9..aeb0f84 100644
+--- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
++++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.h
+@@ -26,3 +26,9 @@
+ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host;
+-
++/// Download and evaluate a dev-vendor modules-only entry bundle after the
++/// host has booted from its local common HBC. HMR setup is queued after the
++/// entry bundle evaluation.
+++ (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
++                    hmrBundleURL:(NSURL *)hmrBundleURL
++                     fingerprint:(NSString *)fingerprint
++                          inHost:(id)host;
+ @end
+diff --git a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+index 7ec0db3..7c63281 100644
+--- a/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
++++ b/node_modules/@onekeyfe/react-native-split-bundle-loader/ios/SplitBundleLoader.mm
+@@ -2,2 +2,6 @@
+ #import "SBLLogger.h"
++#import <React/RCTAssert.h>
++#import <React/RCTBridgeModule.h>
++#import <React/RCTDevSettings.h>
++#import <React/RCTJavaScriptLoader.h>
+ #import <ReactCommon/RCTHost.h>
+@@ -13,3 +17,3 @@
+ namespace {
+-
++constexpr int64_t kDevVendorLoadTimeoutSeconds = 60;
+ // Zero-copy jsi::Buffer over an NSData (M4/M5).
+@@ -903,3 +907,155 @@ + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host
+ }
+-
+++ (void)loadDevVendorEntryBundle:(NSURL *)bundleURL
++                    hmrBundleURL:(NSURL *)hmrBundleURL
++                     fingerprint:(NSString *)fingerprint
++                          inHost:(id)host
++{
++  if (!host || !bundleURL || bundleURL.fileURL || bundleURL.host.length == 0 ||
++      !hmrBundleURL || hmrBundleURL.fileURL || hmrBundleURL.host.length == 0 ||
++      fingerprint.length == 0) {
++    [SBLLogger warn:@"loadDevVendorEntryBundle: invalid arguments"];
++    return;
++  }
++  RCTHost *reactHost = (RCTHost *)host;
++  Ivar ivar = class_getInstanceVariable([reactHost class], "_instance");
++  RCTInstance *instance = ivar ? object_getIvar(reactHost, ivar) : nil;
++  if (!instance) {
++    [SBLLogger warn:@"loadDevVendorEntryBundle: RCTInstance is unavailable"];
++    return;
++  }
++  NSURLComponents *components = [NSURLComponents componentsWithURL:hmrBundleURL
++                                           resolvingAgainstBaseURL:NO];
++  NSString *path = [components.path hasPrefix:@"/"]
++      ? [components.path substringFromIndex:1]
++      : components.path;
++  NSString *scheme = components.scheme.lowercaseString;
++  NSString *hostName = components.host;
++  NSNumber *port = components.port;
++  if (!port && [scheme isEqualToString:@"http"]) {
++    port = @80;
++  } else if (!port && [scheme isEqualToString:@"https"]) {
++    port = @443;
++  }
++  RCTDevSettings *devSettings =
++      (RCTDevSettings *)[reactHost.moduleRegistry moduleForName:"DevSettings"];
++  if (!devSettings || path.length == 0 || hostName.length == 0 ||
++      scheme.length == 0 || port.integerValue <= 0 || port.integerValue > 65535) {
++    NSError *configurationError = [NSError errorWithDomain:@"SplitBundleLoader"
++                                                       code:3
++                                                   userInfo:@{
++                                                     NSLocalizedDescriptionKey:
++                                                         @"Invalid dev-vendor HMR configuration"
++                                                   }];
++    [SBLLogger error:@"loadDevVendorEntryBundle: invalid HMR configuration"];
++    RCTFatal(configurationError);
++    return;
++  }
++  __weak RCTHost *weakHost = reactHost;
++  __weak RCTInstance *weakInstance = instance;
++  __block NSError *downloadError = nil;
++  __block RCTSource *downloadedSource = nil;
++  dispatch_semaphore_t downloadReady = dispatch_semaphore_create(0);
++  dispatch_semaphore_t hostRegistrationReady = dispatch_semaphore_create(0);
++  [RCTJavaScriptLoader loadBundleAtURL:bundleURL
++      onProgress:^(RCTLoadingProgress *progress) { (void)progress; }
++      onComplete:^(NSError *error, RCTSource *source) {
++        downloadError = error;
++        downloadedSource = source;
++        dispatch_semaphore_signal(downloadReady);
++      }];
++  dispatch_async(dispatch_get_main_queue(), ^{
++    // Match the production loader's next-run-loop deferral so Expo finishes
++    // native module registration before the entry begins evaluating.
++    dispatch_semaphore_signal(hostRegistrationReady);
++  });
++  // Queue this before RCTHost starts/restarts surfaces. The executor remains
++  // buffered until common.hbc completes, then waits only for Metro I/O. This
++  // preserves common -> delta -> runApplication ordering without blocking the
++  // main thread. Keep bundleManager on the local common HBC until this buffered
++  // executor proves RCTInstance completed the initial read.
++  [instance callFunctionOnBufferedRuntimeExecutor:^(facebook::jsi::Runtime &runtime) {
++    dispatch_time_t deadline = dispatch_time(
++        DISPATCH_TIME_NOW, kDevVendorLoadTimeoutSeconds * NSEC_PER_SEC);
++    if (dispatch_semaphore_wait(downloadReady, deadline) != 0 ||
++        dispatch_semaphore_wait(hostRegistrationReady, deadline) != 0) {
++      NSError *timeoutError = [NSError errorWithDomain:@"SplitBundleLoader"
++                                                  code:4
++                                              userInfo:@{
++                                                NSLocalizedDescriptionKey:
++                                                    @"Timed out loading dev-vendor main delta"
++                                              }];
++      [SBLLogger error:@"loadDevVendorEntryBundle: timed out after 60 seconds"];
++      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(timeoutError); });
++      return;
++    }
++    RCTHost *strongHost = weakHost;
++    RCTInstance *strongInstance = weakInstance;
++    Ivar currentIvar = strongHost
++        ? class_getInstanceVariable([strongHost class], "_instance")
++        : nil;
++    if (!strongHost || !strongInstance || !currentIvar ||
++        object_getIvar(strongHost, currentIvar) != strongInstance) {
++      return;
++    }
++    RCTSource *source = downloadedSource;
++    if (downloadError || source.data.length == 0) {
++      NSError *loadError = downloadError ?: [NSError errorWithDomain:@"SplitBundleLoader"
++                                                               code:1
++                                                           userInfo:@{
++                                                             NSLocalizedDescriptionKey:
++                                                                 @"Dev-vendor main delta is empty"
++                                                           }];
++      [SBLLogger error:[NSString stringWithFormat:
++          @"loadDevVendorEntryBundle failed: %@", loadError.localizedDescription]];
++      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(loadError); });
++      return;
++    }
++    // Keep native reload targeting the live graph after the common HBC is read.
++    strongHost.bundleManager.bundleURL = bundleURL;
++    NSData *data = source.data;
++    NSString *sourceURL = hmrBundleURL.absoluteString;
++    try {
++      facebook::jsi::Value marker = runtime.global().getProperty(
++          runtime, "__ONEKEY_DEV_VENDOR_FINGERPRINT__");
++      if (!marker.isString() ||
++          marker.asString(runtime).utf8(runtime) != std::string(fingerprint.UTF8String)) {
++        throw std::runtime_error("Dev-vendor common fingerprint mismatch");
++      }
++      runtime.global().setProperty(
++          runtime,
++          "__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__",
++          facebook::jsi::String::createFromUtf8(runtime, sourceURL.UTF8String));
++      auto buffer = std::make_shared<NSDataJSIBuffer>(data);
++      runtime.evaluateJavaScript(buffer, sourceURL.UTF8String);
++      [SBLLogger info:[NSString stringWithFormat:
++          @"[DevVendor] main common.hbc + Metro delta ready (%lu bytes)",
++          (unsigned long)data.length]];
++    } catch (const std::exception &exception) {
++      NSString *message = [NSString stringWithUTF8String:exception.what()];
++      NSError *evaluationError = [NSError errorWithDomain:@"SplitBundleLoader"
++                                                      code:2
++                                                  userInfo:@{
++                                                    NSLocalizedDescriptionKey:
++                                                        message ?: @"Dev-vendor main delta evaluation failed"
++                                                  }];
++      dispatch_async(dispatch_get_main_queue(), ^{ RCTFatal(evaluationError); });
++    }
++  }];
++  // The initial HBC has a file URL, so RN intentionally skipped HMR setup.
++  // Queue exactly one setup call after the common+delta executor but before
++  // RCTHost queues surface startup. Full reload creates a new runtime and runs
++  // this path again; Fast Refresh reuses the existing HMR client.
++  [reactHost callFunctionOnJSModule:@"HMRClient"
++                             method:@"setup"
++                               args:@[
++                                 @"ios",
++                                 path,
++                                 hostName,
++                                 port,
++                                 @(devSettings.isHotLoadingEnabled),
++                                 scheme,
++                                 hmrBundleURL.absoluteString
++                               ]];
++  [SBLLogger info:@"[DevVendor] main HMR client setup queued"];
++}
+ // MARK: - loadSegment
