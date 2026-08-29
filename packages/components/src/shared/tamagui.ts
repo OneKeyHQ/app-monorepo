@@ -3,6 +3,8 @@ import {
   useThemeName as useTamaguiThemeName,
 } from '@tamagui/web';
 
+import { useNativeThemeNameSubscription } from './useNativeThemeNameSubscription';
+
 import type {
   GestureResponderEvent,
   TextProps as RNTextProps,
@@ -67,10 +69,7 @@ export const useThemeName = useTamaguiThemeName;
 export function useTheme() {
   const theme = useTamaguiTheme();
 
-  // Tamagui theme values do not always notify native `.val` consumers when
-  // the root theme changes. Subscribe to the theme name so native component
-  // props derived from raw colors are recalculated as well.
-  useTamaguiThemeName();
+  useNativeThemeNameSubscription();
 
   return theme;
 }
