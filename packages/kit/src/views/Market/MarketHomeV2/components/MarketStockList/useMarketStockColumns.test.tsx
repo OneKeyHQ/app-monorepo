@@ -93,7 +93,7 @@ describe('useMarketStockColumns', () => {
     );
   });
 
-  it('keeps the full Stocks table presentation unchanged by default', () => {
+  it('shows the price tooltip in the full Stocks table', () => {
     const { result } = renderHook(() =>
       useMarketStockColumns({ showSparkline: false }),
     );
@@ -104,10 +104,12 @@ describe('useMarketStockColumns', () => {
       0,
     ) as ReactElement<{ size?: string }>;
 
-    expect(priceColumn?.title).toBe('Price');
-    expect(priceColumn?.titleProps).toEqual({
-      textDecorationLine: 'underline',
-    });
+    const priceTitle = priceColumn?.title as ReactElement<{
+      renderContent?: ReactElement<{ children?: string }>;
+    }>;
+    expect(priceTitle.props.renderContent?.props.children).toBe(
+      'The displayed price is the underlying stock price.',
+    );
     expect(priceValue.props.size).toBe('$bodyLgMedium');
   });
 });

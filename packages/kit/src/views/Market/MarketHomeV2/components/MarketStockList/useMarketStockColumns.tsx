@@ -182,11 +182,11 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: compact ? (
+        title: (
           <Tooltip
             renderTrigger={
               <DashText
-                size="$bodySm"
+                size="$bodySmMedium"
                 dashThickness={0.5}
                 dashSpacing={0}
                 color="$textSubdued"
@@ -202,13 +202,10 @@ export function useMarketStockColumns({
             }
             placement="top"
           />
-        ) : (
-          intl.formatMessage({ id: ETranslations.global_price })
         ),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps: compact ? undefined : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (

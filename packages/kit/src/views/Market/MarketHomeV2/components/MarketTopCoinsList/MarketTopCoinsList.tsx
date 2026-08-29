@@ -26,6 +26,11 @@ import {
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import {
+  MARKET_SPARKLINE_COLORS,
+  MARKET_SPARKLINE_HEIGHT,
+  MARKET_SPARKLINE_WIDTH,
+} from '../MarketSparkline';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
@@ -39,18 +44,6 @@ type IMarketTopCoinsListProps = {
 };
 
 const TOP_COINS_DESKTOP_ROW_HEIGHT = 72;
-const TOP_COINS_SPARKLINE_WIDTH = 132;
-const TOP_COINS_SPARKLINE_HEIGHT = 44;
-const TOP_COINS_SPARKLINE_COLORS = {
-  dark: {
-    positive: ['rgba(70, 254, 165, 1)', 'rgba(70, 254, 165, 0.2)'],
-    negative: ['rgba(255, 149, 146, 1)', 'rgba(255, 149, 146, 0.2)'],
-  },
-  light: {
-    positive: ['rgba(0, 113, 63, 1)', 'rgba(0, 113, 63, 0.2)'],
-    negative: ['rgba(196, 0, 6, 1)', 'rgba(196, 0, 6, 0.2)'],
-  },
-} as const;
 
 const TOP_COINS_SORTABLE_COLUMN_KEYS = [
   'price',
@@ -243,7 +236,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
             dataIndex: 'sparkline',
             columnProps: {
               ...metricColumnProps,
-              minWidth: TOP_COINS_SPARKLINE_WIDTH,
+              minWidth: MARKET_SPARKLINE_WIDTH,
             },
             render: (
               sparkline: IMarketToken['sparkline'],
@@ -254,7 +247,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
               }
               const isNegative = record.priceChangePercentage24H < 0;
               const themeColors =
-                TOP_COINS_SPARKLINE_COLORS[
+                MARKET_SPARKLINE_COLORS[
                   themeVariant === 'dark' ? 'dark' : 'light'
                 ];
               const [lineColor, gradientColor] = isNegative
@@ -264,8 +257,8 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
               return (
                 <SparklineChart
                   data={sparkline.slice(-24)}
-                  width={TOP_COINS_SPARKLINE_WIDTH}
-                  height={TOP_COINS_SPARKLINE_HEIGHT}
+                  width={MARKET_SPARKLINE_WIDTH}
+                  height={MARKET_SPARKLINE_HEIGHT}
                   lineColor={lineColor}
                   linearGradientColor={gradientColor}
                 />
@@ -273,8 +266,8 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
             },
             renderSkeleton: () => (
               <Skeleton
-                width={TOP_COINS_SPARKLINE_WIDTH}
-                height={TOP_COINS_SPARKLINE_HEIGHT}
+                width={MARKET_SPARKLINE_WIDTH}
+                height={MARKET_SPARKLINE_HEIGHT}
               />
             ),
           }
