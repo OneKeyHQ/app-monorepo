@@ -8,7 +8,6 @@ export {
   IndicatorPopover,
 } from './indicatorSelector/NativeIndicatorSelector';
 export { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
-export type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 export type {
   ITradingViewChartTypeOption,
   ITradingViewIndicatorOption,
@@ -19,6 +18,7 @@ export type {
   ITradingViewNativeControlsLayoutMode,
   ITradingViewNativeIndicatorSelection,
   ITradingViewNativeIndicatorControlMode,
+  ITradingViewNativeIntervalControlMode,
   ITradingViewNativePriceMarketCapControlMode,
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,

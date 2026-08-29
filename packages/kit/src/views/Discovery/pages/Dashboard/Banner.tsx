@@ -11,9 +11,11 @@ import { DiscoveryTestIDs } from '../../testIDs';
 export function DashboardBanner({
   banners,
   isLoading,
+  autoplayEnabled,
 }: {
   banners: IDiscoveryBanner[];
   isLoading: boolean | undefined;
+  autoplayEnabled: boolean;
 }) {
   const { data, closeAllBanners } = useBannerData(banners);
   const handleWebSite = useWebSiteHandler();
@@ -62,6 +64,7 @@ export function DashboardBanner({
       alignItems="center"
     >
       <Banner
+        autoplayEnabled={autoplayEnabled}
         onBannerClose={closeAllBanners}
         showCloseButton
         showPaginationButton={false}
