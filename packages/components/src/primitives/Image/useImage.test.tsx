@@ -10,6 +10,10 @@ import { useImage } from './useImage';
 
 import type { ImageRef, ImageSource } from 'expo-image';
 
+type IResolvedImageSource = ImageSource & {
+  scale?: number;
+};
+
 type ILoadAsync = typeof import('expo-image').Image.loadAsync;
 
 jest.mock('expo-image', () => ({
@@ -39,6 +43,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNativeAndroid: false,
   },
 }));
+
+jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({
+  generateUUID: jest.fn(),
+}));
+
+const miscUtilsModule: typeof import('@onekeyhq/shared/src/utils/miscUtils') = require('@onekeyhq/shared/src/utils/miscUtils');
+
+const mockGenerateUUID = jest.mocked(miscUtilsModule.generateUUID);
 
 jest.mock('./cache', () => ({
   deleteCachedImagePath: jest.fn(),
@@ -103,7 +115,11 @@ async function resolveImage(deferred: IDeferred<ImageRef>, imageRef: ImageRef) {
 
 describe('useImage', () => {
   beforeEach(() => {
+    let generatedCacheKeyId = 0;
     jest.clearAllMocks();
+    mockGenerateUUID.mockImplementation(
+      () => `generated-cache-key-${(generatedCacheKeyId += 1)}`,
+    );
     mockDeleteCachedImagePath.mockReset();
     mockGetCachedImagePath.mockReset();
     mockGetCachedImageRef.mockReset();
@@ -186,6 +202,7 @@ describe('useImage', () => {
       { ...baseSource, uri: 'https://example.com/b.png' },
       { ...baseSource, width: 32 },
       { ...baseSource, height: 32 },
+      { ...baseSource, scale: 2 } as IResolvedImageSource,
       { ...baseSource, blurhash: 'blurhash' },
       { ...baseSource, thumbhash: 'thumbhash' },
       { ...baseSource, cacheKey: 'cache-key' },
@@ -233,6 +250,14 @@ describe('useImage', () => {
     });
     expect(result.current.image).toBeNull();
     expect(mockLoadAsync).toHaveBeenCalledTimes(1);
+    expect(mockLoadAsync).toHaveBeenLastCalledWith(
+      {
+        headers: { Authorization: 'Bearer token' },
+        cacheKey: 'onekey-private-image-generated-cache-key-1',
+        uri: 'https://example.com/a.png',
+      },
+      {},
+    );
 
     rerender({
       source: {
@@ -242,6 +267,79 @@ describe('useImage', () => {
     });
     expect(result.current.image).toBeNull();
     expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+    expect(mockLoadAsync).toHaveBeenLastCalledWith(
+      {
+        cacheKey: 'account-specific-avatar',
+        uri: 'https://example.com/a.png',
+      },
+      {},
+    );
+  });
+
+  it('isolates native caches for authenticated source generations', async () => {
+    const firstLoad = createDeferred<ImageRef>();
+    const secondLoad = createDeferred<ImageRef>();
+    const customCacheKeyLoad = createDeferred<ImageRef>();
+    mockLoadAsync
+      .mockReturnValueOnce(firstLoad.promise)
+      .mockReturnValueOnce(secondLoad.promise)
+      .mockReturnValueOnce(customCacheKeyLoad.promise);
+    const initialSource: ImageSource = {
+      headers: { Authorization: 'Bearer first-token' },
+      uri: 'https://example.com/avatar.png',
+    };
+
+    const { rerender } = renderHook(
+      ({ source }: { source: ImageSource }) => useImage(source),
+      {
+        initialProps: {
+          source: initialSource,
+        },
+      },
+    );
+
+    const firstRequestSource = mockLoadAsync.mock.calls[0][0] as ImageSource;
+    expect(firstRequestSource.cacheKey).toBe(
+      'onekey-private-image-generated-cache-key-1',
+    );
+    expect(firstRequestSource.cacheKey).not.toContain('first-token');
+
+    rerender({
+      source: {
+        headers: { Authorization: 'Bearer first-token' },
+        uri: 'https://example.com/avatar.png',
+      },
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(1);
+
+    rerender({
+      source: {
+        headers: { Authorization: 'Bearer second-token' },
+        uri: 'https://example.com/avatar.png',
+      },
+    });
+    expect(mockLoadAsync).toHaveBeenCalledTimes(2);
+    expect((mockLoadAsync.mock.calls[1][0] as ImageSource).cacheKey).toBe(
+      'onekey-private-image-generated-cache-key-2',
+    );
+
+    const firstImage = createImageRef();
+    await resolveImage(firstLoad, firstImage.imageRef);
+    expect(mockRefreshCachedImagePath).not.toHaveBeenCalled();
+
+    const secondImage = createImageRef();
+    await resolveImage(secondLoad, secondImage.imageRef);
+    expect(mockRefreshCachedImagePath).not.toHaveBeenCalled();
+
+    rerender({
+      source: {
+        cacheKey: 'account-specific-avatar',
+        uri: 'https://example.com/avatar.png',
+      } as ImageSource,
+    });
+    const customCacheKeyImage = createImageRef();
+    await resolveImage(customCacheKeyLoad, customCacheKeyImage.imageRef);
+    expect(mockRefreshCachedImagePath).not.toHaveBeenCalled();
   });
 
   it('releases a stale result without committing it', async () => {

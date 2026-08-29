@@ -18,6 +18,7 @@ import {
 } from 'expo-image';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
   deleteCachedImagePath,
@@ -56,8 +57,13 @@ type IReloadRequest = {
   token: number;
 };
 
+type IResolvedImageSource = ImageSource & {
+  scale?: number;
+};
+
 type IImageSourceGeneration = {
-  source: ImageSource | null;
+  requestSource: IResolvedImageSource | null;
+  source: IResolvedImageSource | null;
 };
 
 type IImageLoadGeneration = {
@@ -93,8 +99,8 @@ function areImageHeadersEqual(
 }
 
 function areImageSourcesEqual(
-  left: ImageSource | null,
-  right: ImageSource | null,
+  left: IResolvedImageSource | null,
+  right: IResolvedImageSource | null,
 ) {
   if (left === right) {
     return true;
@@ -107,6 +113,7 @@ function areImageSourcesEqual(
     (left.uri ?? null) === (right.uri ?? null) &&
     (left.width ?? null) === (right.width ?? null) &&
     (left.height ?? null) === (right.height ?? null) &&
+    (left.scale ?? null) === (right.scale ?? null) &&
     (left.blurhash ?? null) === (right.blurhash ?? null) &&
     (left.thumbhash ?? null) === (right.thumbhash ?? null) &&
     (left.cacheKey ?? null) === (right.cacheKey ?? null) &&
@@ -115,6 +122,24 @@ function areImageSourcesEqual(
     (left.isAnimated ?? null) === (right.isAnimated ?? null) &&
     areImageHeadersEqual(left.headers, right.headers)
   );
+}
+
+function createImageSourceGeneration(
+  source: IResolvedImageSource | null,
+): IImageSourceGeneration {
+  // Expo Image otherwise keys native disk caches by URI even when request
+  // headers differ. Use an opaque generation key unless the caller supplied a
+  // stable request-scoped key that can be reused across mounts.
+  return {
+    source,
+    requestSource:
+      source?.headers && !source.cacheKey
+        ? {
+            ...source,
+            cacheKey: `onekey-private-image-${generateUUID()}`,
+          }
+        : source,
+  };
 }
 
 function releaseImageRef(imageRef: ImageRef) {
@@ -152,19 +177,20 @@ export function useImage(
   const [reloadRequest, setReloadRequest] = useState<IReloadRequest | null>(
     null,
   );
-  const resolvedSourceCandidate = resolveSource(source);
-  const sourceGenerationRef = useRef<IImageSourceGeneration>({
-    source: resolvedSourceCandidate,
-  });
+  const resolvedSourceCandidate = resolveSource(
+    source,
+  ) as IResolvedImageSource | null;
+  const sourceGenerationRef = useRef<IImageSourceGeneration | null>(null);
   if (
+    !sourceGenerationRef.current ||
     !areImageSourcesEqual(
       sourceGenerationRef.current.source,
       resolvedSourceCandidate,
     )
   ) {
-    sourceGenerationRef.current = {
-      source: resolvedSourceCandidate,
-    };
+    sourceGenerationRef.current = createImageSourceGeneration(
+      resolvedSourceCandidate,
+    );
   }
   const sourceGeneration = sourceGenerationRef.current;
   const resolvedSource = sourceGeneration.source;
@@ -249,6 +275,9 @@ export function useImage(
 
   const reFetchImage = useCallback(() => {
     const currentGeneration = sourceGenerationRef.current;
+    if (!currentGeneration) {
+      return;
+    }
     const currentSource = currentGeneration.source;
     if (!currentSource) {
       return;
@@ -314,7 +343,7 @@ export function useImage(
   useEffect(() => {
     latestRequestIdRef.current += 1;
     const requestId = latestRequestIdRef.current;
-    const requestSource = resolvedSource;
+    const requestSource = sourceGeneration.requestSource;
 
     if (!requestSource || isEmptyResolvedSource(requestSource)) {
       setCommittedImage(null);
@@ -370,7 +399,7 @@ export function useImage(
           imageRef: remoteImage,
           request: activeRequest,
         });
-        if (requestSource.uri) {
+        if (requestSource.uri && !usesRequestSpecificCache) {
           void refreshCachedImagePath(requestSource.uri);
         }
       })
