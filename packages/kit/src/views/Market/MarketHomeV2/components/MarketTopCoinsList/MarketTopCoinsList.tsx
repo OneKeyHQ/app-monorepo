@@ -14,7 +14,6 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketToken } from '@onekeyhq/shared/types/market';
 
@@ -27,9 +26,9 @@ import {
 } from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import {
-  MARKET_SPARKLINE_COLORS,
   MARKET_SPARKLINE_HEIGHT,
   MARKET_SPARKLINE_WIDTH,
+  useMarketSparklineColors,
 } from '../MarketSparkline';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -93,7 +92,7 @@ function MarketValue({
 
 function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
   const { gt2xl } = useMedia();
-  const themeVariant = useThemeVariant();
+  const sparklineColors = useMarketSparklineColors();
 
   return useMemo(() => {
     const metricColumnProps = {
@@ -246,13 +245,9 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
                 return <MissingValue />;
               }
               const isNegative = record.priceChangePercentage24H < 0;
-              const themeColors =
-                MARKET_SPARKLINE_COLORS[
-                  themeVariant === 'dark' ? 'dark' : 'light'
-                ];
               const [lineColor, gradientColor] = isNegative
-                ? themeColors.negative
-                : themeColors.positive;
+                ? sparklineColors.negative
+                : sparklineColors.positive;
 
               return (
                 <SparklineChart
@@ -277,7 +272,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketToken>[] {
     return columns.filter((column): column is ITableColumn<IMarketToken> =>
       Boolean(column),
     );
-  }, [gt2xl, themeVariant]);
+  }, [gt2xl, sparklineColors]);
 }
 
 export function MarketTopCoinsList({
