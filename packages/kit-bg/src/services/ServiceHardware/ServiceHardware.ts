@@ -35,6 +35,7 @@ import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { devicePassphraseParamsFromWallet } from '@onekeyhq/shared/src/hardware/devicePassphraseParams';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
@@ -65,12 +66,14 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
+  IDevicePassphraseParams,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
   IHardwareCallContext,
   IOneKeyDeviceFeatures,
   IOneKeyDeviceState,
+  IOpenHwWalletSessionParams,
 } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
@@ -3222,26 +3225,15 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getPassphraseState({
-    connectId,
-    forceInputPassphrase,
-  }: {
-    connectId: string;
-    forceInputPassphrase: boolean;
-  }) {
-    return this.getPassphraseStateBase({ connectId, forceInputPassphrase });
+  async getPassphraseState({ connectId }: { connectId: string }) {
+    return this.openWalletSession({ connectId, mode: 'select-hidden' });
   }
 
   @backgroundMethod()
-  async getPassphraseStateBase({
-    connectId,
-    forceInputPassphrase,
-    useEmptyPassphrase,
-  }: {
-    connectId: string;
-    forceInputPassphrase: boolean; // not working?
-    useEmptyPassphrase?: boolean;
-  }): Promise<string | undefined> {
+  async openWalletSession(
+    params: IOpenHwWalletSessionParams,
+  ): Promise<string | undefined> {
+    const { connectId, mode } = params;
     const protocol = await this.getKnownDeviceProtocol(connectId);
     if (!protocol) {
       throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
@@ -3257,9 +3249,14 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
-      const walletSessionParams = useEmptyPassphrase
-        ? { mode: 'standard' as const }
-        : { mode: 'select-hidden' as const };
+      const walletSessionParams =
+        mode === 'resume-hidden'
+          ? {
+              mode,
+              deviceId: params.deviceId,
+              passphraseState: params.passphraseState,
+            }
+          : { mode };
       const walletSession = await convertDeviceResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
@@ -3268,7 +3265,7 @@ class ServiceHardware extends ServiceBase {
         mode: walletSessionParams.mode,
         resumed: walletSession.resumed,
       });
-      const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
+      const expectedWalletType = mode === 'standard' ? 'standard' : 'hidden';
       if (walletSession.walletType !== expectedWalletType) {
         throw new OneKeyLocalError(
           `Protocol V2 wallet type mismatch: expected ${expectedWalletType}, received ${walletSession.walletType}`,
@@ -3291,19 +3288,27 @@ class ServiceHardware extends ServiceBase {
     const getPassphraseState = hardwareSDK?.getPassphraseState as
       | ((
           targetConnectId: string,
-          params: CommonParams,
+          v1Params: CommonParams,
         ) => HardwareResponse<string | undefined>)
       | undefined;
     if (!getPassphraseState) {
       return undefined;
     }
 
-    return convertDeviceResponse(() =>
-      getPassphraseState(connectId, {
-        initSession: forceInputPassphrase, // always re-input passphrase on device
-        useEmptyPassphrase,
+    let v1Params: CommonParams;
+    if (mode === 'standard') {
+      v1Params = { useEmptyPassphrase: true, connectProtocol: protocol };
+    } else if (mode === 'select-hidden') {
+      v1Params = { initSession: true, connectProtocol: protocol };
+    } else {
+      v1Params = {
+        passphraseState: params.passphraseState,
         connectProtocol: protocol,
-      }),
+      };
+    }
+
+    return convertDeviceResponse(() =>
+      getPassphraseState(connectId, v1Params),
     );
   }
 
@@ -3928,14 +3933,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEvmAddressByWalletState(params: {
-    connectId: string;
-    deviceId: string;
-    path: string;
-    vendor?: EHardwareVendor;
-    passphraseState?: string;
-    useEmptyPassphrase?: boolean;
-  }): Promise<string | null> {
+  async getEvmAddressByWalletState(
+    params: {
+      connectId: string;
+      deviceId: string;
+      path: string;
+      vendor?: EHardwareVendor;
+    } & IDevicePassphraseParams,
+  ): Promise<string | null> {
+    const passphraseParams = devicePassphraseParamsFromWallet(
+      params.passphraseState,
+    );
     const evmProfile = params.vendor
       ? getVendorProfile(params.vendor)
       : undefined;
@@ -3947,8 +3955,7 @@ class ServiceHardware extends ServiceBase {
           deviceId: params.deviceId,
           path: params.path,
           vendor: params.vendor,
-          passphraseState: params.passphraseState,
-          useEmptyPassphrase: params.useEmptyPassphrase,
+          ...passphraseParams,
         },
       );
     }
@@ -3967,8 +3974,7 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
-          useEmptyPassphrase: params.useEmptyPassphrase,
-          passphraseState: params.passphraseState,
+          ...passphraseParams,
         }),
       );
       if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
@@ -3992,7 +3998,7 @@ class ServiceHardware extends ServiceBase {
   }): Promise<string | null> {
     return this.getEvmAddressByWalletState({
       ...params,
-      useEmptyPassphrase: true,
+      ...devicePassphraseParamsFromWallet(),
     });
   }
 
@@ -4061,8 +4067,7 @@ class ServiceHardware extends ServiceBase {
           {
             path: BTC_FIRST_TAPROOT_PATH,
             showOnOneKey: false,
-            useEmptyPassphrase: passphraseState ? undefined : true,
-            passphraseState: passphraseState || undefined,
+            ...devicePassphraseParamsFromWallet(passphraseState || undefined),
           },
         );
       });

@@ -168,11 +168,11 @@ const createService = ({
       success: true,
       payload: {
         deviceId: 'PRO2_DEVICE_ID',
-        walletType: params.mode === 'select-hidden' ? 'hidden' : 'standard',
+        walletType: params.mode === 'standard' ? 'standard' : 'hidden',
         passphraseState:
-          params.mode === 'select-hidden'
-            ? passphraseState
-            : 'PRO2_STANDARD_STATE',
+          params.mode === 'standard'
+            ? 'PRO2_STANDARD_STATE'
+            : passphraseState,
       },
     }),
   );
@@ -440,15 +440,29 @@ describe('ServiceHardware wallet session compatibility', () => {
     });
   });
 
+  it('opens a hidden wallet through getPassphraseState', async () => {
+    const { service, openWalletSession } = createService({
+      unlocked: false,
+    });
+
+    await expect(
+      service.getPassphraseState({ connectId: 'PRO2_USB' }),
+    ).resolves.toBe('PRO2_PASSPHRASE_STATE');
+
+    expect(openWalletSession).toHaveBeenCalledWith('PRO2_USB', {
+      mode: 'select-hidden',
+    });
+  });
+
   it('opens the Protocol V2 wallet selector after device unlock', async () => {
     const { service, openWalletSession, getPassphraseState } = createService({
       unlocked: false,
     });
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'PRO2_USB',
-        forceInputPassphrase: true,
+        mode: 'select-hidden',
       }),
     ).resolves.toBe('PRO2_PASSPHRASE_STATE');
 
@@ -465,9 +479,9 @@ describe('ServiceHardware wallet session compatibility', () => {
     });
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'PRO2_USB',
-        forceInputPassphrase: true,
+        mode: 'select-hidden',
       }),
     ).rejects.toThrow(
       'Protocol V2 hidden wallet response is missing passphraseState',
@@ -486,10 +500,9 @@ describe('ServiceHardware wallet session compatibility', () => {
     });
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'PRO2_USB',
-        forceInputPassphrase: false,
-        useEmptyPassphrase: true,
+        mode: 'standard',
       }),
     ).resolves.toBeUndefined();
 
@@ -509,9 +522,9 @@ describe('ServiceHardware wallet session compatibility', () => {
     } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'PRO2_USB',
-        forceInputPassphrase: true,
+        mode: 'select-hidden',
       }),
     ).rejects.toThrow(
       'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
@@ -533,15 +546,39 @@ describe('ServiceHardware wallet session compatibility', () => {
     } as never);
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'CLASSIC',
-        forceInputPassphrase: true,
-        useEmptyPassphrase: true,
+        mode: 'select-hidden',
       }),
     ).resolves.toBe('V1_PASSPHRASE_STATE');
 
     expect(getPassphraseState).toHaveBeenCalledWith('CLASSIC', {
       initSession: true,
+      connectProtocol: 'V1',
+    });
+    expect(openWalletSession).not.toHaveBeenCalled();
+  });
+
+  it('opens a Protocol V1 standard wallet with empty passphrase only', async () => {
+    const { service, openWalletSession, getPassphraseState } = createService({
+      unlocked: true,
+    });
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+    jest.mocked(localDb.getDeviceByQuery).mockResolvedValueOnce({
+      id: 'db-classic-device-1',
+      connectId: 'CLASSIC',
+      connectProtocol: 'V1',
+      deviceStateInfo: { protocol: 'V1' },
+    } as never);
+
+    await expect(
+      service.openWalletSession({
+        connectId: 'CLASSIC',
+        mode: 'standard',
+      }),
+    ).resolves.toBe('V1_PASSPHRASE_STATE');
+
+    expect(getPassphraseState).toHaveBeenCalledWith('CLASSIC', {
       useEmptyPassphrase: true,
       connectProtocol: 'V1',
     });
@@ -556,9 +593,9 @@ describe('ServiceHardware wallet session compatibility', () => {
     jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(undefined);
 
     await expect(
-      service.getPassphraseStateBase({
+      service.openWalletSession({
         connectId: 'NEW_PRO2',
-        forceInputPassphrase: true,
+        mode: 'select-hidden',
       }),
     ).rejects.toThrow('Hardware connect protocol is unavailable');
 

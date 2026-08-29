@@ -182,10 +182,31 @@ export type IDeviceResponse<T> = Response<T>;
 export type IDeviceResponseResult<T> =
   | IDeviceResponseUnsuccessful
   | IDeviceResponseSuccess<T>;
-export type IDevicePassphraseParams = {
-  passphraseState: string | undefined;
-  useEmptyPassphrase: boolean | undefined;
-};
+export type IDevicePassphraseParams =
+  | {
+      useEmptyPassphrase: true;
+      passphraseState?: undefined;
+    }
+  | {
+      passphraseState: string;
+      useEmptyPassphrase?: false | undefined;
+    };
+
+export type IOpenHwWalletSessionParams =
+  | {
+      connectId: string;
+      mode: 'standard';
+    }
+  | {
+      connectId: string;
+      mode: 'select-hidden';
+    }
+  | {
+      connectId: string;
+      mode: 'resume-hidden';
+      deviceId: string;
+      passphraseState: string;
+    };
 export type IDeviceWebUSBParams = {
   skipWebDevicePrompt?: boolean;
 };
