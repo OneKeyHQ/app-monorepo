@@ -2712,6 +2712,7 @@ function SendAmountInputContainer() {
       networkId,
       tokenSymbol: tokenInfo?.symbol,
       networkName: network?.name,
+      page: 'amount',
       cexSupportedInfo: queryResult.cexSupportedInfo,
       hasAcknowledgedWarning: hasAcknowledgedCexDepositWarning,
     });

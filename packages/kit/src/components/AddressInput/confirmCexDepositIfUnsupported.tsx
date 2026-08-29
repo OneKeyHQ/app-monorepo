@@ -6,7 +6,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ICexDepositWarningAction,
+  ICexDepositWarningPage,
+  ISendCexDepositWarningContext,
+} from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import {
+  getCexDepositWarningExchange,
   getCexDepositWarningFacts,
   isCexDepositExplicitlyDisabled,
 } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
@@ -19,6 +26,16 @@ const FACT_VALUE_TEXT_PROPS = {
   color: '$text',
   numberOfLines: 2,
 } as const;
+
+function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
+  if (flag === 'confirm') {
+    return 'continue';
+  }
+  if (flag === 'cancel') {
+    return 'back';
+  }
+  return 'close';
+}
 
 function CexDepositWarningContent({
   tokenSymbol,
@@ -82,14 +99,18 @@ function CexDepositWarningContent({
 
 function showCexDepositUnsupportedDialog({
   intl,
+  networkId,
   tokenSymbol,
   networkName,
   exchangeLabel,
+  page,
 }: {
   intl: IntlShape;
+  networkId: string;
   tokenSymbol?: string;
   networkName?: string;
   exchangeLabel?: string;
+  page: ICexDepositWarningPage;
 }): Promise<boolean> {
   const fallbackExchangeLabel = intl.formatMessage({
     id: ETranslations.exchange__title,
@@ -100,16 +121,28 @@ function showCexDepositUnsupportedDialog({
     exchangeLabel,
     fallbackExchangeLabel,
   });
+  const trackingContext: ISendCexDepositWarningContext = {
+    network: networkId,
+    tokenSymbol,
+    exchange: getCexDepositWarningExchange(exchangeLabel),
+    page,
+  };
 
   return new Promise<boolean>((resolve) => {
     let settled = false;
-    const settle = (confirmed: boolean) => {
+    function settle(flag?: string) {
       if (settled) {
         return;
       }
       settled = true;
-      resolve(confirmed);
-    };
+      defaultLogger.transaction.send.sendCexDepositWarningAction({
+        ...trackingContext,
+        action: getCexDepositWarningAction(flag),
+      });
+      resolve(flag === 'confirm');
+    }
+
+    defaultLogger.transaction.send.sendCexDepositWarningShow(trackingContext);
 
     Dialog.show({
       icon: 'ShieldOutline',
@@ -144,7 +177,7 @@ function showCexDepositUnsupportedDialog({
         void close();
       },
       onClose: (extra) => {
-        settle(extra?.flag === 'confirm');
+        settle(extra?.flag);
       },
       confirmButtonProps: {
         testID: 'cex-deposit-unsupported-confirm-btn',
@@ -170,6 +203,7 @@ export async function confirmCexDepositIfUnsupported({
   networkId,
   tokenSymbol,
   networkName,
+  page,
   cexSupportedInfo,
   hasAcknowledgedWarning,
 }: {
@@ -178,6 +212,7 @@ export async function confirmCexDepositIfUnsupported({
   networkId: string;
   tokenSymbol?: string;
   networkName?: string;
+  page: ICexDepositWarningPage;
   cexSupportedInfo?: ICexSupportedInfo;
   hasAcknowledgedWarning?: boolean;
 }): Promise<{ canProceed: boolean; hasAcknowledgedWarning: boolean }> {
@@ -193,9 +228,11 @@ export async function confirmCexDepositIfUnsupported({
 
   const confirmed = await showCexDepositUnsupportedDialog({
     intl,
+    networkId,
     tokenSymbol,
     networkName,
     exchangeLabel: cexSupportedInfo?.cexLabel,
+    page,
   });
   return { canProceed: confirmed, hasAcknowledgedWarning: confirmed };
 }

@@ -21,6 +21,16 @@ export function isCexDepositExplicitlyDisabled(
   return depositEnable === false;
 }
 
+const MAX_CEX_ANALYTICS_LABEL_LENGTH = 32;
+
+export function getCexDepositWarningExchange(cexLabel?: string): string {
+  const label = cexLabel?.trim().toLowerCase();
+  if (!label || label.length > MAX_CEX_ANALYTICS_LABEL_LENGTH) {
+    return 'unknown';
+  }
+  return label;
+}
+
 export function getCexDepositWarningFacts({
   tokenSymbol,
   networkName,

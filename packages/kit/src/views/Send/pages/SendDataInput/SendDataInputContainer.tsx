@@ -446,6 +446,7 @@ function SendDataInputContainer() {
           networkId: currentAccount.networkId,
           tokenSymbol: tokenInfo?.symbol,
           networkName: network?.name,
+          page: 'address',
           cexSupportedInfo: toVal?.cexSupportedInfo,
         });
       if (!canProceed) return;
@@ -1023,6 +1024,7 @@ function SendDataInputContainer() {
             networkId: currentAccount.networkId,
             tokenSymbol: tokenInfo?.symbol,
             networkName: network?.name,
+            page: 'address',
             cexSupportedInfo: queryResult.cexSupportedInfo,
           });
         if (!canProceed) return;

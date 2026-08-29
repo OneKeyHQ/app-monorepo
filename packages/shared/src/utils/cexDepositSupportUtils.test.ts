@@ -1,5 +1,6 @@
 import {
   getBadgeQueryTokenAddress,
+  getCexDepositWarningExchange,
   getCexDepositWarningFacts,
   isCexDepositExplicitlyDisabled,
   mergeCexSupportedInfo,
@@ -56,6 +57,17 @@ describe('isCexDepositExplicitlyDisabled', () => {
     expect(isCexDepositExplicitlyDisabled(true)).toBe(false);
     expect(isCexDepositExplicitlyDisabled(null)).toBe(false);
     expect(isCexDepositExplicitlyDisabled(undefined)).toBe(false);
+  });
+});
+
+describe('getCexDepositWarningExchange', () => {
+  it('normalizes cex labels and falls back to unknown', () => {
+    expect(getCexDepositWarningExchange(' Binance ')).toBe('binance');
+    expect(getCexDepositWarningExchange(undefined)).toBe('unknown');
+    expect(getCexDepositWarningExchange('')).toBe('unknown');
+    expect(getCexDepositWarningExchange(`0x${'ab'.repeat(21)}`)).toBe(
+      'unknown',
+    );
   });
 });
 
