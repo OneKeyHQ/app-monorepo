@@ -654,7 +654,31 @@ describe('primeInfiniPaymentUtils', () => {
         primeSubscription: { isActive: true, expiresAt: 3000 },
         infiniSubscription: statusOnlyInfiniSubscription,
       }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: null,
+        },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
     ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: statusOnlyInfiniSubscription.subscriptionId,
+        },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(false);
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },

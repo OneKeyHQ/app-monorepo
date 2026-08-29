@@ -241,6 +241,11 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
       primeSubscription: {
         isActive: false,
       },
+      infiniSubscription: {
+        subscriptionId: 'existing-subscription',
+        status: 'active',
+        plan: 'monthly',
+      },
     });
     mockApiGetInfiniCheckoutUrl.mockResolvedValue({
       checkoutUrl: 'https://checkout.example.com/payment',
@@ -265,7 +270,11 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     });
 
     expect(beforeOpenCheckout).toHaveBeenCalledTimes(1);
-    expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
+    expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledWith({
+      context: expect.objectContaining({
+        baselineInfiniSubscriptionId: 'existing-subscription',
+      }),
+    });
     expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
     expect(callOrder).toEqual(['close', 'waiting', 'open']);
   });

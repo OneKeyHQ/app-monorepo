@@ -78,6 +78,8 @@ export type IPrimeInfiniWaitingContext =
       // The Infini period end is an additional renewal success signal when the
       // merged Prime expiry does not move for dual-channel subscribers.
       renewalBaselineInfiniPeriodEnd?: number;
+      // null means no Infini subscription existed when checkout opened.
+      baselineInfiniSubscriptionId?: string | null;
     }
   | {
       checkoutType: 'internalWallet';
@@ -345,6 +347,7 @@ function PrimeInfiniExternalWaitingMonitor({
     checkoutUrl,
     renewalBaselineExpiresAt,
     renewalBaselineInfiniPeriodEnd,
+    baselineInfiniSubscriptionId,
   } = context;
   const {
     blockPurchaseUserMismatch,
@@ -403,6 +406,7 @@ function PrimeInfiniExternalWaitingMonitor({
           wasPrimeActive: renewalBaselineExpiresAt !== undefined,
           primeExpiresAt: renewalBaselineExpiresAt,
           infiniPeriodEnd: renewalBaselineInfiniPeriodEnd,
+          infiniSubscriptionId: baselineInfiniSubscriptionId,
         },
         primeSubscription: purchaseStatus.primeSubscription,
         infiniSubscription: purchaseStatus.infiniSubscription,
@@ -426,6 +430,7 @@ function PrimeInfiniExternalWaitingMonitor({
     onekeyUserId,
     renewalBaselineExpiresAt,
     renewalBaselineInfiniPeriodEnd,
+    baselineInfiniSubscriptionId,
   ]);
 
   const handleMonitorEvent = useCallback(
@@ -462,6 +467,9 @@ function PrimeInfiniExternalWaitingMonitor({
       checkoutUrl,
       renewalBaselineExpiresAt ?? '',
       renewalBaselineInfiniPeriodEnd ?? '',
+      baselineInfiniSubscriptionId === undefined
+        ? 'legacy'
+        : (baselineInfiniSubscriptionId ?? 'none'),
     ].join(':'),
     enabled: true,
     adapter,

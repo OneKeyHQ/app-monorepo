@@ -4138,6 +4138,8 @@ function PrimeInfiniWalletPaymentRoot({
         wasPrimeActive,
         primeExpiresAt,
         infiniPeriodEnd,
+        infiniSubscriptionId:
+          infiniSubscription?.subscriptionId?.trim() || null,
       };
       let hasError = false;
       if (!completedPaymentId) {

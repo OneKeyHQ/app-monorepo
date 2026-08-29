@@ -34,6 +34,7 @@ export type IPrimeInfiniPurchaseBaseline = {
   wasPrimeActive: boolean;
   primeExpiresAt?: number;
   infiniPeriodEnd?: number;
+  infiniSubscriptionId?: string | null;
 };
 
 export type IPrimeInfiniPaymentOutcome =

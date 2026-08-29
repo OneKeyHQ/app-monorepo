@@ -219,6 +219,9 @@ export function usePrimeInfiniPurchase({
             checkoutUrl,
             renewalBaselineInfiniPeriodEnd:
               baselineSnapshot.infiniSubscription?.currentPeriodEnd ?? 0,
+            baselineInfiniSubscriptionId:
+              baselineSnapshot.infiniSubscription?.subscriptionId?.trim() ||
+              null,
           },
         });
         // Keep the waiting state visible before handing control to the system

@@ -389,7 +389,10 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
 }: {
   baseline: Pick<
     IPrimeInfiniPendingPaymentSession['baseline'],
-    'wasPrimeActive' | 'primeExpiresAt' | 'infiniPeriodEnd'
+    | 'wasPrimeActive'
+    | 'primeExpiresAt'
+    | 'infiniPeriodEnd'
+    | 'infiniSubscriptionId'
   >;
   purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
 }) {
@@ -410,7 +413,12 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
   const hasInfiniChannel = primeSubscription?.subscriptions?.some(
     (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
   );
+  const currentInfiniSubscriptionId =
+    infiniSubscription?.subscriptionId?.trim();
   const hasStatusOnlyActiveInfiniSubscription = Boolean(
+    baseline.infiniSubscriptionId !== undefined &&
+    currentInfiniSubscriptionId &&
+    currentInfiniSubscriptionId !== baseline.infiniSubscriptionId &&
     !infiniSubscription?.currentPeriodEnd &&
     infiniSubscription?.status?.toLowerCase() === 'active',
   );

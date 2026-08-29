@@ -324,6 +324,9 @@ function isValidInfiniPendingPaymentSession(
     !Number.isFinite(session.updatedAt) ||
     !isOptionalFiniteNumber(session.baseline.primeExpiresAt) ||
     !isOptionalFiniteNumber(session.baseline.infiniPeriodEnd) ||
+    (session.baseline.infiniSubscriptionId !== undefined &&
+      session.baseline.infiniSubscriptionId !== null &&
+      !isNonEmptyString(session.baseline.infiniSubscriptionId)) ||
     (session.plan !== 'monthly' && session.plan !== 'yearly') ||
     (session.selectedSubscriptionPeriod !== 'P1M' &&
       session.selectedSubscriptionPeriod !== 'P1Y') ||
