@@ -64,7 +64,7 @@ export function mergeCexSupportedInfo(
   for (const info of infos) {
     if (info) {
       first ??= info;
-      if (info.depositEnable === false) {
+      if (isCexDepositExplicitlyDisabled(info.depositEnable)) {
         lastDisabled = info;
       } else if (info.depositEnable === true) {
         firstEnabled ??= info;

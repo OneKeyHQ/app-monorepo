@@ -123,7 +123,7 @@ function showCexDepositUnsupportedDialog({
   });
   const trackingContext: ISendCexDepositWarningContext = {
     network: networkId,
-    tokenSymbol,
+    tokenSymbol: facts.tokenSymbol,
     exchange: getCexDepositWarningExchange(exchangeLabel),
     page,
   };
