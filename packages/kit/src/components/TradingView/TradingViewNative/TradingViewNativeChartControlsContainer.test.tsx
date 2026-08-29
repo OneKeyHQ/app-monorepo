@@ -165,7 +165,7 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('forwards the compact mobile toolbar layout', () => {
+  it('hides the chart type selector in the compact mobile toolbar', () => {
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
@@ -178,7 +178,10 @@ describe('TradingViewNative chart controls', () => {
     );
 
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
-      expect.objectContaining({ compactMobileLayout: true }),
+      expect.objectContaining({
+        compactMobileLayout: true,
+        showChartTypeSelect: false,
+      }),
     );
   });
 
