@@ -25,12 +25,15 @@ const PageFooterContainer = ({
   children,
   disableKeyboardAnimation,
 }: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
+  const safeBottomHeight = useSafeAreaBottom();
   const tabBarHeight = useTabBarHeight();
   const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const { gtMd } = useMedia();
 
   const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0),
+    paddingBottom:
+      Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0) +
+      safeBottomHeight,
   }));
 
   return (
