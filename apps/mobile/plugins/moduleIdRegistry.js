@@ -1,8 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const SCHEMA_VERSION = 1;
-const REGISTRY_EPOCH = 1;
+const SCHEMA_VERSION = 2;
+const REGISTRY_EPOCH = 2;
+const ALLOCATION_VERSION = 1;
+const MODULE_ID_RANGES = Object.freeze({
+  workspace: Object.freeze({ start: 0x00_01, end: 0x5f_ff }),
+  nodeModules: Object.freeze({ start: 0x60_00, end: 0xef_ff }),
+  virtual: Object.freeze({ start: 0xf0_00, end: 0xff_ff }),
+});
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const REGISTRY_PATH = path.resolve(
   __dirname,
@@ -82,6 +88,56 @@ function getMaxModuleId(moduleIds) {
   return maxModuleId;
 }
 
+function getModuleIdDomain(moduleKey) {
+  const normalizedModuleKey = normalizeStoredModuleKey(moduleKey);
+  if (
+    normalizedModuleKey.startsWith('\0') ||
+    normalizedModuleKey === '__prelude__'
+  ) {
+    return 'virtual';
+  }
+  if (normalizedModuleKey.startsWith('node_modules/')) {
+    return 'nodeModules';
+  }
+  return 'workspace';
+}
+
+function isModuleIdInDomain(moduleId, domain) {
+  const range = MODULE_ID_RANGES[domain];
+  return Boolean(range && moduleId >= range.start && moduleId <= range.end);
+}
+
+function createModuleIdAllocator(moduleIds) {
+  const usedIds = moduleIds instanceof Set ? moduleIds : new Set(moduleIds);
+  const nextIds = Object.fromEntries(
+    Object.entries(MODULE_ID_RANGES).map(([domain, range]) => {
+      const domainIds = [...usedIds].filter((moduleId) =>
+        isModuleIdInDomain(moduleId, domain),
+      );
+      return [domain, Math.max(range.start - 1, getMaxModuleId(domainIds)) + 1];
+    }),
+  );
+
+  return (domain) => {
+    const range = MODULE_ID_RANGES[domain];
+    if (!range) {
+      throw new Error(`Unknown module ID domain: ${String(domain)}.`);
+    }
+    let moduleId = nextIds[domain];
+    while (usedIds.has(moduleId) && moduleId <= range.end) {
+      moduleId += 1;
+    }
+    if (moduleId > range.end) {
+      throw new Error(
+        `Module ID range exhausted for ${domain}: ${range.start}-${range.end}.`,
+      );
+    }
+    usedIds.add(moduleId);
+    nextIds[domain] = moduleId + 1;
+    return moduleId;
+  };
+}
+
 function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
   const errors = [];
   if (!registry || typeof registry !== 'object' || Array.isArray(registry)) {
@@ -100,6 +156,43 @@ function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
         registry.registryEpoch,
       )}.`,
     );
+  }
+  if (registry.allocationVersion !== ALLOCATION_VERSION) {
+    errors.push(
+      `allocationVersion must be ${ALLOCATION_VERSION}, received ${String(
+        registry.allocationVersion,
+      )}.`,
+    );
+  }
+  if (
+    !registry.ranges ||
+    typeof registry.ranges !== 'object' ||
+    Array.isArray(registry.ranges)
+  ) {
+    errors.push('ranges must be an object.');
+  } else {
+    const actualDomains = Object.keys(registry.ranges);
+    const expectedDomains = Object.keys(MODULE_ID_RANGES);
+    if (
+      actualDomains.length !== expectedDomains.length ||
+      expectedDomains.some((domain) => !actualDomains.includes(domain))
+    ) {
+      errors.push(`ranges must define exactly: ${expectedDomains.join(', ')}.`);
+    }
+    for (const [domain, expectedRange] of Object.entries(MODULE_ID_RANGES)) {
+      const actualRange = registry.ranges[domain];
+      if (
+        !actualRange ||
+        typeof actualRange !== 'object' ||
+        Array.isArray(actualRange) ||
+        actualRange.start !== expectedRange.start ||
+        actualRange.end !== expectedRange.end
+      ) {
+        errors.push(
+          `ranges.${domain} must be ${expectedRange.start}-${expectedRange.end}.`,
+        );
+      }
+    }
   }
 
   const modules = registry.modules;
@@ -130,8 +223,9 @@ function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
       errors.push(`${sectionName} keys must be sorted.`);
     }
     for (const [moduleKey, moduleId] of Object.entries(entries)) {
+      let normalizedModuleKey;
       try {
-        normalizeStoredModuleKey(moduleKey);
+        normalizedModuleKey = normalizeStoredModuleKey(moduleKey);
       } catch (error) {
         errors.push(`${sectionName}.${moduleKey}: ${error.message}`);
       }
@@ -140,6 +234,15 @@ function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
           `${sectionName}.${moduleKey} must have a positive safe integer ID.`,
         );
       } else {
+        if (normalizedModuleKey) {
+          const domain = getModuleIdDomain(normalizedModuleKey);
+          if (!isModuleIdInDomain(moduleId, domain)) {
+            const range = MODULE_ID_RANGES[domain];
+            errors.push(
+              `${sectionName}.${moduleKey} ID ${moduleId} must be in the ${domain} range ${range.start}-${range.end}.`,
+            );
+          }
+        }
         const previous = usedIds.get(moduleId);
         if (previous && !allowDuplicateIds) {
           errors.push(
@@ -203,27 +306,31 @@ function createFileToIdMap({
   ]);
   const observedPaths = new Map();
   const ephemeralIds = new Map();
-  let nextId = getMaxModuleId(usedIds);
+  const allocateModuleId = createModuleIdAllocator(usedIds);
 
   const getObservedPath = (filePath) =>
     path.isAbsolute(filePath)
       ? path.resolve(filePath)
       : path.resolve(repoRoot, filePath);
 
-  const allocateEphemeralId = (filePath) => {
+  const getEphemeralDomain = (filePath, moduleKey) => {
+    if (moduleKey) return getModuleIdDomain(moduleKey);
+    return filePath.split(path.sep).includes('node_modules')
+      ? 'nodeModules'
+      : 'workspace';
+  };
+
+  const allocateEphemeralId = (filePath, moduleKey) => {
     const observedPath = getObservedPath(filePath);
     const existingId = ephemeralIds.get(observedPath);
     if (existingId !== undefined) {
       observedPaths.set(observedPath, existingId);
       return existingId;
     }
-    do {
-      nextId += 1;
-    } while (usedIds.has(nextId));
-    ephemeralIds.set(observedPath, nextId);
-    observedPaths.set(observedPath, nextId);
-    usedIds.add(nextId);
-    return nextId;
+    const moduleId = allocateModuleId(getEphemeralDomain(filePath, moduleKey));
+    ephemeralIds.set(observedPath, moduleId);
+    observedPaths.set(observedPath, moduleId);
+    return moduleId;
   };
 
   const get = (filePath) => {
@@ -249,7 +356,7 @@ function createFileToIdMap({
         `Module is not registered in ${REGISTRY_PATH}: ${moduleKey}. ${UPDATE_HINT}`,
       );
     }
-    return allocateEphemeralId(filePath);
+    return allocateEphemeralId(filePath, moduleKey);
   };
 
   return {
@@ -263,8 +370,10 @@ function createFileToIdMap({
       }
       const observedPath = getObservedPath(filePath);
       let registeredId;
+      let moduleKey;
       try {
-        registeredId = registeredIds.get(toModuleKey(filePath, repoRoot));
+        moduleKey = toModuleKey(filePath, repoRoot);
+        registeredId = registeredIds.get(moduleKey);
       } catch {
         registeredId = undefined;
       }
@@ -276,6 +385,13 @@ function createFileToIdMap({
         }
         observedPaths.set(observedPath, moduleId);
         return;
+      }
+      const domain = getEphemeralDomain(filePath, moduleKey);
+      if (!isModuleIdInDomain(moduleId, domain)) {
+        const range = MODULE_ID_RANGES[domain];
+        throw new Error(
+          `Module ID ${moduleId} for ${observedPath} must be in the ${domain} range ${range.start}-${range.end}.`,
+        );
       }
       const existingId = observedPaths.get(observedPath);
       if (existingId !== undefined && existingId !== moduleId) {
@@ -297,6 +413,8 @@ function createFileToIdMap({
 }
 
 module.exports = {
+  ALLOCATION_VERSION,
+  MODULE_ID_RANGES,
   REGISTRY_EPOCH,
   REGISTRY_PATH,
   REPO_ROOT,
@@ -306,7 +424,10 @@ module.exports = {
   collectRegistryErrors,
   compareModuleKeys,
   createFileToIdMap,
+  createModuleIdAllocator,
   getMaxModuleId,
+  getModuleIdDomain,
+  isModuleIdInDomain,
   isPositiveSafeInteger,
   isStrictRegistryMode,
   loadRegistry,
