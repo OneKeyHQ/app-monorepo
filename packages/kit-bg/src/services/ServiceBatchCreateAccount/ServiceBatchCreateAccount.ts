@@ -536,6 +536,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       {
         deviceParams,
         hideCheckingDeviceLoading: payload.params.hideCheckingDeviceLoading,
+        debugMethodName: 'batchCreateAccount.startBatchCreateAccountsFlow',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -642,6 +643,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deviceParams,
           oneKeyOperationLease,
           skipDeviceCancel: true,
+          debugMethodName: 'batchCreateAccount.previewBatchBuildAccounts',
           onFinally: () => {
             hwAllNetworkPrepareAccountsResponse?.destroy();
             this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });
@@ -1290,6 +1292,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             skipCloseHardwareUiStateDialog ?? false,
           hideCheckingDeviceLoading,
           oneKeyOperationLease: params.oneKeyOperationLease,
+          debugMethodName:
+            'batchCreateAccount.getHwAllNetworkPrepareAccountsResponse',
         },
       );
     }
@@ -1484,6 +1488,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
         deviceParams,
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        debugMethodName:
+          'batchCreateAccount.startBatchCreateAccountsFlowForAllNetwork',
         onFinally: () => {
           hwAllNetworkPrepareAccountsResponse?.destroy();
           this.clearHdCredentialCacheScope({ hdCredentialCacheScopeId });

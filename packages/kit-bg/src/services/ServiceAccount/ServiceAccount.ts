@@ -7294,6 +7294,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }

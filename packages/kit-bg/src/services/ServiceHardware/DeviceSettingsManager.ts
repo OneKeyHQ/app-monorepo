@@ -677,7 +677,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
+        debugMethodName: 'deviceSettings.getDeviceLabel',
       },
     );
   }
