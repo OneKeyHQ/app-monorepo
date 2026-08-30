@@ -49,8 +49,13 @@ function findFooterActionsElement(
 function hasNumericBottomSpacing(children: ReactNode): boolean {
   for (const child of Children.toArray(children)) {
     if (isValidElement(child)) {
-      const { children: nestedChildren, mb, marginBottom, paddingBottom, pb } =
-        child.props as PropsWithChildren<IFooterActionsProps>;
+      const {
+        children: nestedChildren,
+        mb,
+        marginBottom,
+        paddingBottom,
+        pb,
+      } = child.props as PropsWithChildren<IFooterActionsProps>;
       if (
         [mb, marginBottom, paddingBottom, pb].some(
           (value) => typeof value === 'number' && value > 0,
