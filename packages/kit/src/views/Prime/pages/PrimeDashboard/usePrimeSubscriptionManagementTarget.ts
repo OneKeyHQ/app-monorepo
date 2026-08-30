@@ -3,12 +3,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPrimeSubscriptionInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
 
 import {
   type IPrimeSubscriptionManagementTarget,
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
+  hasRevenueCatSubscriptionChannel,
   isMissingChannelManagementTarget,
 } from './primeSubscriptionManagementUtils';
 
@@ -21,6 +23,7 @@ export function usePrimeSubscriptionManagementTarget({
   subscriptionManageUrl: string | undefined;
   onekeyUserId: string | undefined;
 }): IPrimeSubscriptionManagementTarget | undefined {
+  const { getCustomerInfo } = usePrimePayment();
   const isPrime = primeSubscription?.isActive === true;
   const currentTarget = getPrimeSubscriptionManagementTarget({
     userInfo: { primeSubscription, subscriptionManageUrl },
@@ -44,6 +47,27 @@ export function usePrimeSubscriptionManagementTarget({
       let target = getPrimeSubscriptionManagementTarget({
         userInfo,
       });
+      if (
+        target.type === 'unavailable' &&
+        hasRevenueCatSubscriptionChannel({
+          subscriptions: userInfo.primeSubscription?.subscriptions,
+        })
+      ) {
+        try {
+          const customerInfo = await getCustomerInfo();
+          const revenueCatManagementUrl = customerInfo.managementURL?.trim();
+          if (revenueCatManagementUrl) {
+            target = getPrimeSubscriptionManagementTarget({
+              userInfo: {
+                ...userInfo,
+                subscriptionManageUrl: revenueCatManagementUrl,
+              },
+            });
+          }
+        } catch {
+          // Keep the unresolved target; the menu still toasts.
+        }
+      }
       if (shouldProbeLegacyInfini && isMissingChannelManagementTarget(target)) {
         const infiniSubscription =
           await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
@@ -59,7 +83,13 @@ export function usePrimeSubscriptionManagementTarget({
         target,
       };
     },
-    [isPrime, onekeyUserId, shouldProbeLegacyInfini, subscriptionSourceKey],
+    [
+      getCustomerInfo,
+      isPrime,
+      onekeyUserId,
+      shouldProbeLegacyInfini,
+      subscriptionSourceKey,
+    ],
     {
       undefinedResultIfError: true,
       undefinedResultIfReRun: true,

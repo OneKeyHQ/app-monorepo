@@ -2,6 +2,7 @@
 import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
+  hasRevenueCatSubscriptionChannel,
 } from './primeSubscriptionManagementUtils';
 
 describe('primeSubscriptionManagementUtils', () => {
@@ -112,6 +113,19 @@ describe('primeSubscriptionManagementUtils', () => {
         },
       }),
     ).toEqual({ type: 'infini' });
+  });
+
+  it('detects a RevenueCat channel for SDK URL hydration', () => {
+    expect(
+      hasRevenueCatSubscriptionChannel({
+        subscriptions: [{ channel: ' RevenueCat ' }],
+      }),
+    ).toBe(true);
+    expect(
+      hasRevenueCatSubscriptionChannel({
+        subscriptions: [{ channel: 'redemption' }],
+      }),
+    ).toBe(false);
   });
 
   it('uses the RevenueCat URL only for a current RevenueCat subscription', () => {

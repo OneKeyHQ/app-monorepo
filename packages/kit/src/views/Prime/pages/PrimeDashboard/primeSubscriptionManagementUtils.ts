@@ -33,6 +33,21 @@ export function isMissingChannelManagementTarget(
   );
 }
 
+export function hasRevenueCatSubscriptionChannel({
+  subscriptions,
+}: {
+  subscriptions:
+    | {
+        channel?: string;
+      }[]
+    | undefined;
+}) {
+  return (subscriptions ?? []).some(
+    (subscription) =>
+      subscription.channel?.trim().toLowerCase() === 'revenuecat',
+  );
+}
+
 export function getPrimeSubscriptionManagementSourceKey({
   primeSubscription,
   subscriptionManageUrl,

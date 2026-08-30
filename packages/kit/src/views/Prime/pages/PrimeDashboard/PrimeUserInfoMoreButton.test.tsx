@@ -35,6 +35,10 @@ const mockApiGetInfiniSubscription = jest.fn<
   Promise<IPrimeInfiniSubscription | undefined>,
   [{ expectedOneKeyUserId: string }]
 >();
+const mockGetCustomerInfo = jest.fn<
+  Promise<{ managementURL?: string | null }>,
+  []
+>();
 let mockPromiseResultMethod: (() => Promise<unknown>) | undefined;
 let mockManagementResolution:
   | {
@@ -215,7 +219,7 @@ jest.mock('../../components/PrimePurchaseDialog/PrimePurchaseDialog', () => ({
 }));
 
 jest.mock('../../hooks/usePrimePayment', () => ({
-  usePrimePayment: () => ({ getCustomerInfo: jest.fn() }),
+  usePrimePayment: () => ({ getCustomerInfo: () => mockGetCustomerInfo() }),
 }));
 
 jest.mock('./PrimeRedemptionDialog', () => ({
@@ -263,6 +267,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     mockUser.subscriptionManageUrl = undefined;
     mockManagementResolution = undefined;
     mockPromiseResultMethod = undefined;
+    mockGetCustomerInfo.mockReset();
   });
 
   it('shows the entry and explains when only a redemption subscription exists', () => {
@@ -280,6 +285,35 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
       target: 'unresolved',
     });
+  });
+
+  it('hydrates a RevenueCat management URL when the server record has none', async () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ channel: 'revenuecat' }],
+    };
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'revenuecat' }],
+        },
+      },
+    });
+    mockGetCustomerInfo.mockResolvedValue({
+      managementURL: ' https://example.com/revenuecat-manage ',
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'external',
+        url: 'https://example.com/revenuecat-manage',
+      },
+    });
+    expect(mockGetCustomerInfo).toHaveBeenCalled();
   });
 
   it('opens a locally available management URL before refresh resolves', () => {
@@ -469,6 +503,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     await mockPromiseResultMethod?.();
 
     expect(mockApiGetInfiniSubscription).not.toHaveBeenCalled();
+    expect(mockGetCustomerInfo).not.toHaveBeenCalled();
   });
 
   it('opens a refreshed management target for the same user and source', () => {
