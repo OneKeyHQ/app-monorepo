@@ -176,6 +176,10 @@ class ProviderApiWalletConnect {
     // Tracks whether the user already approved the proposal, so a failure after
     // that point is not reported to the dApp as a rejection by the user.
     let userApproved = false;
+    // Settling consumes the proposal. Rejecting afterwards would target a
+    // proposal that no longer exists while the session stays live, so failures
+    // past this point are only logged.
+    let sessionSettled = false;
 
     try {
       if (!origin) {
@@ -223,6 +227,7 @@ class ProviderApiWalletConnect {
         id: proposal.id,
         namespaces: result.supportedNamespaces,
       });
+      sessionSettled = true;
       await serviceDApp.saveConnectionSession({
         origin,
         accountsInfo: result.accountsInfo,
@@ -241,12 +246,14 @@ class ProviderApiWalletConnect {
       });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
-      await this.web3Wallet?.rejectSession({
-        id: proposal.id,
-        reason: userApproved
-          ? getSdkError('SESSION_SETTLEMENT_FAILED')
-          : getSdkError('USER_REJECTED'),
-      });
+      if (!sessionSettled) {
+        await this.web3Wallet?.rejectSession({
+          id: proposal.id,
+          reason: userApproved
+            ? getSdkError('SESSION_SETTLEMENT_FAILED')
+            : getSdkError('USER_REJECTED'),
+        });
+      }
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
