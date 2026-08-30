@@ -1,3 +1,10 @@
+import {
+  useTheme as useTamaguiTheme,
+  useThemeName as useTamaguiThemeName,
+} from '@tamagui/web';
+
+import { useNativeThemeNameSubscription } from './useNativeThemeNameSubscription';
+
 import type {
   GestureResponderEvent,
   TextProps as RNTextProps,
@@ -46,9 +53,7 @@ export {
   View,
   getTokens,
   getTokenValue,
-  useTheme,
   useMedia,
-  useThemeName,
   useStyle,
   usePropsAndStyle,
   createStyledContext,
@@ -58,6 +63,16 @@ export {
   useProps,
   withStaticProperties,
 } from '@tamagui/web';
+
+export const useThemeName = useTamaguiThemeName;
+
+export function useTheme() {
+  const theme = useTamaguiTheme();
+
+  useNativeThemeNameSubscription();
+
+  return theme;
+}
 
 export { Unspaced } from '@tamagui/spacer';
 
