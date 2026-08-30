@@ -59,9 +59,7 @@ const PageFooterContainer = ({
 
   return (
     <Animated.View
-      style={
-        gtMd || !platformEnv.isNative ? undefined : animatedStyle
-      }
+      style={gtMd || !platformEnv.isNative ? undefined : animatedStyle}
     >
       {children}
     </Animated.View>
