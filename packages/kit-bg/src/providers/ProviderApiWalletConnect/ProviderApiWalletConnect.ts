@@ -358,79 +358,94 @@ class ProviderApiWalletConnect {
     const metadata = params.requester.metadata;
     const evmNamespace = EWalletConnectNamespaceType.evm;
 
-    const rejectAuth = (reason: { code: number; message: string }) =>
-      this.web3Wallet?.rejectSessionAuthenticate({ id, reason });
-
-    // safeGetWalletConnectOrigin only reads params.proposer.metadata, which the
-    // authenticate payload carries as params.requester.
-    const origin = uriUtils.safeGetWalletConnectOrigin({
-      params: { proposer: params.requester },
-    } as WalletKitTypes.SessionProposal);
-
-    if (!origin) {
-      const message = appLocale.intl.formatMessage({
-        id: ETranslations.browser_invalid_url,
-      });
-      await rejectAuth({ message, code: 40_001 });
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: message,
-      });
-      return;
-    }
+    // approveSessionAuthenticate/rejectSessionAuthenticate consume the request,
+    // so the error handler must not answer one that was already approved.
+    let answered = false;
+    const rejectAuth = async (reason: { code: number; message: string }) => {
+      if (answered) {
+        return;
+      }
+      answered = true;
+      try {
+        await this.web3Wallet?.rejectSessionAuthenticate({ id, reason });
+      } catch (rejectError) {
+        console.error('rejectSessionAuthenticate error: ', rejectError);
+      }
+    };
 
     // One-click auth signs a CACAO, which this wallet only produces for EVM.
-    const requestedChains = params.authPayload.chains ?? [];
     const supportedChains: string[] = [];
-    for (const chain of requestedChains) {
-      if (!chain.startsWith(`${evmNamespace}:`)) {
-        continue;
-      }
-      const chainInfo = await serviceWalletConnect.getWcChainInfo(chain);
-      if (chainInfo) {
-        supportedChains.push(chain);
-      }
-    }
-
-    if (supportedChains.length === 0) {
-      await rejectAuth(getSdkError('UNSUPPORTED_CHAINS'));
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: `ChainId: ${requestedChains[0] ?? ''}`,
-        message: 'Unsupported yet',
-      });
-      return;
-    }
-
-    const methods = supportMethodsMap[evmNamespace] ?? [];
-    const authPayload = populateAuthPayload({
-      authPayload: params.authPayload,
-      chains: supportedChains,
-      methods,
-    });
-
-    // Shaped like a session proposal so the existing approval modal and
-    // getSessionApprovalAccountInfo work without a dedicated screen.
-    const proposal = {
-      id,
-      params: {
-        id,
-        expiryTimestamp: params.expiryTimestamp,
-        relays: [],
-        proposer: params.requester,
-        requiredNamespaces: {},
-        optionalNamespaces: {
-          [evmNamespace]: {
-            chains: supportedChains,
-            methods,
-            events: supportEventsMap[evmNamespace] ?? [],
-          },
-        },
-      },
-      verifyContext: args.verifyContext,
-    } as unknown as WalletKitTypes.SessionProposal;
 
     try {
+      // safeGetWalletConnectOrigin only reads params.proposer.metadata, which
+      // the authenticate payload carries as params.requester.
+      const origin = uriUtils.safeGetWalletConnectOrigin({
+        params: { proposer: params.requester },
+      } as WalletKitTypes.SessionProposal);
+
+      if (!origin) {
+        const message = appLocale.intl.formatMessage({
+          id: ETranslations.browser_invalid_url,
+        });
+        await rejectAuth({ message, code: 40_001 });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: message,
+        });
+        return;
+      }
+
+      const requestedChains = params.authPayload.chains ?? [];
+      for (const chain of requestedChains) {
+        if (!chain.startsWith(`${evmNamespace}:`)) {
+          continue;
+        }
+        const chainInfo = await serviceWalletConnect.getWcChainInfo(chain);
+        if (chainInfo) {
+          supportedChains.push(chain);
+        }
+      }
+
+      if (supportedChains.length === 0) {
+        await rejectAuth(getSdkError('UNSUPPORTED_CHAINS'));
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: `ChainId: ${requestedChains[0] ?? ''}`,
+          message: 'Unsupported yet',
+        });
+        return;
+      }
+
+      const methods = supportMethodsMap[evmNamespace] ?? [];
+      // Throws when the dApp asks for a ReCap the wallet cannot satisfy; the
+      // catch below turns that into an explicit rejection.
+      const authPayload = populateAuthPayload({
+        authPayload: params.authPayload,
+        chains: supportedChains,
+        methods,
+      });
+
+      // Shaped like a session proposal so the existing approval modal and
+      // getSessionApprovalAccountInfo work without a dedicated screen.
+      const proposal = {
+        id,
+        params: {
+          id,
+          expiryTimestamp: params.expiryTimestamp,
+          relays: [],
+          proposer: params.requester,
+          requiredNamespaces: {},
+          optionalNamespaces: {
+            [evmNamespace]: {
+              chains: supportedChains,
+              methods,
+              events: supportEventsMap[evmNamespace] ?? [],
+            },
+          },
+        },
+        verifyContext: args.verifyContext,
+      } as unknown as WalletKitTypes.SessionProposal;
+
       const result = (await serviceDApp.openModal({
         request: {
           scope: '$walletConnect',
@@ -488,13 +503,19 @@ class ProviderApiWalletConnect {
         id,
         auths: [auth],
       });
+      answered = true;
 
-      await serviceDApp.saveConnectionSession({
-        origin,
-        accountsInfo: result.accountsInfo,
-        storageType: 'walletConnect',
-        walletConnectTopic: approved?.session?.topic,
-      });
+      // A request that only asks for authentication (no ReCap methods) is
+      // approved without a session being established, so there is no topic to
+      // persist and nothing to show in the connected-sites list.
+      if (approved?.session?.topic) {
+        await serviceDApp.saveConnectionSession({
+          origin,
+          accountsInfo: result.accountsInfo,
+          storageType: 'walletConnect',
+          walletConnectTopic: approved.session.topic,
+        });
+      }
 
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
