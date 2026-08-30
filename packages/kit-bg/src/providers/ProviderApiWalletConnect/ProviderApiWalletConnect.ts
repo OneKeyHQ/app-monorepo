@@ -508,13 +508,29 @@ class ProviderApiWalletConnect {
       // A request that only asks for authentication (no ReCap methods) is
       // approved without a session being established, so there is no topic to
       // persist and nothing to show in the connected-sites list.
-      if (approved?.session?.topic) {
-        await serviceDApp.saveConnectionSession({
-          origin,
-          accountsInfo: result.accountsInfo,
-          storageType: 'walletConnect',
-          walletConnectTopic: approved.session.topic,
-        });
+      const topic = approved?.session?.topic;
+      if (topic) {
+        try {
+          await serviceDApp.saveConnectionSession({
+            origin,
+            accountsInfo: result.accountsInfo,
+            storageType: 'walletConnect',
+            walletConnectTopic: topic,
+          });
+        } catch (saveError) {
+          // The session is already live on the relay, but without a stored
+          // connection it never shows up in connected sites and the user has
+          // no way to end it. Tear it down instead of leaking it.
+          try {
+            await serviceWalletConnect.walletConnectDisconnect(topic);
+          } catch (disconnectError) {
+            console.error(
+              'onAuthRequest disconnect after failed save error: ',
+              disconnectError,
+            );
+          }
+          throw saveError;
+        }
       }
 
       defaultLogger.discovery.dapp.dappUse({
