@@ -116,11 +116,11 @@ export const usePageUnMounted = (
   usePageLifeCycle({ onUnmounted });
 };
 
-export const useSafeAreaBottom = (enabled?: boolean) => {
+export const useSafeAreaBottom = () => {
   const isModalPage = useIsOverlayPage();
   const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
-  return (enabled ?? safeAreaEnabled) && isModalPage ? bottom : 0;
+  return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
 // Returns native-measured tab bar height (includes safe area on iOS).

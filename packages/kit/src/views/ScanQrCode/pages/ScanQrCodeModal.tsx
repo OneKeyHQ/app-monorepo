@@ -331,7 +331,7 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      <Page.Footer safeAreaEnabled={false}>
+      <Page.Footer>
         <DebugInput onText={(value) => callback(value)} />
       </Page.Footer>
     </Page>
