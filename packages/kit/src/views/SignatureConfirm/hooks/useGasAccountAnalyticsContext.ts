@@ -27,11 +27,9 @@ import { buildGasAccountAnalyticsContext } from '../utils/gasAccountAnalytics';
 export function useGasAccountAnalyticsContext({
   networkId,
   gasAccountScenario,
-  isPrivateSend,
 }: {
   networkId: string;
   gasAccountScenario: IGasAccountScenario | undefined;
-  isPrivateSend: boolean;
 }): IGasAccountAnalyticsContext | undefined {
   const [settings] = useSettingsPersistAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
@@ -63,11 +61,11 @@ export function useGasAccountAnalyticsContext({
     );
     const disabledForBatch = unsignedTxs.length > 1;
     const disabledByCustomRpc = gasAccountUiState.sponsorDisabledByCustomRpc;
+    // Private Send is intentionally absent here: Gas Account sponsorship is
+    // enabled for it (OK-59993); when no quote arrives the backend scenario
+    // reason reports the actual cause.
     const clientUnsupported =
-      disabledByScenario ||
-      isPrivateSend ||
-      disabledForBatch ||
-      disabledByCustomRpc;
+      disabledByScenario || disabledForBatch || disabledByCustomRpc;
     const gasAccountRequested =
       settings.useGasAccountByDefault !== false &&
       !clientUnsupported &&
@@ -95,8 +93,6 @@ export function useGasAccountAnalyticsContext({
         unavailableReason = 'customRpcEnabled';
       } else if (disabledByScenario) {
         unavailableReason = 'unsupportedScenario';
-      } else if (isPrivateSend) {
-        unavailableReason = 'privateSend';
       } else if (disabledForBatch) {
         unavailableReason = 'batchTransaction';
       } else if (gasAccountTemporarilyDisabled) {
@@ -143,7 +139,6 @@ export function useGasAccountAnalyticsContext({
     gasAccountUiState.gasAccountScenarioReason,
     gasAccountUiState.selectedPayer,
     gasAccountUiState.sponsorDisabledByCustomRpc,
-    isPrivateSend,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,

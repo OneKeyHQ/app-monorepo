@@ -7,9 +7,9 @@
     "**/*.css"
   ],
   "dependencies": {
-    "@onekeyfe/react-native-scroll-guard": "3.0.78",
-    "@onekeyfe/react-native-segment-slider": "3.0.78",
-    "@onekeyfe/react-native-tab-view": "3.0.78",
+    "@onekeyfe/react-native-scroll-guard": "3.0.94",
+    "@onekeyfe/react-native-segment-slider": "3.0.94",
+    "@onekeyfe/react-native-tab-view": "3.0.94",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
     "@react-navigation/native": "7.1.28",
@@ -18,13 +18,13 @@
     "ethereum-blockies-base64": "^1.0.2",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.18.1",
-    "moti": "^0.25.3",
+    "moti": "0.30.0",
     "qrcode": "^1.5.0",
     "react-hook-form": "^7.22.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.15.1"
+    "react-native-svg": "15.15.4"
   },
   "devDependencies": {
     "@svgr/core": "8.1.0",

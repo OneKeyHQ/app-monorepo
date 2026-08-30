@@ -2,8 +2,19 @@ import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { AnimatePresence, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
+
+// Native only: under Yoga a normal-flow child of the height-0 animated wrapper
+// measures 0, so onLayout would report 0 forever and the content could never
+// expand. Taking the measured node out of flow frees it from that constraint.
+// Web/desktop measure the child's natural height fine, and keeping it in flow
+// there preserves the intrinsic sizing every SwapSmoothReveal caller relies on.
+// (OK-58326)
+const MEASURED_CONTENT_LAYOUT_PROPS = platformEnv.isNative
+  ? ({ position: 'absolute', left: 0, right: 0, top: 0 } as const)
+  : ({} as const);
 
 /**
  * Expands/collapses `children` smoothly instead of letting them pop in and
@@ -12,9 +23,10 @@ const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
  * the inner (measured) node, so the occupied space is driven purely by the
  * animated height: margins are not animatable by the moti driver (they
  * snap), and padding on the animated node itself would clamp its border-box
- * height above 0. The measurement node is absolutely positioned so the
- * wrapper's initial zero height cannot constrain its onLayout result. This
- * keeps variable-height children (multi-line or stacked alerts) measurable.
+ * height above 0. On native the measurement node is additionally taken out of
+ * flow so the wrapper's zero height cannot constrain its onLayout result — see
+ * MEASURED_CONTENT_LAYOUT_PROPS. Either way variable-height children
+ * (multi-line or stacked alerts) stay measurable.
  */
 export function SwapSmoothReveal({
   visible,
@@ -55,7 +67,7 @@ export function SwapSmoothReveal({
       {visible ? (
         <Stack
           key="swapSmoothReveal"
-          animation="smooth"
+          transition="smooth"
           animateOnly={ANIMATE_ONLY_SMOOTH_REVEAL}
           overflow="hidden"
           mt={isGapTop && parentGap ? -parentGap : undefined}
@@ -65,10 +77,7 @@ export function SwapSmoothReveal({
           exitStyle={{ height: 0, opacity: 0 }}
         >
           <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
+            {...MEASURED_CONTENT_LAYOUT_PROPS}
             pt={isGapTop && parentGap ? parentGap : undefined}
             pb={!isGapTop && parentGap ? parentGap : undefined}
             onLayout={onContentLayout}

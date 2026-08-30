@@ -61,6 +61,7 @@ import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/
 import {
   ONEKEY_API_HOST,
   ONEKEY_TEST_API_HOST,
+  TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -127,6 +128,7 @@ import { ReferralCodeDebugPanel } from './ReferralCodeDebugPanel';
 import { RegistrationID } from './RegistrationID';
 import { ResetInstanceId } from './ResetInstanceId';
 import { SectionFieldItem } from './SectionFieldItem';
+import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -219,7 +221,7 @@ const DevSettingsAccordionTrigger = ({
             />
           ) : null}
           <View
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={open ? '0deg' : '-90deg'}
           >
@@ -839,14 +841,14 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
       },
       {
         key: 'devtools',
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1018,9 +1020,9 @@ const BaseDevSettingsSection = () => {
                     icon="InfoCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1056,6 +1058,18 @@ const BaseDevSettingsSection = () => {
                             void backgroundApiProxy.serviceApp.restartApp();
                           }, 300);
                         }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldOutline"
+                        name="disableIpTableFailover"
+                        title="禁用 IP 快速故障切换"
+                        subtitle={
+                          devSettings.settings?.disableIpTableFailover
+                            ? '域名失败时不自动切换到 IP'
+                            : '域名连续失败时自动切换到 IP (默认)'
+                        }
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -1243,9 +1257,17 @@ const BaseDevSettingsSection = () => {
                         title="Copy Log Path"
                         subtitle="Log Path"
                         onPress={() => {
-                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                          // react-native-file-logger is a no-op stub outside
+                          // native; desktop resolves via the preload bridge.
+                          copyText(
+                            (platformEnv.isDesktop
+                              ? globalThis.desktopApi?.logDirectory
+                              : NativeLogger.getLogDirectory()) || 'N/A',
+                          );
                         }}
                       />
+
+                      <SectionLoggerParityItem />
 
                       {platformEnv.isNativeAndroid ? (
                         <SectionPressItem
@@ -1287,9 +1309,9 @@ const BaseDevSettingsSection = () => {
                     icon="LabOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1445,18 +1467,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="ShieldOutline"
-                        name="disableIpTableFailover"
-                        title="禁用 IP 快速故障切换"
-                        subtitle={
-                          devSettings.settings?.disableIpTableFailover
-                            ? '域名失败时不自动切换到 IP'
-                            : '域名连续失败时自动切换到 IP (默认)'
-                        }
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="Reset IP Table Cache"
@@ -1471,6 +1481,20 @@ const BaseDevSettingsSection = () => {
                       <SearchFilterItem keywords="IpTableSelector IP直连选择">
                         <IpTableSelector />
                       </SearchFilterItem>
+                      {platformEnv.isDesktop || platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="SNI Queue & Abort QA"
+                          subtitle="Run fixed /health, 20/40 request, cancellation, and recovery cases"
+                          searchKeywords="SNI Queue AbortController QA health 20 40 requests concurrency cancellation recovery Native Desktop"
+                          testID="desktop-sni-queue-qa-menu"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSniRequestQa,
+                            );
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="ForkOutline"
                         title="Check Network info"
@@ -1583,9 +1607,9 @@ const BaseDevSettingsSection = () => {
                     icon="ArrowTopCircleOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1641,6 +1665,18 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
                       <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Pro2 Firmware Update Dev Settings"
+                        subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
+                        testID="pro2-firmware-update-dev-settings-menu"
+                        searchKeywords="Pro2 firmware boot app coprocessor resource SE force update"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
                         icon="ActivityOutline"
                         title="App/Bundle Update Status"
                         subtitle="Update state, strategy, download progress, pending task"
@@ -1664,9 +1700,9 @@ const BaseDevSettingsSection = () => {
                     icon="ServerOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -1856,9 +1892,9 @@ const BaseDevSettingsSection = () => {
                     icon="LayoutWindowOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       exitStyle={{ opacity: 0 }}
                     >
                       <LazyNavigationDiagnosticsSection />
@@ -1875,9 +1911,9 @@ const BaseDevSettingsSection = () => {
                     icon="TableOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2120,9 +2156,9 @@ const BaseDevSettingsSection = () => {
                     icon="BrowserOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2198,16 +2234,8 @@ const BaseDevSettingsSection = () => {
                         subtitle={
                           devSettings.settings?.useLocalTradingViewUrl
                             ? localTradingViewUrlSubtitle
-                            : 'https://tradingview.onekeytest.com/'
+                            : TRADING_VIEW_URL_TEST
                         }
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-                      <SectionFieldItem
-                        icon="TradeOutline"
-                        name="useTradingViewNativeInMarketDetail"
-                        title="Use TradingViewNative in Market Detail"
-                        subtitle="关闭时继续使用 TradingViewV2"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
@@ -2280,9 +2308,9 @@ const BaseDevSettingsSection = () => {
                     icon="AiImagesOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2366,9 +2394,9 @@ const BaseDevSettingsSection = () => {
                     icon="HeadOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
@@ -2556,9 +2584,9 @@ const BaseDevSettingsSection = () => {
                     icon="SignatureOutline"
                     {...pinProps}
                   />
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >

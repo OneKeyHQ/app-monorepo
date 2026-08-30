@@ -3,7 +3,15 @@ import { type ComponentProps, type ReactNode, memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { IconButton, ScrollView, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  ScrollView,
+  Select,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { CalendarPanelPopover } from './calendarControls/CalendarPanelPopover';
@@ -17,21 +25,23 @@ import type {
   ICalendarPanelAvailableTimeRange,
   ICalendarPanelSubmitPayload,
 } from './calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewChartTypeOption,
   ITradingViewIndicatorOption,
   ITradingViewIntervalConfigData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewNativeControlsLayoutMode,
+  ITradingViewNativeIntervalControlMode,
   ITradingViewPriceMarketCapMode,
 } from './types';
 
 type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
+type ITradingViewChartMode = 'native' | 'tradingView';
 
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
+  compactMobileLayout?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -51,7 +61,7 @@ export interface ITradingViewChartControlsProps {
   showChartTypeToggle: boolean;
   showIndicatorPopover: boolean;
   showPriceMarketCapSelect: boolean;
-  maxSubIndicatorCount?: number;
+  maxSelectableSubIndicatorCount?: number;
   isControlsReady: boolean;
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
@@ -59,6 +69,11 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
+  rightControl?: ReactNode;
+  rightControlLabel?: string;
+  chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
+  onChartSwitch?: () => void;
   onIntervalChange: (interval: string) => void;
   onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
   onShowIndicatorsDialog: () => void;
@@ -72,6 +87,7 @@ export interface ITradingViewChartControlsProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenToggle?: () => void;
+  onRightControlPress?: () => void;
 }
 
 function ToolbarSeparator() {
@@ -85,6 +101,7 @@ export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
+    compactMobileLayout = false,
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -104,7 +121,7 @@ export const TradingViewChartControls = memo(
     showChartTypeToggle,
     showIndicatorPopover,
     showPriceMarketCapSelect,
-    maxSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     isControlsReady,
     intervalControlMode,
     layoutMode,
@@ -112,6 +129,11 @@ export const TradingViewChartControls = memo(
     calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
+    rightControl,
+    rightControlLabel,
+    chartMode,
+    isChartSwitchDisabled = false,
+    onChartSwitch,
     onIntervalChange,
     onIndicatorPress,
     onShowIndicatorsDialog,
@@ -125,6 +147,7 @@ export const TradingViewChartControls = memo(
     onUndo,
     onRedo,
     onFullscreenToggle,
+    onRightControlPress,
   }: ITradingViewChartControlsProps) => {
     const intl = useIntl();
     const isDesktopLayout = layoutMode === 'desktop';
@@ -189,7 +212,7 @@ export const TradingViewChartControls = memo(
             title={indicatorsTitle}
             indicators={indicators}
             activeIndicatorValues={activeIndicatorValues}
-            maxSubIndicatorCount={maxSubIndicatorCount}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             onIndicatorPress={onIndicatorPress}
             onControlInteraction={onControlInteraction}
           />
@@ -213,7 +236,7 @@ export const TradingViewChartControls = memo(
       hasVisibleIndicators,
       indicators,
       indicatorsTitle,
-      maxSubIndicatorCount,
+      maxSelectableSubIndicatorCount,
       onControlInteraction,
       onIndicatorPress,
       onShowIndicatorsDialog,
@@ -262,6 +285,78 @@ export const TradingViewChartControls = memo(
         {...HEADER_ICON_BUTTON_STYLE_PROPS}
       />
     ) : null;
+
+    const chartModeItems = [
+      {
+        label: 'Original',
+        value: 'native' as const,
+      },
+      {
+        label: 'TradingView',
+        value: 'tradingView' as const,
+      },
+    ];
+    const selectedChartModeLabel = chartModeItems.find(
+      (item) => item.value === chartMode,
+    )?.label;
+    const chartSwitchControl =
+      chartMode && onChartSwitch ? (
+        <Select
+          testID="trading-view-chart-switch"
+          title={intl.formatMessage({ id: ETranslations.market_chart })}
+          items={chartModeItems}
+          value={chartMode}
+          disabled={isChartSwitchDisabled}
+          onChange={(nextChartMode) => {
+            if (
+              !isChartSwitchDisabled &&
+              (nextChartMode === 'native' || nextChartMode === 'tradingView') &&
+              nextChartMode !== chartMode
+            ) {
+              onChartSwitch();
+            }
+          }}
+          placement="bottom-end"
+          floatingPanelProps={{ width: 180 }}
+          renderTrigger={({ onPress, disabled }) => (
+            <XStack
+              testID="trading-view-chart-switch-trigger"
+              h={30}
+              px="$3"
+              gap="$1.5"
+              alignItems="center"
+              borderRadius="$full"
+              borderCurve="continuous"
+              bg="$transparent"
+              opacity={disabled ? 0.5 : 1}
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              cursor={disabled ? 'not-allowed' : 'pointer'}
+              userSelect="none"
+              onPress={(event) => {
+                if (disabled) {
+                  return;
+                }
+                onControlInteraction?.();
+                onPress?.(event);
+              }}
+            >
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {selectedChartModeLabel}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          )}
+        />
+      ) : null;
 
     const fullscreenControl = hasFullscreenControl ? (
       <IconButton
@@ -316,25 +411,39 @@ export const TradingViewChartControls = memo(
       !hasCalendarControl &&
       !hasFullscreenControl &&
       !hasHistoryControls &&
+      !rightControl &&
+      !chartSwitchControl &&
       !desktopFullscreenHeader
     ) {
       return null;
     }
 
-    const intervalSelector = hasVisibleIntervalSelector ? (
-      <TradingViewNativeIntervalSelector
-        intervalConfig={intervalConfig}
-        intervalControlMode={intervalControlMode}
-        onIntervalChange={onIntervalChange}
-        onControlInteraction={onControlInteraction}
-      />
-    ) : null;
     const hasLeftChartTools = Boolean(
       chartTypeControl ||
       indicatorControl ||
       calendarControl ||
       settingsControl,
     );
+    const shouldFillIntervalSelector =
+      compactMobileLayout &&
+      hasVisibleIntervalSelector &&
+      !hasLeftChartTools &&
+      !priceMarketCapControl &&
+      !chartSwitchControl &&
+      !fullscreenControl &&
+      !rightControl &&
+      !onRightControlPress;
+    const intervalSelector = hasVisibleIntervalSelector ? (
+      <TradingViewNativeIntervalSelector
+        compactMobileLayout={compactMobileLayout}
+        fullWidth={shouldFillIntervalSelector}
+        intervalConfig={intervalConfig}
+        intervalControlMode={intervalControlMode}
+        showActiveBackground={isDesktopLayout || !compactMobileLayout}
+        onIntervalChange={onIntervalChange}
+        onControlInteraction={onControlInteraction}
+      />
+    ) : null;
 
     if (isDesktopLayout) {
       return (
@@ -350,53 +459,66 @@ export const TradingViewChartControls = memo(
           justifyContent="center"
           zIndex={3}
         >
-          <XStack
-            alignItems="center"
-            width="100%"
-            gap="$2"
-            opacity={isControlsReady ? 1 : 0}
-            pointerEvents={isControlsReady ? 'auto' : 'none'}
-          >
+          <XStack alignItems="center" width="100%" gap="$2">
             {desktopFullscreenHeader}
 
-            <ScrollView
-              horizontal
+            <XStack
+              testID="trading-view-chart-ready-controls"
               flex={1}
               minWidth={0}
-              showsHorizontalScrollIndicator={false}
+              gap="$2"
+              alignItems="center"
+              opacity={isControlsReady ? 1 : 0}
+              pointerEvents={isControlsReady ? 'auto' : 'none'}
             >
-              <XStack alignItems="center" gap="$2" flexShrink={0}>
-                {intervalSelector}
+              <ScrollView
+                horizontal
+                flex={1}
+                minWidth={0}
+                showsHorizontalScrollIndicator={false}
+              >
+                <XStack alignItems="center" gap="$2" flexShrink={0}>
+                  {intervalSelector}
 
-                {intervalSelector && hasLeftChartTools ? (
-                  <ToolbarSeparator />
-                ) : null}
+                  {intervalSelector && hasLeftChartTools ? (
+                    <ToolbarSeparator />
+                  ) : null}
 
-                {hasLeftChartTools ? (
-                  <XStack gap="$0.5" alignItems="center" flexShrink={0}>
-                    {chartTypeControl}
-                    {indicatorControl}
-                    {calendarControl}
-                    {settingsControl}
-                  </XStack>
-                ) : null}
+                  {hasLeftChartTools ? (
+                    <XStack gap="$0.5" alignItems="center" flexShrink={0}>
+                      {chartTypeControl}
+                      {indicatorControl}
+                      {calendarControl}
+                      {settingsControl}
+                    </XStack>
+                  ) : null}
 
-                {(intervalSelector || hasLeftChartTools) && undoRedoControls ? (
-                  <ToolbarSeparator />
-                ) : null}
+                  {(intervalSelector || hasLeftChartTools) &&
+                  undoRedoControls ? (
+                    <ToolbarSeparator />
+                  ) : null}
 
-                {undoRedoControls}
-              </XStack>
-            </ScrollView>
+                  {undoRedoControls}
+                </XStack>
+              </ScrollView>
 
-            <XStack gap="$2" alignItems="center" flexShrink={0}>
               {priceMarketCapControl}
 
-              {priceMarketCapControl && fullscreenControl ? (
+              {priceMarketCapControl &&
+              (chartSwitchControl || fullscreenControl) ? (
+                <ToolbarSeparator />
+              ) : null}
+            </XStack>
+
+            <XStack gap="$2" alignItems="center" flexShrink={0}>
+              {chartSwitchControl}
+
+              {chartSwitchControl && fullscreenControl ? (
                 <ToolbarSeparator />
               ) : null}
 
               {fullscreenControl}
+              {rightControl}
             </XStack>
           </XStack>
         </Stack>
@@ -404,26 +526,79 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
+      <Stack
+        bg={backgroundColor}
+        px="$2"
+        py={compactMobileLayout ? undefined : '$2'}
+        pt={compactMobileLayout ? '$1.5' : undefined}
+        pb={compactMobileLayout ? '$0.5' : undefined}
+        borderBottomWidth={compactMobileLayout ? 0.5 : 0}
+        borderBottomColor="$borderSubdued"
+        zIndex={3}
+      >
         <XStack
           alignItems="center"
           justifyContent="space-between"
           width="100%"
           gap="$2"
-          opacity={isControlsReady ? 1 : 0}
-          pointerEvents={isControlsReady ? 'auto' : 'none'}
         >
-          <XStack flex={1} minWidth={0} alignItems="center">
-            {intervalSelector}
+          <XStack
+            testID="trading-view-chart-ready-controls"
+            flex={onRightControlPress ? undefined : 1}
+            flexShrink={
+              compactMobileLayout && onRightControlPress ? 1 : undefined
+            }
+            minWidth={0}
+            gap={shouldFillIntervalSelector ? '$0' : '$2'}
+            alignItems="center"
+            opacity={isControlsReady ? 1 : 0}
+            pointerEvents={isControlsReady ? 'auto' : 'none'}
+          >
+            <XStack
+              flex={onRightControlPress ? undefined : 1}
+              flexShrink={
+                compactMobileLayout && onRightControlPress ? 1 : undefined
+              }
+              minWidth={0}
+              alignItems="center"
+            >
+              {intervalSelector}
+            </XStack>
+
+            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
+              {chartTypeControl}
+              {priceMarketCapControl}
+              {indicatorControl}
+              {calendarControl}
+              {settingsControl}
+            </XStack>
           </XStack>
 
-          <XStack gap="$2" alignItems="center" justifyContent="flex-end">
-            {chartTypeControl}
-            {priceMarketCapControl}
-            {indicatorControl}
-            {calendarControl}
-            {settingsControl}
+          {chartSwitchControl ? (
+            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
+              {chartSwitchControl}
+            </XStack>
+          ) : null}
+
+          <XStack
+            testID={
+              onRightControlPress
+                ? 'trading-view-native-chart-close'
+                : undefined
+            }
+            flex={onRightControlPress ? 1 : undefined}
+            alignSelf={onRightControlPress ? 'stretch' : undefined}
+            gap="$2"
+            alignItems="center"
+            justifyContent="flex-end"
+            pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
+            accessibilityRole={onRightControlPress ? 'button' : undefined}
+            accessibilityLabel={rightControlLabel}
+            cursor={onRightControlPress ? 'pointer' : undefined}
+            onPress={onRightControlPress}
+          >
             {fullscreenControl}
+            {rightControl}
           </XStack>
         </XStack>
       </Stack>

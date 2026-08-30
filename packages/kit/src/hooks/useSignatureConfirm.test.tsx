@@ -67,7 +67,7 @@ describe('useSignatureConfirm', () => {
       EModalSignatureConfirmRoutes.TxConfirm,
       expect.objectContaining({
         unsignedTxs: [unsignedTx],
-        gasAccountScenario: 'swap',
+        gasAccountScenario: 'privateSend',
         transferPayload: expect.objectContaining({ isPrivateSend: true }),
       }),
     );

@@ -27,6 +27,9 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
+const {
+  patchTransformFileForPackedMaps,
+} = require('@expo/metro-config/build/serializer/packedMap');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
@@ -116,7 +119,6 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
-const projectRootPath = path.resolve(mobileDirPath, '../..');
 
 // Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256
@@ -128,8 +130,10 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
 );
 
 function runHermescAsync({ outPath, inputPath }) {
@@ -399,6 +403,9 @@ function collectSegmentSyncEdges(graph, moduleToSegment, eagerModuleIds) {
     }
 
     for (const [, dep] of moduleData.dependencies) {
+      if (!dep.absolutePath) {
+        continue;
+      }
       if (dep.data?.data?.asyncType === 'async') {
         continue;
       }
@@ -1933,7 +1940,7 @@ async function main() {
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
-  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v3`;
 
   // On EAS Android workers the main + background graphs are held in memory at
   // the same time; with Metro's default worker count (6 on the 8-vCPU `large`
@@ -1959,6 +1966,7 @@ async function main() {
   }
 
   const metroServer = await Metro.runMetro(config, { watch: false });
+  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();

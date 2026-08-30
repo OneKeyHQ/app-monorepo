@@ -42,7 +42,7 @@ import type {
   IChainValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -115,8 +115,8 @@ type ISendAmountInputParams =
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
-  const [settings] = useSettingsPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
@@ -266,15 +266,13 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -292,6 +290,8 @@ function SendDataInputContainer() {
 
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       isNFT,
@@ -301,7 +301,8 @@ function SendDataInputContainer() {
       serviceToken,
       token,
       tokenInfo,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     { watchLoading: true, alwaysSetState: true },
   );

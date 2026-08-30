@@ -252,7 +252,7 @@ function MarketHomeTabBar({
 
   return (
     <YStack pointerEvents="box-none">
-      <YStack bg="$bgApp">
+      <YStack bg="$bgApp" height={44}>
         <Tabs.TabBar
           {...tabBarProps}
           directTabPressAnimation

@@ -25,7 +25,8 @@ type IProps = {
 
 function BasicNFTListItem(props: IProps) {
   const { nft, onPress, isAllNetworks } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const image = nft.metadata?.image;
+  const [isVideo, setIsVideo] = useState<boolean>(!!image);
   const { network } = useAccountData({ networkId: nft.networkId });
 
   return (
@@ -54,7 +55,7 @@ function BasicNFTListItem(props: IProps) {
         }}
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
-          {isVideo ? (
+          {isVideo && image ? (
             <Stack bg="$bgApp" w="100%" h="100%">
               <Video
                 onError={() => setIsVideo(false)}
@@ -65,7 +66,8 @@ function BasicNFTListItem(props: IProps) {
                   zIndex: 1,
                 }}
                 autoPlay={false}
-                source={{ uri: nft.metadata?.image }}
+                muted
+                source={{ uri: image }}
               />
             </Stack>
           ) : (

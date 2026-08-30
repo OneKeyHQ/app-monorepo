@@ -58,6 +58,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -530,7 +531,6 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const useLocalSearchFallback = !isSwapStockSelectTarget;
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
@@ -539,7 +539,6 @@ const SwapTokenSelectPage = ({
     requestLpToken,
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
-    useLocalSearchFallback,
   );
   const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
   const stockSearchBaseTokensRef = useRef<{
@@ -743,6 +742,17 @@ const SwapTokenSelectPage = ({
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
+      // Scaled-UI (rebase) tokens: fail-closed with feedback — the silent
+      // actions-level gate would otherwise make the tap feel dead. Copy is
+      // the generic unsupported-token string pending product wording.
+      if (tokenRebaseUtils.isScalingBalanceMultiplier(item.balanceMultiplier)) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.earn_unsupported_token,
+          }),
+        });
+        return;
+      }
       if (await checkRiskToken(item)) {
         navigation.push(EModalSwapRoutes.TokenRiskReminder, {
           storeName: route.params.storeName,
@@ -768,6 +778,7 @@ const SwapTokenSelectPage = ({
     },
     [
       checkRiskToken,
+      intl,
       isSwapStockSelectTarget,
       navigation,
       route.params.storeName,

@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { I18nManager, StyleSheet } from 'react-native';
 
 import type {
   IButtonProps,
@@ -97,6 +97,8 @@ import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 import { UpdateReminder } from '../UpdateReminder';
 import { WalletAvatar } from '../WalletAvatar';
 
+import { buildMoreActionGridLayout } from './gridLayout';
+
 import type { IDeviceManagementListItem } from '../../views/DeviceManagement/pages/DeviceManagementListModal';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -126,8 +128,24 @@ function MoreActionProvider({ children }: PropsWithChildren) {
   );
 }
 
-const ONE_KEY_ID_ROW_PRESS_STYLE = { opacity: 0.7 } as const;
-const ONE_KEY_ID_ROW_HOVER_STYLE = { opacity: 0.88 } as const;
+const MORE_ACTION_ITEM_PRESS_STYLE = { opacity: 0.7 } as const;
+const MORE_ACTION_ITEM_HOVER_STYLE = { opacity: 0.88 } as const;
+const MORE_ACTION_CANVAS_DARK_STYLE = { bg: '$bgApp' } as const;
+const MORE_ACTION_CARD_DARK_STYLE = { bg: '$neutral2' } as const;
+const MORE_ACTION_ICON_DARK_STYLE = { bg: '$bg' } as const;
+const MORE_ACTION_DESKTOP_ICON_DARK_STYLE = { bg: '$gray3' } as const;
+const MORE_ACTION_PRIME_BADGE_DARK_STYLE = { bg: '$gray4' } as const;
+const MORE_ACTION_DESKTOP_ICON_HOVER_STYLE = {
+  bg: '$bgStrongHover',
+} as const;
+const MORE_ACTION_DESKTOP_ICON_PRESS_STYLE = {
+  bg: '$bgStrongActive',
+  scale: 0.96,
+} as const;
+const MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE = { color: '$text' } as const;
+const MORE_ACTION_DESKTOP_ROW_HOVER_LIGHT_STYLE = { bg: '$neutral3' } as const;
+const MORE_ACTION_DESKTOP_ROW_HOVER_DARK_STYLE = { bg: '$neutral2' } as const;
+const MORE_ACTION_DESKTOP_ROW_PRESS_STYLE = { bg: '$bgHover' } as const;
 
 function MoreActionContentHeaderItem({ onPress, ...props }: IIconButtonProps) {
   const { closePopover } = usePopoverContext();
@@ -212,6 +230,7 @@ function MoreActionContentHeader({
                 await extUtils.openPanelOnActionClick(false);
                 window.close();
               },
+              trackID: 'wallet-popup-mode',
             },
         {
           title: intl.formatMessage({
@@ -279,6 +298,7 @@ function MoreActionContentHeader({
           })}
           icon="HelpSupportOutline"
           onPress={handleCustomerSupport}
+          trackID="wallet-customer-support"
         />,
       ),
       glassBarItem(
@@ -290,6 +310,7 @@ function MoreActionContentHeader({
           onPress={() => {
             void handleScan();
           }}
+          trackID="wallet-scan"
         />,
       ),
     ],
@@ -312,14 +333,11 @@ function MoreActionContentHeader({
       pb="$2"
       ai="center"
       jc="space-between"
-      bg={isDesktopMode ? '$bg' : '$bgApp'}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
       zIndex={10}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
-      $platform-web={{
-        position: 'sticky',
-        top: 0,
-      }}
     >
       {showBackButton ? (
         <NavBackButton onPress={handleBack} />
@@ -343,11 +361,14 @@ function MoreActionContentHeader({
   );
 }
 
-function MoreActionContentFooter() {
+function MoreActionAboutCard({
+  isDesktopMode = false,
+}: {
+  isDesktopMode?: boolean;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
   const version = useMemo(() => {
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
   }, []);
@@ -361,6 +382,9 @@ function MoreActionContentFooter() {
   );
 
   const handleAbout = useCallback(async () => {
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-about',
+    });
     await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
@@ -372,50 +396,43 @@ function MoreActionContentFooter() {
 
   return (
     <XStack
-      px="$1"
-      pb="$1"
-      bg={isDesktopMode ? '$bg' : '$bgApp'}
-      borderBottomLeftRadius="$3"
-      borderBottomRightRadius="$3"
-      borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor={isDesktopMode ? '$neutral3' : '$borderSubdued'}
-      $platform-web={{
-        position: 'sticky',
-        bottom: 0,
+      mx={isDesktopMode ? '$1' : '$5'}
+      minHeight={44}
+      px="$4"
+      py="$2.5"
+      jc="space-between"
+      ai="center"
+      bg={isDesktopMode ? '$transparent' : '$bg'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CARD_DARK_STYLE}
+      onPress={handleAbout}
+      borderRadius={isDesktopMode ? '$2' : '$4'}
+      borderCurve="continuous"
+      overflow="hidden"
+      userSelect="none"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
       }}
     >
-      <XStack
-        flex={1}
-        px="$4"
-        py="$2"
-        mt="$1"
-        jc="space-between"
-        onPress={handleAbout}
-        borderRadius="$2"
-        userSelect="none"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-      >
-        <XStack gap="$1" ai="center" jc="center">
-          <Icon name="InfoCircleOutline" color="$icon" size="$4" />
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
-          </SizableText>
-        </XStack>
-        <XStack gap="$1" ai="center" jc="center">
-          <SizableText size="$bodyMdMedium" color="$textDisabled">
-            {versionString}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$4"
-          />
-        </XStack>
+      <XStack gap="$1" ai="center" jc="center" flexShrink={0}>
+        <Icon name="InfoCircleOutline" color="$icon" size="$4" />
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {`${intl.formatMessage({ id: ETranslations.global_about })} OneKey`}
+        </SizableText>
+      </XStack>
+      <XStack gap="$1" ai="center" jc="flex-end" flexShrink={1} minWidth={0}>
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textDisabled"
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          flexShrink={1}
+        >
+          {versionString}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$4" />
       </XStack>
     </XStack>
   );
@@ -425,7 +442,7 @@ interface IMoreActionContentGridItemProps {
   title: IIconButtonProps['title'];
   icon?: IIconButtonProps['icon'];
   testID?: string;
-  trackID?: string;
+  trackID: string;
   onPress: () => void;
   showRedDot?: boolean;
   showBadges?: boolean;
@@ -447,137 +464,165 @@ function MoreActionContentGridItem({
   lottieSrc,
   isPrimeFeature,
   hidePrimeBadge,
-}: IMoreActionContentGridItemProps) {
+  isDesktopMode,
+}: IMoreActionContentGridItemProps & { isDesktopMode: boolean }) {
   const { closePopover } = usePopoverContext();
-  const { isPrimeAvailable } = usePrimeAvailable();
 
   const handlePress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      if (trackID) {
-        defaultLogger.ui.button.click({
-          trackId: trackID,
-        });
-      }
+    defaultLogger.ui.button.click({
+      trackId: trackID,
     });
+    await closePopover?.();
     onPress();
   }, [closePopover, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
-  const themeVariant = useThemeVariant();
-
-  if (isPrimeFeature && !isPrimeAvailable) {
-    return null;
-  }
 
   return (
     <YStack
       testID={testID}
       onPress={handlePress}
       group
-      flexBasis="25%"
-      py="$2.5"
+      w="$20"
+      flexShrink={1}
+      py="$1"
       ai="center"
       jc="flex-start"
       gap="$1"
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={isDesktopMode ? undefined : MORE_ACTION_ITEM_HOVER_STYLE}
+      pressStyle={isDesktopMode ? undefined : MORE_ACTION_ITEM_PRESS_STYLE}
       userSelect="none"
     >
-      <YStack>
-        {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
-        {lottieSrc ? (
-          <Stack w="$6" h="$6" ai="center" jc="center">
-            <LottieView width={32} height={32} source={lottieSrc} />
-          </Stack>
-        ) : null}
-        {showRedDot ? (
-          <Stack
-            position="absolute"
-            right="$-2"
-            top="$-2"
-            alignItems="flex-end"
-            w="$10"
-            pointerEvents="none"
-          >
+      <Stack
+        w="$10"
+        h="$10"
+        ai="center"
+        jc="center"
+        bg="$bgSubdued"
+        $theme-dark={
+          isDesktopMode
+            ? MORE_ACTION_DESKTOP_ICON_DARK_STYLE
+            : MORE_ACTION_ICON_DARK_STYLE
+        }
+        $group-hover={
+          isDesktopMode ? MORE_ACTION_DESKTOP_ICON_HOVER_STYLE : undefined
+        }
+        $group-press={
+          isDesktopMode ? MORE_ACTION_DESKTOP_ICON_PRESS_STYLE : undefined
+        }
+        borderRadius="$3"
+        borderCurve="continuous"
+      >
+        <YStack>
+          {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
+          {lottieSrc ? (
+            <Stack w="$8" h="$8" ai="center" jc="center">
+              <LottieView width={32} height={32} source={lottieSrc} />
+            </Stack>
+          ) : null}
+          {showRedDot ? (
             <Stack
-              bg="$bgApp"
-              borderRadius="$full"
-              borderWidth={2}
-              borderColor="$transparent"
+              position="absolute"
+              right="$-2"
+              top="$-2"
+              alignItems="flex-end"
+              w="$10"
+              pointerEvents="none"
             >
               <Stack
-                px="$1"
+                bg="$bgSubdued"
+                $theme-dark={
+                  isDesktopMode
+                    ? MORE_ACTION_DESKTOP_ICON_DARK_STYLE
+                    : MORE_ACTION_ICON_DARK_STYLE
+                }
                 borderRadius="$full"
-                bg="$bgCriticalStrong"
-                minWidth="$4"
-                height="$4"
-                alignItems="center"
-                justifyContent="center"
+                borderWidth={2}
+                borderColor="$transparent"
               >
-                {showBadges ? (
-                  <SizableText color="$textOnColor" size="$bodySm">
-                    {badges && badges > 99 ? '99+' : badges}
-                  </SizableText>
-                ) : (
-                  <Stack
-                    width="$1"
-                    height="$1"
-                    backgroundColor="white"
-                    borderRadius="$full"
-                  />
-                )}
+                <Stack
+                  px="$1"
+                  borderRadius="$full"
+                  bg="$bgCriticalStrong"
+                  minWidth="$4"
+                  height="$4"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {showBadges ? (
+                    <SizableText color="$textOnColor" size="$bodySm">
+                      {badges && badges > 99 ? '99+' : badges}
+                    </SizableText>
+                  ) : (
+                    <Stack
+                      width="$1"
+                      height="$1"
+                      backgroundColor="white"
+                      borderRadius="$full"
+                    />
+                  )}
+                </Stack>
               </Stack>
             </Stack>
-          </Stack>
-        ) : null}
+          ) : null}
+        </YStack>
         {/* Only show Prime badge for non-Prime users */}
         {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
             position="absolute"
-            right={-10}
-            top={-4}
-            backgroundColor={themeVariant === 'light' ? '#F1F1F1' : '#3A3A3A'}
-            px="$1"
-            borderRadius="$full"
-            borderWidth="$px"
-            borderColor="$bgApp"
+            top={0}
+            right={I18nManager.isRTL ? undefined : 0}
+            left={I18nManager.isRTL ? 0 : undefined}
+            h="$4"
+            pl={I18nManager.isRTL ? 4 : 5}
+            pr={I18nManager.isRTL ? 5 : 4}
+            ai="center"
+            jc="center"
+            bg="$bg"
+            $theme-dark={MORE_ACTION_PRIME_BADGE_DARK_STYLE}
+            borderTopRightRadius={I18nManager.isRTL ? undefined : '$3'}
+            borderBottomLeftRadius={I18nManager.isRTL ? undefined : '$3'}
+            borderTopLeftRadius={I18nManager.isRTL ? '$3' : undefined}
+            borderBottomRightRadius={I18nManager.isRTL ? '$3' : undefined}
+            zIndex="$1"
+            pointerEvents="none"
           >
             <Icon color="$iconSubdued" size="$3" name="PrimeOutline" />
           </Stack>
         ) : null}
+      </Stack>
+      <YStack w="100%" ai="center">
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          $group-hover={
+            isDesktopMode ? MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE : undefined
+          }
+          $group-press={
+            isDesktopMode ? MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE : undefined
+          }
+          numberOfLines={2}
+          textAlign="center"
+        >
+          {title}
+        </SizableText>
       </YStack>
-      <SizableText
-        size="$bodySmMedium"
-        color="$textSubdued"
-        numberOfLines={2}
-        textAlign="center"
-      >
-        {title}
-      </SizableText>
     </YStack>
-  );
-}
-
-function MoreActionDivider() {
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
-  return (
-    <XStack py="$2">
-      <Divider borderColor={isDesktopMode ? '$neutral3' : '$borderSubdued'} />
-    </XStack>
   );
 }
 
 function MoreActionOneKeyId() {
   const intl = useIntl();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const themeVariant = useThemeVariant();
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const { closePopover } = usePopoverContext();
+  const desktopRowHoverStyle =
+    themeVariant === 'light'
+      ? MORE_ACTION_DESKTOP_ROW_HOVER_LIGHT_STYLE
+      : MORE_ACTION_DESKTOP_ROW_HOVER_DARK_STYLE;
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -611,6 +656,9 @@ function MoreActionOneKeyId() {
   }, [closePopover, navigation]);
 
   const handlePress = useCallback(async () => {
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-onekey-id',
+    });
     if (isLoggedIn) {
       await handleNavigateToOneKeyId();
     } else {
@@ -628,15 +676,21 @@ function MoreActionOneKeyId() {
       <XStack
         alignItems="center"
         py="$4"
-        px="$4"
-        mx="$1"
+        px={isDesktopMode ? '$3' : '$4'}
+        mx={isDesktopMode ? '$2' : '$1'}
         mt="$1"
         userSelect="none"
         justifyContent="space-between"
         onPress={handlePress}
-        borderRadius="$2"
-        hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
-        pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
+        borderRadius={isDesktopMode ? '$3' : '$2'}
+        hoverStyle={
+          isDesktopMode ? desktopRowHoverStyle : MORE_ACTION_ITEM_HOVER_STYLE
+        }
+        pressStyle={
+          isDesktopMode
+            ? MORE_ACTION_DESKTOP_ROW_PRESS_STYLE
+            : MORE_ACTION_ITEM_PRESS_STYLE
+        }
       >
         <XStack alignItems="center" gap="$3" flex={1}>
           <OneKeyIdAvatar size="$10" />
@@ -673,16 +727,22 @@ function MoreActionOneKeyId() {
     <XStack
       alignItems="center"
       py="$4"
-      px="$4"
-      mx="$1"
+      px={isDesktopMode ? '$3' : '$4'}
+      mx={isDesktopMode ? '$2' : '$1'}
       mt="$1"
       gap="$5"
       userSelect="none"
       justifyContent="space-between"
-      onPress={handleNavigateToOneKeyId}
-      borderRadius="$2"
-      hoverStyle={ONE_KEY_ID_ROW_HOVER_STYLE}
-      pressStyle={ONE_KEY_ID_ROW_PRESS_STYLE}
+      onPress={handlePress}
+      borderRadius={isDesktopMode ? '$3' : '$2'}
+      hoverStyle={
+        isDesktopMode ? desktopRowHoverStyle : MORE_ACTION_ITEM_HOVER_STYLE
+      }
+      pressStyle={
+        isDesktopMode
+          ? MORE_ACTION_DESKTOP_ROW_PRESS_STYLE
+          : MORE_ACTION_ITEM_PRESS_STYLE
+      }
     >
       <XStack alignItems="center" gap="$3" flex={1}>
         <OneKeyIdAvatar size="$14" />
@@ -844,58 +904,64 @@ function BaseMoreActionGrid({
   items: IMoreActionContentGridItemProps[];
   onTitleMultipleClick?: () => void;
 }) {
-  const displayItems = useMemo(() => {
-    const remainder = items.length % 4;
-    if (remainder !== 0) {
-      const paddingCount = 4 - remainder;
-      return [
-        ...items,
-        ...Array(paddingCount).fill(null),
-      ] as IMoreActionContentGridItemProps[];
-    }
-    return items;
-  }, [items]);
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  const rows = useMemo(
+    () => buildMoreActionGridLayout(items, isPrimeAvailable),
+    [isPrimeAvailable, items],
+  );
   const titleContent = (
     <SizableText
       size="$headingMd"
       color="$text"
       numberOfLines={1}
       ellipsizeMode="middle"
-      px={onTitleMultipleClick ? undefined : '$5'}
-      pb={onTitleMultipleClick ? undefined : '$1'}
       userSelect="none"
     >
       {title}
     </SizableText>
   );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
   return (
-    <YStack>
-      {onTitleMultipleClick ? (
-        <MultipleClickStack px="$5" pb="$1" onPress={onTitleMultipleClick}>
-          {titleContent}
-        </MultipleClickStack>
-      ) : (
-        titleContent
-      )}
-      <YStack gap="$2" px="$4">
-        {Array.from({ length: Math.ceil(displayItems.length / 4) }).map(
-          (_, rowIndex) => (
-            <XStack key={rowIndex} flexWrap="nowrap">
-              {displayItems
-                .slice(rowIndex * 4, (rowIndex + 1) * 4)
-                .map((item, colIndex) =>
-                  item ? (
-                    <MoreActionContentGridItem
-                      key={rowIndex * 4 + colIndex}
-                      {...item}
-                    />
-                  ) : (
-                    <XStack flexBasis="25%" key={rowIndex * 4 + colIndex} />
-                  ),
-                )}
-            </XStack>
-          ),
+    <YStack gap="$1">
+      <XStack
+        pl={I18nManager.isRTL ? '$0' : '$6'}
+        pr={I18nManager.isRTL ? '$6' : '$0'}
+      >
+        {onTitleMultipleClick ? (
+          <MultipleClickStack onPress={onTitleMultipleClick}>
+            {titleContent}
+          </MultipleClickStack>
+        ) : (
+          titleContent
         )}
+      </XStack>
+      <YStack gap="$2">
+        {rows.map((row, rowIndex) => (
+          <XStack
+            key={rowIndex}
+            flexWrap="nowrap"
+            alignItems="stretch"
+            justifyContent="space-between"
+            px="$1"
+          >
+            {row.map((item, colIndex) =>
+              item ? (
+                <MoreActionContentGridItem
+                  key={colIndex}
+                  {...item}
+                  isDesktopMode={isDesktopMode}
+                />
+              ) : (
+                <Stack key={colIndex} w="$20" flexShrink={1} />
+              ),
+            )}
+          </XStack>
+        ))}
       </YStack>
     </YStack>
   );
@@ -1121,6 +1187,7 @@ const MoreActionWalletGrid = () => {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
             onPress: handleBackup,
+            trackID: 'wallet-backup',
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1130,6 +1197,7 @@ const MoreActionWalletGrid = () => {
             }),
             icon: 'ContactsOutline' as const,
             onPress: handleAddressBook,
+            trackID: 'wallet-address-book',
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1137,11 +1205,13 @@ const MoreActionWalletGrid = () => {
             title: intl.formatMessage({ id: ETranslations.global_network }),
             icon: 'GlobusOutline' as const,
             onPress: handleNetwork,
+            trackID: 'wallet-network',
           },
       {
         title: intl.formatMessage({ id: ETranslations.global_preferences }),
         icon: 'SliderThreeOutline' as const,
         onPress: handlePreferences,
+        trackID: 'wallet-preferences',
       },
       platformEnv.isWebDappMode
         ? undefined
@@ -1149,6 +1219,7 @@ const MoreActionWalletGrid = () => {
             title: intl.formatMessage({ id: ETranslations.global_security }),
             icon: 'Shield2CheckOutline' as const,
             onPress: handleSecurity,
+            trackID: 'wallet-security',
           },
       platformEnv.isWebDappMode
         ? undefined
@@ -1278,6 +1349,7 @@ const MoreActionMoreGrid = () => {
           themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark,
         testID: 'referral' as const,
         onPress: handleReferFriends,
+        trackID: 'wallet-referral',
       },
       {
         title: intl.formatMessage({ id: ETranslations.global_redeem }),
@@ -1311,6 +1383,29 @@ const MoreActionMoreGrid = () => {
     />
   );
 };
+
+function MoreActionMenuCard({
+  isDesktopMode = false,
+}: {
+  isDesktopMode?: boolean;
+}) {
+  return (
+    <YStack
+      mx={isDesktopMode ? '$0' : '$5'}
+      py={isDesktopMode ? '$3' : '$4'}
+      gap="$3"
+      bg={isDesktopMode ? '$transparent' : '$bg'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CARD_DARK_STYLE}
+      borderRadius={isDesktopMode ? '$0' : '$4'}
+      borderCurve="continuous"
+      overflow="hidden"
+    >
+      <MoreActionGeneralGrid />
+      <MoreActionWalletGrid />
+      <MoreActionMoreGrid />
+    </YStack>
+  );
+}
 
 function MoreActionDevice() {
   const intl = useIntl();
@@ -1354,20 +1449,27 @@ function MoreActionDevice() {
   );
 
   const handleDevice = useCallback(() => {
+    defaultLogger.ui.button.click({
+      trackId: 'wallet-device-management',
+    });
     pushToDeviceList();
   }, [pushToDeviceList]);
 
   return (
     <YStack
-      bg="$bgSubdued"
+      bg="$bg"
+      $theme-dark={MORE_ACTION_CARD_DARK_STYLE}
       borderRadius="$4"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$neutral3"
+      borderCurve="continuous"
       mx="$5"
-      mt="$1"
-      mb="$2"
       px="$4"
       onPress={handleDevice}
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
     >
       {hwQrWalletList.length > 0 ? (
         <>
@@ -1440,22 +1542,52 @@ function MoreActionDevice() {
   );
 }
 
-function BaseMoreActionContent() {
+function MoreActionFixedFooter({ isDesktopMode }: { isDesktopMode: boolean }) {
+  return (
+    <YStack
+      py={isDesktopMode ? '$1' : '$2'}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+      borderTopWidth={isDesktopMode ? StyleSheet.hairlineWidth : 0}
+      borderTopColor="$borderSubdued"
+      borderBottomLeftRadius="$3"
+      borderBottomRightRadius="$3"
+    >
+      <MoreActionAboutCard isDesktopMode={isDesktopMode} />
+    </YStack>
+  );
+}
+
+function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   return (
-    <YStack flex={1}>
+    <YStack
+      flex={1}
+      minHeight={0}
+      bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+      $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+    >
       <ScrollView overflow="scroll" flex={1}>
         {platformEnv.isWebDappMode ? null : <UpdateReminders />}
         {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
-        <MoreActionDivider />
-        <MoreActionGeneralGrid />
-        <MoreActionDivider />
-        <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
+        {isDesktopMode && !platformEnv.isWebDappMode ? (
+          <Divider mx="$5" mt="$2" mb="$1" borderColor="$neutral3" />
+        ) : null}
+        <YStack
+          gap="$4"
+          pt={platformEnv.isWebDappMode && !isDesktopMode ? '$4' : undefined}
+          pb={isDesktopMode ? '$0' : '$5'}
+        >
+          {isDesktopMode ? null : <MoreActionDevice />}
+          <MoreActionMenuCard isDesktopMode={isDesktopMode} />
+          {fixedFooter ? null : (
+            <MoreActionAboutCard isDesktopMode={isDesktopMode} />
+          )}
+        </YStack>
       </ScrollView>
-      <MoreActionContentFooter />
+      {fixedFooter ? (
+        <MoreActionFixedFooter isDesktopMode={isDesktopMode} />
+      ) : null}
     </YStack>
   );
 }
@@ -1463,9 +1595,13 @@ function BaseMoreActionContent() {
 export function MoreActionContentPage() {
   return (
     <MoreActionProvider>
-      <YStack flex={1}>
+      <YStack
+        flex={1}
+        bg="$bgSubdued"
+        $theme-dark={MORE_ACTION_CANVAS_DARK_STYLE}
+      >
         <MoreActionContentHeader showBackButton />
-        <BaseMoreActionContent />
+        <BaseMoreActionContent fixedFooter={false} />
       </YStack>
     </MoreActionProvider>
   );
@@ -1492,27 +1628,29 @@ function MoreActionContent({
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
-    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
-      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
-        void closePopover?.();
-      }
-    });
+    const unsubscribe = rootNavigationRef.current?.addListener(
+      '__unsafe_action__',
+      ({ data }) => {
+        if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+          void closePopover?.();
+        }
+      },
+    );
+    return () => {
+      unsubscribe?.();
+    };
   }, [closePopover]);
   return (
     <MoreActionProvider>
-      <YStack minHeight={600} {...containerStyle}>
+      <YStack
+        height={600}
+        minHeight={0}
+        bg={isDesktopMode ? '$bg' : '$bgSubdued'}
+        $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+        {...containerStyle}
+      >
         <MoreActionContentHeader />
-        {platformEnv.isWebDappMode ? null : <UpdateReminders />}
-        {platformEnv.isWebDappMode ? null : <MoreActionOneKeyId />}
-        {isDesktopMode ? null : <MoreActionDevice />}
-        <MoreActionDivider />
-        <MoreActionGeneralGrid />
-        <MoreActionDivider />
-        <MoreActionWalletGrid />
-        <MoreActionDivider />
-        <MoreActionMoreGrid />
-        <YStack flex={1} />
-        <MoreActionContentFooter />
+        <BaseMoreActionContent fixedFooter />
       </YStack>
     </MoreActionProvider>
   );
@@ -1559,11 +1697,7 @@ function Dot({
   );
 }
 
-function MoreButtonWithDot({
-  onPress: _onPress,
-}: {
-  onPress?: IButtonProps['onPress'];
-}) {
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
@@ -1615,7 +1749,12 @@ function MoreButtonWithDot({
 
   if (isDesktopMode) {
     return (
-      <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
+      <YStack
+        p="$2"
+        borderRadius="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+        onPress={onPress}
+      >
         <Stack position="relative">
           <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
@@ -1647,6 +1786,7 @@ function MoreActionButtonCmp() {
 
   const trigger = (
     <Tooltip
+      triggerAsChild
       placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({

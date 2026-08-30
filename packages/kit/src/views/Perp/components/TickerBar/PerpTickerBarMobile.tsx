@@ -33,12 +33,44 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
+import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 const MOBILE_TICKER_SUBTITLE_MAX_WIDTH = 64;
+const TOP_CHART_ACTIVE_ICON_COLOR = getTradingButtonStyleValues('long').bg;
+
+export interface IPerpTickerBarMobileProps {
+  isTopChartExpanded?: boolean;
+  onToggleTopChart?: () => void;
+  showTopChartToggle?: boolean;
+}
+
+function PerpTopChartButtonMobile({
+  isExpanded,
+  onPress,
+}: {
+  isExpanded: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <DebugRenderTracker name="PerpTopChartButtonMobile">
+      <IconButton
+        testID={PerpTestIDs.MobileTopChartToggle}
+        icon="ChartPositionOutline"
+        size="small"
+        iconProps={{
+          color: isExpanded ? TOP_CHART_ACTIVE_ICON_COLOR : '$iconSubdued',
+        }}
+        variant="tertiary"
+        accessibilityState={{ selected: isExpanded }}
+        onPress={onPress}
+      />
+    </DebugRenderTracker>
+  );
+}
 
 function PerpCandleChartButtonMobile() {
   const navigation = useAppNavigation();
@@ -216,6 +248,7 @@ function PerpBadgesRow() {
       <PerpDexBadge
         compact
         dexLabel={dexLabel}
+        height={20}
         testID={PerpTestIDs.ActiveDexBadge}
       />
       {subtitle ? (
@@ -266,7 +299,11 @@ function PerpBadgesRow() {
   );
 }
 
-export function PerpTickerBarMobile() {
+export function PerpTickerBarMobile({
+  isTopChartExpanded = false,
+  onToggleTopChart,
+  showTopChartToggle = false,
+}: IPerpTickerBarMobileProps) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
@@ -293,11 +330,19 @@ export function PerpTickerBarMobile() {
         <PerpBadgesRow />
       </YStack>
 
-      <XStack pt="$0.5" gap="$3" alignItems="center">
+      <XStack pt="$0.5" gap="$4" alignItems="center">
+        {showTopChartToggle && onToggleTopChart ? (
+          <PerpTopChartButtonMobile
+            isExpanded={isTopChartExpanded}
+            onPress={onToggleTopChart}
+          />
+        ) : null}
         <PerpCandleChartButtonMobile />
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
+          mr="$-4"
           showActivityCenterEntry
+          showChartPositionSetting
           showGuideEntry
         />
       </XStack>

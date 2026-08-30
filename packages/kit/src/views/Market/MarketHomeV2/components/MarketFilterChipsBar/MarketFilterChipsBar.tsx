@@ -637,7 +637,7 @@ export function MarketFilterChipsBar({
               // nothing else. Deliberately not mirrored on the quick-chip
               // branch: that one also mounts on first paint, which would play
               // the animation as a page-load flourish.
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ opacity: 0, x: -4 }}
             >

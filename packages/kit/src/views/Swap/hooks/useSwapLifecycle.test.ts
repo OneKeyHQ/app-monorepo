@@ -1,9 +1,17 @@
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
-import { isSwapProTokenBalanceRequestCurrent } from './useSwapPro';
+import {
+  isSwapProTokenBalanceRequestCurrent,
+  isSwapProTradeStateOwner,
+} from './useSwapPro';
 import {
   handleSwapQuoteTabVisibilityChange,
   isSwapQuoteTabEffectivelyVisible,
+  shouldKeepSwapQuoteAliveOnFocusLoss,
 } from './useSwapQuote';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -70,6 +78,16 @@ const token = {
 } as ISwapToken;
 
 describe('Swap quote lifecycle visibility', () => {
+  it('keeps modal quoting alive while the provider picker is active', () => {
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss(EModalSwapRoutes.SwapProviderSelect),
+    ).toBe(true);
+    expect(
+      shouldKeepSwapQuoteAliveOnFocusLoss(EModalSwapRoutes.SwapTokenSelect),
+    ).toBe(false);
+    expect(shouldKeepSwapQuoteAliveOnFocusLoss()).toBe(false);
+  });
+
   it.each([
     {
       isFocus: true,
@@ -150,6 +168,22 @@ describe('Swap quote lifecycle visibility', () => {
     expect(pauseQuote).not.toHaveBeenCalled();
     expect(unsubscribeQuoteEvents).not.toHaveBeenCalled();
   });
+});
+
+describe('Swap Pro trade state ownership', () => {
+  it.each<readonly [boolean, boolean, ESwapTabSwitchType]>([
+    [false, false, ESwapTabSwitchType.BRIDGE],
+    [false, false, ESwapTabSwitchType.LIMIT],
+    [true, true, ESwapTabSwitchType.LIMIT],
+    [true, false, ESwapTabSwitchType.STOCK],
+  ])(
+    'returns %s for native=%s type=%s',
+    (expected, isNative, swapTypeSwitch) => {
+      expect(isSwapProTradeStateOwner({ isNative, swapTypeSwitch })).toBe(
+        expected,
+      );
+    },
+  );
 });
 
 describe('Swap Pro token balance request identity', () => {

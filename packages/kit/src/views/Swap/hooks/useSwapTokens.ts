@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -58,11 +59,12 @@ import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
-  getSwapTokenSearchResults,
+  buildServerAuthoritativeSearchResults,
   releaseSwapTokenListFetchEffectKey,
 } from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
+const EMPTY_SWAP_TOKEN_LIST: ISwapToken[] = [];
 
 export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
@@ -75,7 +77,6 @@ export function useSwapTokenList(
     tokenListType?: string;
   },
   supportNetworksOverride?: ISwapNetwork[],
-  useLocalSearchFallback = false,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
@@ -383,7 +384,10 @@ export function useSwapTokenList(
                 walletToken?.networkId === token?.networkId,
             );
             if (balanceToken) {
-              return balanceToken;
+              return {
+                ...balanceToken,
+                subtitles: token.subtitles ?? balanceToken.subtitles,
+              };
             }
 
             return token;
@@ -401,24 +405,34 @@ export function useSwapTokenList(
     ],
   );
 
-  const fuseRemoteTokensSearch = useFuse(
-    networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-      keywords
-      ? mergedAllNetworkTokenList({
-          swapSearchTokens:
-            tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-        })
-      : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-    {
-      shouldSort: false,
-      keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
-    },
+  const remoteKeywordSearchTokens = useMemo(
+    () =>
+      tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data ??
+      EMPTY_SWAP_TOKEN_LIST,
+    [tokenCatch, tokenFetchParams],
   );
 
-  const fuseRemoteTokensSearchRef = useRef(fuseRemoteTokensSearch);
-  if (fuseRemoteTokensSearchRef.current !== fuseRemoteTokensSearch) {
-    fuseRemoteTokensSearchRef.current = fuseRemoteTokensSearch;
-  }
+  const keywordSearchTokens = useMemo(
+    () =>
+      isTokenFetchAllNetworks && keywords
+        ? mergedAllNetworkTokenList({
+            swapSearchTokens: remoteKeywordSearchTokens,
+          })
+        : remoteKeywordSearchTokens,
+    [
+      isTokenFetchAllNetworks,
+      keywords,
+      mergedAllNetworkTokenList,
+      remoteKeywordSearchTokens,
+    ],
+  );
+
+  const fuseRemoteTokensSearch = useFuse(keywordSearchTokens, {
+    shouldSort: false,
+    keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
+  });
+
+  const currentTokensRef = useRef<(ISwapToken | IFuseResult<ISwapToken>)[]>([]);
 
   useEffect(() => {
     if (!isSwapSupportAllAccountsReady) {
@@ -533,8 +547,7 @@ export function useSwapTokenList(
     }
 
     if (state.phase === 'fetching') {
-      const resultCount =
-        fuseRemoteTokensSearchRef.current?.search(keywords)?.length ?? 0;
+      const resultCount = currentTokensRef.current.length;
 
       defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
         query: keywords,
@@ -592,39 +605,6 @@ export function useSwapTokenList(
     tokenFetchParams,
     isSwapSupportAllAccountsReady,
   ]);
-  const searchBaseContextKey = [
-    indexedAccountId ?? otherWalletTypeAccountId ?? '',
-    currentSelectNetwork?.networkId ?? currentNetworkId ?? '',
-    selectTokenModalType,
-    from ?? '',
-    lpToken === undefined ? '' : String(lpToken),
-    requestCurrency,
-    swapSupportAllNetworks.map((network) => network.networkId).join(','),
-  ].join('__');
-  const searchBaseTokensRef = useRef<{
-    contextKey: string;
-    tokens: ISwapToken[];
-  }>({
-    contextKey: searchBaseContextKey,
-    tokens: [],
-  });
-  if (searchBaseTokensRef.current.contextKey !== searchBaseContextKey) {
-    searchBaseTokensRef.current = {
-      contextKey: searchBaseContextKey,
-      tokens: [],
-    };
-  }
-  if (!keywords && isTokenListFetchSettled) {
-    searchBaseTokensRef.current = {
-      contextKey: searchBaseContextKey,
-      tokens: unfilteredTokens,
-    };
-  }
-  const searchBaseTokens = searchBaseTokensRef.current.tokens;
-  const fuseSearchBaseTokens = useFuse(searchBaseTokens, {
-    shouldSort: false,
-    keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
-  });
   const currentTokens = useMemo(() => {
     if (!isSwapSupportAllAccountsReady) {
       return [];
@@ -632,22 +612,26 @@ export function useSwapTokenList(
     if (!keywords) {
       return unfilteredTokens;
     }
-    const remoteTokens = fuseRemoteTokensSearch.search(keywords);
-    return getSwapTokenSearchResults({
-      isTokenListFetchSettled,
-      remoteTokens,
-      searchLocalTokens: () => fuseSearchBaseTokens.search(keywords),
-      useLocalSearchFallback,
-    });
+    const matchesByToken = new Map(
+      fuseRemoteTokensSearch
+        .search(keywords)
+        .map((result) => [result.item, result.matches]),
+    );
+    return buildServerAuthoritativeSearchResults(
+      keywordSearchTokens,
+      matchesByToken,
+    );
   }, [
     fuseRemoteTokensSearch,
-    fuseSearchBaseTokens,
     isSwapSupportAllAccountsReady,
-    isTokenListFetchSettled,
+    keywordSearchTokens,
     keywords,
     unfilteredTokens,
-    useLocalSearchFallback,
   ]);
+
+  if (currentTokensRef.current !== currentTokens) {
+    currentTokensRef.current = currentTokens;
+  }
 
   const fetchLoading =
     !isSwapSupportAllAccountsReady ||

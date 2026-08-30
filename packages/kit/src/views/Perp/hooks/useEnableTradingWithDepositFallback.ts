@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   type IPerpsActiveAccountStatusAtom,
   perpsActiveAccountStatusAtom,
@@ -9,6 +10,7 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 
 import { showHyperliquidTermsDialog } from '../components/HyperliquidTerms';
+import { showEnableTradingStepsDialog } from '../components/TradingPanel/modals/EnableTradingStepsDialog';
 import { getPerpsAccountKey } from '../utils/accountScopedData';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
@@ -158,9 +160,48 @@ export function useEnableTradingWithDepositFallback() {
     async (
       options?: IRequestEnableTradingWithDepositFallbackOptions,
     ): Promise<IEnableTradingWithDepositFallbackResult> => {
+      const stopResult: IEnableTradingWithDepositFallbackResult = {
+        shouldContinue: false,
+        status: undefined,
+      };
+      try {
+        const passwordStatus =
+          await backgroundApiProxy.servicePassword.refreshHyperLiquidAgentPasswordStatus();
+        const accountStatus = await perpsActiveAccountStatusAtom.get();
+        if (
+          passwordStatus.requiresPasswordSetupOrVerify &&
+          accountStatus &&
+          getEnableTradingDialogConfirmDecision(accountStatus) === 'stop'
+        ) {
+          const result = await showEnableTradingStepsDialog({
+            accountStatus,
+            onConfirm: async ({ closeDialog }) => {
+              if (options?.shouldIgnoreResult?.()) {
+                return stopResult;
+              }
+              const didAcceptTerms = await confirmHyperliquidTerms();
+              if (!didAcceptTerms || options?.shouldIgnoreResult?.()) {
+                return stopResult;
+              }
+              return requestEnableTradingWithDepositFallback({
+                ...options,
+                beforeDeposit: () => {
+                  closeDialog();
+                  options?.beforeDeposit?.();
+                },
+              });
+            },
+          });
+          return result ?? stopResult;
+        }
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        return stopResult;
+      }
+
       const didAcceptTerms = await confirmHyperliquidTerms();
       if (!didAcceptTerms || options?.shouldIgnoreResult?.()) {
-        return { shouldContinue: false, status: undefined };
+        return stopResult;
       }
       return requestEnableTradingWithDepositFallback(options);
     },
@@ -184,7 +225,22 @@ export function useFirstDepositAction() {
       }
 
       return runAccountScopedRequest(async (isRequestCurrent) => {
-        let status: IPerpsActiveAccountStatusAtom | undefined;
+        let status = await perpsActiveAccountStatusAtom.get();
+        if (getEnableTradingDialogConfirmDecision(status) === 'deposit') {
+          if (!isRequestCurrent() || options?.shouldIgnoreResult?.()) {
+            return { shouldContinue: false, status };
+          }
+          const result = await handleEnableTradingPostStatus(status, options);
+          if (isRequestCurrent() && !options?.shouldIgnoreResult?.()) {
+            // Keep the account snapshot fresh without delaying a deposit menu
+            // that already passed the live first-deposit status gate.
+            void backgroundApiProxy.serviceHyperliquid
+              .checkPerpsAccountStatus()
+              .catch(() => undefined);
+          }
+          return result;
+        }
+
         try {
           await errorToastUtils.withErrorAutoToast(() =>
             backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus(),
@@ -208,5 +264,15 @@ export function useFirstDepositAction() {
       handleEnableTradingPostStatus,
       runAccountScopedRequest,
     ],
+  );
+}
+
+export function useEnsureTradingEnabled() {
+  const actions = useHyperliquidActions();
+  const firstDepositAction = useFirstDepositAction();
+
+  return useCallback(
+    () => actions.current.ensureTradingEnabled(firstDepositAction),
+    [actions, firstDepositAction],
   );
 }

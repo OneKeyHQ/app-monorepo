@@ -2,6 +2,7 @@ export * from './aesGcmLayerAdapter';
 export * from './candidate';
 export * from './consts';
 export * from './indexedDbCryptoKeyLayerAdapter';
+export * from './mmkvProfileKeyLayerAdapter';
 export * from './parser';
 export * from './portableCredential';
 export * from './secureStorageLayerAdapter';

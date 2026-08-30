@@ -58,7 +58,9 @@ import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
+import type { IStorageFullDiagnostics } from '../storageChecker/types';
 import type { IWalletConnectSession } from '../walletConnect/types';
+import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
 
 // Supported hardware error types for dialog display
@@ -97,6 +99,8 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  // hardware device the error came from, when the error carries one
+  connectId?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
@@ -354,6 +358,27 @@ export interface IAppEventBusPayload {
     riskyMap: Record<string, ITokenFiat>;
     storeData: IJotaiContextStoreData;
   };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    deviceConnectId?: string;
+    deviceDbId?: string;
+    indexedAccountId?: string;
+    indexedAccountIndex?: number;
+    indexedAccountName?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    totalFiat: string;
+    totalFiatCurrency: string;
+    totalTokenCount: number;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
+  };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {
@@ -408,7 +433,9 @@ export interface IAppEventBusPayload {
         };
       };
   [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
-  [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowSystemDiskFullWarning]:
+    | IStorageFullDiagnostics
+    | undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
@@ -515,6 +542,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
+  [EAppEventBusNames.HardwareDeviceStateUpdate]: DeviceStateEvent;
+  [EAppEventBusNames.HardwareConnectionStateUpdate]: undefined;
   [EAppEventBusNames.UnlockApp]: undefined;
   [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
@@ -560,6 +589,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PerpSwitchInfoPanelTab]: {
     tab: 'Positions' | 'Balances';
   };
+  [EAppEventBusNames.PerpShowFundingHistory]: undefined;
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
     subType: 'datastream';
@@ -582,6 +612,7 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

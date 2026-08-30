@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,34 +11,29 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ITradingViewNativeChartSettingsOptions } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { createTradingViewChartSettingsValue } from '../TradingViewChartControls/chartSettings';
+import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
 
-import type { ITradingViewChartSettingsOptions } from '../TradingViewChartControls/chartSettings/TradingViewSettingsMockState';
+import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 
 type IQuickSettingOptions = Pick<
-  ITradingViewChartSettingsOptions,
-  'countdown' | 'futureEvents' | 'pastEvents'
-> & {
-  yAxis: boolean;
-};
+  ITradingViewNativeChartSettingsOptions,
+  'previousClose' | 'yAxis'
+>;
 
 const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
   'yAxis',
-  'countdown',
-  'futureEvents',
-  'pastEvents',
+  'previousClose',
 ];
 
 const OPTION_TRANSLATION_IDS: Record<
-  keyof IQuickSettingOptions,
+  Exclude<keyof IQuickSettingOptions, 'previousClose'>,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
-  countdown: ETranslations.market_chart_settings__countdown,
-  futureEvents: ETranslations.market_chart_settings__upcoming_events,
-  pastEvents: ETranslations.market_chart_settings__past_events,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
@@ -97,15 +92,12 @@ export function TradingViewMobileChartSettingsDialogContent({
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [options, setOptions] = useState<IQuickSettingOptions>(() => {
-    const defaultOptions = createTradingViewChartSettingsValue().options;
-    return {
-      yAxis: true,
-      countdown: defaultOptions.countdown,
-      futureEvents: defaultOptions.futureEvents,
-      pastEvents: defaultOptions.pastEvents,
-    };
-  });
+  const [settings, setSettings] =
+    useMarketTradingViewChartSettingsPersistAtom();
+  const normalizedSettings = useMemo(
+    () => normalizeTradingViewNativeChartSettings(settings),
+    [settings],
+  );
 
   const handleOpenSettings = useCallback(async () => {
     await dialog.close();
@@ -114,12 +106,19 @@ export function TradingViewMobileChartSettingsDialogContent({
 
   const handleOptionChange = useCallback(
     (key: keyof IQuickSettingOptions, value: boolean) => {
-      setOptions((currentOptions) => ({
-        ...currentOptions,
-        [key]: value,
-      }));
+      setSettings((currentSettings) => {
+        const normalizedCurrentSettings =
+          normalizeTradingViewNativeChartSettings(currentSettings);
+        return {
+          ...normalizedCurrentSettings,
+          options: {
+            ...normalizedCurrentSettings.options,
+            [key]: value,
+          },
+        };
+      });
     },
-    [],
+    [setSettings],
   );
 
   return (
@@ -138,10 +137,14 @@ export function TradingViewMobileChartSettingsDialogContent({
             <QuickSettingOption
               key={option}
               option={option}
-              label={intl.formatMessage({
-                id: OPTION_TRANSLATION_IDS[option],
-              })}
-              value={options[option]}
+              label={
+                option === 'previousClose'
+                  ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
+                  : intl.formatMessage({
+                      id: OPTION_TRANSLATION_IDS[option],
+                    })
+              }
+              value={normalizedSettings.options[option]}
               onChange={(value) => handleOptionChange(option, value)}
             />
           ))}

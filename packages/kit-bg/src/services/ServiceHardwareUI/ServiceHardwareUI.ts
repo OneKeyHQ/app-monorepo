@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -13,13 +14,18 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
+  EHardwareCallContext,
   EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
@@ -31,19 +37,28 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
+  firmwareUpdateWorkflowRunningAtom,
   hardwareUiStateAtom,
   thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { HardwareProcessingManager } from './HardwareProcessingManager';
+import {
+  HardwareProcessingManager,
+  type IOneKeyHardwareOperationLease,
+} from './HardwareProcessingManager';
+import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 
 import type { IDBDevice } from '../../dbs/local/types';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type {
+  IHardwareUiPayload,
+  IHardwareUiResponseCorrelation,
+} from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
+  allowDuringFirmwareUpdate?: boolean;
   hideCheckingDeviceLoading?: boolean;
   skipDeviceCancel?: boolean; // cancel device at end
   skipCloseHardwareUiStateDialog?: boolean; // close state dialog at end
@@ -54,11 +69,13 @@ export type IWithHardwareProcessingControlParams = {
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
   debugMethodName?: string;
+  oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   onFinally?: () => void;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
   skipDeviceCancel?: boolean;
+  immediateDeviceCancel?: boolean;
   delay?: number;
   connectId: string | undefined;
   walletId?: string;
@@ -66,57 +83,103 @@ export type ICloseHardwareUiStateDialogParams = {
   deviceResetToHome?: boolean;
   hardClose?: boolean; // hard close dialog by event bus
   skipDelayClose?: boolean;
+  deviceType?: string;
 };
+
+const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
+  HardwareErrorCode.DeviceNotFound,
+  HardwareErrorCode.BleScanError,
+  HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BleLocationError,
+  HardwareErrorCode.BleRequiredUUID,
+  HardwareErrorCode.BleConnectedError,
+  HardwareErrorCode.PollingTimeout,
+  HardwareErrorCode.BleDeviceNotBonded,
+  HardwareErrorCode.BleServiceNotFound,
+  HardwareErrorCode.BleCharacteristicNotFound,
+  HardwareErrorCode.BleMonitorError,
+  HardwareErrorCode.BleCharacteristicNotifyError,
+  HardwareErrorCode.BleWriteCharacteristicError,
+  HardwareErrorCode.BleAlreadyConnected,
+  HardwareErrorCode.BleLocationServicesDisabled,
+  HardwareErrorCode.BleTimeoutError,
+  HardwareErrorCode.BleForceCleanRunPromise,
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
+  HardwareErrorCode.BleUnavailableWhileUsbConnected,
+  HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
+  HardwareErrorCode.BleDeviceDisconnected,
+  HardwareErrorCode.BlePoweredOff,
+  HardwareErrorCode.BleUnsupported,
+];
 
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
   private deviceCacheByConnectId: Map<string, IDBDevice> = new Map();
 
+  private firmwareUpdateExclusiveDepth = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
-    // When device features (including label) change, invalidate cache to avoid showing stale names.
+    // Clear cached dialogs after device state changes so labels cannot become stale.
+    appEventBus.on(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      this.onHardwareDeviceStateUpdate,
+    );
+    // Third-party hardware remains driven by each SDK's features events.
     appEventBus.on(
       EAppEventBusNames.HardwareFeaturesUpdate,
-      this.onHardwareFeaturesUpdate,
+      this.onThirdPartyHardwareFeaturesUpdate,
     );
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
 
-  private onHardwareFeaturesUpdate = async ({
-    deviceId,
-  }: {
-    deviceId: string;
-  }) => {
+  private onHardwareDeviceStateUpdate = async ({
+    connectId,
+    state,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate]) => {
     try {
       // Delete from cache first to avoid a race where a new interaction immediately reads stale cache.
-      for (const [connectId, cached] of this.deviceCacheByConnectId.entries()) {
-        if (cached?.id === deviceId) {
-          this.deviceCacheByConnectId.delete(connectId);
+      for (const [
+        cachedConnectId,
+        cached,
+      ] of this.deviceCacheByConnectId.entries()) {
+        if (
+          cached?.deviceId === state.identity.deviceId ||
+          cached?.uuid === state.identity.serialNo
+        ) {
+          this.deviceCacheByConnectId.delete(cachedConnectId);
         }
       }
-
-      const device = await localDb.getDevice(deviceId);
-      if (device?.connectId) {
-        this.deviceCacheByConnectId.delete(device.connectId);
-      } else {
-        // Conservative fallback: if connectId cannot be resolved, clear all cache to avoid stale UI.
-        this.deviceCacheByConnectId.clear();
-      }
+      if (connectId) this.deviceCacheByConnectId.delete(connectId);
     } catch {
       // Best-effort: this event is only for UI consistency. Clear cache on any error.
       this.deviceCacheByConnectId.clear();
     }
   };
 
+  private onThirdPartyHardwareFeaturesUpdate = async ({
+    deviceId,
+  }: IAppEventBusPayload[EAppEventBusNames.HardwareFeaturesUpdate]) => {
+    try {
+      const device = await localDb.getDevice(deviceId);
+      if (device?.connectId) {
+        this.deviceCacheByConnectId.delete(device.connectId);
+      } else {
+        this.deviceCacheByConnectId.clear();
+      }
+    } catch {
+      this.deviceCacheByConnectId.clear();
+    }
+  };
+
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
-    return (
-      await this.backgroundApi.serviceHardware.getSDKInstance({
-        connectId: undefined,
-      })
-    ).uiResponse(response);
+    return this.backgroundApi.serviceHardware.sendUiResponseToActiveSdk(
+      response,
+    );
   }
 
   @backgroundMethod()
@@ -255,64 +318,79 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showEnterPassphraseOnDeviceDialog() {
+  async showEnterPassphraseOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: '',
-        passphraseOnDevice: true,
-        attachPinOnDevice: false,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'device' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterAttachPinOnDeviceDialog() {
+  async showEnterAttachPinOnDeviceDialog({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: '',
-        passphraseOnDevice: false,
-        attachPinOnDevice: true,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'attach-pin' }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPinToDevice({ pin }: { pin: string }) {
+  async sendPinToDevice({
+    pin,
+    responseCorrelation,
+  }: {
+    pin: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: pin,
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
+  async sendPassphraseToDevice({
+    passphrase,
+    responseCorrelation,
+  }: {
+    passphrase: string;
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  }) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: passphrase,
-        passphraseOnDevice: false,
-        save: false,
-      },
+      payload: buildPassphraseUiResponsePayload({ mode: 'host', passphrase }),
+      ...responseCorrelation,
     });
   }
 
   @backgroundMethod()
-  async showEnterPinOnDevice() {
+  async showEnterPinOnDevice({
+    responseCorrelation,
+  }: {
+    responseCorrelation?: IHardwareUiResponseCorrelation;
+  } = {}) {
     const { UI_RESPONSE } = await CoreSDKLoader();
 
     await this.sendUiResponse({
       type: UI_RESPONSE.RECEIVE_PIN,
       payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+      ...responseCorrelation,
     });
   }
 
@@ -324,7 +402,9 @@ class ServiceHardwareUI extends ServiceBase {
     connectId: string;
     payload: IHardwareUiPayload | undefined;
   }) {
-    await this.showEnterPinOnDevice();
+    await this.showEnterPinOnDevice({
+      responseCorrelation: payload?.uiResponseCorrelation,
+    });
 
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.EnterPinOnDevice,
@@ -406,12 +486,14 @@ class ServiceHardwareUI extends ServiceBase {
     /* eslint-disable prefer-const */
     let {
       skipDeviceCancel = true,
+      immediateDeviceCancel = false,
       delay,
       connectId,
       walletId,
       reason,
       deviceResetToHome = true,
       hardClose,
+      deviceType,
     } = params;
     /* eslint-enable prefer-const */
 
@@ -438,6 +520,8 @@ class ServiceHardwareUI extends ServiceBase {
         void this.backgroundApi.serviceHardware.cancel({
           connectId,
           forceDeviceResetToHome: deviceResetToHome,
+          immediate: immediateDeviceCancel,
+          deviceType,
         });
       }
     } catch (_error) {
@@ -451,7 +535,187 @@ class ServiceHardwareUI extends ServiceBase {
     return this.processingNestedNum === 1;
   }
 
+  @backgroundMethod()
+  async isHardwareChannelBusy(_params?: { connectId?: string }) {
+    const [
+      hardwareUiState,
+      firmwareUpdateWorkflowRunning,
+      deviceSearchInProgress,
+    ] = await Promise.all([
+      hardwareUiStateAtom.get(),
+      firmwareUpdateWorkflowRunningAtom.get(),
+      this.backgroundApi.serviceHardware.isDeviceSearchInProgress(),
+    ]);
+    return (
+      this.processingNestedNum > 0 ||
+      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked() ||
+      firmwareUpdateWorkflowRunning ||
+      deviceSearchInProgress ||
+      Boolean(hardwareUiState)
+    );
+  }
+
   async withHardwareProcessing<T>(
+    fn: (lease?: IOneKeyHardwareOperationLease) => Promise<T>,
+    params: IWithHardwareProcessingOptions,
+  ): Promise<T> {
+    const device = params.deviceParams?.dbDevice;
+    const vendor = device?.vendor ?? device?.settings?.vendor;
+    const isThirdPartyVendor = getVendorProfile(
+      vendor ?? EHardwareVendor.onekey,
+    ).isThirdParty;
+    const supportsPortfolioSync = Boolean(
+      device &&
+      isProtocolV2ProductType(device.deviceType) &&
+      (device.connectProtocol === 'V2' ||
+        device.deviceStateInfo?.protocol === 'V2') &&
+      vendor === EHardwareVendor.onekey,
+    );
+    // Nested calls reuse the active OneKey operation lease. Only the lease
+    // owner represents a complete interaction and may resume Portfolio sync.
+    const shouldNotifyPortfolioInteraction =
+      !params.oneKeyOperationLease &&
+      !isThirdPartyVendor &&
+      supportsPortfolioSync;
+    let desktopInteractionGeneration: number | undefined;
+    if (
+      !params.allowDuringFirmwareUpdate &&
+      (this.firmwareUpdateExclusiveDepth > 0 ||
+        (await firmwareUpdateWorkflowRunningAtom.get()))
+    ) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.feedback_hardware_is_busy,
+        }),
+        autoToast: false,
+      });
+    }
+    if (isThirdPartyVendor) {
+      return this.withHardwareProcessingInternal(() => fn(undefined), params);
+    }
+    const tracksFirmwareUpdateExclusivity = Boolean(
+      params.allowDuringFirmwareUpdate,
+    );
+    if (tracksFirmwareUpdateExclusivity) {
+      this.firmwareUpdateExclusiveDepth += 1;
+    }
+    // Keep operation-level serialization during the mixed-SDK rollout and for
+    // shared lifecycle work outside the correlated PIN/passphrase response path.
+    try {
+      let successfulTransportType: EHardwareTransportType | undefined;
+      const result = await this.runExclusiveOneKeyOperation(
+        async (lease) => {
+          const operationResult = await this.withHardwareProcessingInternal(
+            async () => {
+              if (
+                shouldNotifyPortfolioInteraction &&
+                platformEnv.isDesktop &&
+                device?.id
+              ) {
+                const generation =
+                  await this.backgroundApi.serviceHardwarePortfolioSync
+                    .notifyInteractiveHardwareOperationStarted({
+                      connectId: device.connectId,
+                      deviceDbId: device.id,
+                    })
+                    .catch(() => undefined);
+                if (typeof generation === 'number') {
+                  desktopInteractionGeneration = generation;
+                }
+              }
+              return fn(lease);
+            },
+            params,
+          );
+          if (platformEnv.isDesktop && device?.id) {
+            successfulTransportType = await this.backgroundApi.serviceHardware
+              .getCurrentTransportType()
+              .catch(() => undefined);
+          }
+          return operationResult;
+        },
+        {
+          deviceKey:
+            device?.id || device?.deviceId || device?.uuid || device?.connectId,
+          lease: params.oneKeyOperationLease,
+        },
+      );
+      if (
+        shouldNotifyPortfolioInteraction &&
+        platformEnv.isNative &&
+        device?.id
+      ) {
+        void this.backgroundApi.serviceHardwarePortfolioSync
+          .notifyInteractiveHardwareOperationSucceeded({
+            connectId: device.connectId,
+            deviceDbId: device.id,
+          })
+          .catch(() => undefined);
+      } else if (
+        shouldNotifyPortfolioInteraction &&
+        platformEnv.isDesktop &&
+        device?.id &&
+        desktopInteractionGeneration !== undefined &&
+        successfulTransportType
+      ) {
+        void this.backgroundApi.serviceHardwarePortfolioSync
+          .notifyInteractiveHardwareOperationSucceeded({
+            connectId: device.connectId,
+            deviceDbId: device.id,
+            interactionGeneration: desktopInteractionGeneration,
+            transportType: successfulTransportType,
+          })
+          .catch(() => undefined);
+      }
+      return result;
+    } finally {
+      if (tracksFirmwareUpdateExclusivity) {
+        this.firmwareUpdateExclusiveDepth = Math.max(
+          this.firmwareUpdateExclusiveDepth - 1,
+          0,
+        );
+      }
+    }
+  }
+
+  runExclusiveOneKeyOperation<T>(
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>,
+    {
+      deviceKey,
+      lease,
+    }: {
+      deviceKey?: string;
+      lease?: IOneKeyHardwareOperationLease;
+    } = {},
+  ) {
+    return this.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      deviceKey,
+      lease,
+      operation,
+    });
+  }
+
+  async tryRunExclusiveOneKeyOperation<T>(
+    operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>,
+    {
+      deviceKey,
+      lease,
+    }: {
+      deviceKey?: string;
+      lease?: IOneKeyHardwareOperationLease;
+    } = {},
+  ) {
+    if (await this.isHardwareChannelBusy()) {
+      return { acquired: false } as const;
+    }
+    return this.hardwareProcessingManager.tryRunExclusiveOneKeyOperation({
+      deviceKey,
+      lease,
+      operation,
+    });
+  }
+
+  private async withHardwareProcessingInternal<T>(
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
@@ -472,13 +736,13 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let skipDeviceCancelAfterError = false;
 
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
     const isThirdPartyVendor = getVendorProfile(
       device?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
-
     let deviceResetToHome = true;
     let isBusy = false;
     try {
@@ -510,6 +774,13 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
+          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          await this.backgroundApi.serviceHardware.prepareHardwareTransport({
+            connectId,
+            connectProtocol: device?.connectProtocol,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
           await this.showCheckingDeviceDialog({
             connectId,
           });
@@ -589,6 +860,16 @@ class ServiceHardwareUI extends ServiceBase {
         'withHardwareProcessing ERROR stack: ',
         (error as Error)?.stack,
       );
+      // The SDK error payload never carries the device it came from, so stamp
+      // the connectId this call was made with — UI actions (firmware update)
+      // can then target the failing device instead of resolving one.
+      if (connectId && isHardwareError({ error: error as IOneKeyError })) {
+        const hardwareError = error as IOneKeyError;
+        hardwareError.payload = {
+          ...hardwareError.payload,
+          connectId: hardwareError.payload?.connectId ?? connectId,
+        };
+      }
       if (
         isHardwareErrorByCode({
           error: error as any,
@@ -604,36 +885,26 @@ class ServiceHardwareUI extends ServiceBase {
           }, 300);
         }
       }
-      // skip reset to home if user cancel
       if (
+        isHardwareErrorByCode({
+          error: error as any,
+          code: HARDWARE_CONNECTION_CANCEL_SKIP_CODES,
+        })
+      ) {
+        // Pairing / link-setup failures never have an acquired session.
+        // Sending Cancel here can re-enter BLE and raise the OS pairing prompt.
+        skipDeviceCancelAfterError = true;
+        deviceResetToHome = false;
+      } else if (
         isHardwareErrorByCode({
           error: error as any,
           code: [
             HardwareErrorCode.ActionCancelled,
             HardwareErrorCode.CallQueueActionCancelled,
             HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home
             HardwareErrorCode.DeviceInterruptedFromUser,
             HardwareErrorCode.DeviceInterruptedFromOutside,
-            // ble connect error, skip reset to home
-            HardwareErrorCode.BleScanError,
-            HardwareErrorCode.BlePermissionError,
-            HardwareErrorCode.BleLocationError,
-            HardwareErrorCode.BleRequiredUUID,
-            HardwareErrorCode.BleConnectedError,
-            HardwareErrorCode.BleDeviceNotBonded,
-            HardwareErrorCode.BleServiceNotFound,
-            HardwareErrorCode.BleCharacteristicNotFound,
-            HardwareErrorCode.BleMonitorError,
-            HardwareErrorCode.BleCharacteristicNotifyError,
-            HardwareErrorCode.BleWriteCharacteristicError,
-            HardwareErrorCode.BleAlreadyConnected,
-            HardwareErrorCode.BleLocationServicesDisabled,
-            HardwareErrorCode.BleTimeoutError,
-            HardwareErrorCode.BleForceCleanRunPromise,
-            HardwareErrorCode.BleDeviceBondError,
-            HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
           ],
         })
       ) {
@@ -659,8 +930,7 @@ class ServiceHardwareUI extends ServiceBase {
         } else if (connectId) {
           if (!skipCloseHardwareUiStateDialog) {
             const closeDialogParams = {
-              // skipDeviceCancel: true,
-              skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
+              skipDeviceCancel: skipDeviceCancel || skipDeviceCancelAfterError,
               deviceResetToHome,
             };
             if (isBusy) {
@@ -671,6 +941,7 @@ class ServiceHardwareUI extends ServiceBase {
               connectId,
               skipDeviceCancel: closeDialogParams.skipDeviceCancel,
               deviceResetToHome: closeDialogParams.deviceResetToHome,
+              deviceType: device?.deviceType,
             });
             void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
               wallet: deviceParams?.dbWallet,

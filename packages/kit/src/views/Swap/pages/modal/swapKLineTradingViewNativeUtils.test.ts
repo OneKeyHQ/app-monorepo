@@ -111,7 +111,7 @@ describe('Swap K-line TradingViewNative source', () => {
       realtime: 'disabled',
     });
     expect(getSwapKLineTradingViewNativeSourceKey(source)).toBe(
-      'market:evm--1:0xabc:ETH',
+      'market:evm--1:0xabc',
     );
   });
 
@@ -135,7 +135,7 @@ describe('Swap K-line TradingViewNative source', () => {
     });
   });
 
-  it('keeps Market history available when realtime is unavailable', () => {
+  it('uses the native ETH Swap whitelist when realtime is unavailable', () => {
     expect(
       getSwapKLineTradingViewNativeSource({
         token: buildToken({
@@ -145,12 +145,25 @@ describe('Swap K-line TradingViewNative source', () => {
         }),
       }),
     ).toEqual({
-      kind: 'market',
-      isNative: true,
-      networkId: 'evm--1',
-      tokenAddress: '',
-      symbol: 'ETH',
-      realtime: 'disabled',
+      kind: 'hyperliquid',
+      coin: 'ETH',
+      environment: 'mainnet',
+    });
+  });
+
+  it('uses the native BNB Swap whitelist when realtime is unavailable', () => {
+    expect(
+      getSwapKLineTradingViewNativeSource({
+        token: buildToken({
+          isNative: true,
+          networkId: 'evm--56',
+          symbol: 'BNB',
+        }),
+      }),
+    ).toEqual({
+      kind: 'hyperliquid',
+      coin: 'BNB',
+      environment: 'mainnet',
     });
   });
 });

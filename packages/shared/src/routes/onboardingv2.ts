@@ -9,7 +9,7 @@ import type { EOAuthSocialLoginProvider } from '../consts/authConsts';
 import type { EKeylessFinalizeAction } from '../keylessWallet/keylessWalletConsts';
 import type { IDetectedNetworkGroupItem } from '../utils/networkDetectUtils';
 import type { EMnemonicType } from '../utils/secret';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
+import type { EDeviceType, HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
@@ -85,6 +85,7 @@ export type IOnboardingParamListV2 = {
     shouldAutoResetKeylessPinAfterRestore?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
+    connectProtocol?: HardwareConnectProtocol;
     // User-selected connection channel for this session. Carried forward from
     // the Ledger entry points (ConnectionFlowLedger / ConnectYourDevice Ledger
     // branch) so the analytics `walletAdded` event can attribute the actual
@@ -101,10 +102,12 @@ export type IOnboardingParamListV2 = {
   };
   [EOnboardingPagesV2.ConnectQRCode]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
+    connectProtocol?: HardwareConnectProtocol;
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
   };
   [EOnboardingPagesV2.DeviceSetup]: {
+    connectProtocol?: HardwareConnectProtocol;
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
     isFirmwareVerified?: boolean;

@@ -206,7 +206,7 @@ function StepTextSwap({ text }: { text: string }) {
           right={0}
           size="$heading2xl"
           textAlign="center"
-          animation="medium"
+          transition="medium"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, y: 16 }}
           exitStyle={{ opacity: 0, y: -16 }}
@@ -268,6 +268,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
+  const connectProtocol = route?.params?.connectProtocol;
   const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
@@ -596,7 +597,7 @@ function FinalizeWalletSetupPage({
             let featuresForCreate = {
               device_id: thirdPartyDevice?.deviceId || '',
               vendor: deviceData.vendor,
-            } as IOneKeyDeviceFeatures;
+            } as unknown as IOneKeyDeviceFeatures;
             if (
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
@@ -628,11 +629,16 @@ function FinalizeWalletSetupPage({
               const connectedFeatures = connected.success
                 ? connected.payload.features
                 : undefined;
+              const legacyConnectedFeatures = connectedFeatures as
+                | {
+                    device_id?: string;
+                  }
+                | undefined;
               const connectedDeviceId =
                 connected.success &&
                 (connected.payload.deviceId ||
-                  (typeof connectedFeatures?.device_id === 'string'
-                    ? connectedFeatures.device_id
+                  (typeof legacyConnectedFeatures?.device_id === 'string'
+                    ? legacyConnectedFeatures.device_id
                     : ''));
               if (!connected.success) {
                 throw getTrezorConnectFailureError(
@@ -679,7 +685,7 @@ function FinalizeWalletSetupPage({
               featuresForCreate = {
                 ...connectedFeatures,
                 device_id: connectedDeviceId,
-              } as IOneKeyDeviceFeatures;
+              } as unknown as IOneKeyDeviceFeatures;
               const rawThirdPartyDevice = (
                 thirdPartyDevice as SearchDevice & {
                   raw?: Record<string, unknown>;
@@ -742,6 +748,7 @@ function FinalizeWalletSetupPage({
           goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
           await connectDevice(deviceData.device as SearchDevice);
           await createHWWallet({
+            connectProtocol,
             device: deviceData.device as SearchDevice,
             isFirmwareVerified,
           });
@@ -792,6 +799,7 @@ function FinalizeWalletSetupPage({
     shouldAutoResetKeylessPinAfterRestore,
     connectDevice,
     createHWWallet,
+    connectProtocol,
     setPendingKeylessAutoConnectWalletId,
     goNextStep,
     hardwareTransportType,
@@ -828,6 +836,14 @@ function FinalizeWalletSetupPage({
   );
 
   const retrySetup = useCallback(() => {
+    // A Safe 7 mints a fresh BLE address each time it re-enters pairing mode, so
+    // the connectId in `deviceData` is dead once an attempt ends — go back and
+    // re-scan instead of retrying it. Other vendors keep in-place retry.
+    if (deviceData?.vendor === EHardwareVendor.trezor) {
+      setSetupError(undefined);
+      navigation.pop();
+      return;
+    }
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
@@ -842,7 +858,7 @@ function FinalizeWalletSetupPage({
     // instead of being short-circuited.
     created.current = false;
     void createWallet();
-  }, [createWallet, initialStep]);
+  }, [createWallet, initialStep, deviceData?.vendor, navigation]);
 
   const { gtMd } = useMedia();
   const theme = useTheme();
@@ -1001,7 +1017,7 @@ function FinalizeWalletSetupPage({
     opacity: isReadyActionVisible ? 1 : 0,
     pointerEvents: isReadyActionVisible ? ('auto' as const) : ('none' as const),
     ...(!platformEnv.isNative && {
-      animation: 'quick' as const,
+      transition: 'quick' as const,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
     }),
   };
@@ -1013,7 +1029,7 @@ function FinalizeWalletSetupPage({
       size="large"
       onPress={handleLetsGo}
       iconAfter="ArrowRightOutline"
-      animation="quick"
+      transition="quick"
       animateOnly={['opacity']}
       enterStyle={{ opacity: 0 }}
       {...(gtMd ? { minWidth: 240 } : { w: '100%' as const })}
@@ -1049,7 +1065,7 @@ function FinalizeWalletSetupPage({
               y: '$-2',
               opacity: 0,
             }}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           >
             <SizableText>
@@ -1165,7 +1181,7 @@ function FinalizeWalletSetupPage({
                 <YStack
                   position="absolute"
                   inset={0}
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   opacity={isReady ? 0 : 1}
                 >
@@ -1188,7 +1204,7 @@ function FinalizeWalletSetupPage({
                   bg="$brand10"
                   alignItems="center"
                   justifyContent="center"
-                  animation="medium"
+                  transition="medium"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   opacity={isReady ? 1 : 0}
                   scale={isReady ? 1 : 0.7}

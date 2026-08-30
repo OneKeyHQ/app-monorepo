@@ -55,7 +55,11 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
 );
-
+const FirmwareUpdatePro2DevSettings = LazyLoadPage(async () => {
+  const { PageFirmwareUpdatePro2DevSettings } =
+    await import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings');
+  return { default: PageFirmwareUpdatePro2DevSettings };
+});
 const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
 );
@@ -73,6 +77,11 @@ const DevSesHardenRuntimeCheck = LazyLoadPage(
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
+);
+
+const SniRequestQa = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/SniRequestQa'),
 );
 
 const PerpGallery = LazyLoadPage(
@@ -246,6 +255,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: FirmwareUpdateDevSettings,
   },
   {
+    name: EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal,
+    component: FirmwareUpdatePro2DevSettings,
+  },
+  {
     name: EModalSettingRoutes.SettingDevAppUpdateModal,
     component: DevAppUpdateModalSettingModal,
   },
@@ -264,6 +277,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSniRequestQa,
+    component: SniRequestQa,
   },
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,

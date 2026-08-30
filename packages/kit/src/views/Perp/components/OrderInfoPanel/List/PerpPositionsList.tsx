@@ -175,7 +175,7 @@ function PerpPositionsList({
           id: ETranslations.perp_position_tp_sl,
         }),
         minWidth: 140,
-        align: 'center',
+        align: 'left',
         flex: 1,
       },
       {
@@ -364,31 +364,38 @@ function PerpPositionsList({
   if (!isMobile && positionsReady && mockedPositions.length === 0) {
     return (
       <YStack flex={1} width="100%">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          nestedScrollEnabled
-          contentContainerStyle={{
-            minWidth: totalMinWidth,
-            flexGrow: 1,
-          }}
+        {/* Row wrapper keeps the ScrollView's flexGrow horizontal; in a column
+            parent it would split the pane height with the empty state. */}
+        <XStack
+          width="100%"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+          bg="$bgApp"
         >
-          <XStack
-            flex={1}
-            py="$2"
-            pl="$5"
-            pr="$3"
-            display="flex"
-            minWidth={totalMinWidth}
-            width="100%"
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-            bg="$bgSubtle"
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            nestedScrollEnabled
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              minWidth: totalMinWidth,
+              flexGrow: 1,
+            }}
           >
-            {columnsConfig.map(renderDesktopHeaderCell)}
-          </XStack>
-        </ScrollView>
-        <YStack flex={1} width="100%">
+            <XStack
+              flex={1}
+              py="$2"
+              pl="$5"
+              pr="$3"
+              display="flex"
+              minWidth={totalMinWidth}
+              width="100%"
+            >
+              {columnsConfig.map(renderDesktopHeaderCell)}
+            </XStack>
+          </ScrollView>
+        </XStack>
+        <YStack flex={1} width="100%" minHeight={0}>
           <PerpPositionsEmptyState />
         </YStack>
       </YStack>

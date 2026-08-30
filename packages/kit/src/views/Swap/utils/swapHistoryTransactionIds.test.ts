@@ -53,13 +53,13 @@ function createHistory({
 }
 
 describe('getSwapHistoryTransactionIdRows', () => {
-  it('keeps an ordinary single-hash swap unchanged', () => {
+  it('shows the explorer link on the hash row for an ordinary single-hash swap', () => {
     expect(getSwapHistoryTransactionIdRows(createHistory())).toEqual([
       {
         kind: 'transaction',
         transactionId: '0xsource',
         networkId: 'evm--1',
-        showExplorer: false,
+        showExplorer: true,
       },
     ]);
   });
@@ -240,6 +240,39 @@ describe('getSwapHistoryTransactionIdRows', () => {
         transactionId: '0xrefund',
         networkId: 'evm--56',
         showExplorer: true,
+      },
+    ]);
+  });
+
+  it('ignores a stale refund hash after the target chain succeeds', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          status: ESwapTxHistoryStatus.SUCCESS,
+          fromNetworkId: 'evm--56',
+          toNetworkId: 'evm--1',
+          crossChainStatus: ESwapCrossChainStatus.TO_SUCCESS,
+          receiverTransactionId: '0xtarget',
+          swapOrderHash: {
+            fromTxHash: '0xsource',
+            toTxHash: '0xtarget',
+            refundHash: '0xstale-refund',
+          },
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'source',
+        transactionId: '0xsource',
+        networkId: 'evm--56',
+        showExplorer: true,
+      },
+      {
+        kind: 'target',
+        transactionId: '0xtarget',
+        networkId: 'evm--1',
+        showExplorer: true,
+        showPendingNote: false,
       },
     ]);
   });

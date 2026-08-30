@@ -29,6 +29,7 @@ import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 // NOTE: `waitForDataLoaded`, `timerUtils`, `isWebEmbedApiAllowedOrigin`
 // and `IBackgroundApiWebembedCallMessage` used to be imported here for the
@@ -71,6 +72,7 @@ export class BackgroundApiProxyBase
           sync: boolean;
         },
         localFallback: () => Promise<any>,
+        options?: { signal?: AbortSignal },
       ) => Promise<any>;
       emitAppEventRequest: (
         request: {
@@ -244,19 +246,46 @@ export class BackgroundApiProxyBase
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
-        await transport.ensureReady?.();
         const backgroundMethod =
           serviceName && serviceName !== 'ROOT'
             ? `${serviceName}.${methodName}`
             : methodName;
+        const abortSignal = params
+          .map((param) =>
+            param && typeof param === 'object'
+              ? (param as { signal?: AbortSignal }).signal
+              : undefined,
+          )
+          .find(
+            (signal) =>
+              typeof signal?.aborted === 'boolean' &&
+              typeof signal.addEventListener === 'function',
+          );
+        const remoteParams = abortSignal
+          ? params.map((param) => {
+              if (
+                !param ||
+                typeof param !== 'object' ||
+                (param as { signal?: AbortSignal }).signal !== abortSignal
+              ) {
+                return param;
+              }
+              const { signal: _signal, ...serializableParam } = param as Record<
+                string,
+                unknown
+              >;
+              return serializableParam;
+            })
+          : params;
         return transport.callServiceRequest(
           {
             type: 'service-call',
             method: backgroundMethod,
-            params,
+            params: remoteParams,
             sync,
           },
           callLocalBackgroundMethod,
+          abortSignal ? { signal: abortSignal } : undefined,
         );
       }
     }
@@ -317,7 +346,6 @@ export class BackgroundApiProxyBase
         ) {
           const transport = this.getNativeBackgroundThreadTransport();
           if (transport) {
-            await transport.ensureReady?.();
             await transport
               .emitAppEventRequest(
                 {
@@ -344,7 +372,12 @@ export class BackgroundApiProxyBase
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
+    if (atomNames) {
+      return this.callBackground('getAtomStates', atomNames);
+    }
     return this.callBackground('getAtomStates');
   }
 
@@ -383,7 +416,6 @@ export class BackgroundApiProxyBase
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
         void Promise.resolve()
-          .then(() => transport.ensureReady?.())
           .then(() =>
             transport.syncBridgeConnection(
               {
@@ -452,17 +484,14 @@ export class BackgroundApiProxyBase
         void Promise.resolve()
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeTransportReady();
-            return transport.ensureReady?.();
-          })
-          .then(() =>
-            transport.syncBridgeConnection(
+            return transport.syncBridgeConnection(
               {
                 channel: 'webEmbed',
                 bridge,
               },
               () => this.connectLocalBackgroundBridge('webEmbed', bridge),
-            ),
-          )
+            );
+          })
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeSyncDone();
           })
@@ -566,17 +595,15 @@ export class BackgroundApiProxyBase
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
-        return Promise.resolve()
-          .then(() => transport.ensureReady?.())
-          .then(() =>
-            transport.callBridgeRequest(
-              {
-                type: 'bridge-call',
-                payload,
-              },
-              () => this.callLocalBridgeReceiveHandler(payload),
-            ),
-          );
+        return Promise.resolve().then(() =>
+          transport.callBridgeRequest(
+            {
+              type: 'bridge-call',
+              payload,
+            },
+            () => this.callLocalBridgeReceiveHandler(payload),
+          ),
+        );
       }
     }
     // Use async fallback if backgroundApi is not yet available (native-ui stub)

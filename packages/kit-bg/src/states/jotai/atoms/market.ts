@@ -1,3 +1,10 @@
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
+
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
@@ -72,17 +79,11 @@ export const {
   },
 });
 
-export type IMarketTradingViewStorageNamespace =
-  | 'market'
-  | 'market-hyperliquid';
+export type IMarketTradingViewStorageNamespace = 'market';
 
 export interface IMarketTradingViewSubIndicatorCountPersistAtom {
   subIndicatorCountByStorageNamespace: Partial<
     Record<IMarketTradingViewStorageNamespace, number>
-  >;
-  storageNamespaceByChartKey: Record<
-    string,
-    IMarketTradingViewStorageNamespace
   >;
 }
 
@@ -94,6 +95,23 @@ export const {
   name: EAtomNames.marketTradingViewSubIndicatorCountPersistAtom,
   initialValue: {
     subIndicatorCountByStorageNamespace: {},
-    storageNamespaceByChartKey: {},
   },
+});
+
+export const {
+  target: marketTradingViewChartSettingsPersistAtom,
+  use: useMarketTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.marketTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: marketTradingViewIndicatorSettingsPersistAtom,
+  use: useMarketTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.marketTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
 });

@@ -3,54 +3,29 @@ import type {
   IMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/market';
 
-export function getMarketTradingViewStorageNamespace({
-  chartKey,
-  detectedStorageNamespace,
-  isSourceLoading,
-  persistState,
-}: {
-  chartKey: string;
-  detectedStorageNamespace: IMarketTradingViewStorageNamespace;
-  isSourceLoading: boolean;
-  persistState: IMarketTradingViewSubIndicatorCountPersistAtom;
-}) {
-  if (isSourceLoading) {
-    return persistState.storageNamespaceByChartKey[chartKey] ?? 'market';
-  }
+export function normalizeMarketTradingViewSubIndicatorCountPersist(
+  persistState: IMarketTradingViewSubIndicatorCountPersistAtom,
+): IMarketTradingViewSubIndicatorCountPersistAtom {
+  const count = persistState.subIndicatorCountByStorageNamespace?.market;
+  const validCount =
+    typeof count === 'number' && Number.isFinite(count) ? count : undefined;
+  const stateKeys = Object.keys(persistState);
+  const namespaceKeys = Object.keys(
+    persistState.subIndicatorCountByStorageNamespace ?? {},
+  );
+  const hasExpectedShape =
+    stateKeys.length === 1 &&
+    stateKeys[0] === 'subIndicatorCountByStorageNamespace' &&
+    namespaceKeys.every((key) => key === 'market') &&
+    (namespaceKeys.length === 0 || validCount !== undefined);
 
-  return detectedStorageNamespace;
-}
-
-export function setMarketTradingViewStorageNamespace({
-  chartKey,
-  persistState,
-  storageNamespace,
-}: {
-  chartKey: string;
-  persistState: IMarketTradingViewSubIndicatorCountPersistAtom;
-  storageNamespace: IMarketTradingViewStorageNamespace;
-}) {
-  const currentStorageNamespace =
-    persistState.storageNamespaceByChartKey[chartKey];
-  if (
-    currentStorageNamespace === storageNamespace ||
-    (storageNamespace === 'market' && currentStorageNamespace === undefined)
-  ) {
+  if (hasExpectedShape) {
     return persistState;
   }
 
-  const storageNamespaceByChartKey = {
-    ...persistState.storageNamespaceByChartKey,
-  };
-  if (storageNamespace === 'market') {
-    delete storageNamespaceByChartKey[chartKey];
-  } else {
-    storageNamespaceByChartKey[chartKey] = storageNamespace;
-  }
-
   return {
-    ...persistState,
-    storageNamespaceByChartKey,
+    subIndicatorCountByStorageNamespace:
+      validCount === undefined ? {} : { market: validCount },
   };
 }
 
@@ -62,7 +37,7 @@ export function getMarketTradingViewSubIndicatorCount({
   storageNamespace: IMarketTradingViewStorageNamespace;
 }) {
   const count =
-    persistState.subIndicatorCountByStorageNamespace[storageNamespace];
+    persistState.subIndicatorCountByStorageNamespace?.[storageNamespace];
   return typeof count === 'number' && Number.isFinite(count)
     ? count
     : undefined;
@@ -77,16 +52,18 @@ export function setMarketTradingViewSubIndicatorCount({
   persistState: IMarketTradingViewSubIndicatorCountPersistAtom;
   storageNamespace: IMarketTradingViewStorageNamespace;
 }) {
+  const normalizedPersistState =
+    normalizeMarketTradingViewSubIndicatorCountPersist(persistState);
   if (
-    persistState.subIndicatorCountByStorageNamespace[storageNamespace] === count
+    normalizedPersistState.subIndicatorCountByStorageNamespace[
+      storageNamespace
+    ] === count
   ) {
-    return persistState;
+    return normalizedPersistState;
   }
 
   return {
-    ...persistState,
     subIndicatorCountByStorageNamespace: {
-      ...persistState.subIndicatorCountByStorageNamespace,
       [storageNamespace]: count,
     },
   };

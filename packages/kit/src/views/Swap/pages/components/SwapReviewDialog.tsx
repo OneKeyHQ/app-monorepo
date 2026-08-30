@@ -8,6 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapReviewActions } from '../../hooks/useSwapReviewActions';
+import { isSwapReviewConfirmBlocked } from '../../utils/swapReviewRebuildStateMachine';
 import {
   ESwapReviewApproveTransactionSource,
   type ISwapReviewAdapter,
@@ -28,6 +29,7 @@ type ISwapReviewDialogProps = {
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
   accountSelectorConfig?: {
     config: {
@@ -42,6 +44,7 @@ function SwapReviewDialogContent({
   adapter,
   approveTransactionSource,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   defaultCustomPriorityFee,
   defaultNetworkFeeLevel,
   showCustomNetworkFeeOption,
@@ -51,28 +54,42 @@ function SwapReviewDialogContent({
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
   disableGlobalApproveSync?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
   onDone: () => void;
   onConfirmStart?: () => void;
 }) {
-  const { onConfirm, preSwapBeforeStepActions, preSwapStepsStart } =
-    useSwapReviewActions({
-      adapter,
-      approveTransactionSource,
-    });
+  const {
+    onConfirm,
+    preSwapBeforeStepActions,
+    preSwapStepsStart,
+    rebuildReviewWithSlippage,
+    reviewRebuildState,
+    resetUncommittedReviewRebuildError,
+  } = useSwapReviewActions({
+    adapter,
+    approveTransactionSource,
+  });
 
   return (
     <PreSwapDialogContent
       disableGlobalApproveSync={disableGlobalApproveSync}
+      disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       onConfirm={() => {
-        onConfirmStart?.();
-        onConfirm();
+        if (isSwapReviewConfirmBlocked(reviewRebuildState.phase)) {
+          return;
+        }
+        onConfirm(onConfirmStart);
       }}
       onDone={onDone}
       preSwapBeforeStepActions={preSwapBeforeStepActions}
       preSwapStepsStart={preSwapStepsStart}
+      rebuildReviewWithSlippage={rebuildReviewWithSlippage}
+      reviewRebuildState={reviewRebuildState}
+      resetUncommittedReviewRebuildError={resetUncommittedReviewRebuildError}
+      saveSlippageForFutureOrders={adapter.saveSlippageForFutureOrders}
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}
@@ -90,6 +107,7 @@ export function SwapReviewDialog({
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
   disableGlobalApproveSync,
+  disableSaveSlippageForFutureOrders,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
   accountSelectorConfig = {
     config: {
@@ -122,6 +140,9 @@ export function SwapReviewDialog({
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
             disableGlobalApproveSync={disableGlobalApproveSync}
+            disableSaveSlippageForFutureOrders={
+              disableSaveSlippageForFutureOrders
+            }
             defaultNetworkFeeLevel={defaultNetworkFeeLevel}
             defaultCustomPriorityFee={defaultCustomPriorityFee}
             showCustomNetworkFeeOption={showCustomNetworkFeeOption}

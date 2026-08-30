@@ -17,6 +17,7 @@ type IMarketSwapReviewDialogProps = {
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
   showCustomNetworkFeeOption?: boolean;
+  disableSaveSlippageForFutureOrders?: boolean;
 };
 
 export function MarketSwapReviewDialog({
@@ -27,6 +28,7 @@ export function MarketSwapReviewDialog({
   defaultNetworkFeeLevel,
   defaultCustomPriorityFee,
   showCustomNetworkFeeOption,
+  disableSaveSlippageForFutureOrders,
 }: IMarketSwapReviewDialogProps) {
   return (
     <SwapReviewDialog
@@ -37,6 +39,7 @@ export function MarketSwapReviewDialog({
       defaultNetworkFeeLevel={defaultNetworkFeeLevel}
       defaultCustomPriorityFee={defaultCustomPriorityFee}
       showCustomNetworkFeeOption={showCustomNetworkFeeOption}
+      disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       storeName={EJotaiContextStoreNames.marketSwapReview}
       disableGlobalApproveSync
       approveTransactionSource={ESwapReviewApproveTransactionSource.SpeedSwap}

@@ -1,4 +1,5 @@
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   memo,
   useCallback,
@@ -60,6 +61,7 @@ import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
   useCurrencyPersistAtom,
+  useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -811,6 +813,7 @@ function SendAmountInputContainer() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings, setSettings] = useSettingsPersistAtom();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -919,15 +922,13 @@ function SendAmountInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -947,6 +948,8 @@ function SendAmountInputContainer() {
       // balance was fetched for — it lags `currentAccountId` after a switch.
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings, account.id];
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       isNFT,
@@ -956,7 +959,8 @@ function SendAmountInputContainer() {
       serviceToken,
       token,
       tokenInfo,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     {
       watchLoading: true,
@@ -2183,10 +2187,6 @@ function SendAmountInputContainer() {
     networkId,
     indexedAccountId: account?.indexedAccountId ?? '',
     tokenAddress: tokenInfo?.address ?? '',
-    // Spendable balance depends on this setting; feeding it in (and keying the
-    // sibling cache on it) keeps siblings on the same balance contract as the
-    // current page and invalidates the cache when the user toggles it mid-flow.
-    inscriptionProtection: !!settings.inscriptionProtection,
   });
 
   const performAutoSwitchToAccount = useCallback(
@@ -3113,6 +3113,9 @@ function SendAmountInputContainer() {
                   instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
                   oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  isFreeNetworkFee:
+                    data?.[0]?.isNetworkFeeSponsored ??
+                    normalizedBuildSwapRes.result.fee?.isFreeNetworkFee,
                   protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
@@ -4367,7 +4370,7 @@ function SendAmountInputContainer() {
             }}
             onPress={handleTogglePrivateSendQuoteDetails}
             {...(!platformEnv.isNative && {
-              onKeyDown: (event: KeyboardEvent) => {
+              onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
                 if (event.key !== 'Enter' && event.key !== ' ') return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -4421,7 +4424,7 @@ function SendAmountInputContainer() {
               borderRadius="$full"
             >
               <Stack
-                animation="quick"
+                transition="quick"
                 rotate={isPrivateSendQuoteDetailsExpanded ? '0deg' : '-90deg'}
                 transformOrigin="center"
               >

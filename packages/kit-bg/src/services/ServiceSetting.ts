@@ -77,6 +77,7 @@ import {
 } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
+  inscriptionProtectionControlPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -96,6 +97,19 @@ export type IAccountDerivationConfigItem = {
   icon?: string;
   defaultNetworkId: string;
 };
+
+const INSCRIPTION_PROTECTION_SETTING_KEY = 'BTC_INSCRIPTION_PROTECTION_ENABLED';
+
+function parseInscriptionProtectionServerEnabled(
+  value: string,
+): boolean | undefined {
+  try {
+    const parsed = JSON.parse(value) as { value?: unknown };
+    return typeof parsed?.value === 'boolean' ? parsed.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -506,6 +520,57 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private _fetchInscriptionProtectionControl = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key: INSCRIPTION_PROTECTION_SETTING_KEY,
+        },
+      });
+      const matched = response.data.data.find(
+        (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      );
+      const serverEnabled = matched
+        ? parseInscriptionProtectionServerEnabled(matched.value)
+        : undefined;
+      if (serverEnabled === undefined) {
+        throw new OneKeyLocalError(
+          'Invalid inscription protection control response',
+        );
+      }
+      await inscriptionProtectionControlPersistAtom.set(() => ({
+        enabled: serverEnabled,
+      }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async fetchInscriptionProtectionControl({
+    forceRefresh,
+  }: {
+    forceRefresh?: boolean;
+  } = {}) {
+    if (forceRefresh) {
+      void this._fetchInscriptionProtectionControl.clear();
+    }
+    try {
+      await this._fetchInscriptionProtectionControl();
+    } catch (error) {
+      void this._fetchInscriptionProtectionControl.clear();
+      defaultLogger.setting.page.consoleError(
+        'fetchInscriptionProtectionControl error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
+  }
+
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
@@ -605,6 +670,42 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setInscriptionProtection(enabled: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      inscriptionProtection: enabled,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtectionServerEnabled() {
+    const { enabled } = await inscriptionProtectionControlPersistAtom.get();
+    return enabled;
+  }
+
+  @backgroundMethod()
+  public async getEffectiveInscriptionProtection({
+    networkId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+  }: {
+    networkId: string;
+    accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
+  }) {
+    const [settings, control, accountEligible] = await Promise.all([
+      settingsPersistAtom.get(),
+      inscriptionProtectionControlPersistAtom.get(),
+      this.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+        mergeDeriveAssetsEnabled,
+      }),
+    ]);
+    return accountEligible && settings.inscriptionProtection && control.enabled;
+  }
+
+  @backgroundMethod()
   public async isShowFloatingButton() {
     const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
     return isFloatingIconAlwaysDisplay ?? false;
@@ -699,9 +800,13 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
+    const nextHardwareTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType,
+      hardwareTransportType: nextHardwareTransportType,
     }));
   }
 
@@ -709,7 +814,9 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return hardwareTransportType;
+      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     }
     return deviceUtils.getDefaultHardwareTransportType();
   }
@@ -749,7 +856,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableDesktopBluetooth() {
     const { enableDesktopBluetooth } = await settingsPersistAtom.get();
-    return enableDesktopBluetooth ?? false;
+    return enableDesktopBluetooth ?? true;
   }
 
   @backgroundMethod()

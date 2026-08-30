@@ -22,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -32,6 +33,7 @@ import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/P
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
 
+import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
 import {
   getPrimeSubscriptionManagementTarget,
   resolvePrimeSubscriptionManagementTarget,
@@ -83,10 +85,16 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       target: ReturnType<typeof getPrimeSubscriptionManagementTarget>,
     ) => {
       if (target.type === 'infini') {
+        defaultLogger.prime.subscription.primeManageSubscriptionClick({
+          target: 'infiniPage',
+        });
         navigation.push(EPrimePages.PrimeInfiniSubscription);
         return true;
       }
       if (target.type === 'external') {
+        defaultLogger.prime.subscription.primeManageSubscriptionClick({
+          target: 'externalUrl',
+        });
         openUrlUtils.openUrlExternal(target.url);
         return true;
       }
@@ -123,6 +131,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       if (openTarget(resolvedTarget)) {
         return;
       }
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'unresolved',
+      });
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.prime_manage_subscription,
@@ -133,6 +144,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           'Unable to manage this subscription because its channel is missing or unsupported, and no management URL was provided.',
       });
     } catch (error) {
+      defaultLogger.prime.subscription.primeManageSubscriptionClick({
+        target: 'unresolved',
+      });
       errorToastUtils.toastIfError(error);
       errorToastUtils.showToastOfError(error);
     } finally {
@@ -216,6 +230,31 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
+      <ActionList.Item
+        testID={PrimeTestIDs.redemptionMenuItem}
+        label={intl.formatMessage({
+          id: ETranslations.prime_redeem__action,
+        })}
+        icon="TicketOutline"
+        onClose={handleActionListClose}
+        onPress={async (close) => {
+          close();
+          if (currentOneKeyUserId) {
+            const isPrimeActiveBeforeRedeem = Boolean(isPrime);
+            defaultLogger.prime.subscription.primeRedemptionEntryClick({
+              isPrimeActiveBeforeRedeem,
+            });
+            if (platformEnv.isNative) {
+              await timerUtils.wait(500);
+            }
+            showPrimeRedemptionDialog({
+              expectedOneKeyUserId: currentOneKeyUserId,
+              isPrimeActiveBeforeRedeem,
+            });
+          }
+        }}
+      />
+
       {/* Shown for every Prime user immediately — waiting for the channel
        routing data (Infini lookup / RevenueCat manage url) made the item pop
        in noticeably late. The click handler resolves the destination behind
@@ -224,6 +263,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
        the server state lags). */}
       {isPrime ? (
         <ActionList.Item
+          testID={PrimeTestIDs.manageSubscriptionMenuItem}
           label={intl.formatMessage({
             id: ETranslations.prime_manage_subscription,
           })}

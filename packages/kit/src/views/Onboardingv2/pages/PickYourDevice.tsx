@@ -56,7 +56,7 @@ export default function PickYourDevice() {
     const devices = [
       {
         name: 'OneKey Pro',
-        deviceType: [EDeviceType.Pro],
+        deviceType: [EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
@@ -175,7 +175,7 @@ export default function PickYourDevice() {
                 left={0}
                 right={0}
                 bottom={0}
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_BG_BORDER_COLOR}
                 pointerEvents="none"
                 $gtMd={{
@@ -194,7 +194,7 @@ export default function PickYourDevice() {
               {gtMd ? <PixelShimmer colors={colors} /> : null}
               <YStack
                 position="absolute"
-                animation="medium"
+                transition="medium"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={{
                   opacity: 0,

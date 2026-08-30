@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowHealthFactor } from '@onekeyhq/shared/types/staking';
 
 interface IUseBorrowHealthFactorParams {
@@ -42,6 +43,9 @@ export const useBorrowHealthFactor = ({
         : null,
     [accountId, enabled, marketAddress, networkId, provider],
   );
+  const swrKey = requestParams
+    ? swrKeys.borrowHealthFactor(requestParams)
+    : undefined;
   const lastSuccessfulResultRef = useRef<{
     scopeKey: string;
     data: IBorrowHealthFactor;
@@ -83,6 +87,9 @@ export const useBorrowHealthFactor = ({
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL,
       revalidateOnFocus: true,
+      swrKey,
+      swrShouldPersist: (result) =>
+        result?.state === 'resolved' && Boolean(result.data),
       // Fix: Ensure API responses update state even when page loses focus during request
       alwaysSetState: true,
     },

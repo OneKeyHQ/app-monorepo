@@ -80,3 +80,17 @@ export function normalizeSwapTokenListCurrency({
     };
   });
 }
+
+export function mergeSwapTokenLists(tokenLists: ISwapToken[][]) {
+  const seen = new Set<string>();
+  return tokenLists.flatMap((tokens) =>
+    tokens.filter((token) => {
+      const key = `${token.networkId}:${token.contractAddress.toLowerCase()}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    }),
+  );
+}

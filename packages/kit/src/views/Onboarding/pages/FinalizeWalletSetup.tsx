@@ -322,7 +322,7 @@ function FinalizeWalletSetupPage({
             {currentStep === EFinalizeWalletSetupSteps.Ready ? (
               <Stack
                 key="CheckRadioSolid"
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={
                   platformEnv.isNativeAndroid
@@ -339,7 +339,7 @@ function FinalizeWalletSetupPage({
               <Spinner
                 key="spinner"
                 size="large"
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 exitStyle={
                   platformEnv.isNativeAndroid
@@ -356,7 +356,7 @@ function FinalizeWalletSetupPage({
         <AnimatePresence exitBeforeEnter>
           <Stack
             key={currentStep}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,

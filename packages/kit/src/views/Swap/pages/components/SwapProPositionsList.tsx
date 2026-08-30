@@ -1,15 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
@@ -17,15 +10,6 @@ import SwapProPositionListFooter from '../../components/SwapProPositionListFoote
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
-
-import {
-  buildStockPositionsMetadataScope,
-  getStockPositionTokenIdentityKeys,
-  getStockPositionsMetadataViewState,
-  getSwapPositionTokenIdentityKey,
-  isStockPositionsMetadataResponseComplete,
-  shouldUseSwapProPositionsDisplaySeed,
-} from './SwapProPositionsList.utils';
 
 function SwapProPositionItemSkeleton() {
   return (
@@ -70,221 +54,40 @@ interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
   onSearchClick?: () => void;
   filterToken?: ISwapToken[];
-  cachedTokenList?: ISwapToken[];
-  hasPositionOwner: boolean;
-  hasCachedTokenSnapshot?: boolean;
-  isLiveTokenListForCurrentOwner: boolean;
+  positionTokenList: ISwapToken[];
+  positionLoadError: boolean;
+  positionLoading: boolean;
+  onRetry: () => void;
   // Stock context: only show stock tokens, and hide the "find your token" footer.
   stockOnly?: boolean;
   hideSearch?: boolean;
 }
 
-type IStockPositionsMetadataResult =
-  | {
-      status: 'success';
-      scope: string;
-      tokenIdentityKeys: string[];
-    }
-  | {
-      status: 'error';
-      scope: string;
-      tokenIdentityKeys?: string[];
-    };
-
 const SwapProPositionsList = ({
   onTokenPress,
   onSearchClick,
   filterToken,
-  cachedTokenList,
-  hasPositionOwner,
-  hasCachedTokenSnapshot,
-  isLiveTokenListForCurrentOwner,
+  positionTokenList,
+  positionLoadError,
+  positionLoading,
+  onRetry,
   stockOnly,
   hideSearch,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
-  const shouldUseCachedTokenList = shouldUseSwapProPositionsDisplaySeed({
-    hasCachedTokenSnapshot,
-    isLiveTokenListForCurrentOwner,
-  });
-  let sourceTokenList: ISwapToken[] | undefined;
-  if (shouldUseCachedTokenList) {
-    sourceTokenList = cachedTokenList;
-  } else if (!isLiveTokenListForCurrentOwner) {
-    sourceTokenList = [];
-  }
   const { finallyTokenList } = useSwapProPositionsListFilter(
     filterToken,
-    sourceTokenList,
+    positionTokenList,
     stockOnly,
   );
-  const [settings] = useSettingsPersistAtom();
-  const stockMetadataScope = useMemo(
-    () =>
-      buildStockPositionsMetadataScope({
-        locale: settings.locale,
-        tokens: stockOnly ? finallyTokenList : [],
-      }),
-    [finallyTokenList, settings.locale, stockOnly],
-  );
-  const stockMetadataRequestRef = useRef({
-    locale: settings.locale,
-    scope: stockMetadataScope,
-    tokens: finallyTokenList,
-  });
-  if (stockMetadataRequestRef.current.scope !== stockMetadataScope) {
-    stockMetadataRequestRef.current = {
-      locale: settings.locale,
-      scope: stockMetadataScope,
-      tokens: finallyTokenList,
-    };
-  }
-  const lastGoodStockMetadataRef = useRef<{
-    scope: string;
-    tokenIdentityKeys: string[];
-  } | null>(null);
-
-  // In the stock context, resolve which holdings are actually stocks by
-  // querying the server market metadata (account-holding tokens do NOT carry
-  // isStock, so the client-side field is unreliable here).
-  const {
-    result: stockMetadataResult,
-    isLoading: isStockMetadataLoading,
-    run: retryStockMetadata,
-  } = usePromiseResult<IStockPositionsMetadataResult | undefined>(
-    async () => {
-      if (!stockOnly) {
-        return undefined;
-      }
-      const request = stockMetadataRequestRef.current;
-      if (request.scope !== stockMetadataScope) {
-        return undefined;
-      }
-      if (!request.tokens.length) {
-        return {
-          status: 'success',
-          scope: request.scope,
-          tokenIdentityKeys: [] as string[],
-        };
-      }
-      try {
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            requestLocale: request.locale,
-            tokenAddressList: request.tokens.map((token) => ({
-              contractAddress: token.contractAddress ?? '',
-              chainId: token.networkId,
-              isNative: !!token.isNative,
-            })),
-          });
-        const list = response.list ?? [];
-        if (
-          !isStockPositionsMetadataResponseComplete({
-            marketItems: list,
-            tokens: request.tokens,
-          })
-        ) {
-          throw new OneKeyLocalError(
-            'Incomplete market metadata response for Stock positions',
-          );
-        }
-        // response.list is index-aligned with tokenAddressList: keep only the
-        // holdings whose server entry has a truthy .stock field, and mark the
-        // selected row as Stock-owned before downstream swap handlers.
-        return {
-          status: 'success',
-          scope: request.scope,
-          tokenIdentityKeys: getStockPositionTokenIdentityKeys({
-            marketItems: list,
-            tokens: request.tokens,
-          }),
-        };
-      } catch (error) {
-        console.error('swapStock__loadPositionMetadata error', error);
-        const lastGoodMetadata =
-          lastGoodStockMetadataRef.current?.scope === request.scope
-            ? lastGoodStockMetadataRef.current
-            : undefined;
-        return {
-          status: 'error',
-          scope: request.scope,
-          tokenIdentityKeys: lastGoodMetadata?.tokenIdentityKeys,
-        };
-      }
-    },
-    [stockMetadataScope, stockOnly],
-    {
-      initResult:
-        stockOnly && finallyTokenList.length === 0
-          ? {
-              status: 'success' as const,
-              scope: stockMetadataScope,
-              tokenIdentityKeys: [] as string[],
-            }
-          : undefined,
-      swrKey: stockMetadataScope
-        ? swrKeys.swapStockPositionsMetadata({
-            scope: `v2:${stockMetadataScope}`,
-          })
-        : undefined,
-      watchLoading: true,
-      swrShouldPersist: (result) => result?.status === 'success',
-    },
-  );
-  const stockTokenIdentityKeys =
-    stockMetadataResult?.scope === stockMetadataScope
-      ? stockMetadataResult.tokenIdentityKeys
-      : undefined;
-  useEffect(() => {
-    if (
-      stockMetadataResult?.status === 'success' &&
-      stockMetadataResult.scope === stockMetadataScope
-    ) {
-      lastGoodStockMetadataRef.current = {
-        scope: stockMetadataResult.scope,
-        tokenIdentityKeys: stockMetadataResult.tokenIdentityKeys,
-      };
-    }
-  }, [stockMetadataResult, stockMetadataScope]);
-
-  const stockMetadataViewState = getStockPositionsMetadataViewState({
-    isStockMetadataLoading,
-    metadataStatus:
-      stockMetadataResult?.scope === stockMetadataScope
-        ? stockMetadataResult.status
-        : undefined,
-    hasUsableMetadata: stockTokenIdentityKeys !== undefined,
-    stockOnly: Boolean(stockOnly),
-  });
-  const stockTokenIdentityKeySet = useMemo(
-    () => new Set(stockTokenIdentityKeys ?? []),
-    [stockTokenIdentityKeys],
-  );
-  const displayTokenList = useMemo(
-    () =>
-      stockOnly
-        ? finallyTokenList
-            .filter((token) =>
-              stockTokenIdentityKeySet.has(
-                getSwapPositionTokenIdentityKey(token),
-              ),
-            )
-            .map((token) => ({ ...token, isStock: true }))
-        : finallyTokenList,
-    [finallyTokenList, stockOnly, stockTokenIdentityKeySet],
-  );
+  const displayTokenList = finallyTokenList;
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
-  if (
-    (hasPositionOwner &&
-      !isLiveTokenListForCurrentOwner &&
-      !hasCachedTokenSnapshot) ||
-    stockMetadataViewState === 'loading'
-  ) {
+  if (positionLoading && displayTokenList.length === 0) {
     return <SwapProPositionsListSkeleton rowCount={stockOnly ? 3 : 2} />;
   }
-  if (stockMetadataViewState === 'error') {
+  if (positionLoadError && displayTokenList.length === 0) {
     return (
       <YStack>
         <SwapProPositionListHeader />
@@ -297,9 +100,7 @@ const SwapProPositionsList = ({
             children: intl.formatMessage({
               id: ETranslations.global_retry,
             }),
-            onPress: () => {
-              void retryStockMetadata();
-            },
+            onPress: onRetry,
           }}
         />
       </YStack>
@@ -314,7 +115,6 @@ const SwapProPositionsList = ({
             key={`${item.networkId}-${item.contractAddress}`}
             token={item}
             onPress={onTokenPress}
-            disabled={shouldUseCachedTokenList}
             pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
           />
         ))

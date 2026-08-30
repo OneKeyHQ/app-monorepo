@@ -29,8 +29,6 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import { resolveMarketTradeActionState } from './ActionButton.utils';
@@ -46,12 +44,14 @@ export interface IActionButtonProps extends IButtonProps {
   amount: string;
   token?: IToken;
   paymentToken?: IToken;
+  paymentTokenPrice?: BigNumber;
   balance?: BigNumber;
   networkId?: string;
   isWrapped?: boolean;
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
   onSwapAction?: () => void;
+  isRefreshQuote?: boolean;
 }
 
 export function ActionButton({
@@ -65,17 +65,18 @@ export function ActionButton({
   onPress,
   isWrapped,
   paymentToken,
+  paymentTokenPrice,
   actionOtherToken,
   networkId,
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
+  isRefreshQuote,
+  loading,
   ...otherProps
 }: IActionButtonProps) {
-  const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const { tokenDetail } = useTokenDetail();
   const currencyInfo = useCurrency();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
@@ -84,13 +85,6 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
-  const paymentTokenNetworkId =
-    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
-  const { price: paymentTokenPrice } = usePaymentTokenPrice(
-    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    paymentTokenNetworkId,
-    currencyInfo.id,
-  );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -184,14 +178,13 @@ export function ActionButton({
     return symbol;
   }, [token?.symbol]);
 
-  // Truncate tokenDetail symbol if it exceeds 20 characters
-  const truncatedTokenDetailSymbol = useMemo(() => {
-    const symbol = tokenDetail?.symbol || '';
+  const truncatedMarketSymbol = useMemo(() => {
+    const symbol = actionToken?.symbol || token?.symbol || '';
     if (symbol.length > 20) {
       return `${symbol.slice(0, 17)}...`;
     }
     return symbol;
-  }, [tokenDetail?.symbol]);
+  }, [actionToken?.symbol, token?.symbol]);
 
   const tokenFormatter: INumberFormatProps = useMemo(() => {
     return {
@@ -256,7 +249,11 @@ export function ActionButton({
     isBalanceAvailable: balance !== undefined,
     isInsufficientBalance,
     isWrapped,
+    isRefreshQuote,
   });
+  const quoteRefreshAvailable = Boolean(
+    isRefreshQuote && hasAmount && !shouldDisable,
+  );
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -282,6 +279,12 @@ export function ActionButton({
     });
   }
 
+  if (quoteRefreshAvailable) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+  }
+
   if (shouldCreateAddress?.result || createAddressLoading) {
     buttonText = intl.formatMessage({
       id: ETranslations.global_create_address,
@@ -293,29 +296,29 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
-  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  // Use colored style only for normal trading states (has amount, not
+  // disabled, has account); the stale-quote refresh prompt stays neutral.
   let shouldUseColoredStyle =
-    hasAmount && !shouldDisable && !noAccount && !disabled;
+    hasAmount &&
+    !shouldDisable &&
+    !quoteRefreshAvailable &&
+    !noAccount &&
+    !disabled;
 
   let isButtonDisabled = Boolean(
-    (shouldDisable || disabled || !hasAmount) &&
+    ((quoteRefreshAvailable ? false : shouldDisable) ||
+      disabled ||
+      !hasAmount) &&
     !shouldCreateAddress?.result &&
     !noAccount,
   );
 
-  if (
-    !hasAmount &&
-    !hasClickedWithoutAmount &&
-    !shouldCreateAddress?.result &&
-    !createAddressLoading
-  ) {
-    shouldUseColoredStyle = true;
-    buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
-    isButtonDisabled = false;
-  }
-
   if (shouldJumpToSwap) {
     shouldUseColoredStyle = true;
+    isButtonDisabled = false;
+    if (!hasAmount) {
+      buttonText = `${actionText} ${truncatedMarketSymbol}`.trim();
+    }
   }
 
   if (platformEnv.isWeb && noAccount) {
@@ -323,6 +326,10 @@ export function ActionButton({
     shouldUseColoredStyle = false;
     isButtonDisabled = false;
   }
+
+  const isButtonLoading = shouldJumpToSwap
+    ? createAddressLoading
+    : createAddressLoading || Boolean(loading);
 
   const buttonStyleProps: IButtonProps = shouldUseColoredStyle
     ? {
@@ -342,13 +349,10 @@ export function ActionButton({
         handleJumpToSwapAction();
         return;
       }
-      setHasClickedWithoutAmount(true);
-      if (
-        !hasAmount &&
-        !hasClickedWithoutAmount &&
-        !shouldCreateAddress?.result &&
-        !createAddressLoading
-      ) {
+      if (isButtonLoading) {
+        return;
+      }
+      if (!hasAmount && !shouldCreateAddress?.result && !createAddressLoading) {
         return;
       }
       if (noAccount) {
@@ -381,12 +385,14 @@ export function ActionButton({
         return;
       }
 
-      // Log swap action before executing - with error protection
-      try {
-        onSwapAction?.();
-      } catch (analyticsError) {
-        // Don't let analytics errors block the swap action
-        console.warn('Analytics logging failed:', analyticsError);
+      if (!isRefreshQuote) {
+        // Log swap action before executing - with error protection
+        try {
+          onSwapAction?.();
+        } catch (analyticsError) {
+          // Don't let analytics errors block the swap action
+          console.warn('Analytics logging failed:', analyticsError);
+        }
       }
 
       void onPress?.(event);
@@ -394,11 +400,12 @@ export function ActionButton({
     [
       shouldJumpToSwap,
       hasAmount,
-      hasClickedWithoutAmount,
       noAccount,
       createAddressLoading,
+      isButtonLoading,
       shouldCreateAddress?.result,
       onPress,
+      isRefreshQuote,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,
@@ -414,13 +421,14 @@ export function ActionButton({
     <Button
       testID="market-btn"
       size={gtMd ? 'medium' : 'large'}
-      disabled={isButtonDisabled}
+      disabled={isButtonDisabled || isButtonLoading}
       onPress={handlePress}
-      loading={createAddressLoading || otherProps.loading}
+      loading={isButtonLoading}
       {...otherProps}
       {...buttonStyleProps}
     >
-      {buttonText}
+      {/* Keep the label height stable while Button renders its spinner. */}
+      {isButtonLoading ? '\u00a0' : buttonText}
     </Button>
   );
 }

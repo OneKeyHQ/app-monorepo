@@ -25,6 +25,7 @@ import {
 import appStorage, {
   storageHub,
 } from '@onekeyhq/shared/src/storage/appStorage';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -32,6 +33,11 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../dbs/local/localDb';
+import {
+  DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+  deleteMmkvProfileKeyForLocalSecretEnvelope,
+  localSecretEnvelopeService,
+} from '../dbs/local/localSecretEnvelope';
 import simpleDb from '../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
@@ -68,6 +74,26 @@ class ServiceApp extends ServiceBase {
       mode: opts.mode ?? EAppRestartMode.All,
       reason: opts.reason ?? 'serviceApp.restartApp',
     });
+  }
+
+  private async resetNativeLocalSecretEnvelopeKeys() {
+    if (!platformEnv.isNative) {
+      return;
+    }
+
+    try {
+      await deleteMmkvProfileKeyForLocalSecretEnvelope();
+    } catch {
+      defaultLogger.app.error.log('Native LSE MMKV key reset failed');
+    }
+    try {
+      await secureStorageInstance.removeSecureItem(
+        DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+      );
+    } catch {
+      defaultLogger.app.error.log('Native LSE secure-storage key reset failed');
+    }
+    localSecretEnvelopeService.clearCapabilityCache();
   }
 
   private async resetData() {
@@ -147,6 +173,11 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
+
+    // Explicit App Reset performs crypto erasure before Realm is removed. The
+    // two native LSE keys live outside Realm and general app-settings storage.
+    await this.resetNativeLocalSecretEnvelopeKeys();
+    defaultLogger.setting.page.clearDataStep('localSecretEnvelopeKeys-reset');
 
     // WARNING:
     // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.

@@ -17,6 +17,7 @@ import {
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
   shouldShowStockMarketHeaderSkeleton,
+  shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
 
@@ -194,40 +195,62 @@ describe('SwapStockDesktopContainer utils', () => {
     ).toBe(false);
   });
 
-  it('keeps the selected localized Stock subtitle while detail loads', () => {
+  it('shows token-label skeletons while the selected Stock detail is loading', () => {
     expect(
-      getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: false,
       }),
-    ).toBe('英特尔');
+    ).toBe(true);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.CheckingMarketStatus,
+        hasTokenData: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowStockMarketTokenLabelsSkeleton({
+        channelStage: ESwapStockChannelStage.MarketUnavailable,
+        hasTokenData: false,
+      }),
+    ).toBe(false);
   });
 
-  it('prefers the localized detail subtitle after detail loads', () => {
+  it('does not reuse the selected token subtitle while detail loads', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentStockSubtitle: '英特尔',
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
+        tokenDetailStockSubtitle: undefined,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('prefers the detail subtitle after detail loads', () => {
+    expect(
+      getStockMarketTokenSubtitle({
         tokenDetailStockSubtitle: '英特尔公司',
       }),
     ).toBe('英特尔公司');
   });
 
-  it('falls back to the raw token name only before Stock metadata loads', () => {
+  it('uses the selected token subtitle while detail silently refreshes', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: false,
+        currentStockSubtitle: 'Apple',
       }),
-    ).toBe('Intel (Ondo Tokenized)');
+    ).toBe('Apple');
+  });
+
+  it('falls back to the detail underlying asset name when subtitle is missing', () => {
     expect(
       getStockMarketTokenSubtitle({
-        currentTokenName: 'Intel (Ondo Tokenized)',
-        hasTokenDetail: true,
+        tokenDetailStockSubtitle: ' ',
+        tokenDetailStockUnderlyingAssetName: 'SK hynix Inc.',
       }),
-    ).toBeUndefined();
+    ).toBe('SK hynix Inc.');
+  });
+
+  it('does not expose a raw token name when detail metadata is missing', () => {
+    expect(getStockMarketTokenSubtitle({})).toBeUndefined();
   });
 
   it('shows Stock action loading until the current quote event settles', () => {

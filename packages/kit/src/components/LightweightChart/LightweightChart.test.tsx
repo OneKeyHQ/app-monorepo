@@ -45,9 +45,15 @@ jest.mock('./hooks/useChartConfig', () => {
     useChartConfig: ({
       data,
       secondaryLineData,
+      seriesType,
+      lineType,
+      priceScalePosition,
     }: {
       data: IMarketTokenChart;
       secondaryLineData?: IMarketTokenChart;
+      seriesType?: 'area' | 'baseline' | 'dotted-area';
+      lineType?: 'simple' | 'steps';
+      priceScalePosition?: 'left' | 'right';
     }) =>
       React.useMemo(
         () => ({
@@ -60,11 +66,13 @@ jest.mock('./hooks/useChartConfig', () => {
           lineWidth: 2,
           showPriceScale: true,
           showHorzGridLines: false,
-          seriesType: 'area',
+          seriesType: seriesType ?? 'area',
+          lineType,
+          priceScalePosition: priceScalePosition ?? 'right',
           baselineOptions,
           showTimeScale: true,
         }),
-        [data, secondaryLineData],
+        [data, lineType, priceScalePosition, secondaryLineData, seriesType],
       ),
   };
 });
@@ -81,6 +89,7 @@ jest.mock(
     AreaSeries: 'AreaSeries',
     BaselineSeries: 'BaselineSeries',
     LineSeries: 'LineSeries',
+    LineType: { Simple: 0, WithSteps: 1 },
     createChart: jest.fn(),
   }),
   { virtual: true },
@@ -104,7 +113,9 @@ describe('LightweightChart', () => {
       return id;
     });
     globalThis.cancelAnimationFrame = jest.fn((id) => {
-      animationFrameCallbacks.delete(id);
+      if (id !== null && id !== undefined) {
+        animationFrameCallbacks.delete(id);
+      }
     });
     globalThis.ResizeObserver = class ResizeObserverMock {
       observe() {}
@@ -127,6 +138,48 @@ describe('LightweightChart', () => {
     animationFrameCallbacks.clear();
     pendingCallbacks.forEach(([id, callback]) => callback(id));
   }
+
+  it('uses the native step mode for baseline series', async () => {
+    const series = {
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn(),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn(),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+
+    render(
+      <LightweightChart
+        data={[
+          [1, 10],
+          [2, 20],
+        ]}
+        height={240}
+        seriesType="baseline"
+        lineType="steps"
+        priceScalePosition="left"
+      />,
+    );
+
+    await waitFor(() => expect(chart.addSeries).toHaveBeenCalledTimes(1));
+    expect(chart.addSeries).toHaveBeenCalledWith(
+      'BaselineSeries',
+      expect.objectContaining({ lineType: 1, priceScaleId: 'left' }),
+    );
+  });
 
   it('keeps the pulse dot hidden until updated data finishes layout', async () => {
     let visibleTimeRangeListener: (() => void) | undefined;

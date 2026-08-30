@@ -859,20 +859,22 @@ function OrderConfirmContent({
         ) : null}
 
         {/* skip order confirm checkbox */}
-        <XStack justifyContent="space-between" alignItems="center" gap="$2">
-          <Checkbox
-            testID="perp-checkbox"
-            labelProps={{
-              fontSize: '$bodyMdMedium',
-              color: '$textSubdued',
-            }}
-            label={intl.formatMessage({
-              id: ETranslations.perp_confirm_not_show,
-            })}
-            value={perpsCustomSettings.skipOrderConfirm}
-            onChange={(checked) => setSkipOrderConfirm(!!checked)}
-          />
-        </XStack>
+        {!aggressiveLimitPriceWarning ? (
+          <XStack justifyContent="space-between" alignItems="center" gap="$2">
+            <Checkbox
+              testID="perp-checkbox"
+              labelProps={{
+                fontSize: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+              label={intl.formatMessage({
+                id: ETranslations.perp_confirm_not_show,
+              })}
+              value={perpsCustomSettings.skipOrderConfirm}
+              onChange={(checked) => setSkipOrderConfirm(!!checked)}
+            />
+          </XStack>
+        ) : null}
       </YStack>
 
       <TradingGuardWrapper

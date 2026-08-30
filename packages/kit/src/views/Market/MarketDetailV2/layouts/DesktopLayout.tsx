@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
@@ -33,11 +34,9 @@ import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
-import { useTradingViewNativeInMarketDetail } from '../hooks/useTradingViewNativeInMarketDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
@@ -87,21 +86,6 @@ const infoTabsLoadingFallback = (
   <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight} />
 );
 
-const chartLoadingFallback = (
-  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
-);
-
-const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
-    ).then(({ MarketTradingView }) => ({
-      default: MarketTradingView,
-    })),
-  undefined,
-  chartLoadingFallback,
-);
-
 const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
   () =>
     import(
@@ -147,6 +131,8 @@ function useIframeWheelPassthrough({
 
 export interface IDesktopLayoutProps {
   isChartFullscreen: boolean;
+  isTradingViewNative: boolean;
+  onChartSwitch: () => void;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
   isNative: boolean;
   networkId: string;
@@ -156,6 +142,8 @@ export interface IDesktopLayoutProps {
 
 export function DesktopLayout({
   isChartFullscreen,
+  isTradingViewNative,
+  onChartSwitch,
   onChartFullscreenChange,
   isNative: routeIsNative,
   networkId: routeNetworkId,
@@ -166,12 +154,12 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const useTradingViewNative = useTradingViewNativeInMarketDetail();
   const networkId = storeNetworkId || routeNetworkId;
   const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
   const isNative =
@@ -215,7 +203,7 @@ export function DesktopLayout({
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useIframeWheelPassthrough({
-    disabled: isChartFullscreen || useTradingViewNative,
+    disabled: isChartFullscreen || isTradingViewNative,
     scrollRef: scrollContainerRef,
   });
   const handleChartFullscreenChange = useCallback(
@@ -236,6 +224,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -259,7 +248,7 @@ export function DesktopLayout({
     ],
   );
   const marketTradingView = useMemo(() => {
-    if (useTradingViewNative) {
+    if (isTradingViewNative) {
       return networkId ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
@@ -268,6 +257,8 @@ export function DesktopLayout({
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
+          isChartSwitchDisabled={!marketTradingViewParams}
+          onChartSwitch={onChartSwitch}
           onNativeChartFullscreenChange={handleChartFullscreenChange}
         />
       ) : null;
@@ -278,10 +269,11 @@ export function DesktopLayout({
     }
 
     return (
-      <LazyMarketTradingView
+      <LazyDesktopMarketTradingView
         tokenAddress={marketTradingViewParams.tokenAddress}
         networkId={marketTradingViewParams.networkId}
         tokenSymbol={marketTradingViewParams.tokenSymbol}
+        decimal={marketTradingViewParams.decimal}
         isNative={marketTradingViewParams.isNative}
         dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}
@@ -292,6 +284,7 @@ export function DesktopLayout({
         nativeControlsLayoutMode="desktop"
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
+        onChartSwitch={onChartSwitch}
         onNativeChartFullscreenChange={handleChartFullscreenChange}
       />
     );
@@ -299,10 +292,11 @@ export function DesktopLayout({
     handleChartFullscreenChange,
     handleTradingViewTouchScroll,
     isChartFullscreen,
+    isTradingViewNative,
     marketTradingViewParams,
     networkId,
+    onChartSwitch,
     tradingViewNativeSource,
-    useTradingViewNative,
   ]);
   return (
     <Stack

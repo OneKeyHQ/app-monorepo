@@ -98,11 +98,19 @@ const styles = StyleSheet.create({
   // iOS WKWebViews must stay in the native layout tree. In nested layouts,
   // display:none can reload the page even though React keeps it mounted.
   webPageLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 3,
   },
   webPageRootLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 3,
   },
   iosWebPageRootLayerVisible: {
@@ -274,6 +282,8 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
   const isBrowserWebPageVisible =
     selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
+  const isBrowserDashboardActive =
+    selectedHeaderTab === ETranslations.global_browser && showDiscoveryPage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -525,12 +535,21 @@ function MobileBrowser() {
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
   const browserDashboardContent = (
     <View
+      collapsable={false}
+      pointerEvents={showDiscoveryPage ? 'auto' : 'none'}
+      accessibilityElementsHidden={!showDiscoveryPage}
+      importantForAccessibility={
+        showDiscoveryPage ? 'auto' : 'no-hide-descendants'
+      }
       style={{
-        display: showDiscoveryPage ? 'flex' : 'none',
-        flex: showDiscoveryPage ? 1 : undefined,
+        flex: 1,
+        opacity: showDiscoveryPage ? 1 : 0,
       }}
     >
-      <DashboardContent onScroll={handleScroll} />
+      <DashboardContent
+        isActive={isBrowserDashboardActive}
+        onScroll={handleScroll}
+      />
     </View>
   );
 
@@ -591,7 +610,23 @@ function MobileBrowser() {
                   <Stack flex={1}>
                     {browserDashboardContent}
                     {platformEnv.isNativeAndroid ? (
-                      <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                      <Animated.View
+                        collapsable={false}
+                        pointerEvents={
+                          shouldShowRootWebPageLayer ? 'auto' : 'none'
+                        }
+                        accessibilityElementsHidden={
+                          !shouldShowRootWebPageLayer
+                        }
+                        importantForAccessibility={
+                          shouldShowRootWebPageLayer
+                            ? 'auto'
+                            : 'no-hide-descendants'
+                        }
+                        style={[styles.webPageLayer, webPageAnimatedStyle]}
+                      >
+                        <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                      </Animated.View>
                     ) : null}
                   </Stack>
                 </Stack>
@@ -670,7 +705,10 @@ function MobileBrowser() {
                     flex: showDiscoveryPage ? 1 : undefined,
                   }}
                 >
-                  <DashboardContent onScroll={handleScroll} />
+                  <DashboardContent
+                    isActive={isBrowserDashboardActive}
+                    onScroll={handleScroll}
+                  />
                 </View>
                 {!isTabletMainView ? (
                   <View

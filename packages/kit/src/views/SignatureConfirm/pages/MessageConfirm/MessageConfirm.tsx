@@ -40,6 +40,7 @@ import { MessageConfirmActions } from '../../components/SignatureConfirmActions'
 import { MessageAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
+import { MessageConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
@@ -257,6 +258,11 @@ function MessageConfirm() {
           displayComponents={parsedMessage.components}
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
+        <MessageConfirmExtraInfo
+          accountId={accountId}
+          networkId={networkId}
+          unsignedMessage={unsignedMessage}
+        />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
       </YStack>

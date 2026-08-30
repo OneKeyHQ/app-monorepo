@@ -60,10 +60,12 @@ const PerpDexBadge = memo(
   ({
     compact,
     dexLabel,
+    height,
     testID,
   }: {
     compact?: boolean;
     dexLabel?: string;
+    height?: number;
     testID?: string;
   }) => {
     const intl = useIntl();
@@ -87,6 +89,7 @@ const PerpDexBadge = memo(
         justifyContent="center"
         alignItems="center"
         px={compact ? '$1' : '$1.5'}
+        height={height}
         testID={testID}
       >
         {badgeText}
@@ -348,7 +351,6 @@ const StockIsOpenBadge = memo(
     const marketStatus = useUSMarketStatus({
       enabled: isOndoUSMarketStock(source) && isOpen === true,
     });
-
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(

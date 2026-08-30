@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Icon,
   Image,
   NumberSizeableText,
+  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -17,6 +19,8 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapNetworkFeeLevel,
   type ISwapPreSwapData,
@@ -24,8 +28,16 @@ import {
 
 import { useSwapStepNetFeeLevelAtom } from '../../../states/jotai/contexts/swap';
 import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import {
+  NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  shouldShowNativeBtcLowSlippageWarning,
+} from '../utils/swapReviewState';
 
 import PreSwapInfoItem from './PreSwapInfoItem';
+import {
+  type ISwapReviewSlippageSaveScope,
+  SwapReviewSlippageEditor,
+} from './SwapReviewSlippageEditor';
 import { SwapSponsoredNetworkFee } from './SwapSponsoredNetworkFee';
 
 export const SWAP_REVIEW_CUSTOM_NETWORK_FEE_VALUE = 'CUSTOM' as const;
@@ -39,6 +51,19 @@ interface IPreSwapInfoGroupProps {
   onSelectNetworkFeeLevel: (value: ISwapReviewNetworkFeeSelectValue) => void;
   customNetworkFeeOptionLabel?: string;
   networkFeeSelectValue?: ISwapReviewNetworkFeeSelectValue;
+  onSetNativeBtcMinSlippage: () => void;
+  nativeBtcMinSlippageSaving?: boolean;
+  isSwapPro?: boolean;
+  slippageEditor?: {
+    disableSaveSlippageForFutureOrders?: boolean;
+    open: boolean;
+    savingScope?: ISwapReviewSlippageSaveScope;
+    onOpenChange: (open: boolean) => void;
+    onSave: (
+      scope: ISwapReviewSlippageSaveScope,
+      slippagePercentage: number,
+    ) => void | Promise<void>;
+  };
 }
 
 const PreSwapInfoGroup = ({
@@ -46,6 +71,10 @@ const PreSwapInfoGroup = ({
   onSelectNetworkFeeLevel,
   customNetworkFeeOptionLabel,
   networkFeeSelectValue,
+  onSetNativeBtcMinSlippage,
+  nativeBtcMinSlippageSaving,
+  isSwapPro,
+  slippageEditor,
 }: IPreSwapInfoGroupProps) => {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -101,6 +130,58 @@ const PreSwapInfoGroup = ({
     }
     return undefined;
   }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
+  const shouldShowLowSlippageWarning = useMemo(
+    () =>
+      shouldShowNativeBtcLowSlippageWarning({
+        fromToken: preSwapData.fromToken,
+        toToken: preSwapData.toToken,
+        slippage: preSwapData.slippage,
+        swapType: preSwapData.swapType,
+        isSwapPro,
+      }),
+    [
+      isSwapPro,
+      preSwapData.fromToken,
+      preSwapData.slippage,
+      preSwapData.swapType,
+      preSwapData.toToken,
+    ],
+  );
+  const lowSlippageWarningTrackedRef = useRef(false);
+  useEffect(() => {
+    if (
+      shouldShowLowSlippageWarning &&
+      !lowSlippageWarningTrackedRef.current &&
+      !isNil(preSwapData.slippage)
+    ) {
+      lowSlippageWarningTrackedRef.current = true;
+      defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningShow({
+        slippage: preSwapData.slippage,
+        swapProvider: preSwapData.providerInfo?.provider ?? '',
+      });
+    }
+  }, [
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+    shouldShowLowSlippageWarning,
+  ]);
+
+  const handleSetNativeBtcMinSlippage = useCallback(() => {
+    if (isNil(preSwapData.slippage) || nativeBtcMinSlippageSaving) {
+      return;
+    }
+    defaultLogger.swap.swapLowSlippageWarning.swapLowSlippageWarningQuickSet({
+      fromSlippage: preSwapData.slippage,
+      toSlippage: NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+      swapProvider: preSwapData.providerInfo?.provider ?? '',
+    });
+    onSetNativeBtcMinSlippage();
+  }, [
+    nativeBtcMinSlippageSaving,
+    onSetNativeBtcMinSlippage,
+    preSwapData.providerInfo?.provider,
+    preSwapData.slippage,
+  ]);
 
   const activeNetworkFeeSelectValue =
     networkFeeSelectValue ??
@@ -146,13 +227,25 @@ const PreSwapInfoGroup = ({
     [preSwapData.netWorkFee?.gasInfos],
   );
 
+  // External-wallet accounts pay the fee estimated by the connected wallet
+  // itself, so sponsorship never applies; the estimate source strips the
+  // sponsor state for them and keeps only this raw eligibility flag, which
+  // surfaces as the "zero fee with OneKey wallet" promo hint (OK-61254).
+  const showExternalSponsorPromo = useMemo(
+    () =>
+      !!preSwapData.netWorkFee?.gasInfos?.some(
+        ({ gasInfo }) => gasInfo.externalSponsorPromoEligible,
+      ),
+    [preSwapData.netWorkFee?.gasInfos],
+  );
+
   const networkFeeSelect = useMemo(() => {
     // OneKey sponsors the network fee: the estimated amount and the fee-level
     // selector are meaningless to the user, so show only the sponsored badge.
     if (isGasSponsored) {
       return <SwapSponsoredNetworkFee />;
     }
-    return (
+    const feeLevelSelect = (
       <XStack alignItems="center" gap="$2">
         <Select
           testID="swap-network-fee-select-select"
@@ -173,7 +266,8 @@ const PreSwapInfoGroup = ({
           value={activeNetworkFeeSelectValue}
           items={networkFeeLevelArray}
         />
-        {preSwapData.stepBeforeActionsLoading ? (
+        {preSwapData.stepBeforeActionsLoading ||
+        preSwapData.estimateNetworkFeeLoading ? (
           <Skeleton width="$10" height="$4" />
         ) : (
           <NumberSizeableText
@@ -187,17 +281,111 @@ const PreSwapInfoGroup = ({
         )}
       </XStack>
     );
+    if (showExternalSponsorPromo) {
+      return (
+        <YStack alignItems="flex-end" gap="$0.5">
+          {feeLevelSelect}
+          <SizableText size="$bodySm" color="$textInteractive">
+            {intl.formatMessage({
+              id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+            })}
+          </SizableText>
+        </YStack>
+      );
+    }
+    return feeLevelSelect;
   }, [
     intl,
     isGasSponsored,
+    showExternalSponsorPromo,
     activeNetworkFeeSelectValue,
     networkFeeLevelArray,
     networkFeeLevelLabel,
     onSelectNetworkFeeLevel,
     preSwapData.netWorkFee?.gasFeeFiatValue,
     settings.currencyInfo.symbol,
+    preSwapData.estimateNetworkFeeLoading,
     preSwapData.stepBeforeActionsLoading,
   ]);
+
+  const slippageValue = useMemo(() => {
+    if (isNil(slippage)) {
+      return undefined;
+    }
+    if (!slippageEditor) {
+      return shouldShowLowSlippageWarning ? (
+        <XStack px="$2.5" py="$1" borderRadius="$1" bg="$bgCautionSubdued">
+          <SizableText size="$bodyMd" color="$textCaution">
+            {slippage}%
+          </SizableText>
+        </XStack>
+      ) : (
+        `${slippage}%`
+      );
+    }
+
+    const trigger = (
+      <XStack
+        testID="swap-review-slippage-edit"
+        cursor="pointer"
+        alignItems="center"
+        gap="$1"
+        px={shouldShowLowSlippageWarning ? '$2.5' : undefined}
+        py={shouldShowLowSlippageWarning ? '$1' : undefined}
+        borderRadius={shouldShowLowSlippageWarning ? '$1' : undefined}
+        bg={shouldShowLowSlippageWarning ? '$bgCautionSubdued' : undefined}
+        onPress={
+          platformEnv.isNative
+            ? () => slippageEditor.onOpenChange(true)
+            : undefined
+        }
+      >
+        <SizableText
+          size="$bodyMd"
+          color={shouldShowLowSlippageWarning ? '$textCaution' : '$text'}
+        >
+          {`${slippage}%`}
+        </SizableText>
+        <Icon
+          name="PencilOutline"
+          size="$4"
+          color={shouldShowLowSlippageWarning ? '$iconCaution' : '$iconSubdued'}
+        />
+      </XStack>
+    );
+
+    if (platformEnv.isNative) {
+      return trigger;
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.trade_silp_edit_slippage,
+        })}
+        open={slippageEditor.open}
+        onOpenChange={slippageEditor.onOpenChange}
+        showHeader={false}
+        placement="bottom-end"
+        offset={{ mainAxis: 8, crossAxis: 20 }}
+        floatingPanelProps={{ width: 400 }}
+        renderTrigger={trigger}
+        renderContent={
+          <Stack p="$5" width={400}>
+            <SwapReviewSlippageEditor
+              disableSaveSlippageForFutureOrders={
+                slippageEditor.disableSaveSlippageForFutureOrders
+              }
+              initialValue={slippage}
+              savingScope={slippageEditor.savingScope}
+              showTitle={false}
+              onSave={slippageEditor.onSave}
+            />
+          </Stack>
+        }
+      />
+    );
+  }, [intl, shouldShowLowSlippageWarning, slippage, slippageEditor]);
 
   return (
     <YStack gap="$3">
@@ -239,10 +427,33 @@ const PreSwapInfoGroup = ({
           title={intl.formatMessage({
             id: ETranslations.swap_page_provider_slippage_tolerance,
           })}
-          value={`${slippage}%`}
+          value={slippageValue}
           popoverContent={intl.formatMessage({
             id: ETranslations.slippage_tolerance_warning_message_1,
           })}
+        />
+      ) : null}
+      {shouldShowLowSlippageWarning ? (
+        <Alert
+          testID="swap-native-btc-low-slippage-alert"
+          type="warning"
+          icon="InfoCircleOutline"
+          px="$3"
+          py="$2.5"
+          borderRadius="$3"
+          title={intl.formatMessage({
+            id: ETranslations.btc_trade_btc_slow_to_confirm,
+          })}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.btc_trade_set_to_1_percent,
+            }),
+            primaryVariant: 'secondary',
+            primaryTestID: 'swap-native-btc-set-min-slippage-btn',
+            isPrimaryDisabled: nativeBtcMinSlippageSaving,
+            isPrimaryLoading: nativeBtcMinSlippageSaving,
+            onPrimaryPress: handleSetNativeBtcMinSlippage,
+          }}
         />
       ) : null}
       {!isNil(preSwapData?.minToAmount) &&
