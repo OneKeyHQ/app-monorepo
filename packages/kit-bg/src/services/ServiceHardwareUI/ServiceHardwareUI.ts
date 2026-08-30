@@ -631,6 +631,29 @@ class ServiceHardwareUI extends ServiceBase {
     await this.deviceStageBurst.endExplicit(params);
   }
 
+  /**
+   * Depth-stacked hold for a UI runner that brackets one async narrative
+   * in try/finally (the authenticity check above all). Unlike the token
+   * API it joins an outer holder's burst instead of superseding it, so a
+   * flow-held burst around the runner keeps its own close.
+   */
+  @backgroundMethod()
+  async deviceStageJoinBurst(params: IDeviceStageBurstBeginParams = {}) {
+    await this.deviceStageBurst.begin(params);
+  }
+
+  @backgroundMethod()
+  async deviceStageLeaveBurst(params: { error?: unknown } = {}) {
+    await this.deviceStageBurst.end(params);
+  }
+
+  /** The authenticity failure card's "Continue anyway" — the verdict is
+   * taken, the narrative retires, the stage falls back to the flow. */
+  @backgroundMethod()
+  async deviceStageNoteAuthResolved() {
+    await this.deviceStageBurst.noteAuthNarrativeResolved();
+  }
+
   /** Confirm channel: UI-side registration for callers that know the
    * confirm payload before (or while) the hardware call runs. */
   @backgroundMethod()
