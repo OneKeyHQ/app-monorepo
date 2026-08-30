@@ -37,6 +37,7 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeRegistryInputsDigest,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getPlatformOutputDirectory,
@@ -416,6 +417,31 @@ describe('devVendor', () => {
     } finally {
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
+  });
+
+  it('isolates release compatibility from workspace-only registry growth', () => {
+    const registry = loadRegistry();
+    const workspaceOnlyChange = {
+      ...registry,
+      modules: {
+        ...registry.modules,
+        'packages/example/new.ts': 8000,
+      },
+    };
+    const vendorChange = {
+      ...registry,
+      modules: {
+        ...registry.modules,
+        'node_modules/example/index.js': 50_000,
+      },
+    };
+
+    expect(computeRegistryInputsDigest(workspaceOnlyChange)).toBe(
+      computeRegistryInputsDigest(registry),
+    );
+    expect(computeRegistryInputsDigest(vendorChange)).not.toBe(
+      computeRegistryInputsDigest(registry),
+    );
   });
 
   it('uses code-point ordering for manifest module paths', () => {

@@ -1,0 +1,106 @@
+# cspell:words prebundle
+name: Metro Dev Prebundle
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  attestations: write
+  contents: write
+  id-token: write
+  packages: read
+
+concurrency:
+  group: metro-dev-prebundle-x
+  cancel-in-progress: false
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  publish:
+    name: Publish public prebundle
+    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn install --immutable
+
+      - name: Resolve immutable release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$(node apps/mobile/scripts/metro-dev-prebundle.js tag)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Prebundle release already exists: $tag"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build iOS and Android prebundles
+        if: steps.release.outputs.exists != 'true'
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn workspace @onekeyhq/mobile dev-vendor:build --platform all
+
+      - name: Package release assets and notices
+        if: steps.release.outputs.exists != 'true'
+        run: >-
+          yarn workspace @onekeyhq/mobile metro-dev-prebundle:package
+          --source-commit "$GITHUB_SHA"
+
+      - name: Generate build provenance attestations
+        if: steps.release.outputs.exists != 'true'
+        uses: actions/attest@v4
+        with:
+          subject-path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/*
+
+      - name: Publish pre-release
+        if: steps.release.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            apps/mobile/out-dir-bundle/metro-dev-prebundle-release/* \
+            --target "$GITHUB_SHA" \
+            --title "Metro dev prebundle ${RELEASE_TAG##*-}" \
+            --notes "Public development prebundle for compatible iOS and Android Metro builds. Assets include generated third-party notices and GitHub build provenance attestations." \
+            --prerelease \
+            --latest=false
+
+      - name: Write summary
+        env:
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          {
+            echo "### Metro dev prebundle"
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Already existed: \`$RELEASE_EXISTS\`"
+          } >> "$GITHUB_STEP_SUMMARY"

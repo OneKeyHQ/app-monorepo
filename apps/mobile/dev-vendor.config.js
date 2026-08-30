@@ -1,7 +1,10 @@
 const path = require('path');
 
 const SCHEMA_VERSION = 2;
-const STRATEGY_VERSION = 2;
+const STRATEGY_VERSION = 3;
+const RELEASE_SCHEMA_VERSION = 1;
+const RELEASE_ASSET_PREFIX = 'metro-dev-prebundle';
+const RELEASE_REPOSITORY = 'OneKeyHQ/app-monorepo';
 
 const transformationEnvironment = {
   BABEL_ENV: 'development',
@@ -28,7 +31,6 @@ const fingerprintFiles = [
   '.env.version',
   'apps/mobile/babel-plugin-jest-compat.js',
   'apps/mobile/babel.config.js',
-  'apps/mobile/bundle-registry/module-id-registry.json',
   'apps/mobile/dev-vendor.config.js',
   'apps/mobile/metro.config.js',
   'apps/mobile/package.json',
@@ -73,6 +75,9 @@ function getTransformationEnvironment(env) {
 }
 
 module.exports = {
+  RELEASE_ASSET_PREFIX,
+  RELEASE_REPOSITORY,
+  RELEASE_SCHEMA_VERSION,
   SCHEMA_VERSION,
   STRATEGY_VERSION,
   applyTransformationEnvironment,
@@ -80,7 +85,7 @@ module.exports = {
   commonSourceName: 'common.js',
   fingerprintDirectories: ['packages/components/colors', 'patches'],
   fingerprintFiles,
-  fingerprintOptionalFiles: ['.env'],
+  fingerprintOptionalFiles: [],
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
     return moduleKey.startsWith('node_modules/');
@@ -88,4 +93,5 @@ module.exports = {
   outputRoot(projectRoot) {
     return path.resolve(projectRoot, 'out-dir-bundle/dev-vendor');
   },
+  releaseTagPrefix: `${RELEASE_ASSET_PREFIX}-v${RELEASE_SCHEMA_VERSION}`,
 };

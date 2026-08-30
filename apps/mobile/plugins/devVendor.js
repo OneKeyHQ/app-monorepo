@@ -16,6 +16,7 @@ const devVendorConfig = require('../dev-vendor.config');
 const {
   REPO_ROOT,
   compareModuleKeys,
+  getModuleIdDomain,
   loadRegistry,
 } = require('./moduleIdRegistry');
 
@@ -84,14 +85,60 @@ function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
   return hash.digest('hex');
 }
 
-function computeConfigInputsDigest(repoRoot = REPO_ROOT, env = process.env) {
+function computeRegistryInputsDigest(registry = loadRegistry()) {
+  const selectRelevantEntries = (entries) =>
+    Object.entries(entries)
+      .filter(([moduleKey]) =>
+        ['nodeModules', 'virtual'].includes(getModuleIdDomain(moduleKey)),
+      )
+      .toSorted(([first], [second]) => compareModuleKeys(first, second));
+
+  return sha256(
+    JSON.stringify({
+      allocationVersion: registry.allocationVersion,
+      modules: selectRelevantEntries(registry.modules),
+      ranges: registry.ranges,
+      registryEpoch: registry.registryEpoch,
+      tombstones: selectRelevantEntries(registry.tombstones),
+    }),
+  );
+}
+
+function computeConfigInputsDigest(
+  repoRoot = REPO_ROOT,
+  env = process.env,
+  registry = loadRegistry(),
+) {
   return sha256(
     JSON.stringify({
       files: hashRepoFiles(getFingerprintInputPaths(repoRoot), repoRoot),
+      registry: computeRegistryInputsDigest(registry),
       transformationEnvironment:
         devVendorConfig.getTransformationEnvironment(env),
     }),
   );
+}
+
+function computeReleaseCompatibilityKey(
+  repoRoot = REPO_ROOT,
+  env = process.env,
+  registry = loadRegistry(),
+) {
+  return sha256(
+    JSON.stringify({
+      configInputsDigest: computeConfigInputsDigest(repoRoot, env, registry),
+      registryEpoch: registry.registryEpoch,
+      schemaVersion: devVendorConfig.SCHEMA_VERSION,
+      strategyVersion: devVendorConfig.STRATEGY_VERSION,
+    }),
+  );
+}
+
+function getReleaseTag(repoRoot = REPO_ROOT, env = process.env) {
+  return `${devVendorConfig.releaseTagPrefix}-${computeReleaseCompatibilityKey(
+    repoRoot,
+    env,
+  )}`;
 }
 
 function computeModulesDigest(modules, repoRoot = REPO_ROOT) {
@@ -672,11 +719,14 @@ module.exports = {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeRegistryInputsDigest,
+  computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
   getManifestPath,
   getPlatformOutputDirectory,
+  getReleaseTag,
   getStubPath,
   hashRepoFiles,
   isDevVendorEnabled,
