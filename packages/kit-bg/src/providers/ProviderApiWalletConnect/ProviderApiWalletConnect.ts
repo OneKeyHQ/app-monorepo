@@ -1,4 +1,8 @@
-import { getSdkError } from '@walletconnect/utils';
+import {
+  buildAuthObject,
+  getSdkError,
+  populateAuthPayload,
+} from '@walletconnect/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -15,7 +19,15 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
+import {
+  supportEventsMap,
+  supportMethodsMap,
+} from '@onekeyhq/shared/src/walletConnect/constant';
+import {
+  EWalletConnectNamespaceType,
+  EWalletConnectSessionEvents,
+} from '@onekeyhq/shared/src/walletConnect/types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
@@ -339,8 +351,170 @@ class ProviderApiWalletConnect {
     );
   };
 
-  onAuthRequest = (args: WalletKitTypes.SessionAuthenticate) => {
+  onAuthRequest = async (args: WalletKitTypes.SessionAuthenticate) => {
     console.log('onAuthRequest: ', args);
+    const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
+    const { id, params } = args;
+    const metadata = params.requester.metadata;
+    const evmNamespace = EWalletConnectNamespaceType.evm;
+
+    const rejectAuth = (reason: { code: number; message: string }) =>
+      this.web3Wallet?.rejectSessionAuthenticate({ id, reason });
+
+    // safeGetWalletConnectOrigin only reads params.proposer.metadata, which the
+    // authenticate payload carries as params.requester.
+    const origin = uriUtils.safeGetWalletConnectOrigin({
+      params: { proposer: params.requester },
+    } as WalletKitTypes.SessionProposal);
+
+    if (!origin) {
+      const message = appLocale.intl.formatMessage({
+        id: ETranslations.browser_invalid_url,
+      });
+      await rejectAuth({ message, code: 40_001 });
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: message,
+      });
+      return;
+    }
+
+    // One-click auth signs a CACAO, which this wallet only produces for EVM.
+    const requestedChains = params.authPayload.chains ?? [];
+    const supportedChains: string[] = [];
+    for (const chain of requestedChains) {
+      if (!chain.startsWith(`${evmNamespace}:`)) {
+        continue;
+      }
+      const chainInfo = await serviceWalletConnect.getWcChainInfo(chain);
+      if (chainInfo) {
+        supportedChains.push(chain);
+      }
+    }
+
+    if (supportedChains.length === 0) {
+      await rejectAuth(getSdkError('UNSUPPORTED_CHAINS'));
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: `ChainId: ${requestedChains[0] ?? ''}`,
+        message: 'Unsupported yet',
+      });
+      return;
+    }
+
+    const methods = supportMethodsMap[evmNamespace] ?? [];
+    const authPayload = populateAuthPayload({
+      authPayload: params.authPayload,
+      chains: supportedChains,
+      methods,
+    });
+
+    // Shaped like a session proposal so the existing approval modal and
+    // getSessionApprovalAccountInfo work without a dedicated screen.
+    const proposal = {
+      id,
+      params: {
+        id,
+        expiryTimestamp: params.expiryTimestamp,
+        relays: [],
+        proposer: params.requester,
+        requiredNamespaces: {},
+        optionalNamespaces: {
+          [evmNamespace]: {
+            chains: supportedChains,
+            methods,
+            events: supportEventsMap[evmNamespace] ?? [],
+          },
+        },
+      },
+      verifyContext: args.verifyContext,
+    } as unknown as WalletKitTypes.SessionProposal;
+
+    try {
+      const result = (await serviceDApp.openModal({
+        request: {
+          scope: '$walletConnect',
+          origin,
+        },
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.WalletConnectSessionProposalModal,
+        ],
+        params: {
+          proposal,
+        },
+        fullScreen: true,
+      })) as IWalletConnectSessionProposalResult;
+
+      const accountInfo = result.accountsInfo?.[0];
+      if (!accountInfo?.address || !accountInfo?.networkId) {
+        throw new OneKeyLocalError('No account selected for authentication');
+      }
+
+      // CAIP-122 issuer: did:pkh:<namespace>:<reference>:<address>
+      const iss = `did:pkh:${supportedChains[0]}:${accountInfo.address}`;
+      const authMessage = this.web3Wallet?.formatAuthMessage({
+        request: authPayload,
+        iss,
+      });
+      if (!authMessage) {
+        throw new OneKeyLocalError(
+          'Failed to build the authentication message',
+        );
+      }
+
+      const message = `0x${Buffer.from(authMessage, 'utf8').toString('hex')}`;
+      const signature = (await serviceDApp.openSignMessageModal({
+        request: {
+          scope: '$walletConnect',
+          origin,
+        },
+        accountId: accountInfo.accountId,
+        networkId: accountInfo.networkId,
+        unsignedMessage: {
+          type: EMessageTypesEth.PERSONAL_SIGN,
+          message,
+          payload: [message, accountInfo.address],
+        },
+      })) as string;
+
+      const auth = buildAuthObject(
+        authPayload,
+        { t: 'eip191', s: signature },
+        iss,
+      );
+
+      const approved = await this.web3Wallet?.approveSessionAuthenticate({
+        id,
+        auths: [auth],
+      });
+
+      await serviceDApp.saveConnectionSession({
+        origin,
+        accountsInfo: result.accountsInfo,
+        storageType: 'walletConnect',
+        walletConnectTopic: approved?.session?.topic,
+      });
+
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: supportedChains.join(', '),
+      });
+    } catch (e) {
+      console.error('onAuthRequest error: ', e);
+      await rejectAuth(getSdkError('USER_REJECTED'));
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: supportedChains.join(', '),
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        failReason: `${e?.message ?? e}`,
+      });
+    }
   };
 
   onSessionPing = () => {
