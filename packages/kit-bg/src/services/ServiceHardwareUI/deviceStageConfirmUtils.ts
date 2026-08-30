@@ -18,8 +18,13 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 /**
  * Confirm-channel content builders (OK-59934): translate what the business
  * caller holds into the confirm card's shapes. Best-effort — a flow whose
- * payload carries nothing displayable registers nothing, and the confirm
- * card plays its plain "check on device" shape.
+ * payload carries nothing displayable returns a BLANK registration ({}),
+ * which plays the plain "check on device" shape. The blank is deliberate:
+ * begin() only overwrites the burst's registered content with a truthy
+ * value, and consecutive calls bridged by the off-grace window share one
+ * burst — an `undefined` here would leave the previous call's card standing
+ * while the device already shows this call's request (DeFi-portfolio
+ * batches, permit-then-swap runs).
  */
 
 /** The fee row for the confirm card — only callers that already resolved a
@@ -85,9 +90,9 @@ function buildStageContractDetail(
 export function buildStageConfirmContentForSignTx(
   unsignedTx: IUnsignedTxPro | undefined,
   stageFeeInfo?: ISendSelectedFeeInfo,
-): IDeviceStageConfirmContent | undefined {
+): IDeviceStageConfirmContent {
   if (!unsignedTx) {
-    return undefined;
+    return {};
   }
   const { intl } = appLocale;
   const amountLabel = intl.formatMessage({ id: ETranslations.content__amount });
@@ -266,7 +271,7 @@ export function buildStageConfirmContentForSignTx(
     return { details };
   }
 
-  return undefined;
+  return {};
 }
 
 /** Rough printable-text probe: a decoded personal-sign payload that is
@@ -287,12 +292,12 @@ function isMostlyPrintable(text: string): boolean {
 
 export function buildStageConfirmContentForMessage(
   unsignedMessage: IUnsignedMessage | undefined,
-): IDeviceStageConfirmContent | undefined {
+): IDeviceStageConfirmContent {
   try {
     const message = (unsignedMessage as { message?: unknown } | undefined)
       ?.message;
     if (typeof message !== 'string' || !message) {
-      return undefined;
+      return {};
     }
     // Personal-sign payloads arrive hex-encoded; show the human text when
     // it decodes cleanly, the raw payload otherwise.
@@ -310,6 +315,6 @@ export function buildStageConfirmContentForMessage(
       return { message };
     }
   } catch {
-    return undefined;
+    return {};
   }
 }
