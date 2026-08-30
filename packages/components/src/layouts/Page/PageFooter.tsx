@@ -40,29 +40,27 @@ const PageFooterContainer = ({
   const { gtMd } = useMedia();
 
   const animatedStyle = useAnimatedStyle(() => {
-    const keyboardOffset = Math.max(
-      Math.abs(keyboardHeight.value) - tabBarHeight,
-      0,
-    );
+    const keyboardOffset = disableKeyboardAnimation
+      ? 0
+      : Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0);
     const adjustedSafeBottomHeight =
       hasDefaultFooterActions &&
       safeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
         ? safeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
         : safeBottomHeight;
+    const safeBottomOffset = disableKeyboardAnimation
+      ? adjustedSafeBottomHeight
+      : adjustedSafeBottomHeight * (1 - keyboardProgress.value);
 
     return {
-      paddingBottom:
-        keyboardOffset +
-        adjustedSafeBottomHeight * (1 - keyboardProgress.value),
+      paddingBottom: keyboardOffset + safeBottomOffset,
     };
   });
 
   return (
     <Animated.View
       style={
-        gtMd || disableKeyboardAnimation || !platformEnv.isNative
-          ? undefined
-          : animatedStyle
+        gtMd || !platformEnv.isNative ? undefined : animatedStyle
       }
     >
       {children}
