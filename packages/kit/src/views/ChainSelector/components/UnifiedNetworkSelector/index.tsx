@@ -12,6 +12,7 @@ import {
   Stack,
   YStack,
   resetChainSelectorModal,
+  useAndroidPageFooterSafeAreaBottom,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -63,6 +64,7 @@ const INDEX_TO_TAB: ITabType[] = ['portfolio', 'network'];
 function UnifiedNetworkSelector() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const footerSafeAreaBottom = useAndroidPageFooterSafeAreaBottom();
   const { createAddress } = useAccountSelectorCreateAddress();
   const { findNetworksWithoutAccount } = useFindNetworksWithoutAccount();
   const actions = useAccountSelectorActions();
@@ -799,6 +801,7 @@ function UnifiedNetworkSelector() {
         <Page.Footer>
           <Stack
             p="$5"
+            pb={footerSafeAreaBottom || '$5'}
             gap="$2.5"
             bg="$bgApp"
             flexDirection="column-reverse"

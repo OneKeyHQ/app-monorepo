@@ -123,6 +123,12 @@ export const useSafeAreaBottom = () => {
   return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
+export const useAndroidPageFooterSafeAreaBottom = () => {
+  const { bottom } = useSafeAreaInsets();
+  // Custom footers own system-bar avoidance even when Page safe area is disabled.
+  return platformEnv.isNativeAndroid ? bottom : 0;
+};
+
 // Returns native-measured tab bar height (includes safe area on iOS).
 // Returns undefined when outside a tab navigator.
 const useNativeTabBarHeight = () =>
