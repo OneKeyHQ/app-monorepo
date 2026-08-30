@@ -147,7 +147,6 @@ function buildErrorPayload(error: unknown) {
     key?: unknown;
     requestId?: unknown;
     httpStatusCode?: unknown;
-    constructorName?: unknown;
     data?: unknown;
     payload?: unknown;
   };
@@ -162,7 +161,6 @@ function buildErrorPayload(error: unknown) {
     key?: string;
     requestId?: string;
     httpStatusCode?: number;
-    constructorName?: string;
     data?: unknown;
     payload?: unknown;
   } = {
@@ -195,9 +193,6 @@ function buildErrorPayload(error: unknown) {
   }
   if (typeof runtimeError?.httpStatusCode === 'number') {
     errorPayload.httpStatusCode = runtimeError.httpStatusCode;
-  }
-  if (typeof runtimeError?.constructorName === 'string') {
-    errorPayload.constructorName = runtimeError.constructorName;
   }
   const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
   if (safeData) {
