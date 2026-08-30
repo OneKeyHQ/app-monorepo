@@ -3279,35 +3279,6 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
-  /** @deprecated Use getDeviceState and request the required scope. */
-  @backgroundMethod()
-  async getAboutDeviceFeatures(params: { connectId: string }) {
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.connectId,
-    });
-    if (!dbDevice) {
-      throw new OneKeyLocalError('device not found');
-    }
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId: params.connectId,
-      featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.getFeaturesWithoutCache({
-          connectId: compatibleConnectId,
-          params: { retryCount: 1 },
-        }),
-      {
-        deviceParams: {
-          dbDevice,
-        },
-        hideCheckingDeviceLoading: true,
-      },
-    );
-  }
-
   @backgroundMethod()
   async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
     const dbDevice = await localDb.getDeviceByQuery({
