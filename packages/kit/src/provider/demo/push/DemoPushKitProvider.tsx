@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
 import { openSettings as linkingOpenSettings } from 'expo-linking';
-import { Button, SafeAreaView, View } from 'react-native';
+import { Button, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import UUID from 'react-native-uuid';
 
 import sdk from './expoNotificationSdk';

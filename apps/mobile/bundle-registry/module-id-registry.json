@@ -16049,6 +16049,8 @@
     "packages/components/src/content/LottieView/index.tsx": 15844,
     "packages/components/src/content/LottieView/type.tsx": 15845,
     "packages/components/src/content/Markdown/index.tsx": 15846,
+    "packages/components/src/content/Markdown/parser.ts": 23783,
+    "packages/components/src/content/Markdown/urlUtils.ts": 23784,
     "packages/components/src/content/MatchSizeableText/index.tsx": 15847,
     "packages/components/src/content/NetworkStatusBadge/index.tsx": 15848,
     "packages/components/src/content/NumberSizeableText/index.tsx": 15849,
