@@ -73,26 +73,47 @@ jest.mock('@onekeyhq/components', () => ({
     <div>{children}</div>
   ),
   Stack: ({
+    bg,
     borderBottomColor,
     borderBottomWidth,
     children,
+    flexShrink,
+    h,
+    justifyContent,
+    minHeight,
     pb,
     pt,
     py,
+    testID,
+    w,
   }: {
+    bg?: string;
     borderBottomColor?: string;
     borderBottomWidth?: number;
     children?: ReactNode;
+    flexShrink?: number;
+    h?: number | string;
+    justifyContent?: string;
+    minHeight?: number;
     pb?: string;
     pt?: string;
     py?: string;
+    testID?: string;
+    w?: string;
   }) => (
     <div
+      data-bg={bg}
       data-border-bottom-color={borderBottomColor}
       data-border-bottom-width={borderBottomWidth}
+      data-flex-shrink={flexShrink}
+      data-height={h}
+      data-justify-content={justifyContent}
+      data-min-height={minHeight}
       data-pb={pb}
       data-pt={pt}
       data-py={py}
+      data-testid={testID}
+      data-width={w}
     >
       {children}
     </div>
@@ -105,8 +126,10 @@ jest.mock('@onekeyhq/components', () => ({
     flexShrink,
     onPress,
     gap,
+    pl,
     pr,
     testID,
+    transform,
   }: {
     accessibilityLabel?: string;
     alignSelf?: string;
@@ -115,8 +138,10 @@ jest.mock('@onekeyhq/components', () => ({
     flexShrink?: number;
     gap?: string;
     onPress?: (event: unknown) => void;
+    pl?: string;
     pr?: string;
     testID?: string;
+    transform?: { translateY: number }[];
   }) =>
     onPress ? (
       <button
@@ -125,8 +150,10 @@ jest.mock('@onekeyhq/components', () => ({
         data-flex={flex}
         data-flex-shrink={flexShrink}
         data-gap={gap}
+        data-pl={pl}
         data-pr={pr}
         data-testid={testID}
+        data-translate-y={transform?.[0]?.translateY}
         onClick={onPress}
         type="button"
       >
@@ -139,8 +166,10 @@ jest.mock('@onekeyhq/components', () => ({
         data-flex={flex}
         data-flex-shrink={flexShrink}
         data-gap={gap}
+        data-pl={pl}
         data-pr={pr}
         data-testid={testID}
+        data-translate-y={transform?.[0]?.translateY}
       >
         {children}
       </div>
@@ -331,7 +360,7 @@ describe('TradingView chart controls', () => {
     },
   );
 
-  it('keeps default active interval backgrounds outside compact mode', () => {
+  it('uses text-only active intervals in compact mode', () => {
     const { rerender } = render(<TradingViewChartControls {...BASE_PROPS} />);
 
     expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
@@ -356,7 +385,7 @@ describe('TradingView chart controls', () => {
         .getAttribute('data-gap'),
     ).toBe('$0');
   });
-  it('tightens vertical padding only for compact mobile charts', () => {
+  it('keeps the original height while filling compact charts without a close control', () => {
     const view = render(
       <TradingViewChartControls {...BASE_PROPS} compactMobileLayout />,
     );
@@ -367,8 +396,20 @@ describe('TradingView chart controls', () => {
     expect(view.container.firstElementChild?.getAttribute('data-pb')).toBe(
       '$0.5',
     );
+    expect(
+      view.container.firstElementChild?.getAttribute('data-min-height'),
+    ).toBeNull();
+    expect(
+      view.container.firstElementChild?.getAttribute('data-justify-content'),
+    ).toBeNull();
+    expect(
+      view.queryByTestId('trading-view-compact-chart-controls-row'),
+    ).toBeNull();
     expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
-      expect.objectContaining({ compactMobileLayout: true }),
+      expect.objectContaining({
+        compactMobileLayout: true,
+        fullWidth: true,
+      }),
     );
     expect(
       view.container.firstElementChild?.getAttribute(
@@ -391,9 +432,9 @@ describe('TradingView chart controls', () => {
       ),
     ).toBe('0');
   });
-  it('uses the full remaining mobile toolbar area as the close action', () => {
+  it('lets compact intervals fill the space beside the close action', () => {
     const handleClose = jest.fn();
-    const { getByTestId } = render(
+    const { container, getByTestId } = render(
       <TradingViewChartControls
         {...BASE_PROPS}
         compactMobileLayout
@@ -403,14 +444,33 @@ describe('TradingView chart controls', () => {
       />,
     );
 
+    expect(container.firstElementChild?.getAttribute('data-py')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-pt')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-pb')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-min-height')).toBe(
+      '42',
+    );
+    expect(
+      container.firstElementChild?.getAttribute('data-justify-content'),
+    ).toBe('center');
+    expect(
+      getByTestId('trading-view-compact-chart-controls-row').getAttribute(
+        'data-translate-y',
+      ),
+    ).toBe('2');
     fireEvent.click(getByTestId('interval-selector'));
     expect(handleClose).not.toHaveBeenCalled();
     expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
-      expect.objectContaining({ fullWidth: false }),
+      expect.objectContaining({ fullWidth: true }),
     );
     expect(
       getByTestId('trading-view-chart-ready-controls').getAttribute('data-gap'),
-    ).toBe('$2');
+    ).toBe('$0');
+    expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute(
+        'data-flex',
+      ),
+    ).toBe('1');
     expect(
       getByTestId('trading-view-chart-ready-controls').getAttribute(
         'data-flex-shrink',
@@ -418,7 +478,7 @@ describe('TradingView chart controls', () => {
     ).toBe('1');
     expect(
       getByTestId('interval-selector').parentElement?.getAttribute('data-flex'),
-    ).toBeNull();
+    ).toBe('1');
     expect(
       getByTestId('interval-selector').parentElement?.getAttribute(
         'data-flex-shrink',
@@ -426,9 +486,16 @@ describe('TradingView chart controls', () => {
     ).toBe('1');
 
     const closeArea = getByTestId('trading-view-native-chart-close');
+    const closeDivider = getByTestId('trading-view-native-chart-close-divider');
+    expect(closeDivider.nextElementSibling).toBe(closeArea);
+    expect(closeDivider.getAttribute('data-height')).toBe('$4');
+    expect(closeDivider.getAttribute('data-width')).toBe('$px');
+    expect(closeDivider.getAttribute('data-bg')).toBe('$borderSubdued');
+    expect(closeDivider.getAttribute('data-flex-shrink')).toBe('0');
     expect(closeArea.getAttribute('aria-label')).toBe('Close chart');
-    expect(closeArea.getAttribute('data-flex')).toBe('1');
+    expect(closeArea.getAttribute('data-flex')).toBeNull();
     expect(closeArea.getAttribute('data-align-self')).toBe('stretch');
+    expect(closeArea.getAttribute('data-pl')).toBe('$2');
     expect(closeArea.getAttribute('data-pr')).toBe('$2');
     fireEvent.click(closeArea);
     expect(handleClose).toHaveBeenCalledTimes(1);
