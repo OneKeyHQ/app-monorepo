@@ -16188,6 +16188,7 @@
     "packages/components/src/layouts/OverlayContainer/type.ts": 15982,
     "packages/components/src/layouts/Page/BasicPage.native.tsx": 15983,
     "packages/components/src/layouts/Page/BottomTabBarHeightContext.native.ts": 15984,
+    "packages/components/src/layouts/Page/BottomTabBarVisibilityContext.ts": 23786,
     "packages/components/src/layouts/Page/PageBody.tsx": 15985,
     "packages/components/src/layouts/Page/PageClose.tsx": 15986,
     "packages/components/src/layouts/Page/PageContainer.native.tsx": 15987,
