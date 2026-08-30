@@ -161,6 +161,9 @@ class ProviderApiWalletConnect {
     const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
 
     const metadata = proposal.params.proposer.metadata;
+    // approveSession consumes the proposal, so the error handler must not
+    // reject one that was already approved.
+    let approvedTopic: string | undefined;
     if (notSupportedChains.length > 0) {
       console.error(
         'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
@@ -229,14 +232,34 @@ class ProviderApiWalletConnect {
         id: proposal.id,
         namespaces: result.supportedNamespaces,
       });
-      await serviceDApp.saveConnectionSession({
-        origin,
-        accountsInfo: result.accountsInfo,
-        storageType: 'walletConnect',
-        walletConnectTopic: newSession?.topic,
-      });
+      approvedTopic = newSession?.topic;
+
+      try {
+        await serviceDApp.saveConnectionSession({
+          origin,
+          accountsInfo: result.accountsInfo,
+          storageType: 'walletConnect',
+          walletConnectTopic: approvedTopic,
+        });
+      } catch (saveError) {
+        // The session is already live on the relay, but without a stored
+        // connection it never shows up in connected sites and the user has no
+        // way to end it. Tear it down instead of leaking it.
+        if (approvedTopic) {
+          try {
+            await serviceWalletConnect.walletConnectDisconnect(approvedTopic);
+          } catch (disconnectError) {
+            console.error(
+              'onSessionProposal disconnect after failed save error: ',
+              disconnectError,
+            );
+          }
+        }
+        throw saveError;
+      }
+
       void serviceWalletConnect.batchEmitNetworkChangedEvent({
-        topic: newSession?.topic ?? '',
+        topic: approvedTopic ?? '',
         accountsInfo: result.accountsInfo,
       });
       defaultLogger.discovery.dapp.dappUse({
@@ -247,10 +270,12 @@ class ProviderApiWalletConnect {
       });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
-      await this.web3Wallet?.rejectSession({
-        id: proposal.id,
-        reason: getSdkError('USER_REJECTED'),
-      });
+      if (!approvedTopic) {
+        await this.web3Wallet?.rejectSession({
+          id: proposal.id,
+          reason: getSdkError('USER_REJECTED'),
+        });
+      }
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
