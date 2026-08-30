@@ -25,11 +25,14 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 /** The fee row for the confirm card — only callers that already resolved a
  * fee (the send pipelines) can offer one; flows without it show no row.
  *
- * The row mirrors the device screen, like every other row on the card:
- * `totalNative` is the signed budget (gas limit × max fee price), the same
- * formula firmware renders as "Maximum fee". The page footer keeps its
- * expected-case estimate — different label, different promise. On chains
- * whose fee is exact (UTXO, fixed-fee), the two collapse into one value. */
+ * The label follows the chain's fee semantics. On cap-semantic chains
+ * (EVM, TRON's feeLimit, Sui's budget) `totalNative` is the signed budget
+ * (gas limit × max fee price), the same formula firmware renders as
+ * "Maximum fee" — the row mirrors the device and the page footer keeps its
+ * expected-case estimate. On chains whose fee is fully determined at signing
+ * (Solana charges base fee per signature plus priority fee on the compute
+ * unit LIMIT, not usage; UTXO/fixed-fee chains likewise) there is no
+ * max-vs-actual gap, so the row reuses the page footer's own wording. */
 function buildStageFeeDetail(
   stageFeeInfo: ISendSelectedFeeInfo | undefined,
 ): IDeviceStageConfirmDetail | undefined {
@@ -37,10 +40,20 @@ function buildStageFeeDetail(
   if (!stageFeeInfo || !amount) {
     return undefined;
   }
-  const symbol = stageFeeInfo.feeInfo?.common?.nativeSymbol;
+  const feeInfo = stageFeeInfo.feeInfo;
+  const isExactFee = Boolean(
+    feeInfo?.feeSol ||
+    feeInfo?.feeUTXO ||
+    feeInfo?.feeCkb ||
+    feeInfo?.feeAlgo ||
+    feeInfo?.feeDot,
+  );
+  const symbol = feeInfo?.common?.nativeSymbol;
   return {
     label: appLocale.intl.formatMessage({
-      id: ETranslations.fee_max_fee,
+      id: isExactFee
+        ? ETranslations.global_est_network_fee
+        : ETranslations.fee_max_fee,
     }),
     value: symbol ? `${amount} ${symbol}` : amount,
   };
@@ -212,7 +225,11 @@ export function buildStageConfirmContentForSignTx(
   if (staking?.protocol) {
     // The action word shares the confirm page title's mapper and the value
     // its Provider field; amounts are best-effort — Withdraw flows carry
-    // neither side, Claim only the receive side.
+    // neither side, Claim only the receive side. The send side is what the
+    // person hands over — exact by construction. The receive side is a
+    // request, not the built tx's decoded outcome (withdraw-all rides a
+    // shares conversion the client never sees), so it must not claim
+    // precision the confirm page's parsed amount can contradict.
     const details: IDeviceStageConfirmDetail[] = [
       {
         label: getStakingActionLabel({ stakingInfo: staking }),
@@ -227,21 +244,13 @@ export function buildStageConfirmContentForSignTx(
           ? `${staking.send.amount} ${symbol}`
           : staking.send.amount,
       });
-      if (staking.receive?.amount) {
-        const receiveSymbol = staking.receive.token?.symbol;
-        details.push({
-          label: intl.formatMessage({
-            id: ETranslations.sign_swap_estimate_receive,
-          }),
-          value: receiveSymbol
-            ? `${staking.receive.amount} ${receiveSymbol}`
-            : staking.receive.amount,
-        });
-      }
-    } else if (staking.receive?.amount) {
+    }
+    if (staking.receive?.amount) {
       const symbol = staking.receive.token?.symbol;
       details.push({
-        label: amountLabel,
+        label: intl.formatMessage({
+          id: ETranslations.sign_swap_estimate_receive,
+        }),
         value: symbol
           ? `${staking.receive.amount} ${symbol}`
           : staking.receive.amount,
