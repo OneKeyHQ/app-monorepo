@@ -448,6 +448,19 @@ export class DeviceStageBurstScope {
       return;
     }
     this.confirmContent = undefined;
+    // A ✓ still resting when the last burst layer ends keeps its own
+    // exit: the armed handover retires the narrative at full rest and
+    // schedules this burst's off itself once depth is 0. Ending over it
+    // would trim the rest down to the grace window.
+    if (
+      !params.error &&
+      this.authoredAuthStep === 'authSuccess' &&
+      this.authHoldTimer
+    ) {
+      this.clearPendingOpen();
+      this.activeVendor = undefined;
+      return;
+    }
     this.authoredAuthStep = undefined;
     // The burst's own exit owns the beat from here.
     this.clearAuthHold();
@@ -814,6 +827,20 @@ export class DeviceStageBurstScope {
       this.armAuthSuccessHold();
     }
     await this.setStep(step, extras);
+  }
+
+  /** The failure card's "Continue anyway": the verdict is taken and the
+   * narrative ends with it. No repaint here — inside a held flow the next
+   * call's beats take the stage over, and a runner-held burst ending
+   * right after this lands the exit itself. Without it, every later
+   * call-end close re-pins the failure card over whatever the flow does
+   * next. */
+  async noteAuthNarrativeResolved() {
+    if (!(await this.isEnabled())) {
+      return;
+    }
+    this.authoredAuthStep = undefined;
+    this.clearAuthHold();
   }
 
   /** PIN / passphrase handed to the device: hold the stage as processing
