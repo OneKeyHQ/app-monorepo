@@ -133,6 +133,14 @@ describe('TradingViewNative sub-indicator pane layout', () => {
       pointIndex: POINTS.length - 1,
       priceAxisX: 300,
     });
+    const compactRegions = getTradingViewNativeSubIndicatorLegendHitRegions({
+      height: 400,
+      measureTextWidth: (text) => text.length * 6,
+      panes,
+      pointIndex: POINTS.length - 1,
+      priceAxisX: 300,
+      timeAxisHeight: 20,
+    });
     const rsiRegion = regions.find(({ indicator }) => indicator === 'RSI');
     const macdRegion = regions.find(({ indicator }) => indicator === 'MACD');
     expect(rsiRegion).toBeDefined();
@@ -140,6 +148,10 @@ describe('TradingViewNative sub-indicator pane layout', () => {
     if (!rsiRegion || !macdRegion) {
       return;
     }
+
+    expect(compactRegions.map(({ rect }) => rect.y)).toEqual(
+      regions.map(({ rect }) => rect.y + 4),
+    );
 
     expect(
       getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({

@@ -19,6 +19,7 @@ import {
   TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
 } from './chartConstants';
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import {
@@ -349,6 +350,9 @@ export const TradingViewNativeContainer = memo(
       [chartType, points],
     );
     const isCompactDisplayMode = nativeChartDisplayMode === 'compact';
+    const timeAxisHeight = isCompactDisplayMode
+      ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
+      : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
     const indicatorSeries = useMemo(
       () =>
         buildTradingViewNativeIndicatorSeries({
@@ -777,11 +781,7 @@ export const TradingViewNativeContainer = memo(
                 ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
                 : undefined
             }
-            timeAxisHeight={
-              isCompactDisplayMode
-                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
-                : undefined
-            }
+            timeAxisHeight={timeAxisHeight}
             timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
             onChartWidthChange={setChartWidth}
             onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
@@ -829,6 +829,7 @@ export const TradingViewNativeContainer = memo(
               chartHeight={chartHeight}
               isFullscreen={Boolean(isNativeChartFullscreen)}
               onPress={handleMobileFullscreenToggle}
+              timeAxisHeight={timeAxisHeight}
               visibleSubIndicatorCount={visibleSubIndicatorCount}
             />
           ) : null}

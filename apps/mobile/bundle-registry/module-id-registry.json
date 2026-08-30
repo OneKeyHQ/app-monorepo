@@ -19800,6 +19800,7 @@
     "packages/kit/src/components/TradingView/TradingViewChartControls/intervalSelector/hooks/useNativeIntervalsDialogState.ts": 19586,
     "packages/kit/src/components/TradingView/TradingViewChartControls/priceMarketCap/PriceMarketCapSelect.tsx": 19587,
     "packages/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared.ts": 19588,
+    "packages/kit/src/components/TradingView/TradingViewChartLoadingMask.tsx": 23787,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent.tsx": 19589,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNative.native.tsx": 19590,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeChart.native.tsx": 19591,

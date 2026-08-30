@@ -1438,6 +1438,7 @@ describe('TradingViewNativeContainer', () => {
     render(
       <TradingViewNativeContainer
         nativeChartDisplayMode="compact"
+        nativeControlsLayoutMode="mobile"
         source={{
           kind: 'market',
           networkId: 'evm--1',
@@ -1445,6 +1446,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
+        onNativeChartFullscreenChange={jest.fn()}
       />,
     );
 
@@ -1462,6 +1464,9 @@ describe('TradingViewNativeContainer', () => {
     );
     expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
       expect.objectContaining({ compactMobileLayout: true }),
+    );
+    expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
+      expect.objectContaining({ timeAxisHeight: 20 }),
     );
   });
   it('keeps shared chart defaults outside compact mode', () => {
@@ -1484,7 +1489,7 @@ describe('TradingViewNativeContainer', () => {
         priceAxisTickCount: undefined,
         showLegend: true,
         timeAxisFontSize: undefined,
-        timeAxisHeight: undefined,
+        timeAxisHeight: 24,
         timeAxisBorderWidth: undefined,
       }),
     );
