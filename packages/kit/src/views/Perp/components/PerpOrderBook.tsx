@@ -386,7 +386,7 @@ function MobileHeader() {
         <YStack
           alignItems="flex-start"
           mb="$2"
-          h={32}
+          minHeight={32}
           justifyContent="center"
           onLayout={handleLayout}
         >

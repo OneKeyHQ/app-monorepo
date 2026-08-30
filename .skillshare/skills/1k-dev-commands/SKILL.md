@@ -87,10 +87,13 @@ yarn agent:check --profile commit && git commit -m "your message"
 
 **These run in CI pipeline or for comprehensive validation:**
 
-- `yarn lint` - Comprehensive linting (TypeScript, ESLint, folder structure, i18n)
+- `yarn lint` - Comprehensive linting (TypeScript, oxlint, folder structure, i18n)
   - **Expected runtime**: ~1 minute
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **Use case**: CI pipeline and comprehensive pre-PR checks
+- Do not run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`.
+  ESLint entries are legacy compatibility remnants; active lint validation uses
+  oxlint through `agent:check` or `yarn lint`.
 - `yarn test` - Jest test execution
   - **Use case**: CI pipeline and test validation
 
