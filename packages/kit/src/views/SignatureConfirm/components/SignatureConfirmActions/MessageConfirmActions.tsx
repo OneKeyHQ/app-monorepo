@@ -9,6 +9,7 @@ import {
   Stack,
   Toast,
   usePageUnMounted,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -17,6 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -72,6 +74,7 @@ function MessageConfirmActions(props: IProps) {
   } = props;
 
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
 
   const { network } = useAccountData({
     networkId,
@@ -339,6 +342,10 @@ function MessageConfirmActions(props: IProps) {
     >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.MessageConfirmActions}
+        {...(platformEnv.isNativeAndroid &&
+          bottom && {
+            mb: bottom,
+          })}
         onConfirmText={intl.formatMessage({
           id: ETranslations.dapp_connect_confirm,
         })}

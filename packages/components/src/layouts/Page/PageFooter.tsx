@@ -16,7 +16,7 @@ import { FooterActions } from './PageFooterActions';
 import type { IPageFooterProps } from './type';
 
 // The default FooterActions already adds $5 (20) of bottom padding. Subtracting
-// 10 keeps a 10-unit visual gap above system UI; custom footers retain full inset.
+// 10 keeps a 10-unit visual gap above Android system UI.
 const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
 
 const Placeholder = () => {
@@ -38,17 +38,24 @@ const PageFooterContainer = ({
   const { height: keyboardHeight, progress: keyboardProgress } =
     useReanimatedKeyboardAnimation();
   const { gtMd } = useMedia();
+  // Custom footers keep ownership of their safe-area spacing.
+  const shouldApplyAndroidSafeBottom =
+    platformEnv.isNativeAndroid && hasDefaultFooterActions;
 
   const animatedStyle = useAnimatedStyle(() => {
-    const keyboardOffset = disableKeyboardAnimation
+    const keyboardAnimationDisabled = disableKeyboardAnimation || gtMd;
+    const keyboardOffset = keyboardAnimationDisabled
       ? 0
       : Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0);
+    const androidSafeBottomHeight = shouldApplyAndroidSafeBottom
+      ? safeBottomHeight
+      : 0;
     const adjustedSafeBottomHeight =
       hasDefaultFooterActions &&
-      safeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
-        ? safeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
-        : safeBottomHeight;
-    const safeBottomOffset = disableKeyboardAnimation
+      androidSafeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        ? androidSafeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
+        : androidSafeBottomHeight;
+    const safeBottomOffset = keyboardAnimationDisabled
       ? adjustedSafeBottomHeight
       : adjustedSafeBottomHeight * (1 - keyboardProgress.value);
 
@@ -58,9 +65,7 @@ const PageFooterContainer = ({
   });
 
   return (
-    <Animated.View
-      style={gtMd || !platformEnv.isNative ? undefined : animatedStyle}
-    >
+    <Animated.View style={platformEnv.isNative ? animatedStyle : undefined}>
       {children}
     </Animated.View>
   );
@@ -101,10 +106,12 @@ export function BasicPageFooter() {
     };
   }, [footerRef]);
 
+  const hasDefaultFooterActions = !footerProps?.children;
+
   return footerProps ? (
     <PageFooterContainer
       disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
-      hasDefaultFooterActions={!footerProps.children}
+      hasDefaultFooterActions={hasDefaultFooterActions}
     >
       {footerProps.children ? (
         footerProps.children

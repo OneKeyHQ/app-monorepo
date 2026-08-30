@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Page, Stack } from '@onekeyhq/components';
+import { Checkbox, Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ApprovalManagementTestIDs } from '../testIDs';
@@ -34,6 +34,7 @@ function ApprovalActions(props: IProps) {
   } = props;
 
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Page.Footer disableKeyboardAnimation>
@@ -61,6 +62,9 @@ function ApprovalActions(props: IProps) {
           flexDirection: 'row',
           alignItems: 'flex-end',
         }}
+        {...(bottom && {
+          mb: bottom,
+        })}
       >
         <Stack
           gap="$2.5"

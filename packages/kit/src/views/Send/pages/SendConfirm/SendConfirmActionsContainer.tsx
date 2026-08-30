@@ -4,7 +4,12 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Page,
+  Toast,
+  usePageUnMounted,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -25,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -69,6 +75,7 @@ function SendConfirmActionsContainer(props: IProps) {
     popStack = true,
   } = props;
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const isSubmitted = useRef(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -323,6 +330,10 @@ function SendConfirmActionsContainer(props: IProps) {
   return (
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
+        {...(platformEnv.isNativeAndroid &&
+          bottom && {
+            mb: bottom,
+          })}
         confirmButtonProps={{
           testID: SendTestIDs.confirmButton,
           disabled: isSubmitDisabled,

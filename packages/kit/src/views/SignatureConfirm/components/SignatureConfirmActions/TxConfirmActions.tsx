@@ -10,6 +10,7 @@ import {
   Stack,
   Toast,
   usePageUnMounted,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -183,6 +184,7 @@ function TxConfirmActions(props: IProps) {
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
   const gasAccountSubmitIdRef = useRef<string | null>(null);
+  const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
@@ -1176,6 +1178,9 @@ function TxConfirmActions(props: IProps) {
           flexDirection: 'row',
           alignItems: 'flex-end',
         }}
+        {...(bottom && {
+          mb: bottom,
+        })}
       >
         <Stack
           gap="$2.5"
