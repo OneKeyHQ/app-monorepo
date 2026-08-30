@@ -6148,7 +6148,9 @@ class ServiceAccount extends ServiceBase {
                 },
               ],
             }
-          : undefined,
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
