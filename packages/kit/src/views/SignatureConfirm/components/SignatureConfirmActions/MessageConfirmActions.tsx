@@ -8,7 +8,7 @@ import {
   Page,
   Stack,
   Toast,
-  useAndroidPageFooterSafeAreaBottom,
+  usePageFooterSafeAreaBottom,
   usePageUnMounted,
 } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -73,7 +73,7 @@ function MessageConfirmActions(props: IProps) {
   } = props;
 
   const intl = useIntl();
-  const footerSafeAreaBottom = useAndroidPageFooterSafeAreaBottom();
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
 
   const { network } = useAccountData({
     networkId,

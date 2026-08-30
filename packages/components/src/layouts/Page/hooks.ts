@@ -123,9 +123,14 @@ export const useSafeAreaBottom = () => {
   return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
-export const useAndroidPageFooterSafeAreaBottom = () => {
+/**
+ * Returns the system bottom inset owned by custom Page.Footer content.
+ * Page.Footer cannot infer whether custom children already provide safe-area
+ * spacing, so Android edge-to-edge footers must opt in explicitly. Other
+ * platforms return 0 to preserve their existing footer layouts.
+ */
+export const usePageFooterSafeAreaBottom = () => {
   const { bottom } = useSafeAreaInsets();
-  // Custom footers own system-bar avoidance even when Page safe area is disabled.
   return platformEnv.isNativeAndroid ? bottom : 0;
 };
 

@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Page,
   Toast,
-  useAndroidPageFooterSafeAreaBottom,
+  usePageFooterSafeAreaBottom,
   usePageUnMounted,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -74,7 +74,7 @@ function SendConfirmActionsContainer(props: IProps) {
     popStack = true,
   } = props;
   const intl = useIntl();
-  const footerSafeAreaBottom = useAndroidPageFooterSafeAreaBottom();
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
   const isSubmitted = useRef(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
