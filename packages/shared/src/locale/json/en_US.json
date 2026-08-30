@@ -3485,6 +3485,7 @@
   "perps.token_selector_perps": "Perps",
   "perps.token_selector_stocks": "Stocks",
   "perps.trade_reward": "Trade reward",
+  "perps__action": "Perps",
   "perps__claim_failed__msg": "Failed to claim fee discount, please try again later",
   "perps__claim_fee_discount__desc": "Sign once for free to permanently enjoy a 4% Perps trading fee discount. No gas required, effective immediately.",
   "perps__claim_fee_discount__title": "Claim 4% Perps Fee Discount",

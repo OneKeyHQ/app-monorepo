@@ -236,10 +236,10 @@ index c712e48..3e9a902 100644
 +          allowPackagerServerAccess = devVendorConfig == null,
            useDevSupport = useDevSupport
 diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-index ed88404..cf05527 100644
+index ed88404..57ba984 100644
 --- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
 +++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-@@ -41,28 +41,35 @@ - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtim
+@@ -41,28 +41,36 @@ - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtim
  {
 -  _appContext = [[EXAppContext alloc] init];
 -
@@ -277,6 +277,8 @@ index ed88404..cf05527 100644
 +  // initialization completes.
 +  @synchronized ([EXReactNativeFactory class]) {
 +    _appContext = [[EXAppContext alloc] init];
++    // OneKey patch: AppContext installs the host identifier into JS in setRuntime.
++    [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
 +    // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
 +    // the JS thread. Doing it here (rather than inside the xcframework) keeps
 +    // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
@@ -297,7 +299,6 @@ index ed88404..cf05527 100644
 +    [_appContext setRuntime:&runtime
 +                  scheduler:schedulerHandle
 +                   dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
-+    [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
 +    [_appContext registerNativeModules];
 +  }
  }
