@@ -173,6 +173,10 @@ class ProviderApiWalletConnect {
       return;
     }
 
+    // Tracks whether the user already approved the proposal, so a failure after
+    // that point is not reported to the dApp as a rejection by the user.
+    let userApproved = false;
+
     try {
       if (!origin) {
         const message = appLocale.intl.formatMessage({
@@ -213,6 +217,8 @@ class ProviderApiWalletConnect {
         },
         fullScreen: true,
       })) as IWalletConnectSessionProposalResult;
+      // openModal only resolves once the user taps Approve.
+      userApproved = true;
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,
@@ -237,7 +243,9 @@ class ProviderApiWalletConnect {
       console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
-        reason: getSdkError('USER_REJECTED'),
+        reason: userApproved
+          ? getSdkError('SESSION_SETTLEMENT_FAILED')
+          : getSdkError('USER_REJECTED'),
       });
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,

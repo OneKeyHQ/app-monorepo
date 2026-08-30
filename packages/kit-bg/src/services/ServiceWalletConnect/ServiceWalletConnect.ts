@@ -337,7 +337,7 @@ class ServiceWalletConnect extends ServiceBase {
         supportedNamespaces[namespace] = {
           chains: mergedChains,
           methods: supportMethodsMap[namespace] ?? [],
-          events: supportEventsMap[namespace],
+          events: supportEventsMap[namespace] ?? [],
           accounts:
             mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
         };
