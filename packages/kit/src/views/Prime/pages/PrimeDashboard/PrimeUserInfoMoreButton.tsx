@@ -9,6 +9,7 @@ import {
   IconButton,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -66,13 +67,24 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         target: 'infiniPage',
       });
       navigation.push(EPrimePages.PrimeInfiniSubscription);
-    } else if (managementTarget?.type === 'external') {
+      return;
+    }
+    if (managementTarget?.type === 'external') {
       defaultLogger.prime.subscription.primeManageSubscriptionClick({
         target: 'externalUrl',
       });
       openUrlUtils.openUrlExternal(managementTarget.url);
+      return;
     }
-  }, [managementTarget, navigation]);
+    defaultLogger.prime.subscription.primeManageSubscriptionClick({
+      target: 'unresolved',
+    });
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.prime_subscription_management_unsupported__msg,
+      }),
+    });
+  }, [intl, managementTarget, navigation]);
 
   const handleLogout = useConfirmOneKeyIdLogout({
     reason: 'PrimeUserInfoMoreButton Logout Button',
@@ -154,7 +166,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         }}
       />
 
-      {isPrime && managementTarget ? (
+      {isPrime && currentOneKeyUserId ? (
         <ActionList.Item
           testID={PrimeTestIDs.manageSubscriptionMenuItem}
           label={intl.formatMessage({
@@ -162,7 +174,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={async (close) => {
+          onPress={(close) => {
             close();
             handleManageSubscription();
           }}

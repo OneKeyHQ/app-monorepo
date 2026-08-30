@@ -1,23 +1,16 @@
 /* cspell:ignore Infini */
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeSubscriptionInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { isInfiniSubscriptionInPeriod } from '../PrimeInfiniSubscription/infiniSubscriptionUtils';
 
 import {
   type IPrimeSubscriptionManagementTarget,
+  getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
+  isMissingChannelManagementTarget,
 } from './primeSubscriptionManagementUtils';
-
-type IAvailableManagementTarget = Exclude<
-  IPrimeSubscriptionManagementTarget,
-  { type: 'unavailable' }
->;
-
-const isInfiniManageSupported =
-  !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
 
 export function usePrimeSubscriptionManagementTarget({
   primeSubscription,
@@ -27,25 +20,21 @@ export function usePrimeSubscriptionManagementTarget({
   primeSubscription: IPrimeSubscriptionInfo | undefined;
   subscriptionManageUrl: string | undefined;
   onekeyUserId: string | undefined;
-}): IAvailableManagementTarget | undefined {
+}): IPrimeSubscriptionManagementTarget | undefined {
   const isPrime = primeSubscription?.isActive === true;
   const currentTarget = getPrimeSubscriptionManagementTarget({
     userInfo: { primeSubscription, subscriptionManageUrl },
-    isInfiniManageSupported,
   });
-  const subscriptionSourceKey = JSON.stringify([
-    primeSubscription?.expiresAt,
-    primeSubscription?.subscriptions,
+  const subscriptionSourceKey = getPrimeSubscriptionManagementSourceKey({
+    primeSubscription,
     subscriptionManageUrl,
-  ]);
+  });
   const shouldResolve = Boolean(isPrime && onekeyUserId);
   const shouldProbeLegacyInfini =
-    isInfiniManageSupported &&
-    currentTarget.type === 'unavailable' &&
-    currentTarget.reason === 'missing-channel-and-management-url';
-  const { result: resolution, isLoading } = usePromiseResult(
+    isMissingChannelManagementTarget(currentTarget);
+  const { result: resolution } = usePromiseResult(
     async () => {
-      if (!shouldResolve || !onekeyUserId) {
+      if (!isPrime || !onekeyUserId) {
         return undefined;
       }
       const { userInfo } =
@@ -54,13 +43,8 @@ export function usePrimeSubscriptionManagementTarget({
         });
       let target = getPrimeSubscriptionManagementTarget({
         userInfo,
-        isInfiniManageSupported,
       });
-      if (
-        shouldProbeLegacyInfini &&
-        target.type === 'unavailable' &&
-        target.reason === 'missing-channel-and-management-url'
-      ) {
+      if (shouldProbeLegacyInfini && isMissingChannelManagementTarget(target)) {
         const infiniSubscription =
           await backgroundApiProxy.servicePrime.apiGetInfiniSubscription({
             expectedOneKeyUserId: onekeyUserId,
@@ -75,29 +59,21 @@ export function usePrimeSubscriptionManagementTarget({
         target,
       };
     },
-    [
-      onekeyUserId,
-      shouldProbeLegacyInfini,
-      shouldResolve,
-      subscriptionSourceKey,
-    ],
+    [isPrime, onekeyUserId, shouldProbeLegacyInfini, subscriptionSourceKey],
     {
-      watchLoading: true,
       undefinedResultIfError: true,
       undefinedResultIfReRun: true,
     },
   );
 
-  if (!isPrime || !onekeyUserId || isLoading) {
+  if (!shouldResolve) {
     return undefined;
   }
-  if (
-    !resolution ||
-    resolution.onekeyUserId !== onekeyUserId ||
-    resolution.subscriptionSourceKey !== subscriptionSourceKey ||
-    resolution.target.type === 'unavailable'
-  ) {
-    return undefined;
-  }
-  return resolution.target;
+  const resolved =
+    resolution &&
+    resolution.onekeyUserId === onekeyUserId &&
+    resolution.subscriptionSourceKey === subscriptionSourceKey
+      ? resolution.target
+      : undefined;
+  return resolved ?? currentTarget;
 }

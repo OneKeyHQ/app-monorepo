@@ -1,10 +1,11 @@
 /* cspell:ignore Infini infini */
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
-
-type IPrimeSubscriptionManagementUserInfo = Pick<
+import type {
+  IPrimeSubscriptionInfo,
   IPrimeUserInfo,
-  'primeSubscription'
-> & {
+} from '@onekeyhq/shared/types/prime/primeTypes';
+
+type IPrimeSubscriptionManagementUserInfo = {
+  primeSubscription?: IPrimeUserInfo['primeSubscription'];
   subscriptionManageUrl?: string;
 };
 
@@ -23,33 +24,62 @@ export type IPrimeSubscriptionManagementTarget =
         | 'channel-without-management-url';
     };
 
-function getDeclaredSubscriptionChannels({
-  userInfo,
-}: {
-  userInfo: IPrimeSubscriptionManagementUserInfo;
-}) {
+export function isMissingChannelManagementTarget(
+  target: IPrimeSubscriptionManagementTarget,
+) {
   return (
-    userInfo.primeSubscription?.subscriptions
-      ?.map((subscription) => subscription.channel?.trim().toLowerCase())
-      .filter((channel): channel is string => Boolean(channel)) ?? []
+    target.type === 'unavailable' &&
+    target.reason === 'missing-channel-and-management-url'
   );
+}
+
+export function getPrimeSubscriptionManagementSourceKey({
+  primeSubscription,
+  subscriptionManageUrl,
+}: {
+  primeSubscription?: {
+    expiresAt?: number;
+    subscriptions?: IPrimeSubscriptionInfo['subscriptions'];
+  };
+  subscriptionManageUrl?: string;
+}) {
+  return JSON.stringify([
+    primeSubscription?.expiresAt ?? null,
+    (primeSubscription?.subscriptions ?? []).map((subscription) => [
+      subscription.channel?.trim().toLowerCase() ?? '',
+      subscription.managementUrl?.trim() ?? '',
+    ]),
+    subscriptionManageUrl?.trim() ?? '',
+  ]);
 }
 
 export function getPrimeSubscriptionManagementTarget({
   userInfo,
-  isInfiniManageSupported,
 }: {
   userInfo: IPrimeSubscriptionManagementUserInfo;
-  isInfiniManageSupported: boolean;
 }): IPrimeSubscriptionManagementTarget {
-  const channels = getDeclaredSubscriptionChannels({ userInfo });
-  if (isInfiniManageSupported && channels.includes('infini')) {
-    return { type: 'infini' };
+  let hasChannel = false;
+  let hasRevenueCat = false;
+  let managementUrl: string | undefined;
+  for (const subscription of userInfo.primeSubscription?.subscriptions ?? []) {
+    const channel = subscription.channel?.trim().toLowerCase();
+    if (channel === 'infini') {
+      return { type: 'infini' };
+    }
+    if (channel) {
+      hasChannel = true;
+      if (channel === 'revenuecat') {
+        hasRevenueCat = true;
+      }
+      if (!managementUrl && channel !== 'redemption') {
+        const url = subscription.managementUrl?.trim();
+        if (url) {
+          managementUrl = url;
+        }
+      }
+    }
   }
 
-  const managementUrl = userInfo.primeSubscription?.subscriptions
-    ?.map((subscription) => subscription.managementUrl?.trim())
-    .find((url): url is string => Boolean(url));
   if (managementUrl) {
     return {
       type: 'external',
@@ -58,7 +88,7 @@ export function getPrimeSubscriptionManagementTarget({
   }
 
   const revenueCatManagementUrl = userInfo.subscriptionManageUrl?.trim();
-  if (channels.includes('revenuecat') && revenueCatManagementUrl) {
+  if (hasRevenueCat && revenueCatManagementUrl) {
     return {
       type: 'external',
       url: revenueCatManagementUrl,
@@ -67,9 +97,8 @@ export function getPrimeSubscriptionManagementTarget({
 
   return {
     type: 'unavailable',
-    reason:
-      channels.length === 0
-        ? 'missing-channel-and-management-url'
-        : 'channel-without-management-url',
+    reason: hasChannel
+      ? 'channel-without-management-url'
+      : 'missing-channel-and-management-url',
   };
 }
