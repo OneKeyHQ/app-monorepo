@@ -1438,7 +1438,7 @@ export default class Vault extends VaultBase {
           }
           return signedTx;
         },
-        { deviceParams, debugMethodName: 'serviceSend.signTransaction' },
+        { deviceParams, debugMethodName: 'tron.signRentalTx' },
       );
     return tx;
   }
