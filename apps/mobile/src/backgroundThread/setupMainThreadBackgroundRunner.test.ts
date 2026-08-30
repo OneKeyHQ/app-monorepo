@@ -43,6 +43,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/errors', () => ({
+  OneKeyLocalError: class OneKeyLocalError extends Error {
+    get key() {
+      return 'onekey_error';
+    }
+  },
+}));
+
 jest.mock(
   '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
   () => ({
@@ -164,5 +172,70 @@ describe('main thread background runner', () => {
       className: 'OneKeyServerApiError',
       code: 404,
     });
+  });
+
+  it('rejects a remote call when error metadata rehydration fails', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          callServiceRequest: (
+            request: {
+              type: 'service-call';
+              method: string;
+              params: unknown[];
+              sync: boolean;
+            },
+            localFallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+
+    const requestPromise = transport!.callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'servicePrime.apiRedeemPrimeCode',
+        params: ['OK61451-INVALID-CODE'],
+        sync: false,
+      },
+      () => Promise.resolve(undefined),
+    );
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
+      ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+    );
+    const requestCall = requestCalls[requestCalls.length - 1];
+    const callId = (requestCall?.[0] as string).slice('onekey:bg:req:'.length);
+
+    expect(() =>
+      mockInboundMessageHandler?.(
+        `onekey:bg:res:${callId}`,
+        JSON.stringify({
+          ok: false,
+          error: {
+            name: 'OneKeyServerApiError',
+            message: '/prime/v1/account/profile Not Found',
+            autoToast: true,
+            className: 'OneKeyServerApiError',
+            code: 404,
+            key: 'server_error',
+          },
+        }),
+      ),
+    ).not.toThrow();
+
+    await expect(requestPromise).rejects.toMatchObject({
+      name: 'OneKeyServerApiError',
+      message: '/prime/v1/account/profile Not Found',
+      autoToast: true,
+      className: 'OneKeyServerApiError',
+      code: 404,
+      key: 'onekey_error',
+    });
+    expect(mockNativeLoggerWrite).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('failed to rehydrate error metadata'),
+    );
   });
 });
