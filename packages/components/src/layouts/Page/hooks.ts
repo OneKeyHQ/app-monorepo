@@ -123,21 +123,30 @@ export const useSafeAreaBottom = () => {
   return safeAreaEnabled && isModalPage ? bottom : 0;
 };
 
-/**
- * Returns the system bottom inset owned by custom Page.Footer content.
- * Page.Footer cannot infer whether custom children already provide safe-area
- * spacing, so Android edge-to-edge footers must opt in explicitly. Other
- * platforms return 0 to preserve their existing footer layouts.
- */
-export const usePageFooterSafeAreaBottom = () => {
-  const { bottom } = useSafeAreaInsets();
-  return platformEnv.isNativeAndroid ? bottom : 0;
-};
-
 // Returns native-measured tab bar height (includes safe area on iOS).
 // Returns undefined when outside a tab navigator.
 const useNativeTabBarHeight = () =>
   useContext(BottomTabBarHeightContext) ?? undefined;
+
+/**
+ * Returns the native bottom inset owned by Page.Footer when no tab bar owns it.
+ * Footer ownership is independent from Page body safe-area configuration and
+ * route presentation type; non-native layouts and tab scenes return 0.
+ */
+export const usePageFooterSafeAreaBottom = () => {
+  const nativeTabBarHeight = useNativeTabBarHeight();
+  const { bottom } = useSafeAreaInsets();
+  return platformEnv.isNative && nativeTabBarHeight === undefined ? bottom : 0;
+};
+
+/** Returns the tab bar height only when Page.Footer is inside a tab scene. */
+export const usePageFooterTabBarHeight = () => {
+  const { bottom } = useSafeAreaInsets();
+  const nativeTabBarHeight = useNativeTabBarHeight();
+  return nativeTabBarHeight !== undefined
+    ? nativeTabBarHeight || bottom || 0
+    : 0;
+};
 
 export const useTabBarHeight = () => {
   const { bottom } = useSafeAreaInsets();

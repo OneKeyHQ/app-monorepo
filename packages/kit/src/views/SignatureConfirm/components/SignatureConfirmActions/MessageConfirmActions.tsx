@@ -8,7 +8,6 @@ import {
   Page,
   Stack,
   Toast,
-  usePageFooterSafeAreaBottom,
   usePageUnMounted,
 } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -73,7 +72,6 @@ function MessageConfirmActions(props: IProps) {
   } = props;
 
   const intl = useIntl();
-  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
 
   const { network } = useAccountData({
     networkId,
@@ -341,9 +339,6 @@ function MessageConfirmActions(props: IProps) {
     >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.MessageConfirmActions}
-        {...(footerSafeAreaBottom && {
-          mb: footerSafeAreaBottom,
-        })}
         onConfirmText={intl.formatMessage({
           id: ETranslations.dapp_connect_confirm,
         })}

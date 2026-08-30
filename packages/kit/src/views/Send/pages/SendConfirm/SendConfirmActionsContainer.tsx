@@ -4,12 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  Toast,
-  usePageFooterSafeAreaBottom,
-  usePageUnMounted,
-} from '@onekeyhq/components';
+import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -74,7 +69,6 @@ function SendConfirmActionsContainer(props: IProps) {
     popStack = true,
   } = props;
   const intl = useIntl();
-  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
   const isSubmitted = useRef(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -329,9 +323,6 @@ function SendConfirmActionsContainer(props: IProps) {
   return (
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
-        {...(footerSafeAreaBottom && {
-          mb: footerSafeAreaBottom,
-        })}
         confirmButtonProps={{
           testID: SendTestIDs.confirmButton,
           disabled: isSubmitDisabled,
