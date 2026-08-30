@@ -16,6 +16,10 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
 import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
+import {
+  BottomTabBarVisibilityContext,
+  getPageFooterBottomMetrics,
+} from './BottomTabBarVisibilityContext';
 import { PageContext } from './PageContext';
 
 import type { IPageLifeCycle } from './type';
@@ -128,24 +132,30 @@ export const useSafeAreaBottom = () => {
 const useNativeTabBarHeight = () =>
   useContext(BottomTabBarHeightContext) ?? undefined;
 
+const usePageFooterBottomMetrics = () => {
+  const nativeTabBarHeight = useNativeTabBarHeight();
+  const tabBarVisible = useContext(BottomTabBarVisibilityContext);
+  const { bottom } = useSafeAreaInsets();
+  return getPageFooterBottomMetrics({
+    bottom,
+    isNative: platformEnv.isNative,
+    nativeTabBarHeight,
+    tabBarVisible,
+  });
+};
+
 /**
- * Returns the native bottom inset owned by Page.Footer when no tab bar owns it.
- * Footer ownership is independent from Page body safe-area configuration and
- * route presentation type; non-native layouts and tab scenes return 0.
+ * Returns the native bottom inset owned by Page.Footer when a visible tab bar
+ * does not own it. Hidden and absent tab bars leave the inset to the footer;
+ * non-native layouts return 0.
  */
 export const usePageFooterSafeAreaBottom = () => {
-  const nativeTabBarHeight = useNativeTabBarHeight();
-  const { bottom } = useSafeAreaInsets();
-  return platformEnv.isNative && nativeTabBarHeight === undefined ? bottom : 0;
+  return usePageFooterBottomMetrics().footerSafeAreaBottom;
 };
 
 /** Returns the tab bar height only when Page.Footer is inside a tab scene. */
 export const usePageFooterTabBarHeight = () => {
-  const { bottom } = useSafeAreaInsets();
-  const nativeTabBarHeight = useNativeTabBarHeight();
-  return nativeTabBarHeight !== undefined
-    ? nativeTabBarHeight || bottom || 0
-    : 0;
+  return usePageFooterBottomMetrics().tabBarHeight;
 };
 
 export const useTabBarHeight = () => {
