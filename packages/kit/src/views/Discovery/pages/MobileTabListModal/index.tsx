@@ -490,7 +490,7 @@ function MobileTabListModal() {
         />
         {renderPinnedList}
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer safeAreaEnabled={false}>
         <TabToolBar
           closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}

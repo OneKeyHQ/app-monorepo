@@ -1,5 +1,13 @@
-import type { PropsWithChildren } from 'react';
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import {
+  Children,
+  isValidElement,
+  memo,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
@@ -11,13 +19,50 @@ import { OptimizationView } from '../../optimization';
 
 import { useSafeAreaBottom, useTabBarHeight } from './hooks';
 import { PageContext } from './PageContext';
-import { FooterActions } from './PageFooterActions';
+import { FooterActions, type IFooterActionsProps } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
 // The default FooterActions already adds $5 (20) of bottom padding. Subtracting
 // 10 keeps a 10-unit visual gap above Android system UI.
 const DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION = 10;
+
+function findFooterActionsElement(
+  children: ReactNode,
+): ReactElement<IFooterActionsProps> | undefined {
+  for (const child of Children.toArray(children)) {
+    if (isValidElement(child)) {
+      if (child.type === FooterActions) {
+        return child as ReactElement<IFooterActionsProps>;
+      }
+      const nestedFooterActions = findFooterActionsElement(
+        (child.props as PropsWithChildren).children,
+      );
+      if (nestedFooterActions) {
+        return nestedFooterActions;
+      }
+    }
+  }
+  return undefined;
+}
+
+function hasNumericBottomSpacing(children: ReactNode): boolean {
+  for (const child of Children.toArray(children)) {
+    if (isValidElement(child)) {
+      const { children: nestedChildren, mb, marginBottom, paddingBottom, pb } =
+        child.props as PropsWithChildren<IFooterActionsProps>;
+      if (
+        [mb, marginBottom, paddingBottom, pb].some(
+          (value) => typeof value === 'number' && value > 0,
+        ) ||
+        hasNumericBottomSpacing(nestedChildren)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
@@ -28,19 +73,22 @@ const Placeholder = () => {
 const PageFooterContainer = ({
   children,
   disableKeyboardAnimation,
-  hasDefaultFooterActions,
+  hasFooterActions,
+  shouldManageSafeBottom,
 }: PropsWithChildren & {
   disableKeyboardAnimation: boolean;
-  hasDefaultFooterActions: boolean;
+  hasFooterActions: boolean;
+  shouldManageSafeBottom: boolean;
 }) => {
-  const safeBottomHeight = useSafeAreaBottom();
+  // Footer safe-area ownership is independent from the Page body. Some pages
+  // disable body safe area because their scroll view already handles it.
+  const safeBottomHeight = useSafeAreaBottom(shouldManageSafeBottom);
   const tabBarHeight = useTabBarHeight();
   const { height: keyboardHeight, progress: keyboardProgress } =
     useReanimatedKeyboardAnimation();
   const { gtMd } = useMedia();
-  // Custom footers keep ownership of their safe-area spacing.
   const shouldApplyAndroidSafeBottom =
-    platformEnv.isNativeAndroid && hasDefaultFooterActions;
+    platformEnv.isNativeAndroid && shouldManageSafeBottom;
 
   const animatedStyle = useAnimatedStyle(() => {
     const keyboardAnimationDisabled = disableKeyboardAnimation || gtMd;
@@ -51,7 +99,7 @@ const PageFooterContainer = ({
       ? safeBottomHeight
       : 0;
     const adjustedSafeBottomHeight =
-      hasDefaultFooterActions &&
+      hasFooterActions &&
       androidSafeBottomHeight > DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
         ? androidSafeBottomHeight - DEFAULT_FOOTER_SAFE_BOTTOM_REDUCTION
         : androidSafeBottomHeight;
@@ -106,12 +154,21 @@ export function BasicPageFooter() {
     };
   }, [footerRef]);
 
-  const hasDefaultFooterActions = !footerProps?.children;
+  const footerActionsElement = footerProps?.children
+    ? findFooterActionsElement(footerProps.children)
+    : undefined;
+  const hasFooterActions = !footerProps?.children || !!footerActionsElement;
+  // Numeric bottom spacing is treated as caller-owned safe-area handling;
+  // token spacing remains design padding and still receives the shared inset.
+  const shouldManageSafeBottom =
+    footerProps?.safeAreaEnabled !== false &&
+    !hasNumericBottomSpacing(footerProps?.children);
 
   return footerProps ? (
     <PageFooterContainer
       disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
-      hasDefaultFooterActions={hasDefaultFooterActions}
+      hasFooterActions={hasFooterActions}
+      shouldManageSafeBottom={shouldManageSafeBottom}
     >
       {footerProps.children ? (
         footerProps.children

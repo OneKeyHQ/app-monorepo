@@ -56,7 +56,11 @@ export type IBasicPageProps = PropsWithChildren<
 >;
 
 export type IPageFooterProps = PropsWithChildren<
-  IFooterActionsProps & { disableKeyboardAnimation?: boolean }
+  IFooterActionsProps & {
+    disableKeyboardAnimation?: boolean;
+    /** Disable when custom footer content already applies its own bottom safe area. */
+    safeAreaEnabled?: boolean;
+  }
 >;
 
 export type IPageProps = IBasicPageProps;
