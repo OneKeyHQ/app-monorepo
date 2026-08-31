@@ -336,6 +336,9 @@ function readBaseRegistry(base) {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      // The registry outgrew Node's 1MB spawnSync default; without this the
+      // documented merge-conflict reconcile flow dies with ENOBUFS.
+      maxBuffer: 64 * 1024 * 1024,
     });
   } catch (error) {
     const detail = error.stderr ? String(error.stderr).trim() : error.message;
@@ -356,7 +359,19 @@ function readBaseRegistry(base) {
 function run(argv = process.argv.slice(2)) {
   const { base, command, mapPaths } = parseArgs(argv);
   if (command === 'reconcile') {
-    const result = reconcileRegistries(readBaseRegistry(base), loadRegistry());
+    // Not loadRegistry(): the whole point of reconcile is a merged registry
+    // whose duplicate IDs strict validation rejects — reconcileRegistries
+    // runs its own duplicate-tolerant validation on the current registry.
+    let currentRegistry;
+    try {
+      currentRegistry = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8'));
+    } catch (error) {
+      throw new Error(
+        `Unable to load module ID registry at ${REGISTRY_PATH}: ${error.message}`,
+        { cause: error },
+      );
+    }
+    const result = reconcileRegistries(readBaseRegistry(base), currentRegistry);
     writeRegistry(result.registry);
     console.log(
       `[module-id:reconcile] wrote ${REGISTRY_REPO_PATH}; reassigned ${result.reassigned} new collision(s).`,
