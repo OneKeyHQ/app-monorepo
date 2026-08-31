@@ -1,6 +1,9 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { extractWcPayTypedDataMessage } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
+import {
+  extractWcPayPersonalSignMessage,
+  extractWcPayTypedDataMessage,
+} from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/evmPayUtils';
 import {
   WC_PAY_SOLANA_TX_MAX_BYTES,
   extractWcPaySolanaTransaction,
@@ -27,6 +30,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import {
   EWcPayActionMethod,
   type IWcPayAction,
@@ -63,11 +67,37 @@ export type IWcPayInlineSolanaPlan =
   | { mode: 'inline'; summary: IWcPaySolanaSummary; txBase64: string }
   | { mode: 'fallback'; reason: string };
 
-// The proven payload behind a `signingMessage` phase, tagged so one hook
-// serves both signing kinds.
+// What the sheet shows for a personal_sign action: the human-readable decode
+// of exactly the bytes that will be signed. There is no order proof behind it
+// (the message is arbitrary server content) — the DISPLAY is the contract,
+// which is why the gate below refuses anything it cannot faithfully render.
+export interface IWcPayPersonalSignSummary {
+  text: string;
+}
+
+// What the sheet shows while the Permit2 approve leg runs its send pipeline.
+export interface IWcPayApproveSummary {
+  symbol: string;
+  unlimited: boolean;
+}
+
+export type IWcPayInlinePersonalSignPlan =
+  | {
+      mode: 'inline';
+      summary: IWcPayPersonalSignSummary;
+      // the normalized message (autoFixPersonalSignMessage output) the
+      // pipeline must sign — kept beside its decode so the two cannot drift
+      message: string;
+    }
+  | { mode: 'fallback'; reason: string };
+
+// The proven payload behind an in-sheet signing summary, tagged so one hook
+// serves every signing kind.
 export type IWcPayInlineSigningSummary =
   | { kind: 'typedData'; summary: IWcPayTypedDataSummary }
-  | { kind: 'solana'; summary: IWcPaySolanaSummary };
+  | { kind: 'solana'; summary: IWcPaySolanaSummary }
+  | { kind: 'personalSign'; summary: IWcPayPersonalSignSummary }
+  | { kind: 'approve'; summary: IWcPayApproveSummary };
 
 // What the UI must ask the background to check, once the action's method and
 // params alone prove it is a Solana payment request.
@@ -545,6 +575,110 @@ export function getWcPayInlineSolanaPlan({
     }
   }
   return { mode: 'inline', summary, txBase64 };
+}
+
+/**
+ * Byte cap for an inline personal_sign message, measured on the normalized
+ * message string (a hex payload is ~2x its raw bytes — the cap is a cheap
+ * pre-decode guard, exactness is not required). Anything longer falls back
+ * to the confirm page, whose raw rendering has no such constraint.
+ */
+export const WC_PAY_PERSONAL_SIGN_MAX_BYTES = 4096;
+
+// Control characters other than \n \r \t would let the rendered text lie
+// about what is being signed (cursor tricks, bells, embedded nulls).
+// eslint-disable-next-line no-control-regex
+const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+
+/**
+ * The human-readable decode of a normalized personal_sign message, or
+ * undefined when the sheet could not faithfully render it: a hex payload
+ * that is not valid UTF-8 (lossy decode or a non-round-tripping one),
+ * embedded control characters, or nothing but whitespace.
+ */
+function decodeWcPayPersonalSignText(message: string): string | undefined {
+  let text = message;
+  if (/^0x[0-9a-fA-F]*$/.test(message)) {
+    const bytes = Buffer.from(message.slice(2), 'hex');
+    text = bytes.toString('utf8');
+    // A lossy decode (invalid UTF-8 becomes U+FFFD) or a non-round-tripping
+    // one means the display would not be showing the signed bytes — refuse.
+    if (
+      text.includes('�') ||
+      Buffer.from(text, 'utf8').length !== bytes.length
+    ) {
+      return undefined;
+    }
+  }
+  if (PERSONAL_SIGN_FORBIDDEN_CHARS_RE.test(text)) {
+    return undefined;
+  }
+  if (!text.trim()) {
+    return undefined;
+  }
+  return text;
+}
+
+/**
+ * The personal_sign gate (Phase 3 §4). Unlike every other plan there is no
+ * order proof to run — the message is arbitrary server-issued content — so
+ * the gate is a DISPLAYABILITY contract instead: the sheet shows exactly
+ * what is being signed, and anything it cannot faithfully show falls back
+ * to MessageConfirm, whose raw/hex rendering is built for it.
+ *
+ * The same extraction + normalization as the modal path
+ * (extractWcPayPersonalSignMessage + autoFixPersonalSignMessage) feeds both
+ * the returned `message` (what gets signed) and `summary.text` (its decode),
+ * so the displayed text and the signed bytes cannot diverge.
+ *
+ * Never a spend: the executor must not charge this against the sequence
+ * spend budget — a signed message moves nothing on its own.
+ *
+ * Must never throw — `action` crosses a trust boundary (server response).
+ */
+export function getWcPayInlinePersonalSignPlan({
+  action,
+  option,
+  accountAddress,
+}: {
+  action: IWcPayAction;
+  option: IWcPayOption | undefined;
+  // the signing account, used only to disambiguate the two personal_sign
+  // param orders — the same input the modal path hands the extractor
+  accountAddress: string;
+}): IWcPayInlinePersonalSignPlan {
+  if (!option) {
+    return { mode: 'fallback', reason: 'no selected option' };
+  }
+  const method = readWcPayActionMethod(action);
+  if (!method) {
+    return { mode: 'fallback', reason: 'malformed action' };
+  }
+  if (method !== EWcPayActionMethod.PersonalSign) {
+    return { mode: 'fallback', reason: `method ${method}` };
+  }
+  let message: string;
+  try {
+    // JSON.parse throws on malformed params; the extractor throws when no
+    // element carries a message payload.
+    message = autoFixPersonalSignMessage({
+      message: extractWcPayPersonalSignMessage({
+        parsed: JSON.parse(action.walletRpc.params),
+        accountAddress,
+      }),
+    });
+  } catch {
+    return { mode: 'fallback', reason: 'unparseable params' };
+  }
+  if (Buffer.byteLength(message, 'utf8') > WC_PAY_PERSONAL_SIGN_MAX_BYTES) {
+    return { mode: 'fallback', reason: 'message too long' };
+  }
+  const text = decodeWcPayPersonalSignText(message);
+  if (text === undefined) {
+    return { mode: 'fallback', reason: 'undisplayable message' };
+  }
+  return { mode: 'inline', summary: { text }, message };
 }
 
 /**

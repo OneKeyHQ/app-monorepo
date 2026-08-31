@@ -19,6 +19,7 @@ import {
   WC_PAY_INLINE_POST_SIGN_FLAG,
   classifyWcPayInlineFailure,
   getWcPayInlineMessagePlan,
+  getWcPayInlinePersonalSignPlan,
   getWcPayInlineSolanaPlan,
   getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
@@ -976,5 +977,147 @@ describe('isWcPayInlineUserCancel', () => {
 
   it('returns a boolean for a missing error rather than propagating it', () => {
     expect(isWcPayInlineUserCancel(undefined)).toBe(false);
+  });
+});
+
+describe('getWcPayInlinePersonalSignPlan', () => {
+  const buildPersonalSignAction = (params: unknown[]): IWcPayAction => ({
+    walletRpc: {
+      chainId: 'eip155:8453',
+      method: 'personal_sign',
+      params: JSON.stringify(params),
+    },
+  });
+  const textToHex = (text: string) =>
+    `0x${Buffer.from(text, 'utf8').toString('hex')}`;
+  const plan = (action: IWcPayAction, opt: IWcPayOption | undefined = option) =>
+    getWcPayInlinePersonalSignPlan({
+      action,
+      option: opt,
+      accountAddress: SENDER,
+    });
+
+  it('inlines a hex-encoded UTF-8 message and carries its decode', () => {
+    const action = buildPersonalSignAction([
+      textToHex('Pay order #123'),
+      SENDER,
+    ]);
+    expect(plan(action)).toEqual({
+      mode: 'inline',
+      summary: { text: 'Pay order #123' },
+      message: textToHex('Pay order #123'),
+    });
+  });
+
+  it('inlines a plain-text message as-is', () => {
+    const action = buildPersonalSignAction(['hello merchant', SENDER]);
+    expect(plan(action)).toEqual({
+      mode: 'inline',
+      summary: { text: 'hello merchant' },
+      message: 'hello merchant',
+    });
+  });
+
+  it('inlines multi-line text with tabs and newlines', () => {
+    const text = 'line one\n\tline two\r\nline three';
+    const action = buildPersonalSignAction([textToHex(text), SENDER]);
+    expect(plan(action)).toEqual({
+      mode: 'inline',
+      summary: { text },
+      message: textToHex(text),
+    });
+  });
+
+  it('refuses a binary blob', () => {
+    const action = buildPersonalSignAction(['0x0001020304050607', SENDER]);
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'undisplayable message',
+    });
+  });
+
+  it('refuses text containing a bare control character', () => {
+    // BEL (U+0007) embedded in otherwise-normal text
+    const action = buildPersonalSignAction([
+      textToHex(`ding${String.fromCharCode(7)}dong`),
+      SENDER,
+    ]);
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'undisplayable message',
+    });
+  });
+
+  it('refuses invalid UTF-8 hex', () => {
+    // 0xc3 opens a two-byte sequence that never completes
+    const action = buildPersonalSignAction(['0xc3c3', SENDER]);
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'undisplayable message',
+    });
+  });
+
+  it('refuses an oversized message', () => {
+    const action = buildPersonalSignAction([
+      textToHex('a'.repeat(5000)),
+      SENDER,
+    ]);
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'message too long',
+    });
+  });
+
+  it('refuses an empty or whitespace-only message', () => {
+    expect(
+      plan(buildPersonalSignAction([textToHex('   \n '), SENDER])),
+    ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
+    expect(plan(buildPersonalSignAction(['0x', SENDER]))).toEqual({
+      mode: 'fallback',
+      reason: 'undisplayable message',
+    });
+  });
+
+  it('refuses a non-personal_sign method by name', () => {
+    expect(plan(nativeAction)).toEqual({
+      mode: 'fallback',
+      reason: 'method eth_sendTransaction',
+    });
+  });
+
+  it('refuses when no option is selected', () => {
+    const action = buildPersonalSignAction([textToHex('hi there'), SENDER]);
+    expect(
+      getWcPayInlinePersonalSignPlan({
+        action,
+        option: undefined,
+        accountAddress: SENDER,
+      }),
+    ).toEqual({
+      mode: 'fallback',
+      reason: 'no selected option',
+    });
+  });
+
+  it('refuses unparseable params without throwing', () => {
+    const action: IWcPayAction = {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'personal_sign',
+        params: 'not-json',
+      },
+    };
+    expect(() => plan(action)).not.toThrow();
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'unparseable params',
+    });
+  });
+
+  it.each(MALFORMED_ACTIONS)('refuses %s', (_label, action) => {
+    expect(plan(action)).toEqual({
+      mode: 'fallback',
+      reason: 'malformed action',
+    });
   });
 });

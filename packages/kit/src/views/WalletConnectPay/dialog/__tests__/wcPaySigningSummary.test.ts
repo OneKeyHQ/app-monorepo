@@ -225,3 +225,39 @@ describe('describeWcPaySigningSummary — solana', () => {
     ).toBe('Signs the payment transaction');
   });
 });
+
+describe('personalSign summaries', () => {
+  const personalSign = (text: string) =>
+    ({ kind: 'personalSign', summary: { text } } as const);
+
+  it('uses a message headline that does not name the amount', () => {
+    expect(describeWcPaySigningHeadline(personalSign('hi'), '10 USDC')).toBe(
+      'Sign this message for the merchant',
+    );
+  });
+
+  it('renders the message text verbatim as the summary', () => {
+    const text = 'Pay order #123\nMerchant: Example';
+    expect(describeWcPaySigningSummary(personalSign(text))).toBe(text);
+  });
+});
+
+describe('approve summaries', () => {
+  const approve = (unlimited: boolean) =>
+    ({ kind: 'approve', summary: { symbol: 'USDT', unlimited } } as const);
+
+  it('names the token being allowed', () => {
+    expect(describeWcPaySigningHeadline(approve(false), '10 USDT')).toBe(
+      'Allow Permit2 to use your USDT',
+    );
+  });
+
+  it('describes the one-time setup, flagging an unlimited allowance', () => {
+    expect(describeWcPaySigningSummary(approve(false))).toBe(
+      'One-time setup for this payment',
+    );
+    expect(describeWcPaySigningSummary(approve(true))).toBe(
+      'One-time setup for this payment · Unlimited allowance',
+    );
+  });
+});

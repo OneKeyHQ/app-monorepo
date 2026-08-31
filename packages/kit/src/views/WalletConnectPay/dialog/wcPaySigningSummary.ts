@@ -17,18 +17,28 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * 60;
 
 /**
- * The headline is split on `kind` rather than shared, because the two
- * signatures commit to different things: a Permit2 payload authorizes a
- * spender to pull the amount later, while the Solana leg signs the transfer
- * itself — irreversible once submitted, and not an allowance.
+ * The headline is split on `kind` rather than shared, because each signature
+ * commits to a different thing: a Permit2 payload authorizes a spender to
+ * pull the amount later, the Solana leg signs the transfer itself —
+ * irreversible once submitted, not an allowance — an approve grants Permit2
+ * the standing allowance the later permit draws on, and a personal_sign
+ * commits to a message whose content is the summary itself.
  */
 export function describeWcPaySigningHeadline(
   summary: IWcPayInlineSigningSummary,
   amountText: string,
 ): string {
-  return summary.kind === 'typedData'
-    ? `Authorize ${amountText} for this payment`
-    : `Sign this ${amountText} payment`;
+  switch (summary.kind) {
+    case 'typedData':
+      return `Authorize ${amountText} for this payment`;
+    case 'personalSign':
+      return 'Sign this message for the merchant';
+    case 'approve':
+      return `Allow Permit2 to use your ${summary.summary.symbol}`;
+    case 'solana':
+    default:
+      return `Sign this ${amountText} payment`;
+  }
 }
 
 /**
@@ -69,6 +79,17 @@ export function describeWcPaySigningSummary(
   summary: IWcPayInlineSigningSummary,
   nowMs: number = Date.now(),
 ): string {
+  if (summary.kind === 'personalSign') {
+    // The message IS the disclosure: the gate guaranteed displayable text,
+    // so it is rendered verbatim rather than described.
+    return summary.summary.text;
+  }
+  if (summary.kind === 'approve') {
+    // copy pending product i18n keys
+    return summary.summary.unlimited
+      ? 'One-time setup for this payment · Unlimited allowance'
+      : 'One-time setup for this payment';
+  }
   if (summary.kind === 'typedData') {
     // A permit hands a named spender a standing pull of the amount, so the
     // spender and how long it lasts are the two facts the amount alone does
