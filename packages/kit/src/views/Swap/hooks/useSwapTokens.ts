@@ -119,10 +119,9 @@ export function useSwapTokenList(
   );
   const swapSupportAllAccountsRequestKey = useMemo(
     () =>
-      [
-        swapSupportAllAccountsCacheKey,
-        swapAddressInfo.deriveType ?? '',
-      ].join('__'),
+      [swapSupportAllAccountsCacheKey, swapAddressInfo.deriveType ?? ''].join(
+        '__',
+      ),
     [swapAddressInfo.deriveType, swapSupportAllAccountsCacheKey],
   );
   const swapSupportAllAccountsReadCacheKey =
