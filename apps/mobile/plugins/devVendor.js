@@ -127,6 +127,10 @@ function computeReleaseCompatibilityKey(
   return sha256(
     JSON.stringify({
       configInputsDigest: computeConfigInputsDigest(repoRoot, env, registry),
+      releaseInputsDigest: hashRepoFiles(
+        devVendorConfig.releaseFingerprintFiles,
+        repoRoot,
+      ),
       registryEpoch: registry.registryEpoch,
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,

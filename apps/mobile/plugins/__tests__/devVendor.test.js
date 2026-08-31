@@ -38,6 +38,7 @@ const {
   computeFingerprint,
   computeModulesDigest,
   computeRegistryInputsDigest,
+  computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getPlatformOutputDirectory,
@@ -188,7 +189,11 @@ function createTemporaryRuntimeFixture() {
   const temporaryRepoRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'onekey-dev-vendor-runtime-'),
   );
-  for (const relativePath of devVendorConfig.fingerprintFiles) {
+  const fixtureFiles = new Set([
+    ...devVendorConfig.fingerprintFiles,
+    ...devVendorConfig.releaseFingerprintFiles,
+  ]);
+  for (const relativePath of fixtureFiles) {
     const destination = path.join(temporaryRepoRoot, relativePath);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, relativePath), destination);
@@ -442,6 +447,22 @@ describe('devVendor', () => {
     expect(computeRegistryInputsDigest(vendorChange)).not.toBe(
       computeRegistryInputsDigest(registry),
     );
+  });
+
+  it('invalidates release compatibility when the transport changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const baseline = computeReleaseCompatibilityKey(fixture.repoRoot);
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, devVendorConfig.releaseFingerprintFiles[0]),
+        '\n// changed release transport\n',
+      );
+      expect(computeReleaseCompatibilityKey(fixture.repoRoot)).not.toBe(
+        baseline,
+      );
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
   });
 
   it('uses code-point ordering for manifest module paths', () => {

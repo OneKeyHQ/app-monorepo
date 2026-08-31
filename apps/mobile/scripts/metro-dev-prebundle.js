@@ -49,6 +49,8 @@ function assertSafeFileName(fileName) {
   if (
     typeof fileName !== 'string' ||
     fileName.length === 0 ||
+    fileName === '.' ||
+    fileName === '..' ||
     path.basename(fileName) !== fileName
   ) {
     throw new Error(
@@ -56,6 +58,26 @@ function assertSafeFileName(fileName) {
     );
   }
   return fileName;
+}
+
+function assertSafeOutputDirectory({ outputDirectory, projectRoot }) {
+  const resolvedOutputDirectory = path.resolve(outputDirectory);
+  const allowedOutputRoot = path.resolve(projectRoot, 'out-dir-bundle');
+  const relativePath = path.relative(
+    allowedOutputRoot,
+    resolvedOutputDirectory,
+  );
+  if (
+    !relativePath ||
+    relativePath === '..' ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error(
+      `[metroDevPrebundle] Release output must be inside ${allowedOutputRoot}.`,
+    );
+  }
+  return resolvedOutputDirectory;
 }
 
 async function getAssetMetadata(filePath) {
@@ -298,6 +320,10 @@ async function packagePrebundleRelease({
       '[metroDevPrebundle] package requires a 40-character source commit.',
     );
   }
+  const releaseOutputDirectory = assertSafeOutputDirectory({
+    outputDirectory,
+    projectRoot,
+  });
   const registry = loadRegistry();
   const compatibilityKey = computeReleaseCompatibilityKey(
     repoRoot,
@@ -307,8 +333,8 @@ async function packagePrebundleRelease({
   const tagName = `${devVendorConfig.releaseTagPrefix}-${compatibilityKey}`;
   const platformManifests = {};
   const platforms = {};
-  await fs.remove(outputDirectory);
-  await fs.ensureDir(outputDirectory);
+  await fs.remove(releaseOutputDirectory);
+  await fs.ensureDir(releaseOutputDirectory);
   try {
     for (const platform of SUPPORTED_PLATFORMS) {
       const artifactDirectory = getPlatformOutputDirectory(
@@ -324,7 +350,10 @@ async function packagePrebundleRelease({
         repoRoot,
       });
       const names = getPlatformAssetNames(platform);
-      const releaseManifestPath = path.join(outputDirectory, names.manifest);
+      const releaseManifestPath = path.join(
+        releaseOutputDirectory,
+        names.manifest,
+      );
       const sourcePath = path.join(
         artifactDirectory,
         manifest.common.source.file,
@@ -333,8 +362,14 @@ async function packagePrebundleRelease({
         artifactDirectory,
         manifest.common.bytecode.file,
       );
-      const compressedSourcePath = path.join(outputDirectory, names.source);
-      const compressedBytecodePath = path.join(outputDirectory, names.bytecode);
+      const compressedSourcePath = path.join(
+        releaseOutputDirectory,
+        names.source,
+      );
+      const compressedBytecodePath = path.join(
+        releaseOutputDirectory,
+        names.bytecode,
+      );
       await fs.copyFile(manifestPath, releaseManifestPath);
       await gzipFile(sourcePath, compressedSourcePath);
       await gzipFile(bytecodePath, compressedBytecodePath);
@@ -348,10 +383,13 @@ async function packagePrebundleRelease({
 
     const packages = collectPackageInventory(platformManifests, repoRoot);
     const packageInventoryPath = path.join(
-      outputDirectory,
+      releaseOutputDirectory,
       PACKAGE_INVENTORY_NAME,
     );
-    const noticesPath = path.join(outputDirectory, THIRD_PARTY_NOTICES_NAME);
+    const noticesPath = path.join(
+      releaseOutputDirectory,
+      THIRD_PARTY_NOTICES_NAME,
+    );
     const inventoryPackages = packages.map((packageRecord) => ({
       ...packageRecord,
       licenseFiles: packageRecord.licenseFiles.map(({ name }) => name),
@@ -389,12 +427,12 @@ async function packagePrebundleRelease({
       tagName,
     };
     await fs.writeFile(
-      path.join(outputDirectory, RELEASE_MANIFEST_NAME),
+      path.join(releaseOutputDirectory, RELEASE_MANIFEST_NAME),
       `${JSON.stringify(releaseManifest, null, 2)}\n`,
     );
     return releaseManifest;
   } catch (error) {
-    await fs.remove(outputDirectory);
+    await fs.remove(releaseOutputDirectory);
     throw error;
   }
 }
@@ -498,13 +536,24 @@ async function downloadReleaseAsset({
       `[metroDevPrebundle] Downloaded asset is too large: ${fileName}.`,
     );
   }
-  const content = Buffer.from(await response.arrayBuffer());
-  if (content.length > maxBytes) {
+  if (!response.body) {
     throw new Error(
-      `[metroDevPrebundle] Downloaded asset is too large: ${fileName}.`,
+      `[metroDevPrebundle] Downloaded asset has no response body: ${fileName}.`,
     );
   }
-  return content;
+  const chunks = [];
+  let receivedBytes = 0;
+  for await (const chunk of response.body) {
+    const bytes = Buffer.from(chunk);
+    receivedBytes += bytes.length;
+    if (receivedBytes > maxBytes) {
+      throw new Error(
+        `[metroDevPrebundle] Downloaded asset is too large: ${fileName}.`,
+      );
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks, receivedBytes);
 }
 
 function assertDownloadedAsset(content, metadata) {
@@ -677,6 +726,7 @@ module.exports = {
   PACKAGE_INVENTORY_NAME,
   RELEASE_MANIFEST_NAME,
   THIRD_PARTY_NOTICES_NAME,
+  assertSafeOutputDirectory,
   collectPackageInventory,
   createThirdPartyNotices,
   downloadReleaseAsset,

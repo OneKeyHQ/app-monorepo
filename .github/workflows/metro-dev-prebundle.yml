@@ -6,12 +6,6 @@ on:
     - cron: '0 18 * * *'
   workflow_dispatch:
 
-permissions:
-  attestations: write
-  contents: write
-  id-token: write
-  packages: read
-
 concurrency:
   group: metro-dev-prebundle-x
   cancel-in-progress: false
@@ -20,11 +14,17 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  publish:
-    name: Publish public prebundle
+  build:
+    name: Build public prebundle
     if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    permissions:
+      contents: read
+      packages: read
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      exists: ${{ steps.release.outputs.exists }}
+      tag: ${{ steps.release.outputs.tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -73,17 +73,74 @@ jobs:
           yarn workspace @onekeyhq/mobile metro-dev-prebundle:package
           --source-commit "$GITHUB_SHA"
 
-      - name: Generate build provenance attestations
+      - name: Upload prebundle release assets
         if: steps.release.outputs.exists != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-dev-prebundle-release
+          path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Write build summary
+        env:
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          {
+            echo "### Metro dev prebundle"
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Already existed: \`$RELEASE_EXISTS\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish public prebundle
+    needs: build
+    if: needs.build.outputs.exists != 'true'
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Download prebundle release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: metro-dev-prebundle-release
+          path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release
+
+      - name: Verify downloaded release asset set
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          for asset in \
+            THIRD_PARTY_NOTICES.txt \
+            metro-dev-prebundle-packages.json \
+            metro-dev-prebundle-release.json \
+            metro-dev-prebundle-ios-common.js.gz \
+            metro-dev-prebundle-ios-common.hbc.gz \
+            metro-dev-prebundle-ios-manifest.json \
+            metro-dev-prebundle-android-common.js.gz \
+            metro-dev-prebundle-android-common.hbc.gz \
+            metro-dev-prebundle-android-manifest.json; do
+            test -s "$release_dir/$asset"
+          done
+
+      - name: Generate build provenance attestations
         uses: actions/attest@v4
         with:
           subject-path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/*
 
       - name: Publish pre-release
-        if: steps.release.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
           set -euo pipefail
           gh release create "$RELEASE_TAG" \
@@ -94,13 +151,12 @@ jobs:
             --prerelease \
             --latest=false
 
-      - name: Write summary
+      - name: Write publish summary
         env:
-          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
         run: |
           {
             echo "### Metro dev prebundle"
             echo "- Tag: \`$RELEASE_TAG\`"
-            echo "- Already existed: \`$RELEASE_EXISTS\`"
+            echo "- Published: \`true\`"
           } >> "$GITHUB_STEP_SUMMARY"

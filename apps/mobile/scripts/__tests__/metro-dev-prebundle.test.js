@@ -17,7 +17,9 @@ const {
   PACKAGE_INVENTORY_NAME,
   RELEASE_MANIFEST_NAME,
   THIRD_PARTY_NOTICES_NAME,
+  assertSafeOutputDirectory,
   collectPackageInventory,
+  downloadReleaseAsset,
   packagePrebundleRelease,
   parseArgs,
   restorePlatformFromRelease,
@@ -28,7 +30,11 @@ function createTemporaryRepo() {
   const repoRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'onekey-metro-dev-prebundle-'),
   );
-  for (const relativePath of devVendorConfig.fingerprintFiles) {
+  const fixtureFiles = new Set([
+    ...devVendorConfig.fingerprintFiles,
+    ...devVendorConfig.releaseFingerprintFiles,
+  ]);
+  for (const relativePath of fixtureFiles) {
     const destination = path.join(repoRoot, relativePath);
     fs.ensureDirSync(path.dirname(destination));
     fs.copyFileSync(path.join(REPO_ROOT, relativePath), destination);
@@ -112,6 +118,47 @@ function createReleaseFetch(outputDirectory) {
 }
 
 describe('metro-dev-prebundle release transport', () => {
+  it('rejects protected release output directories', () => {
+    const repoRoot = path.resolve('/tmp/example-repo');
+    const projectRoot = path.join(repoRoot, 'apps/mobile');
+    const allowedOutputRoot = path.join(projectRoot, 'out-dir-bundle');
+    expect(() =>
+      assertSafeOutputDirectory({
+        outputDirectory: repoRoot,
+        projectRoot,
+      }),
+    ).toThrow('Release output must be inside');
+    expect(() =>
+      assertSafeOutputDirectory({
+        outputDirectory: allowedOutputRoot,
+        projectRoot,
+      }),
+    ).toThrow('Release output must be inside');
+    expect(
+      assertSafeOutputDirectory({
+        outputDirectory: path.join(allowedOutputRoot, 'release'),
+        projectRoot,
+      }),
+    ).toBe(path.join(allowedOutputRoot, 'release'));
+  });
+
+  it('enforces download limits while streaming bodies without a length', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      new Response(Buffer.alloc(6), {
+        headers: { 'content-type': 'application/octet-stream' },
+      }),
+    );
+    await expect(
+      downloadReleaseAsset({
+        fetchImpl,
+        fileName: 'asset.bin',
+        maxBytes: 5,
+        releaseBaseUrl: 'https://example.invalid/release',
+        tagName: 'test',
+      }),
+    ).rejects.toThrow('Downloaded asset is too large');
+  });
+
   it('uses the dependency package root instead of nested package metadata', () => {
     const repoRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-metro-package-root-'),
@@ -175,7 +222,10 @@ describe('metro-dev-prebundle release transport', () => {
 
   it('packages, verifies, and atomically restores a public prebundle', async () => {
     const fixture = createTemporaryRepo();
-    const outputDirectory = path.join(fixture.repoRoot, 'release');
+    const outputDirectory = path.join(
+      fixture.projectRoot,
+      'out-dir-bundle/test-release',
+    );
     try {
       const releaseManifest = await packagePrebundleRelease({
         outputDirectory,
