@@ -163,7 +163,7 @@ export const TradingViewNativeChart = memo(
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
     const [measuredPriceAxisWidth, setMeasuredPriceAxisWidth] = useState(0);
     const [measuredMainChartBottomInset, setMeasuredMainChartBottomInset] =
-      useState(TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT);
+      useState(timeAxisHeight);
     const [webFontMeasureVersion, setWebFontMeasureVersion] = useState(0);
     const [viewportState, setViewportState] = useState(
       () => runtimeStateRef.current.viewport,
@@ -559,6 +559,7 @@ export const TradingViewNativeChart = memo(
           getTradingViewNativeMainPriceAxisLayout({
             height: canvas.clientHeight,
             paneCount: visibleSubIndicatorPaneCount,
+            timeAxisHeight,
           }).bottomInset;
         setMeasuredMainChartBottomInset((currentInset) =>
           currentInset === nextMainChartBottomInset
@@ -577,6 +578,7 @@ export const TradingViewNativeChart = memo(
       priceAxisFontSize,
       priceAxisLabels,
       renderChart,
+      timeAxisHeight,
       visibleSubIndicatorPaneCount,
       webFontMeasureVersion,
       zoomScale,
@@ -981,6 +983,7 @@ export const TradingViewNativeChart = memo(
             paneCount: visibleSubIndicatorPaneCount,
             priceAxisFontSize,
             priceScale: priceScaleModelRef.current,
+            timeAxisHeight,
           })
         ) {
           handlePriceScaleWheel(wheelDelta.deltaY);
@@ -1045,6 +1048,7 @@ export const TradingViewNativeChart = memo(
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
+        timeAxisHeight,
         visibleSubIndicatorPaneCount,
       ],
     );

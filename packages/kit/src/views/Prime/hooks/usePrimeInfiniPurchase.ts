@@ -52,7 +52,11 @@ async function ensurePrimeLoggedIn(
   return isLoggedIn;
 }
 
-export function usePrimeInfiniPurchase() {
+export function usePrimeInfiniPurchase({
+  networkId,
+}: {
+  networkId?: string;
+} = {}) {
   const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
 
@@ -213,6 +217,11 @@ export function usePrimeInfiniPurchase() {
             onekeyUserId: purchaserUserId,
             featureName,
             checkoutUrl,
+            renewalBaselineInfiniPeriodEnd:
+              baselineSnapshot.infiniSubscription?.currentPeriodEnd ?? 0,
+            baselineInfiniSubscriptionId:
+              baselineSnapshot.infiniSubscription?.subscriptionId?.trim() ||
+              null,
           },
         });
         // Keep the waiting state visible before handing control to the system
@@ -259,9 +268,11 @@ export function usePrimeInfiniPurchase() {
     async ({
       selectedSubscriptionPeriod,
       featureName,
+      createNewPayment = true,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
+      createNewPayment?: boolean;
     }) => {
       const plan: IPrimeInfiniSubscriptionPlan =
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
@@ -304,7 +315,8 @@ export function usePrimeInfiniPurchase() {
           params: {
             selectedSubscriptionPeriod,
             featureName,
-            createNewPayment: true,
+            createNewPayment,
+            networkId,
           },
         });
         logPrimeInfiniPaymentFlow({
@@ -330,7 +342,7 @@ export function usePrimeInfiniPurchase() {
         isWalletPaymentPageOpening = false;
       }
     },
-    [intl, navigation],
+    [intl, navigation, networkId],
   );
 
   return { purchaseByCrypto, purchaseByExternalCheckout };

@@ -9,9 +9,9 @@ import {
   isPrimeInfiniPaymentCacheKeyForContext,
   isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
+  isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
-  isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniNetworkAddress,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentCacheKey,
@@ -324,6 +324,9 @@ function isValidInfiniPendingPaymentSession(
     !Number.isFinite(session.updatedAt) ||
     !isOptionalFiniteNumber(session.baseline.primeExpiresAt) ||
     !isOptionalFiniteNumber(session.baseline.infiniPeriodEnd) ||
+    (session.baseline.infiniSubscriptionId !== undefined &&
+      session.baseline.infiniSubscriptionId !== null &&
+      !isNonEmptyString(session.baseline.infiniSubscriptionId)) ||
     (session.plan !== 'monthly' && session.plan !== 'yearly') ||
     (session.selectedSubscriptionPeriod !== 'P1M' &&
       session.selectedSubscriptionPeriod !== 'P1Y') ||
@@ -1877,10 +1880,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }: {
     onekeyUserId: string;
     expectedPaymentCacheIdentity?: IPrimeInfiniPaymentCacheKey;
-  }) {
+  }): Promise<boolean> {
     if (!onekeyUserId) {
-      return;
+      return false;
     }
+    let didClear = false;
     await this.setRawData((rawData) => {
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
@@ -1896,11 +1900,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           ),
         );
       let nextRawData = rawData ?? {};
-      if (currentSession && currentMatchesExpected) {
+      if (!currentSession) {
+        didClear = true;
+      } else if (currentMatchesExpected) {
         const nextSessions = {
           ...rawData?.infiniPendingPaymentSessionByUserId,
         };
         delete nextSessions[onekeyUserId];
+        didClear = true;
         nextRawData = {
           ...rawData,
           infiniPendingPaymentSessionByUserId: nextSessions,
@@ -1915,6 +1922,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           })
         : nextRawData;
     });
+    return didClear;
   }
 
   @backgroundMethod()
@@ -2196,7 +2204,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           currentSession.paymentCacheKey,
         ) ||
         purchaseStatusSnapshot.onekeyUserId !== onekeyUserId ||
-        isPrimeInfiniPurchaseCompletedSnapshot({
+        isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
           baseline: currentSession.baseline,
           purchaseStatusSnapshot,
         }) ||

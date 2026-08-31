@@ -1,6 +1,4 @@
-import { TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT } from '../chartConstants';
-
-import { getTradingViewNativeSubIndicatorPaneStackHeight } from './subIndicatorRender';
+import { getTradingViewNativeMainPriceAxisLayout } from './priceAxisScale';
 
 const ANDROID_LARGE_WINDOW_MIN_DIMENSION = 600;
 
@@ -79,16 +77,17 @@ export function getTradingViewNativeFullscreenLayout({
 export function getTradingViewNativeFullscreenButtonBottom({
   chartHeight,
   paneCount,
+  timeAxisHeight,
 }: {
   chartHeight: number;
   paneCount: number;
+  timeAxisHeight?: number;
 }) {
   return (
-    TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT +
-    getTradingViewNativeSubIndicatorPaneStackHeight({
+    getTradingViewNativeMainPriceAxisLayout({
       height: chartHeight,
       paneCount,
-    }) +
-    8
+      timeAxisHeight,
+    }).bottomInset + 8
   );
 }

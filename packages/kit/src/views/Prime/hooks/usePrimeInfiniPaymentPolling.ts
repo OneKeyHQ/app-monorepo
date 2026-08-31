@@ -289,6 +289,9 @@ export function usePrimeInfiniPaymentPolling({
     baseline.wasPrimeActive ? 'active' : 'inactive',
     baseline.primeExpiresAt ?? '',
     baseline.infiniPeriodEnd ?? '',
+    baseline.infiniSubscriptionId === undefined
+      ? 'legacy'
+      : (baseline.infiniSubscriptionId ?? 'none'),
   ].join(':');
   const monitor = usePrimePurchaseMonitor<
     IPrimeInfiniPaymentMonitorData,
