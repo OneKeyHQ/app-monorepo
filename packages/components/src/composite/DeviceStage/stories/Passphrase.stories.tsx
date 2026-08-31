@@ -19,7 +19,8 @@ const meta = {
     deviceType: 'pro2',
     deviceName: DEMO.deviceName,
     // The flow spec's plain entry shape; flip to 'create' for the
-    // Add-hidden-wallet titling and its empty-entry refusal.
+    // Add-hidden-wallet titling and its Keep-accessible switch. The
+    // empty-entry refusal is common to both.
     passphraseMode: 'verify',
   },
   argTypes: {
