@@ -112,6 +112,7 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
       screen: EPrimePages.PrimeInfiniPayment,
       params: {
+        flowId: expect.any(String),
         selectedSubscriptionPeriod: 'P1Y',
         featureName: undefined,
         createNewPayment: true,
