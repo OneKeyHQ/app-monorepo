@@ -128,6 +128,8 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        disableTrade: true,
+        showFavoriteButton: false,
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -142,6 +144,8 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: undefined,
       from: undefined,
+      disableTrade: true,
+      showFavoriteButton: false,
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
@@ -220,6 +224,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        disableTrade: true,
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -234,6 +239,7 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: undefined,
       from: EEnterWay.ExtensionPopup,
+      disableTrade: true,
       showFavoriteButton: false,
     });
     expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();

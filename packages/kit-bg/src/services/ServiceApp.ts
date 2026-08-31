@@ -459,6 +459,7 @@ class ServiceApp extends ServiceBase {
     network?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    disableTrade?: boolean;
     showFavoriteButton?: boolean;
   }) {
     const {
@@ -467,6 +468,7 @@ class ServiceApp extends ServiceBase {
       network,
       isNative,
       from,
+      disableTrade,
       showFavoriteButton,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -482,6 +484,9 @@ class ServiceApp extends ServiceBase {
     }
     if (from) {
       routeParams.from = from;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
     }
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;

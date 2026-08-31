@@ -444,6 +444,7 @@ export function DesktopLayout({
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
           }
+          disableTrade={disableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}

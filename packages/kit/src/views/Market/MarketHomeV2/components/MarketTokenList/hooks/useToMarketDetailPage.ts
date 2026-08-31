@@ -145,8 +145,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             network: tokenParams.network,
             isNative: tokenParams.isNative,
             from: options?.from,
-            ...(typeof options?.showFavoriteButton === 'boolean'
-              ? { showFavoriteButton: options.showFavoriteButton }
+            ...(typeof tokenParams.disableTrade === 'boolean'
+              ? { disableTrade: tokenParams.disableTrade }
+              : undefined),
+            ...(typeof tokenParams.showFavoriteButton === 'boolean'
+              ? { showFavoriteButton: tokenParams.showFavoriteButton }
               : undefined),
           }
         : undefined;
@@ -173,6 +176,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             tokenAddress: tokenParams.tokenAddress,
             network: tokenParams.network,
             isNative: tokenParams.isNative,
+            disableTrade: tokenParams.disableTrade,
             showFavoriteButton: tokenParams.showFavoriteButton,
             from: tokenParams.from || enterSource,
           });

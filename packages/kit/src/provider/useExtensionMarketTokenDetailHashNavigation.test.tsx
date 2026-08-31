@@ -142,7 +142,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market stock detail hash with an optional token variant', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/stock/AAPL?network=eth&tokenAddress=0xaapl&from=ExtensionPopup',
+        '#/market/stock/AAPL?network=eth&tokenAddress=0xaapl&from=ExtensionPopup&disableTrade=true&showFavoriteButton=false',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketStockDetail,
@@ -151,6 +151,8 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         network: 'eth',
         tokenAddress: '0xaapl',
         from: 'ExtensionPopup',
+        disableTrade: true,
+        showFavoriteButton: false,
       },
     });
   });
