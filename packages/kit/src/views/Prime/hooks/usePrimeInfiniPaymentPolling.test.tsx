@@ -686,6 +686,50 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
+  it('keeps tracking and reports a structured failure when the refreshed transfer changes', async () => {
+    const payment = buildPayment('payment-a');
+    const onIssue = jest.fn();
+    const onTerminal = jest.fn();
+    servicePrime.apiGetInfiniPayment.mockResolvedValue({
+      ...payment,
+      amountDue: '19.99',
+    });
+    const { result, unmount } = renderHook(() =>
+      usePrimeInfiniPaymentPolling({
+        flowId: 'polling-flow',
+        payment,
+        asset,
+        baseline,
+        enabled: true,
+        onSuccess: jest.fn(),
+        onTerminal,
+        onIssue,
+        pollIntervalMs: 60_000,
+      }),
+    );
+    await waitFor(() =>
+      expect(onIssue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            paymentValidationFailure: 'transferSnapshotChanged',
+          }),
+        }),
+      ),
+    );
+    expect(result.current.latestPayment).toEqual(payment);
+    expect(onTerminal).not.toHaveBeenCalled();
+    expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowContext: expect.objectContaining({
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        }),
+      }),
+    );
+    unmount();
+  });
+
   it('reports both request errors from the same polling cycle', async () => {
     const payment = buildPayment('payment-a');
     const paymentError = new Error('payment endpoint failed');
@@ -716,13 +760,13 @@ describe('usePrimeInfiniPaymentPolling', () => {
     expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: 'paymentUnavailableOrSnapshotMismatch',
-        errorMessage: 'payment endpoint failed',
+        errorName: 'Error',
       }),
     );
     expect(mockPrimeCryptoPaymentError).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: 'purchaseStatusUnavailable',
-        errorMessage: 'purchase status endpoint failed',
+        errorName: 'Error',
       }),
     );
     unmount();
