@@ -624,7 +624,7 @@ export const SizeInput = memo(
                 {inputMode === 'token' ? symbol || tokenFallbackLabel : 'USD'}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
+                name="ChevronTriangleDownSmallSolid"
                 size="$4"
                 color="$iconSubdued"
               />
