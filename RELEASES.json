@@ -13,5 +13,23 @@
       "#12994"
     ],
     "notes": "Katana integration OK-58287 (#12589), fix: prevent DotMap row number wrapping (#12941), fix: stop perps order books overwriting each other's tick option (OK-59102, OK-59100) (#12957), fix: filter unmatched perps results for short search queries (OK-60751) (#12962), fix: prevent iOS hardware dialog overlay conflicts (#12964), Katana integration (#12589) (#12982), fix: remove creator program banner (#12994)"
+  },
+  {
+    "seq": 2,
+    "commit": "27a3cd2dcc3aca3d0f6474f53f23fb5e63b883f1",
+    "date": "2026-08-31T08:01:14Z",
+    "prs": [
+      "#12835",
+      "#12910",
+      "#12966",
+      "#12988",
+      "#12996",
+      "#13002",
+      "#13014",
+      "#13024",
+      "#13046",
+      "#13048"
+    ],
+    "notes": "feat: batch PSBT signing flow for BTC dapp signPsbts (#12835), fix: recover native notification permissions (#12910), fix: stabilize firmware updates and align hardware SDK (#12966), feat: add send address risk check (OK-61061) (#12988), fix: restore trusted Permit confirmation behavior (#12996), chore: release #1 (#13002), Defi banner ops & Risk Warning (#13014), fix: sync hardware firmware update state (#13024), fix: remove 0x token tax metadata(OK-61351) (#13046), fix: send app version for market seed request (#13048)"
   }
 ]
