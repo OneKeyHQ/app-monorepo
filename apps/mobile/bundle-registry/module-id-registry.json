@@ -22069,6 +22069,7 @@
     "packages/kit/src/views/Prime/pages/PrimeDashboard/primeSubscribeLoadingUtils.ts": 21738,
     "packages/kit/src/views/Prime/pages/PrimeDashboard/primeSubscriptionManagementUtils.ts": 21739,
     "packages/kit/src/views/Prime/pages/PrimeDashboard/usePrimeSubscribeResume.ts": 21740,
+    "packages/kit/src/views/Prime/pages/PrimeDashboard/usePrimeSubscriptionManagementTarget.ts": 23787,
     "packages/kit/src/views/Prime/pages/PrimeDeleteAccount/PrimeDeleteAccount.tsx": 21741,
     "packages/kit/src/views/Prime/pages/PrimeDeleteAccount/index.tsx": 21742,
     "packages/kit/src/views/Prime/pages/PrimeDeviceLimit/PrimeDeviceLimit.tsx": 21743,
