@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import TabView from '@onekeyfe/react-native-tab-view';
@@ -10,6 +10,8 @@ import {
   type TabNavigationState,
 } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
+
+import { Spinner, Stack } from '../../../primitives';
 
 import type {
   NativeBottomTabDescriptorMap,
@@ -29,23 +31,55 @@ const styles = StyleSheet.create({
   },
 });
 
+const COLD_SCENE_LOADING_DURATION_MS = 500;
+
+function SceneLoadingView() {
+  return (
+    <Stack
+      position="absolute"
+      top={0}
+      right={0}
+      bottom={0}
+      left={0}
+      alignItems="center"
+      justifyContent="center"
+      backgroundColor="$bgApp"
+      pointerEvents="none"
+    >
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
 function SceneReadyView({
   routeKey,
+  focused,
+  ready,
   onReady,
   children,
 }: {
   routeKey: string;
+  focused: boolean;
+  ready: boolean;
   onReady: (routeKey: string) => void;
   children: ReactNode;
 }) {
-  const handleLayout = useCallback(
-    () => onReady(routeKey),
-    [onReady, routeKey],
-  );
+  useEffect(() => {
+    if (ready || !focused) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      onReady(routeKey);
+    }, COLD_SCENE_LOADING_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [focused, onReady, ready, routeKey]);
 
   return (
-    <View style={styles.scene} onLayout={handleLayout}>
+    <View style={styles.scene}>
       {children}
+      {ready ? null : <SceneLoadingView />}
     </View>
   );
 }
@@ -68,16 +102,18 @@ export function NativeBottomTabView({
   }, []);
   const renderScene = useCallback(
     ({ route }: { route: Route<string> }) => (
-      <SceneReadyView routeKey={route.key} onReady={handleSceneReady}>
+      <SceneReadyView
+        routeKey={route.key}
+        focused={state.routes[state.index]?.key === route.key}
+        ready={readyRouteKeys.includes(route.key)}
+        onReady={handleSceneReady}
+      >
         {descriptors[route.key]?.render()}
       </SceneReadyView>
     ),
-    [descriptors, handleSceneReady],
+    [descriptors, handleSceneReady, readyRouteKeys, state.index, state.routes],
   );
-  const getSceneReady = useCallback(
-    ({ route }: { route: Route<string> }) => readyRouteKeys.includes(route.key),
-    [readyRouteKeys],
-  );
+  const renderLazyPlaceholder = useCallback(() => <SceneLoadingView />, []);
   const getActiveTintColor = useCallback(
     ({ route }: { route: Route<string> }) =>
       descriptors[route.key]?.options.tabBarActiveTintColor,
@@ -221,6 +257,7 @@ export function NativeBottomTabView({
       {...rest}
       navigationState={state}
       renderScene={renderScene}
+      renderLazyPlaceholder={renderLazyPlaceholder}
       getActiveTintColor={getActiveTintColor}
       getLabelText={getLabelText}
       getBadge={getBadge}
@@ -234,7 +271,6 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
-      getSceneReady={getSceneReady}
       onTabLongPress={onTabLongPress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}

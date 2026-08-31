@@ -1,66 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
-index a99d39ee99cb9bd4b324413f587a821976399a15..7eab38b952ad1db5db3f9d1abb76f54de53fdfdb 100644
+index a99d39ee99cb9bd4b324413f587a821976399a15..7d7af2ae62797b57656ae815cb44f96422085b49 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
 +++ b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
-@@ -7,2 +7,3 @@ import android.content.res.Configuration
- import androidx.appcompat.view.ContextThemeWrapper
-+import android.graphics.Canvas
- import android.graphics.drawable.ColorDrawable
-@@ -15,2 +16,3 @@ import android.util.TypedValue
- import android.view.Choreographer
-+import android.view.Gravity
- import android.view.HapticFeedbackConstants
-@@ -21,2 +23,3 @@ import android.widget.FrameLayout
- import android.widget.LinearLayout
-+import android.widget.ProgressBar
- import android.widget.TextView
-@@ -62 +65,45 @@ class ExtendedBottomNavigationView(context: Context) : BottomNavigationView(getM
-+private class TabContentContainer(context: Context) : FrameLayout(context) {
-+  private val loadingIndicator = ProgressBar(context).apply {
-+    visibility = GONE
-+  }
-+  private var afterNextContentDraw: (() -> Unit)? = null
-+
-+  init {
-+    addView(
-+      loadingIndicator,
-+      LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER)
-+    )
-+  }
-+
-+  fun addContent(child: View, params: ViewGroup.LayoutParams?) {
-+    addView(child, 0, params)
-+  }
-+
-+  fun showLoading() {
-+    afterNextContentDraw = null
-+    getChildAt(0)?.visibility = INVISIBLE
-+    loadingIndicator.visibility = VISIBLE
-+  }
-+
-+  fun prepareContent(onDrawn: () -> Unit) {
-+    getChildAt(0)?.visibility = VISIBLE
-+    loadingIndicator.visibility = VISIBLE
-+    afterNextContentDraw = onDrawn
-+    invalidate()
-+  }
-+
-+  fun showContent() {
-+    afterNextContentDraw = null
-+    getChildAt(0)?.visibility = VISIBLE
-+    loadingIndicator.visibility = GONE
-+  }
-+
-+  override fun dispatchDraw(canvas: Canvas) {
-+    super.dispatchDraw(canvas)
-+    val callback = afterNextContentDraw ?: return
-+    afterNextContentDraw = null
-+    postOnAnimation(callback)
-+  }
-+}
-+
- class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
-@@ -70,2 +117,14 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -70,2 +70,14 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
    var disablePageAnimations = false
 +    set(value) {
 +      if (field == value) {
@@ -75,101 +17,19 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7eab38b952ad1db5db3f9d1abb76f54d
 +      layoutHolder.requestLayout()
 +    }
    var items: MutableList<TabInfo> = mutableListOf()
-@@ -76,2 +135,4 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
-   private var selectedItem: String? = null
-+  private var pendingFirstSelection: String? = null
-+  private val presentedItems = mutableSetOf<String>()
-   private var activeTintColor: Int? = null
-@@ -163,2 +224,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
-   fun setSelectedItem(value: String) {
-+    if (selectedItem != value) {
-+      pendingFirstSelection = null
-+    }
-     selectedItem = value
-@@ -170,6 +234,55 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
-     val selectedIndex = items.indexOfFirst { it.key == selectedKey }
--    if (selectedIndex == -1 || selectedIndex >= layoutHolder.childCount) {
-+    if (
-+      selectedIndex == -1 ||
-+      selectedIndex >= layoutHolder.childCount
-+    ) {
-+      return
-+    }
-+    if (presentedItems.contains(selectedKey)) {
-+      pendingFirstSelection = null
-+      setSelectedIndex(selectedIndex)
-+      return
-+    }
-+    if (!disablePageAnimations) {
-+      if (items[selectedIndex].isLoaded) {
-+        setSelectedIndex(selectedIndex)
-+      }
-       return
-     }
--    setSelectedIndex(selectedIndex)
-+
-+    if (pendingFirstSelection == selectedKey) {
-+      return
-+    }
-+    showLoadingSelection(selectedIndex)
-+    if (!items[selectedIndex].isLoaded) {
-+      return
-+    }
-+    pendingFirstSelection = selectedKey
-+    val container = layoutHolder.getChildAt(selectedIndex) as? TabContentContainer ?: return
-+    container.prepareContent {
-+      if (pendingFirstSelection == selectedKey) {
-+        pendingFirstSelection = null
-+        val currentIndex = items.indexOfFirst { it.key == selectedKey }
-+        if (
-+          selectedItem == selectedKey &&
-+          currentIndex in 0 until layoutHolder.childCount &&
-+          items[currentIndex].isLoaded
-+        ) {
-+          setSelectedIndex(currentIndex)
-+        }
-+      }
-+    }
-+  }
-+
-+  private fun showLoadingSelection(itemId: Int) {
-+    bottomNavigation.selectedItemId = itemId
-+    layoutHolder.forEachIndexed { index, view ->
-+      if (index == itemId) {
-+        (view as? TabContentContainer)?.showLoading()
-+        toggleViewVisibility(view, true)
-+      } else {
-+        toggleViewVisibility(view, false)
-+      }
-+    }
-+    layoutHolder.invalidate()
-   }
-@@ -183,3 +296,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
-     val container = createContainer()
--    container.addView(child, params)
-+    container.addContent(child, params)
-     layoutHolder.addView(container, index)
-@@ -193,3 +306,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
--  private fun createContainer(): FrameLayout {
--    val container = FrameLayout(context).apply {
-+  private fun createContainer(): TabContentContainer {
-+    val container = TabContentContainer(context).apply {
-       layoutParams = FrameLayout.LayoutParams(
-@@ -199,3 +312,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -199,3 +211,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
        isSaveEnabled = false
 -      visibility = GONE
 +      visibility = if (disablePageAnimations) INVISIBLE else GONE
        isEnabled = false
-@@ -207,7 +320,22 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -207,7 +219,20 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
      bottomNavigation.selectedItemId = itemId
 -    if (!disablePageAnimations) {
 -      val fadeThrough = MaterialFadeThrough()
 -      TransitionManager.beginDelayedTransition(layoutHolder, fadeThrough)
-+    items.getOrNull(itemId)?.let { presentedItems.add(it.key) }
 +    if (disablePageAnimations) {
 +      // INVISIBLE scenes stay laid out, so this visibility swap is atomic at
 +      // the next draw boundary and does not expose an empty container frame.
-+      (layoutHolder.getChildAt(itemId) as? TabContentContainer)?.showContent()
 +      toggleViewVisibility(layoutHolder.getChildAt(itemId), true)
 +      layoutHolder.forEachIndexed { index, view ->
 +        if (itemId != index) {
@@ -187,7 +47,7 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7eab38b952ad1db5db3f9d1abb76f54d
 +    TransitionManager.beginDelayedTransition(layoutHolder, fadeThrough)
 +    // Apply every visibility change to the transition's captured frame.
      layoutHolder.forEachIndexed { index, view ->
-@@ -228,2 +356,8 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -228,2 +253,8 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
 -    view.visibility = if (isVisible) VISIBLE else GONE
 +    view.visibility = if (isVisible) {
 +      VISIBLE
@@ -197,33 +57,31 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7eab38b952ad1db5db3f9d1abb76f54d
 +      GONE
 +    }
      view.isEnabled = isVisible
-@@ -234,2 +368,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -234,2 +265,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
      selectedItem.let {
 +      if (!selectedItem.preventsDefault) {
 +        setSelectedItem(selectedItem.key)
 +      }
        onTabSelectedListener?.invoke(selectedItem.key)
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
-index 79bfa4b2e30665d92e1cd76066d5175eba4b98cc..6f023261f3a3806bd602599941f19aaf4b925065 100644
+index 79bfa4b2e30665d92e1cd76066d5175eba4b98cc..7011ae3094a58e6267608cd849e5daa77bb9556c 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
 +++ b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
-@@ -112,3 +112,5 @@ class RCTTabViewManager(context: ReactApplicationContext) :
+@@ -112,3 +112,4 @@ class RCTTabViewManager(context: ReactApplicationContext) :
                hidden = if (item.hasKey("hidden")) item.getBoolean("hidden") else false,
 -              testID = item.getString("testID")
 +              testID = item.getString("testID"),
-+              preventsDefault = if (item.hasKey("preventsDefault")) item.getBoolean("preventsDefault") else false,
-+              isLoaded = if (item.hasKey("isLoaded")) item.getBoolean("isLoaded") else false
++              preventsDefault = if (item.hasKey("preventsDefault")) item.getBoolean("preventsDefault") else false
              )
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/TabInfo.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/TabInfo.kt
-index c728193d7de230493b5595736f385124665886ef..8c86137ce4cadca924deed23b0d1b66472f71de9 100644
+index c728193d7de230493b5595736f385124665886ef..9eb938a395d367a2e1d60ca0036345c44e65d7d6 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/TabInfo.kt
 +++ b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/TabInfo.kt
-@@ -10,3 +10,5 @@ data class TabInfo(
+@@ -10,3 +10,4 @@ data class TabInfo(
    val hidden: Boolean = false,
 -  val testID: String? = null
 +  val testID: String? = null,
-+  val preventsDefault: Boolean = false,
-+  val isLoaded: Boolean = false
++  val preventsDefault: Boolean = false
  )
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
 index 302f239fd8ca6576ca9cd594e57c3ef2c3133a6b..386998c5b03635521eaa9aebf7adc92e28fd068e 100644
@@ -270,80 +128,66 @@ index 302f239fd8ca6576ca9cd594e57c3ef2c3133a6b..386998c5b03635521eaa9aebf7adc92e
 +  }
  }
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
-index 917dd5aef6a35e8103f5f86e2a63f1c41b1943f5..f4704cadf4bc5997a7b0063e0bbe48c2a16fbfd5 100644
+index 917dd5aef6a35e8103f5f86e2a63f1c41b1943f5..8edfa20a2ba9baabe13a73a23b944a1ffa04c4b3 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
-@@ -57,2 +57,3 @@ const TabView = ({
-   }) => route.style,
-+  getSceneReady,
-   getPreventsDefault = ({
-@@ -154,5 +155,8 @@ const TabView = ({
-         route
--      })
-+      }),
-+      isLoaded: getSceneReady?.({
-+        route
-+      }) ?? loaded.includes(route.key)
-     };
--  }), [trimmedRoutes, icons, getLabelText, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getActiveTintColor, getHidden, getTestID, getRole, getPreventsDefault]);
-+  }), [trimmedRoutes, icons, getLabelText, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getActiveTintColor, getHidden, getTestID, getRole, getPreventsDefault, getSceneReady, loaded]);
-   const resolvedIconAssets = React.useMemo(() => icons.map(icon => {
+@@ -18,2 +18,3 @@ const TabView = ({
+   renderScene,
++  renderLazyPlaceholder,
+   onIndexChange,
+@@ -266,3 +267,6 @@ const TabView = ({
+             collapsable: false,
+-            style: styles.fullWidth
++            style: styles.fullWidth,
++            children: renderLazyPlaceholder?.({
++              route
++            })
+           }, route.key);
 @@ -311,2 +315,2 @@ const styles = StyleSheet.create({
  export default TabView;
 -//# sourceMappingURL=TabView.js.map
 \ No newline at end of file
 +//# sourceMappingURL=TabView.js.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
-index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..199853c0a1fb22baec217a20d10de99466b31e1f 100644
+index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..6798f268892a1b09eba5008311e090dc4c30955f 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
-@@ -144,2 +144,8 @@ interface Props<Route extends BaseRoute> {
-     }) => StyleProp<ViewStyle>;
+@@ -53,2 +53,8 @@ interface Props<Route extends BaseRoute> {
+     }) => React.ReactNode | null;
 +    /**
-+     * Whether a scene has laid out renderable content. (Android only)
++     * Function which takes a route and returns a placeholder for an unloaded lazy scene.
 +     */
-+    getSceneReady?: (props: {
++    renderLazyPlaceholder?: (props: {
 +        route: Route;
-+    }) => boolean | undefined;
-     tabBarStyle?: {
++    }) => React.ReactNode | null;
+     /**
 @@ -181,4 +187,4 @@ interface Props<Route extends BaseRoute> {
  }
 -declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, activeIndicatorColor, delayedFreeze, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
-+declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getSceneReady, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, activeIndicatorColor, delayedFreeze, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
++declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, renderLazyPlaceholder, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, activeIndicatorColor, delayedFreeze, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
  export default TabView;
 -//# sourceMappingURL=TabView.d.ts.map
 \ No newline at end of file
 +//# sourceMappingURL=TabView.d.ts.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
-index ad7afed155226491d0b7e68bd292e4a8b989b69c..23d4c929d47f1bc3ad44d13382fc7832fc5c27eb 100644
+index ad7afed155226491d0b7e68bd292e4a8b989b69c..ab8c8a6500bfd5c028056f9a80903b2cbb637027 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
 +++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
-@@ -157,2 +157,7 @@ interface Props<Route extends BaseRoute> {
- 
+@@ -83,2 +83,6 @@ interface Props<Route extends BaseRoute> {
+   }) => React.ReactNode | null;
 +  /**
-+   * Whether a scene has laid out renderable content. (Android only)
++   * Function which takes a route and returns a placeholder for an unloaded lazy scene.
 +   */
-+  getSceneReady?: (props: { route: Route }) => boolean | undefined;
-+
-   tabBarStyle?: {
-@@ -223,2 +228,3 @@ const TabView = <Route extends BaseRoute>({
-   getSceneStyle = ({ route }: { route: Route }) => route.style,
-+  getSceneReady,
-   getPreventsDefault = ({ route }: { route: Route }) => route.preventsDefault,
-@@ -323,2 +329,3 @@ const TabView = <Route extends BaseRoute>({
-           preventsDefault: getPreventsDefault?.({ route }),
-+          isLoaded: getSceneReady?.({ route }) ?? loaded.includes(route.key),
-         };
-@@ -337,2 +344,4 @@ const TabView = <Route extends BaseRoute>({
-       getPreventsDefault,
-+      getSceneReady,
-+      loaded,
-     ]
-diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts b/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
-index b9044262c892814d69b7f5efdbfbfbf05af1402e..fb83c8a1a067bcb8d8a0551e4a46014f3877b538 100644
---- a/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
-+++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
-@@ -36,2 +36,3 @@ export type TabViewItems = ReadonlyArray<{
-   preventsDefault?: boolean;
-+  isLoaded?: boolean;
- }>;
++  renderLazyPlaceholder?: (props: { route: Route }) => React.ReactNode | null;
+   /**
+@@ -201,2 +205,3 @@ const TabView = <Route extends BaseRoute>({
+   renderScene,
++  renderLazyPlaceholder,
+   onIndexChange,
+@@ -460,3 +465,5 @@ const TabView = <Route extends BaseRoute>({
+                 style={styles.fullWidth}
+-              />
++              >
++                {renderLazyPlaceholder?.({ route })}
++              </View>
+             );
