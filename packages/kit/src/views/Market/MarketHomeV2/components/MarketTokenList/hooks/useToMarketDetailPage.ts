@@ -12,6 +12,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -32,6 +33,10 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   networkId: string;
   symbol: string;
   isNative?: boolean;
+  marketTokenId?: string;
+  skipMarketDataFetch?: boolean;
+  disableTrade?: boolean;
+  showFavoriteButton?: boolean;
 }
 
 interface IUseToDetailPageOptions {
@@ -49,6 +54,11 @@ interface IUseToDetailPageOptions {
    * Controls whether the detail page displays the favorite/watchlist button.
    */
   showFavoriteButton?: boolean;
+  /**
+   * Preserves the Market list category so desktop detail can select the
+   * matching information architecture (for example Top Coins vs Trending).
+   */
+  marketTokenCategory?: string;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
@@ -101,16 +111,52 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
+      const stockId = resolveMarketStockId(item);
+      const showFavoriteButton =
+        typeof item.showFavoriteButton === 'boolean'
+          ? item.showFavoriteButton
+          : options?.showFavoriteButton;
 
-      const params = {
+      const tokenParams = {
         tokenAddress: item.tokenAddress,
         network: shortCode || item.networkId,
         isNative: item.isNative,
         from: options?.from,
-        ...(typeof options?.showFavoriteButton === 'boolean'
-          ? { showFavoriteButton: options.showFavoriteButton }
+        ...(item.marketTokenId
+          ? { marketTokenId: item.marketTokenId }
+          : undefined),
+        ...(item.skipMarketDataFetch
+          ? { skipMarketDataFetch: true }
+          : undefined),
+        ...(typeof item.disableTrade === 'boolean'
+          ? { disableTrade: item.disableTrade }
+          : undefined),
+        ...(options?.marketTokenCategory
+          ? { marketTokenCategory: options.marketTokenCategory }
+          : undefined),
+        ...(typeof showFavoriteButton === 'boolean'
+          ? { showFavoriteButton }
           : undefined),
       };
+      const stockParams = stockId
+        ? {
+            stockId,
+            tokenAddress: tokenParams.tokenAddress,
+            network: tokenParams.network,
+            isNative: tokenParams.isNative,
+            from: options?.from,
+            ...(typeof tokenParams.disableTrade === 'boolean'
+              ? { disableTrade: tokenParams.disableTrade }
+              : undefined),
+            ...(typeof tokenParams.showFavoriteButton === 'boolean'
+              ? { showFavoriteButton: tokenParams.showFavoriteButton }
+              : undefined),
+          }
+        : undefined;
+      const params = stockParams ?? tokenParams;
+      const detailRouteName = stockId
+        ? ETabMarketRoutes.MarketStockDetail
+        : ETabMarketRoutes.MarketDetailV2;
 
       // Check if in extension popup/side panel
       if (
@@ -124,13 +170,29 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         const { default: backgroundApiProxy } =
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-        await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
-          ...params,
-          from: params.from || enterSource,
-        });
+        if (stockId) {
+          await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
+            stockId,
+            tokenAddress: tokenParams.tokenAddress,
+            network: tokenParams.network,
+            isNative: tokenParams.isNative,
+            disableTrade: tokenParams.disableTrade,
+            showFavoriteButton: tokenParams.showFavoriteButton,
+            from: tokenParams.from || enterSource,
+          });
+        } else {
+          await backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+            ...tokenParams,
+            from: tokenParams.from || enterSource,
+          });
+        }
         closeExtensionPopupAfterExpandTabOpen();
       } else if (options?.switchToMarketTabFirst) {
-        preparePreviewTokenDetail(item);
+        if (stockId) {
+          tokenDetailActions.current.clearTokenDetail();
+        } else {
+          preparePreviewTokenDetail(item);
+        }
 
         const targetTab = platformEnv.isNative
           ? ETabRoutes.Discovery
@@ -143,7 +205,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
             screen: targetTab,
             params: {
-              screen: ETabMarketRoutes.MarketDetailV2,
+              screen: detailRouteName,
               params,
             },
           });
@@ -157,14 +219,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
               screen: targetTab,
               params: {
-                screen: ETabMarketRoutes.MarketDetailV2,
+                screen: detailRouteName,
                 params,
               },
             });
           }, 500);
         }
       } else {
-        preparePreviewTokenDetail(item);
+        if (stockId) {
+          tokenDetailActions.current.clearTokenDetail();
+        } else {
+          preparePreviewTokenDetail(item);
+        }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
         if (splitViewType !== ESplitViewType.UNKNOWN) {
@@ -178,7 +244,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (platformEnv.isNative) {
           await marketDetailShellPreloadPromise;
         }
-        navigation.push(ETabMarketRoutes.MarketDetailV2, params);
+        if (stockId) {
+          navigation.push(ETabMarketRoutes.MarketStockDetail, params);
+        } else {
+          navigation.push(ETabMarketRoutes.MarketDetailV2, params);
+        }
       }
     },
     [
@@ -186,9 +256,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
+      options?.marketTokenCategory,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,
+      tokenDetailActions,
     ],
   );
 

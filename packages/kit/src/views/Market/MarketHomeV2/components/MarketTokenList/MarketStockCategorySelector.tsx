@@ -49,15 +49,9 @@ function MarketStockCategorySelectorImpl({
     return (
       <XStack
         position="relative"
-        p="$1"
-        gap="$1"
-        mt="$3"
-        mb="$2"
         maxWidth="100%"
         overflow="hidden"
-        borderWidth={1}
-        borderColor="$neutral4"
-        borderRadius="$3"
+        {...containerStyle}
       >
         <XStack flex={1} position="relative">
           <ScrollView
