@@ -37,33 +37,39 @@ jest.mock('../../../hooks/usePromiseResult', () => {
     method: () => Promise<unknown>;
     options: { initResult?: unknown };
   }> = [];
-  const results = new Map<string, unknown>();
+  const state: {
+    hasResult: boolean;
+    result: unknown;
+  } = {
+    hasResult: false,
+    result: undefined,
+  };
   (
     globalThis as unknown as {
       __swapProPromiseResultCalls: typeof calls;
-      __swapProPromiseResults: typeof results;
+      __swapProPromiseResultState: typeof state;
     }
   ).__swapProPromiseResultCalls = calls;
   (
     globalThis as unknown as {
-      __swapProPromiseResults: typeof results;
+      __swapProPromiseResultState: typeof state;
     }
-  ).__swapProPromiseResults = results;
+  ).__swapProPromiseResultState = state;
   return {
     usePromiseResult: (
       method: () => Promise<unknown>,
       deps: unknown[],
       options: { initResult?: unknown } = {},
     ) => {
-      const key = JSON.stringify(deps);
       const trackedMethod = async () => {
         const result = await method();
-        results.set(key, result);
+        state.result = result;
+        state.hasResult = true;
         return result;
       };
       calls.push({ method: trackedMethod, deps, options });
       return {
-        result: results.get(key) ?? options.initResult,
+        result: state.hasResult ? state.result : options.initResult,
         isLoading: false,
         run: jest.fn(),
       };
@@ -206,11 +212,14 @@ const promiseResultCalls = (
     }>;
   }
 ).__swapProPromiseResultCalls;
-const promiseResults = (
+const promiseResultState = (
   globalThis as unknown as {
-    __swapProPromiseResults: Map<string, unknown>;
+    __swapProPromiseResultState: {
+      hasResult: boolean;
+      result: unknown;
+    };
   }
-).__swapProPromiseResults;
+).__swapProPromiseResultState;
 const selectedAccountState = (
   globalThis as unknown as {
     __swapProSelectedAccountState: {
@@ -240,7 +249,8 @@ beforeEach(() => {
   accountServices.getGlobalDeriveTypeOfNetwork.mockReset();
   accountServices.getNetworkAccount.mockReset();
   promiseResultCalls.length = 0;
-  promiseResults.clear();
+  promiseResultState.hasResult = false;
+  promiseResultState.result = undefined;
 });
 
 describe('useSwapProAccount cache identity', () => {
@@ -340,6 +350,14 @@ describe('useSwapProAccount cache identity', () => {
     );
 
     rerender({});
+    expect(result.current.accountScope).toBe('btc--0|indexed-1||BIP84');
+    expect(result.current.result).toBe(targetNetworkAccount);
+    expect(result.current.accountStatus).toBe('supported');
+
+    selectedAccountState.selectedAccount.networkId = 'btc--0';
+    selectedAccountState.selectedAccount.deriveType = 'BIP84';
+    rerender({});
+
     expect(result.current.accountScope).toBe('btc--0|indexed-1||BIP84');
     expect(result.current.result).toBe(targetNetworkAccount);
     expect(result.current.accountStatus).toBe('supported');

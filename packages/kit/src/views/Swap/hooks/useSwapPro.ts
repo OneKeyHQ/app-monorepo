@@ -346,10 +346,15 @@ export function useSwapProAccount() {
       },
     },
   );
-  const resolvedAccountScope =
-    netAccountStateRes.result.requestScope === accountRequestScope
-      ? netAccountStateRes.result.scope
-      : '';
+  const isResolvedAccountScopeCurrent =
+    netAccountStateRes.result.requestScope === accountRequestScope ||
+    Boolean(
+      knownAccountScope &&
+        netAccountStateRes.result.scope === knownAccountScope,
+    );
+  const resolvedAccountScope = isResolvedAccountScopeCurrent
+    ? netAccountStateRes.result.scope
+    : '';
   const accountScope = knownAccountScope || resolvedAccountScope;
 
   const accountStatus = resolveSwapProAccountStatus({
