@@ -87,6 +87,48 @@ const baseParams = {
 };
 
 describe('resolvePrimeInfiniPaymentRestore', () => {
+  it.each([-1, 1, 30_000])(
+    "keeps this flow's unusable replacement (%i ms) instead of repeatedly consuming create intent",
+    async (remainingMs) => {
+      const session = {
+        ...buildSession({
+          paymentOverride: { expiresAt: Date.now() + remainingMs },
+        }),
+        flowId: 'retry-flow',
+      };
+      const discardPaymentSession = jest.fn(async () => true);
+      const result = await resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session,
+        flowId: 'retry-flow',
+        createNewPayment: true,
+        fetchLatestPayment: async () => session.payment,
+        discardPaymentSession,
+      });
+      expect(result.type).toBe('restore');
+      expect(discardPaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('can discard an old unsent quote once for a new flow', async () => {
+    const session = {
+      ...buildSession({ paymentOverride: { expiresAt: Date.now() - 1 } }),
+      flowId: 'old-flow',
+    };
+    const discardPaymentSession = jest.fn(async () => true);
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session,
+        flowId: 'new-flow',
+        createNewPayment: true,
+        fetchLatestPayment: async () => session.payment,
+        discardPaymentSession,
+      }),
+    ).resolves.toEqual({ type: 'discarded' });
+    expect(discardPaymentSession).toHaveBeenCalledTimes(1);
+  });
+
   it('discards an unsent cache when the server amount differs', async () => {
     const session = buildSession();
     const discardPaymentSession = jest.fn(async () => true);

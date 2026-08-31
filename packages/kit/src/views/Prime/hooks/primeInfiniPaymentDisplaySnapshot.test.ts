@@ -256,26 +256,69 @@ describe('shouldShowPrimeInfiniPaymentButtonSkeleton', () => {
 });
 
 describe('shouldShowPrimeInfiniExternalCheckoutLink', () => {
-  it('keeps the link hidden until the payment button skeleton is gone', () => {
+  it('shows the link without a compatible wallet account or payment quote', () => {
+    const preparationState = {
+      hasCurrentPayment: false,
+      isOptionsRefreshing: false,
+      isBalanceLoading: false,
+      accountSyncReady: false,
+      accountSyncFailed: false,
+    };
+
+    expect(shouldShowPrimeInfiniPaymentButtonSkeleton(preparationState)).toBe(
+      true,
+    );
     expect(
       shouldShowPrimeInfiniExternalCheckoutLink({
         canUseExternalCheckout: true,
-        isPaymentButtonPreparing: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowPrimeInfiniExternalCheckoutLink({
-        canUseExternalCheckout: true,
-        isPaymentButtonPreparing: false,
+        isOptionsRefreshing: preparationState.isOptionsRefreshing,
       }),
     ).toBe(true);
+  });
+
+  it('shows the link while the wallet balance is loading', () => {
+    const preparationState = {
+      hasCurrentPayment: true,
+      isOptionsRefreshing: false,
+      isBalanceLoading: true,
+      accountSyncReady: true,
+      accountSyncFailed: false,
+    };
+
+    expect(shouldShowPrimeInfiniPaymentButtonSkeleton(preparationState)).toBe(
+      true,
+    );
+    expect(
+      shouldShowPrimeInfiniExternalCheckoutLink({
+        canUseExternalCheckout: true,
+        isOptionsRefreshing: preparationState.isOptionsRefreshing,
+      }),
+    ).toBe(true);
+  });
+
+  it('shows the link when the wallet payment is ready', () => {
+    expect(
+      shouldShowPrimeInfiniExternalCheckoutLink({
+        canUseExternalCheckout: true,
+        isOptionsRefreshing: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the link hidden while payment options are refreshing', () => {
+    expect(
+      shouldShowPrimeInfiniExternalCheckoutLink({
+        canUseExternalCheckout: true,
+        isOptionsRefreshing: true,
+      }),
+    ).toBe(false);
   });
 
   it('keeps the link hidden when external checkout is unavailable', () => {
     expect(
       shouldShowPrimeInfiniExternalCheckoutLink({
         canUseExternalCheckout: false,
-        isPaymentButtonPreparing: false,
+        isOptionsRefreshing: false,
       }),
     ).toBe(false);
   });
