@@ -98,7 +98,12 @@ import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 // eslint-disable-next-line import-js/order, import/first
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
-import { InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
+import {
+  InvoiceExpiredError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import-js/order, import/first
+import { getPrimeInfiniPaymentWarningsFingerprint } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 // eslint-disable-next-line import-js/order, import/first
 import type { IGasAccountUiState } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
@@ -261,6 +266,7 @@ function makeService() {
   return {
     service: new Ctor({ backgroundApi }),
     vault,
+    backgroundApi,
   };
 }
 
@@ -837,6 +843,11 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
           'message',
           expect.stringContaining('session is unavailable'),
         );
+        if (_label === 'changed') {
+          expect(sendOutcome.reason).toMatchObject({
+            data: { paymentValidationFailure: 'transferSnapshotChanged' },
+          });
+        }
       }
       expect(
         backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
@@ -844,6 +855,81 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
   );
+
+  test.each([0, 1, 29_999, 30_000])(
+    'does not claim or broadcast a latest quote with %i ms remaining',
+    async (remainingMs) => {
+      const now = 1_800_000_000_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      const { service, vault, backgroundApi } = makeService();
+      const snapshot =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      snapshot.mockResolvedValue({
+        payment: { ...latestPayment, expiresAt: now + remainingMs },
+        purchaseStatusSnapshot,
+      });
+      await expect(
+        signAndSend(service, { beforeBroadcastAction }),
+      ).rejects.toMatchObject({
+        data: {
+          paymentValidationFailure:
+            remainingMs === 0 ? 'quoteExpired' : 'quoteValidityTooShort',
+        },
+      });
+      expect(
+        service.backgroundApi.simpleDb.prime
+          .markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('blocks a newly added server warning before the durable send claim', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: {
+          ...latestPayment,
+          warningMessages: ['Additional warning from the latest response'],
+        },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'transferSnapshotChanged' },
+    });
+    expect(
+      service.backgroundApi.simpleDb.prime
+        .markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('broadcasts when the latest warnings match the user-confirmed fingerprint', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const paymentWithWarnings = {
+      ...latestPayment,
+      warningMessages: ['First warning', 'Second warning'],
+    };
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: paymentWithWarnings,
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(
+      signAndSend(service, {
+        beforeBroadcastAction: {
+          ...beforeBroadcastAction,
+          confirmedWarningsFingerprint:
+            getPrimeInfiniPaymentWarningsFingerprint(paymentWithWarnings),
+        },
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
 
   test('does not broadcast when the Prime user changes during the claim', async () => {
     const { service, vault } = makeService();
@@ -876,12 +962,40 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 
+  test.each([31_001, 60_000, undefined])(
+    'broadcasts after the claim crosses the safety window with deadline %s',
+    async (broadcastDeadline) => {
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+      const { service, vault, backgroundApi } = makeService();
+      const payment = { ...latestPayment, expiresAt: 31_001 };
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment,
+          purchaseStatusSnapshot,
+        },
+      );
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockImplementation(
+        async () => {
+          clock.mockReturnValue(1002);
+          return { payment };
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          broadcastDeadline,
+          beforeBroadcastAction,
+        }),
+      ).resolves.toMatchObject({ txid: '0xtxid' });
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test('re-checks the deadline after the durable marker write', async () => {
-    jest
-      .spyOn(Date, 'now')
-      .mockReturnValueOnce(999)
-      .mockReturnValueOnce(999)
-      .mockReturnValue(1000);
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(999);
     const { service, vault } = makeService();
     const backgroundApi = service.backgroundApi as unknown as {
       simpleDb: {
@@ -890,6 +1004,13 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
         };
       };
     };
+
+    backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockImplementation(
+      async () => {
+        clock.mockReturnValue(1000);
+        return { payment: latestPayment };
+      },
+    );
 
     await expect(
       signAndSend(service, {
@@ -961,6 +1082,41 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     ).rejects.toBeInstanceOf(InvoiceExpiredError);
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
     expect(vault.checkShouldRetryBroadcastTx).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries a claimed Infini transaction inside the safety window without claiming again', async () => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    const { service, vault, backgroundApi } = makeService();
+    const payment = { ...latestPayment, expiresAt: 31_001 };
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment,
+        purchaseStatusSnapshot,
+      },
+    );
+    backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockResolvedValue(
+      {
+        payment,
+      },
+    );
+    vault.broadcastTransaction
+      .mockImplementationOnce(async () => {
+        clock.mockReturnValue(1002);
+        throw new OneKeyLocalError('retry');
+      })
+      .mockResolvedValueOnce({ txid: '0xtxid' });
+    vault.checkShouldRetryBroadcastTx.mockResolvedValue(true);
+
+    await expect(
+      signAndSend(service, {
+        broadcastDeadline: payment.expiresAt,
+        beforeBroadcastAction,
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(2);
   });
 
   test('re-checks the deadline before a Gas Account retry', async () => {
