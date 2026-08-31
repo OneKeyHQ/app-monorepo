@@ -13,5 +13,22 @@
       "#12994"
     ],
     "notes": "Prevent DotMap row number wrapping (#12941); stop Perps order books overwriting each other's tick option (#12957); filter unmatched Perps results for short search queries (#12962); prevent iOS hardware dialog overlay conflicts (#12964); remove Creator Program banner (#12994); add Katana integration (#12589, #12982)"
+  },
+  {
+    "seq": 2,
+    "commit": "98d167a6f97ad7d65a2615937c522f2f33318533",
+    "date": "2026-08-31T07:59:45Z",
+    "prs": [
+      "#12910",
+      "#12966",
+      "#12988",
+      "#12996",
+      "#13001",
+      "#13014",
+      "#13024",
+      "#13046",
+      "#13048"
+    ],
+    "notes": "Recover native notification permissions (#12910); update DeFi banners and Earn risk warnings (#13014); stabilize firmware updates and upgrade hardware SDK to 1.2.1 (#12966); add send address risk checks (#12988); restore trusted Permit confirmation behavior (#12996); send app version in market seed requests (#13048); sync hardware firmware update state (#13024); remove 0x token tax metadata (#13046)"
   }
 ]
