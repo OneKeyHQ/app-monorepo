@@ -209,7 +209,7 @@ describe('TradingViewNative chart controls', () => {
     };
     expect(controlsProps.hasVisibleIndicators).toBe(false);
     expect(controlsProps.rightControl.props.name).toBe(
-      'ChevronDownSmallOutline',
+      'ChevronTriangleDownSmallSolid',
     );
     expect(controlsProps.rightControl.props.size).toBe('$5');
     expect(controlsProps.rightControlLabel).toBe('global.close');
