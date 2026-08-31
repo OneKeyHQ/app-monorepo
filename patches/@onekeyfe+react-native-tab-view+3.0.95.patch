@@ -1,0 +1,52 @@
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+index 302f239..386998c 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+@@ -731,6 +731,27 @@ class RCTTabViewContainerView: UIView {
+   }
+ }
+ 
++// OneKey patch: keep native tab selection immediate while suppressing UIKit's content crossfade.
++private final class ImmediateTabTransitionAnimator: NSObject, UIViewControllerAnimatedTransitioning {
++  static let shared = ImmediateTabTransitionAnimator()
++
++  func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
++    0
++  }
++
++  func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
++    guard let toViewController = transitionContext.viewController(forKey: .to),
++          let toView = transitionContext.view(forKey: .to) ?? toViewController.view else {
++      transitionContext.completeTransition(false)
++      return
++    }
++
++    toView.frame = transitionContext.finalFrame(for: toViewController)
++    transitionContext.containerView.addSubview(toView)
++    transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
++  }
++}
++
+ // MARK: - UITabBarControllerDelegate proxy
+ 
+ class TabViewDelegateProxy: NSObject, UITabBarControllerDelegate {
+@@ -757,6 +778,19 @@ class TabViewDelegateProxy: NSObject, UITabBarControllerDelegate {
+ 
+     return false
+   }
++
++  func tabBarController(
++    _ tabBarController: UITabBarController,
++    animationControllerForTransitionFrom fromViewController: UIViewController,
++    to toViewController: UIViewController
++  ) -> UIViewControllerAnimatedTransitioning? {
++    guard let containerView = mapping[ObjectIdentifier(tabBarController)],
++          containerView.disablePageAnimations else {
++      return nil
++    }
++
++    return ImmediateTabTransitionAnimator.shared
++  }
+ }
+ 
+ // MARK: - Long press gesture handler
