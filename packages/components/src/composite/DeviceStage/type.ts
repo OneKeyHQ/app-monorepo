@@ -362,21 +362,21 @@ export interface IDeviceStageProps {
   onPassphraseIntroContinue?: (options: { keepShortcut: boolean }) => void;
   /**
    * Which shape the passphrase step takes — the live flow's two:
-   * 'verify' (unlock an existing hidden wallet: the step's own title,
-   * empty entry allowed — it is the standard wallet) or 'create' (the
-   * Add-hidden-wallet flow: the step titles itself after it, and an
-   * empty entry is refused inline). Defaults to 'verify', the plain
-   * entry shape.
+   * 'verify' (unlock an existing hidden wallet: the step's own title) or
+   * 'create' (the Add-hidden-wallet flow: the step titles itself after
+   * it and carries the Keep-accessible preference). Both refuse an empty
+   * entry inline. Defaults to 'verify', the plain entry shape.
    */
   passphraseMode?: 'create' | 'verify';
   /**
-   * The passphraseOnApp entry, confirmed. Empty is the standard wallet
-   * (verify mode; create refuses it before this fires). In create mode
-   * `keepAccessible` rides along — whether the new hidden wallet stays
-   * after the app closes (the Keep-accessible switch). The live flow
-   * treats that as a preference every exit shares, so the device switch
-   * and the attach-PIN action carry the same options; in verify mode
-   * they are absent everywhere.
+   * The passphraseOnApp entry, confirmed — never empty, which the form
+   * refuses inline in both modes (on-device entry is the one way to
+   * answer with an empty passphrase, and it exits through
+   * `onSwitchToDevice`). In create mode `keepAccessible` rides along —
+   * whether the new hidden wallet stays after the app closes (the
+   * Keep-accessible switch). The live flow treats that as a preference
+   * every exit shares, so the device switch and the attach-PIN action
+   * carry the same options; in verify mode they are absent everywhere.
    */
   onPassphraseSubmit?: (
     passphrase: string,
