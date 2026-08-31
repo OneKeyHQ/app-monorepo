@@ -331,11 +331,13 @@ export function resolveInstallText(
 /**
  * The card steps that wear the device's name as the corner badge — the
  * ones where the person acts on the connected device, so the card names
- * which device to reach for. The app-side inputs (PIN, passphrase, the
- * teach-first intro) and the outcome cards stay bare: the person acts
- * here, and the badge would name the wrong place. The air-gap pair is
- * device-side but stays bare too — no live transport, so there is no
- * Bluetooth name to wear.
+ * which device to reach for. The authenticity flow keeps it through its
+ * landing: the three beats share one card, and the board keeps the name
+ * on Verification successful rather than blinking it out under the ✓.
+ * The app-side inputs (PIN, passphrase, the teach-first intro) and the
+ * failure cards stay bare: the person acts here, and the badge would
+ * name the wrong place. The air-gap pair is device-side but stays bare
+ * too — no live transport, so there is no Bluetooth name to wear.
  */
 export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
   new Set<IDeviceStageStep>([
@@ -344,6 +346,7 @@ export const DEVICE_BADGE_STEPS: ReadonlySet<IDeviceStageStep> =
     'confirm',
     'genuineCheck',
     'authVerifying',
+    'authSuccess',
   ]);
 
 /** A step's second line: its own informative line, empty when none. */
