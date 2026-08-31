@@ -18,12 +18,17 @@ type IMarketTokenDetailNavigationTarget =
   | {
       screen: ETabMarketRoutes.MarketNativeDetail;
       params: ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+    }
+  | {
+      screen: ETabMarketRoutes.MarketStockDetail;
+      params: ITabMarketParamList[ETabMarketRoutes.MarketStockDetail];
     };
 
 type IMarketTokenDetailRouteParams = Partial<
   ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
 > &
   Partial<ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail]> & {
+    stockId?: string;
     isNative?: boolean | string;
     showFavoriteButton?: boolean | string;
   };
@@ -40,6 +45,10 @@ function normalizeRouteBooleanParam(
   return value ?? defaultValue;
 }
 
+function parseOptionalRouteBooleanParam(value: string | null) {
+  return value === null ? undefined : value === 'true';
+}
+
 export function getMarketTokenDetailNavigationTargetFromHash(
   hash: string = globalThis.location?.hash ?? '',
 ): IMarketTokenDetailNavigationTarget | undefined {
@@ -47,15 +56,54 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   const [path, query = ''] = hashPath.split('?');
   const segments = path.replace(/^\/+|\/+$/g, '').split('/');
 
-  if (segments[0] !== 'market' || segments[1] !== 'token' || !segments[2]) {
+  if (
+    segments[0] !== 'market' ||
+    !['stock', 'token'].includes(segments[1]) ||
+    !segments[2]
+  ) {
     return undefined;
   }
 
   try {
     const searchParams = new URLSearchParams(query);
-    const isNativeParam = searchParams.get('isNative');
-    const showFavoriteButtonParam = searchParams.get('showFavoriteButton');
+    const isNative = parseOptionalRouteBooleanParam(
+      searchParams.get('isNative'),
+    );
+    const showFavoriteButton = parseOptionalRouteBooleanParam(
+      searchParams.get('showFavoriteButton'),
+    );
+    const disableTrade = parseOptionalRouteBooleanParam(
+      searchParams.get('disableTrade'),
+    );
+    const skipMarketDataFetch = parseOptionalRouteBooleanParam(
+      searchParams.get('skipMarketDataFetch'),
+    );
+    const marketTokenId = searchParams.get('marketTokenId') || undefined;
+    const marketTokenCategory =
+      searchParams.get('marketTokenCategory') || undefined;
     const from = searchParams.get('from');
+
+    if (segments[1] === 'stock') {
+      const stockId = decodeURIComponent(segments[2]);
+      const tokenAddress = searchParams.get('tokenAddress') || undefined;
+      const network = searchParams.get('network') || undefined;
+
+      return {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: {
+          stockId,
+          ...(tokenAddress ? { tokenAddress } : undefined),
+          ...(network ? { network } : undefined),
+          ...(isNative === undefined ? undefined : { isNative }),
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
+            ? undefined
+            : { showFavoriteButton }),
+        },
+      };
+    }
+
     const network = decodeURIComponent(segments[2]);
     const tokenAddress = segments[3]
       ? decodeURIComponent(segments[3])
@@ -67,10 +115,16 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
-          ...(from ? { from: from as EEnterWay } : undefined),
-          ...(showFavoriteButtonParam === null
+          ...(marketTokenId ? { marketTokenId } : undefined),
+          ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(skipMarketDataFetch === undefined
             ? undefined
-            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+            : { skipMarketDataFetch }),
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
+            ? undefined
+            : { showFavoriteButton }),
         },
       };
     }
@@ -80,13 +134,17 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       params: {
         network,
         tokenAddress,
-        ...(isNativeParam === null
+        ...(marketTokenId ? { marketTokenId } : undefined),
+        ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(skipMarketDataFetch === undefined
           ? undefined
-          : { isNative: isNativeParam === 'true' }),
+          : { skipMarketDataFetch }),
+        ...(isNative === undefined ? undefined : { isNative }),
         ...(from ? { from: from as EEnterWay } : undefined),
-        ...(showFavoriteButtonParam === null
+        ...(disableTrade === undefined ? undefined : { disableTrade }),
+        ...(showFavoriteButton === undefined
           ? undefined
-          : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
+          : { showFavoriteButton }),
       },
     };
   } catch {
@@ -107,7 +165,7 @@ function isCurrentMarketTokenDetailTarget(
       ? (route.params as IMarketTokenDetailRouteParams)
       : undefined;
 
-  if (!params || params.network !== target.params.network) {
+  if (!params) {
     return false;
   }
 
@@ -126,7 +184,35 @@ function isCurrentMarketTokenDetailTarget(
     return false;
   }
 
+  if (
+    normalizeRouteBooleanParam(params.disableTrade, false) !==
+    normalizeRouteBooleanParam(target.params.disableTrade, false)
+  ) {
+    return false;
+  }
+
   if (params.from !== target.params.from) {
+    return false;
+  }
+
+  if (target.screen === ETabMarketRoutes.MarketStockDetail) {
+    return (
+      params.stockId === target.params.stockId &&
+      params.network === target.params.network &&
+      params.tokenAddress === target.params.tokenAddress
+    );
+  }
+
+  if (
+    params.marketTokenId !== target.params.marketTokenId ||
+    params.marketTokenCategory !== target.params.marketTokenCategory ||
+    normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
+      normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
+  ) {
+    return false;
+  }
+
+  if (params.network !== target.params.network) {
     return false;
   }
 
@@ -241,3 +327,8 @@ export const useExtensionMarketTokenDetailHashNavigation =
         }, [clearRetryTimer, startNavigationFromHash]);
       }
     : () => {};
+
+export function ExtensionMarketTokenDetailHashNavigation() {
+  useExtensionMarketTokenDetailHashNavigation();
+  return null;
+}

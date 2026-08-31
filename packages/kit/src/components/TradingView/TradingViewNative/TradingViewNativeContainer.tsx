@@ -161,12 +161,14 @@ export const TradingViewNativeContainer = memo(
   ({
     testID,
     source,
+    forcedChartType,
     chartComponents,
     enableNativeChartSettings,
     initialRightOffset,
     nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
@@ -732,6 +734,7 @@ export const TradingViewNativeContainer = memo(
           activeIndicatorValues={activeIndicatorValues}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
+          flushDesktopControls={nativeControlsFlushHorizontalInset}
           showChartCloseControl={showNativeChartCloseControl}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
@@ -755,7 +758,7 @@ export const TradingViewNativeContainer = memo(
             candleIntervalSeconds={candleIntervalSeconds}
             chartComponents={chartComponentRenderNodes}
             chartSettings={chartSettings}
-            chartType={chartType}
+            chartType={forcedChartType ?? chartType}
             chartPictureVersion={chartPictureVersion}
             currentPriceLabel={currentPriceLabel}
             extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}

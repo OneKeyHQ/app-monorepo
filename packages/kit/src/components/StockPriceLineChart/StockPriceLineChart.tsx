@@ -1,0 +1,304 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useTheme } from '@tamagui/core';
+import { colord } from 'colord';
+
+import { SizableText, Stack } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+
+import { LightweightChart } from '../LightweightChart';
+
+const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+// Kept in sync with `priceScaleMinimumWidth` below, so the time label can be
+// clamped to the plot area instead of drifting over the price axis.
+const PRICE_SCALE_WIDTH = 64;
+// The point under the crosshair is pinned to the top of the plot and only
+// tracks the pointer horizontally. Fixed widths so the label can be clamped
+// before it is drawn: the narrow one is the "when" alone, for hosts whose own
+// header already reports the price; the wide one also carries the formatted
+// price on a second line and has to fit figures like "$123,456.78".
+const TIME_ONLY_LABEL_WIDTH = 108;
+const TIME_AND_PRICE_LABEL_WIDTH = 120;
+const TIME_LABEL_EDGE_INSET = 8;
+// Flush with the top of the plot area, so the label reads as part of the chart
+// frame instead of floating with the cursor.
+const TIME_LABEL_TOP_INSET = 0;
+// lightweight-charts stacks its canvases above the container's own
+// z-index:auto children, so the label has to opt into a layer above them.
+const TIME_LABEL_Z_INDEX = 5;
+// While scrubbing, the line past the cursor is faded so the chart reads as
+// "you are looking at this point, not the latest one". Theme colors carry their
+// own alpha, so the tail is faded as a ratio of it rather than a flat value.
+const DIMMED_LINE_ALPHA_RATIO = 0.35;
+// lightweight-charts `LineStyle.Dashed`: reads as one continuous guide next to
+// the sparser large-dashed default.
+const CROSSHAIR_VERT_LINE_STYLE = 2;
+
+function fadeLineColor(color: string) {
+  const parsed = colord(color);
+  if (!parsed.isValid()) {
+    return color;
+  }
+  return parsed.alpha(parsed.alpha() * DIMMED_LINE_ALPHA_RATIO).toRgbString();
+}
+
+type IChartHoverData = {
+  time: number;
+  price: number;
+  x: number;
+  y: number;
+};
+
+/**
+ * Point under the crosshair, reported so the price header above the chart can
+ * follow the cursor. `changeValue` / `changePercent` are measured against the
+ * first point of the range, so the header reads "what this range has done up to
+ * the point under the cursor" rather than switching to an unrelated 24h figure.
+ */
+export type IStockPriceLineChartHoverPoint = {
+  time: number;
+  price: number;
+  changeValue?: string;
+  changePercent?: string;
+};
+
+export function StockPriceLineChart({
+  data,
+  height,
+  pulseLastPoint,
+  testID,
+  hoverLabelShowsPrice = true,
+  onHoverChange,
+}: {
+  data: IMarketTokenChart;
+  height: number;
+  pulseLastPoint?: boolean;
+  testID?: string;
+  // The crosshair label answers "when" and, by default, "how much" — scrubbing
+  // has to show a price somewhere. Hosts that mirror `onHoverChange` into their
+  // own price header pass false so the figure is not printed twice.
+  hoverLabelShowsPrice?: boolean;
+  // Called with undefined when the pointer leaves the plot, and on unmount.
+  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+}) {
+  const theme = useTheme();
+  const { format } = useFormatDate();
+  const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
+  const [chartWidth, setChartWidth] = useState(0);
+  const priceFormatter = useCallback(
+    (price: number) =>
+      numberFormat(String(price), {
+        formatter: 'price',
+        formatterOptions: { currency: '$' },
+      }),
+    [],
+  );
+  const handleHover = useCallback(
+    ({
+      time,
+      price,
+      x,
+      y,
+    }: {
+      time?: number;
+      price?: number;
+      x?: number;
+      y?: number;
+    }) => {
+      if (
+        time !== undefined &&
+        price !== undefined &&
+        x !== undefined &&
+        y !== undefined
+      ) {
+        setHoverData({ time, price, x, y });
+      } else {
+        setHoverData(null);
+      }
+    },
+    [],
+  );
+  // A fresh series (range switch, refetch) invalidates whatever the crosshair
+  // was pointing at.
+  useEffect(() => {
+    setHoverData(null);
+  }, [data]);
+
+  const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
+    if (!hoverData) {
+      return undefined;
+    }
+    const base = data[0]?.[1];
+    if (base === undefined || !Number.isFinite(base) || base === 0) {
+      return { time: hoverData.time, price: hoverData.price };
+    }
+    const difference = hoverData.price - base;
+    return {
+      time: hoverData.time,
+      price: hoverData.price,
+      changeValue: String(difference),
+      changePercent: String((difference / base) * 100),
+    };
+  }, [data, hoverData]);
+
+  const solidLineColor = theme.textSuccess.val;
+  // Constant for the life of the chart: only the overlay's data follows the
+  // cursor, so hovering never re-creates the chart instance.
+  const dimmedLineColor = useMemo(
+    () => fadeLineColor(solidLineColor),
+    [solidLineColor],
+  );
+  const crosshairVertLineColor = theme.textSubdued.val;
+
+  // The whole range stays on the main (faded) series so the price scale never
+  // moves; only the solid overlay drawn on top of it is cut at the cursor.
+  const hoveredTime = hoverData?.time;
+  const solidData = useMemo(() => {
+    if (hoveredTime === undefined) {
+      return data;
+    }
+    const upToCursor = data.filter(([time]) => time <= hoveredTime);
+    // An empty overlay would drop the overlay series entirely and rebuild the
+    // chart mid-scrub, so it always keeps at least the first point.
+    return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
+  }, [data, hoveredTime]);
+
+  // Held in a ref so an inline parent callback cannot make the reporting effect
+  // fire on every render.
+  const onHoverChangeRef = useRef(onHoverChange);
+  onHoverChangeRef.current = onHoverChange;
+  useEffect(() => {
+    onHoverChangeRef.current?.(hoverPoint);
+  }, [hoverPoint]);
+  // Unmounting mid-scrub (range skeleton, Pro mode) has to release the header
+  // back to the live figures.
+  useEffect(
+    () => () => {
+      onHoverChangeRef.current?.(undefined);
+    },
+    [],
+  );
+
+  // Both centering and clamping key off the width the label will actually be
+  // drawn at, so the price variant is not pushed off the plot at either end.
+  const labelWidth = hoverLabelShowsPrice
+    ? TIME_AND_PRICE_LABEL_WIDTH
+    : TIME_ONLY_LABEL_WIDTH;
+  // Horizontally centered on the crosshair and clamped to the plot, so the
+  // label stays readable at both ends of the range instead of hanging off the
+  // edge. Vertically it stays parked at the top of the plot.
+  const timeLabelPosition = useMemo(() => {
+    if (!hoverData || !chartWidth) {
+      return null;
+    }
+    const plotRight = chartWidth - PRICE_SCALE_WIDTH;
+    const maxLeft = Math.max(
+      TIME_LABEL_EDGE_INSET,
+      plotRight - labelWidth - TIME_LABEL_EDGE_INSET,
+    );
+    return {
+      left: Math.min(
+        Math.max(hoverData.x - labelWidth / 2, TIME_LABEL_EDGE_INSET),
+        maxLeft,
+      ),
+      top: TIME_LABEL_TOP_INSET,
+    };
+  }, [chartWidth, hoverData, labelWidth]);
+  const hoverTimeText = useMemo(
+    () =>
+      hoverData ? format(new Date(hoverData.time * 1000), 'MMM d, HH:mm') : '',
+    [format, hoverData],
+  );
+  const hoverPriceText = useMemo(
+    () =>
+      hoverData && hoverLabelShowsPrice ? priceFormatter(hoverData.price) : '',
+    [hoverData, hoverLabelShowsPrice, priceFormatter],
+  );
+
+  return (
+    <Stack
+      testID={testID}
+      position="relative"
+      height={height}
+      onLayout={(event) => {
+        const width = event.nativeEvent.layout.width;
+        if (width !== chartWidth) {
+          setChartWidth(width);
+        }
+      }}
+    >
+      <LightweightChart
+        data={data}
+        height={height}
+        lineColor={dimmedLineColor}
+        lineWidth={1}
+        // The dot pattern and the live pulse marker stay at full strength: they
+        // read as the chart's fill, not as part of the faded tail.
+        patternColor={solidLineColor}
+        pulseLastPointColor={solidLineColor}
+        secondaryLineData={solidData}
+        secondaryLineColor={solidLineColor}
+        secondaryLineWidth={2}
+        crosshairVertLineColor={crosshairVertLineColor}
+        crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
+        seriesType="dotted-area"
+        showPriceScale
+        showLastPointMarker={false}
+        preserveChartInstanceOnDataChange
+        pulseLastPoint={pulseLastPoint}
+        showTimeScale
+        priceScaleMargins={PRICE_SCALE_MARGINS}
+        priceScaleEntireTextOnly
+        priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
+        priceFormatter={priceFormatter}
+        fontSize={11}
+        useTimeScaleTickMarkWithoutUnit
+        onHover={handleHover}
+      />
+      {timeLabelPosition ? (
+        <Stack
+          testID="stock-price-line-chart-hover-label"
+          position="absolute"
+          left={timeLabelPosition.left}
+          top={timeLabelPosition.top}
+          width={labelWidth}
+          // Solid inverse chip rather than a bordered panel: it has to stay
+          // legible on top of the plot without competing with the line.
+          bg="$bgInverse"
+          borderRadius="$2"
+          borderCurve="continuous"
+          px="$2"
+          py="$1"
+          pointerEvents="none"
+          zIndex={TIME_LABEL_Z_INDEX}
+        >
+          <SizableText
+            size="$bodyXs"
+            // On its own the time is the label's whole message; paired with the
+            // price it is the caption above it.
+            color={
+              hoverLabelShowsPrice ? '$textInverseSubdued' : '$textInverse'
+            }
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {hoverTimeText}
+          </SizableText>
+          {hoverLabelShowsPrice ? (
+            <SizableText
+              testID="stock-price-line-chart-hover-label-price"
+              size="$bodySmMedium"
+              color="$textInverse"
+              textAlign="center"
+              numberOfLines={1}
+            >
+              {hoverPriceText}
+            </SizableText>
+          ) : null}
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}

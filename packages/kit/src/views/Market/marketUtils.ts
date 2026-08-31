@@ -43,6 +43,18 @@ export function buildMarketFullUrlV2({
   return `${origin}${path}`;
 }
 
+// Stock pages are addressed by the underlying listing, not by a chain/contract
+// pair, so they cannot reuse `buildMarketFullUrlV2`. Path mirrors the
+// `ETabMarketRoutes.MarketStockDetail` rewrite (`/market/stock/:stockId`).
+export function buildMarketStockFullUrlV2({ stockId }: { stockId: string }) {
+  const origin =
+    platformEnv.isWeb && !platformEnv.isDev
+      ? globalThis.location.origin
+      : WEB_APP_URL;
+
+  return `${origin}/market/stock/${encodeURIComponent(stockId)}`;
+}
+
 export const marketNavigation = {
   // V1 version - for legacy MarketDetail page
   async pushDetailPageFromDeeplinkV1(

@@ -54,6 +54,7 @@ import {
 } from './messageHandlers';
 import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 import { TradingViewRuntimeView } from './TradingViewRuntimeView';
+import { resolveTradingViewStorageNamespace } from './tradingViewStorageNamespace';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -152,6 +153,7 @@ interface IBaseTradingViewV2Props {
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  forceCandlestickChart?: boolean;
   onChartError?: () => void;
   onChartReady?: () => void;
   onVisualReady?: () => void;
@@ -223,6 +225,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    forceCandlestickChart = false,
     onChartError,
     onChartReady,
     onVisualReady,
@@ -495,7 +498,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace = storageNamespace?.trim() || 'market';
+    const finalStorageNamespace = resolveTradingViewStorageNamespace({
+      storageNamespace,
+      forceCandlestickChart,
+    });
 
     return {
       decimal: decimal?.toString(),
@@ -513,6 +519,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     enableNativeChartControls,
     enableNativeIntervalSelector,
+    forceCandlestickChart,
     networkId,
     storageNamespace,
     tokenAddress,

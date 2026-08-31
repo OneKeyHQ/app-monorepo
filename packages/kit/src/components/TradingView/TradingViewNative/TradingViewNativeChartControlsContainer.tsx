@@ -42,6 +42,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  flushDesktopControls?: ITradingViewChartControlsProps['flushDesktopControls'];
   showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -73,6 +74,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
+    flushDesktopControls,
     showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
@@ -233,6 +235,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
+        flushDesktopControls={flushDesktopControls}
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}

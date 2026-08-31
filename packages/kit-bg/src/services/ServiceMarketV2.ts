@@ -28,6 +28,15 @@ import type {
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
   IMarketStockDetail,
+  IMarketStockEventsResponse,
+  IMarketStockNewsResponse,
+  IMarketStockPublicChartPeriod,
+  IMarketStockPublicChartResponse,
+  IMarketStockPublicDetail,
+  IMarketStockPublicListRequest,
+  IMarketStockPublicListResponse,
+  IMarketStockPublicSearchRequest,
+  IMarketStockTokenVariantsResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
@@ -905,12 +914,14 @@ class ServiceMarketV2 extends ServiceBase {
     networkId,
     tokenAddress,
     xpub,
+    throwOnError,
   }: {
     accountAddress: string;
     networkId: string;
     tokenAddress: string;
     xpub?: string;
-  }) {
+    throwOnError?: boolean;
+  }): Promise<IMarketAccountPortfolioResponse> {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
 
@@ -935,6 +946,9 @@ class ServiceMarketV2 extends ServiceBase {
         '[ServiceMarketV2] fetchMarketAccountPortfolio error:',
         error,
       );
+      if (throwOnError) {
+        throw error;
+      }
       // Return empty list on error instead of throwing
       return { list: [] };
     }
@@ -997,6 +1011,153 @@ class ServiceMarketV2 extends ServiceBase {
     const response = await client.get<IMarketPerpsTokenListResponse>(
       `/utility/v2/market/banner/perps-token-list/${encodeURIComponent(tokenListId)}`,
     );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockList(params: IMarketStockPublicListRequest = {}) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: {
+        cursor: params.cursor,
+        limit: params.limit ?? 20,
+        category: params.category,
+        sortBy: params.sortBy ?? 'default',
+        sortType: params.sortType ?? 'asc',
+      },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockPublicListResponse;
+    }>('/utility/v1/stocks', requestConfig);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async searchMarketStocks({
+    query,
+    limit = 20,
+  }: IMarketStockPublicSearchRequest) {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+      return { items: [], total: 0 } satisfies IMarketStockPublicListResponse;
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: { query: normalizedQuery, limit },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockPublicListResponse;
+    }>('/utility/v1/stocks/search', requestConfig);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockDetail({ stockId }: { stockId: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = { autoHandleError: false };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockPublicDetail | null;
+    }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}`, requestConfig);
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockTokenVariants({ stockId }: { stockId: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = { autoHandleError: false };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockTokenVariantsResponse;
+    }>(
+      `/utility/v1/stocks/${encodeURIComponent(stockId)}/tokens`,
+      requestConfig,
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockChart({
+    stockId,
+    period = '1d',
+    points = 100,
+  }: {
+    stockId: string;
+    period?: IMarketStockPublicChartPeriod;
+    points?: number;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: { period, points },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockPublicChartResponse;
+    }>(
+      `/utility/v1/stocks/${encodeURIComponent(stockId)}/chart`,
+      requestConfig,
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockEvents({ stockId }: { stockId: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = { autoHandleError: false };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockEventsResponse;
+    }>(
+      `/utility/v1/stocks/${encodeURIComponent(stockId)}/events`,
+      requestConfig,
+    );
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketStockNews({
+    stockId,
+    limit = 20,
+  }: {
+    stockId: string;
+    limit?: number;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const requestConfig: Parameters<typeof client.get>[1] & {
+      autoHandleError?: boolean;
+    } = {
+      params: { limit },
+      autoHandleError: false,
+    };
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketStockNewsResponse;
+    }>(`/utility/v1/stocks/${encodeURIComponent(stockId)}/news`, requestConfig);
     return response.data.data;
   }
 

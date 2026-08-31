@@ -57,6 +57,7 @@ const mockTradingViewNativeFullscreenButton = jest.fn<
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
+let mockChartType: 'candlestick' | 'line' = 'candlestick';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
 let mockViewportRequest: unknown;
@@ -81,7 +82,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
     return {
       calendarAvailableTimeRange: { from: 100 },
       candleIntervalSeconds: 3600,
-      chartType: 'candlestick' as const,
+      chartType: mockChartType,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
       dataState: mockDataState,
@@ -235,6 +236,7 @@ describe('TradingViewNativeContainer', () => {
     jest.clearAllMocks();
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
+    mockChartType = 'candlestick';
     mockDataState = {
       status: 'error',
       error: new Error('history unavailable'),
@@ -392,6 +394,27 @@ describe('TradingViewNativeContainer', () => {
 
     expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
       expect.objectContaining({ initialRightOffset }),
+    );
+  });
+
+  it('forces candlesticks without changing the stored native chart preference', () => {
+    mockChartType = 'line';
+
+    render(
+      <TradingViewNativeContainer
+        forcedChartType="candlestick"
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'candlestick' }),
     );
   });
 
