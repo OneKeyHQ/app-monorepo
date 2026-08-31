@@ -11,12 +11,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
   IAddressBadge,
+  ICexSupportedInfo,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
@@ -58,6 +60,7 @@ type IAccountBadgeResult = {
   addressLabel?: string;
   badges: IAddressBadge[];
   similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 function emptyAccountBadgeResult(): IAccountBadgeResult {
@@ -122,6 +125,10 @@ function mergeAccountBadgeResults(
       }
     }
   }
+
+  merged.cexSupportedInfo = mergeCexSupportedInfo(
+    responses.map((r) => r.cexSupportedInfo),
+  );
 
   return merged;
 }
@@ -244,33 +251,21 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress,
     checkInteraction,
     xpub,
+    tokenAddress,
   }: {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
     checkInteraction?: boolean;
     xpub?: string;
-  }): Promise<{
-    isScam: boolean;
-    isContract: boolean;
-    isCex: boolean;
-    interacted: EAddressInteractionStatus;
-    addressLabel?: string;
-    badges: IAddressBadge[];
-    similarAddress?: string;
-  }> {
+    tokenAddress?: string;
+  }): Promise<IAccountBadgeResult> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
     if (isCustomNetwork) {
-      return {
-        isScam: false,
-        isContract: false,
-        isCex: false,
-        interacted: EAddressInteractionStatus.UNKNOWN,
-        badges: [],
-      };
+      return emptyAccountBadgeResult();
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
@@ -283,6 +278,7 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
           checkInteraction,
           xpub,
+          ...(tokenAddress === undefined ? {} : { tokenAddress }),
         },
       });
       const {
@@ -293,6 +289,7 @@ class ServiceAccountProfile extends ServiceBase {
         isCex,
         badges,
         similarAddress,
+        cexSupportedInfo,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -311,15 +308,10 @@ class ServiceAccountProfile extends ServiceBase {
         addressLabel,
         badges: badges ?? [],
         similarAddress,
+        cexSupportedInfo,
       };
     } catch {
-      return {
-        isScam: false,
-        isContract: false,
-        isCex: false,
-        interacted: EAddressInteractionStatus.UNKNOWN,
-        badges: [],
-      };
+      return emptyAccountBadgeResult();
     }
   }
 
@@ -329,13 +321,21 @@ class ServiceAccountProfile extends ServiceBase {
     accountId,
     toAddress,
     checkInteractionStatus,
+    tokenAddress,
   }: {
     networkId: string;
     accountId?: string;
     toAddress: string;
     checkInteractionStatus?: boolean;
+    tokenAddress?: string;
   }): Promise<IAccountBadgeResult> {
-    const dedupKey = `${networkId}:${accountId ?? ''}:${toAddress.toLowerCase()}:${checkInteractionStatus ? '1' : '0'}`;
+    const dedupKey = JSON.stringify([
+      networkId,
+      accountId,
+      toAddress.toLowerCase(),
+      tokenAddress,
+      Boolean(checkInteractionStatus),
+    ]);
 
     const pending = this._pendingBadgeRequests.get(dedupKey);
     if (pending) {
@@ -347,6 +347,7 @@ class ServiceAccountProfile extends ServiceBase {
       accountId,
       toAddress,
       checkInteractionStatus,
+      tokenAddress,
     })
       .then((r) => {
         this._pendingBadgeRequests.delete(dedupKey);
@@ -366,11 +367,13 @@ class ServiceAccountProfile extends ServiceBase {
     accountId,
     toAddress,
     checkInteractionStatus,
+    tokenAddress,
   }: {
     networkId: string;
     accountId?: string;
     toAddress: string;
     checkInteractionStatus?: boolean;
+    tokenAddress?: string;
   }): Promise<IAccountBadgeResult> {
     const { serviceAccount } = this.backgroundApi;
     let fromAddress: string | undefined;
@@ -401,6 +404,7 @@ class ServiceAccountProfile extends ServiceBase {
               fromAddress,
               toAddress,
               xpub: entry.xpub,
+              tokenAddress,
             }),
         ),
         { continueOnError: true, concurrency: xpubEntries.length },
@@ -416,6 +420,7 @@ class ServiceAccountProfile extends ServiceBase {
       fromAddress,
       toAddress,
       xpub: xpubEntries[0]?.xpub,
+      tokenAddress,
     });
   }
 
@@ -426,6 +431,7 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress,
     checkInteractionStatus,
     checkAddressContract,
+    tokenAddress,
     result,
   }: {
     accountId?: string;
@@ -434,6 +440,7 @@ class ServiceAccountProfile extends ServiceBase {
     checkAddressContract?: boolean;
     networkId: string;
     toAddress: string;
+    tokenAddress?: string;
     result: IAddressQueryResult;
   }): Promise<void> {
     const merged = await this.fetchBadgesDeduped({
@@ -441,6 +448,7 @@ class ServiceAccountProfile extends ServiceBase {
       accountId,
       toAddress,
       checkInteractionStatus,
+      tokenAddress,
     });
 
     const {
@@ -451,6 +459,7 @@ class ServiceAccountProfile extends ServiceBase {
       isCex,
       badges,
       similarAddress,
+      cexSupportedInfo,
     } = merged;
     if (
       checkInteractionStatus &&
@@ -467,6 +476,8 @@ class ServiceAccountProfile extends ServiceBase {
     result.isCex = isCex;
     result.addressBadges = badges;
     result.similarAddress = similarAddress;
+    result.cexSupportedInfo =
+      tokenAddress === undefined ? undefined : cexSupportedInfo;
   }
 
   private async verifyCannotSendToSelf({
@@ -510,6 +521,7 @@ class ServiceAccountProfile extends ServiceBase {
     walletAccountItem,
     ignoreSimilarAddressInAddressBook,
     enableCheckSimilarAddressInAddressBook,
+    tokenAddress,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -717,6 +729,7 @@ class ServiceAccountProfile extends ServiceBase {
         checkInteractionStatus: Boolean(
           enableAddressInteractionStatus && accountId,
         ),
+        tokenAddress,
         result,
       });
 

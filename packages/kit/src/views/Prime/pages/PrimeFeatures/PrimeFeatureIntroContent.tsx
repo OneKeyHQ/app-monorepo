@@ -495,6 +495,7 @@ export function PrimeFeatureIntroContent({
   }, [mode, onClose]);
   const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
     onPurchase: handlePurchaseStart,
+    networkId: networkId ?? network?.id,
   });
 
   const features = PRIME_FEATURE_INTROS;
@@ -1101,7 +1102,7 @@ export function PrimeFeatureIntroContent({
               height={MEDIA_HEIGHT}
               index={activeIndex}
               data={features}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: IPrimeFeatureIntro) => item.id}
               onChangeIndex={({ index }) => setActiveIndex(index)}
               renderItem={renderMedia}
               renderPagination={renderPagination}

@@ -1,4 +1,10 @@
 const {
+  ALLOCATION_VERSION,
+  MODULE_ID_RANGES,
+  REGISTRY_EPOCH,
+  SCHEMA_VERSION,
+} = require('../../plugins/moduleIdRegistry');
+const {
   checkModuleMaps,
   collectModuleMapEntries,
   createEmptyRegistry,
@@ -9,8 +15,10 @@ const {
 
 function createRegistry({ modules = {}, tombstones = {} } = {}) {
   return {
-    schemaVersion: 1,
-    registryEpoch: 1,
+    schemaVersion: SCHEMA_VERSION,
+    registryEpoch: REGISTRY_EPOCH,
+    allocationVersion: ALLOCATION_VERSION,
+    ranges: MODULE_ID_RANGES,
     modules,
     tombstones,
   };
@@ -64,6 +72,24 @@ describe('module ID registry CLI helpers', () => {
     expect(second.registry.modules).toEqual(first.registry.modules);
   });
 
+  it('seeds each module domain from its configured range', () => {
+    const result = updateRegistry(createEmptyRegistry(), [
+      {
+        main: {
+          1: 'packages/a.ts',
+          2: 'node_modules/react/index.js',
+          3: '__prelude__',
+        },
+      },
+    ]);
+
+    expect(result.registry.modules).toEqual({
+      __prelude__: MODULE_ID_RANGES.virtual.start,
+      'node_modules/react/index.js': MODULE_ID_RANGES.nodeModules.start,
+      'packages/a.ts': MODULE_ID_RANGES.workspace.start,
+    });
+  });
+
   it('appends sorted new paths without changing old IDs or reusing tombstones', () => {
     const initial = createRegistry({
       modules: { 'packages/a.ts': 2 },
@@ -92,7 +118,9 @@ describe('module ID registry CLI helpers', () => {
 
   it('appends graph paths deterministically without changing existing IDs', () => {
     const initial = createRegistry({
-      modules: { 'node_modules/react/index.js': 7 },
+      modules: {
+        'node_modules/react/index.js': MODULE_ID_RANGES.nodeModules.start,
+      },
     });
     const result = updateRegistryFromModulePaths(
       initial,
@@ -106,10 +134,11 @@ describe('module ID registry CLI helpers', () => {
     );
 
     expect(result.registry.modules).toEqual({
-      'node_modules/a/index.js': 8,
-      'node_modules/react/cjs/react.development.js': 9,
-      'node_modules/react/index.js': 7,
-      'node_modules/z/index.js': 10,
+      'node_modules/a/index.js': MODULE_ID_RANGES.nodeModules.start + 1,
+      'node_modules/react/cjs/react.development.js':
+        MODULE_ID_RANGES.nodeModules.start + 2,
+      'node_modules/react/index.js': MODULE_ID_RANGES.nodeModules.start,
+      'node_modules/z/index.js': MODULE_ID_RANGES.nodeModules.start + 3,
     });
     expect(result.added).toBe(3);
   });
@@ -121,6 +150,16 @@ describe('module ID registry CLI helpers', () => {
         [{ main: { 1: 'packages/removed.ts' } }],
       ),
     ).toThrow('must be reviewed explicitly');
+  });
+
+  it('fails instead of spilling an exhausted domain into another range', () => {
+    const registry = createRegistry({
+      modules: { 'packages/a.ts': MODULE_ID_RANGES.workspace.end },
+    });
+
+    expect(() =>
+      updateRegistry(registry, [{ main: { 1: 'packages/b.ts' } }]),
+    ).toThrow('Module ID range exhausted for workspace');
   });
 
   it('checks build map registration and ID consistency', () => {

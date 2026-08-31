@@ -82,6 +82,7 @@ export type IPrimeParamList = {
     selectedSubscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     createNewPayment?: boolean;
+    networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;
 };

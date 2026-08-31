@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const {
+  ALLOCATION_VERSION,
+  MODULE_ID_RANGES,
   REGISTRY_EPOCH,
   REGISTRY_PATH,
   REPO_ROOT,
@@ -13,7 +15,8 @@ const {
   assertValidRegistry,
   collectRegistryErrors,
   compareModuleKeys,
-  getMaxModuleId,
+  createModuleIdAllocator,
+  getModuleIdDomain,
   isPositiveSafeInteger,
   loadRegistry,
   toModuleKey,
@@ -26,6 +29,8 @@ function createEmptyRegistry() {
   return {
     schemaVersion: SCHEMA_VERSION,
     registryEpoch: REGISTRY_EPOCH,
+    allocationVersion: ALLOCATION_VERSION,
+    ranges: MODULE_ID_RANGES,
     modules: {},
     tombstones: {},
   };
@@ -43,12 +48,15 @@ function canonicalizeRegistry(registry) {
   return {
     schemaVersion: registry.schemaVersion,
     registryEpoch: registry.registryEpoch,
+    allocationVersion: registry.allocationVersion,
+    ranges: registry.ranges,
     modules: sortRecord(registry.modules),
     tombstones: sortRecord(registry.tombstones),
   };
 }
 
 function writeRegistry(registry, registryPath = REGISTRY_PATH) {
+  assertValidRegistry(registry);
   const canonical = canonicalizeRegistry(registry);
   assertValidRegistry(canonical);
   fs.mkdirSync(path.dirname(registryPath), { recursive: true });
@@ -136,7 +144,7 @@ function updateRegistryFromModuleKeys(registry, moduleKeys) {
   const modules = { ...registry.modules };
   const tombstones = { ...registry.tombstones };
   const reservedIds = [...Object.values(modules), ...Object.values(tombstones)];
-  let nextId = getMaxModuleId(reservedIds);
+  const allocateModuleId = createModuleIdAllocator(reservedIds);
   let added = 0;
   for (const moduleKey of [...moduleKeys].toSorted()) {
     if (Object.hasOwn(tombstones, moduleKey)) {
@@ -145,8 +153,7 @@ function updateRegistryFromModuleKeys(registry, moduleKeys) {
       );
     }
     if (!Object.hasOwn(modules, moduleKey)) {
-      nextId += 1;
-      modules[moduleKey] = nextId;
+      modules[moduleKey] = allocateModuleId(getModuleIdDomain(moduleKey));
       added += 1;
     }
   }
@@ -251,13 +258,11 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
     modules: { ...currentRegistry.modules },
     tombstones: { ...currentRegistry.tombstones },
   };
-  let nextId = getMaxModuleId(usedIds);
+  const allocateModuleId = createModuleIdAllocator(usedIds);
   for (const entry of pending) {
-    do {
-      nextId += 1;
-    } while (usedIds.has(nextId));
-    reconciled[entry.sectionName][entry.moduleKey] = nextId;
-    usedIds.add(nextId);
+    reconciled[entry.sectionName][entry.moduleKey] = allocateModuleId(
+      getModuleIdDomain(entry.moduleKey),
+    );
   }
 
   const canonical = canonicalizeRegistry(reconciled);
@@ -335,6 +340,7 @@ function readBaseRegistry(base) {
     contents = execFileSync('git', ['show', `${base}:${REGISTRY_REPO_PATH}`], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (error) {
@@ -356,7 +362,10 @@ function readBaseRegistry(base) {
 function run(argv = process.argv.slice(2)) {
   const { base, command, mapPaths } = parseArgs(argv);
   if (command === 'reconcile') {
-    const result = reconcileRegistries(readBaseRegistry(base), loadRegistry());
+    const result = reconcileRegistries(
+      readBaseRegistry(base),
+      JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8')),
+    );
     writeRegistry(result.registry);
     console.log(
       `[module-id:reconcile] wrote ${REGISTRY_REPO_PATH}; reassigned ${result.reassigned} new collision(s).`,

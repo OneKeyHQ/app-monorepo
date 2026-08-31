@@ -37,7 +37,7 @@ function ApprovalActions(props: IProps) {
   const { bottom } = useSafeAreaInsets();
 
   return (
-    <Page.Footer disableKeyboardAnimation>
+    <Page.Footer disableKeyboardAnimation safeAreaBottomMode="content">
       <Page.FooterActions
         confirmButtonProps={{
           disabled:
