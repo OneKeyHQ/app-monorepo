@@ -51,6 +51,14 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
   points: IMarketTokenKLineDataPoint[];
   size: ITradingViewNativeChartSize;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  timeAxisScaleGesture: {
+    chartWidth: number;
+    currentX: number;
+    isActive: boolean;
+    startOffset: number;
+    startX: number;
+    startZoomScale: number;
+  };
 }
 
 export function createTradingViewNativeChartRuntime({
@@ -107,5 +115,13 @@ export function createTradingViewNativeChartRuntime({
     points,
     size: { height: 0, width: 0 },
     subIndicatorPanes,
+    timeAxisScaleGesture: {
+      chartWidth: 0,
+      currentX: 0,
+      isActive: false,
+      startOffset: 0,
+      startX: 0,
+      startZoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+    },
   };
 }

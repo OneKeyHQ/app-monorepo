@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
@@ -36,7 +37,6 @@ import {
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
-import type { IMarketTradingViewProps } from '../components/MarketTradingView/MarketTradingView';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
@@ -84,21 +84,6 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 
 const infoTabsLoadingFallback = (
   <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight} />
-);
-
-const chartLoadingFallback = (
-  <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
-);
-
-const LazyMarketTradingView = LazyLoad<IMarketTradingViewProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
-    ).then(({ MarketTradingView }) => ({
-      default: MarketTradingView,
-    })),
-  undefined,
-  chartLoadingFallback,
 );
 
 const LazyDesktopInformationTabs = LazyLoad<IDesktopInformationTabsProps>(
@@ -169,6 +154,7 @@ export function DesktopLayout({
     tokenAddress: storeTokenAddress,
     networkId: storeNetworkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
@@ -238,6 +224,7 @@ export function DesktopLayout({
     tokenAddress,
     networkId,
     tokenDetail,
+    tokenDetailPreview,
     isNative,
     websocketConfig,
   });
@@ -282,10 +269,11 @@ export function DesktopLayout({
     }
 
     return (
-      <LazyMarketTradingView
+      <LazyDesktopMarketTradingView
         tokenAddress={marketTradingViewParams.tokenAddress}
         networkId={marketTradingViewParams.networkId}
         tokenSymbol={marketTradingViewParams.tokenSymbol}
+        decimal={marketTradingViewParams.decimal}
         isNative={marketTradingViewParams.isNative}
         dataSource={marketTradingViewParams.dataSource}
         onTouchScroll={handleTradingViewTouchScroll}

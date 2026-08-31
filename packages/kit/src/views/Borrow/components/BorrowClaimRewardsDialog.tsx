@@ -2,14 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  ScrollView,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Dialog, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog/hooks';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -185,8 +178,10 @@ function UnclaimableGroup({ group }: IUnclaimableGroupProps) {
 type IBorrowClaimRewardsDialogContentProps = {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds: string[];
-  onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
-  onClaimAll: () => Promise<void>;
+  // Resolve false when the claim never started (the one-time risk disclaimer
+  // was declined), so this dialog stays open instead of vanishing on cancel.
+  onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
+  onClaimAll: () => Promise<boolean | void>;
 };
 
 function BorrowClaimRewardsDialogContent({
@@ -217,8 +212,10 @@ function BorrowClaimRewardsDialogContent({
     async (item: IEarnRewardClaimItem) => {
       setClaimingItemId(item.id);
       try {
-        await onClaimItem(item);
-        void dialogInstance.close();
+        const started = await onClaimItem(item);
+        if (started !== false) {
+          void dialogInstance.close();
+        }
       } finally {
         setClaimingItemId(null);
       }
@@ -258,8 +255,10 @@ function BorrowClaimRewardsDialogContent({
     setClaimingAllIds(actionableIds);
     setLoading(true);
     try {
-      await onClaimAll();
-      void dialogInstance.close();
+      const started = await onClaimAll();
+      if (started !== false) {
+        void dialogInstance.close();
+      }
     } finally {
       setLoading(false);
       setClaimingAllIds([]);
@@ -268,7 +267,7 @@ function BorrowClaimRewardsDialogContent({
 
   return (
     <YStack gap="$4">
-      <ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
+      <Dialog.ScrollView maxHeight={listMaxHeight} mx="$-5" px="$5">
         <YStack gap="$2">
           {claimableGroups.map((group, index) => (
             <ClaimGroup
@@ -284,7 +283,7 @@ function BorrowClaimRewardsDialogContent({
             <UnclaimableGroup key={`unclaimable-${index}`} group={group} />
           ))}
         </YStack>
-      </ScrollView>
+      </Dialog.ScrollView>
 
       {hasClaimableItems ? (
         <Dialog.Footer
@@ -321,8 +320,10 @@ export function showBorrowClaimRewardsDialog({
 }: {
   rewardsDetails: IEarnRewardsDetails;
   pendingClaimIds?: string[];
-  onClaimItem: (item: IEarnRewardClaimItem) => Promise<void>;
-  onClaimAll: () => Promise<void>;
+  // See the content props: false keeps this dialog open, for a claim that never
+  // started because the risk disclaimer was declined.
+  onClaimItem: (item: IEarnRewardClaimItem) => Promise<boolean | void>;
+  onClaimAll: () => Promise<boolean | void>;
   onClose?: () => void;
 }) {
   return Dialog.show({

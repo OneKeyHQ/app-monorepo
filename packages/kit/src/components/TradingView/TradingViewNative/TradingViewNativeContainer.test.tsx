@@ -103,6 +103,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
+    locale: 'zh-CN',
   }),
 }));
 
@@ -123,7 +124,10 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  LottieView: () => <div data-testid="trading-view-native-loading-animation" />,
+  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
   useTheme: () => ({
     amber9: { val: '#amber9' },
     bgApp: { val: '#bgApp' },
@@ -249,6 +253,38 @@ describe('TradingViewNativeContainer', () => {
     jest.restoreAllMocks();
   });
 
+  it('shows the loading animation until the initial K-line points arrive', () => {
+    mockDataState = { status: 'idle' };
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const { rerender } = render(
+      <TradingViewNativeContainer source={source} testID="chart" />,
+    );
+
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+    expect(
+      screen.getByTestId('trading-view-native-loading-animation'),
+    ).toBeTruthy();
+
+    mockDataState = { status: 'loading' };
+    rerender(
+      <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
+    );
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    rerender(
+      <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
+    );
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
   it('renders a retryable error state when history has no points', () => {
     render(
       <TradingViewNativeContainer
@@ -264,6 +300,7 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(screen.getByTestId('chart-error')).toBeTruthy();
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
     fireEvent.click(screen.getByTestId('chart-retry'));
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
   });
@@ -289,6 +326,7 @@ describe('TradingViewNativeContainer', () => {
           low: 'market.low_abbr',
           open: 'market.open_abbr',
         },
+        locale: 'zh-CN',
       }),
     );
   });
@@ -1388,5 +1426,118 @@ describe('TradingViewNativeContainer', () => {
       source: 'realtime',
       timestamp: realtimePoint.t,
     });
+  });
+
+  it('uses the compact chart presentation without legends or volume', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [
+      { c: 100, h: 101, l: 99, o: 100, t: 1000, v: 10 },
+      { c: 101, h: 102, l: 100, o: 100, t: 2000, v: 20 },
+    ];
+
+    render(
+      <TradingViewNativeContainer
+        nativeChartDisplayMode="compact"
+        nativeControlsLayoutMode="mobile"
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartFullscreenChange={jest.fn()}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: true,
+        hasVolume: false,
+        priceAxisFontSize: 11,
+        priceAxisTickCount: 4,
+        showLegend: false,
+        timeAxisFontSize: 11,
+        timeAxisHeight: 20,
+        timeAxisBorderWidth: 0.5,
+      }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: true }),
+    );
+    expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
+      expect.objectContaining({ timeAxisHeight: 20 }),
+    );
+  });
+  it('keeps shared chart defaults outside compact mode', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extendTimeAxisBorderToCanvasEdge: false,
+        priceAxisFontSize: undefined,
+        priceAxisTickCount: undefined,
+        showLegend: true,
+        timeAxisFontSize: undefined,
+        timeAxisHeight: 24,
+        timeAxisBorderWidth: undefined,
+      }),
+    );
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({ compactMobileLayout: false }),
+    );
+  });
+  it('forwards the native close action to chart controls', () => {
+    const handleChartClose = jest.fn();
+
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartClose={handleChartClose}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onChartClose: handleChartClose,
+      }),
+    );
+  });
+  it('forwards native close-control visibility to chart controls', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        onNativeChartClose={jest.fn()}
+        showNativeChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showChartCloseControl: false,
+      }),
+    );
   });
 });

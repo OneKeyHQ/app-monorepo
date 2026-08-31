@@ -3309,11 +3309,17 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
+      const walletSessionParams = useEmptyPassphrase
+        ? { mode: 'standard' as const }
+        : { mode: 'select-hidden' as const };
       const walletSession = await convertDeviceResponse(() =>
-        useEmptyPassphrase
-          ? openWalletSession(connectId, { mode: 'standard' })
-          : openWalletSession(connectId, { mode: 'select-hidden' }),
+        openWalletSession(connectId, walletSessionParams),
       );
+      serviceHardwareUtils.hardwareLog('openWalletSession', {
+        protocol,
+        mode: walletSessionParams.mode,
+        resumed: walletSession.resumed,
+      });
       const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
       if (walletSession.walletType !== expectedWalletType) {
         throw new OneKeyLocalError(
@@ -3349,7 +3355,6 @@ class ServiceHardware extends ServiceBase {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         connectProtocol: protocol,
-        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
   }

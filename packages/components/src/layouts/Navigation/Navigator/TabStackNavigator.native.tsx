@@ -25,6 +25,7 @@ import {
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -250,19 +251,20 @@ export function TabStackNavigator<RouteName extends string>({
   );
 
   return (
-    <NativeTab.Navigator
-      labeled
-      hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
-      disablePageAnimations
-      ignoreBottomInsets
-      sidebarAdaptable={false}
-      tabBarHidden={hidden}
-      tabBarActiveTintColor={theme.iconActive.val}
-      tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={tabBarStyle}
-      screenOptions={nativeTabScreenOptions}
-    >
-      {tabScreens}
-    </NativeTab.Navigator>
+    <BottomTabBarVisibilityContext.Provider value={!hidden}>
+      <NativeTab.Navigator
+        labeled
+        hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
+        disablePageAnimations
+        sidebarAdaptable={false}
+        tabBarHidden={hidden}
+        tabBarActiveTintColor={theme.iconActive.val}
+        tabBarInactiveTintColor={theme.iconSubdued.val}
+        tabBarStyle={tabBarStyle}
+        screenOptions={nativeTabScreenOptions}
+      >
+        {tabScreens}
+      </NativeTab.Navigator>
+    </BottomTabBarVisibilityContext.Provider>
   );
 }

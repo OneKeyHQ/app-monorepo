@@ -35,7 +35,10 @@ const SWITCH_SIZE_CONFIG = {
 
 export type ISwitchProps = IFormFieldProps<
   boolean,
-  Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
+  Omit<
+    GetProps<typeof TMSwitch>,
+    'checked' | 'onChange' | 'onCheckedChange' | 'value'
+  > & {
     size?: ISwitchSize;
     thumbProps?: Partial<GetProps<typeof TMSwitch.Thumb>>;
   }
@@ -117,7 +120,7 @@ export function Switch({
 
   return (
     <TMSwitch
-      tag="span"
+      render="span"
       flexShrink={0}
       unstyled
       checked={checked}
@@ -144,7 +147,7 @@ export function Switch({
         h={sizeConfig.thumbSize}
         borderRadius="$full"
         bg="$bg"
-        animation="switch"
+        transition="switch"
         animateOnly={ANIMATE_ONLY_TRANSFORM}
         {...thumbProps}
       />

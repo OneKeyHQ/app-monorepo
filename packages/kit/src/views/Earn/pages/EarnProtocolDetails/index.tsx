@@ -10,7 +10,6 @@ import {
   IconButton,
   Image,
   Page,
-  ScrollView,
   SizableText,
   Skeleton,
   Stack,
@@ -374,7 +373,7 @@ const MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT = 512;
 
 function MarketInfoDialogContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
   return (
-    <ScrollView
+    <Dialog.ScrollView
       maxHeight={MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT}
       nestedScrollEnabled
     >
@@ -397,7 +396,7 @@ function MarketInfoDialogContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
           </YStack>
         ))}
       </YStack>
-    </ScrollView>
+    </Dialog.ScrollView>
   );
 }
 

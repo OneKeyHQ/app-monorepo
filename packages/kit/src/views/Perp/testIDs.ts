@@ -2,6 +2,14 @@ export const PerpTestIDs = {
   // -- Settings --
   HeaderSettingsButton: 'perp-header-settings-button',
   MobileSettingsButton: 'perp-mobile-settings-button',
+  MobileSettingsFeatureDot: 'perp-mobile-settings-feature-dot',
+  MobileChartPositionSetting: 'perp-mobile-chart-position-setting',
+  MobileChartPositionControl: 'perp-mobile-chart-position-control',
+  MobileLayoutSettingsButton: 'perp-mobile-layout-settings-button',
+  MobileLayoutSettingsFeatureDot: 'perp-mobile-layout-settings-feature-dot',
+  MobileLayoutSettingsPage: 'perp-mobile-layout-settings-page',
+  MobileChartPositionOption: (position: string) =>
+    `perp-mobile-chart-position-option-${position}`,
 
   // -- Market selector --
   TokenSelector: 'perp-token-selector',
@@ -107,6 +115,19 @@ export const PerpTestIDs = {
 
   // -- Mobile candle chart button --
   CandleChartButton: 'perp-candle-chart-button',
+  DesktopSplitRoot: 'perp-desktop-split-root',
+  DesktopChartSplit: 'perp-desktop-chart-split',
+  DesktopChartBoundary: 'perp-desktop-chart-boundary',
+  DesktopAccountBoundary: 'perp-desktop-account-boundary',
+  DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
+  ResetLayoutButton: 'perp-reset-layout-button',
+  MobileChart: 'perp-mobile-chart',
+  MobileChartOverlay: 'perp-mobile-chart-overlay',
+  MobileChartCornerBorder: 'perp-mobile-chart-corner-border',
+  MobileChartToggle: 'perp-mobile-chart-toggle',
+  MobileChartContent: 'perp-mobile-chart-content',
+  MobileTopChartToggle: 'perp-mobile-top-chart-toggle',
+  MobileTopChartContent: 'perp-mobile-top-chart-content',
 
   // -- Portfolio --
   PortfolioButton: 'perp-portfolio-button',

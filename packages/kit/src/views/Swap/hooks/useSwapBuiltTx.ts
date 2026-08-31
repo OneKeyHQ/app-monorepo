@@ -1501,6 +1501,26 @@ export function useSwapBuildTx({
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
+      // Sponsorship (megafuel / Gas Account) never applies to external-wallet
+      // accounts, but `serviceGas.estimateFee` does not distinguish them.
+      // Strip the sponsored state at the source — restore the real gas price
+      // (megafuel zeroes `gasPrice`, keeping it in `originalGasPrice`) and
+      // drop the sponsor flags — so the native-balance precheck, the fee
+      // display, and the tx handed to the external wallet all use the real fee.
+      if (accountUtils.isExternalAccount({ accountId: fromAccountId ?? '' })) {
+        return {
+          ...gasInfo,
+          gas: gasInfo.gas
+            ? {
+                ...gasInfo.gas,
+                gasPrice: gasInfo.gas.originalGasPrice ?? gasInfo.gas.gasPrice,
+              }
+            : undefined,
+          // Keep only the raw megafuel eligibility so the review UI can show
+          // the "zero network fee with OneKey wallet" promo hint (OK-61254).
+          externalSponsorPromoEligible: !!gasRes.megafuelEligible?.sponsorable,
+        };
+      }
       // Carry sponsorship result from estimate-fee so it flows into the preview
       // badge and, for Gas Account, the send path broadcast quoteId.
       return {
@@ -1513,6 +1533,7 @@ export function useSwapBuildTx({
       };
     },
     [
+      fromAccountId,
       swapNetWorkFeeLevel?.networkFeeLevel,
       swapNetWorkFeeLevel?.customPriorityFee,
     ],

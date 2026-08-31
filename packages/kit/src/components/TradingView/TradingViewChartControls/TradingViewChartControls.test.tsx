@@ -9,6 +9,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { TradingViewChartControls } from './TradingViewChartControls';
 
 const mockSelectTriggerPress = jest.fn();
+const mockTradingViewNativeIntervalSelector = jest.fn<null, [unknown]>(
+  () => null,
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -69,22 +72,107 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  XStack: ({
+  Stack: ({
+    bg,
+    borderBottomColor,
+    borderBottomWidth,
     children,
-    onPress,
+    flexShrink,
+    h,
+    justifyContent,
+    minHeight,
+    pb,
+    pt,
+    py,
     testID,
+    w,
   }: {
+    bg?: string;
+    borderBottomColor?: string;
+    borderBottomWidth?: number;
     children?: ReactNode;
-    onPress?: (event: unknown) => void;
+    flexShrink?: number;
+    h?: number | string;
+    justifyContent?: string;
+    minHeight?: number;
+    pb?: string;
+    pt?: string;
+    py?: string;
     testID?: string;
+    w?: string;
+  }) => (
+    <div
+      data-bg={bg}
+      data-border-bottom-color={borderBottomColor}
+      data-border-bottom-width={borderBottomWidth}
+      data-flex-shrink={flexShrink}
+      data-height={h}
+      data-justify-content={justifyContent}
+      data-min-height={minHeight}
+      data-pb={pb}
+      data-pt={pt}
+      data-py={py}
+      data-testid={testID}
+      data-width={w}
+    >
+      {children}
+    </div>
+  ),
+  XStack: ({
+    accessibilityLabel,
+    alignSelf,
+    children,
+    flex,
+    flexShrink,
+    onPress,
+    gap,
+    pl,
+    pr,
+    testID,
+    transform,
+  }: {
+    accessibilityLabel?: string;
+    alignSelf?: string;
+    children?: ReactNode;
+    flex?: number;
+    flexShrink?: number;
+    gap?: string;
+    onPress?: (event: unknown) => void;
+    pl?: string;
+    pr?: string;
+    testID?: string;
+    transform?: { translateY: number }[];
   }) =>
     onPress ? (
-      <button data-testid={testID} onClick={onPress} type="button">
+      <button
+        aria-label={accessibilityLabel}
+        data-align-self={alignSelf}
+        data-flex={flex}
+        data-flex-shrink={flexShrink}
+        data-gap={gap}
+        data-pl={pl}
+        data-pr={pr}
+        data-testid={testID}
+        data-translate-y={transform?.[0]?.translateY}
+        onClick={onPress}
+        type="button"
+      >
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>{children}</div>
+      <div
+        aria-label={accessibilityLabel}
+        data-align-self={alignSelf}
+        data-flex={flex}
+        data-flex-shrink={flexShrink}
+        data-gap={gap}
+        data-pl={pl}
+        data-pr={pr}
+        data-testid={testID}
+        data-translate-y={transform?.[0]?.translateY}
+      >
+        {children}
+      </div>
     ),
 }));
 
@@ -98,11 +186,54 @@ jest.mock('./indicatorSelector/NativeIndicatorSelector', () => ({
   IndicatorPopover: () => null,
 }));
 jest.mock('./intervalSelector/NativeIntervalSelector', () => ({
-  TradingViewNativeIntervalSelector: () => null,
+  TradingViewNativeIntervalSelector: (props: unknown) => {
+    mockTradingViewNativeIntervalSelector(props);
+    return (
+      <button data-testid="interval-selector" type="button">
+        Intervals
+      </button>
+    );
+  },
 }));
 jest.mock('./priceMarketCap/PriceMarketCapSelect', () => ({
   PriceMarketCapSelect: () => null,
 }));
+
+const BASE_PROPS: ComponentProps<typeof TradingViewChartControls> = {
+  activeChartType: undefined,
+  activeIndicatorValues: new Set(),
+  calendarAvailableTimeRange: undefined,
+  chartSettingsTitle: 'Settings',
+  chartStyleTitle: 'Style',
+  chartTimezone: 'UTC',
+  chartTypeToggleIcon: 'TradingViewCandlesOutline',
+  chartTypes: [],
+  fullscreenHeader: undefined,
+  hasVisibleControls: true,
+  hasVisibleIndicators: false,
+  hasVisibleIntervalSelector: true,
+  indicators: [],
+  indicatorsTitle: 'Indicators',
+  intervalConfig: { activeInterval: '60', intervals: [] },
+  intervalControlMode: 'dialog',
+  isControlsReady: true,
+  isFullscreen: false,
+  layoutMode: 'mobile',
+  nextChartTypeLabel: 'Chart type',
+  onChartTypeChange: jest.fn(),
+  onChartTypeToggle: jest.fn(),
+  onIndicatorPress: jest.fn(),
+  onIntervalChange: jest.fn(),
+  onPriceMarketCapModeChange: jest.fn(),
+  onSettingsPress: jest.fn(),
+  onShowIndicatorsDialog: jest.fn(),
+  priceMarketCap: undefined,
+  settingsEnabled: false,
+  showChartTypeSelect: false,
+  showChartTypeToggle: false,
+  showIndicatorPopover: false,
+  showPriceMarketCapSelect: false,
+};
 
 function renderChartControls(
   overrides: Partial<ComponentProps<typeof TradingViewChartControls>> = {},
@@ -228,4 +359,145 @@ describe('TradingView chart controls', () => {
       expect(handleFullscreenToggle).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('uses text-only active intervals in compact mode', () => {
+    const { rerender } = render(<TradingViewChartControls {...BASE_PROPS} />);
+
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: false,
+        fullWidth: false,
+        showActiveBackground: true,
+      }),
+    );
+
+    rerender(<TradingViewChartControls {...BASE_PROPS} compactMobileLayout />);
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: true,
+        fullWidth: true,
+        showActiveBackground: false,
+      }),
+    );
+    expect(
+      screen
+        .getByTestId('trading-view-chart-ready-controls')
+        .getAttribute('data-gap'),
+    ).toBe('$0');
+  });
+  it('keeps the original height while filling compact charts without a close control', () => {
+    const view = render(
+      <TradingViewChartControls {...BASE_PROPS} compactMobileLayout />,
+    );
+
+    expect(view.container.firstElementChild?.getAttribute('data-pt')).toBe(
+      '$1.5',
+    );
+    expect(view.container.firstElementChild?.getAttribute('data-pb')).toBe(
+      '$0.5',
+    );
+    expect(
+      view.container.firstElementChild?.getAttribute('data-min-height'),
+    ).toBeNull();
+    expect(
+      view.container.firstElementChild?.getAttribute('data-justify-content'),
+    ).toBeNull();
+    expect(
+      view.queryByTestId('trading-view-compact-chart-controls-row'),
+    ).toBeNull();
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: true,
+        fullWidth: true,
+      }),
+    );
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-width',
+      ),
+    ).toBe('0.5');
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-color',
+      ),
+    ).toBe('$borderSubdued');
+
+    view.rerender(<TradingViewChartControls {...BASE_PROPS} />);
+    expect(view.container.firstElementChild?.getAttribute('data-py')).toBe(
+      '$2',
+    );
+    expect(
+      view.container.firstElementChild?.getAttribute(
+        'data-border-bottom-width',
+      ),
+    ).toBe('0');
+  });
+  it('lets compact intervals fill the space beside the close action', () => {
+    const handleClose = jest.fn();
+    const { container, getByTestId } = render(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        compactMobileLayout
+        rightControl={<span>Chevron</span>}
+        rightControlLabel="Close chart"
+        onRightControlPress={handleClose}
+      />,
+    );
+
+    expect(container.firstElementChild?.getAttribute('data-py')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-pt')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-pb')).toBeNull();
+    expect(container.firstElementChild?.getAttribute('data-min-height')).toBe(
+      '42',
+    );
+    expect(
+      container.firstElementChild?.getAttribute('data-justify-content'),
+    ).toBe('center');
+    expect(
+      getByTestId('trading-view-compact-chart-controls-row').getAttribute(
+        'data-translate-y',
+      ),
+    ).toBe('2');
+    fireEvent.click(getByTestId('interval-selector'));
+    expect(handleClose).not.toHaveBeenCalled();
+    expect(mockTradingViewNativeIntervalSelector).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fullWidth: true }),
+    );
+    expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute('data-gap'),
+    ).toBe('$0');
+    expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute(
+        'data-flex',
+      ),
+    ).toBe('1');
+    expect(
+      getByTestId('trading-view-chart-ready-controls').getAttribute(
+        'data-flex-shrink',
+      ),
+    ).toBe('1');
+    expect(
+      getByTestId('interval-selector').parentElement?.getAttribute('data-flex'),
+    ).toBe('1');
+    expect(
+      getByTestId('interval-selector').parentElement?.getAttribute(
+        'data-flex-shrink',
+      ),
+    ).toBe('1');
+
+    const closeArea = getByTestId('trading-view-native-chart-close');
+    const closeDivider = getByTestId('trading-view-native-chart-close-divider');
+    expect(closeDivider.nextElementSibling).toBe(closeArea);
+    expect(closeDivider.getAttribute('data-height')).toBe('$4');
+    expect(closeDivider.getAttribute('data-width')).toBe('$px');
+    expect(closeDivider.getAttribute('data-bg')).toBe('$borderSubdued');
+    expect(closeDivider.getAttribute('data-flex-shrink')).toBe('0');
+    expect(closeArea.getAttribute('aria-label')).toBe('Close chart');
+    expect(closeArea.getAttribute('data-flex')).toBeNull();
+    expect(closeArea.getAttribute('data-align-self')).toBe('stretch');
+    expect(closeArea.getAttribute('data-pl')).toBe('$2');
+    expect(closeArea.getAttribute('data-pr')).toBe('$2');
+    fireEvent.click(closeArea);
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
 });

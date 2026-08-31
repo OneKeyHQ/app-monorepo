@@ -387,7 +387,7 @@ describe('localSecretEnvelope migration candidate classifier', () => {
     ).toEqual({ canMigrate: false, reason: 'unsupported_prefix' });
   });
 
-  it('defers browser-class HyperLiquid plaintext to HLE before LSE', () => {
+  it('defers password-protected HyperLiquid plaintext to HLE before LSE', () => {
     const plaintextCandidate = classifyLocalSecretEnvelopeMigrationCandidate({
       dataType: 'credential',
       recordId: 'hyperliquid-agent--0x1--OneKeyAgent1',
@@ -401,13 +401,13 @@ describe('localSecretEnvelope migration candidate classifier', () => {
     expect(
       shouldDeferHyperLiquidPlaintextLseMigration({
         candidate: plaintextCandidate,
-        isNative: false,
+        usePasswordEncryption: true,
       }),
     ).toBe(true);
     expect(
       shouldDeferHyperLiquidPlaintextLseMigration({
         candidate: plaintextCandidate,
-        isNative: true,
+        usePasswordEncryption: false,
       }),
     ).toBe(false);
     expect(

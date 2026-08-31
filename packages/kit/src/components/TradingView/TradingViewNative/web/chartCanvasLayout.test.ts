@@ -20,7 +20,7 @@ const LABELS: ITradingViewNativeCanvasPriceAxisLabels = {
   yAxisVisible: true,
 };
 
-function createCanvas() {
+function createCanvas(options?: { scaleWithFont?: boolean }) {
   return {
     getBoundingClientRect: () =>
       ({
@@ -35,7 +35,10 @@ function createCanvas() {
       }) as DOMRect,
     getContext: () => ({
       font: '',
-      measureText: (label: string) => ({ width: label.length * 6 }),
+      measureText(label: string) {
+        const fontSize = options?.scaleWithFont ? parseFloat(this.font) : 12;
+        return { width: label.length * (fontSize / 2) };
+      },
     }),
   } as unknown as HTMLCanvasElement;
 }
@@ -75,6 +78,58 @@ describe('TradingViewNative web canvas layout', () => {
       isTradingViewNativeCanvasMainPriceAxisPointer({
         ...input,
         clientY: 320,
+      }),
+    ).toBe(false);
+    expect(
+      isTradingViewNativeCanvasMainPriceAxisPointer({
+        ...input,
+        clientY: 287,
+        timeAxisHeight: 20,
+      }),
+    ).toBe(true);
+    expect(
+      isTradingViewNativeCanvasMainPriceAxisPointer({
+        ...input,
+        clientY: 288,
+        timeAxisHeight: 20,
+      }),
+    ).toBe(false);
+  });
+
+  it('hit-tests the price axis with the compact font it is rendered with', () => {
+    const canvas = createCanvas({ scaleWithFont: true });
+    const labels = { ...LABELS, widestPrice: '88888888.88' };
+    const priceScale = { mode: 'linear' as const, rangeScale: 1 };
+    const defaultWidth = getTradingViewNativeCanvasPriceAxisWidth(
+      canvas,
+      labels,
+      priceScale,
+    );
+    const compactWidth = getTradingViewNativeCanvasPriceAxisWidth(
+      canvas,
+      labels,
+      priceScale,
+      11,
+    );
+    expect(compactWidth).toBeLessThan(defaultWidth);
+
+    // Inside the default-font axis but outside the compact one.
+    const canvasRect = canvas.getBoundingClientRect();
+    const input = {
+      canvas,
+      clientX:
+        canvasRect.left + canvasRect.width - (defaultWidth + compactWidth) / 2,
+      clientY: 200,
+      labels,
+      paneCount: 1,
+      priceScale,
+    };
+
+    expect(isTradingViewNativeCanvasMainPriceAxisPointer(input)).toBe(true);
+    expect(
+      isTradingViewNativeCanvasMainPriceAxisPointer({
+        ...input,
+        priceAxisFontSize: 11,
       }),
     ).toBe(false);
   });

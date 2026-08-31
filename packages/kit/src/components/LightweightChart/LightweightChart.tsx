@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { useChartConfig } from './hooks/useChartConfig';
@@ -493,7 +495,11 @@ export function LightweightChart({
 
   return (
     <Stack position="relative" width="100%" height={height}>
-      <Stack ref={chartContainerRef} position="absolute" inset={0} />
+      <Stack
+        ref={chartContainerRef as unknown as Ref<IElement>}
+        position="absolute"
+        inset={0}
+      />
       {pulseLastPoint && lastPointPosition ? (
         <LightweightChartPulseDot
           x={lastPointPosition.x}

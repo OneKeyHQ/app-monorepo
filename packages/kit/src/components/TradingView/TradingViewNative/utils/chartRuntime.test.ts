@@ -204,6 +204,16 @@ describe('TradingViewNative chart runtime', () => {
       x: chartWidth - 1,
       y: height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     });
+    const compactState = reduceTradingViewNativeChartRuntime(state, {
+      chartWidth,
+      height,
+      pointCount: 100,
+      timeAxisHeight: 20,
+      type: 'crosshairMoved',
+      x: chartWidth - 1,
+      y: height,
+    });
+    expect(compactState.crosshair.y).toBe(220);
     expect(
       getTradingViewNativeChartRuntimeVisiblePointRange({
         chartWidth,

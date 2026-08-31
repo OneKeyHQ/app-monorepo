@@ -2,12 +2,13 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 
 export const ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT = 36;
 export const ORDER_BOOK_SIDE_RATIO_GAP = 4;
+export const PERP_DESKTOP_CHART_MIN_HEIGHT = 360;
+export const PERP_DESKTOP_INFO_MIN_HEIGHT = 300;
 
 const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
 const ORDER_BOOK_VERTICAL_ROW_GAP = 1;
-const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN = 22;
-const ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX = 23;
+const ORDER_BOOK_VERTICAL_ROW_HEIGHT = 22;
 const ORDER_BOOK_VERTICAL_LEVELS_MIN = 3;
 const ORDER_BOOK_VERTICAL_LEVELS_DEFAULT = 11;
 
@@ -40,6 +41,62 @@ const DESKTOP_LAYOUT_WIDTH_LIMITS = {
 
 function clampSize(value: number, min: number, max: number) {
   return Math.round(Math.min(Math.max(value, min), max));
+}
+
+export function resetPerpDesktopLeftSplit<
+  T extends { chartHeight?: number; orderBook?: unknown },
+>(layoutState: T): Omit<T, 'chartHeight' | 'orderBook'> {
+  const {
+    chartHeight: _chartHeight,
+    orderBook: _orderBook,
+    ...rest
+  } = layoutState;
+  return rest;
+}
+
+function getVerticalSplitSizes({
+  topDefaultHeight,
+  bottomDefaultHeight,
+  savedTopHeight,
+  topMinHeight,
+  bottomMinHeight,
+}: {
+  topDefaultHeight: number;
+  bottomDefaultHeight: number;
+  savedTopHeight?: number;
+  topMinHeight: number;
+  bottomMinHeight: number;
+}) {
+  const totalHeight = topDefaultHeight + bottomDefaultHeight;
+  const topHeightCandidate =
+    typeof savedTopHeight === 'number' && Number.isFinite(savedTopHeight)
+      ? savedTopHeight
+      : topDefaultHeight;
+  const topHeight = clampSize(
+    topHeightCandidate,
+    topMinHeight,
+    totalHeight - bottomMinHeight,
+  );
+
+  return [topHeight, totalHeight - topHeight];
+}
+
+export function getPerpDesktopChartSplitSizes({
+  marketContentHeight,
+  bottomPanelHeight,
+  savedChartHeight,
+}: {
+  marketContentHeight: number;
+  bottomPanelHeight: number;
+  savedChartHeight?: number;
+}) {
+  return getVerticalSplitSizes({
+    topDefaultHeight: marketContentHeight,
+    bottomDefaultHeight: bottomPanelHeight,
+    savedTopHeight: savedChartHeight,
+    topMinHeight: PERP_DESKTOP_CHART_MIN_HEIGHT,
+    bottomMinHeight: PERP_DESKTOP_INFO_MIN_HEIGHT,
+  });
 }
 
 export function getResponsivePerpDesktopLayout(
@@ -83,13 +140,6 @@ export function getResponsivePerpDesktopLayout(
   };
 }
 
-function getOrderBookRowHeight(
-  bookBodyHeight: number,
-  levelsPerSide: number,
-): number {
-  return bookBodyHeight / (2 * levelsPerSide + 1) - ORDER_BOOK_VERTICAL_ROW_GAP;
-}
-
 export function getVerticalOrderBookLayout(
   containerHeight: number,
   maxLevelsPerSide: number,
@@ -107,39 +157,34 @@ export function getVerticalOrderBookLayout(
         ORDER_BOOK_VERTICAL_LEVELS_MIN,
         Math.min(maxLevelsPerSide, ORDER_BOOK_VERTICAL_LEVELS_DEFAULT),
       ),
-      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
+      extraBidLevels: 0,
+      rowHeight: ORDER_BOOK_VERTICAL_ROW_HEIGHT,
     };
   }
 
-  let levelsPerSide = Math.floor(
-    (bookBodyHeight / (ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN + 1) - 1) / 2,
-  );
-  levelsPerSide = Math.max(
+  // Pick the level count from the fixed-height baseline, then spread the
+  // leftover height evenly across rows so the ladder always fills the pane
+  // with no bottom gap.
+  const rowStep = ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP;
+  const fittedRows = Math.floor(bookBodyHeight / rowStep);
+  const levelsPerSide = Math.max(
     ORDER_BOOK_VERTICAL_LEVELS_MIN,
-    Math.min(levelsPerSide, maxLevelsPerSide),
+    Math.min(Math.floor((fittedRows - 1) / 2), maxLevelsPerSide),
   );
-
-  while (
-    levelsPerSide < maxLevelsPerSide &&
-    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) >
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MAX
-  ) {
-    levelsPerSide += 1;
-  }
-
-  while (
-    levelsPerSide > ORDER_BOOK_VERTICAL_LEVELS_MIN &&
-    getOrderBookRowHeight(bookBodyHeight, levelsPerSide) <
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN
-  ) {
-    levelsPerSide -= 1;
-  }
+  // Symmetric sides always leave 0-1 spare rows; give a spare row to the bid
+  // side before stretching so the leftover stays under one row height.
+  const extraBidLevels =
+    fittedRows - 1 - levelsPerSide * 2 >= 1 && levelsPerSide < maxLevelsPerSide
+      ? 1
+      : 0;
+  const totalRows = 2 * levelsPerSide + 1 + extraBidLevels;
 
   return {
     levelsPerSide,
+    extraBidLevels,
     rowHeight: Math.max(
-      ORDER_BOOK_VERTICAL_ROW_HEIGHT_MIN,
-      getOrderBookRowHeight(bookBodyHeight, levelsPerSide),
+      ORDER_BOOK_VERTICAL_ROW_HEIGHT,
+      bookBodyHeight / totalRows - ORDER_BOOK_VERTICAL_ROW_GAP,
     ),
   };
 }

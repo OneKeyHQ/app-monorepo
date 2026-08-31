@@ -74,6 +74,7 @@ import {
   getSwapSelectedTokensHomeAccountSyncAction,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
+  shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
@@ -267,6 +268,11 @@ export function useSwapInit(params?: ISwapInitParams) {
       }),
     [swapFromToken, swapTypeSwitch, swapNetworks, toToken],
   );
+  const isNativeProTokenOwner =
+    shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+      isNative: Boolean(platformEnv.isNative),
+      swapType: swapTypeSwitch,
+    });
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
@@ -585,6 +591,12 @@ export function useSwapInit(params?: ISwapInitParams) {
       const selectedTokensSyncAction =
         getSwapSelectedTokensHomeAccountSyncAction({
           cachedContext: selectedTokensColdStartContextRef.current,
+          // The Home read may finish after Native Pro takes ownership.
+          deferSelectedTokenSync:
+            shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+              isNative: Boolean(platformEnv.isNative),
+              swapType: swapTypeSwitchRef.current,
+            }),
           hasSelectedTokens,
           homeSelectedAccount,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
@@ -906,6 +918,16 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncDefaultSelectedToken = useCallback(async () => {
+    const shouldDeferForNativePro = () =>
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: Boolean(platformEnv.isNative),
+        swapType: swapTypeSwitchRef.current,
+      });
+    // Native Pro owns separate token atoms. Keep the parked Swap pair intact
+    // until Swap becomes the active owner again.
+    if (shouldDeferForNativePro()) {
+      return;
+    }
     const hasUnconsumedSwapInitParams = Boolean(
       swapInitParamsConsumptionKey &&
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
@@ -992,6 +1014,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     const homeAccountSyncResult =
       await syncSwapSelectedAccountFromLatestHomeStorage();
+    if (shouldDeferForNativePro()) {
+      return;
+    }
     if (homeAccountSyncResult.synced) {
       if (homeAccountSyncResult.clearedSelectedTokens) {
         hasSelectedTokens = false;
@@ -1534,6 +1559,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.dbAccount?.id,
     swapActiveAccount.deriveType,
     selectedTokensRuntimeChannelSupport,
+    isNativeProTokenOwner,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

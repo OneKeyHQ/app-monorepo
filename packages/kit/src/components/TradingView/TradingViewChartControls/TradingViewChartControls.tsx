@@ -25,13 +25,13 @@ import type {
   ICalendarPanelAvailableTimeRange,
   ICalendarPanelSubmitPayload,
 } from './calendarControls/CalendarPanelPopover';
-import type { ITradingViewNativeIntervalControlMode } from './intervalSelector/NativeIntervalSelector';
 import type {
   ITradingViewChartTypeOption,
   ITradingViewIndicatorOption,
   ITradingViewIntervalConfigData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewNativeControlsLayoutMode,
+  ITradingViewNativeIntervalControlMode,
   ITradingViewPriceMarketCapMode,
 } from './types';
 
@@ -41,6 +41,7 @@ type ITradingViewChartMode = 'native' | 'tradingView';
 
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
+  compactMobileLayout?: boolean;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -68,6 +69,8 @@ export interface ITradingViewChartControlsProps {
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
   fullscreenHeader?: ReactNode;
+  rightControl?: ReactNode;
+  rightControlLabel?: string;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
@@ -84,19 +87,36 @@ export interface ITradingViewChartControlsProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onFullscreenToggle?: () => void;
+  onRightControlPress?: () => void;
 }
 
-function ToolbarSeparator() {
-  return <Stack h="$6" w="$px" bg="$borderSubdued" flexShrink={0} />;
+function ToolbarSeparator({
+  compact = false,
+  testID,
+}: {
+  compact?: boolean;
+  testID?: string;
+}) {
+  return (
+    <Stack
+      testID={testID}
+      h={compact ? '$4' : '$6'}
+      w="$px"
+      bg="$borderSubdued"
+      flexShrink={0}
+    />
+  );
 }
 
 const DESKTOP_CONTROLS_HEIGHT = 38;
 const DESKTOP_FULLSCREEN_CONTROLS_HEIGHT = 64;
+const COMPACT_MOBILE_CONTROLS_MIN_HEIGHT = 42;
 export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 
 export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
+    compactMobileLayout = false,
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -124,6 +144,8 @@ export const TradingViewChartControls = memo(
     calendarAvailableTimeRange,
     isFullscreen,
     fullscreenHeader,
+    rightControl,
+    rightControlLabel,
     chartMode,
     isChartSwitchDisabled = false,
     onChartSwitch,
@@ -140,6 +162,7 @@ export const TradingViewChartControls = memo(
     onUndo,
     onRedo,
     onFullscreenToggle,
+    onRightControlPress,
   }: ITradingViewChartControlsProps) => {
     const intl = useIntl();
     const isDesktopLayout = layoutMode === 'desktop';
@@ -403,26 +426,46 @@ export const TradingViewChartControls = memo(
       !hasCalendarControl &&
       !hasFullscreenControl &&
       !hasHistoryControls &&
+      !rightControl &&
       !chartSwitchControl &&
       !desktopFullscreenHeader
     ) {
       return null;
     }
 
-    const intervalSelector = hasVisibleIntervalSelector ? (
-      <TradingViewNativeIntervalSelector
-        intervalConfig={intervalConfig}
-        intervalControlMode={intervalControlMode}
-        onIntervalChange={onIntervalChange}
-        onControlInteraction={onControlInteraction}
-      />
-    ) : null;
     const hasLeftChartTools = Boolean(
       chartTypeControl ||
       indicatorControl ||
       calendarControl ||
       settingsControl,
     );
+    const hasCompactChartCloseControl = Boolean(
+      compactMobileLayout && rightControl && onRightControlPress,
+    );
+    const shouldFillIntervalSelector =
+      compactMobileLayout &&
+      hasVisibleIntervalSelector &&
+      !hasLeftChartTools &&
+      !priceMarketCapControl &&
+      !chartSwitchControl &&
+      !fullscreenControl &&
+      (!rightControl || hasCompactChartCloseControl) &&
+      (!onRightControlPress || hasCompactChartCloseControl);
+    const shouldStretchReadyControls =
+      !onRightControlPress || hasCompactChartCloseControl;
+    const shouldUseTightCompactPadding =
+      compactMobileLayout && !hasCompactChartCloseControl;
+    const intervalSelector = hasVisibleIntervalSelector ? (
+      <TradingViewNativeIntervalSelector
+        compactMobileLayout={compactMobileLayout}
+        fullWidth={shouldFillIntervalSelector}
+        intervalConfig={intervalConfig}
+        intervalControlMode={intervalControlMode}
+        showActiveBackground={isDesktopLayout || !compactMobileLayout}
+        onIntervalChange={onIntervalChange}
+        onControlInteraction={onControlInteraction}
+      />
+    ) : null;
 
     if (isDesktopLayout) {
       return (
@@ -497,6 +540,7 @@ export const TradingViewChartControls = memo(
               ) : null}
 
               {fullscreenControl}
+              {rightControl}
             </XStack>
           </XStack>
         </Stack>
@@ -504,23 +548,56 @@ export const TradingViewChartControls = memo(
     }
 
     return (
-      <Stack bg={backgroundColor} px="$2" py="$2" zIndex={3}>
+      <Stack
+        bg={backgroundColor}
+        px="$2"
+        py={compactMobileLayout ? undefined : '$2'}
+        pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
+        pb={shouldUseTightCompactPadding ? '$0.5' : undefined}
+        minHeight={
+          hasCompactChartCloseControl
+            ? COMPACT_MOBILE_CONTROLS_MIN_HEIGHT
+            : undefined
+        }
+        justifyContent={hasCompactChartCloseControl ? 'center' : undefined}
+        borderBottomWidth={compactMobileLayout ? 0.5 : 0}
+        borderBottomColor="$borderSubdued"
+        zIndex={3}
+      >
         <XStack
+          testID={
+            hasCompactChartCloseControl
+              ? 'trading-view-compact-chart-controls-row'
+              : undefined
+          }
           alignItems="center"
           justifyContent="space-between"
           width="100%"
           gap="$2"
+          transform={
+            hasCompactChartCloseControl ? [{ translateY: 2 }] : undefined
+          }
         >
           <XStack
             testID="trading-view-chart-ready-controls"
-            flex={1}
+            flex={shouldStretchReadyControls ? 1 : undefined}
+            flexShrink={
+              compactMobileLayout && onRightControlPress ? 1 : undefined
+            }
             minWidth={0}
-            gap="$2"
+            gap={shouldFillIntervalSelector ? '$0' : '$2'}
             alignItems="center"
             opacity={isControlsReady ? 1 : 0}
             pointerEvents={isControlsReady ? 'auto' : 'none'}
           >
-            <XStack flex={1} minWidth={0} alignItems="center">
+            <XStack
+              flex={shouldStretchReadyControls ? 1 : undefined}
+              flexShrink={
+                compactMobileLayout && onRightControlPress ? 1 : undefined
+              }
+              minWidth={0}
+              alignItems="center"
+            >
               {intervalSelector}
             </XStack>
 
@@ -533,9 +610,43 @@ export const TradingViewChartControls = memo(
             </XStack>
           </XStack>
 
-          <XStack gap="$2" alignItems="center" justifyContent="flex-end">
-            {chartSwitchControl}
+          {chartSwitchControl ? (
+            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
+              {chartSwitchControl}
+            </XStack>
+          ) : null}
+
+          {hasCompactChartCloseControl ? (
+            <ToolbarSeparator
+              compact
+              testID="trading-view-native-chart-close-divider"
+            />
+          ) : null}
+
+          <XStack
+            testID={
+              onRightControlPress
+                ? 'trading-view-native-chart-close'
+                : undefined
+            }
+            flex={
+              onRightControlPress && !hasCompactChartCloseControl
+                ? 1
+                : undefined
+            }
+            alignSelf={onRightControlPress ? 'stretch' : undefined}
+            gap="$2"
+            alignItems="center"
+            justifyContent="flex-end"
+            pl={compactMobileLayout && onRightControlPress ? '$2' : undefined}
+            pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
+            accessibilityRole={onRightControlPress ? 'button' : undefined}
+            accessibilityLabel={rightControlLabel}
+            cursor={onRightControlPress ? 'pointer' : undefined}
+            onPress={onRightControlPress}
+          >
             {fullscreenControl}
+            {rightControl}
           </XStack>
         </XStack>
       </Stack>

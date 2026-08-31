@@ -30,6 +30,8 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
+
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
@@ -571,6 +573,9 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
+    const { requiresPasswordSetupOrVerify } = get(
+      hyperLiquidAgentPasswordStatusAtom.atom(),
+    );
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
@@ -589,15 +594,17 @@ export const {
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
     const shouldUseOrderPanelEnableTradingDialog =
-      isHardwareAccount || !isSoftwareAccount;
+      isHardwareAccount || !isSoftwareAccount || requiresPasswordSetupOrVerify;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
-      canAutoEnableInOrderPanel: isSoftwareAccount,
+      canAutoEnableInOrderPanel:
+        isSoftwareAccount && !requiresPasswordSetupOrVerify,
       requiresEnableTradingDialogInOrderPanel:
         shouldUseOrderPanelEnableTradingDialog,
-      requiresExplicitEnableTrading: !isSoftwareAccount,
+      requiresExplicitEnableTrading:
+        !isSoftwareAccount || requiresPasswordSetupOrVerify,
     };
   },
 });
@@ -1069,10 +1076,13 @@ export const {
 
 export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 
+export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  chartPosition?: IPerpsChartPosition;
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1087,6 +1097,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    chartPosition: 'bottom',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
@@ -1216,6 +1227,7 @@ export interface IPerpsLayoutState {
   orderBook?: {
     visible: boolean;
   };
+  chartHeight?: number;
   chartExpanded?: boolean;
   resetAt?: number;
 }

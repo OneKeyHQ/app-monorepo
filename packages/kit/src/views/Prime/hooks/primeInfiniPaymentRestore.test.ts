@@ -81,7 +81,7 @@ const baseParams = {
     primeSubscription: undefined,
     infiniSubscription: undefined,
   }),
-  clearCompletedPaymentSession: async () => undefined,
+  clearCompletedPaymentSession: async () => true,
   persistRestoredSession: async (session: IPrimeInfiniPendingPaymentSession) =>
     session,
 };
@@ -125,7 +125,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
 
   it('does not expose a restored amount after fresh status proves activation', async () => {
     const fetchLatestPayment = jest.fn(async () => payment);
-    const clearCompletedPaymentSession = jest.fn(async () => undefined);
+    const clearCompletedPaymentSession = jest.fn(async () => true);
     const persistRestoredSession = jest.fn(
       async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,
     );
@@ -140,6 +140,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: 1_800_000_000_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),
@@ -153,6 +154,27 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
       buildSession().paymentCacheKey,
     );
     expect(persistRestoredSession).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when completion races a replacement session', async () => {
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session: buildSession(),
+        fetchLatestPayment: async () => payment,
+        fetchPurchaseStatusSnapshot: async () => ({
+          onekeyUserId: 'user-1',
+          primeSubscription: {
+            isActive: true,
+            expiresAt: 1_800_000_000_000,
+            subscriptions: [{ channel: 'infini' }],
+          },
+          infiniSubscription: undefined,
+        }),
+        clearCompletedPaymentSession: async () => false,
+        discardPaymentSession: async () => true,
+      }),
+    ).rejects.toThrow('Infini payment session changed during restore');
   });
 
   // Writing on every restore refreshed updatedAt, and sendStarted only ever

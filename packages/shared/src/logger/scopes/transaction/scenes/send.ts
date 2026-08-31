@@ -7,6 +7,8 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 import type {
   IGasAccountActionParams,
   IGasAccountAnalyticsContext,
+  ISendCexDepositWarningActionParams,
+  ISendCexDepositWarningContext,
 } from '../types';
 
 type ISendMode = 'public' | 'private';
@@ -332,6 +334,24 @@ export class SendScene extends BaseScene {
     params: ISendPrivateValueDropWarningParams,
   ) {
     return params;
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningShow(params: ISendCexDepositWarningContext) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningAction(
+    params: ISendCexDepositWarningActionParams,
+  ) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
   }
 
   @LogToServer()

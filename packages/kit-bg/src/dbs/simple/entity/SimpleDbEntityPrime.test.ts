@@ -1759,14 +1759,47 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       return persisted;
     }) as never);
 
-    await entity.clearInfiniPendingPaymentSession({
-      onekeyUserId: 'user-1',
-      expectedPaymentCacheIdentity: session.paymentCacheKey,
-    });
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
 
     expect(persisted.infiniPendingPaymentSessionByUserId['user-1']).toEqual(
       replacement,
     );
+  });
+
+  test('atomically clears the matching payment session', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const persistedSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now(),
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': persistedSession,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(true);
+
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
+    ).toBeUndefined();
   });
 
   test('atomically discards the matching unsent payment session', async () => {
