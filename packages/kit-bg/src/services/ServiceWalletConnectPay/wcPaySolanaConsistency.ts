@@ -22,8 +22,13 @@ export type IWcPaySolanaSummary = {
   decimals?: number;
   // Always present. '0' when the blob carries no SetComputeUnitPrice ix.
   priorityFeeLamports: string;
-  // True iff the accepted ATA rent-payment instruction is present, so the
-  // sheet can account for the extra ~0.002 SOL cost.
+  // True when the FEE PAYER is not the account: the Pay server sponsors the
+  // network fee (base + priority), so those are not the user's costs and
+  // the sheet must not present them as such.
+  sponsoredFee: boolean;
+  // True iff the accepted ATA rent-payment instruction is present AND the
+  // ACCOUNT funds it, so the sheet can name the extra ~0.002 SOL cost —
+  // a sponsor-funded ATA costs the user nothing.
   fundsRecipientAta: boolean;
 };
 
@@ -107,6 +112,7 @@ const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000;
 // systemProgram, tokenProgram], with an optional legacy 7th key (the Rent
 // sysvar, still passed by some older clients).
 const ATA_KEY_COUNT = 6;
+const ATA_FUNDER_INDEX = 0;
 const ATA_ADDRESS_INDEX = 1;
 const ATA_MINT_INDEX = 3;
 const ATA_TOKEN_PROGRAM_INDEX = 5;
@@ -160,6 +166,7 @@ type IPaymentLeg =
     };
 
 type IAtaOutcome = {
+  funder: string;
   address: string;
   mint: string;
   tokenProgram: string;
@@ -316,6 +323,9 @@ function classifyAtaInstruction(
   return {
     kind: 'ata',
     ata: {
+      // who pays the rent — needed for cost attribution in the summary
+      // (with a sponsored fee payer the funder is customarily the sponsor)
+      funder: ix.keys[ATA_FUNDER_INDEX].pubkey.toBase58(),
       address: ix.keys[ATA_ADDRESS_INDEX].pubkey.toBase58(),
       mint: ix.keys[ATA_MINT_INDEX].pubkey.toBase58(),
       tokenProgram: ix.keys[ATA_TOKEN_PROGRAM_INDEX].pubkey.toBase58(),
@@ -353,11 +363,13 @@ function classifyInstruction(ix: TransactionInstruction): IInstructionOutcome {
 
 /**
  * Proves a server-supplied `solana_signTransaction` blob structurally
- * matches the order the user approved: same chain, same fee payer as the
- * option account, and exactly one payment instruction (native SOL transfer
- * or SPL `TransferChecked`) for the order amount and asset from that same
- * account. A plain SPL `Transfer` is refused (see `classifyTokenInstruction`)
- * — it carries no mint, so the asset it moves cannot be verified offline.
+ * matches the order the user approved: same chain, the option account among
+ * the REQUIRED SIGNERS (the fee payer may be the Pay server's sponsoring
+ * co-signer — see the signer check below), and exactly one payment
+ * instruction (native SOL transfer or SPL `TransferChecked`) for the order
+ * amount and asset from that same account. A plain SPL `Transfer` is
+ * refused (see `classifyTokenInstruction`) — it carries no mint, so the
+ * asset it moves cannot be verified offline.
  *
  * Fee/rent boundary: because this path signs the server's bytes verbatim
  * (no later fee re-estimation, unlike the EVM path), every accompanying
@@ -421,10 +433,24 @@ export function checkWcPaySolanaTxMatchesOrder({
     // visible change to the static account keys below.
     return { ok: false, reason: 'address lookup tables' };
   }
+  // The account must be a REQUIRED SIGNER — that signature is what the
+  // wallet is being asked to produce, and a message the account need not
+  // sign is not this account's payment. The FEE PAYER, however, may be
+  // someone else: the Pay server customarily sponsors the network fee (fee
+  // payer = its own co-signing account, observed live 2026-08-31), and the
+  // user's signature then authorizes nothing beyond the validated
+  // instructions below. Cost attribution follows: a sponsored fee is not
+  // the user's cost, and the summary must say so rather than warn about a
+  // priority fee somebody else pays.
   const feePayer = message.staticAccountKeys[0]?.toBase58();
-  if (feePayer !== optionAddress) {
-    return { ok: false, reason: 'fee payer mismatch' };
+  const numRequiredSignatures = message.header?.numRequiredSignatures ?? 0;
+  const requiredSigners = message.staticAccountKeys
+    .slice(0, numRequiredSignatures)
+    .map((key) => key.toBase58());
+  if (!requiredSigners.includes(optionAddress)) {
+    return { ok: false, reason: 'account is not a signer' };
   }
+  const isSponsoredFee = feePayer !== optionAddress;
 
   let instructions: TransactionInstruction[];
   try {
@@ -584,7 +610,10 @@ export function checkWcPaySolanaTxMatchesOrder({
       kind: leg.kind,
       ...(leg.kind === 'spl' ? { mint: leg.mint, decimals: leg.decimals } : {}),
       priorityFeeLamports: priorityFeeLamports.toFixed(),
-      fundsRecipientAta: ata !== undefined,
+      // costs are attributed to whoever actually pays them: the fee payer
+      // for the network fee, the ATA funder for the rent
+      sponsoredFee: isSponsoredFee,
+      fundsRecipientAta: ata !== undefined && ata.funder === optionAddress,
     },
   };
 }

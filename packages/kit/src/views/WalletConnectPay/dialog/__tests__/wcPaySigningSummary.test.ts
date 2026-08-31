@@ -28,6 +28,7 @@ function typedData(
 function solana(
   overrides?: Partial<{
     priorityFeeLamports: string;
+    sponsoredFee: boolean;
     fundsRecipientAta: boolean;
   }>,
 ): IWcPayInlineSigningSummary {
@@ -37,6 +38,7 @@ function solana(
       amountRaw: '20000000',
       kind: 'native',
       priorityFeeLamports: '0',
+      sponsoredFee: false,
       fundsRecipientAta: false,
       ...overrides,
     },
@@ -284,12 +286,34 @@ describe('review-hardening: expiry days unit and symbol sanitizing', () => {
   });
 
   it('sanitizes a hostile token symbol in the approve headline', () => {
-    const poisoned = `USD${String.fromCharCode(0x202e)}C — refund to 0xabc`;
+    const poisoned = `USD${String.fromCharCode(0x20_2e)}C — refund to 0xabc`;
     expect(
       describeWcPaySigningHeadline(
         { kind: 'approve', summary: { symbol: poisoned, unlimited: false } },
         '10 USDT',
       ),
     ).toBe('Allow Permit2 to use your USDC — refun…');
+  });
+});
+
+describe('sponsored-fee disclosure', () => {
+  it('replaces the priority-fee line when the merchant sponsors the fee', () => {
+    expect(
+      describeWcPaySigningSummary(
+        solana({ priorityFeeLamports: '10000000', sponsoredFee: true }),
+        NOW_MS,
+      ),
+    ).toBe('Network fee covered by the merchant');
+  });
+
+  it('still names a user-funded ATA rent beside the sponsored-fee line', () => {
+    expect(
+      describeWcPaySigningSummary(
+        solana({ sponsoredFee: true, fundsRecipientAta: true }),
+        NOW_MS,
+      ),
+    ).toBe(
+      'Network fee covered by the merchant · Creates the recipient token account (rent varies by token)',
+    );
   });
 });

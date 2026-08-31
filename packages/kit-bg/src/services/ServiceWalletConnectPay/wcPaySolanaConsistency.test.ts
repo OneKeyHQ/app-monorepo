@@ -220,6 +220,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -241,6 +242,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -264,6 +266,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -358,6 +361,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -386,6 +390,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '101',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -424,6 +429,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '9800000',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -477,6 +483,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: String(WC_PAY_SOLANA_MAX_PRIORITY_FEE_LAMPORTS),
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -588,6 +595,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '9800000',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -616,6 +624,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '10000',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -649,6 +658,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '70000',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -752,6 +762,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -795,6 +806,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -913,6 +925,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: true,
       },
     });
@@ -1115,6 +1128,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         mint: mint.toBase58(),
         decimals: 6,
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: true,
       },
     });
@@ -1386,6 +1400,7 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -1601,10 +1616,14 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
     ).toEqual({ ok: false, reason: 'unexpected instruction count' });
   });
 
-  it('refuses a fee payer that is not the option account', () => {
-    const other = Keypair.generate();
+  // The Pay server customarily sponsors the network fee: fee payer = its
+  // own co-signing account, the user's account signs only as the payment
+  // authority (observed live 2026-08-31). Acceptance requires the account
+  // to still be a REQUIRED SIGNER; cost attribution moves to the sponsor.
+  it('accepts a sponsored fee payer when the account still signs', () => {
+    const sponsor = Keypair.generate();
     const message = new TransactionMessage({
-      payerKey: other.publicKey,
+      payerKey: sponsor.publicKey,
       recentBlockhash: BLOCKHASH,
       instructions: [
         SystemProgram.transfer({
@@ -1623,7 +1642,92 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
         caip2ChainId: CHAIN,
         option: buildOption('1500'),
       }),
-    ).toEqual({ ok: false, reason: 'fee payer mismatch' });
+    ).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '1500',
+        kind: 'native',
+        priorityFeeLamports: '0',
+        sponsoredFee: true,
+        fundsRecipientAta: false,
+      },
+    });
+  });
+
+  it('refuses a message the option account need not sign', () => {
+    const sponsor = Keypair.generate();
+    const message = new TransactionMessage({
+      payerKey: sponsor.publicKey,
+      recentBlockhash: BLOCKHASH,
+      instructions: [
+        // the sponsor pays AND is the transfer authority; the option account
+        // appears nowhere as a signer — this is not the account's payment
+        SystemProgram.transfer({
+          fromPubkey: sponsor.publicKey,
+          toPubkey: recipient.publicKey,
+          lamports: 1500,
+        }),
+      ],
+    }).compileToLegacyMessage();
+    const tx = Buffer.from(
+      new VersionedTransaction(message).serialize(),
+    ).toString('base64');
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: tx,
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'account is not a signer' });
+  });
+
+  it('does not bill a sponsor-funded recipient ATA to the user', () => {
+    const sponsor = Keypair.generate();
+    const destination = Keypair.generate().publicKey;
+    const leg = splTransferChecked(
+      500_000n,
+      payer.publicKey,
+      6,
+      TOKEN_PROGRAM_ID,
+      destination,
+    );
+    const ataIx = new TransactionInstruction({
+      programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+      keys: [
+        // funder = the sponsor, not the user
+        { pubkey: sponsor.publicKey, isSigner: true, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        {
+          pubkey: Keypair.generate().publicKey,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        {
+          pubkey: SystemProgram.programId,
+          isSigner: false,
+          isWritable: false,
+        },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from([1]), // CreateIdempotent
+    });
+    const message = new TransactionMessage({
+      payerKey: sponsor.publicKey,
+      recentBlockhash: BLOCKHASH,
+      instructions: [ataIx, leg],
+    }).compileToLegacyMessage();
+    const tx = Buffer.from(
+      new VersionedTransaction(message).serialize(),
+    ).toString('base64');
+    const result = checkWcPaySolanaTxMatchesOrder({
+      txBase64: tx,
+      caip2ChainId: CHAIN,
+      option: buildOption('500000', 6, 'USDC'),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.summary.sponsoredFee).toBe(true);
+    expect(result.ok && result.summary.fundsRecipientAta).toBe(false);
   });
 
   it('refuses a chain that differs from the option chain', () => {

@@ -727,6 +727,7 @@ describe('useWcPayActionExecutor inline signing', () => {
         amountRaw: '1500',
         kind: 'native',
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });
@@ -986,6 +987,7 @@ describe('useWcPayActionExecutor inline signing', () => {
         mint: SOL_MINT,
         decimals: 6,
         priorityFeeLamports: '0',
+        sponsoredFee: false,
         fundsRecipientAta: false,
       },
     });

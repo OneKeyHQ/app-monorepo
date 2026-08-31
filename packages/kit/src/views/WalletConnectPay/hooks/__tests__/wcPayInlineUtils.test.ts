@@ -355,6 +355,7 @@ const nativeSummary = {
   amountRaw: '1500',
   kind: 'native' as const,
   priorityFeeLamports: '0',
+  sponsoredFee: false,
   fundsRecipientAta: false,
 };
 const splSummary = {
@@ -363,6 +364,7 @@ const splSummary = {
   mint: USDC_MINT,
   decimals: 6,
   priorityFeeLamports: '0',
+  sponsoredFee: false,
   fundsRecipientAta: false,
 };
 
@@ -1226,8 +1228,8 @@ describe('review-hardening: unlimited threshold and displayability', () => {
   });
 
   it('refuses bidi and zero-width characters in a personal_sign message', () => {
-    const bidiOverride = String.fromCharCode(0x202e);
-    const zeroWidth = String.fromCharCode(0x200b);
+    const bidiOverride = String.fromCharCode(0x20_2e);
+    const zeroWidth = String.fromCharCode(0x20_0b);
     for (const poison of [bidiOverride, zeroWidth]) {
       const text = `Pay 10 USDC${poison}to merchant`;
       const hex = `0x${Buffer.from(text, 'utf8').toString('hex')}`;
@@ -1249,7 +1251,7 @@ describe('review-hardening: unlimited threshold and displayability', () => {
   });
 
   it('sanitizeWcPayDisplayText strips forbidden characters and bounds length', () => {
-    const poisoned = `USD${String.fromCharCode(0x202e)}C`;
+    const poisoned = `USD${String.fromCharCode(0x20_2e)}C`;
     expect(sanitizeWcPayDisplayText(poisoned, 12)).toBe('USDC');
     expect(sanitizeWcPayDisplayText('A'.repeat(20), 12)).toBe(
       `${'A'.repeat(12)}…`,

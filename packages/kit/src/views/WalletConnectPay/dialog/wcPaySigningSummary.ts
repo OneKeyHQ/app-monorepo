@@ -137,13 +137,16 @@ export function describeWcPaySigningSummary(
     return parts.join(' · ');
   }
   // Solana: the validator bounds the priority fee (<= 0.01 SOL) and at most
-  // one recipient token-account rent; both are costs beyond the amount, so
-  // name them.
+  // one recipient token-account rent; both are costs beyond the amount when
+  // THE USER pays them, so they are named only then — a sponsored fee is
+  // the merchant's cost and is disclosed as such instead.
   const parts: string[] = [];
   const fee = new BigNumber(summary.summary.priorityFeeLamports);
-  // isFinite() is load-bearing beyond the NaN case: it is what stops an
-  // 'Infinity' fee from rendering as "up to Infinity SOL".
-  if (fee.isFinite() && fee.isGreaterThan(0)) {
+  if (summary.summary.sponsoredFee) {
+    parts.push('Network fee covered by the merchant');
+  } else if (fee.isFinite() && fee.isGreaterThan(0)) {
+    // isFinite() is load-bearing beyond the NaN case: it is what stops an
+    // 'Infinity' fee from rendering as "up to Infinity SOL".
     parts.push(
       `Network priority fee up to ${fee
         .shiftedBy(-LAMPORTS_PER_SOL_DECIMALS)
