@@ -311,6 +311,14 @@ export interface IDeviceStageProps {
   authChecklist?: IAuthChecklistItem[];
   /** Words and furniture the authFailure step wears. Defaults to 'unknown'. */
   authFailureReason?: IAuthFailureReason;
+  /**
+   * The fallback failure's real words (the v6.5.0 dialog's shape): shown
+   * in place of the generic unknown title. Display-ready — the driver
+   * resolves translation ids before handing it over.
+   */
+  authFailureMessage?: string;
+  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
+  authFailureCode?: string;
   /** The terminal failures' single exit — Support (the live flow raises
    * Intercom). Omitted, those cards render no button. */
   onAuthSupport?: () => void;

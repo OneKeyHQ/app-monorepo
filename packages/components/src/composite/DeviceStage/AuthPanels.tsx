@@ -109,6 +109,8 @@ export function AuthChecklist({ items }: { items: IAuthChecklistItem[] }) {
 export function AuthFailureCard({
   reason = 'unknown',
   checklist,
+  failureMessage,
+  failureCode,
   onSupport,
   onRetry,
   onContinueAnyway,
@@ -117,6 +119,11 @@ export function AuthFailureCard({
   reason?: IAuthFailureReason;
   /** The rows that ended in failure — the unofficial-firmware shape. */
   checklist?: IAuthChecklistItem[];
+  /** The fallback failure's real words (v6.5.0 dialog parity) — they
+   * stand in for the generic unknown title. Display-ready. */
+  failureMessage?: string;
+  /** Error code worn as a title suffix, the v6.5.0 dialog's own. */
+  failureCode?: string;
   onSupport?: () => void;
   onRetry?: () => void;
   onContinueAnyway?: () => void;
@@ -126,6 +133,10 @@ export function AuthFailureCard({
 }) {
   const intl = useIntl();
   const copy = AUTH_FAILURE_TEXT[reason];
+  const baseTitle = failureMessage ?? intl.formatMessage({ id: copy.title });
+  const failureTitle = failureCode
+    ? `${baseTitle} (${failureCode})`
+    : baseTitle;
   const [noteShown, setNoteShown] = useState(false);
   useEffect(() => {
     setNoteShown(false);
@@ -176,7 +187,7 @@ export function AuthFailureCard({
           follows; the blocks after it keep the card's 24. */}
       <YStack>
         <StepText
-          title={intl.formatMessage({ id: copy.title })}
+          title={failureTitle}
           sub={intl.formatMessage({ id: copy.sub })}
           animated={false}
         />

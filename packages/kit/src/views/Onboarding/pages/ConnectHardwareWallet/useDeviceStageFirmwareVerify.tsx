@@ -136,6 +136,8 @@ export function useDeviceStageFirmwareVerify() {
           extras?: {
             checklist?: IDeviceStageAuthChecklistItem[];
             failureReason?: IDeviceStageAuthFailureReasonValue;
+            failureMessage?: string;
+            failureCode?: string;
           },
         ) => {
           await serviceHardwareUI.deviceStageNoteAuthStep({
@@ -143,6 +145,8 @@ export function useDeviceStageFirmwareVerify() {
             connectId,
             checklist: extras?.checklist,
             failureReason: extras?.failureReason,
+            failureMessage: extras?.failureMessage,
+            failureCode: extras?.failureCode,
           });
         };
 
@@ -207,7 +211,12 @@ export function useDeviceStageFirmwareVerify() {
               ) {
                 reason = 'unavailable';
               }
-              await noteStep('authFailure', { failureReason: reason });
+              await noteStep('authFailure', {
+                failureReason: reason,
+                // The legacy dialog (v6.5.0) stamped the server verdict's
+                // code on the title, -99999 standing in for a missing one.
+                failureCode: String(code ?? -99_999),
+              });
               return 'failed';
             }
 
@@ -278,7 +287,31 @@ export function useDeviceStageFirmwareVerify() {
             ) {
               reason = 'unofficialDevice';
             }
-            await noteStep('authFailure', { failureReason: reason });
+            // v6.5.0 dialog parity: the fallback card speaks the error's
+            // own words — server messages may be translation ids, resolved
+            // here where intl lives — and every card carries the code as a
+            // title suffix ('unknown' standing in on the fallback when the
+            // error has none).
+            const rawMessage =
+              typeof err?.message === 'string' && err.message
+                ? err.message
+                : undefined;
+            const resolvedMessage =
+              rawMessage && intl.messages[rawMessage as ETranslations]
+                ? intl.formatMessage({ id: rawMessage as ETranslations })
+                : rawMessage;
+            let failureCode: string | undefined;
+            if (reason === 'unknown') {
+              failureCode = String(err?.code ?? 'unknown');
+            } else if (err?.code !== undefined) {
+              failureCode = String(err.code);
+            }
+            await noteStep('authFailure', {
+              failureReason: reason,
+              failureMessage:
+                reason === 'unknown' ? resolvedMessage : undefined,
+              failureCode,
+            });
             return 'failed';
           } finally {
             appEventBus.off(
