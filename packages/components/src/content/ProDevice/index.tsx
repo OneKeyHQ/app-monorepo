@@ -24,8 +24,7 @@ export type { IProDeviceAnimation } from './animation';
  * Scenes run on the shared presence machinery (../deviceSceneHost), the
  * same way the Pro 2's do: content renders in as the whole of an entry,
  * stays lit while the scene is on, and a scene change plays the lit-to-lit
- * handover (callers sequence anything else after SCREEN_SWAP_MS, see
- * ../deviceScene). The shell chrome mounts once here; a scene change only
+ * handover. The shell chrome mounts once here; a scene change only
  * swaps the screen slot's content. `animation` also accepts a custom
  * IProDeviceAnimation contract (see ./animation.ts) paired with your own
  * `screenContent` on the 288x484 touchscreen canvas.
