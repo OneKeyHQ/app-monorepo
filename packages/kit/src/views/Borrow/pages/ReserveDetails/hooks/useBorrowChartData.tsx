@@ -132,18 +132,7 @@ export function useBorrowApyHistory({
     { watchLoading: true, undefinedResultIfReRun: true },
   );
 
-  const latestApy = useMemo(() => {
-    const latest = history.reduce<(typeof history)[number] | undefined>(
-      (currentLatest, item) =>
-        currentLatest === undefined || item.timestamp > currentLatest.timestamp
-          ? item
-          : currentLatest,
-      undefined,
-    );
-    return latest?.apy ?? '0';
-  }, [history]);
-
-  return { history, isLoading, latestApy };
+  return { history, isLoading };
 }
 
 // Badges hook
