@@ -739,12 +739,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'dApp',
                         'WalletConnect',
                       ],
+                      settingRoute:
+                        EModalSettingRoutes.SettingDAppConnectionList,
                       onPress: (navigation) => {
-                        navigation?.pushModal(
-                          EModalRoutes.DAppConnectionModal,
-                          {
-                            screen: EDAppConnectionModal.ConnectionList,
-                          },
+                        navigation?.push(
+                          EModalSettingRoutes.SettingDAppConnectionList,
                         );
                       },
                     },
