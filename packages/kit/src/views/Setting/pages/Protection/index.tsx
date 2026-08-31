@@ -312,10 +312,15 @@ const SettingProtectionModal = () => {
             })}
           />
           <ListItem
-            title={receiveRiskMonitoringTitle}
-            subtitle={intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__desc,
-            })}
+            renderItemText={
+              <ListItem.Text
+                flex={1}
+                primary={receiveRiskMonitoringTitle}
+                secondary={intl.formatMessage({
+                  id: ETranslations.prime_feature_receive_risk_monitoring__desc,
+                })}
+              />
+            }
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
                 defaultLogger.prime.subscription.primeEntryClick({
