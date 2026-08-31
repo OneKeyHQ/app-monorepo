@@ -248,6 +248,7 @@ function PerpBadgesRow() {
       <PerpDexBadge
         compact
         dexLabel={dexLabel}
+        height={20}
         testID={PerpTestIDs.ActiveDexBadge}
       />
       {subtitle ? (

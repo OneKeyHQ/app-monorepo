@@ -1154,6 +1154,7 @@ function TxConfirmActions(props: IProps) {
   return (
     <Page.Footer
       disableKeyboardAnimation
+      safeAreaBottomMode="content"
       testID={SignatureConfirmTestIDs.TxConfirmFooter}
     >
       <Page.FooterActions

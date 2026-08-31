@@ -3485,6 +3485,7 @@
   "perps.token_selector_perps": "永续合约",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易奖励",
+  "perps__action": "合约",
   "perps__claim_failed__msg": "手续费折扣领取失败，请稍后再试",
   "perps__claim_fee_discount__desc": "仅需一次免费签名，即可永久享受永续合约交易 4% 手续费折扣。无需支付 Gas，签名即刻生效。",
   "perps__claim_fee_discount__title": "领取永续合约 4% 手续费优惠",

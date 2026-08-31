@@ -3485,6 +3485,7 @@
   "perps.token_selector_perps": "Perpetuals",
   "perps.token_selector_stocks": "Aktien",
   "perps.trade_reward": "Handelsbelohnung",
+  "perps__action": "Perps",
   "perps__claim_failed__msg": "Gebührenrabatt konnte nicht beansprucht werden. Bitte versuchen Sie es später erneut",
   "perps__claim_fee_discount__desc": "Einmal kostenlos signieren und dauerhaft 4 % Rabatt auf die Perps-Handelsgebühren sichern. Kein Gas erforderlich, sofort wirksam.",
   "perps__claim_fee_discount__title": "4 % Perps-Gebührensenkung sichern",

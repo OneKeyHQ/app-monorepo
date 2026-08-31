@@ -165,7 +165,7 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('forwards the compact mobile toolbar layout', () => {
+  it('hides the chart type selector in the compact mobile toolbar', () => {
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
@@ -178,7 +178,10 @@ describe('TradingViewNative chart controls', () => {
     );
 
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
-      expect.objectContaining({ compactMobileLayout: true }),
+      expect.objectContaining({
+        compactMobileLayout: true,
+        showChartTypeSelect: false,
+      }),
     );
   });
 
@@ -206,7 +209,7 @@ describe('TradingViewNative chart controls', () => {
     };
     expect(controlsProps.hasVisibleIndicators).toBe(false);
     expect(controlsProps.rightControl.props.name).toBe(
-      'ChevronDownSmallOutline',
+      'ChevronTriangleDownSmallSolid',
     );
     expect(controlsProps.rightControl.props.size).toBe('$5');
     expect(controlsProps.rightControlLabel).toBe('global.close');

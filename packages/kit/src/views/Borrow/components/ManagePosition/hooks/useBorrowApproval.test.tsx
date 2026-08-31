@@ -395,6 +395,34 @@ describe('useBorrowApproval', () => {
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it('resets approval progress when the request scope changes', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ amountValue }: { amountValue: string }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue,
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+        }),
+      { initialProps: { amountValue: '5' } },
+    );
+
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(result.current.approvalProgressStarted).toBe(true);
+
+    rerender({ amountValue: '6' });
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    rerender({ amountValue: '5' });
+    expect(result.current.approvalProgressStarted).toBe(false);
+  });
+
   it('opens approval from cached insufficient allowance when the fresh check fails', async () => {
     allowanceMock.fetchAllowanceResponse.mockRejectedValue(
       new Error('Allowance unavailable'),
@@ -1159,6 +1187,7 @@ describe('useBorrowApproval risk disclaimer gate (OK-59196)', () => {
     );
     // Bailed out before taking the approving lock, so the footer never sticks.
     expect(result.current.approving).toBe(false);
+    expect(result.current.approvalProgressStarted).toBe(false);
     expect(onApprovedSubmit).not.toHaveBeenCalled();
     expect(
       backgroundMock.serviceStaking.getBorrowManagePage,
