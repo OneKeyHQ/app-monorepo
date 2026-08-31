@@ -115,6 +115,9 @@ export function StockDetailProvider({
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
             stockId: normalizedStockId,
           });
+        if (data === null) {
+          return { stockId: normalizedStockId, failed: true };
+        }
         const result = { stockId: normalizedStockId, data };
         successfulStockDetailsRef.current.set(normalizedStockId, result);
         return result;

@@ -443,6 +443,24 @@ describe('StockDetailProvider', () => {
     });
   });
 
+  it('exposes a retryable detail error when the stock is missing', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValueOnce(null);
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isStockDetailError).toBe(true);
+    });
+    expect(result.current.stockDetail).toBeUndefined();
+  });
+
   it('keeps the last loaded detail when a refresh fails', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValueOnce({
       stockId: 'AAPL',
