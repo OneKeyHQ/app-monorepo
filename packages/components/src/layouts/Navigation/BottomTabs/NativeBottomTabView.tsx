@@ -209,7 +209,7 @@ export function NativeBottomTabView({
     (index: number) => {
       const route = state.routes[index];
       if (!route) {
-        return;
+        return false;
       }
 
       navigation.emit({
@@ -238,16 +238,23 @@ export function NativeBottomTabView({
         canPreventDefault: true,
       });
 
-      if (
-        !focused &&
-        !event.defaultPrevented &&
-        !descriptors[route.key]?.options.preventsDefault
-      ) {
+      const accepted =
+        focused ||
+        (!event.defaultPrevented &&
+          !descriptors[route.key]?.options.preventsDefault);
+
+      if (!accepted) {
+        return false;
+      }
+
+      if (!focused) {
         navigation.dispatch({
           ...CommonActions.navigate(route),
           target: state.key,
         });
       }
+
+      return true;
     },
     [state.index, state.routes, state.key, navigation, descriptors],
   );

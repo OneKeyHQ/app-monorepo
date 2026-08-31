@@ -128,14 +128,39 @@ index 302f239fd8ca6576ca9cd594e57c3ef2c3133a6b..386998c5b03635521eaa9aebf7adc92e
 +  }
  }
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
-index 917dd5aef6a35e8103f5f86e2a63f1c41b1943f5..8edfa20a2ba9baabe13a73a23b944a1ffa04c4b3 100644
+index 917dd5a..5f9caa3 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
 @@ -18,2 +18,3 @@ const TabView = ({
    renderScene,
 +  renderLazyPlaceholder,
    onIndexChange,
-@@ -266,3 +267,6 @@ const TabView = ({
+@@ -76,2 +77,3 @@ const TabView = ({
+   const customTabBarWrapperRef = useRef(null);
++  const nativeTabViewRef = useRef(null);
+   const [tabBarHeight, setTabBarHeight] = React.useState(0);
+@@ -201,3 +203,3 @@ const TabView = ({
+     }
+-    onIndexChange(index);
++    return onIndexChange(index);
+   });
+@@ -216,4 +218,9 @@ const TabView = ({
+     } = event.nativeEvent;
+-    jumpTo(key);
+-  }, [jumpTo]);
++    const accepted = jumpTo(key);
++    if (accepted === false) {
++      nativeTabViewRef.current?.setNativeProps({
++        selectedPage: focusedKey
++      });
++    }
++  }, [focusedKey, jumpTo]);
+   const handleTabBarMeasured = React.useCallback(event => {
+@@ -241,2 +248,3 @@ const TabView = ({
+     children: [/*#__PURE__*/_jsxs(NativeTabView, {
++      ref: nativeTabViewRef,
+       ...props,
+@@ -266,3 +274,6 @@ const TabView = ({
              collapsable: false,
 -            style: styles.fullWidth
 +            style: styles.fullWidth,
@@ -143,13 +168,13 @@ index 917dd5aef6a35e8103f5f86e2a63f1c41b1943f5..8edfa20a2ba9baabe13a73a23b944a1f
 +              route
 +            })
            }, route.key);
-@@ -311,2 +315,2 @@ const styles = StyleSheet.create({
+@@ -311,2 +322,2 @@ const styles = StyleSheet.create({
  export default TabView;
 -//# sourceMappingURL=TabView.js.map
 \ No newline at end of file
 +//# sourceMappingURL=TabView.js.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
-index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..6798f268892a1b09eba5008311e090dc4c30955f 100644
+index 054c9fe..ef52539 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
 @@ -53,2 +53,8 @@ interface Props<Route extends BaseRoute> {
@@ -161,6 +186,11 @@ index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..6798f268892a1b09eba5008311e090dc
 +        route: Route;
 +    }) => React.ReactNode | null;
      /**
+@@ -56,3 +62,3 @@ interface Props<Route extends BaseRoute> {
+      */
+-    onIndexChange: (index: number) => void;
++    onIndexChange: (index: number) => boolean | void;
+     /**
 @@ -181,4 +187,4 @@ interface Props<Route extends BaseRoute> {
  }
 -declare const TabView: <Route extends BaseRoute>({ navigationState, renderScene, onIndexChange, onTabLongPress, rippleColor, tabBarActiveTintColor: activeTintColor, tabBarInactiveTintColor: inactiveTintColor, getBadge, getBadgeBackgroundColor, getBadgeTextColor, getLazy, getLabelText, getIcon, getHidden, getActiveTintColor, getTestID, getRole, getSceneStyle, getPreventsDefault, hapticFeedbackEnabled, labeled, getFreezeOnBlur, tabBar: renderCustomTabBar, tabBarStyle, tabLabelStyle, renderBottomAccessoryView, activeIndicatorColor, delayedFreeze, ...props }: Props<Route>) => import("react/jsx-runtime").JSX.Element;
@@ -170,7 +200,7 @@ index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..6798f268892a1b09eba5008311e090dc
 \ No newline at end of file
 +//# sourceMappingURL=TabView.d.ts.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
-index ad7afed155226491d0b7e68bd292e4a8b989b69c..ab8c8a6500bfd5c028056f9a80903b2cbb637027 100644
+index ad7afed..7f07e63 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
 +++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
 @@ -83,2 +83,6 @@ interface Props<Route extends BaseRoute> {
@@ -180,11 +210,40 @@ index ad7afed155226491d0b7e68bd292e4a8b989b69c..ab8c8a6500bfd5c028056f9a80903b2c
 +   */
 +  renderLazyPlaceholder?: (props: { route: Route }) => React.ReactNode | null;
    /**
+@@ -86,3 +90,3 @@ interface Props<Route extends BaseRoute> {
+    */
+-  onIndexChange: (index: number) => void;
++  onIndexChange: (index: number) => boolean | void;
+   /**
 @@ -201,2 +205,3 @@ const TabView = <Route extends BaseRoute>({
    renderScene,
 +  renderLazyPlaceholder,
    onIndexChange,
-@@ -460,3 +465,5 @@ const TabView = <Route extends BaseRoute>({
+@@ -238,2 +243,3 @@ const TabView = <Route extends BaseRoute>({
+   const customTabBarWrapperRef = useRef<View>(null) as React.RefObject<any>;
++  const nativeTabViewRef = useRef<React.ElementRef<typeof NativeTabView>>(null);
+   const [tabBarHeight, setTabBarHeight] = React.useState<number | undefined>(0);
+@@ -383,3 +389,3 @@ const TabView = <Route extends BaseRoute>({
+     }
+-    onIndexChange(index);
++    return onIndexChange(index);
+   });
+@@ -400,5 +406,8 @@ const TabView = <Route extends BaseRoute>({
+       const { key } = event.nativeEvent;
+-      jumpTo(key);
++      const accepted = jumpTo(key);
++      if (accepted === false) {
++        nativeTabViewRef.current?.setNativeProps({ selectedPage: focusedKey });
++      }
+     },
+-    [jumpTo]
++    [focusedKey, jumpTo],
+   );
+@@ -431,2 +440,3 @@ const TabView = <Route extends BaseRoute>({
+       <NativeTabView
++        ref={nativeTabViewRef}
+         {...props}
+@@ -460,3 +470,5 @@ const TabView = <Route extends BaseRoute>({
                  style={styles.fullWidth}
 -              />
 +              >
