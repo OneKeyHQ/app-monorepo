@@ -33,6 +33,10 @@ interface IUseChartConfigProps {
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
+  crosshairVertLineColor?: string;
+  crosshairVertLineStyle?: number;
+  patternColor?: string;
+  pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
@@ -63,6 +67,10 @@ export function useChartConfig({
   priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
   priceFormatter,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
@@ -88,6 +96,26 @@ export function useChartConfig({
     priceFormatterTickStep: priceFormatterTickStepProp,
   });
 
+  // Mapped once per source array so that replacing only one of them (charts
+  // that re-cut their overlay on every crosshair step) leaves the other one
+  // referentially stable, and the consumer can tell the two updates apart.
+  const chartData = useMemo(
+    () =>
+      data.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [data],
+  );
+  const chartSecondaryLineData = useMemo(
+    () =>
+      secondaryLineData?.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [secondaryLineData],
+  );
+
   return useMemo(
     () => ({
       theme: {
@@ -106,16 +134,12 @@ export function useChartConfig({
       priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
-      data: data.map(([time, value]: [number, number]) => ({
-        time: time as ILightweightChartTime,
-        value,
-      })),
-      secondaryLineData: secondaryLineData?.map(
-        ([time, value]: [number, number]) => ({
-          time: time as ILightweightChartTime,
-          value,
-        }),
-      ),
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
+      data: chartData,
+      secondaryLineData: chartSecondaryLineData,
       secondaryLineColor,
       secondaryLineWidth,
       priceFormatter,
@@ -134,8 +158,8 @@ export function useChartConfig({
       locale,
     }),
     [
-      data,
-      secondaryLineData,
+      chartData,
+      chartSecondaryLineData,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
@@ -150,6 +174,10 @@ export function useChartConfig({
       priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
       priceFormatter,
       priceFormatterType,
       priceFormatterPrecision,
