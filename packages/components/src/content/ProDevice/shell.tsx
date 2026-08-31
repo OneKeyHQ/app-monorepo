@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   // The glass plate's reflection film over the panel — the light that
   // belongs ON the glass, so it paints above live content.
   screenFilm: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
 });

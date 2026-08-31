@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   // Powered-on-but-empty panel: a faint luminance field across the whole glass.
   screenGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   // The lit 128x64 OLED grid at an integer 2x, centred in the glass.
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   absFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   btnIcon: {
     position: 'absolute',
@@ -171,19 +171,19 @@ const styles = StyleSheet.create({
     top: 15,
   },
   btnHighlight: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 29,
     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
   },
   // Press layers: the face falls into shade and the hole lip casts onto the
   // sunken cap. Both sit above the highlight, below nothing.
   pressDark: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 29,
     backgroundColor: '#000',
   },
   pressShade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 29,
     boxShadow:
       'inset 0 2px 3px rgba(0,0,0,0.5), inset 0 -1px 1px rgba(255,255,255,0.05)',
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
 // The gradient wrapper runs style through Tamagui's usePropsAndStyle, which
 // expects a plain object - StyleSheet.absoluteFill is a registered id (a
 // number) on native.
-const ABSOLUTE_FILL = { ...StyleSheet.absoluteFillObject };
+const ABSOLUTE_FILL = { ...StyleSheet.absoluteFill };
 const FLEX_FILL = { flex: 1 };
 
 const GRAD_BOTTOM = { x: 0.5, y: 1 } as const;

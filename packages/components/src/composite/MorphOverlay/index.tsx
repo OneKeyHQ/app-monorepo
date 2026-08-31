@@ -5,11 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import type { ReactNode } from "react";
+} from 'react';
+import type { ReactNode } from 'react';
 
-import { StyleSheet, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   Extrapolation,
@@ -24,24 +24,24 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
 import {
   TamaguiTheme as Theme,
   useTheme,
   useThemeName,
-} from "@onekeyhq/components/src/shared/tamagui";
-import platformEnv from "@onekeyhq/shared/src/platformEnv";
-import { getDisplayCornerRadius } from "@onekeyhq/shared/src/utils/displayCornerUtils";
+} from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDisplayCornerRadius } from '@onekeyhq/shared/src/utils/displayCornerUtils';
 
-import { IconButton } from "../../actions/IconButton";
-import { easeInFn, easeOutFn } from "../../content/deviceScene";
-import { Portal } from "../../hocs";
-import { useMedia } from "../../hooks/useStyle";
-import { Stack } from "../../primitives";
+import { IconButton } from '../../actions/IconButton';
+import { easeInFn, easeOutFn } from '../../content/deviceScene';
+import { Portal } from '../../hocs';
+import { useMedia } from '../../hooks/useStyle';
+import { Stack } from '../../primitives';
 
-import type { LayoutChangeEvent } from "react-native";
-import type { SharedValue } from "react-native-reanimated";
+import type { LayoutChangeEvent } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 /**
  * The morphing overlay: one dark container floating over the app,
@@ -88,7 +88,7 @@ import type { SharedValue } from "react-native-reanimated";
  * load slanders the engine.
  */
 
-export type IMorphOverlayPose = "hidden" | "capsule" | "card";
+export type IMorphOverlayPose = 'hidden' | 'capsule' | 'card';
 
 /**
  * One thing the overlay can hold: the caller's live value, the rest
@@ -125,7 +125,7 @@ export interface IMorphAimFacts {
 /** The stage's opaque near-black face, and the alpha ramp over it —
  * content painting fades over the face (fog, scrims) derives from these
  * so the compositing stays pixel-identical to the face itself. */
-export const STAGE_BG = "#060606";
+export const STAGE_BG = '#060606';
 export function stageBgAlpha(alpha: number): string {
   return `rgba(6,6,6,${alpha})`;
 }
@@ -258,27 +258,27 @@ const DRAG_ACTIVATION_PT = 10;
 /** The iOS rubber band: a pull of `distance` against a box of
  * `dimension` yields ever less travel, never exceeding the box. */
 function rubberBand(distance: number, dimension: number): number {
-  "worklet";
+  'worklet';
 
   return (1 - 1 / ((distance * DRAG_RUBBER) / dimension + 1)) * dimension;
 }
 
 const styles = StyleSheet.create({
   layer: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: "center",
-    justifyContent: "flex-end",
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   // The wide posture's anchor: the shell hangs from the top edge.
   layerTop: {
-    justifyContent: "flex-start",
+    justifyContent: 'flex-start',
   },
   backdrop: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -296,24 +296,24 @@ const styles = StyleSheet.create({
     // Apple's corner language, the repo-wide convention for rounded
     // surfaces; the capsule at radius = height/2 reads Dynamic-Island
     // continuous, not circular.
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
     ...(platformEnv.isNative
       ? {
-          shadowColor: "#000",
+          shadowColor: '#000',
           shadowOpacity: 0.3,
           shadowRadius: 24,
           shadowOffset: { width: 0, height: 10 },
         }
       : {
           boxShadow:
-            "0 100px 80px 0 rgba(0, 0, 0, 0.07), " +
-            "0 41.778px 33.422px 0 rgba(0, 0, 0, 0.05), " +
-            "0 22.336px 17.869px 0 rgba(0, 0, 0, 0.04), " +
-            "0 12.522px 10.017px 0 rgba(0, 0, 0, 0.04), " +
-            "0 6.65px 5.32px 0 rgba(0, 0, 0, 0.03), " +
-            "0 2.767px 2.214px 0 rgba(0, 0, 0, 0.02)",
+            '0 100px 80px 0 rgba(0, 0, 0, 0.07), ' +
+            '0 41.778px 33.422px 0 rgba(0, 0, 0, 0.05), ' +
+            '0 22.336px 17.869px 0 rgba(0, 0, 0, 0.04), ' +
+            '0 12.522px 10.017px 0 rgba(0, 0, 0, 0.04), ' +
+            '0 6.65px 5.32px 0 rgba(0, 0, 0, 0.03), ' +
+            '0 2.767px 2.214px 0 rgba(0, 0, 0, 0.02)',
           outlineWidth: 1,
-          outlineStyle: "solid" as const,
+          outlineStyle: 'solid' as const,
           outlineOffset: 0,
         }),
   },
@@ -321,30 +321,30 @@ const styles = StyleSheet.create({
   // children always paint above their parent's border, so a border on
   // the shell itself would vanish under the edge-to-edge stage layers.
   ring: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
   },
   face: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: STAGE_BG,
-    borderCurve: "continuous",
-    overflow: "hidden",
+    borderCurve: 'continuous',
+    overflow: 'hidden',
   },
   // Anchored to the face's top-left, where the capsule's content also
   // rests while the box grows: the row and the caller's thumbnail seat
   // (pinned off the same left edge) stay together through the fade. A
   // row, so the close button trails the measured row in flow.
   pillContent: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   pillRow: {
     padding: PILL.pad,
@@ -364,10 +364,10 @@ const styles = StyleSheet.create({
   // JS-driven presses survived through RN's own hit-testing, which is
   // why only native controls went dead there.
   cardContent: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     bottom: 0,
-    left: "50%",
+    left: '50%',
   },
   // The toolbar band over the seats, on the same centering: the grabber
   // at the card's center, the close button inset from its corner. Tall
@@ -375,11 +375,11 @@ const styles = StyleSheet.create({
   // frame); box-none, so the band itself never takes a touch from the
   // column under it.
   toolbar: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
-    left: "50%",
+    left: '50%',
     height: CLOSE.inset + CLOSE.size,
-    alignItems: "center",
+    alignItems: 'center',
   },
   grabber: {
     marginTop: GRABBER.top,
@@ -388,15 +388,15 @@ const styles = StyleSheet.create({
     borderRadius: GRABBER.height / 2,
   },
   cardBadge: {
-    position: "absolute",
+    position: 'absolute',
     top: CLOSE.inset,
     left: CLOSE.inset,
     height: CLOSE.size,
-    justifyContent: "center",
-    alignItems: "flex-start",
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   cardClose: {
-    position: "absolute",
+    position: 'absolute',
     top: CLOSE.inset,
     right: CLOSE.inset,
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   // Hidden seats stay laid out — their measures keep the height targets
   // honest — they just show and touch nothing.
   panelSeat: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -442,7 +442,7 @@ function PanelSeat({
 }) {
   const litStyle = useAnimatedStyle(
     () => ({ opacity: litKey.value === seatKey ? 1 : 0 }),
-    [litKey, seatKey]
+    [litKey, seatKey],
   );
   const style = useMemo(() => [styles.panelSeat, litStyle], [litStyle]);
   // `pointerEvents="none"` alone cannot silence a parked seat on web: RNW
@@ -457,7 +457,7 @@ function PanelSeat({
       style={style}
       aria-hidden={!active}
       {...(platformEnv.isNative ? null : { inert: !active })}
-      pointerEvents={active ? "box-none" : "none"}
+      pointerEvents={active ? 'box-none' : 'none'}
     >
       {children}
     </Animated.View>
@@ -526,7 +526,7 @@ export interface IMorphOverlayState<T> {
  * and the motion values, then hand everything to `<MorphOverlay/>`.
  */
 export function useMorphOverlay<T>(
-  live: IMorphOverlayContent<T>
+  live: IMorphOverlayContent<T>,
 ): IMorphOverlayState<T> {
   const reducedMotion = useReducedMotion();
 
@@ -539,7 +539,7 @@ export function useMorphOverlay<T>(
   // the two-phase swap between two card arrangements.
   const [held, setHeld] = useState<IMorphOverlayContent<T>>(live);
   const crossing =
-    live.pose === "card" && held.pose === "card" && held.key !== live.key;
+    live.pose === 'card' && held.pose === 'card' && held.key !== live.key;
   const shown = crossing ? held : live;
   const targetRef = useRef(live);
   targetRef.current = live;
@@ -556,7 +556,7 @@ export function useMorphOverlay<T>(
       Object.is(held.value, liveValue) &&
       held.key === liveKey &&
       held.pose === livePose;
-    if (livePose !== "card") {
+    if (livePose !== 'card') {
       // The card is not on show: land silently, the pose windows carry
       // whatever changed.
       cancelAnimation(swapFade);
@@ -591,7 +591,7 @@ export function useMorphOverlay<T>(
       setHeld({ value: liveValue, pose: livePose, key: liveKey });
       return;
     }
-    if (held.pose !== "card") {
+    if (held.pose !== 'card') {
       // A pose flip INTO the card (capsule or hidden -> card): not a
       // crossing — `shown` already follows the live value and the pose
       // window alone carries the arrival. Land silently with the fade
@@ -615,7 +615,7 @@ export function useMorphOverlay<T>(
       { duration: SWAP_OUT_MS, easing: easeInFn },
       (finished) => {
         if (finished) runOnJS(land)();
-      }
+      },
     );
   }, [held, land, liveKey, livePose, liveValue, reducedMotion, swapFade]);
 
@@ -637,7 +637,7 @@ export function useMorphOverlay<T>(
     setPillSize((current) =>
       current.width === next.width && current.height === next.height
         ? current
-        : next
+        : next,
     );
   }, []);
 
@@ -654,8 +654,8 @@ export function useMorphOverlay<T>(
   const height = useSharedValue(PILL_REST.estimatedHeight);
   const radius = useSharedValue(PILL_REST.estimatedHeight / 2);
   const lift = useSharedValue(PILL.lift);
-  const progress = useSharedValue(live.pose === "card" ? 1 : 0);
-  const presence = useSharedValue(live.pose === "hidden" ? 0 : 1);
+  const progress = useSharedValue(live.pose === 'card' ? 1 : 0);
+  const presence = useSharedValue(live.pose === 'hidden' ? 0 : 1);
 
   return {
     pose: live.pose,
@@ -850,7 +850,7 @@ export function MorphOverlay<T>({
     prevTokenRef.current = heightArrangeToken;
     const first = firstRunRef.current;
     firstRunRef.current = false;
-    if (pose === "hidden") {
+    if (pose === 'hidden') {
       // The shell leaves the way the system sheet does: it sinks whole
       // below the bottom edge, opaque all the way. Geometry holds, so
       // the slide never doubles as a shrink. After a dismissing drag
@@ -860,7 +860,7 @@ export function MorphOverlay<T>({
       onGeometrySettled?.();
       return;
     }
-    const card = pose === "card";
+    const card = pose === 'card';
     const targets = {
       width: card ? cardWidth : pillWidth,
       height: card ? cardHeight : pillSize.height,
@@ -882,7 +882,7 @@ export function MorphOverlay<T>({
     // reveal.
     const offscreenBelow =
       EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
-    const arriving = prevPose === "hidden" || presence.value < offscreenBelow;
+    const arriving = prevPose === 'hidden' || presence.value < offscreenBelow;
     if (first || reducedMotion || arriving) {
       width.value = targets.width;
       height.value = targets.height;
@@ -897,14 +897,14 @@ export function MorphOverlay<T>({
     // Content flow first (same frame either way), then the box springs.
     // The caller's targets only ever change with the shown value — a
     // crossing re-aims them exactly once, on the empty beat.
-    const landInPlace = prevPose !== "card" || prevKey !== shownKey;
+    const landInPlace = prevPose !== 'card' || prevKey !== shownKey;
     onAim?.({ snap: false, card, landInPlace });
     // A live in-card move (the token changing between two defined
     // values while the card stays put) runs the height on the
     // arrangement clock; everything else rides the box springs.
     const heightRidesArrange =
       card &&
-      prevPose === "card" &&
+      prevPose === 'card' &&
       prevToken !== undefined &&
       heightArrangeToken !== undefined &&
       prevToken !== heightArrangeToken;
@@ -920,19 +920,19 @@ export function MorphOverlay<T>({
     // 'worklet' directive: the babel plugin only converts callbacks
     // written inline in the animation call on its own.
     const notifySettled = (finished?: boolean) => {
-      "worklet";
+      'worklet';
 
       if (finished && onGeometrySettled) {
         runOnJS(onGeometrySettled)();
       }
     };
-    const landed = card && prevPose === "card" && prevKey !== shownKey;
+    const landed = card && prevPose === 'card' && prevKey !== shownKey;
     if (!landed || cardContentMeasured) {
       height.value = heightRidesArrange
         ? withTiming(
             targets.height,
             { duration: ARRANGE_MS, easing: arrangeEase },
-            notifySettled
+            notifySettled,
           )
         : withSpring(targets.height, MORPH_SPRING, notifySettled);
     }
@@ -972,7 +972,7 @@ export function MorphOverlay<T>({
   // The drag rides presence — see DRAG_*. Armed only for a dismissible
   // card: the capsule has no drag (its close button is its one exit),
   // and an unarmed stage cannot be pulled at all.
-  const dragEnabled = dismissible && pose === "card";
+  const dragEnabled = dismissible && pose === 'card';
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -1009,7 +1009,7 @@ export function MorphOverlay<T>({
             presence.value = withSpring(1, MORPH_SPRING);
           }
         }),
-    [dismiss, dragEnabled, height, lift, phonePosture, presence]
+    [dismiss, dragEnabled, height, lift, phonePosture, presence],
   );
 
   // Size and position ride separate styles on purpose: the size worklet
@@ -1025,7 +1025,7 @@ export function MorphOverlay<T>({
       height: height.value,
       borderRadius: radius.value,
     }),
-    [height, radius, width]
+    [height, radius, width],
   );
   const positionStyle = useAnimatedStyle(() => {
     // Being-there, the shell's door, spoken off the anchored edge: on
@@ -1054,13 +1054,13 @@ export function MorphOverlay<T>({
     () => ({
       opacity: interpolate(presence.value, [0, 1], [0, 1], Extrapolation.CLAMP),
     }),
-    [presence]
+    [presence],
   );
   // The face clips, so it re-rounds in step with the shell — and the
   // native ring wears the same style to hug the same corner.
   const faceRadiusStyle = useAnimatedStyle(
     () => ({ borderRadius: radius.value }),
-    [radius]
+    [radius],
   );
   const pillFadeStyle = useAnimatedStyle(
     () => ({
@@ -1068,10 +1068,10 @@ export function MorphOverlay<T>({
         progress.value,
         [0, PILL_OUT_END],
         [1, 0],
-        Extrapolation.CLAMP
+        Extrapolation.CLAMP,
       ),
     }),
-    [progress]
+    [progress],
   );
   // The pose window times the crossing swap: swapFade is the two-phase
   // branch fade, 1 whenever no crossing is in flight. Opacity and scale
@@ -1085,7 +1085,7 @@ export function MorphOverlay<T>({
           progress.value,
           [CARD_IN_START, 1],
           [0, 1],
-          Extrapolation.CLAMP
+          Extrapolation.CLAMP,
         ),
       transform: [
         {
@@ -1093,12 +1093,12 @@ export function MorphOverlay<T>({
             progress.value,
             [CARD_IN_START, 1],
             [CARD_IN_SCALE_FROM, 1],
-            Extrapolation.CLAMP
+            Extrapolation.CLAMP,
           ),
         },
       ],
     }),
-    [progress, swapFade]
+    [progress, swapFade],
   );
   // The toolbar belongs to the card pose, not to its content: it rides
   // the pose window alone, so a crossing swapping the seats underneath
@@ -1109,10 +1109,10 @@ export function MorphOverlay<T>({
         progress.value,
         [CARD_IN_START, 1],
         [0, 1],
-        Extrapolation.CLAMP
+        Extrapolation.CLAMP,
       ),
     }),
-    [progress]
+    [progress],
   );
 
   // The wall over the app: painted and faded only as the scrim, a bare
@@ -1124,13 +1124,13 @@ export function MorphOverlay<T>({
             styles.backdrop,
             {
               backgroundColor: `rgba(0,0,0,${
-                themeName === "dark" ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
+                themeName === 'dark' ? SCRIM_ALPHA.dark : SCRIM_ALPHA.light
               })`,
             },
             scrimFadeStyle,
           ]
         : styles.backdrop,
-    [scrim, scrimFadeStyle, themeName]
+    [scrim, scrimFadeStyle, themeName],
   );
   const shellStyle = useMemo(
     () =>
@@ -1142,35 +1142,35 @@ export function MorphOverlay<T>({
             positionStyle,
             { outlineColor: shellEdgeColor },
           ],
-    [geometrySizeStyle, positionStyle, shellEdgeColor]
+    [geometrySizeStyle, positionStyle, shellEdgeColor],
   );
   const ringStyle = useMemo(
     () => [styles.ring, faceRadiusStyle, { borderColor: shellEdgeColor }],
-    [faceRadiusStyle, shellEdgeColor]
+    [faceRadiusStyle, shellEdgeColor],
   );
   const faceStyle = useMemo(
     () => [styles.face, faceRadiusStyle],
-    [faceRadiusStyle]
+    [faceRadiusStyle],
   );
   const pillStyle = useMemo(
     () => [styles.pillContent, pillFadeStyle],
-    [pillFadeStyle]
+    [pillFadeStyle],
   );
   const cardCenter = useMemo(
     () => ({ width: cardWidth, marginLeft: -cardWidth / 2 }),
-    [cardWidth]
+    [cardWidth],
   );
   const cardStyle = useMemo(
     () => [styles.cardContent, cardCenter, cardFadeStyle],
-    [cardCenter, cardFadeStyle]
+    [cardCenter, cardFadeStyle],
   );
   const layerStyle = useMemo(
     () => (phonePosture ? styles.layer : [styles.layer, styles.layerTop]),
-    [phonePosture]
+    [phonePosture],
   );
   const toolbarStyle = useMemo(
     () => [styles.toolbar, cardCenter, toolbarFadeStyle],
-    [cardCenter, toolbarFadeStyle]
+    [cardCenter, toolbarFadeStyle],
   );
 
   return (
@@ -1226,7 +1226,7 @@ export function MorphOverlay<T>({
                     whatever column is lit. */}
                 <Animated.View
                   style={toolbarStyle}
-                  pointerEvents={pose === "card" ? "box-none" : "none"}
+                  pointerEvents={pose === 'card' ? 'box-none' : 'none'}
                 >
                   {/* The grabber is the sheet grammar's handle — phone
                       posture only. A top-hung card dismisses by its
@@ -1257,7 +1257,7 @@ export function MorphOverlay<T>({
                 </Animated.View>
                 <Animated.View
                   style={pillStyle}
-                  pointerEvents={pose === "capsule" ? "box-none" : "none"}
+                  pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}
                 >
                   {/* Keyed by its words: a key change swaps the row in
                       place with a fade — the capsule itself never moves.
@@ -1266,7 +1266,7 @@ export function MorphOverlay<T>({
                   <Animated.View
                     key={capsuleKey}
                     entering={FadeIn.duration(CAPSULE_SWAP_IN_MS).delay(
-                      CAPSULE_SWAP_IN_DELAY_MS
+                      CAPSULE_SWAP_IN_DELAY_MS,
                     )}
                     exiting={FadeOut.duration(CAPSULE_SWAP_OUT_MS)}
                   >
