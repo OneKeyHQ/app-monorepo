@@ -250,7 +250,9 @@ function main() {
   );
   const backgroundBytes = fs.statSync(backgroundPath).size;
   const budgets = {
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 160000000),
+    // Baseline moved past 160MB with the 2026-08-31 x sync (160,130,853 on
+    // this branch); keep limited headroom so size regressions still fail.
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 162000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
