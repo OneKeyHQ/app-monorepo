@@ -1,6 +1,10 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { pickDeviceType, pickErrorMessage } from './DeviceStageBurst';
+import {
+  pickDeviceType,
+  pickErrorMessage,
+  pickIdentityText,
+} from './DeviceStageBurst';
 
 describe('pickDeviceType', () => {
   it('keeps the device it already identified when an event does not know', () => {
@@ -25,6 +29,33 @@ describe('pickDeviceType', () => {
     expect(pickDeviceType(EDeviceType.Unknown, undefined)).toBe(
       EDeviceType.Unknown,
     );
+  });
+});
+
+describe('pickIdentityText', () => {
+  // The repro this rule exists for: the SDK's call-end close arrives with
+  // connectId '', which won a `??` and erased the device the stage had
+  // named — so the burst reached its end with nothing to probe, and an
+  // unplugged device landed as a generic failure, not a disconnect.
+  it('keeps the named device when a close event carries no name', () => {
+    expect(pickIdentityText('', 'PRB09B0058A')).toBe('PRB09B0058A');
+  });
+
+  it('keeps what it knows when an event says nothing at all', () => {
+    expect(pickIdentityText(undefined, 'PRB09B0058A')).toBe('PRB09B0058A');
+  });
+
+  it('learns the device the first time anything names it', () => {
+    expect(pickIdentityText('PRB09B0058A', undefined)).toBe('PRB09B0058A');
+  });
+
+  it('lets one real name replace another', () => {
+    expect(pickIdentityText('NEO-035F', 'PRB09B0058A')).toBe('NEO-035F');
+  });
+
+  it('stays unknown while nothing has ever named it', () => {
+    expect(pickIdentityText('', undefined)).toBeUndefined();
+    expect(pickIdentityText(undefined, undefined)).toBeUndefined();
   });
 });
 
