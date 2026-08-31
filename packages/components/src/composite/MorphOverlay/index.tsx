@@ -190,9 +190,18 @@ const SCRIM_ALPHA = { light: 0.2, dark: 0.48 };
 /**
  * One spring for every geometry axis, so the morph reads as one gesture.
  * Tuned toward the system sheet's feel: settles ~600ms with a breath of
- * life, no visible wobble.
+ * life, no visible wobble. The energy threshold is raised off the
+ * library default (6e-9): rest is declared once ~0.2% of the move
+ * remains — an invisible snap-to-target — instead of ~300ms later at
+ * the default's sub-pixel tail, so `finished` — the settled signal the
+ * flight economies resume on — lands on the felt rest, not after it.
  */
-const MORPH_SPRING = { mass: 1, stiffness: 230, damping: 26 };
+const MORPH_SPRING = {
+  mass: 1,
+  stiffness: 230,
+  damping: 26,
+  energyThreshold: 4e-6,
+};
 
 /** Content fade windows on the capsule↔card progress. The capsule leaves
  * early (its drift while the box grows must stay imperceptible); the card
@@ -466,7 +475,10 @@ export interface IMorphOverlayState<T> {
   progress: SharedValue<number>;
   /** The geometry springs, published for content layers that position
    * against the container's box (a centered stage layer needs the live
-   * width; the rest are the view's own). */
+   * width; the rest are the view's own). Offsets derived from these in
+   * the transform lane should snap to the pixel grid at rest — Yoga
+   * rounds layout, transforms apply verbatim (see DeviceStage's replica
+   * centering for the pattern and the jagged glyphs it avoids). */
   width: SharedValue<number>;
   height: SharedValue<number>;
   radius: SharedValue<number>;
@@ -690,13 +702,15 @@ export interface IMorphOverlayProps<T> {
    */
   scrim?: boolean;
   /**
-   * Fires when the pose geometry comes to rest — on the springs' own
-   * completion after a pose move, and immediately when a change lands
-   * without motion (a snap, an entrance, reduced motion, the hidden
-   * pose). May fire more than once per flight (effect re-runs re-aim
-   * the springs); treat it as level, not edge. Content uses it to end
-   * flight-scoped economies (DeviceStage rasterizes the replica while
-   * the box is moving — see there).
+   * Fires when the box's size comes to rest — on the height animation's
+   * own completion (the size axis every transition class moves: pose
+   * flights spring it, live in-card moves run it on the arrangement
+   * clock), and immediately when a change lands without motion (a snap,
+   * an entrance, reduced motion, the hidden pose). May fire more than
+   * once per flight (effect re-runs re-aim the animation); treat it as
+   * level, not edge. Content uses it to end flight-scoped economies
+   * (DeviceStage holds the scene handover while the box is moving —
+   * see there).
    */
   onGeometrySettled?: () => void;
   /** Keyed capsule row: a key change swaps the row in place with a fade
@@ -823,7 +837,17 @@ export function MorphOverlay<T>({
     // An entrance appears already at its pose — geometry snaps while the
     // shell is still invisible, then presence carries the arrival. The
     // very first run is the mount landing on whatever pose it opened at.
-    const arriving = prevPose === 'hidden';
+    // The snap window outlives the arrival commit (the presence check):
+    // while presence is under overshoot/(height+lift+overshoot) — the
+    // same travel math as positionStyle — the door has not yet lifted
+    // the shell's top past the anchored edge, so a measure landing a
+    // frame later (parked content flipped on the entrance itself, see
+    // DeviceStage's stage tail) corrects the geometry in place while
+    // provably off screen, instead of visibly springing under the
+    // reveal.
+    const offscreenBelow =
+      EXIT_OVERSHOOT / (targets.height + targets.lift + EXIT_OVERSHOOT);
+    const arriving = prevPose === 'hidden' || presence.value < offscreenBelow;
     if (first || reducedMotion || arriving) {
       width.value = targets.width;
       height.value = targets.height;
@@ -853,22 +877,33 @@ export function MorphOverlay<T>({
     width.value = withSpring(targets.width, MORPH_SPRING);
     // A crossing lands content and height target together — in one
     // piece — see `cardContentMeasured` for the one deferral.
-    const landed = card && prevPose === 'card' && prevKey !== shownKey;
-    if (!landed || cardContentMeasured) {
-      height.value = heightRidesArrange
-        ? withTiming(targets.height, {
-            duration: ARRANGE_MS,
-            easing: arrangeEase,
-          })
-        : withSpring(targets.height, MORPH_SPRING);
-    }
-    radius.value = withSpring(targets.radius, MORPH_SPRING);
-    lift.value = withSpring(targets.lift, MORPH_SPRING);
-    progress.value = withSpring(targets.progress, MORPH_SPRING, (finished) => {
+    // The settled signal rides the height animation, not the progress
+    // spring: height is the one size axis every transition class moves
+    // (a live in-card move never touches progress), so "settled" means
+    // the size has actually landed, crossings and flights alike. A
+    // re-aim mid-flight reports unfinished and stays silent. Explicit
+    // 'worklet' directive: the babel plugin only converts callbacks
+    // written inline in the animation call on its own.
+    const notifySettled = (finished?: boolean) => {
+      'worklet';
+
       if (finished && onGeometrySettled) {
         runOnJS(onGeometrySettled)();
       }
-    });
+    };
+    const landed = card && prevPose === 'card' && prevKey !== shownKey;
+    if (!landed || cardContentMeasured) {
+      height.value = heightRidesArrange
+        ? withTiming(
+            targets.height,
+            { duration: ARRANGE_MS, easing: arrangeEase },
+            notifySettled,
+          )
+        : withSpring(targets.height, MORPH_SPRING, notifySettled);
+    }
+    radius.value = withSpring(targets.radius, MORPH_SPRING);
+    lift.value = withSpring(targets.lift, MORPH_SPRING);
+    progress.value = withSpring(targets.progress, MORPH_SPRING);
   }, [
     onGeometrySettled,
     activeSeatKey,
@@ -1091,12 +1126,16 @@ export function MorphOverlay<T>({
   );
 
   return (
-    // The main window's hardware-dialog level: the app mounts this portal
-    // beside its dialog containers, the storybook shells mount it
-    // canvas-wide. Deliberately NOT a FullWindowOverlay window — that sat
-    // above every presentation, so the in-app browser (an ordinary
-    // presentation) opened underneath the stage; at dialog level,
-    // presentations cover it the way they cover the system sheet.
+    // The app's hardware-overlay window — the same full-window level the
+    // hardware dialogs this stage replaces render into (see kit's
+    // FullWindowOverlayContainer; the storybook shells mount the
+    // container canvas-wide). It must sit above iOS presentations: the
+    // flows that raise the stage start on modal pages (send, receive,
+    // onboarding), and at any lower level those covered it. The cost is
+    // the mirror case — a presentation opened UNDER a live stage (a
+    // Support button's in-app browser) cannot rise above it — so a
+    // driver navigating away must drop the stage first, the discipline
+    // the dialogs themselves follow.
     <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
       <Stack style={layerStyle} pointerEvents="box-none">
         {blocking ? (

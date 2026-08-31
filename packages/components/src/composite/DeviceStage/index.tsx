@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, StyleSheet, View } from 'react-native';
+import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -18,7 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { SCREEN_SWAP_MS, easeOutFn } from '../../content/deviceScene';
+import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
 import {
@@ -111,7 +118,7 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * and the confirm move re-arranges on the arrangement clock; a change
  * of arrangement runs the container's two-phase swap, landing content
  * and height target together on the empty beat; confirm's payload card
- * queues in last. The panels are the scenes' twin troupe (see
+ * rides the words' beat. The panels are the scenes' twin troupe (see
  * CARD_ARRANGEMENTS): parked built in their seats, so no crossing or
  * pose flip ever builds native views mid-animation.
  *
@@ -192,13 +199,6 @@ const CARD_ARRANGEMENTS = [
 type ICardArrangement = (typeof CARD_ARRANGEMENTS)[number];
 const PANEL_WARM_MS = 475;
 
-/** Confirm's payload card is the stage's last beat: it waits out the
- * arrangement move and the screen handover (the replica's own lit-to-lit
- * beat, see SCREEN_SWAP_MS), then its space lands in one piece — the
- * height spring carries the growth — under an opacity-only fade. */
-const CONFIRM_CARD_DELAY_MS = ARRANGE_MS + SCREEN_SWAP_MS + 80;
-const CONFIRM_CARD_IN_MS = 320;
-
 /** The actionless error is a notice — it informs, holds long enough to
  * read, then leaves on its own. The exit is a request through the same
  * close grant the ✕ fires, so the driver keeps the last word (and
@@ -266,6 +266,10 @@ const DEVICE_ESTIMATED_HEIGHT = 560;
  */
 const REPLICA_HOLD_ALPHA = 0.004;
 
+/** The display's physical pixels per point — worklet-captured for
+ * pixel-grid snapping of transform offsets. */
+const PIXEL_GRID = PixelRatio.get();
+
 /** The stage fog, painted over the device's foot: the container's face
  * is always opaque STAGE_BG, so a fade derived from the same triplet
  * composites pixel-identically and the morph carries no masked view.
@@ -319,11 +323,16 @@ const styles = StyleSheet.create({
   // The standing replica, anchored where every staged step seats it; the
   // active column leaves a spacer of its port's height, so the words and
   // panels lay out around a replica they never contain.
+  // Anchored to the LEFT edge and centered by the worklet's translateX
+  // below: a percentage left re-resolves in LAYOUT on every frame of
+  // the box's width spring, dirtying this auto-height stack each frame.
+  // A transform costs the compositor nothing — the same lane the
+  // shell's own positionStyle rides. (One cut off the per-frame commit
+  // bill, not the whole bill — the 2026-08-28 audit's ledger.)
   replicaLayer: {
     position: 'absolute',
     top: REPLICA_TOP,
-    left: '50%',
-    marginLeft: -REPLICA_WIDTH / 2,
+    left: 0,
     width: REPLICA_WIDTH,
   },
   portWindow: {
@@ -400,19 +409,51 @@ function useWarmRoster<T extends string>({
 }
 
 /**
- * The stage's haptic grammar (expo-haptics maps the same calls onto
- * Android): notification-class for the outcome cards, one impact for
- * the card landing with an ask, the lightest tick for in-card
- * progress. Everything else stays silent — the capsule appearing,
- * returning to it, and the dismissals are attention released, not
- * demanded — matching the system sheets' own restraint. The primitive
- * itself gates every fire on the app's haptics setting, and is a no-op
- * off the phones.
+ * The stage tail's contents enter on the words' own beat. On a live
+ * in-stage change the words land at the end of StepText's out phase,
+ * while a tail mounting on the step change would report its height on
+ * the very next frame — two re-aims, and the box visibly heads for the
+ * interim target before doubling back. Deferring the mount to the
+ * words' clock lands both measures together, so the height re-aims
+ * once, straight at the final height. Leaving is immediate even live:
+ * the tail belongs to the outgoing step, and holding it through the
+ * out beat while the port already glides toward the incoming step aims
+ * the box at a composite height no beat ever shows — a blank band
+ * under the words until the deferred unmount caught up (2026-08-31).
+ * Every other path — a pose arrival, a parked seat, reduced motion —
+ * snaps too, in a layout effect so stale parked content never reaches
+ * the screen: an entrance would otherwise paint last visit's tail for
+ * a beat before dropping it.
  */
-function fireStepHaptic(
-  step: IDeviceStageStep,
-  arrival: 'landing' | 'crossing',
-) {
+function useStageTailFlag(want: boolean, liveOnShow: boolean): boolean {
+  const [shown, setShown] = useState(want);
+  useLayoutEffect(() => {
+    if (shown === want) {
+      return undefined;
+    }
+    if (!liveOnShow || !want) {
+      setShown(want);
+      return undefined;
+    }
+    const id = setTimeout(() => setShown(want), TEXT_OUT_MS);
+    return () => clearTimeout(id);
+  }, [liveOnShow, shown, want]);
+  return shown;
+}
+
+/**
+ * The stage's haptic grammar (expo-haptics maps the same calls onto
+ * Android): notification-class for the outcome news, one heavy impact
+ * for a card arriving under the hand — fired the moment the container
+ * starts moving toward it (the step change), because under the hand
+ * the transition itself is the event; a settle-fired buzz read as a
+ * detached afterthought (2026-08-31, on device). Everything else stays
+ * silent — the capsule appearing, returning to it, and the dismissals
+ * are attention released, not demanded — matching the system sheets'
+ * own restraint. The primitive itself gates every fire on the app's
+ * haptics setting, and is a no-op off the phones.
+ */
+function fireStepHaptic(step: IDeviceStageStep) {
   // `done` is the one capsule arrival that carries news rather than a
   // wait — the burst's ✓ beat — so it buzzes like the outcome cards.
   if (step === 'authSuccess' || step === 'done') {
@@ -423,11 +464,7 @@ function fireStepHaptic(
     Haptics.error();
     return;
   }
-  if (arrival === 'landing') {
-    Haptics.impact(ImpactFeedbackStyle.Medium);
-    return;
-  }
-  Haptics.selection();
+  Haptics.impact(ImpactFeedbackStyle.Heavy);
 }
 
 export function DeviceStage({
@@ -494,13 +531,8 @@ export function DeviceStage({
   // the same commit that starts the springs.
   const [poseInFlight, setPoseInFlight] = useState(false);
   const prevPoseForFlightRef = useRef(pose);
-  // Armed by the pose change, consumed by the first settle: the landing
-  // haptic must fire exactly once per flight, and the settled signal is
-  // level, not edge — at rest every aim pass reports settled again.
-  const landingHapticArmedRef = useRef(false);
   if (prevPoseForFlightRef.current !== pose) {
     prevPoseForFlightRef.current = pose;
-    landingHapticArmedRef.current = true;
     if (!poseInFlight) {
       setPoseInFlight(true);
     }
@@ -513,31 +545,28 @@ export function DeviceStage({
   // through the processing beat (Android visibly; the mechanism is the
   // same on iOS). Any crossing away from a system-keyboard step sends it
   // down; a refused entry keeps the step, so inline retry keeps typing.
-  const prevKeyboardStepRef = useRef(step);
+  // ...and the arrival buzz rides the same step edge — this commit is
+  // the one whose layout effect aims the springs, so the buzz and the
+  // first moving frame share the beat. Every card arrival speaks (news
+  // steps buzz their news through the grammar); of the capsule steps
+  // only `done`'s ✓ does — returning to a wait, and the leave, stay
+  // silent. The very first step is the opening state, not a transition.
+  const prevStepEdgeRef = useRef(step);
   useEffect(() => {
-    const prev = prevKeyboardStepRef.current;
-    prevKeyboardStepRef.current = step;
+    const prev = prevStepEdgeRef.current;
+    prevStepEdgeRef.current = step;
     if (prev === step) {
       return;
     }
     if (prev === 'passphraseOnApp' || prev === 'pairingCode') {
       Keyboard.dismiss();
     }
+    if (STEP_POSE[step] === 'card' || step === 'done') {
+      fireStepHaptic(step);
+    }
   }, [step]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
-    if (landingHapticArmedRef.current) {
-      landingHapticArmedRef.current = false;
-      // Only a card landing speaks — the ask arriving under the hand.
-      // An outcome card landing straight off a flight buzzes its news
-      // instead of the impact (one haptic per transition). The `done`
-      // capsule and the error notice are the non-card arrivals with news
-      // of their own — the notice already passes here through `error`'s
-      // static card pose.
-      if (STEP_POSE[stepRef.current] === 'card' || stepRef.current === 'done') {
-        fireStepHaptic(stepRef.current, 'landing');
-      }
-    }
   }, []);
   const morph = useMorphOverlay<IDeviceStageStep>({
     value: step,
@@ -557,33 +586,6 @@ export function DeviceStage({
 
   const shownPort = REPLICA_PORT[shownStep];
 
-  // The in-card progress tick: a card-to-card crossing is the flow
-  // moving under the person's eyes (often while they watch the device,
-  // not the phone), marked on the swap beat. Pose flights are excluded
-  // on both ends — their landing owns the arrival — and capsule label
-  // swaps are waits trading places: silent.
-  const prevShownForHapticRef = useRef(shownStep);
-  useEffect(() => {
-    const prev = prevShownForHapticRef.current;
-    if (prev === shownStep) {
-      return;
-    }
-    prevShownForHapticRef.current = shownStep;
-    if (poseInFlight) {
-      return;
-    }
-    // The `done` capsule and the error notice buzz their news even off a
-    // capsule label swap — the two non-card arrivals that are news, not
-    // waits.
-    if (shownStep === 'done' || (shownStep === 'error' && !onErrorAction)) {
-      fireStepHaptic(shownStep, 'crossing');
-      return;
-    }
-    if (STEP_POSE[prev] !== 'card' || STEP_POSE[shownStep] !== 'card') {
-      return;
-    }
-    fireStepHaptic(shownStep, 'crossing');
-  }, [onErrorAction, poseInFlight, shownStep]);
   // A refused entry — inputError arriving — is a failure under the
   // person's fingers: the error buzz in sync with the panel's own
   // refusal beat. Change-driven like the panels' clearing effects, so
@@ -629,13 +631,21 @@ export function DeviceStage({
 
   // The troupe's roll-call, the scene warm-up's twin: parked seats never
   // leave, and the active arrangement renders at once even before its
-  // warm-up beat.
+  // warm-up beat. Paused while the box is in flight: every warm build is
+  // a one-time main-thread freeze (the reason the ladder exists), and an
+  // idle beat landing mid-morph spends that freeze inside the flight's
+  // own frame budget. The gate defers the beat, the settle resumes the
+  // ladder, and the active arrangement still shows at once regardless
+  // (shownPanels below).
+  // No warm builds inside a flight's frame budget: both rosters idle
+  // through pose flights and resume on the settle.
+  const warmIdle = warmEnabled && !poseInFlight;
   const builtPanels = useWarmRoster({
     all: CARD_ARRANGEMENTS,
     active: activeArrangement,
     activeDelayMs: 0,
     idleDelayMs: PANEL_WARM_MS,
-    enabled: warmEnabled,
+    enabled: warmIdle,
   });
   const shownPanels = useMemo(
     () =>
@@ -709,6 +719,50 @@ export function DeviceStage({
     }
     return handlers;
   }, [reportPanelBlock]);
+  // The stage seat speaks for whichever staged step is (or last was) on
+  // show — tracked off the live step, so a parked stage snaps its words
+  // during the out beat and the land reveals them already true.
+  // Render-time ref write on purpose: read in the same pass, idempotent.
+  const stageWordsRef = useRef<IDeviceStageStep>(
+    REPLICA_PORT[step] ? step : 'enterPin',
+  );
+  if (REPLICA_PORT[step]) {
+    stageWordsRef.current = step;
+  }
+  const stageWordsStep = stageWordsRef.current;
+  const stageAnimated = activeArrangement === 'stage' && !reducedMotion;
+  // The words' beat only exists while the stage panel is live on show
+  // as a card; a pose flight's arrival (hidden or capsule to card) has
+  // no out phase to ride, so the tail must snap before the reveal —
+  // deferring there paints last visit's tail for a beat.
+  const stageTailLive = stageAnimated && !poseInFlight;
+  // The tail measure leaves with the content it described: on an arrival
+  // that changes the staged step, the stored number is last visit's tail
+  // (confirm's payload height under a pin entrance opened the card onto
+  // a blank band until the fresh report landed), so it drops in the same
+  // render and the arrival aims at words + an absent tail — already
+  // exact for the tail-less staged steps. The drop epoch keys the tail
+  // block (see the stage panel): exactly the drops force a remount,
+  // whose mount report refills the measure even when old and new
+  // content land at the same height — and live in-stage moves keep both
+  // the number and the subtree: the box must track the content still on
+  // show until the words' beat swaps it. Render-phase state adjust on
+  // purpose (the poseInFlight pattern above): the same commit's aim
+  // must see the drop.
+  const prevStageWordsForMeasureRef = useRef(stageWordsStep);
+  const stageTailEpochRef = useRef(0);
+  if (prevStageWordsForMeasureRef.current !== stageWordsStep) {
+    prevStageWordsForMeasureRef.current = stageWordsStep;
+    if (!stageTailLive && panelMeasures.stage?.tail !== undefined) {
+      stageTailEpochRef.current += 1;
+      setPanelMeasures((current) =>
+        current.stage?.tail === undefined
+          ? current
+          : { ...current, stage: { words: current.stage.words } },
+      );
+    }
+  }
+  const stageTailEpoch = stageTailEpochRef.current;
   // The replica's natural height, for seating the thumbnail arrangement;
   // scale transforms leave layout alone, so this reports once.
   const [deviceHeight, setDeviceHeight] = useState(DEVICE_ESTIMATED_HEIGHT);
@@ -799,47 +853,16 @@ export function DeviceStage({
   // The scene troupe's warm-up: one scene built per idle beat, the
   // current step's own scene jumping the queue past the springs' settle.
   // The connecting scene is born built: the capsule needs it from the
-  // first frame.
+  // first frame. Flight-paused with the panel ladder above — the same
+  // one-time freezes, kept out of the same frame budget.
   const builtScenes = useWarmRoster({
     all: STAGE_SCENES,
     active: activeScene,
     initial: ['connecting'],
     activeDelayMs: 600,
     idleDelayMs: SCENE_WARM_MS,
-    enabled: warmEnabled,
+    enabled: warmIdle,
   });
-
-  // Confirm's payload card, the last beat: mounted late so its space
-  // lands in one piece (the height spring carries the growth), faded in
-  // alone once the geometry and the screen handover are done. Any of the
-  // three content shapes summons it; the count pill rides its beat, it
-  // never calls the card up alone.
-  const hasConfirmContent = Boolean(
-    confirmDetails?.length || confirmMessage || confirmDescription,
-  );
-  const [confirmCardShown, setConfirmCardShown] = useState(false);
-  const confirmCardIn = useSharedValue(0);
-  useEffect(() => {
-    if (shownStep !== 'confirm' || !hasConfirmContent) {
-      setConfirmCardShown(false);
-      confirmCardIn.value = 0;
-      return undefined;
-    }
-    if (reducedMotion) {
-      setConfirmCardShown(true);
-      confirmCardIn.value = 1;
-      return undefined;
-    }
-    const id = setTimeout(() => {
-      confirmCardIn.value = 0;
-      setConfirmCardShown(true);
-      confirmCardIn.value = withTiming(1, {
-        duration: CONFIRM_CARD_IN_MS,
-        easing: easeOutFn,
-      });
-    }, CONFIRM_CARD_DELAY_MS);
-    return () => clearTimeout(id);
-  }, [confirmCardIn, hasConfirmContent, reducedMotion, shownStep]);
 
   // The notice's exit: after a readable hold — counted from the words
   // landing on show — the stage requests close. Ref-called so a driver
@@ -960,6 +983,15 @@ export function DeviceStage({
   // teleport can never show the device at the wrong seat.
   const pillHeight = pillSize.height;
   const replicaLayerStyle = useAnimatedStyle(() => {
+    // Layout-free centering: the box's live width in a transform,
+    // snapped to the physical pixel grid — Yoga rounds layout but a
+    // transform is applied verbatim, and window widths that leave
+    // morphWidth - REPLICA_WIDTH odd would otherwise rest the whole
+    // replica, screen glyphs included, on a half-point boundary and
+    // read as jagged text.
+    const centerX =
+      Math.round(((morphWidth.value - REPLICA_WIDTH) / 2) * PIXEL_GRID) /
+      PIXEL_GRID;
     if (progress.value < SEAT_SWAP_AT) {
       return {
         // The seat gate scales the whole window, floor included: under
@@ -975,7 +1007,7 @@ export function DeviceStage({
             ),
             REPLICA_HOLD_ALPHA,
           ) * capsuleSeatShown.value,
-        transform: [{ translateY: -REPLICA_TOP }],
+        transform: [{ translateX: centerX }, { translateY: -REPLICA_TOP }],
       };
     }
     const staged =
@@ -994,9 +1026,9 @@ export function DeviceStage({
         replicaShown.value === 0
           ? staged
           : Math.max(staged, REPLICA_HOLD_ALPHA),
-      transform: [{ translateY: 0 }],
+      transform: [{ translateX: centerX }, { translateY: 0 }],
     };
-  }, [capsuleSeatShown, progress, replicaShown, swapFade]);
+  }, [capsuleSeatShown, morphWidth, progress, replicaShown, swapFade]);
   // At the thumbnail seat the window opens to the capsule's own height —
   // nothing to crop, the whole device is on show.
   const portWindowStyle = useAnimatedStyle(
@@ -1048,10 +1080,6 @@ export function DeviceStage({
     () => ({ marginTop: wordsMargin.value }),
     [wordsMargin],
   );
-  const confirmCardStyle = useAnimatedStyle(
-    () => ({ opacity: confirmCardIn.value }),
-    [confirmCardIn],
-  );
 
   const replicaStyle = useMemo(
     () => [styles.replicaLayer, replicaLayerStyle],
@@ -1075,22 +1103,13 @@ export function DeviceStage({
   );
 
   // Each seat's words, straight off the shared vocabulary. The stage
-  // seat speaks for whichever staged step is (or last was) on show —
-  // tracked off the live step, so a parked stage snaps its words during
-  // the out beat and the land reveals them already true; a crossing's
-  // outgoing side keeps its own words because its seat simply is not
-  // the one changing. App seats own their words outright; the pieces
-  // that vary (the passphrase title, the error copy) snap while parked,
-  // as StepText animates on the active seat alone.
+  // seat speaks for stageWordsStep (tracked above the measures); a
+  // crossing's outgoing side keeps its own words because its seat
+  // simply is not the one changing. App seats own their words outright;
+  // the pieces that vary (the passphrase title, the error copy) snap
+  // while parked, as StepText animates on the active seat alone.
   const intl = useIntl();
   const errorCopy = ERROR_TEXT[errorReason ?? 'generic'];
-  const stageWordsRef = useRef<IDeviceStageStep>(
-    REPLICA_PORT[step] ? step : 'enterPin',
-  );
-  if (REPLICA_PORT[step]) {
-    stageWordsRef.current = step;
-  }
-  const stageWordsStep = stageWordsRef.current;
   const stageText = resolveStageText(intl, stageWordsStep);
   const passphraseText = resolvePassphrasePanelText(intl, passphraseMode);
   const appStepSub = useMemo(
@@ -1137,35 +1156,25 @@ export function DeviceStage({
     // The avatar table's values are bare require() results (untyped).
     return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
   }, [vendor, vendorModel, vendorModelName]);
-  const stageAnimated = activeArrangement === 'stage' && !reducedMotion;
   const passphraseAnimated =
     activeArrangement === 'passphraseOnApp' && !reducedMotion;
   const errorAnimated = activeArrangement === 'error' && !reducedMotion;
-  // The tail's checklist rides the words' own beat. On a live in-stage
-  // change the words land at the end of StepText's out phase, while a
-  // mounting tail would report its height on the very next frame — two
-  // re-aims, and the box visibly heads for the interim target before
-  // doubling back. Flipping the checklist on the words' clock lands
-  // both measures together, so the height re-aims once, straight at
-  // the final height. Non-animated paths (a parked seat, reduced
-  // motion) snap in sync already.
-  const wantStageChecklist =
+  const stageChecklistShown = useStageTailFlag(
     (stageWordsStep === 'authVerifying' || stageWordsStep === 'authSuccess') &&
-    Boolean(authChecklist?.length);
-  const [stageChecklistShown, setStageChecklistShown] =
-    useState(wantStageChecklist);
-  useEffect(() => {
-    if (stageChecklistShown === wantStageChecklist) return undefined;
-    if (!stageAnimated) {
-      setStageChecklistShown(wantStageChecklist);
-      return undefined;
-    }
-    const id = setTimeout(
-      () => setStageChecklistShown(wantStageChecklist),
-      TEXT_OUT_MS,
-    );
-    return () => clearTimeout(id);
-  }, [stageAnimated, stageChecklistShown, wantStageChecklist]);
+      Boolean(authChecklist?.length),
+    stageTailLive,
+  );
+  // Confirm's payload card rides the same beat: on show together with
+  // the confirm words, never a delayed second landing — the tail's
+  // height re-aim already carries it, so entering confirm grows the box
+  // straight to its full size in one move. Any of the three content
+  // shapes summons it; the count pill rides its beat, it never calls
+  // the card up alone.
+  const confirmCardShown = useStageTailFlag(
+    stageWordsStep === 'confirm' &&
+      Boolean(confirmDetails?.length || confirmMessage || confirmDescription),
+    stageTailLive,
+  );
   // The capsule keeps its own last words while another pose plays, so
   // the (invisible) row never re-measures against a card title and the
   // size springs always aim at true capsule content. Render-time ref
@@ -1244,29 +1253,30 @@ export function DeviceStage({
                   animated={stageAnimated}
                 />
               </Stack>
-              {/* The count pill — this burst's place in a run — arrives
-                  on the payload card's own beat and fade, so the title
-                  and its furniture land together. */}
+              {/* The count pill — this burst's place in a run — rides
+                  the payload card's beat, so the title and its
+                  furniture land together. */}
               {confirmCount && confirmCardShown ? (
-                <Animated.View style={confirmCardStyle}>
-                  <Stack
-                    borderRadius="$full"
-                    borderWidth={1}
-                    borderColor="rgba(255,255,255,0.18)"
-                    px="$2.5"
-                    py="$0.5"
-                    mt="$1"
-                  >
-                    <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
-                      {`${confirmCount.current} / ${confirmCount.total}`}
-                    </SizableText>
-                  </Stack>
-                </Animated.View>
+                <Stack
+                  borderRadius="$full"
+                  borderWidth={1}
+                  borderColor="rgba(255,255,255,0.18)"
+                  px="$2.5"
+                  py="$0.5"
+                  mt="$1"
+                >
+                  <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
+                    {`${confirmCount.current} / ${confirmCount.total}`}
+                  </SizableText>
+                </Stack>
               ) : null}
             </XStack>
           </View>
         </Animated.View>
-        <View onLayout={panelMeasureHandlers.stage.tail}>
+        {/* Keyed by the drop epoch: exactly the stale-measure drops
+            force a remount, whose mount report refills the measure even
+            at an equal height — live moves never rebuild the tail. */}
+        <View key={stageTailEpoch} onLayout={panelMeasureHandlers.stage.tail}>
           {/* The authenticity checklist rides the staged words the way
               confirm's payload card does — under them, on the same
               surface, its rows advanced by the driver; its presence
@@ -1275,52 +1285,50 @@ export function DeviceStage({
             <AuthChecklist items={authChecklist} />
           ) : null}
           {confirmCardShown ? (
-            <Animated.View style={confirmCardStyle}>
-              <YStack
-                borderRadius="$6"
-                borderCurve="continuous"
-                bg={confirmDescriptionDanger ? CONFIRM_DANGER_BG : '$neutral4'}
-                px="$4"
-                py="$3"
-                gap="$3"
-              >
-                {confirmDetails?.map((row) => (
-                  <YStack key={row.label} gap="$1">
-                    <SizableText size="$bodySm" color="rgba(255,255,255,0.5)">
-                      {row.label}
-                    </SizableText>
-                    <CardValue
-                      value={row.value}
-                      highlightEnds={row.highlightEnds}
-                      warning={row.warning}
-                    />
-                  </YStack>
-                ))}
-                {confirmMessage ? (
-                  <SizableText
-                    fontFamily="$monoMedium"
-                    fontSize={13}
-                    lineHeight={21}
-                    color="rgba(255,255,255,0.85)"
-                    numberOfLines={5}
-                  >
-                    {confirmMessage}
+            <YStack
+              borderRadius="$6"
+              borderCurve="continuous"
+              bg={confirmDescriptionDanger ? CONFIRM_DANGER_BG : '$neutral4'}
+              px="$4"
+              py="$3"
+              gap="$3"
+            >
+              {confirmDetails?.map((row) => (
+                <YStack key={row.label} gap="$1">
+                  <SizableText size="$bodySm" color="rgba(255,255,255,0.5)">
+                    {row.label}
                   </SizableText>
-                ) : null}
-                {confirmDescription ? (
-                  <SizableText
-                    size="$bodyMd"
-                    color={
-                      confirmDescriptionDanger
-                        ? CONFIRM_DANGER_INK
-                        : 'rgba(255,255,255,0.85)'
-                    }
-                  >
-                    {confirmDescription}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </Animated.View>
+                  <CardValue
+                    value={row.value}
+                    highlightEnds={row.highlightEnds}
+                    warning={row.warning}
+                  />
+                </YStack>
+              ))}
+              {confirmMessage ? (
+                <SizableText
+                  fontFamily="$monoMedium"
+                  fontSize={13}
+                  lineHeight={21}
+                  color="rgba(255,255,255,0.85)"
+                  numberOfLines={5}
+                >
+                  {confirmMessage}
+                </SizableText>
+              ) : null}
+              {confirmDescription ? (
+                <SizableText
+                  size="$bodyMd"
+                  color={
+                    confirmDescriptionDanger
+                      ? CONFIRM_DANGER_INK
+                      : 'rgba(255,255,255,0.85)'
+                  }
+                >
+                  {confirmDescription}
+                </SizableText>
+              ) : null}
+            </YStack>
           ) : null}
         </View>
       </YStack>
@@ -1328,7 +1336,6 @@ export function DeviceStage({
     [
       authChecklist,
       confirmCardShown,
-      confirmCardStyle,
       confirmCount,
       confirmDescription,
       confirmDescriptionDanger,
@@ -1338,6 +1345,7 @@ export function DeviceStage({
       spacerFlowStyle,
       stageAnimated,
       stageChecklistShown,
+      stageTailEpoch,
       stageText,
       wordsStyle,
     ],
@@ -1787,7 +1795,12 @@ export function DeviceStage({
           warmScenes={builtScenes}
           width={REPLICA_WIDTH}
           instantEntry={sceneEntryInstant}
-          paused={hidden}
+          // Also paused through the pose flight: the scene clock drives
+          // its keyframe worklets every frame, a fixed tax the flight's
+          // budget can't spare — and the glass is fading through the
+          // cross-fade gap then anyway. Settling restarts the schedule
+          // from its opening still, the parked-scene grammar.
+          paused={hidden || poseInFlight}
         />
       </View>
     ),
@@ -1797,6 +1810,7 @@ export function DeviceStage({
       deviceType,
       handleDeviceLayout,
       hidden,
+      poseInFlight,
       sceneEntryInstant,
     ],
   );
@@ -1826,6 +1840,13 @@ export function DeviceStage({
     [deviceLayer, deviceStyle, fogStyle, portStyle, replicaStyle],
   );
 
+  // The ripple rests through pose flights too: the capsule pose stands
+  // from a return flight's first frame, and an infinite loop has no
+  // business inside the flight's frame budget. One flag, so the capsule
+  // row only rebuilds when a mounted badge's rest state actually flips
+  // — never for a flight settling over the other glyphs.
+  const bluetoothBadgePaused =
+    capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
   const capsule = useMemo(
     () => (
       <XStack
@@ -1857,7 +1878,7 @@ export function DeviceStage({
             <Icon name="XCircleSolid" size="$6" color="$iconCritical" />
           ) : null}
           {capsuleGlyph === 'bluetooth' ? (
-            <BluetoothBadge paused={pose !== 'capsule'} />
+            <BluetoothBadge paused={bluetoothBadgePaused} />
           ) : null}
           {capsuleGlyph === 'device' && vendorImageSource ? (
             <Image
@@ -1883,7 +1904,7 @@ export function DeviceStage({
         </YStack>
       </XStack>
     ),
-    [capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
   // The card's corner badge: the device's name at the top left, the
