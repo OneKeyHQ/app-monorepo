@@ -605,11 +605,17 @@ class ServiceHardwareUI extends ServiceBase {
     connectId?: string;
     checklist?: IDeviceStageAuthChecklistItem[];
     failureReason?: IDeviceStageAuthFailureReasonValue;
+    /** Fallback detail (v6.5.0 dialog parity): display-ready message
+     * shown in place of the generic title, code as a title suffix. */
+    failureMessage?: string;
+    failureCode?: string;
   }) {
     await this.deviceStageBurst.noteStep(params.step, {
       connectId: params.connectId,
       authChecklist: params.checklist,
       authFailureReason: params.failureReason,
+      authFailureMessage: params.failureMessage,
+      authFailureCode: params.failureCode,
     });
   }
 
