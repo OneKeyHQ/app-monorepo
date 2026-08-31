@@ -42,7 +42,6 @@ type IImageLoadRequest = {
   promise: Promise<ImageRef>;
   released: boolean;
   reloadToken: number;
-  source: ImageSource;
   settled: boolean;
 };
 
@@ -387,7 +386,6 @@ export function useImage(
         promise: Image.loadAsync(requestSource, optionsRef.current),
         released: false,
         reloadToken,
-        source: requestSource,
         settled: false,
       };
       request = createdRequest;

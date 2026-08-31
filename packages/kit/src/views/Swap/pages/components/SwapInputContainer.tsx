@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
@@ -226,9 +226,6 @@ const SwapInputContainer = ({
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
     (selectTokenLoading || isInitialTokenSelectionPending);
-  const handleSelectToken = useCallback(() => {
-    onSelectToken(direction);
-  }, [direction, onSelectToken]);
   const tokenSelectorTriggerProps = useMemo(
     () => ({
       testID:
@@ -240,11 +237,11 @@ const SwapInputContainer = ({
       loading: showTokenSelectorSkeleton,
       selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
       selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
-      onPress: handleSelectToken,
+      onPress: () => onSelectToken(direction),
     }),
     [
       direction,
-      handleSelectToken,
+      onSelectToken,
       showTokenSelectorSkeleton,
       tokenSelectorDisplayToken?.logoURI,
       tokenSelectorDisplayToken?.symbol,
