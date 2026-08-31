@@ -90,12 +90,27 @@ export interface ITradingViewChartControlsProps {
   onRightControlPress?: () => void;
 }
 
-function ToolbarSeparator() {
-  return <Stack h="$6" w="$px" bg="$borderSubdued" flexShrink={0} />;
+function ToolbarSeparator({
+  compact = false,
+  testID,
+}: {
+  compact?: boolean;
+  testID?: string;
+}) {
+  return (
+    <Stack
+      testID={testID}
+      h={compact ? '$4' : '$6'}
+      w="$px"
+      bg="$borderSubdued"
+      flexShrink={0}
+    />
+  );
 }
 
 const DESKTOP_CONTROLS_HEIGHT = 38;
 const DESKTOP_FULLSCREEN_CONTROLS_HEIGHT = 64;
+const COMPACT_MOBILE_CONTROLS_MIN_HEIGHT = 42;
 export const TRADING_VIEW_CHART_CONTROLS_HEIGHT = 48;
 
 export const TradingViewChartControls = memo(
@@ -424,6 +439,9 @@ export const TradingViewChartControls = memo(
       calendarControl ||
       settingsControl,
     );
+    const hasCompactChartCloseControl = Boolean(
+      compactMobileLayout && rightControl && onRightControlPress,
+    );
     const shouldFillIntervalSelector =
       compactMobileLayout &&
       hasVisibleIntervalSelector &&
@@ -431,8 +449,12 @@ export const TradingViewChartControls = memo(
       !priceMarketCapControl &&
       !chartSwitchControl &&
       !fullscreenControl &&
-      !rightControl &&
-      !onRightControlPress;
+      (!rightControl || hasCompactChartCloseControl) &&
+      (!onRightControlPress || hasCompactChartCloseControl);
+    const shouldStretchReadyControls =
+      !onRightControlPress || hasCompactChartCloseControl;
+    const shouldUseTightCompactPadding =
+      compactMobileLayout && !hasCompactChartCloseControl;
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
         compactMobileLayout={compactMobileLayout}
@@ -530,21 +552,35 @@ export const TradingViewChartControls = memo(
         bg={backgroundColor}
         px="$2"
         py={compactMobileLayout ? undefined : '$2'}
-        pt={compactMobileLayout ? '$1.5' : undefined}
-        pb={compactMobileLayout ? '$0.5' : undefined}
+        pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
+        pb={shouldUseTightCompactPadding ? '$0.5' : undefined}
+        minHeight={
+          hasCompactChartCloseControl
+            ? COMPACT_MOBILE_CONTROLS_MIN_HEIGHT
+            : undefined
+        }
+        justifyContent={hasCompactChartCloseControl ? 'center' : undefined}
         borderBottomWidth={compactMobileLayout ? 0.5 : 0}
         borderBottomColor="$borderSubdued"
         zIndex={3}
       >
         <XStack
+          testID={
+            hasCompactChartCloseControl
+              ? 'trading-view-compact-chart-controls-row'
+              : undefined
+          }
           alignItems="center"
           justifyContent="space-between"
           width="100%"
           gap="$2"
+          transform={
+            hasCompactChartCloseControl ? [{ translateY: 2 }] : undefined
+          }
         >
           <XStack
             testID="trading-view-chart-ready-controls"
-            flex={onRightControlPress ? undefined : 1}
+            flex={shouldStretchReadyControls ? 1 : undefined}
             flexShrink={
               compactMobileLayout && onRightControlPress ? 1 : undefined
             }
@@ -555,7 +591,7 @@ export const TradingViewChartControls = memo(
             pointerEvents={isControlsReady ? 'auto' : 'none'}
           >
             <XStack
-              flex={onRightControlPress ? undefined : 1}
+              flex={shouldStretchReadyControls ? 1 : undefined}
               flexShrink={
                 compactMobileLayout && onRightControlPress ? 1 : undefined
               }
@@ -580,17 +616,29 @@ export const TradingViewChartControls = memo(
             </XStack>
           ) : null}
 
+          {hasCompactChartCloseControl ? (
+            <ToolbarSeparator
+              compact
+              testID="trading-view-native-chart-close-divider"
+            />
+          ) : null}
+
           <XStack
             testID={
               onRightControlPress
                 ? 'trading-view-native-chart-close'
                 : undefined
             }
-            flex={onRightControlPress ? 1 : undefined}
+            flex={
+              onRightControlPress && !hasCompactChartCloseControl
+                ? 1
+                : undefined
+            }
             alignSelf={onRightControlPress ? 'stretch' : undefined}
             gap="$2"
             alignItems="center"
             justifyContent="flex-end"
+            pl={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             accessibilityRole={onRightControlPress ? 'button' : undefined}
             accessibilityLabel={rightControlLabel}
