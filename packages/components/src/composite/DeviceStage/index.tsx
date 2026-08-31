@@ -53,6 +53,11 @@ import {
 } from '../MorphOverlay';
 
 import { PassphraseForm, PinPad } from './AppInputs';
+import {
+  CARD_ARRANGEMENTS,
+  arrangementOf,
+  panelLeftBehind,
+} from './arrangements';
 import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { BluetoothBadge } from './BluetoothBadge';
 import { CardValue } from './CardValue';
@@ -90,6 +95,7 @@ import {
 } from './ThirdPartyPanels';
 import { WalletTypeOptions } from './WalletTypeOptions';
 
+import type { ICardArrangement } from './arrangements';
 import type { IDeviceStageProps, IDeviceStageStep } from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
 import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
@@ -179,24 +185,6 @@ const WORDS_ESTIMATED_HEIGHT = 72;
  * any faded ancestor — the old relight ghost). The warm-up ladder runs
  * off SCENE_WARM_MS's beat so the two never burst on the same frame.
  */
-const CARD_ARRANGEMENTS = [
-  'stage',
-  'pinOnApp',
-  'selectWalletType',
-  'passphraseIntro',
-  'passphraseOnApp',
-  'showQr',
-  'scanQr',
-  'authFailure',
-  'error',
-  'pairingCode',
-  'deviceNotFound',
-  'btcHighIndex',
-  'installConfirm',
-  'installing',
-  'installBatch',
-] as const;
-type ICardArrangement = (typeof CARD_ARRANGEMENTS)[number];
 const PANEL_WARM_MS = 475;
 
 /** The actionless error is a notice — it informs, holds long enough to
@@ -289,13 +277,6 @@ const REPLICA_PORT = Object.fromEntries([
   ...FULL_STAGED_STEPS.map((step) => [step, PORT_HEIGHT] as const),
   ...COMPACT_STAGED_STEPS.map((step) => [step, COMPACT_PORT_HEIGHT] as const),
 ]) as Partial<Record<IDeviceStageStep, number>>;
-
-/** The stage's grouping: the staged steps share one arrangement, every
- * other card step is its own — a crossing between two different
- * arrangements runs the two-phase swap. */
-function arrangementOf(step: IDeviceStageStep): string {
-  return REPLICA_PORT[step] ? 'stage' : step;
-}
 
 /**
  * The staged row, to the design: the replica stands `top` under the
@@ -658,15 +639,29 @@ export function DeviceStage({
     [activeArrangement, builtPanels],
   );
 
-  // Fresh-visit epochs for the stateful inputs: a parked pad keeps its
-  // component state across visits, so each activation signals the clean
-  // slate a remount used to provide. Render-time bump, change-guarded.
+  // Reset epochs for the stateful seats: a parked pad keeps its
+  // component state — nothing here ever unmounts — so the epoch stands
+  // in for the clean slate a remount used to give.
+  //
+  // Read on the way OUT, not in. A seat is cleared the moment the step
+  // leaves it, because an ask that has ended is spent: the device is no
+  // longer listening for its answer, and a secret must not outlive the
+  // question. Reading it on the way in could not do this job — the
+  // arrangement is frozen while the card is off screen, so leaving a
+  // card and returning to the SAME one never read as a change, and the
+  // form came back still holding the last entry (OK-59934). Nor would a
+  // visit-time reset ever fire for the flows that have no next visit:
+  // the answer that was right, the stage the person closed, the device
+  // taken away mid-ask. Render-time bump, change-guarded.
   const panelEpochsRef = useRef<Partial<Record<ICardArrangement, number>>>({});
-  const prevActiveArrangementRef = useRef(activeArrangement);
-  if (prevActiveArrangementRef.current !== activeArrangement) {
-    prevActiveArrangementRef.current = activeArrangement;
-    panelEpochsRef.current[activeArrangement] =
-      (panelEpochsRef.current[activeArrangement] ?? 0) + 1;
+  const prevStepRef = useRef(step);
+  if (prevStepRef.current !== step) {
+    const leftBehind = panelLeftBehind(prevStepRef.current, step);
+    prevStepRef.current = step;
+    if (leftBehind) {
+      panelEpochsRef.current[leftBehind] =
+        (panelEpochsRef.current[leftBehind] ?? 0) + 1;
+    }
   }
   const pinEpoch = panelEpochsRef.current.pinOnApp ?? 0;
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
