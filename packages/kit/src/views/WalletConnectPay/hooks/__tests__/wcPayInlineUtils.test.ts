@@ -1149,8 +1149,10 @@ describe('getWcPayInlinePersonalSignPlan', () => {
 });
 
 describe('isWcPayUnlimitedApproveAmount', () => {
-  const PERMIT2_WORD =
-    '000000000022d473030f116ddee9f6b43ac78ba3'.padStart(64, '0');
+  const PERMIT2_WORD = '000000000022d473030f116ddee9f6b43ac78ba3'.padStart(
+    64,
+    '0',
+  );
 
   it('recognizes the customary max-uint approve', () => {
     expect(

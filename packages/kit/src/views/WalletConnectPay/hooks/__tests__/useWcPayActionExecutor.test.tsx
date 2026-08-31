@@ -73,6 +73,10 @@ jest.mock('../wcPayInlineSignMessage', () => ({
   __esModule: true,
   wcPayInlineSignTypedData: jest.fn(),
 }));
+jest.mock('../wcPayInlineSignPersonalMessage', () => ({
+  __esModule: true,
+  wcPayInlineSignPersonalMessage: jest.fn(),
+}));
 jest.mock('../wcPayInlineSignSolana', () => ({
   __esModule: true,
   wcPayInlineSignSolanaTx: jest.fn(),
@@ -1942,5 +1946,148 @@ describe('useWcPayActionExecutor approve leg and sequence cap', () => {
     ).rejects.toThrow('Too many payment actions');
     expect(wcPayInlineSendTx).not.toHaveBeenCalled();
     expect(pushModalMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('useWcPayActionExecutor personal_sign inline', () => {
+  const SENDER = '0x1111111111111111111111111111111111111111';
+  const option: IWcPayOption = {
+    id: 'opt-1',
+    account: `eip155:8453:${SENDER}`,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+  // "Pay order #123" as the hex personal_sign payload
+  const MESSAGE_HEX = '0x506179206f726465722023313233';
+  const personalSignAction = buildAction({
+    method: EWcPayActionMethod.PersonalSign,
+    params: [MESSAGE_HEX, SENDER],
+    chainId: 'eip155:8453',
+  });
+  const buildTransferAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [{ from: SENDER, to: SENDER, value: '0xf4240' }],
+      chainId: 'eip155:8453',
+    });
+
+  const { wcPayInlineSignPersonalMessage } = jest.requireMock<{
+    wcPayInlineSignPersonalMessage: jest.Mock;
+  }>('../wcPayInlineSignPersonalMessage');
+  const { wcPayInlineSendTx } = jest.requireMock<{
+    wcPayInlineSendTx: jest.Mock;
+  }>('../wcPayInlineSendTx');
+
+  beforeEach(() => {
+    pushModalMock.mockReset();
+    pushModalMock.mockImplementation((_route, { params }) => {
+      params.onSuccess('0xsig-personal-modal');
+    });
+    wcPayInlineSignPersonalMessage.mockReset();
+    wcPayInlineSignPersonalMessage.mockResolvedValue({
+      status: 'ok',
+      signature: '0xsig-personal-inline',
+    });
+    wcPayInlineSendTx.mockReset();
+    wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
+  });
+
+  it('signs inline with the gate-normalized message and no confirm page', async () => {
+    const controller = buildController();
+    const onActionComplete = jest.fn();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [personalSignAction],
+      accountId: 'account-1',
+      option,
+      inlineController: controller,
+      onActionComplete,
+    });
+
+    expect(pushModalMock).not.toHaveBeenCalled();
+    expect(wcPayInlineSignPersonalMessage).toHaveBeenCalledTimes(1);
+    expect(wcPayInlineSignPersonalMessage.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        message: MESSAGE_HEX,
+        accountId: 'account-1',
+        networkId: 'evm--8453',
+      }),
+    );
+    expect(controller.onSigningSummary).toHaveBeenCalledWith({
+      kind: 'personalSign',
+      summary: { text: 'Pay order #123' },
+    });
+    expect(onActionComplete).toHaveBeenCalledWith({
+      index: 0,
+      result: '0xsig-personal-inline',
+    });
+    expect(signatures).toEqual(['0xsig-personal-inline']);
+  });
+
+  it('routes an undisplayable message to the confirm page', async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [
+        buildAction({
+          method: EWcPayActionMethod.PersonalSign,
+          // invalid UTF-8 → the gate refuses, the page renders it as hex
+          params: ['0xdeadbeef', SENDER],
+          chainId: 'eip155:8453',
+        }),
+      ],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xsig-personal-modal']);
+  });
+
+  it('falls back to the confirm page when the pipeline declines pre-sign', async () => {
+    wcPayInlineSignPersonalMessage.mockResolvedValue({
+      status: 'fallback',
+      reason: 'failed to resolve the signing account',
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [personalSignAction],
+      accountId: 'account-1',
+      option,
+      inlineController: controller,
+    });
+
+    expect(controller.onFallback).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xsig-personal-modal']);
+    errorSpy.mockRestore();
+  });
+
+  it('never charges the spend budget for a personal_sign', async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [personalSignAction, buildTransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    // the transfer after the signature still inlines: the signature spent
+    // nothing
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).not.toHaveBeenCalled();
+    expect(signatures).toEqual(['0xsig-personal-inline', '0xinline']);
   });
 });

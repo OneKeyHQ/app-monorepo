@@ -39,6 +39,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { wcPayInlineSendTx } from './wcPayInlineSendTx';
 import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
+import { wcPayInlineSignPersonalMessage } from './wcPayInlineSignPersonalMessage';
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_ACTIONS_PER_SEQUENCE,
@@ -47,6 +48,7 @@ import {
   WcPayUserCancelledError,
   classifyWcPayInlineFailure,
   getWcPayInlineMessagePlan,
+  getWcPayInlinePersonalSignPlan,
   getWcPayInlineSolanaPlan,
   getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
@@ -985,6 +987,57 @@ export function useWcPayActionExecutor() {
               }),
             });
             // re-check after the async prep above (see eth_sendTransaction)
+            throwIfCancelled();
+            if (isStoppedAfterBroadcast()) {
+              return results;
+            }
+            // Inline path (Phase 3 §4): sign after the sheet has shown the
+            // message, when the gate proved it displayable. No order proof
+            // exists for an arbitrary message, so display IS the contract —
+            // anything the gate refuses goes to the confirm page, whose
+            // raw/hex rendering has no such constraint. Never a spend: the
+            // budget is not consulted. Same bookkeeping as the typed-data
+            // branch; nothing here broadcasts.
+            if (inlineController && option) {
+              const plan = getWcPayInlinePersonalSignPlan({
+                action: actions[i],
+                option,
+                accountAddress: account.address,
+              });
+              if (plan.mode === 'inline') {
+                const outcome = await runInlineSignature({
+                  index: i,
+                  controller: inlineController,
+                  summary: { kind: 'personalSign', summary: plan.summary },
+                  run: () =>
+                    wcPayInlineSignPersonalMessage({
+                      networkId,
+                      accountId: account.id,
+                      accountAddress: account.address,
+                      // the gate's normalized message — the very string its
+                      // summary text is the decode of. It matches this
+                      // branch's own `message` by construction (same
+                      // extraction + normalization), so gate-refused
+                      // messages still reach the page below unchanged.
+                      message: plan.message,
+                      option,
+                      sourceInfo: buildWcPaySourceInfo({
+                        method,
+                        params: parsed,
+                        scope: 'ethereum',
+                      }),
+                      throwIfCancelled,
+                      onPhase: inlineController.onPhase,
+                    }),
+                });
+                if (outcome === 'done') {
+                  break;
+                }
+              }
+            }
+            // the inline attempt above may itself have spanned a page close;
+            // re-check so no confirm modal is pushed onto a stack whose owner
+            // is gone (see eth_sendTransaction)
             throwIfCancelled();
             if (isStoppedAfterBroadcast()) {
               return results;
