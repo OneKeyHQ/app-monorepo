@@ -16,7 +16,6 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   HISTORY_CONSTS,
   SEND_TX_SERVER_ERROR_CODES,
@@ -638,8 +637,7 @@ class ServiceSend extends ServiceBase {
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
           effectiveBroadcastDeadline ?? markedSession.payment.expiresAt,
-          markedSession.payment.expiresAt -
-            PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS,
+          markedSession.payment.expiresAt,
         );
         await ensurePrimePaymentUserIsCurrent();
         ensureBroadcastDeadline();

@@ -1658,6 +1658,65 @@ describe('ServicePrime Infini payment APIs', () => {
     );
   });
 
+  it('returns confirmed payment progress when diagnostic metadata cannot be persisted', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const confirmedPayment = {
+      ...payment,
+      amountConfirmed: payment.amountDue,
+    };
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: confirmedPayment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        },
+      }),
+    ).resolves.toEqual(confirmedPayment);
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'polling-flow',
+        paymentSource: 'polling',
+        stage: 'sessionPersistence',
+        failureReason: 'localPersistenceFailed',
+      }),
+    );
+    expect(
+      JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+    ).not.toContain('disk full');
+  });
+
+  it('still rejects an auth change when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: payment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockImplementation(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+      throw new OneKeyLocalError('disk full');
+    });
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: { flowId: 'polling-flow', paymentSource: 'polling' },
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
   it.each([null, 'warning', ['warning', 1]])(
     'rejects malformed warnings as invalidResponse (%p)',
     async (warningMessages) => {
@@ -2060,8 +2119,11 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
-  it('returns payment and purchase status from one pre-broadcast auth snapshot', async () => {
-    const { service } = createInfiniService();
+  it('returns a pre-broadcast auth snapshot when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
     const subscription = {
       subscriptionId: 'infini-subscription-id',
       status: 'active',
@@ -2091,6 +2153,10 @@ describe('ServicePrime Infini payment APIs', () => {
       service.apiGetInfiniPaymentPreBroadcastSnapshot({
         paymentId: payment.paymentId,
         expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'pre-broadcast-flow',
+          paymentSource: 'preflightRefresh',
+        },
       }),
     ).resolves.toEqual({
       payment,

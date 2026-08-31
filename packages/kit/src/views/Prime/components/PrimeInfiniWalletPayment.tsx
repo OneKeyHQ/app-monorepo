@@ -3098,8 +3098,7 @@ function PrimeInfiniWalletPaymentContent({
         transferPayload,
         isInternalTransfer: true,
         gasAccountScenario: 'send',
-        broadcastDeadline:
-          paymentForSend.expiresAt - MIN_PAYMENT_VALIDITY_BEFORE_SEND_MS,
+        broadcastDeadline: paymentForSend.expiresAt,
         beforeBroadcastAction: {
           type: 'primeInfiniPayment',
           flowContext: flowContextRef.current,

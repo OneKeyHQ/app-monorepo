@@ -1382,6 +1382,63 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     }
   });
 
+  test.each([5000, 24 * 60 * 60 * 1000])(
+    'preserves a refreshed session after a clock rollback of %i ms',
+    async (rollbackMs) => {
+      const { entity } = createSessionStore();
+      const createdAt = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+      try {
+        const saved = await entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session,
+        });
+        clock.mockReturnValue(createdAt - rollbackMs);
+        const refreshed = await entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: {
+            ...saved,
+            payment: { ...saved.payment, amountConfirming: '1' },
+          },
+        });
+
+        expect(refreshed).toMatchObject({
+          createdAt: saved.createdAt,
+          localRetentionDeadline: saved.localRetentionDeadline,
+          payment: { amountConfirming: '1' },
+        });
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toEqual(refreshed);
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+
+  test('rejects a refresh when clock rollback exceeds the allowed skew', async () => {
+    const { entity } = createSessionStore();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    try {
+      const saved = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt - 24 * 60 * 60 * 1000 - 1);
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: saved,
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'localPersistenceFailed' },
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   test('reports a failed lifecycle write separately from a remote payment failure', async () => {
     const entity = new SimpleDbEntityPrime();
     jest.spyOn(entity, 'setRawData').mockRejectedValue(new Error('disk full'));

@@ -5584,6 +5584,34 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  private async recordInfiniPaymentValidationBestEffort({
+    onekeyUserId,
+    payment,
+    flowContext,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    flowContext: IPrimeInfiniPaymentFlowContext;
+  }): Promise<void> {
+    try {
+      await this.backgroundApi.simpleDb.prime.recordInfiniPaymentValidation({
+        onekeyUserId,
+        payment,
+        flowId: flowContext.flowId,
+      });
+    } catch (error) {
+      // Diagnostic metadata must not hide a successful payment query.
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...flowContext,
+        ...getPrimeInfiniPaymentSafeError(error),
+        paymentId: payment.paymentId,
+        stage: 'sessionPersistence',
+        status: 'failed',
+        failureReason: 'localPersistenceFailed',
+      });
+    }
+  }
+
   @backgroundMethod()
   async apiGetInfiniPayment({
     paymentId,
@@ -5616,13 +5644,11 @@ class ServicePrime extends ServiceBase {
           context,
         );
         if (flowContext) {
-          await this.backgroundApi.simpleDb.prime.recordInfiniPaymentValidation(
-            {
-              onekeyUserId: expectedOneKeyUserId,
-              payment,
-              flowId: context.flowId,
-            },
-          );
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
         }
         await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
         return payment;
@@ -5679,13 +5705,11 @@ class ServicePrime extends ServiceBase {
           context,
         );
         if (flowContext) {
-          await this.backgroundApi.simpleDb.prime.recordInfiniPaymentValidation(
-            {
-              onekeyUserId: expectedOneKeyUserId,
-              payment,
-              flowId: context.flowId,
-            },
-          );
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
         }
         await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
         return {

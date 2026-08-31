@@ -379,7 +379,8 @@ function isValidInfiniPendingPaymentSession(
   const age = now - session.updatedAt;
   const lifecycle = getInfiniPaymentSessionLifecycle(session);
   if (
-    lifecycle.createdAt > session.updatedAt ||
+    lifecycle.createdAt >
+      session.updatedAt + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
     lifecycle.lastValidatedAt >
       now + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
     lifecycle.localRetentionDeadline < lifecycle.createdAt ||
