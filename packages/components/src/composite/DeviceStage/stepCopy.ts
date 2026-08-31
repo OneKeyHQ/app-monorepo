@@ -525,12 +525,19 @@ export function resolveCapsuleText(
   deviceName?: string,
   vendor?: 'ledger' | 'trezor',
   errorReason?: IDeviceStageErrorReason,
+  errorMessage?: string,
 ): { title: string; sub: string } {
   if (step === 'error') {
     return {
-      title: intl.formatMessage({
-        id: ERROR_TEXT[errorReason ?? 'generic'].title,
-      }),
+      // The failure's own words when no reason claims it — the message
+      // the live flow's toast used to speak. A reason's considered
+      // wording always wins over it.
+      title:
+        !errorReason && errorMessage
+          ? errorMessage
+          : intl.formatMessage({
+              id: ERROR_TEXT[errorReason ?? 'generic'].title,
+            }),
       sub: '',
     };
   }
