@@ -38,17 +38,14 @@ function BasicModifierShortcutHintBadge({
     [routeName],
   );
 
-  if (!platformEnv.isDesktop || !shortcutKey) {
+  if (!platformEnv.isDesktop || !shortcutKey || !visible) {
     return null;
   }
 
   const sharedProps = {
     pointerEvents: 'none' as const,
-    opacity: visible ? 1 : 0,
     animation: 'quick' as const,
     enterStyle: { opacity: 0, scale: 0.95 },
-    exitStyle: { opacity: 0, scale: 0.95 },
-    'aria-hidden': !visible,
     'aria-keyshortcuts': ariaKeyShortcut,
   };
 
@@ -61,7 +58,7 @@ function BasicModifierShortcutHintBadge({
   }
 
   return (
-    <Stack position="absolute" top={0} right={0} zIndex={1} {...sharedProps}>
+    <Stack position="absolute" top={0} right={0} zIndex={2} {...sharedProps}>
       <Shortcut shortcutKey={shortcutKey} />
     </Stack>
   );

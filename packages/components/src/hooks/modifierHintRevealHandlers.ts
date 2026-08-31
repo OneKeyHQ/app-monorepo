@@ -28,7 +28,6 @@ export function createModifierHintRevealHandlers({
   if (
     !enabled ||
     !platformEnv.isDesktop ||
-    typeof globalThis === 'undefined' ||
     typeof globalThis.addEventListener !== 'function'
   ) {
     onVisibleChange(false);

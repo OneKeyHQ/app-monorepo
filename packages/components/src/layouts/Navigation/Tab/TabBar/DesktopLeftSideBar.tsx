@@ -172,10 +172,6 @@ function BasicTabItemView({
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
-          <ModifierShortcutHintBadge
-            shortcutKey={getTabRouteShortcutEvent(route.name)}
-            routeName={route.name}
-          />
           <DesktopTabItem
             isContainerHovered={isContainerHovered}
             onPress={handlePress}
@@ -189,6 +185,10 @@ function BasicTabItemView({
             label=""
             actionList={options.actionList}
             testID={route.name.toLowerCase()}
+          />
+          <ModifierShortcutHintBadge
+            shortcutKey={getTabRouteShortcutEvent(route.name)}
+            routeName={route.name}
           />
           <SizableText
             size="$bodyXsMedium"
@@ -307,6 +307,7 @@ function SidebarBottomItem({
     () => (
       <YStack
         p="$2"
+        position="relative"
         borderRadius="$2"
         bg={isActive ? '$bgActive' : undefined}
         hoverStyle={HOVER_STYLE_BG_HOVER}
@@ -319,9 +320,13 @@ function SidebarBottomItem({
           size="$6"
           color={isActive ? '$iconActive' : '$iconSubdued'}
         />
+        <ModifierShortcutHintBadge
+          shortcutKey={getTabRouteShortcutEvent(route.name)}
+          routeName={route.name}
+        />
       </YStack>
     ),
-    [isActive, onPress, iconName],
+    [isActive, onPress, iconName, route.name],
   );
 
   return (

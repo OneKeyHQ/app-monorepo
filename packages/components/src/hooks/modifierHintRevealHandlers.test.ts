@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   MODIFIER_HINT_HOLD_MS,
   createModifierHintRevealHandlers,
@@ -19,6 +21,7 @@ describe('modifierHintRevealHandlers', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     document.body.focus();
+    platformEnv.isDesktopMac = true;
   });
 
   afterEach(() => {
@@ -85,5 +88,35 @@ describe('modifierHintRevealHandlers', () => {
     expect(onVisibleChange).not.toHaveBeenCalledWith(true);
 
     document.body.removeChild(input);
+  });
+
+  it('reveals hints after holding Control for 1000ms on Windows/Linux', () => {
+    platformEnv.isDesktopMac = false;
+    const onVisibleChange = jest.fn();
+    const handlers = createModifierHintRevealHandlers({
+      enabled: true,
+      onVisibleChange,
+    });
+
+    handlers?.onKeyDown(
+      new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true }),
+    );
+    jest.advanceTimersByTime(MODIFIER_HINT_HOLD_MS);
+
+    expect(onVisibleChange).toHaveBeenCalledWith(true);
+
+    handlers?.onKeyUp(new KeyboardEvent('keyup', { key: 'Control' }));
+    expect(onVisibleChange).toHaveBeenCalledWith(false);
+  });
+
+  it('does not attach handlers when disabled', () => {
+    const onVisibleChange = jest.fn();
+    const handlers = createModifierHintRevealHandlers({
+      enabled: false,
+      onVisibleChange,
+    });
+
+    expect(handlers).toBeUndefined();
+    expect(onVisibleChange).toHaveBeenCalledWith(false);
   });
 });

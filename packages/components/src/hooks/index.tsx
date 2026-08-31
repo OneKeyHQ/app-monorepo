@@ -21,4 +21,4 @@ export * from './useVisibilityChange';
 export * from './useSplitView';
 export * from './useIsTablet';
 export * from './useModifierHintReveal';
-export * from './modifierHintRevealContext';
+export * from './ModifierHintRevealContext';
