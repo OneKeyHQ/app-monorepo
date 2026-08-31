@@ -283,15 +283,11 @@ export function useAddHiddenWallet() {
 
   const createHiddenWalletWithDialogConfirm = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
-      // The DeviceStage teach card carries this dialog's whole job for
-      // hardware wallets — the passphrase education and the wallet-list
-      // shortcut switch both live on the card — so priming here would
-      // teach the same thing twice in a row. QR wallets never open a
-      // stage, so they keep the dialog.
-      if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
-        await createHiddenWallet({ wallet });
-        return;
-      }
+      // Education is this caller's to give, before the device flow starts
+      // (v6.5.2 parity): the dialog teaches and carries the wallet-list
+      // shortcut switch, then Continue hands over to the hardware flow.
+      // The stage no longer plays a teach card of its own, so hardware
+      // wallets take this dialog again, the same as QR wallets.
       return new Promise<void>((resolve, reject) => {
         Dialog.show({
           showExitButton: false,
