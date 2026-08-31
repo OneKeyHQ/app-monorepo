@@ -820,6 +820,14 @@ export interface IEarnPopupActionIcon {
       title: IEarnText;
       description: IEarnText;
     }[];
+    /**
+     * Mobile Yield sheet header. Labels come from the server so this surface
+     * needs no new generated i18n keys on the client.
+     */
+    yieldSummary?: {
+      totalApy: { title: IEarnText; description: IEarnText };
+      campaignEnd?: { title: IEarnText; endTime: number };
+    };
     items?: {
       icon?: IEarnIcon;
       token?: {
@@ -828,6 +836,20 @@ export interface IEarnPopupActionIcon {
       };
       title: IEarnText;
       value: string;
+      /**
+       * Mobile Yield sheet only. `rate` is a percentage number string ('3.52'),
+       * matching the unit `value` is rendered in — not a ratio. `yieldToken` is
+       * deliberately separate from `token`: the wide-screen popup renders
+       * `token`, so writing into it would change that surface too.
+       */
+      kind?: 'base' | 'reward' | 'campaign' | 'fee';
+      rate?: string;
+      color?: string;
+      yieldToken?: {
+        info: IEarnToken;
+        price: string;
+      };
+      yieldTitle?: IEarnText;
     }[];
     platformBonusInfos?: {
       title: IEarnText;
@@ -1498,6 +1520,38 @@ export interface IStakeEarnDetail {
   protocol?: IProtocolInfo;
   withdrawApprove?: IEarnWithdrawApproveInfo;
   protocolInfo?: IEarnProtocolIntroInfo | IEarnProtocolIntroItem[];
+  /**
+   * Phone-only Portfolio tab read model. Grouped by whether the user has to
+   * claim, not by where the reward came from.
+   */
+  mobilePortfolio?: {
+    asOf: number;
+    capabilities: {
+      portfolio: boolean;
+      rewardBreakdown: boolean;
+      claim: boolean;
+      redeem: boolean;
+    };
+    hasPosition: boolean;
+    summary?: { items: IEarnGridItem[] };
+    groups: {
+      key: 'balance' | 'claimable' | 'pending' | 'distributed';
+      title: IEarnText;
+      items: (NonNullable<IStakeEarnDetail['portfolios']>['items'][0] & {
+        txHash?: string;
+        distributedAt?: number;
+        availableAt?: number;
+      })[];
+    }[];
+  };
+  /**
+   * Phone-only Info tab blocks. `intro` stays untouched because desktop, web
+   * and iPad all render it; this is a separate additive copy.
+   */
+  mobileInfo?: {
+    productInfo?: { title: IEarnText; items: IEarnGridItem[] };
+    tokenInfo?: { title: IEarnText; items: IEarnGridItem[] };
+  };
   countDownAlert?: {
     title?: IEarnText;
     description: IEarnText;

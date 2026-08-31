@@ -703,6 +703,7 @@ export const swrKeys = {
     vault,
     locale,
     currencyId,
+    accountScopeKey,
   }: {
     networkId: string;
     symbol: string;
@@ -710,6 +711,11 @@ export const swrKeys = {
     vault?: string;
     locale: string;
     currencyId: string;
+    // Set only when the request carries an account address. The response then
+    // contains that account's balances and rewards, so it must never share a
+    // cache entry with the account-less protocol response or with another
+    // account.
+    accountScopeKey?: string;
   }) =>
     [
       NS.earnProtocolDetail,
@@ -720,6 +726,7 @@ export const swrKeys = {
       vault ?? '',
       locale.toLowerCase(),
       currencyId.toLowerCase(),
+      accountScopeKey ?? '',
     ].join(':'),
 };
 
