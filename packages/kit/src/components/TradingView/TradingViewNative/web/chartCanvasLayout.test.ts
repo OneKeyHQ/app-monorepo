@@ -80,6 +80,20 @@ describe('TradingViewNative web canvas layout', () => {
         clientY: 320,
       }),
     ).toBe(false);
+    expect(
+      isTradingViewNativeCanvasMainPriceAxisPointer({
+        ...input,
+        clientY: 287,
+        timeAxisHeight: 20,
+      }),
+    ).toBe(true);
+    expect(
+      isTradingViewNativeCanvasMainPriceAxisPointer({
+        ...input,
+        clientY: 288,
+        timeAxisHeight: 20,
+      }),
+    ).toBe(false);
   });
 
   it('hit-tests the price axis with the compact font it is rendered with', () => {

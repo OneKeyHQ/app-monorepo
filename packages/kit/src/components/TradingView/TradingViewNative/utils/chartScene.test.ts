@@ -145,6 +145,48 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
+  it('positions the watermark at the bottom-left of the main chart', () => {
+    const height = 360;
+    const timeAxisHeight = 20;
+    const width = 320;
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points: POINTS,
+      subIndicatorPanes: createTradingViewNativeSubIndicatorRenderSnapshots({
+        configs: [{ id: 'RSI', indicator: 'RSI' }],
+        points: POINTS,
+      }).map(({ pane }) => pane),
+      timeAxisHeight,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width,
+    });
+    const watermark = scene.commands.find(
+      (command) => command.kind === 'watermark',
+    );
+    const paneTopBorder = scene.commands.find(
+      (command) =>
+        command.kind === 'line' &&
+        command.paint === 'gridSolidLine' &&
+        command.y1 === 284 &&
+        command.y2 === 284,
+    );
+    expect(paneTopBorder).toBeDefined();
+    expect(watermark).toMatchObject({
+      kind: 'watermark',
+      rect: { width: 48, x: 8 },
+    });
+    if (watermark?.kind === 'watermark') {
+      expect(watermark.rect.y + watermark.rect.height).toBeCloseTo(276);
+    }
+  });
+
   it('applies persisted display settings to the shared render scene', () => {
     const chartSettings = createTradingViewNativeChartSettings();
     chartSettings.background = {

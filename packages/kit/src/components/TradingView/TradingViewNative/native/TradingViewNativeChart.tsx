@@ -758,6 +758,7 @@ export const TradingViewNativeChart = memo(
       isLogScaleAvailable,
       priceAxisWidth,
       subIndicatorPanes,
+      timeAxisHeight,
     });
 
     const chartGestures = useTradingViewNativeChartGestures({
