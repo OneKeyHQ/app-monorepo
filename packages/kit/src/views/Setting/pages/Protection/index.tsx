@@ -457,6 +457,7 @@ const SettingProtectionModal = () => {
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
     receiveRiskMonitoringMap,
+    receiveRiskMonitoringTitle,
     setSettings,
     tokenRiskReminder,
   ]);
