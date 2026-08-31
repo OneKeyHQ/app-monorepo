@@ -12,6 +12,7 @@ import type { ITradingViewNativeSource } from '../types';
 export type ITradingViewNativeIntervalStorageNamespace =
   | 'market-hyperliquid'
   | 'native'
+  | 'stock'
   | 'token';
 
 interface IStoredTradingViewNativeInterval {
@@ -28,6 +29,9 @@ export function getTradingViewNativeIntervalStorageNamespace(
 ): ITradingViewNativeIntervalStorageNamespace {
   if (source.kind === 'hyperliquid') {
     return 'market-hyperliquid';
+  }
+  if (source.kind === 'stock') {
+    return 'stock';
   }
   return source.isNative || !source.tokenAddress.trim() ? 'native' : 'token';
 }

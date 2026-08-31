@@ -27,6 +27,7 @@ import {
   COLUMN_WIDTH_PRICE,
   COLUMN_WIDTH_TURNOVER,
   TOKEN_SELECTOR_POLLING_INTERVAL,
+  TOKEN_SELECTOR_ROW_HEIGHT,
   convertSearchTokenToMarketToken,
 } from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
@@ -35,6 +36,7 @@ import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenL
 import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
 
 type IMarketTokenSelectorItem = IMarketToken & {
+  selectorSubtitle?: string;
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
@@ -48,6 +50,8 @@ interface IMarketTokenSelectorListProps {
   searchQuery?: string;
   searchLoading?: boolean;
   searchResults?: (IMarketSearchV2Token & { networkLogoURI: string })[];
+  dataOverride?: IMarketTokenSelectorItem[];
+  dataOverrideLoading?: boolean;
 }
 
 // Shared ListView renderer to eliminate duplication across list variants
@@ -57,12 +61,14 @@ function TokenSelectorListView({
   networkId,
   onItemPress,
   emptyMessage,
+  showAddress = true,
 }: {
   data: IMarketTokenSelectorItem[];
   isLoading?: boolean;
   networkId: string;
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   emptyMessage?: string;
+  showAddress?: boolean;
 }) {
   if (isLoading && data.length === 0) {
     return (
@@ -82,7 +88,7 @@ function TokenSelectorListView({
 
   return (
     <ListView
-      estimatedItemSize={40}
+      estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
       data={data}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
@@ -90,7 +96,7 @@ function TokenSelectorListView({
           item={item}
           networkId={networkId}
           onPress={onItemPress}
-          showAddress
+          showAddress={showAddress}
         />
       )}
       contentContainerStyle={{ paddingBottom: 10 }}
@@ -219,6 +225,8 @@ function ListContent({
   pollingInterval,
   selectedCategory,
   timeRange,
+  dataOverride,
+  dataOverrideLoading,
 }: IMarketTokenSelectorListProps) {
   if (searchQuery) {
     return (
@@ -236,6 +244,17 @@ function ListContent({
         networkId={networkId}
         onItemPress={onItemPress}
         pollingInterval={pollingInterval}
+      />
+    );
+  }
+  if (dataOverride) {
+    return (
+      <TokenSelectorListView
+        data={dataOverride}
+        isLoading={dataOverrideLoading}
+        networkId={networkId}
+        onItemPress={onItemPress}
+        showAddress={false}
       />
     );
   }
@@ -261,6 +280,8 @@ const MarketTokenSelectorList = memo(
     searchQuery,
     searchLoading,
     searchResults,
+    dataOverride,
+    dataOverrideLoading,
   }: IMarketTokenSelectorListProps) => {
     const intl = useIntl();
 
@@ -331,6 +352,8 @@ const MarketTokenSelectorList = memo(
             pollingInterval={pollingInterval}
             selectedCategory={selectedCategory}
             timeRange={timeRange}
+            dataOverride={dataOverride}
+            dataOverrideLoading={dataOverrideLoading}
           />
         </YStack>
       </YStack>

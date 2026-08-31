@@ -36,24 +36,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnNavigation } from '../../Earn/earnUtils';
+import { getLegacyMarketPrimaryNetwork } from '../utils/legacyMarketNetwork';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, platforms = {} } = token || {};
-  const network = useMemo(() => {
-    if (detailPlatforms) {
-      const values = Object.values(detailPlatforms);
-      const nativePlatform = values.find((i) => i.isNative);
-      if (nativePlatform) {
-        return nativePlatform;
-      }
-
-      const tokenAddress = Object.values(platforms)[0];
-      const tokenAddressPlatform = values.find(
-        (i) => i.tokenAddress === tokenAddress,
-      );
-      return tokenAddressPlatform ?? values[0];
-    }
-  }, [detailPlatforms, platforms]);
+  const network = useMemo(() => getLegacyMarketPrimaryNetwork(token), [token]);
   return network;
 };
 

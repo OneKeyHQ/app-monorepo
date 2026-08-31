@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 
-import type { ITradingViewNativeChartLineStyle } from '@onekeyhq/shared/types/tradingViewNative';
+import type {
+  ITradingViewNativeChartLineStyle,
+  ITradingViewNativeChartType,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 
@@ -31,6 +34,10 @@ export type ITradingViewNativeSource =
       tokenAddress: string;
       symbol: string;
       realtime: 'disabled' | 'websocket';
+    }
+  | {
+      kind: 'stock';
+      stockId: string;
     };
 
 export type ITradingViewNativeDataStatus =
@@ -102,6 +109,7 @@ export type ITradingViewNativeChartComponentNode =
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   enableNativeChartSettings?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
@@ -109,6 +117,12 @@ export interface ITradingViewNativeProps {
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  /**
+   * Drops the desktop controls row's own horizontal inset so its first control
+   * lines up with the leading edge of the plot below it. For assemblies that
+   * embed the widget flush in their own layout; off by default.
+   */
+  nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;

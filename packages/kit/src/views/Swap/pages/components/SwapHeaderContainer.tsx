@@ -127,6 +127,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -139,6 +140,7 @@ const SwapHeaderContainer = ({
   defaultSwapType,
   showSwapPro,
   hideRightActions,
+  singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -451,6 +453,25 @@ const SwapHeaderContainer = ({
       </CustomTabItem>
     </>
   );
+
+  if (singleSwapBridgeTab) {
+    return (
+      <XStack alignItems="center" gap="$2" px="$5" py="$1">
+        <SizableText size="$headingMd" flex={1}>
+          {swapBridgeLabel}
+        </SizableText>
+        {!hideRightActions ? (
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            routeSwapType={defaultSwapType}
+            compact
+            hideKLine
+          />
+        ) : null}
+      </XStack>
+    );
+  }
 
   return (
     <XStack
