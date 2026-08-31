@@ -105,9 +105,11 @@ export function describeWcPaySigningSummary(
     );
   }
   if (summary.summary.fundsRecipientAta) {
-    // Approximate on purpose: the standard ATA rent is ~0.002 SOL, but a
-    // Token-2022 mint with extensions needs a larger account and costs more.
-    parts.push('Creates the recipient token account (≈0.002 SOL rent)');
+    // No figure on purpose: the standard ATA rent is ~0.002 SOL, but a
+    // Token-2022 mint with extensions needs a larger account and costs
+    // more, and the validator cannot bound it offline — a hardcoded number
+    // would understate the real charge.
+    parts.push('Creates the recipient token account (rent varies by token)');
   }
   return parts.length > 0 ? parts.join(' · ') : 'Signs the payment transaction';
 }

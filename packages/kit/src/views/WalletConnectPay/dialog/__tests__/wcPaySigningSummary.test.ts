@@ -193,7 +193,7 @@ describe('describeWcPaySigningSummary — solana', () => {
   it('names the recipient token account rent', () => {
     expect(
       describeWcPaySigningSummary(solana({ fundsRecipientAta: true }), NOW_MS),
-    ).toBe('Creates the recipient token account (≈0.002 SOL rent)');
+    ).toBe('Creates the recipient token account (rent varies by token)');
   });
 
   it('joins both costs', () => {
@@ -203,7 +203,7 @@ describe('describeWcPaySigningSummary — solana', () => {
         NOW_MS,
       ),
     ).toBe(
-      'Network priority fee up to 0.01 SOL · Creates the recipient token account (≈0.002 SOL rent)',
+      'Network priority fee up to 0.01 SOL · Creates the recipient token account (rent varies by token)',
     );
   });
 
