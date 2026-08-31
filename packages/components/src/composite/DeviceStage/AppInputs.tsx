@@ -28,6 +28,7 @@ import {
   YStack,
 } from '../../primitives';
 
+import { resolvePassphraseEntryFailure } from './passphraseRules';
 import { PreferenceCapsule } from './PreferenceCapsule';
 
 /**
@@ -326,19 +327,12 @@ export function PinPad({
   );
 }
 
-/** The device accepts printable ASCII only (production's validation). */
-const PASSPHRASE_MAX_LENGTH = 50;
-// eslint-disable-next-line no-control-regex
-const PASSPHRASE_CHARSET = /^[\x20-\x7E]*$/;
-
 export interface IPassphraseFormProps {
   /**
-   * The live flow's two shapes, differing in words and in what an empty
-   * entry means. 'verify' unlocks an existing hidden wallet: empty stays
-   * submittable — it is the standard wallet, and the SDK's
-   * passphrase-state check refuses a wrong entry. 'create' is the
-   * Add-hidden-wallet flow (the stage titles it that): an empty entry is
-   * refused with the inline prompt. Defaults to 'verify', the plain
+   * The live flow's two shapes: 'create' is the Add-hidden-wallet flow
+   * (the stage titles it that) and carries the Keep-accessible
+   * preference; 'verify' unlocks an existing hidden wallet. Both refuse
+   * an empty entry — see handleConfirm. Defaults to 'verify', the plain
    * entry shape the flow spec draws.
    */
   mode?: 'create' | 'verify';
@@ -410,35 +404,19 @@ export function PassphraseForm({
     setValidationError(undefined);
   }, []);
   const handleConfirm = useCallback(() => {
-    // Refusing an empty create: a prompt in place of a disabled button —
-    // the same ratified grammar as the PIN pad's empty confirm.
-    if (mode === 'create' && !value.length) {
+    // A refused entry speaks its prompt in place of a disabled button —
+    // the same ratified grammar as the PIN pad's empty confirm. The
+    // rules themselves, and why an empty entry is refused in both
+    // modes, live in resolvePassphraseEntryFailure.
+    const failure = resolvePassphraseEntryFailure(value);
+    if (failure) {
       setValidationError(
-        intl.formatMessage({
-          id: ETranslations.device_stage_enter_passphrase_first__msg,
-        }),
-      );
-      return;
-    }
-    if (value.length > PASSPHRASE_MAX_LENGTH) {
-      setValidationError(
-        intl.formatMessage(
-          { id: ETranslations.hardware_passphrase_enter_too_long },
-          { 0: PASSPHRASE_MAX_LENGTH },
-        ),
-      );
-      return;
-    }
-    if (!PASSPHRASE_CHARSET.test(value)) {
-      setValidationError(
-        intl.formatMessage({
-          id: ETranslations.hardware_unsupported_passphrase_characters,
-        }),
+        intl.formatMessage({ id: failure.id }, failure.values),
       );
       return;
     }
     onSubmit?.(value, exitOptions);
-  }, [exitOptions, intl, mode, onSubmit, value]);
+  }, [exitOptions, intl, onSubmit, value]);
   const handleSwitchToDevice = useCallback(() => {
     onSwitchToDevice?.(exitOptions);
   }, [exitOptions, onSwitchToDevice]);
