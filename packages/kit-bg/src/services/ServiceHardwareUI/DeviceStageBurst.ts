@@ -720,14 +720,21 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     if (step === 'passphraseOnApp') {
-      // Which passphrase this is decides the whole shape of the ask. The
-      // SDK names the wallet it wants recovered (V1 `passphraseState`, V2
+      // Which passphrase this is decides the shape of the ask. The SDK
+      // names the wallet it wants recovered (V1 `passphraseState`, V2
       // `expectedPassphraseState`) — that is an unlock. Neither means the
       // device is opening a wallet that does not exist yet: a creation,
-      // which the design teaches first (doc §4.4) before the entry.
+      // which plays as the Add-hidden-wallet entry form.
+      //
+      // No teach card here, on purpose (v6.5.2 parity): education is the
+      // caller's to give BEFORE the device flow starts — the account
+      // selector primes its own dialog, onboarding deliberately teaches
+      // nothing — and the driver cannot tell those intents apart from the
+      // event alone. The `passphraseIntro` step stays a component-level
+      // state (stories drive it); production no longer routes to it.
       const isCreate =
         !payload?.passphraseState && !payload?.expectedPassphraseState;
-      await this.setStep(isCreate ? 'passphraseIntro' : 'passphraseOnApp', {
+      await this.setStep('passphraseOnApp', {
         connectId,
         deviceType: payload?.deviceType,
         payload,
