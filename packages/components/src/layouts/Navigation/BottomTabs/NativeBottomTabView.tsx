@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import TabView from '@onekeyfe/react-native-tab-view';
 import {
@@ -8,6 +9,7 @@ import {
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
+import { StyleSheet, View } from 'react-native';
 
 import type {
   NativeBottomTabDescriptorMap,
@@ -21,6 +23,33 @@ type Props = NativeBottomTabNavigationConfig & {
   descriptors: NativeBottomTabDescriptorMap;
 };
 
+const styles = StyleSheet.create({
+  scene: {
+    flex: 1,
+  },
+});
+
+function SceneReadyView({
+  routeKey,
+  onReady,
+  children,
+}: {
+  routeKey: string;
+  onReady: (routeKey: string) => void;
+  children: ReactNode;
+}) {
+  const handleLayout = useCallback(
+    () => onReady(routeKey),
+    [onReady, routeKey],
+  );
+
+  return (
+    <View style={styles.scene} onLayout={handleLayout}>
+      {children}
+    </View>
+  );
+}
+
 export function NativeBottomTabView({
   state,
   navigation,
@@ -28,9 +57,26 @@ export function NativeBottomTabView({
   tabBar,
   ...rest
 }: Props) {
+  const [readyRouteKeys, setReadyRouteKeys] = useState<string[]>(() => {
+    const focusedRouteKey = state.routes[state.index]?.key;
+    return focusedRouteKey ? [focusedRouteKey] : [];
+  });
+  const handleSceneReady = useCallback((routeKey: string) => {
+    setReadyRouteKeys((current) =>
+      current.includes(routeKey) ? current : [...current, routeKey],
+    );
+  }, []);
   const renderScene = useCallback(
-    ({ route }: { route: Route<string> }) => descriptors[route.key]?.render(),
-    [descriptors],
+    ({ route }: { route: Route<string> }) => (
+      <SceneReadyView routeKey={route.key} onReady={handleSceneReady}>
+        {descriptors[route.key]?.render()}
+      </SceneReadyView>
+    ),
+    [descriptors, handleSceneReady],
+  );
+  const getSceneReady = useCallback(
+    ({ route }: { route: Route<string> }) => readyRouteKeys.includes(route.key),
+    [readyRouteKeys],
   );
   const getActiveTintColor = useCallback(
     ({ route }: { route: Route<string> }) =>
@@ -188,6 +234,7 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
+      getSceneReady={getSceneReady}
       onTabLongPress={onTabLongPress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}
