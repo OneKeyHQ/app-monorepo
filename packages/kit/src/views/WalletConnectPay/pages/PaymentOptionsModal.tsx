@@ -353,8 +353,14 @@ function PaymentOptionsPage() {
     );
   }, [accountId, indexedAccountId]);
 
+  // Identity of the latest options fetch. usePromiseResult's nonce only
+  // guards the returned result; side effects inside the method (setLoadError)
+  // would still land from a superseded run after an account switch.
+  const optionsFetchGenerationRef = useRef(0);
   const { result, isLoading, run } = usePromiseResult(
     async () => {
+      optionsFetchGenerationRef.current += 1;
+      const fetchGeneration = optionsFetchGenerationRef.current;
       if (!accountId && !indexedAccountId) {
         return undefined;
       }
@@ -400,7 +406,9 @@ function PaymentOptionsPage() {
         }
         return { pay, networkMap, supportsDurableProgress };
       } catch {
-        setLoadError(true);
+        if (optionsFetchGenerationRef.current === fetchGeneration) {
+          setLoadError(true);
+        }
         return undefined;
       }
     },
