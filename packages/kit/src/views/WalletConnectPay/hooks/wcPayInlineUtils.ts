@@ -87,16 +87,6 @@ export type IWcPayInlineSolanaRequest =
  */
 export const WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE = 1;
 
-/**
- * How much longer than the order it pays a Permit2 signature may stay valid.
- * A permit that outlives its order is a standing authorization nobody is
- * watching, so the caller narrows the validator's deadline bound to the
- * order's own remaining life plus this grace — the validator clamps the
- * result to WC_PAY_PERMIT_MAX_DEADLINE_S regardless, so this can only ever
- * tighten the bound.
- */
-export const WC_PAY_PERMIT_EXPIRY_GRACE_S = 60 * 60;
-
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
 // shapes (design doc §7).

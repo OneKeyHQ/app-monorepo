@@ -6,7 +6,13 @@ import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 export const WC_PAY_PERMIT2_ADDRESS =
   '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 // A permit that outlives this bound is effectively unbounded for a payment.
-export const WC_PAY_PERMIT_MAX_DEADLINE_S = 24 * 60 * 60;
+// The ceiling is the whole deadline story (Phase 3 §6): permits only
+// authorize — amount, token and nonce are pinned by this validator, Permit2
+// nonces prevent replay, and the Pay server refuses an expired order
+// regardless of the permit — so the bound only has to exclude
+// effectively-unbounded deadlines, not track the order lifetime. 30 days
+// accommodates the multi-week sigDeadlines Pay SDKs customarily issue.
+export const WC_PAY_PERMIT_MAX_DEADLINE_S = 30 * 24 * 60 * 60;
 
 export type IWcPayResolvedToken = {
   address: string;

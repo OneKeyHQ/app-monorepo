@@ -263,7 +263,7 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     [
       'unbounded deadline',
       buildTypedData({
-        message: { deadline: String(NOW_S + 24 * 3600 + 1) },
+        message: { deadline: String(NOW_S + 30 * 24 * 3600 + 1) },
       }),
       'deadline too far',
     ],
@@ -371,7 +371,7 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
   });
 
   it('falls back to the default maxDeadlineS when given a non-positive value', () => {
-    // A deadline just inside the default 24h bound must still pass even
+    // A deadline just inside the default 30-day bound must still pass even
     // though the caller passed a bogus maxDeadlineS.
     const typedData = buildTypedData({
       message: { deadline: String(NOW_S + 600) },
@@ -379,11 +379,20 @@ describe('checkWcPayTypedDataMatchesOrder', () => {
     expect(check(typedData, { maxDeadlineS: -1 }).ok).toBe(true);
   });
 
-  it('never lets a caller-provided maxDeadlineS widen the bound past the default ceiling', () => {
-    // 10 years — far larger than WC_PAY_PERMIT_MAX_DEADLINE_S (24h) — must
-    // not let a deadline just past the default ceiling through.
+  it('admits a server-issued long deadline inside the 30-day ceiling', () => {
+    // The Pay server customarily issues multi-week sigDeadlines; a 29-day
+    // one must inline rather than fall back (Phase 3 §6).
     const typedData = buildTypedData({
-      message: { deadline: String(NOW_S + 24 * 3600 + 1) },
+      message: { deadline: String(NOW_S + 29 * 24 * 3600) },
+    });
+    expect(check(typedData).ok).toBe(true);
+  });
+
+  it('never lets a caller-provided maxDeadlineS widen the bound past the default ceiling', () => {
+    // 10 years — far larger than WC_PAY_PERMIT_MAX_DEADLINE_S (30 days) —
+    // must not let a deadline just past the default ceiling through.
+    const typedData = buildTypedData({
+      message: { deadline: String(NOW_S + 30 * 24 * 3600 + 1) },
     });
     expect(check(typedData, { maxDeadlineS: 10 * 365 * 24 * 3600 })).toEqual({
       ok: false,

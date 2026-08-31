@@ -42,7 +42,6 @@ import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
-  WC_PAY_PERMIT_EXPIRY_GRACE_S,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
   classifyWcPayInlineFailure,
@@ -823,24 +822,13 @@ export function useWcPayActionExecutor() {
                 option,
                 nowMs,
                 resolvedToken,
-                // The permit may outlive the order by at most the grace
-                // window; the validator clamps this to its own ceiling too,
-                // and the outer Math.min keeps that bound visible here.
-                //
-                // `nowMs` is read after the loop-top isWcPayExpired check and
-                // after the background round-trips above (account resolution,
-                // token lookup), so a narrow race remains: an order can expire
-                // in between and land here with a negative remainder, which
-                // Math.max floors at the grace window alone. Harmless — a
-                // permit only authorizes, and the Pay server refuses an
-                // expired order whatever the permit says.
-                maxDeadlineS: expiryMs
-                  ? Math.min(
-                      WC_PAY_PERMIT_MAX_DEADLINE_S,
-                      Math.max(0, Math.floor((expiryMs - nowMs) / 1000)) +
-                        WC_PAY_PERMIT_EXPIRY_GRACE_S,
-                    )
-                  : undefined,
+                // The fixed validator ceiling is the whole bound (Phase 3
+                // §6): tying it to the order lifetime bought nothing except
+                // a systematic fallback on the multi-week sigDeadlines Pay
+                // SDKs customarily issue — a permit only authorizes, and the
+                // Pay server refuses an expired order whatever the permit
+                // says. Passed explicitly so the intent stays visible here.
+                maxDeadlineS: WC_PAY_PERMIT_MAX_DEADLINE_S,
               });
               if (plan.mode === 'inline' && !takeInlineSpend()) {
                 plan = {

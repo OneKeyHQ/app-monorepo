@@ -17,7 +17,6 @@ import {
 import {
   EWcPayInlineFailureKind,
   WC_PAY_INLINE_POST_SIGN_FLAG,
-  WC_PAY_PERMIT_EXPIRY_GRACE_S,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
 } from '../wcPayInlineUtils';
@@ -1603,47 +1602,19 @@ describe('useWcPayActionExecutor inline signing', () => {
       });
     };
 
-    it('narrows the bound to the order life plus the grace window', async () => {
+    // Phase 3 §6: the fixed validator ceiling is the whole bound — the
+    // order-remaining coupling is gone, so a short-lived order no longer
+    // rejects the multi-week sigDeadlines Pay SDKs customarily issue.
+    it('passes the fixed validator ceiling whatever the order expiry', async () => {
       await runPermit(Date.now() + 600 * 1000);
-
-      const maxDeadlineS = readMaxDeadlineS();
-      // the clock advances between building expiryMs and reading nowMs, so
-      // the remainder may lose a second or two
-      expect(maxDeadlineS).toBeLessThanOrEqual(
-        600 + WC_PAY_PERMIT_EXPIRY_GRACE_S,
-      );
-      expect(maxDeadlineS).toBeGreaterThanOrEqual(
-        600 + WC_PAY_PERMIT_EXPIRY_GRACE_S - 2,
-      );
-    });
-
-    // The race the executor documents: the loop-top expiry check passes, the
-    // background round-trips take longer than what was left, and `nowMs`
-    // lands past the deadline. The bound must floor at the grace window
-    // rather than go negative.
-    it('floors the bound at the grace window when the order expires mid-preparation', async () => {
-      getGlobalDeriveTypeOfNetwork.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve('default'), 150);
-          }),
-      );
-
-      await runPermit(Date.now() + 40);
-
-      expect(readMaxDeadlineS()).toBe(WC_PAY_PERMIT_EXPIRY_GRACE_S);
-    });
-
-    it('never widens the bound past the validator ceiling', async () => {
-      await runPermit(Date.now() + 48 * 60 * 60 * 1000);
 
       expect(readMaxDeadlineS()).toBe(WC_PAY_PERMIT_MAX_DEADLINE_S);
     });
 
-    it('leaves the bound to the validator when the payment has no deadline', async () => {
+    it('passes the fixed validator ceiling when the payment has no deadline', async () => {
       await runPermit(undefined);
 
-      expect(readMaxDeadlineS()).toBeUndefined();
+      expect(readMaxDeadlineS()).toBe(WC_PAY_PERMIT_MAX_DEADLINE_S);
     });
   });
 
