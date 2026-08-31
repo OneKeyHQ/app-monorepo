@@ -16,6 +16,7 @@ import {
   type IMarketPerpsToken,
   mapServerToken,
 } from '../MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { usePerpsClientSort } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsClientSort';
 import { usePerpsColumns } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
 
 import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
@@ -98,6 +99,14 @@ export function PerpsTokenListSection({
     [tokens],
   );
 
+  // Same header sorting the standalone perps list uses, so the two perps
+  // tables behave identically wherever they appear.
+  const {
+    sortedTokens,
+    onHeaderRow: handleHeaderRow,
+    controlledSort,
+  } = usePerpsClientSort({ tokens });
+
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
 
   const handleMobileItemPress = useCallback(
@@ -155,7 +164,9 @@ export function PerpsTokenListSection({
             <Table<IMarketPerpsToken>
               stickyHeader
               columns={perpsColumns}
-              dataSource={tokens}
+              dataSource={sortedTokens}
+              onHeaderRow={handleHeaderRow}
+              controlledSort={controlledSort}
               keyExtractor={(item) => item.name}
               estimatedItemSize="$14"
               extraData={tokens.length}

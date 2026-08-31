@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -16,6 +17,11 @@ import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
+import {
+  MarketFilterChipsBar,
+  MarketFiltersTrigger,
+  MarketListFilterProvider,
+} from '../components/MarketFilterChipsBar';
 import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
@@ -214,6 +220,9 @@ export function DesktopLayout({
       const showSpotControls = Boolean(
         currentSpotCategoryId && !currentSpotCategoryHasStockData,
       );
+      // Trending owns the time-range control inside its chips bar; keep it in
+      // the top-right for every other spot category.
+      const showTimeRangeDropdown = currentSpotCategoryId !== 'trending';
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -231,10 +240,12 @@ export function DesktopLayout({
             {/* Right side controls - hidden when the active spot data is stock */}
             {showSpotControls ? (
               <XStack gap="$3" alignItems="center" pr="$5">
-                <TimeRangeDropdown
-                  value={currentFilterBarProps.timeRange}
-                  onChange={currentFilterBarProps.onTimeRangeChange}
-                />
+                {showTimeRangeDropdown ? (
+                  <TimeRangeDropdown
+                    value={currentFilterBarProps.timeRange}
+                    onChange={currentFilterBarProps.onTimeRangeChange}
+                  />
+                ) : null}
                 <CompactNetworkSelector
                   selectedNetworkId={currentFilterBarProps.selectedNetworkId}
                   onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
@@ -317,47 +328,63 @@ export function DesktopLayout({
         ) : null}
       </YStack>
     </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <YStack px="$4" flex={1}>
-          {hasActivated(item.tabName) ? (
-            <MarketNormalTokenList
-              networkId={selectedNetworkId}
-              selectedCategory={item.categoryId}
-              forceStockMetadataColumns={isMarketStockCategoryById(
-                filterBarProps.categories,
-                item.categoryId,
-              )}
-              stockCategory={
-                isMarketStockCategoryById(
-                  filterBarProps.categories,
+    ...spotTabItems.map((item) => {
+      const isStockCategoryTab = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      // Trending's chips-bar toolbar and the stock category selector
+      // toolbar are mutually exclusive (see Task 9 brief).
+      let toolbarNode: ReactNode;
+      if (item.categoryId === 'trending') {
+        toolbarNode = (
+          <MarketFilterChipsBar
+            timeRange={filterBarProps.timeRange}
+            onTimeRangeChange={filterBarProps.onTimeRangeChange}
+            filtersTrigger={
+              <MarketFiltersTrigger
+                timeRange={filterBarProps.timeRange}
+                onTimeRangeChange={filterBarProps.onTimeRangeChange}
+              />
+            }
+          />
+        );
+      } else if (isStockCategoryTab) {
+        toolbarNode = stockCategoryToolbar;
+      } else {
+        toolbarNode = undefined;
+      }
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          <YStack px="$4" flex={1}>
+            {hasActivated(item.tabName) ? (
+              <MarketNormalTokenList
+                networkId={selectedNetworkId}
+                selectedCategory={item.categoryId}
+                forceStockMetadataColumns={isStockCategoryTab}
+                stockCategory={
+                  isStockCategoryTab
+                    ? getMarketStockCategoryRequestParam(
+                        selectedStockCategoryId,
+                      )
+                    : undefined
+                }
+                timeRange={filterBarProps.timeRange}
+                toolbar={toolbarNode}
+                tabIntegrated
+                tabName={item.tabName}
+                listContainerProps={listContainerProps}
+                hiddenDesktopColumns={getHiddenSpotDesktopColumns(
                   item.categoryId,
-                )
-                  ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-                  : undefined
-              }
-              timeRange={filterBarProps.timeRange}
-              toolbar={
-                isMarketStockCategoryById(
-                  filterBarProps.categories,
-                  item.categoryId,
-                )
-                  ? stockCategoryToolbar
-                  : undefined
-              }
-              tabIntegrated
-              tabName={item.tabName}
-              listContainerProps={listContainerProps}
-              hiddenDesktopColumns={getHiddenSpotDesktopColumns(
-                item.categoryId,
-              )}
-              onStockDataChange={handleStockDataChange}
-              enableWebSocket={activeTabName === item.tabName}
-            />
-          ) : null}
-        </YStack>
-      </Tabs.Tab>
-    )),
+                )}
+                onStockDataChange={handleStockDataChange}
+                enableWebSocket={activeTabName === item.tabName}
+              />
+            ) : null}
+          </YStack>
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
@@ -378,19 +405,21 @@ export function DesktopLayout({
   ];
 
   return (
-    <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
-      <YStack flex={1}>
-        <Tabs.Container
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ref={tabsRef as any}
-          renderTabBar={renderTabBar}
-          initialTabName={selectedTabName}
-          onTabChange={onTabChangeHandler}
-          {...containerProps}
-        >
-          {tabElements}
-        </Tabs.Container>
-      </YStack>
-    </DesktopStickyHeaderContext.Provider>
+    <MarketListFilterProvider>
+      <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
+        <YStack flex={1}>
+          <Tabs.Container
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ref={tabsRef as any}
+            renderTabBar={renderTabBar}
+            initialTabName={selectedTabName}
+            onTabChange={onTabChangeHandler}
+            {...containerProps}
+          >
+            {tabElements}
+          </Tabs.Container>
+        </YStack>
+      </DesktopStickyHeaderContext.Provider>
+    </MarketListFilterProvider>
   );
 }

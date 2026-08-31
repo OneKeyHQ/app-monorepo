@@ -1,27 +1,38 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
-import type { ITableColumn } from '@onekeyhq/components';
+import type {
+  ITableColumn,
+  ITableColumnSortContext,
+} from '@onekeyhq/components';
 import {
+  Icon,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   MarketPerpsStarV2,
   MarketStarV2,
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
+  StockSourceLogo,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
   EWatchlistFrom,
@@ -29,6 +40,12 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import {
+  REDESIGN_NAME_ICON_GAP,
+  REDESIGN_STAR_COLUMN_WIDTH,
+  REDESIGN_STAR_ICON_SIZE,
+  renderRedesignHeaderTitle,
+} from '../../../marketListRedesignVisuals';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { Txns } from '../../components/Txns';
 import {
@@ -39,6 +56,7 @@ import {
 } from '../../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../../MarketTokenData';
+import type { GestureResponderEvent } from 'react-native';
 
 const TOKEN_AGE_TRANSLATION_MAP = {
   hour: ETranslations.dexmarket_token_age_h,
@@ -49,8 +67,223 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 
 const EMPTY_MARKET_VALUE = '--';
 
+// Trending's desktop column order: merges Name/Token Age into one column and
+// drops the standalone uniqueTraders/tokenAge columns.
+const REDESIGN_COLUMN_ORDER = [
+  'star',
+  'name',
+  'price',
+  'change24h',
+  'marketCap',
+  'liquidity',
+  'transactions',
+  'holders',
+  'turnover',
+];
+
+// Figma: these headers carry a dotted underline plus an explainer tooltip.
+const REDESIGN_HEADER_TOOLTIP_KEYS: Record<string, ETranslations> = {
+  marketCap: ETranslations.market_market_cap_tips,
+  liquidity: ETranslations.market_liquidity_tips,
+  transactions: ETranslations.market_txns_tips,
+  holders: ETranslations.market_holders_tips,
+  turnover: ETranslations.market_turnover_tips,
+};
+
+// Figma (24967-41343): 240px leaves 186px for the text block after the 40px
+// token and its 14px gap - enough for the age/address subtitle, with long
+// symbols truncated by ellipsis.
+const REDESIGN_NAME_COLUMN_WIDTH = 240;
+
+// The `𝕏 #1` reason tag is mock (real data is P1-3 scope). Hidden for this
+// delivery; flip to true once P1-3 provides real reason data.
+const SHOW_REASON_TAG = false;
+
 function getDefaultMarketValue(text: number) {
   return text === 0 ? EMPTY_MARKET_VALUE : text;
+}
+
+// Shared by the standalone tokenAge column and the Name cell subtitle.
+function formatTokenAgeLabel(
+  intl: IntlShape,
+  firstTradeTime: number | undefined,
+): string | undefined {
+  const ageInfo = getTokenAgeInfo(firstTradeTime);
+  if (!ageInfo) {
+    return undefined;
+  }
+
+  return intl.formatMessage(
+    { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
+    { amount: ageInfo.amount },
+  );
+}
+
+function buildRedesignShortAddress(record: IMarketToken) {
+  return record.address
+    ? accountUtils.shortenAddress({
+        address: record.address,
+        leadingLength: 6,
+        trailingLength: 4,
+      })
+    : '';
+}
+
+// Figma (24967-41343): the address pairs with a 14px copy glyph 2px after it;
+// the pair is one hover/press target with a pointer cursor.
+const REDESIGN_COPY_ICON_SIZE = '$3.5';
+
+function RedesignAddressWithCopy({
+  address,
+  shortAddress,
+  copyFrom,
+}: {
+  address: string;
+  shortAddress: string;
+  copyFrom: ECopyFrom;
+}) {
+  const { copyText } = useClipboard();
+  const [isHovered, setIsHovered] = useState(false);
+  const handleCopy = useCallback(
+    (e: GestureResponderEvent) => {
+      // The row itself navigates to the detail page; copying must not.
+      e.stopPropagation();
+      copyText(address);
+      defaultLogger.dex.actions.dexCopyCA({
+        copyFrom,
+        copiedContent: address,
+      });
+    },
+    [address, copyFrom, copyText],
+  );
+
+  return (
+    <XStack
+      alignItems="center"
+      gap={2}
+      minWidth={0}
+      cursor="pointer"
+      hitSlop={NATIVE_HIT_SLOP}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPress={handleCopy}
+      role="button"
+    >
+      {/* Hover recolors both text and glyph with no background, matching the
+          Clear text-button pattern the design defines for text+icon targets. */}
+      <SizableText
+        size="$bodySm"
+        color={isHovered ? '$textSubdued' : '$textDisabled'}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {shortAddress}
+      </SizableText>
+      <Icon
+        name="Copy3Outline"
+        size={REDESIGN_COPY_ICON_SIZE}
+        color={isHovered ? '$iconSubdued' : '$iconDisabled'}
+        flexShrink={0}
+      />
+    </XStack>
+  );
+}
+
+function renderRedesignTokenIdentity(
+  record: IMarketToken,
+  intl: IntlShape,
+  showReasonTag: boolean,
+  copyFrom: ECopyFrom,
+  showStockSubtitle: boolean,
+  showTokenAge: boolean,
+) {
+  // Callers that opt out of the age (banner detail's hideTokenAge, the
+  // watchlist) also lose it here, not just in the header — otherwise the
+  // column reads "Name" while the cell still prints an age underneath.
+  const ageLabel = showTokenAge
+    ? formatTokenAgeLabel(intl, record.firstTradeTime)
+    : undefined;
+  const shortAddress = buildRedesignShortAddress(record);
+  // Stock rows carry a source logo and a localized name that the plain token
+  // cell renders too; the redesign keeps both rather than dropping them.
+  const stockSubtitle =
+    showStockSubtitle && record.stock?.subtitle
+      ? record.stock.subtitle
+      : undefined;
+  return (
+    <XStack
+      alignItems="center"
+      gap={REDESIGN_NAME_ICON_GAP}
+      userSelect="none"
+      minWidth={0}
+      overflow="hidden"
+    >
+      <Token
+        size="lg"
+        borderRadius="$full"
+        tokenImageUri={record.tokenImageUri}
+        tokenImageUris={record.tokenImageUris}
+        networkImageUri={record.networkLogoUri}
+        fallbackIcon="CryptoCoinOutline"
+      />
+      <YStack flex={1} minWidth={0} gap="$1">
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <SizableText
+            size="$bodyLgMedium"
+            numberOfLines={1}
+            maxWidth="$32"
+            flexShrink={1}
+            ellipsizeMode="tail"
+          >
+            {record.symbol}
+          </SizableText>
+          <XStack alignItems="center" gap={6} flexShrink={0}>
+            <StockSourceLogo stock={record.stock} />
+            {record.communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {SHOW_REASON_TAG && showReasonTag ? (
+              // Mock reason tag placeholder (P1-3 scope wires real data later).
+              <XStack
+                alignItems="center"
+                gap="$1"
+                minWidth={27}
+                px="$1"
+                py="$0.5"
+                borderRadius="$1"
+                bg="$bgHover"
+              >
+                <Icon name="Xbrand" size="$3" color="$iconSubdued" />
+                <SizableText size="$bodyXs" color="$textSubdued">
+                  #1
+                </SizableText>
+              </XStack>
+            ) : null}
+          </XStack>
+        </XStack>
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          {ageLabel ? (
+            <SizableText size="$bodySmMedium" color="$text" flexShrink={0}>
+              {ageLabel}
+            </SizableText>
+          ) : null}
+          {stockSubtitle ? (
+            <SubtitleText subtitle={stockSubtitle} maxWidth={66} />
+          ) : null}
+          {stockSubtitle && shortAddress ? (
+            <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+              |
+            </SizableText>
+          ) : null}
+          {shortAddress ? (
+            <RedesignAddressWithCopy
+              address={record.address}
+              shortAddress={shortAddress}
+              copyFrom={copyFrom}
+            />
+          ) : null}
+        </XStack>
+      </YStack>
+    </XStack>
+  );
 }
 
 function shouldUseLightweightCell(
@@ -153,12 +386,15 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
-  hasStock?: boolean,
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
+  redesignColumnOrderEnabled?: boolean,
+  // Window the volume column covers. Trending follows the toolbar; every other
+  // list resolves the 24h window in transformApiItemToToken.
+  volumeTimeRange?: IMarketTimeRangeValue,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
@@ -167,6 +403,11 @@ export const useColumnsDesktop = (
     const watchlistNameWidth = gtLg ? 340 : 260;
     const shouldRenderRichCell = (index?: number) =>
       !shouldUseLightweightCell(index, deferRichRowAfterIndex);
+    // One gate for the merged column: the header only names Token Age where
+    // the cell actually prints one. Stocks and the watchlist never carry an
+    // age, and banner detail opts out via hideTokenAge.
+    const showTokenAge =
+      !useStockMetadataColumns && !hideTokenAge && !isWatchlistMode;
 
     const columns = [
       {
@@ -176,18 +417,18 @@ export const useColumnsDesktop = (
           </SizableText>
         ) as any,
         dataIndex: 'star',
-        columnWidth: 50,
+        columnWidth: REDESIGN_STAR_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
             return (
-              <Stack pl="$2">
+              <Stack pl="$3">
                 <Stack width={24} height={24} />
               </Stack>
             );
           }
 
           return (
-            <Stack pl="$2">
+            <Stack pl="$3">
               {record.perpsCoin ? (
                 <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
               ) : (
@@ -197,6 +438,7 @@ export const useColumnsDesktop = (
                   from={watchlistFrom || EWatchlistFrom.Homepage}
                   tokenSymbol={record.symbol}
                   size="small"
+                  customIconSize={REDESIGN_STAR_ICON_SIZE}
                   isNative={record.isNative}
                 />
               )}
@@ -208,17 +450,33 @@ export const useColumnsDesktop = (
         ),
       },
       {
-        title: intl.formatMessage({ id: ETranslations.global_name }),
+        // The standalone tokenAge column is merged into this one, so the header
+        // names both — but only where the cell below actually prints an age.
+        title: showTokenAge
+          ? intl.formatMessage({
+              id: ETranslations.market_column_name_token_age,
+            })
+          : intl.formatMessage({ id: ETranslations.global_name }),
         dataIndex: 'name',
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
-          if (hasStock && showStockSubtitle) return 240;
-          return 200;
+          return REDESIGN_NAME_COLUMN_WIDTH;
         })(),
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
           if (!renderRichCell) {
             return renderLightweightTokenIdentity(record);
+          }
+
+          if (!record.perpsCoin) {
+            return renderRedesignTokenIdentity(
+              record,
+              intl,
+              gtXl,
+              copyFrom || ECopyFrom.Homepage,
+              showStockSubtitle ?? true,
+              showTokenAge,
+            );
           }
 
           return record.perpsCoin ? (
@@ -407,7 +665,9 @@ export const useColumnsDesktop = (
       {
         title: useStockMetadataColumns
           ? intl.formatMessage({ id: ETranslations.dexmarket_stock_pe_ttm })
-          : intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
+          : `${volumeTimeRange ?? '24h'} ${intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}`,
         dataIndex: 'turnover',
         columnProps: { flex: 1.1 },
         render: (text: number, record: IMarketToken, index?: number) => {
@@ -499,16 +759,11 @@ export const useColumnsDesktop = (
                 return renderLightweightText(EMPTY_MARKET_VALUE);
               }
 
-              const ageInfo = getTokenAgeInfo(record.firstTradeTime);
+              const ageLabel = formatTokenAgeLabel(intl, record.firstTradeTime);
 
-              if (!ageInfo) {
+              if (!ageLabel) {
                 return <SizableText size="$bodyMd">--</SizableText>;
               }
-
-              const ageLabel = intl.formatMessage(
-                { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
-                { amount: ageInfo.amount },
-              );
 
               return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
             },
@@ -517,11 +772,50 @@ export const useColumnsDesktop = (
         : undefined,
     ].filter(Boolean) as ITableColumn<IMarketToken>[];
 
+    // The header chrome (sort glyph + dotted tooltip underline) is visual, so
+    // every list gets it. The fixed roster below is trending-only: it names
+    // nine columns and would drop the stock/watchlist ones.
+    const styledColumns = columns.map((column) => {
+      const dataIndex = String(column.dataIndex);
+      if (dataIndex === 'star' || typeof column.title !== 'string') {
+        return column;
+      }
+      const label = column.title;
+      // Two of these explainers say "in the selected time range", which only
+      // holds where the user can actually select one — trending. The watchlist
+      // and banner detail are fixed at 24h, so they get no tooltip rather than
+      // a promise the screen cannot keep. Stock columns are excluded too: they
+      // repurpose the liquidity/turnover/marketCap slots for 24h volume and
+      // P/E, so the dataIndex-keyed explainer would describe the wrong number.
+      const tooltipKey =
+        useStockMetadataColumns || !redesignColumnOrderEnabled
+          ? undefined
+          : REDESIGN_HEADER_TOOLTIP_KEYS[dataIndex];
+      const tooltip = tooltipKey
+        ? intl.formatMessage({ id: tooltipKey })
+        : undefined;
+      return {
+        ...column,
+        renderTitle: (
+          _sortIcon: ReactNode,
+          sortContext: ITableColumnSortContext,
+        ) => renderRedesignHeaderTitle({ label, tooltip, sortContext }),
+      };
+    });
+
+    // Reorders/filters via a fixed key list rather than mutating the
+    // generation above, so non-trending lists keep their own roster.
+    const orderedColumns = redesignColumnOrderEnabled
+      ? REDESIGN_COLUMN_ORDER.map((key) =>
+          styledColumns.find((c) => String(c.dataIndex) === key),
+        ).filter((c): c is NonNullable<typeof c> => Boolean(c))
+      : styledColumns;
+
     if (!hiddenDesktopColumns?.length) {
-      return columns;
+      return orderedColumns;
     }
 
-    return columns.filter(
+    return orderedColumns.filter(
       (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
     );
   }, [
@@ -530,12 +824,13 @@ export const useColumnsDesktop = (
     deferRichRowAfterIndex,
     gtLg,
     gtXl,
-    hasStock,
     hiddenDesktopColumns,
     hideTokenAge,
     intl,
     isWatchlistMode,
     networkId,
+    redesignColumnOrderEnabled,
+    volumeTimeRange,
     showStockSubtitle,
     useStockMetadataColumns,
     watchlistFrom,

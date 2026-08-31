@@ -14,6 +14,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { isMarketTrendingList } from '../../utils';
+import {
+  applyMarketListLocalFilter,
+  buildHotTokenFilterParams,
+  pickLocalOnlyConditions,
+  useMarketListFilter,
+} from '../MarketFilterChipsBar';
 
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
@@ -53,9 +60,27 @@ function MobileMarketTokenFlatListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
 
+  const { filterState } = useMarketListFilter();
+  // Filters apply to trending only; stock categories keep server-driven data.
+  // Shared with the toolbar that renders the Filters entry, so the control and
+  // the list it drives cannot disagree.
+  const filtersActive = isMarketTrendingList({
+    categoryId: selectedCategory,
+    isStockCategory: Boolean(stockCategory),
+  });
+  // Server-side passthrough for everything the API supports; the local pass
+  // below only handles what it cannot (token age).
+  const filterParams = useMemo(
+    () =>
+      filtersActive
+        ? buildHotTokenFilterParams(filterState.conditions)
+        : undefined,
+    [filtersActive, filterState.conditions],
+  );
+
   // Data management
   const {
-    data,
+    data: fetchedData,
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
@@ -70,7 +95,19 @@ function MobileMarketTokenFlatListBase({
     type: selectedCategory,
     category: stockCategory,
     timeRange,
+    filterParams,
   });
+
+  const data = useMemo(
+    () =>
+      filtersActive
+        ? applyMarketListLocalFilter(
+            fetchedData,
+            pickLocalOnlyConditions(filterState.conditions),
+          )
+        : fetchedData,
+    [filtersActive, fetchedData, filterState.conditions],
+  );
 
   const isStockData = useMemo(
     () => shouldUseStockMetadataColumnsForTokens(data),

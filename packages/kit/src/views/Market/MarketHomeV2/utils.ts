@@ -138,6 +138,25 @@ export const shouldHideSpotExtendedStats = (
   return !SPOT_CATEGORIES_WITH_FULL_STATS.has(normalizedCategory);
 };
 
+/**
+ * Trending is the only spot list wired to the filter chips, the Filters panel
+ * and the fixed nine-column roster; every other category is server-ordered and
+ * ignores filterState.
+ *
+ * Anything that *shows* one of those controls has to gate on this same
+ * predicate, not on a lookalike condition. The two drifted before: the compact
+ * mobile toolbar showed the Filters trigger for any non-stock category while
+ * only trending consumed it, which currently coincides simply because the
+ * server happens to return no other non-stock spot category.
+ */
+export const isMarketTrendingList = ({
+  categoryId,
+  isStockCategory,
+}: {
+  categoryId?: string;
+  isStockCategory?: boolean;
+}): boolean => categoryId === 'trending' && !isStockCategory;
+
 export const isMarketStockCategory = (
   category?: Pick<IMarketCategoryItem, 'id' | 'name' | 'isStockCategory'>,
 ): boolean => {

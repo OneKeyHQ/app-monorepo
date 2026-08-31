@@ -103,7 +103,9 @@ function MobileMarketPerpsFlatListImpl({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+        // Same top inset as the spot lists (MobileMarketTokenFlatList), or the
+        // first row sits 4px lower here and the table jumps on tab switch.
+        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

@@ -64,6 +64,12 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 
 jest.mock('../utils/tokenListHelpers', () => ({
+  // Spread the real module so helpers this hook calls but the test does not
+  // care about (BTC row filtering, pagination guards) keep working.
+  ...(jest.requireActual('../utils/tokenListHelpers') as Record<
+    string,
+    unknown
+  >),
   getNetworkLogoUri: () => 'network-logo',
   transformApiItemToToken: (item: {
     address: string;

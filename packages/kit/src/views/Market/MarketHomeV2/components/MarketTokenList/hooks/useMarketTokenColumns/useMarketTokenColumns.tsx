@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import { useMedia } from '@onekeyhq/components';
+import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import type {
   ECopyFrom,
   EWatchlistFrom,
@@ -24,6 +25,12 @@ export const useMarketTokenColumns = (
   change24hColumnTitle?: string,
   useStockMetadataColumns?: boolean,
   deferRichRowAfterIndex?: number,
+  options?: {
+    // Trending-only: reorders to the fixed nine-column roster. Every other
+    // list keeps its own columns and takes the shared visuals alone.
+    redesignColumnOrderEnabled?: boolean;
+    volumeTimeRange?: IMarketTimeRangeValue;
+  },
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
@@ -31,12 +38,13 @@ export const useMarketTokenColumns = (
     hideTokenAge,
     watchlistFrom,
     copyFrom,
-    hasStock,
     showStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
+    options?.redesignColumnOrderEnabled,
+    options?.volumeTimeRange,
   );
   const mobileColumns = useColumnsMobile(
     showStockSubtitle,

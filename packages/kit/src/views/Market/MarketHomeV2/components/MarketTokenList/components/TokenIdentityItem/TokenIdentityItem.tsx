@@ -237,7 +237,9 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
             ) : null}
             {shouldShowVolume ? (
               <NumberSizeableText
-                size={gtMd ? '$bodySm' : '$bodyMd'}
+                // Same size as the SubtitleText sitting next to it, so the
+                // localized name and the volume read as one line.
+                size={gtMd ? '$bodyXs' : '$bodySm'}
                 color="$textSubdued"
                 numberOfLines={1}
                 formatter="marketCap"

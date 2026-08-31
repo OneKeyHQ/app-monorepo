@@ -11,6 +11,8 @@ type IMarketTokenListRequestParams = {
   type?: string;
   category?: string;
   timeFrame?: string;
+  // hot-token v6 filter params, flattened by buildHotTokenFilterParams.
+  filterParams?: Record<string, number>;
 };
 
 type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {

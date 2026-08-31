@@ -148,7 +148,6 @@ function MarketWatchlistTokenList({
   // sortWatchListV2Items, which computes sortIndex against the full watchlist,
   // producing incorrect order for hidden items.
   const isDraggable = filteredResult.data === watchlistResult.data;
-
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
       chainId: token.networkId,

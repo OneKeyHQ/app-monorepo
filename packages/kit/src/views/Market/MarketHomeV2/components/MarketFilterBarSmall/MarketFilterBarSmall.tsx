@@ -1,15 +1,24 @@
 import { XStack, YStack } from '@onekeyhq/components';
 
+import { MarketFiltersIconTrigger } from '../MarketFilterChipsBar';
 import { MobileNetworkDropdown } from '../MobileNetworkDropdown';
 import { TimeRangeDropdown } from '../TimeRangeDropdown';
 
 import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
+
+// Figma 25169-43731: the time-range dropdown and the filters trigger form one
+// right-aligned group.
+const TRAILING_CONTROLS_GAP = 10;
 
 export interface IMarketFilterBarSmallProps {
   selectedNetworkId?: string;
   timeRange?: ITimeRangeSelectorValue;
   onNetworkIdChange?: (networkId: string) => void;
   onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
+  // Only the caller knows whether its list consumes filterState, so the entry
+  // point is opt-in: a trigger on a tab that ignores filters would light up its
+  // badge and change nothing. See isMarketTrendingList.
+  showFiltersTrigger?: boolean;
 }
 
 function MarketFilterBarSmall({
@@ -17,6 +26,7 @@ function MarketFilterBarSmall({
   timeRange = '1h',
   onNetworkIdChange,
   onTimeRangeChange,
+  showFiltersTrigger = false,
 }: IMarketFilterBarSmallProps) {
   return (
     <YStack>
@@ -31,13 +41,25 @@ function MarketFilterBarSmall({
           selectedNetworkId={selectedNetworkId}
           onNetworkIdChange={onNetworkIdChange}
         />
-        {onTimeRangeChange ? (
-          <TimeRangeDropdown
-            value={timeRange}
-            onChange={onTimeRangeChange}
-            compact
-          />
-        ) : null}
+        <XStack
+          alignItems="center"
+          justifyContent="flex-end"
+          gap={TRAILING_CONTROLS_GAP}
+        >
+          {onTimeRangeChange ? (
+            <TimeRangeDropdown
+              value={timeRange}
+              onChange={onTimeRangeChange}
+              compact
+            />
+          ) : null}
+          {showFiltersTrigger && onTimeRangeChange ? (
+            <MarketFiltersIconTrigger
+              timeRange={timeRange}
+              onTimeRangeChange={onTimeRangeChange}
+            />
+          ) : null}
+        </XStack>
       </XStack>
     </YStack>
   );

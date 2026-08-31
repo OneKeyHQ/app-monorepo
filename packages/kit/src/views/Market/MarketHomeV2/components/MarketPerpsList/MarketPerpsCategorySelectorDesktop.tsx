@@ -2,6 +2,12 @@ import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import { CategoryFilterItem } from '../CategoryFilterItem';
+import {
+  MARKET_TOOLBAR_GAP_BOTTOM,
+  MARKET_TOOLBAR_GAP_TOP,
+  MARKET_TOOLBAR_ITEM_HEIGHT,
+  marketToolbarFrameProps,
+} from '../marketToolbarFrame';
 
 import type { IMarketPerpsCategorySelectorProps } from './MarketPerpsCategorySelector.types';
 
@@ -29,13 +35,9 @@ export function MarketPerpsCategorySelectorDesktop({
       position="relative"
       p="$1"
       gap="$1"
-      mt="$3"
-      mb="$2"
-      maxWidth="100%"
-      overflow="hidden"
-      borderWidth={1}
-      borderColor="$neutral4"
-      borderRadius="$3"
+      mt={MARKET_TOOLBAR_GAP_TOP}
+      mb={MARKET_TOOLBAR_GAP_BOTTOM}
+      {...marketToolbarFrameProps}
     >
       <XStack flex={1} position="relative">
         <ScrollView
@@ -50,6 +52,7 @@ export function MarketPerpsCategorySelectorDesktop({
           <XStack gap="$0.5">
             {categories.map((category) => (
               <CategoryFilterItem
+                height={MARKET_TOOLBAR_ITEM_HEIGHT}
                 key={category.tabId}
                 name={category.name}
                 isSelected={category.tabId === selectedCategoryId}

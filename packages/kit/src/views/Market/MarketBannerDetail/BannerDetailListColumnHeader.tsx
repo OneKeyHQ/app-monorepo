@@ -37,8 +37,8 @@ export function BannerDetailListColumnHeader({
         <SizableText color="$textSubdued" size="$bodySmMedium" py="$2">
           {`${intl.formatMessage({
             id: ETranslations.global_name,
-          })} / ${intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
+          })} / 24h ${intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
           })}`}
         </SizableText>
       </XStack>

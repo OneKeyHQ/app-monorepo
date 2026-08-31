@@ -315,7 +315,11 @@ const MarketTokenSelectorList = memo(
             size="$bodySm"
             color="$textSubdued"
           >
-            {intl.formatMessage({ id: ETranslations.dexmarket_turnover })}
+            {/* The selector requests a fixed 1h window (MarketTokenSelector
+                passes timeRange="1h"), so the header names that window. */}
+            {`1h ${intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}`}
           </SizableText>
         </XStack>
 

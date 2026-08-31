@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
+import { MarketListFilterProvider } from '../components/MarketFilterChipsBar';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
@@ -32,7 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { isMarketStockCategoryById } from '../utils';
+import { isMarketStockCategoryById, isMarketTrendingList } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 import {
@@ -129,6 +130,12 @@ function MarketHomeTabBar({
   const showSpotFilterBar = Boolean(
     currentSpotCategoryId && !currentSpotCategoryHasStockData,
   );
+  // The bar itself (network + time range) serves every non-stock category, but
+  // the Filters entry only belongs where filterState is actually read.
+  const showSpotFiltersTrigger = isMarketTrendingList({
+    categoryId: currentSpotCategoryId,
+    isStockCategory: currentSpotCategoryHasStockData,
+  });
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
     isMarketStockCategoryById(
@@ -188,6 +195,7 @@ function MarketHomeTabBar({
             timeRange={ctx.filterBarProps.timeRange}
             onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
             onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+            showFiltersTrigger={showSpotFiltersTrigger}
           />
         ) : null}
         {showStockCategorySelector ? (
@@ -202,7 +210,13 @@ function MarketHomeTabBar({
             }}
           />
         ) : null}
-        <MarketListColumnHeader />
+        <MarketListColumnHeader
+          volumeTimeRange={
+            currentSpotCategoryHasStockData
+              ? undefined
+              : ctx.filterBarProps.timeRange
+          }
+        />
       </>
     ),
     [
@@ -210,7 +224,9 @@ function MarketHomeTabBar({
       ctx.onSelectStockCategory,
       ctx.selectedStockCategoryId,
       ctx.stockCategories,
+      currentSpotCategoryHasStockData,
       showSpotFilterBar,
+      showSpotFiltersTrigger,
       showStockCategorySelector,
     ],
   );
@@ -862,22 +878,26 @@ function MobileLayoutComponent({
   ];
 
   return (
-    <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <Tabs.Container
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={currentTabsRef as any}
-        width={platformEnv.isNative ? tabContainerWidth : undefined}
-        renderTabBar={renderTabBar}
-        initialTabName={selectedTabName}
-        onTabChange={onTabChangeHandler}
-        tabPressAnimationEnabled={false}
-        useNativeHeaderAnimation={useNativeHeaderAnimation}
-        pagerProps={pagerProps}
-        {...containerProps}
-      >
-        {tabElements}
-      </Tabs.Container>
-    </TabBarDynamicContext.Provider>
+    // Wraps the container so the tab bar's filters trigger and the tab
+    // content's lists read the same condition state.
+    <MarketListFilterProvider>
+      <TabBarDynamicContext.Provider value={dynamicCtx}>
+        <Tabs.Container
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ref={currentTabsRef as any}
+          width={platformEnv.isNative ? tabContainerWidth : undefined}
+          renderTabBar={renderTabBar}
+          initialTabName={selectedTabName}
+          onTabChange={onTabChangeHandler}
+          tabPressAnimationEnabled={false}
+          useNativeHeaderAnimation={useNativeHeaderAnimation}
+          pagerProps={pagerProps}
+          {...containerProps}
+        >
+          {tabElements}
+        </Tabs.Container>
+      </TabBarDynamicContext.Provider>
+    </MarketListFilterProvider>
   );
 }
 

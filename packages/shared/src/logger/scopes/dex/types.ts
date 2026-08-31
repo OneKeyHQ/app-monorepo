@@ -22,6 +22,12 @@ export enum ESortWay {
   Volume = 'v24hUSD',
   MC = 'mc',
   Default = 'default',
+  Price = 'price',
+  Change = 'change',
+  Txns = 'txns',
+  Traders = 'traders',
+  Holders = 'holders',
+  TokenAge = 'tokenAge',
 }
 
 export enum ECopyFrom {
@@ -124,6 +130,23 @@ export interface IDexRemoveFromWatchlistParams {
 export interface IDexSortParams {
   sortWay: ESortWay;
   sortDirection?: 'asc' | 'desc';
+}
+
+export interface IDexFilterChipParams {
+  action:
+    | 'presetClick'
+    // Sort shortcut chip: dispatches an existing column sort, so it is tracked
+    // separately from the filter chips that change the result set.
+    | 'sortChipClick'
+    | 'conditionChange'
+    | 'conditionRemove'
+    | 'clearAll'
+    | 'popoverConfirm';
+  presetId?: string;
+  field?: string;
+  // Tier value: numeric threshold or named option id.
+  value?: number | string;
+  conditionCount?: number;
 }
 
 export interface IDexCopyCAParams {

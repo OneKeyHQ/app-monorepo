@@ -7,10 +7,19 @@ import {
   markMarketReactPerf,
   useMarketRenderCommitProbe,
 } from '../../../utils/marketReactPerf';
+import { isMarketTrendingList } from '../../utils';
+import { applyMarketListLocalFilter } from '../MarketFilterChipsBar/applyMarketListLocalFilter';
+import {
+  buildHotTokenFilterParams,
+  pickLocalOnlyConditions,
+} from '../MarketFilterChipsBar/marketListFilterConfig';
+import { useMarketListFilter } from '../MarketFilterChipsBar/MarketListFilterContext';
 
+import { useClientSortResult } from './hooks/useClientSortResult';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
+import { getTokenAgeSortValue } from './utils/marketListClientSort';
 import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
@@ -65,6 +74,25 @@ function MarketNormalTokenList({
     stockCategory,
     timeRange,
   });
+  const { filterState, sortState, setSortState } = useMarketListFilter();
+
+  // Filters, the chip-driven sort and the fixed column roster are trending
+  // features; stocks keep their own columns and server-driven behavior.
+  const isTrendingList = isMarketTrendingList({
+    categoryId: selectedCategory,
+    isStockCategory: Boolean(stockCategory),
+  });
+
+  // Server-side passthrough for every dimension the API supports; the local
+  // pass below only handles what it cannot (token age).
+  const filterParams = useMemo(
+    () =>
+      isTrendingList
+        ? buildHotTokenFilterParams(filterState.conditions)
+        : undefined,
+    [isTrendingList, filterState.conditions],
+  );
+
   const normalResult = useMarketTokenList({
     networkId,
     initialSortBy,
@@ -73,6 +101,7 @@ function MarketNormalTokenList({
     type: selectedCategory,
     category: stockCategory,
     timeRange,
+    filterParams,
     pollingInterval,
   });
 
@@ -80,6 +109,34 @@ function MarketNormalTokenList({
     () => shouldUseStockMetadataColumnsForTokens(normalResult.data),
     [normalResult.data],
   );
+
+  const filteredData = useMemo(() => {
+    if (!isTrendingList) {
+      return normalResult.data;
+    }
+    // Only the conditions the server cannot express — the rest already
+    // narrowed the pool upstream, before it was sliced.
+    return applyMarketListLocalFilter(
+      normalResult.data,
+      pickLocalOnlyConditions(filterState.conditions),
+    );
+  }, [isTrendingList, normalResult.data, filterState.conditions]);
+
+  // Only the trending view has a chip row to stay in sync with; everywhere
+  // else the hook keeps its own private sort state.
+  const externalSort = useMemo(
+    () =>
+      isTrendingList ? { ...sortState, onChange: setSortState } : undefined,
+    [isTrendingList, sortState, setSortState],
+  );
+  const clientSortResult = useClientSortResult(
+    useMemo(
+      () => ({ ...normalResult, data: filteredData }),
+      [normalResult, filteredData],
+    ),
+    { externalSort },
+  );
+  const listResult = clientSortResult;
 
   useEffect(() => {
     if (selectedCategory) {
@@ -113,8 +170,16 @@ function MarketNormalTokenList({
       networkId={networkId}
       onItemPress={onItemPress}
       toolbar={toolbar}
-      result={normalResult}
+      result={listResult}
       isWatchlistMode={false}
+      clientSort
+      clientSortFieldMapOverride={
+        // Trending merges Token Age into the Name column, so pressing that
+        // header sorts by age — the same reader the standalone column uses.
+        isTrendingList ? { name: getTokenAgeSortValue } : undefined
+      }
+      redesignColumnOrderEnabled={isTrendingList}
+      volumeTimeRange={timeRange}
       showEndReachedIndicator
       tabIntegrated={tabIntegrated}
       tabName={tabName}

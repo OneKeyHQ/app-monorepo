@@ -23,6 +23,7 @@ import {
 import type {
   ETableSortType,
   ITableColumn,
+  ITableControlledSort,
   IXStackProps,
 } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -44,6 +45,7 @@ import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { REDESIGN_ROW_HEIGHT } from '../marketListRedesignVisuals';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -54,14 +56,20 @@ import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
+  MARKET_CLIENT_SORT_FIELD_MAP,
+  MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS,
+  sortMarketTokensClient,
+} from './utils/marketListClientSort';
+import {
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
+import type { IMarketClientSortValueGetter } from './utils/marketListClientSort';
+import type { IMarketTimeRangeValue } from '../../types';
 
 const SPINNER_HEIGHT = 52;
-const MARKET_HOME_WS_ROW_HEIGHT_PX = 60;
 const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
@@ -70,30 +78,26 @@ const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
 const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
-  containIntrinsicSize: '60px',
+  containIntrinsicSize: `${REDESIGN_ROW_HEIGHT}px`,
 } satisfies CSSProperties;
-// Watchlist mode: only these 3 columns are sortable (server-side sort)
-const SORTABLE_COLUMNS = {
-  liquidity: 'liquidity',
-  marketCap: 'mc',
-  turnover: 'v24hUSD',
-} as const;
-
-// Client sort mode is used by banner detail and only supports 24h change.
-const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
-  change24h: 'change24h',
-};
-
-// Sort key → IMarketToken field mapping for client-side sorting
-const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
-  change24h: 'change24h',
-};
-
-// Map sort keys to ESortWay enum values for logging
+// Map sort keys to ESortWay enum values for logging.
+// clientSort mode keys sortBy by dataIndex, so this also covers the full
+// client-sortable column set (see MARKET_CLIENT_SORT_FIELD_MAP).
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
   liquidity: ESortWay.Liquidity,
   mc: ESortWay.MC,
   v24hUSD: ESortWay.Volume,
+  price: ESortWay.Price,
+  change24h: ESortWay.Change,
+  marketCap: ESortWay.MC,
+  turnover: ESortWay.Volume,
+  transactions: ESortWay.Txns,
+  uniqueTraders: ESortWay.Traders,
+  holders: ESortWay.Holders,
+  tokenAge: ESortWay.TokenAge,
+  // Task 10 redesign mode merges Name/Token Age into one column; bucket its
+  // analytics under TokenAge. No-op while that column stays unsortable.
+  name: ESortWay.TokenAge,
 };
 
 const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
@@ -164,9 +168,11 @@ function getLimitedSubscriptionRange({
 function getMarketHomeVisibleSubscriptionRange({
   rootElement,
   tokenCount,
+  rowHeight,
 }: {
   rootElement: HTMLElement | null;
   tokenCount: number;
+  rowHeight: number;
 }): IMarketHomeSubscriptionRange {
   if (tokenCount <= 0) {
     return { start: 0, end: 0 };
@@ -202,8 +208,8 @@ function getMarketHomeVisibleSubscriptionRange({
 
   return getLimitedSubscriptionRange({
     tokenCount,
-    visibleStartIndex: Math.floor(visibleTop / MARKET_HOME_WS_ROW_HEIGHT_PX),
-    visibleEndIndex: Math.ceil(visibleBottom / MARKET_HOME_WS_ROW_HEIGHT_PX),
+    visibleStartIndex: Math.floor(visibleTop / rowHeight),
+    visibleEndIndex: Math.ceil(visibleBottom / rowHeight),
   });
 }
 
@@ -230,6 +236,15 @@ type IMarketTokenListBaseProps = {
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
   clientSort?: boolean;
+  clientSortFieldMapOverride?: Record<
+    string,
+    keyof IMarketToken | IMarketClientSortValueGetter
+  >;
+  // Restricts which dataIndexes are sortable in clientSort mode (intersected
+  // with clientSortFieldMap). Omit to keep all mapped columns sortable
+  // (trending behavior). Banner detail passes ['change24h'] only, since its
+  // sort state (useMarketBannerDetail) supports nothing else.
+  clientSortableColumns?: readonly string[];
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
@@ -257,6 +272,11 @@ type IMarketTokenListBaseProps = {
   enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
+  // Trending-only column roster. Other lists keep their own columns while
+  // still using the shared row/header visuals.
+  redesignColumnOrderEnabled?: boolean;
+  // Window the volume column reports. Omit for lists that resolve 24h.
+  volumeTimeRange?: IMarketTimeRangeValue;
 };
 
 function MarketTokenListBase({
@@ -266,6 +286,8 @@ function MarketTokenListBase({
   result,
   isWatchlistMode = false,
   clientSort = false,
+  clientSortFieldMapOverride,
+  clientSortableColumns,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
@@ -287,6 +309,8 @@ function MarketTokenListBase({
   enableWebSocket,
   rowBg,
   testID,
+  redesignColumnOrderEnabled,
+  volumeTimeRange,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -328,22 +352,47 @@ function MarketTokenListBase({
     canEnableWebSocket &&
     (!platformEnv.isWeb || !webTabIntegrated || enableDeferredWebFeatures),
   );
+  const clientSortFieldMap = useMemo(
+    () => ({ ...MARKET_CLIENT_SORT_FIELD_MAP, ...clientSortFieldMapOverride }),
+    [clientSortFieldMapOverride],
+  );
+  const clientSortableColumnSet = useMemo(
+    () => (clientSortableColumns ? new Set(clientSortableColumns) : undefined),
+    [clientSortableColumns],
+  );
+  // Declared before the sort below: stock rows sort by their own metadata.
+  const useStockMetadataColumns = useMemo(
+    () =>
+      shouldUseStockMetadataColumnsForTokens(rawData, {
+        forceStockMetadataColumns,
+        enableAutoDetection:
+          showStockSubtitle === 'auto' ||
+          (isWatchlistMode && showStockSubtitle !== false),
+      }),
+    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
+  );
   const orderedData = useMemo(() => {
     if (!clientSort || !currentSortBy || !currentSortType) {
       return rawData;
     }
 
-    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    const stockGetter = useStockMetadataColumns
+      ? MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[currentSortBy]
+      : undefined;
+    const field = stockGetter ?? clientSortFieldMap[currentSortBy];
     if (!field) {
       return rawData;
     }
 
-    return [...rawData].toSorted((a, b) => {
-      const aVal = (a[field] as number) ?? 0;
-      const bVal = (b[field] as number) ?? 0;
-      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
-    });
-  }, [clientSort, currentSortBy, currentSortType, rawData]);
+    return sortMarketTokensClient(rawData, field, currentSortType);
+  }, [
+    clientSort,
+    clientSortFieldMap,
+    currentSortBy,
+    currentSortType,
+    rawData,
+    useStockMetadataColumns,
+  ]);
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
@@ -351,6 +400,7 @@ function MarketTokenListBase({
       ? getMarketHomeVisibleSubscriptionRange({
           rootElement: listRootRef.current,
           tokenCount: orderedData.length,
+          rowHeight: REDESIGN_ROW_HEIGHT,
         })
       : { start: 0, end: 0 };
 
@@ -449,16 +499,6 @@ function MarketTokenListBase({
 
     return shouldShowStockSubtitleForTokens(rawData);
   }, [rawData, showStockSubtitle]);
-  const useStockMetadataColumns = useMemo(
-    () =>
-      shouldUseStockMetadataColumnsForTokens(rawData, {
-        forceStockMetadataColumns,
-        enableAutoDetection:
-          showStockSubtitle === 'auto' ||
-          (isWatchlistMode && showStockSubtitle !== false),
-      }),
-    [forceStockMetadataColumns, isWatchlistMode, rawData, showStockSubtitle],
-  );
   // Web tab integration gives the inner FlatList the full tab height so the
   // outer Tabs.Container can own vertical scroll. During cold start, keep only
   // the first rows rich and defer extra media/interactive decoration until
@@ -480,6 +520,7 @@ function MarketTokenListBase({
     change24hColumnTitle,
     useStockMetadataColumns,
     deferRichRowAfterIndex,
+    { redesignColumnOrderEnabled, volumeTimeRange },
   );
 
   const data = useMemo(() => {
@@ -551,23 +592,30 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode && !clientSort) {
+      // The watchlist is ordered by drag, so a header sort would silently
+      // overwrite the arrangement the user built by hand. It never sorts.
+      if (isWatchlistMode || !clientSort) {
         return undefined;
       }
 
+      // Stock metadata columns are not server-sortable, but they sort locally
+      // off the displayed `record.stock` value.
       if (
         useStockMetadataColumns &&
-        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex)) &&
+        !MARKET_STOCK_CLIENT_SORT_VALUE_GETTERS[String(column.dataIndex)]
       ) {
         return undefined;
       }
 
-      // Client sort mode is used by banner detail for 24h change sorting,
-      // watchlist mode uses restricted server-side sortable columns.
-      const columnsMap = clientSort
-        ? CLIENT_SORTABLE_COLUMNS
-        : SORTABLE_COLUMNS;
-      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
+      // Any column mapped by clientSortFieldMap is sortable (sortKey ===
+      // dataIndex), narrowed further by clientSortableColumns when the caller
+      // supports fewer of them than the map does.
+      const columnKey = String(column.dataIndex);
+      const isColumnClientSortable =
+        Boolean(clientSortFieldMap[columnKey]) &&
+        (!clientSortableColumnSet || clientSortableColumnSet.has(columnKey));
+      const sortKey = isColumnClientSortable ? columnKey : undefined;
 
       if (sortKey) {
         const isCurrentSort = currentSortBy === sortKey;
@@ -587,6 +635,8 @@ function MarketTokenListBase({
       handleSortChange,
       isWatchlistMode,
       clientSort,
+      clientSortFieldMap,
+      clientSortableColumnSet,
       currentSortBy,
       currentSortType,
       useStockMetadataColumns,
@@ -761,11 +811,24 @@ function MarketTokenListBase({
   const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
+  // Client-sort mode hands the header its order from our own state, so a sort
+  // triggered outside the table (the Top turnover chip) still moves the arrow.
+  const controlledSort = useMemo<ITableControlledSort | undefined>(() => {
+    if (!clientSort) {
+      return undefined;
+    }
+    return currentSortBy && currentSortType
+      ? { dataIndex: currentSortBy, order: currentSortType as ETableSortType }
+      : null;
+  }, [clientSort, currentSortBy, currentSortType]);
+
   const portalContent = useMemo(() => {
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        {/* Bottom padding keeps the first row clear of the pinned header once
+            the list scrolls under it. */}
+        <YStack bg="$bgApp" px="$4" pb="$2">
           {toolbar ? (
             <Stack width="100%" mb="$3">
               {toolbar}
@@ -774,6 +837,7 @@ function MarketTokenListBase({
           <Table.HeaderRow
             columns={marketTokenColumns}
             onHeaderRow={stableHandleHeaderRow}
+            controlledSort={controlledSort}
           />
         </YStack>
       </StickyHeaderPortal>
@@ -785,6 +849,7 @@ function MarketTokenListBase({
     toolbar,
     marketTokenColumns,
     stableHandleHeaderRow,
+    controlledSort,
   ]);
 
   let integratedContentPaddingBottom = tabBarHeight;
@@ -815,13 +880,12 @@ function MarketTokenListBase({
     }),
     [],
   );
-  const tableRowProps = useMemo<IXStackProps | undefined>(() => {
+  const tableRowProps = useMemo<IXStackProps>(() => {
     const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
-    if (!rowBg && !hasWebRowStyle) {
-      return undefined;
-    }
     return {
       ...(rowBg ? { bg: rowBg } : undefined),
+      // Figma: 12px vertical padding around a 44px identity block = 68px rows.
+      minHeight: REDESIGN_ROW_HEIGHT,
       ...(hasWebRowStyle
         ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
         : undefined),
@@ -880,9 +944,10 @@ function MarketTokenListBase({
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
+              controlledSort={controlledSort}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={60}
+              estimatedItemSize={REDESIGN_ROW_HEIGHT}
               onRow={stableOnRow}
               rowProps={tableRowProps}
             />

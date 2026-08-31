@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +12,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
+import type {
+  ITableColumn,
+  ITableColumnSortContext,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { MarketPerpsStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
@@ -20,6 +24,13 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import {
+  REDESIGN_NAME_ICON_GAP,
+  REDESIGN_STAR_COLUMN_WIDTH,
+  REDESIGN_STAR_ICON_SIZE,
+  renderRedesignHeaderTitle,
+} from '../../marketListRedesignVisuals';
 
 import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
 
@@ -40,10 +51,14 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             </SizableText>
           ) as any,
           dataIndex: 'star',
-          columnWidth: 50,
+          columnWidth: REDESIGN_STAR_COLUMN_WIDTH,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <Stack pl="$2">
-              <MarketPerpsStarV2 perpsCoin={record.name} />
+            <Stack pl="$3">
+              <MarketPerpsStarV2
+                perpsCoin={record.name}
+                size="small"
+                customIconSize={REDESIGN_STAR_ICON_SIZE}
+              />
             </Stack>
           ),
           renderSkeleton: () => (
@@ -57,9 +72,14 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
           dataIndex: 'name',
           columnWidth: gtXl ? 340 : 260,
           render: (_: unknown, record: IMarketPerpsToken) => (
-            <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
+            <XStack
+              alignItems="center"
+              gap={REDESIGN_NAME_ICON_GAP}
+              minWidth={0}
+              overflow="hidden"
+            >
               <Token
-                size="md"
+                size="lg"
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUrl}
                 fallbackIcon="CryptoCoinOutline"
@@ -170,9 +190,9 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 5: 24h Volume
         {
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_turnover,
-          }),
+          title: `24h ${intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
+          })}`,
           dataIndex: 'volume24h',
           columnProps: { flex: 1 },
           render: (_: unknown, record: IMarketPerpsToken) => (
@@ -235,7 +255,27 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
               renderSkeleton: () => <Skeleton width={60} height={16} />,
             }
           : undefined,
-      ].filter(Boolean) as ITableColumn<IMarketPerpsToken>[],
+      ]
+        .filter(Boolean)
+        .map((column) => {
+          const typed = column as ITableColumn<IMarketPerpsToken>;
+          // Same header chrome as the spot lists. Perps has no sorting, so
+          // sortContext carries no onSortPress and no glyph is drawn.
+          if (
+            String(typed.dataIndex) === 'star' ||
+            typeof typed.title !== 'string'
+          ) {
+            return typed;
+          }
+          const label = typed.title;
+          return {
+            ...typed,
+            renderTitle: (
+              _sortIcon: ReactNode,
+              sortContext: ITableColumnSortContext,
+            ) => renderRedesignHeaderTitle({ label, sortContext }),
+          };
+        }) as ITableColumn<IMarketPerpsToken>[],
     [intl, gtXl],
   );
 }

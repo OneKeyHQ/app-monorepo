@@ -32,6 +32,8 @@ type IMarketTokenListRequestParams = {
   type?: string;
   category?: string;
   timeFrame?: string;
+  // hot-token v6 filter params, flattened by buildHotTokenFilterParams.
+  filterParams?: Record<string, number>;
 };
 
 type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
@@ -77,8 +79,12 @@ const shouldUseMarketHomeTokenListSeed = ({
   type,
   category,
   timeFrame,
+  filterParams,
 }: INormalizedMarketTokenListRequestParams) =>
   shouldUseMarketHomeTokenListBootstrapSeed() &&
+  // The seed is a snapshot of the unfiltered first page; any filter makes it
+  // the wrong answer.
+  filterParams === undefined &&
   networkId === '' &&
   sortBy === 'v24hUSD' &&
   sortType === 'desc' &&
@@ -101,6 +107,7 @@ const fetchMarketTokenListFromApi = async ({
   type,
   category,
   timeFrame,
+  filterParams,
 }: INormalizedMarketTokenListRequestParams) => {
   markMarketPerf('market-light-api-token-list-start', {
     networkId,
@@ -129,6 +136,7 @@ const fetchMarketTokenListFromApi = async ({
       category,
       timeFrame,
       currency: 'usd',
+      ...filterParams,
     },
   });
   const data = response.data.data;

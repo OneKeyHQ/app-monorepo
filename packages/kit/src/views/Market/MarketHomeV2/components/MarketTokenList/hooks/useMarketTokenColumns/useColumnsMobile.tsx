@@ -24,7 +24,9 @@ import { type IMarketToken } from '../../MarketTokenData';
 
 export const useColumnsMobile = (
   showStockSubtitle?: boolean,
-  useStockMetadataColumns?: boolean,
+  // Kept for the call signature: stock rows no longer need a separate column
+  // shape here, since `turnover` already resolves to their 24h volume.
+  _useStockMetadataColumns?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const intl = useIntl();
 
@@ -35,17 +37,14 @@ export const useColumnsMobile = (
         renderTitle: (sortIcon) => (
           <XStack alignItems="center" py="$2" paddingLeft="$5">
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              {useStockMetadataColumns
-                ? `${intl.formatMessage({
-                    id: ETranslations.global_name,
-                  })} / ${intl.formatMessage({
-                    id: ETranslations.global_market_cap,
-                  })}`
-                : `${intl.formatMessage({
-                    id: ETranslations.global_name,
-                  })} / ${intl.formatMessage({
-                    id: ETranslations.dexmarket_turnover,
-                  })}`}
+              {/* Every consumer of these columns (banner detail, the watchlist
+                  edit dialog, search) renders without a time-range control, so
+                  transformApiItemToToken resolves the 24h window for them. */}
+              {`${intl.formatMessage({
+                id: ETranslations.global_name,
+              })} / 24h ${intl.formatMessage({
+                id: ETranslations.perp_token_selector_volume,
+              })}`}
             </SizableText>
             {sortIcon}
           </XStack>
@@ -117,9 +116,9 @@ export const useColumnsMobile = (
                 symbol={record.symbol}
                 address={record.address}
                 showVolume
-                volume={
-                  useStockMetadataColumns ? record.marketCap : record.turnover
-                }
+                // `turnover` already resolves to the stock's 24h volume for
+                // stock rows, so both branches read the same field.
+                volume={record.turnover}
                 communityRecognized={record.communityRecognized}
                 stock={record.stock}
                 showStockSubtitle={showStockSubtitle}
@@ -213,6 +212,6 @@ export const useColumnsMobile = (
         ),
       },
     ],
-    [intl, showStockSubtitle, useStockMetadataColumns],
+    [intl, showStockSubtitle],
   );
 };
