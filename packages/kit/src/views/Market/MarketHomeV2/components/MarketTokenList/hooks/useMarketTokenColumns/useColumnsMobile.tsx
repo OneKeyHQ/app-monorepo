@@ -114,7 +114,6 @@ export const useColumnsMobile = (
                 tokenLogoURIs={record.tokenImageUris}
                 networkLogoURI={record.networkLogoUri}
                 networkId={record.networkId}
-                isNative={record.isNative}
                 symbol={record.symbol}
                 address={record.address}
                 showVolume

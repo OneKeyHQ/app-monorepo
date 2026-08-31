@@ -11,10 +11,10 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
-import { useNetworkLogoUri } from '../../../hooks/useNetworkLogoUri';
 import { getSwapTokenDisplayFiatValue } from '../utils/swapDisplayFiatValue';
 
 import {
@@ -47,10 +47,15 @@ const PreSwapTokenItem = ({
       currencyMap,
     });
   }, [amount, currencyMap, settings.currencyInfo.id, token]);
-  const networkImageUri = useNetworkLogoUri({
-    logoUri: token?.networkLogoURI,
-    networkId: token?.networkId,
-  });
+  const networkImageUri = useMemo(() => {
+    if (token?.networkLogoURI) {
+      return token.networkLogoURI;
+    }
+    if (token?.networkId) {
+      return networkUtils.getLocalNetworkInfo(token.networkId)?.logoURI;
+    }
+    return '';
+  }, [token?.networkLogoURI, token?.networkId]);
   return (
     <XStack
       alignItems="center"
@@ -104,9 +109,6 @@ const PreSwapTokenItem = ({
       <Token
         tokenImageUri={token?.logoURI}
         networkImageUri={networkImageUri}
-        networkId={token?.networkId}
-        tokenAddress={token?.contractAddress}
-        tokenIsNative={token?.isNative}
         size="lg"
       />
     </XStack>

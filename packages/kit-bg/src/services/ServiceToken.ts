@@ -21,10 +21,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import {
-  buildTokenImageIdentity,
-  persistIdentityImageUrlsFromBackground,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -67,25 +63,6 @@ import ServiceBase from './ServiceBase';
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
-
-function persistAccountTokenImageUrls({
-  fallbackNetworkId,
-  tokens,
-}: {
-  fallbackNetworkId?: string;
-  tokens: IAccountToken[];
-}) {
-  persistIdentityImageUrlsFromBackground(
-    tokens.map((token) => ({
-      identity: buildTokenImageIdentity({
-        contractAddress: token.address,
-        isNative: token.isNative,
-        networkId: token.networkId || fallbackNetworkId,
-      }),
-      url: token.logoURI,
-    })),
-  );
-}
 
 type IFetchAccountTokensController = {
   controller: AbortController;
@@ -627,16 +604,6 @@ class ServiceToken extends ServiceBase {
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
 
-    persistAccountTokenImageUrls({
-      fallbackNetworkId: networkId,
-      tokens: [
-        ...resp.data.data.tokens.data,
-        ...resp.data.data.riskTokens.data,
-        ...resp.data.data.smallBalanceTokens.data,
-        ...(resp.data.data.allTokens?.data ?? []),
-      ],
-    });
-
     return resp.data.data;
   }
 
@@ -783,20 +750,9 @@ class ServiceToken extends ServiceBase {
       }
     }
 
-    const tokensDetails = await vault.fillTokensDetails({
+    return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
     });
-    persistIdentityImageUrlsFromBackground(
-      tokensDetails.map((item) => ({
-        identity: buildTokenImageIdentity({
-          contractAddress: item.info.address,
-          isNative: item.info.isNative,
-          networkId: item.info.networkId || networkId,
-        }),
-        url: item.info.logoURI,
-      })),
-    );
-    return tokensDetails;
   }
 
   @backgroundMethod()
@@ -829,7 +785,7 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    const normalizedResult = result.map((item) => {
+    return result.map((item) => {
       const tokens = item.tokens.map((token) => ({
         ...token,
         info: {
@@ -840,19 +796,6 @@ class ServiceToken extends ServiceBase {
       tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
       return { ...item, tokens };
     });
-    persistIdentityImageUrlsFromBackground(
-      normalizedResult.flatMap((item) =>
-        item.tokens.map((token) => ({
-          identity: buildTokenImageIdentity({
-            contractAddress: token.info.address,
-            isNative: token.info.isNative,
-            networkId: token.info.networkId || networkId,
-          }),
-          url: token.info.logoURI,
-        })),
-      ),
-    );
-    return normalizedResult;
   }
 
   @backgroundMethod()
@@ -871,20 +814,7 @@ class ServiceToken extends ServiceBase {
         networkId,
         contractList: [tokenAddress],
       });
-      const token = resp.data.data[0];
-      if (token) {
-        persistIdentityImageUrlsFromBackground([
-          {
-            identity: buildTokenImageIdentity({
-              contractAddress: token.info.address,
-              isNative: token.info.isNative,
-              networkId,
-            }),
-            url: token.info.logoURI,
-          },
-        ]);
-      }
-      return token;
+      return resp.data.data[0];
     },
     {
       promise: true,

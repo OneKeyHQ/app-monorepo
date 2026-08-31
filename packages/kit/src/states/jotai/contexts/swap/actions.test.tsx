@@ -526,35 +526,6 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('publishes a Token Selector choice with its logo before sort persistence settles', async () => {
-    const sortPersistence = createDeferred<void>();
-    mockSetSwapNetworksSortRawData.mockReturnValueOnce(sortPersistence.promise);
-    const selectedToken: ISwapToken = {
-      ...usdcToken,
-      logoURI: 'https://example.com/usdc.png',
-      networkLogoURI: 'https://example.com/bsc.png',
-    };
-    const { store, Wrapper } = createWrapperWithStore();
-    const { result } = renderHook(() => useSwapActions().current, {
-      wrapper: Wrapper,
-    });
-    let selectionPromise: Promise<void> | undefined;
-
-    act(() => {
-      selectionPromise = result.current.selectFromToken(selectedToken);
-    });
-
-    expect(store.get(swapSelectFromTokenAtom())).toBe(selectedToken);
-    expect(store.get(swapSelectFromTokenAtom())?.logoURI).toBe(
-      'https://example.com/usdc.png',
-    );
-
-    await act(async () => {
-      sortPersistence.resolve(undefined);
-      await selectionPromise;
-    });
-  });
-
   it('uses the complete Stock list limit for child-network balance requests', async () => {
     mockGetSupportSwapAllAccounts.mockResolvedValue({
       supportAccountsFetchFailed: false,

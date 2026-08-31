@@ -377,7 +377,7 @@ export function useMarketTokenList({
       if (!hasNetworkId) {
         return undefined;
       }
-      const requestQueryKey = currentQueryKeyRef.current;
+      const requestQueryKey = currentQueryKey;
       const shouldAllowColdCacheFallback =
         remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
       pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
@@ -462,6 +462,7 @@ export function useMarketTokenList({
       minLiquidity,
       type,
       category,
+      currentQueryKey,
       timeFrame,
     ],
     {

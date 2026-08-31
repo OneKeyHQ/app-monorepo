@@ -900,9 +900,6 @@ const SwapTokenSelectPage = ({
       const tokenItem: ITokenListItemProps = {
         isSearch: isSwapStockSelectTarget ? false : !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
-        networkId: rawItem.networkId,
-        tokenAddress: rawItem.contractAddress,
-        tokenIsNative: rawItem.isNative,
         tokenName: isSwapStockSelectTarget
           ? getSwapStockTokenDisplayName({
               stock,

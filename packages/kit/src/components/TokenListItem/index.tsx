@@ -18,9 +18,6 @@ import { Token } from '../Token';
 export type ITokenListItemProps = {
   tokenImageSrc?: string;
   networkImageSrc?: string;
-  networkId?: string;
-  tokenAddress?: string;
-  tokenIsNative?: boolean;
   tokenName?: string;
   tokenSymbol?: string;
   tokenContrastAddress?: string;
@@ -40,9 +37,6 @@ export type ITokenListItemProps = {
 export function TokenListItem({
   tokenImageSrc,
   networkImageSrc,
-  networkId,
-  tokenAddress,
-  tokenIsNative,
   tokenName,
   isSearch,
   isLoading,
@@ -99,9 +93,6 @@ export function TokenListItem({
           size={tokenSize}
           tokenImageUri={tokenImageSrc}
           networkImageUri={networkImageSrc}
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          tokenIsNative={tokenIsNative}
         />
       </YStack>
       <ListItem.Text

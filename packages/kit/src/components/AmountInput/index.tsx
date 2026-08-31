@@ -24,11 +24,6 @@ import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/share
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  buildNetworkImageIdentity,
-  buildTokenImageIdentity,
-  resolveIdentityImageUrl,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
@@ -75,9 +70,6 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
-      selectedTokenNetworkId?: string;
-      selectedTokenAddress?: string;
-      selectedTokenIsNative?: boolean;
       /**
        * Skeleton just the token image while its URI is still being resolved,
        * keeping the symbol readable. `loading` above blanks the whole trigger;
@@ -87,7 +79,6 @@ export type IAmountInputFormItemProps = IFormFieldProps<
        */
       selectedTokenImageLoading?: boolean;
       selectedNetworkImageUri?: string;
-      selectedNetworkId?: string;
       selectedTokenSymbol?: string;
       selectedNetworkName?: string;
       isCustomNetwork?: boolean;
@@ -220,12 +211,8 @@ export function AmountInput({
     const {
       popover: popoverProps,
       selectedTokenImageUri,
-      selectedTokenNetworkId,
-      selectedTokenAddress,
-      selectedTokenIsNative,
       selectedTokenImageLoading,
       selectedNetworkImageUri,
-      selectedNetworkId,
       selectedTokenSymbol,
       selectedNetworkName,
       isCustomNetwork,
@@ -249,18 +236,6 @@ export function AmountInput({
 
     const hasPopover = !!popoverProps?.content;
     const hasOnPress = !!onPress || hasPopover;
-    const resolvedTokenImageUri = resolveIdentityImageUrl({
-      identity: buildTokenImageIdentity({
-        contractAddress: selectedTokenAddress,
-        isNative: selectedTokenIsNative,
-        networkId: selectedTokenNetworkId,
-      }),
-      ownerUrl: selectedTokenImageUri,
-    });
-    const resolvedNetworkImageUri = resolveIdentityImageUrl({
-      identity: buildNetworkImageIdentity(selectedNetworkId),
-      ownerUrl: selectedNetworkImageUri,
-    });
 
     const triggerContent = (
       <XStack
@@ -294,7 +269,7 @@ export function AmountInput({
               size="$7"
               borderRadius="$full"
               source={{
-                uri: resolvedTokenImageUri,
+                uri: selectedTokenImageUri,
               }}
               fallback={
                 <Image.Fallback
@@ -313,7 +288,7 @@ export function AmountInput({
               }
             />
           )}
-          {resolvedNetworkImageUri ? (
+          {selectedNetworkImageUri ? (
             <Stack
               position="absolute"
               right="$-1"
@@ -327,7 +302,7 @@ export function AmountInput({
                 size="$3"
                 borderRadius="$full"
                 source={{
-                  uri: resolvedNetworkImageUri,
+                  uri: selectedNetworkImageUri,
                 }}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>

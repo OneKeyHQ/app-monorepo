@@ -13,6 +13,7 @@ import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
 import { useMarketTokenList } from './useMarketTokenList';
 
 const mockTrackNetworkLoading = jest.fn();
+let mockLocale = 'en-US';
 
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
@@ -30,7 +31,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
-  useLocaleVariant: () => 'en-US',
+  useLocaleVariant: () => mockLocale,
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -141,6 +142,7 @@ describe('useMarketTokenList initial data', () => {
     });
     mutablePlatformEnv.isNative = false;
     mutablePlatformEnv.isWeb = true;
+    mockLocale = 'en-US';
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenList.mockReset();
@@ -230,6 +232,34 @@ describe('useMarketTokenList initial data', () => {
         }),
         undefined,
       );
+    });
+  });
+
+  it('requests the current locale immediately after it changes', async () => {
+    mockFetchMarketTokenList.mockResolvedValue(
+      createResponse('0xremote', 'Remote Token', 'REMOTE'),
+    );
+
+    function Probe() {
+      useMarketTokenList({
+        networkId: 'evm--1',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+
+    const { rerender } = render(<Probe />);
+
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(1);
+    });
+
+    mockLocale = 'zh-CN';
+    rerender(<Probe />);
+
+    await waitFor(() => {
+      expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(2);
     });
   });
 });

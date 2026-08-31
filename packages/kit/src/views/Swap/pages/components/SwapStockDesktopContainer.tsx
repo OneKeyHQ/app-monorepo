@@ -86,10 +86,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import {
-  buildMarketImageIdentity,
-  resolveIdentityImageUrl,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swrCacheUtils,
@@ -1263,11 +1259,7 @@ function StockAmountInput({
           justifyContent: 'flex-end',
           loading: showTokenSelectorLoading,
           selectedTokenImageUri: inputToken?.logoURI,
-          selectedTokenNetworkId: inputToken?.networkId,
-          selectedTokenAddress: inputToken?.contractAddress,
-          selectedTokenIsNative: inputToken?.isNative,
           selectedNetworkImageUri: inputTokenNetworkLogoURI,
-          selectedNetworkId: inputToken?.networkId,
           selectedTokenSymbol: inputToken?.symbol,
           showNetworkIconBorder: false,
           disabled:
@@ -1551,20 +1543,7 @@ function StockMarketTokenHeader({
     channelStage,
     hasTokenData: Boolean(stock || tokenSubtitle),
   });
-  const stockTicker =
-    tokenDetail?.stock?.underlyingAssetTicker ??
-    currentStockToken?.stock?.underlyingAssetTicker;
-  const tokenImageUri = resolveIdentityImageUrl({
-    identity: buildMarketImageIdentity({
-      identity: stockTicker,
-      locale: intl.locale,
-      scope: 'stock',
-    }),
-    ownerUrl: currentStockToken?.logoURI ?? tokenDetail?.logoUrl,
-  });
-  const tokenAddress =
-    currentStockToken?.contractAddress ?? tokenDetail?.address;
-  const tokenIsNative = currentStockToken?.isNative ?? tokenDetail?.isNative;
+  const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
   const startedWithoutHeaderContentRef = useRef(!currentStockToken);
   const deferInitialHeaderContent = shouldDeferStockInitialContent({
     channelStage,
@@ -1592,9 +1571,6 @@ function StockMarketTokenHeader({
       tokenImageUris={
         currentStockToken?.logoURI ? undefined : tokenDetail?.logoUrls
       }
-      networkId={stockTokenNetworkId}
-      tokenAddress={tokenAddress}
-      tokenIsNative={tokenIsNative}
       recyclingKey={tokenImageUri}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}

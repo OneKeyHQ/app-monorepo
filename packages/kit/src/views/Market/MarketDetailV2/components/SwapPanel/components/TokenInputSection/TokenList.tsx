@@ -226,9 +226,6 @@ export function TokenList({
                   key={`${token.networkId}-${token.contractAddress}`}
                   tokenImageSrc={token.logoURI}
                   networkImageSrc={token.networkImageSrc}
-                  networkId={token.networkId}
-                  tokenAddress={token.contractAddress}
-                  tokenIsNative={token.isNative}
                   tokenSymbol={token.symbol}
                   tokenName={token.name}
                   tokenSize="md"

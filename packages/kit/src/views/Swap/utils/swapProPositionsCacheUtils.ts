@@ -74,6 +74,8 @@ function buildSwapProPositionsCacheToken(token: ISwapToken): ISwapToken {
     decimals: token.decimals,
     isNative: token.isNative,
     name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
     balanceParsed: token.balanceParsed,
     fiatValue: token.fiatValue,
     price: token.price,

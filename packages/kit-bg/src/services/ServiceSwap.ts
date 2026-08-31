@@ -32,10 +32,6 @@ import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
-import {
-  buildTokenImageIdentity,
-  persistIdentityImageUrlsFromBackground,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -155,24 +151,6 @@ import {
 } from './utils/swapHistoryStatusUtils';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
-
-function persistSwapTokenImageUrls(
-  tokens: Array<Partial<ISwapTokenBase>> | undefined,
-) {
-  if (!tokens?.length) {
-    return;
-  }
-  persistIdentityImageUrlsFromBackground(
-    tokens.map((token) => ({
-      identity: buildTokenImageIdentity({
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-        networkId: token.networkId,
-      }),
-      url: token.logoURI,
-    })),
-  );
-}
 
 const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
 
@@ -891,12 +869,10 @@ export default class ServiceSwap extends ServiceBase {
       const tokens = mergeSwapTokenLists(
         successfulResponses.map(({ data }) => data?.data ?? []),
       );
-      const normalizedTokens = normalizeSwapTokenListCurrency({
+      return normalizeSwapTokenListCurrency({
         tokens,
         currency: requestCurrency,
       });
-      persistSwapTokenImageUrls(normalizedTokens);
-      return normalizedTokens;
     } catch (e) {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
@@ -1088,7 +1064,6 @@ export default class ServiceSwap extends ServiceBase {
           },
         },
       );
-      persistSwapTokenImageUrls(data?.data);
       return data?.data;
     } catch (e) {
       console.error(e);
@@ -3630,20 +3605,9 @@ export default class ServiceSwap extends ServiceBase {
           params: { networkId: params.networkId },
         },
       );
-      const config = res?.data?.data || defaultConfig;
-      persistSwapTokenImageUrls([
-        ...(config.speedConfig.defaultTokens ?? []),
-        ...(config.speedConfig.defaultLimitTokens ?? []),
-        ...(config.speedDefaultSelectToken
-          ? [config.speedDefaultSelectToken]
-          : []),
-      ]);
-      return config;
+      return res?.data?.data || defaultConfig;
     } catch (error) {
       console.error(error);
-      if (defaultConfig.speedDefaultSelectToken) {
-        persistSwapTokenImageUrls([defaultConfig.speedDefaultSelectToken]);
-      }
       return defaultConfig;
     }
   }

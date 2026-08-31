@@ -30,7 +30,7 @@ import type { IStatItem } from './components/StatCard';
 
 export function TokenOverview() {
   const intl = useIntl();
-  const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
+  const { tokenDetail, tokenAddress, networkId } = useTokenDetail();
   const { securityStatus, securityData, riskCount, cautionCount } =
     useTokenSecurity({
       tokenAddress,
@@ -112,13 +112,7 @@ export function TokenOverview() {
   return (
     <Stack testID={MarketTestIDs.detailAbout} gap="$2" px="$5" pt="$5" pb="$3">
       <XStack alignItems="center" gap="$3" mb="$3">
-        <Token
-          size="lg"
-          tokenImageUri={tokenDetail.logoUrl}
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          tokenIsNative={isNative}
-        />
+        <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />
         <Stack flex={1}>
           <SizableText size="$headingLg" color="$text" fontWeight="600">
             {tokenDetail.symbol}

@@ -93,10 +93,6 @@ const SwapProPositionItem = ({
           size="md"
           tokenImageUri={token.logoURI}
           networkImageUri={tokenNetworkImageUri}
-          tokenAddress={token.contractAddress}
-          tokenIsNative={token.isNative}
-          showNetworkIcon
-          networkId={token.networkId}
         />
         <YStack>
           <XStack alignItems="center" gap="$0.5">

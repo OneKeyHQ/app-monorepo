@@ -43,15 +43,6 @@ export function resolveSwapTokenNetworkLogoURI({
   );
 }
 
-export function sanitizeSwapSelectedTokenColdStartSnapshot(token?: ISwapToken) {
-  if (!token?.networkLogoURI) {
-    return token;
-  }
-  const stableToken = { ...token };
-  delete stableToken.networkLogoURI;
-  return stableToken;
-}
-
 type ISwapSelectedAccountKeySource = {
   walletId?: string;
   indexedAccountId?: string;

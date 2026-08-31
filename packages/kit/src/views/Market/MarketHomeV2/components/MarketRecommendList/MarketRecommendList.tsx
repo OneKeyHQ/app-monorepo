@@ -249,8 +249,6 @@ export function MarketRecommendList({
                   symbol={item.symbol}
                   tokenName={item.name}
                   networkId={item.chainId}
-                  tokenAddress={item.contractAddress}
-                  isNative={item.isNative}
                   communityRecognized={Boolean(
                     item.communityRecognized ||
                     communityRecognizedMap[tokenKey],

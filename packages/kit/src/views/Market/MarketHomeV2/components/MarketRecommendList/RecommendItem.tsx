@@ -21,8 +21,6 @@ export function RecommendItem({
   symbol,
   address,
   networkId,
-  tokenAddress,
-  isNative,
   communityRecognized,
 }: {
   icon: string;
@@ -31,8 +29,6 @@ export function RecommendItem({
   symbol: string;
   address: string;
   networkId?: string;
-  tokenAddress?: string;
-  isNative?: boolean;
   communityRecognized?: boolean;
   onChange: (checked: boolean, address: string) => void;
 }) {
@@ -66,13 +62,7 @@ export function RecommendItem({
       }}
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
-        <MarketTokenIcon
-          uri={icon}
-          size="md"
-          networkId={networkId}
-          tokenAddress={tokenAddress}
-          isNative={isNative}
-        />
+        <MarketTokenIcon uri={icon} size="md" networkId={networkId} />
         <YStack
           flexShrink={1}
           {...(platformEnv.isNativeAndroid

@@ -57,7 +57,6 @@ interface ITokenIdentityItemProps {
    * Only used when `networkLogoURI` is not provided.
    */
   networkId?: string;
-  isNative?: boolean;
   /**
    * Callback fired after the copy button is pressed and the text has been
    * copied. Useful when the parent component needs to react.
@@ -108,7 +107,6 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   tokenLogoURIs,
   networkLogoURI,
   networkId,
-  isNative,
   onCopied,
   showCopyButton = false,
   showVolume = false,
@@ -203,9 +201,6 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         tokenImageUri={getTokenImageUri()}
         tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
-        networkId={networkId}
-        tokenAddress={address}
-        tokenIsNative={isNative}
         fallbackIcon="CryptoCoinOutline"
         size="md"
       />

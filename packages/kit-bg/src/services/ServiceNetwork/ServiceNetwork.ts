@@ -39,10 +39,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import {
-  buildNetworkImageIdentity,
-  persistIdentityImageUrlsFromBackground,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import type {
   IDetectedNetwork,
   IDetectedNetworkGroupItem,
@@ -112,12 +108,6 @@ class ServiceNetwork extends ServiceBase {
     }
     perf.markStart('getAllNetworksWithCache');
     const result = await this.getAllNetworksWithCache(params);
-    persistIdentityImageUrlsFromBackground(
-      result.networks.map((network) => ({
-        identity: buildNetworkImageIdentity(network.id),
-        url: network.logoURI,
-      })),
-    );
     perf.markEnd('getAllNetworksWithCache');
     perf.done();
     return result;

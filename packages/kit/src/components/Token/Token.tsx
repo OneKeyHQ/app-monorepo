@@ -25,10 +25,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  buildTokenImageIdentity,
-  resolveIdentityImageUrl,
-} from '@onekeyhq/shared/src/utils/identityImageUrlCache';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -51,8 +47,6 @@ export type ITokenProps = {
   cornerBadge?: ReactNode;
   showCornerBadgeBorder?: boolean;
   networkId?: string;
-  tokenAddress?: string;
-  tokenIsNative?: boolean;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
 
@@ -63,8 +57,6 @@ export function Token({
   tokenImageUris,
   networkImageUri,
   networkId,
-  tokenAddress,
-  tokenIsNative,
   showNetworkIcon,
   showNetworkIconBorder = true,
   cornerBadge,
@@ -93,21 +85,9 @@ export function Token({
     }
     return '$full';
   }, [isNFT]);
-  const tokenImageIdentity =
-    tokenAddress !== undefined || tokenIsNative
-      ? buildTokenImageIdentity({
-          contractAddress: tokenAddress,
-          isNative: tokenIsNative,
-          networkId,
-        })
-      : '';
-  const resolvedTokenImageUri = resolveIdentityImageUrl({
-    identity: tokenImageIdentity,
-    ownerUrl: tokenImageUri,
-  });
   const source = useMemo(() => {
-    return resolvedTokenImageUri ? { uri: resolvedTokenImageUri } : undefined;
-  }, [resolvedTokenImageUri]);
+    return tokenImageUri ? { uri: tokenImageUri } : undefined;
+  }, [tokenImageUri]);
 
   const resolvedBg =
     bgProp ?? (themeVariant === 'light' ? '$bgApp' : '$neutral6Dark');

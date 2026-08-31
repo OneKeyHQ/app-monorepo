@@ -6,7 +6,6 @@ import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
-import { sanitizeSwapSelectedTokenColdStartSnapshot } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import {
   EMPTY_SWAP_PRO_POSITIONS_CACHE,
   type ISwapProPositionsCache,
@@ -99,8 +98,6 @@ export function sanitizeSwapProSelectTokenSnapshot(
     fiatValue,
     reservationValue,
     accountAddress,
-    logoURI,
-    networkLogoURI,
     ...stableToken
   } = token;
   return stableToken;
@@ -201,14 +198,12 @@ export const {
 } = contextAtom<ISwapToken | undefined>(undefined, {
   coldStartCache: true,
   coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
-  coldStartCacheTransform: sanitizeSwapSelectedTokenColdStartSnapshot,
 });
 
 export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined, {
     coldStartCache: true,
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
-    coldStartCacheTransform: sanitizeSwapSelectedTokenColdStartSnapshot,
   });
 
 export const {

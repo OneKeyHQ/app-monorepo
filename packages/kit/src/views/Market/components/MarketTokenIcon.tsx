@@ -9,15 +9,11 @@ function BasicMarketTokenIcon({
   uris,
   size,
   networkId,
-  tokenAddress,
-  isNative,
 }: {
   uri: string;
   uris?: string[];
   size: ITokenProps['size'];
   networkId?: string;
-  tokenAddress?: string;
-  isNative?: boolean;
 }) {
   return (
     <Token
@@ -25,8 +21,6 @@ function BasicMarketTokenIcon({
       tokenImageUri={uri}
       tokenImageUris={uris}
       networkId={networkId}
-      tokenAddress={tokenAddress}
-      tokenIsNative={isNative}
       showNetworkIcon={Boolean(networkId)}
     />
   );

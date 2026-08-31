@@ -1,9 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -12,22 +8,18 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import {
   type IFetchedNetworkLogo,
-  deleteCachedNetworkLogoUri,
-  getCachedNetworkLogoUri,
   resolveNetworkLogoUri,
-  setCachedNetworkLogoUri,
 } from './useNetworkLogoUri.utils';
 import { usePromiseResult } from './usePromiseResult';
 
+// Memoized async function - handles both caching and concurrent request deduplication
 const fetchNetworkLogo = memoizee(
   async (networkId: string): Promise<string> => {
     try {
       const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
         networkId,
       });
-      const logoUri = network?.logoURI || '';
-      setCachedNetworkLogoUri({ logoUri, networkId });
-      return logoUri;
+      return network?.logoURI || '';
     } catch {
       return '';
     }
@@ -41,8 +33,7 @@ const fetchNetworkLogo = memoizee(
 /**
  * Hook to get network logo URI with async fallback.
  * If logoUri is provided, returns it directly.
- * Otherwise, resolves built-in networks synchronously and only fetches unknown
- * network info asynchronously.
+ * If logoUri is empty but networkId exists, fetches the network info asynchronously.
  * Fetched logos are cached to avoid repeated API calls.
  */
 export function useNetworkLogoUri({
@@ -52,23 +43,17 @@ export function useNetworkLogoUri({
   logoUri?: string;
   networkId?: string;
 }): string {
-  const [, setCacheRevision] = useState(0);
   const localLogoUri = useMemo(
     () =>
-      networkId
+      logoUri ||
+      (networkId
         ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
-        : undefined,
-    [networkId],
+        : undefined),
+    [logoUri, networkId],
   );
-  const ownedLogoUri = logoUri || localLogoUri;
-  const cachedLogoUri = getCachedNetworkLogoUri(networkId);
-  const shouldFetch = !ownedLogoUri && !!networkId;
+  const shouldFetch = !localLogoUri && !!networkId;
 
-  useEffect(() => {
-    setCachedNetworkLogoUri({ logoUri: ownedLogoUri, networkId });
-  }, [networkId, ownedLogoUri]);
-
-  const { result: fetchedLogo, run } = usePromiseResult(
+  const { result: fetchedLogo } = usePromiseResult(
     async (): Promise<IFetchedNetworkLogo> => {
       if (!shouldFetch || !networkId) {
         return { logoUri: '' };
@@ -81,41 +66,15 @@ export function useNetworkLogoUri({
     [shouldFetch, networkId],
     {
       checkIsFocused: false,
-      initResult: {
-        logoUri: cachedLogoUri,
-        networkId: cachedLogoUri ? networkId : undefined,
-      },
+      initResult: { logoUri: '' },
     },
   );
-
-  useEffect(() => {
-    const handleNetworksChanged = () => {
-      deleteCachedNetworkLogoUri(networkId);
-      if (networkId) {
-        void fetchNetworkLogo.delete(networkId);
-      }
-      setCacheRevision((value) => value + 1);
-      void run({ alwaysSetState: true });
-    };
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, handleNetworksChanged);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.AddedCustomNetwork,
-        handleNetworksChanged,
-      );
-    };
-  }, [networkId, run]);
 
   // A result fetched for the previous network must never be shown beside the
   // new network identity while its request is still pending.
   return useMemo(
     () =>
-      resolveNetworkLogoUri({
-        cachedLogoUri,
-        fetchedLogo,
-        logoUri: ownedLogoUri,
-        networkId,
-      }),
-    [cachedLogoUri, fetchedLogo, networkId, ownedLogoUri],
+      resolveNetworkLogoUri({ fetchedLogo, logoUri: localLogoUri, networkId }),
+    [fetchedLogo, localLogoUri, networkId],
   );
 }

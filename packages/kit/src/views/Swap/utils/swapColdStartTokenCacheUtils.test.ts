@@ -21,7 +21,6 @@ import {
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
   resolveSwapTokenNetworkLogoURI,
-  sanitizeSwapSelectedTokenColdStartSnapshot,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
@@ -128,19 +127,6 @@ describe('swap cold-start selected token context', () => {
         } as ISwapToken,
       }),
     ).toBe('https://example.com/bsc.png');
-  });
-
-  it('removes the derived network URL but keeps the selected token URL', () => {
-    expect(
-      sanitizeSwapSelectedTokenColdStartSnapshot({
-        networkId: 'evm--56',
-        logoURI: 'https://example.com/btcb.png',
-        networkLogoURI: 'https://example.com/eth.png',
-      } as ISwapToken),
-    ).toEqual({
-      networkId: 'evm--56',
-      logoURI: 'https://example.com/btcb.png',
-    });
   });
 
   it('preserves swap user input when selected tokens and from amount are present', () => {

@@ -78,10 +78,6 @@ const SwapProTokenSelector = ({
         borderRadius="$full"
         tokenImageUri={swapProTokenSelect?.logoURI}
         networkImageUri={swapProTokenNetworkImageUri}
-        tokenAddress={swapProTokenSelect?.contractAddress}
-        tokenIsNative={swapProTokenSelect?.isNative}
-        showNetworkIcon
-        networkId={swapProTokenSelect?.networkId}
         bg={themeVariant === 'light' ? undefined : '$bgInverse'}
         fallbackIcon="CryptoCoinOutline"
       />

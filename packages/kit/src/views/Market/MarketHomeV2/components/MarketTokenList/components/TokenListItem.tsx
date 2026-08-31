@@ -117,7 +117,6 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           tokenLogoURIs={item.tokenImageUris}
           networkLogoURI={item.networkLogoUri}
           networkId={item.networkId}
-          isNative={item.isNative}
           symbol={item.symbol}
           address={item.address}
           showVolume
