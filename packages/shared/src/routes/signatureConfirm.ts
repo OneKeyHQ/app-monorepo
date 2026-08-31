@@ -38,6 +38,8 @@ export enum EModalSignatureConfirmRoutes {
   TxConfirmFromDApp = 'TxConfirmFromDApp',
   MessageConfirmFromDApp = 'MessageConfirmFromDApp',
   TxConfirmFromSwap = 'TxConfirmFromSwap',
+  BatchTxConfirm = 'BatchTxConfirm',
+  BatchTxConfirmFromDApp = 'BatchTxConfirmFromDApp',
 
   TxReplace = 'TxReplace',
   TxSelectToken = 'TxSelectToken',
@@ -103,10 +105,24 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    // Review-only page: no confirm action is rendered, the footer offers
+    // only the (Back-labeled) cancel. Used by the batch psbt drill-down for
+    // already-signed items.
+    readOnly?: boolean;
+    // Label the cancel button "Back" for pages pushed onto an existing
+    // stack whose cancel just returns to it (batch psbt drill-down).
+    cancelAsBack?: boolean;
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
   };
+  [EModalSignatureConfirmRoutes.BatchTxConfirm]: {
+    batchId: string;
+    accountId: string;
+    networkId: string;
+    sourceInfo?: IDappSourceInfo;
+  };
+  [EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp]: undefined;
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
     accountId: string;
     networkId: string;

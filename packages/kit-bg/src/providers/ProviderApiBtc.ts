@@ -10,6 +10,13 @@ import {
   getSignPsbtOptionsForPsbtIndex,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  buildOwnedAddressesForBatchDisplay,
+  computeBatchPsbtAmounts,
+  finalizeSignedPsbtHex,
+  findDuplicatePsbtIndexes,
+  findPsbtOutpointConflicts,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/batchPsbt';
+import {
   parseHexContext,
   validateAppName,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/deriveContextHash';
@@ -21,6 +28,7 @@ import {
 import type {
   IBtcInput,
   IBtcOutput,
+  IEncodedTxBtc,
 } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx, ITxInputToSign } from '@onekeyhq/core/src/types';
 import {
@@ -38,6 +46,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EBatchTxSignItemStatus } from '@onekeyhq/shared/types/batchTxSign';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
@@ -49,7 +59,6 @@ import {
   type ISignPsbtParams,
   type ISignPsbtsParams,
   type ISwitchNetworkParams,
-  type IToSignInput,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type { IPushTxParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
 
@@ -58,8 +67,19 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IDBUtxoAccount } from '../dbs/local/types';
+import type { IBatchTxSignCreateItem } from '../services/ServiceBatchTxSign';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
+
+// Defensive bounds on multi-psbt `signPsbts` requests (dapp-supplied input),
+// far above any real marketplace batch: the batch flow parses and retains
+// every item upfront, so these only exist to stop a malicious dapp from
+// stalling/exhausting the JS heaps with an absurd payload.
+const MAX_SIGN_PSBTS_COUNT = 100;
+// Total hex-string length across all psbts (2 hex chars per byte): 20M chars
+// ≈ 10MB of raw psbt data.
+const MAX_SIGN_PSBTS_TOTAL_HEX_LENGTH = 20_000_000;
 
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
@@ -688,33 +708,90 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    if (accountUtils.isHwAccount({ accountId })) {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message:
-          'Partially signed bitcoin transactions is not supported on hardware.',
-      });
-    }
-
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
     if (!network) return null;
 
     const { psbtHexs, options } = params;
+    if (!Array.isArray(psbtHexs) || psbtHexs.length === 0) {
+      throw web3Errors.rpc.invalidParams('psbtHexs must be a non-empty array');
+    }
+    // Defensive bounds for multi-psbt requests, checked before anything is
+    // parsed: the batch flow decodes every item upfront and keeps the whole
+    // set alive in the background for the lifetime of the modal (mirrored
+    // into the UI runtime on split-runtime targets), so unbounded input from
+    // a connected dapp could otherwise stall or exhaust both JS heaps. The
+    // limits are far above any real marketplace batch. A single psbt keeps
+    // the unchecked legacy behavior byte-for-byte.
+    if (psbtHexs.length > 1) {
+      if (psbtHexs.length > MAX_SIGN_PSBTS_COUNT) {
+        throw web3Errors.rpc.invalidParams(
+          `too many psbts: ${psbtHexs.length} (max ${MAX_SIGN_PSBTS_COUNT})`,
+        );
+      }
+      const totalHexLength = psbtHexs.reduce(
+        (sum, hex) => sum + (typeof hex === 'string' ? hex.length : 0),
+        0,
+      );
+      if (totalHexLength > MAX_SIGN_PSBTS_TOTAL_HEX_LENGTH) {
+        throw web3Errors.rpc.invalidParams('psbts payload too large');
+      }
+    }
 
     const psbtNetwork = toPsbtNetwork(network);
-    const result: string[] = [];
 
+    // Batch flow supports hd / imported / hw accounts. QR (air-gap), external
+    // and watching accounts keep the legacy per-psbt modal loop; a single psbt
+    // always uses the legacy path (product decision).
+    const supportsBatchFlow =
+      psbtHexs.length > 1 &&
+      (accountUtils.isHdAccount({ accountId }) ||
+        accountUtils.isImportedAccount({ accountId }) ||
+        accountUtils.isHwAccount({ accountId }));
+
+    if (!supportsBatchFlow) {
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
+    }
+
+    return this._signPsbtsBatchFlow(request, {
+      accountId,
+      networkId,
+      psbtHexs,
+      options,
+      psbtNetwork,
+    });
+  }
+
+  // The pre-batch sequential per-psbt confirm loop, kept byte-for-byte: one
+  // modal per psbt, each resolved through the single-psbt `_signPsbt` path.
+  private async _signPsbtsLegacyFlow(
+    request: IJsBridgeMessagePayload,
+    {
+      psbtHexs,
+      options,
+      psbtNetwork,
+    }: {
+      psbtHexs: string[];
+      options: ISignPsbtOptions | ISignPsbtOptions[];
+      psbtNetwork: BitcoinJS.networks.Network;
+    },
+  ): Promise<string[]> {
+    const result: string[] = [];
     for (let i = 0; i < psbtHexs.length; i += 1) {
-      // UniSat-compatible `signPsbts` passes `options` as an array (one entry
-      // per psbt), while OneKey/legacy callers pass a single shared object.
-      // Extract per-psbt options for the array form so `toSignInputs`,
-      // `isBtcWalletProvider` and `autoFinalized` are not lost. Losing them
-      // makes `getInputsToSignFromPsbt` skip script-path inputs (e.g. Babylon
-      // staking, whose input address differs from the account address),
-      // yielding an empty `inputsToSign` that throws in `buildDecodedPsbtTx`
-      // and hangs the confirm page on an infinite loading skeleton.
+      // UniSat-compatible `signPsbts` passes `options` as an array (one
+      // entry per psbt), while OneKey/legacy callers pass a single shared
+      // object. Extract per-psbt options for the array form so
+      // `toSignInputs`, `isBtcWalletProvider` and `autoFinalized` are not
+      // lost. Losing them makes `getInputsToSignFromPsbt` skip script-path
+      // inputs (e.g. Babylon staking, whose input address differs from the
+      // account address), yielding an empty `inputsToSign` that throws in
+      // `buildDecodedPsbtTx` and hangs the confirm page on an infinite
+      // loading skeleton.
       const optionsForCurrentPsbt = getSignPsbtOptionsForPsbtIndex({
         options,
         index: i,
@@ -732,33 +809,226 @@ class ProviderApiBtc extends ProviderApiBase {
     return result;
   }
 
-  async _signPsbt(
+  private async _signPsbtsBatchFlow(
     request: IJsBridgeMessagePayload,
-    params: {
-      psbt: Psbt;
+    {
+      accountId,
+      networkId,
+      psbtHexs,
+      options,
+      psbtNetwork,
+    }: {
+      accountId: string;
+      networkId: string;
+      psbtHexs: string[];
+      options: ISignPsbtOptions | ISignPsbtOptions[];
       psbtNetwork: BitcoinJS.networks.Network;
-      options?: ISignPsbtOptions;
     },
-  ) {
-    const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, address } = {} } =
-      accountsInfo[0];
-
-    if (!networkId || !accountId) {
-      throw web3Errors.provider.custom({
-        code: 4002,
-        message: `Can not get account`,
-      });
-    }
-
-    const { psbt, psbtNetwork, options } = params;
-
-    const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
-
+  ): Promise<string[]> {
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
       networkId,
     });
+
+    const psbts: Psbt[] = [];
+    const perItemOptions: (ISignPsbtOptions | undefined)[] = [];
+    for (let i = 0; i < psbtHexs.length; i += 1) {
+      try {
+        psbts.push(
+          Psbt.fromHex(formatPsbtHex(psbtHexs[i]), { network: psbtNetwork }),
+        );
+      } catch (error) {
+        throw web3Errors.rpc.invalidParams(
+          `invalid psbt at index ${i}: ${(error as Error)?.message ?? ''}`,
+        );
+      }
+      perItemOptions.push(
+        getSignPsbtOptionsForPsbtIndex({ options, index: i }),
+      );
+    }
+
+    // Duplicate txs and cross-psbt shared inputs are legitimate dapp
+    // patterns the pre-batch sequential loop always handled (alternative
+    // versions of the same listing, RBF-style variants — signed but never
+    // all broadcast). A single batch overview can't present them honestly
+    // (its totals would double-count the same coins), so route the whole
+    // request through the legacy per-psbt confirm loop instead of
+    // rejecting it — the same fallback the path below uses for amounts
+    // that cannot be summarized.
+    const duplicateIndexes = findDuplicatePsbtIndexes(psbts);
+    if (duplicateIndexes.length > 0) {
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
+    }
+
+    // NOTE: isBtcWalletProvider is dapp-supplied; this exemption makes the
+    // conflict check an accident guard, not a security boundary — per-item
+    // display and input ownership remain the real controls.
+    const exemptIndexes = perItemOptions
+      .map((o, i) => (o?.isBtcWalletProvider ? i : -1))
+      .filter((i) => i >= 0);
+    const conflicts = findPsbtOutpointConflicts({ psbts, exemptIndexes });
+    if (conflicts.length > 0) {
+      return this._signPsbtsLegacyFlow(request, {
+        psbtHexs,
+        options,
+        psbtNetwork,
+      });
+    }
+
+    // getAccount() spreads the DB account, so the UTXO address maps ride
+    // along on the network account — no extra DB read needed here.
+    const utxoAccount = account as unknown as IDBUtxoAccount;
+    const ownedAddresses = buildOwnedAddressesForBatchDisplay({
+      primaryAddress: account.address,
+      addressMaps: [
+        utxoAccount.addresses,
+        utxoAccount.customAddresses,
+        utxoAccount.findAddresses,
+      ],
+    });
+
+    const items: IBatchTxSignCreateItem[] = [];
+    for (let i = 0; i < psbts.length; i += 1) {
+      const psbt = psbts[i];
+      const itemOptions = perItemOptions[i];
+      const { encodedTx, inputsToSign } = await this.buildPsbtSignFlowPayload({
+        psbt,
+        psbtNetwork,
+        options: itemOptions,
+        accountId,
+        networkId,
+        // Drift (accepted): legacy _signPsbt uses the dapp connection's
+        // accountInfo.address, while the batch flow uses getAccount().address
+        // here — only affects the isChange display flag, never signing.
+        address: account.address,
+        account,
+        // Same set computeBatchPsbtAmounts uses below, so the drill-down
+        // TxConfirm and the batch overview classify change identically.
+        ownedAddresses,
+      });
+      if (!inputsToSign.length) {
+        throw web3Errors.rpc.invalidParams(
+          `psbt at index ${i} has no inputs owned by the current account`,
+        );
+      }
+      // Change recognition covers every wallet-owned address (primary +
+      // derived + custom + claimed find-address), so change returned to any
+      // of them is never displayed as an external transfer.
+      const amounts = computeBatchPsbtAmounts({
+        psbt,
+        psbtNetwork,
+        accountAddresses: ownedAddresses,
+      });
+      if (!amounts) {
+        // A psbt whose amounts/fee can't be summarized honestly must never
+        // reach the batch overview with made-up numbers — but rejecting
+        // outright would regress flows the sequential loop has always
+        // handled: a SIGHASH_SINGLE|ANYONECANPAY marketplace listing psbt
+        // (seller-side, buyer adds the fee inputs later) legitimately
+        // computes a negative fee here. Fall back to the legacy per-psbt
+        // confirm for the whole request instead.
+        return this._signPsbtsLegacyFlow(request, {
+          psbtHexs,
+          options,
+          psbtNetwork,
+        });
+      }
+      // Mirror the single-psbt confirm page (buildDecodedPsbtTx): with
+      // external outputs it hides wallet-owned change and shows external
+      // recipients/amounts only; for a pure self-transfer (every output
+      // owned) it shows ALL outputs. Summarize the same way so a batch row
+      // always matches its drill-down TxConfirm.
+      const isPureSelfTransfer = amounts.externalOutValue === '0';
+      const recipients = isPureSelfTransfer
+        ? amounts.ownedRecipients
+        : amounts.externalRecipients;
+      items.push({
+        unsignedTx: {
+          uuid: '',
+          accountId,
+          networkId,
+          encodedTx,
+        },
+        summary: {
+          index: i,
+          recipient: recipients[0] ?? '',
+          extraRecipientCount: Math.max(0, recipients.length - 1),
+          amountValue: isPureSelfTransfer
+            ? amounts.changeValue
+            : amounts.externalOutValue,
+          externalAmountValue: amounts.externalOutValue,
+          feeValue: amounts.feeValue,
+          status: EBatchTxSignItemStatus.Ready,
+        },
+        inputsToSign,
+        autoFinalized: itemOptions?.autoFinalized,
+      });
+    }
+
+    const { batchId } = await this.backgroundApi.serviceBatchTxSign.createBatch(
+      {
+        accountId,
+        networkId,
+        items,
+      },
+    );
+    try {
+      const result =
+        await this.backgroundApi.serviceDApp.openBatchTxConfirmModal({
+          request,
+          accountId,
+          networkId,
+          batchId,
+        });
+      return result;
+    } finally {
+      // No-op if takeFinalizedResults already disposed it; aborts the queue
+      // if the modal died (extension popup closed, request rejected).
+      await this.backgroundApi.serviceBatchTxSign.disposeBatch({ batchId });
+    }
+  }
+
+  private async buildPsbtSignFlowPayload({
+    psbt,
+    psbtNetwork,
+    options,
+    accountId,
+    networkId,
+    address,
+    account: providedAccount,
+    ownedAddresses,
+  }: {
+    psbt: Psbt;
+    psbtNetwork: BitcoinJS.networks.Network;
+    options?: ISignPsbtOptions;
+    accountId: string;
+    networkId: string;
+    address?: string;
+    // Batch flow already resolved the account once for the whole batch and
+    // passes it here to avoid a redundant getAccount call per item. Legacy
+    // `_signPsbt` does not pass it, so its behavior is unchanged.
+    account?: INetworkAccount;
+    // Batch flow passes the same wallet-owned address set it feeds to
+    // computeBatchPsbtAmounts, so the drill-down TxConfirm's isChange
+    // classification matches the batch overview's change-vs-external split.
+    // Legacy `_signPsbt` omits it and keeps the single-address behavior.
+    ownedAddresses?: string[];
+  }): Promise<{
+    encodedTx: IEncodedTxBtc;
+    inputsToSign: ITxInputToSign[];
+  }> {
+    const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
+
+    const account =
+      providedAccount ??
+      (await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      }));
 
     let inputsToSign: ITxInputToSign[] = [];
     if (
@@ -808,14 +1078,21 @@ class ProviderApiBtc extends ProviderApiBase {
 
     // Check for change address:
     // 1. More than one output
-    // 2. Not all output addresses are the same as the current account address
+    // 2. Not all output addresses are owned by the current account
     // This often happens in BRC-20 transfer transactions
+    const ownedAddressSet = new Set(
+      ownedAddresses ?? (address ? [address] : []),
+    );
     const hasChangeAddress =
       decodedPsbt.outputInfos.length > 1 &&
-      !(decodedPsbt.outputInfos ?? []).every((v) => v.address === address);
+      !(decodedPsbt.outputInfos ?? []).every((v) =>
+        ownedAddressSet.has(v.address ?? ''),
+      );
 
     const outputs: IBtcOutput[] = (decodedPsbt.outputInfos ?? []).map((v) => {
-      const isChange = hasChangeAddress ? v.address === address : false;
+      const isChange = hasChangeAddress
+        ? ownedAddressSet.has(v.address ?? '')
+        : false;
       // check if the output is an inscription structure output
       const inputValue =
         inputAddresses.get(v.address ?? '') || new BigNumber(0);
@@ -837,26 +1114,61 @@ class ProviderApiBtc extends ProviderApiBase {
       };
     });
 
+    const encodedTx: IEncodedTxBtc = {
+      inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
+        ...v,
+        path: '',
+        value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
+      })) as IBtcInput[],
+      outputs,
+      inputsForCoinSelect: [],
+      outputsForCoinSelect: [],
+      fee: new BigNumber(decodedPsbt.fee).toFixed(),
+      inputsToSign,
+      psbtHex: psbt.toHex(),
+      disabledCoinSelect: true,
+      txSize: undefined,
+    };
+
+    return { encodedTx, inputsToSign };
+  }
+
+  async _signPsbt(
+    request: IJsBridgeMessagePayload,
+    params: {
+      psbt: Psbt;
+      psbtNetwork: BitcoinJS.networks.Network;
+      options?: ISignPsbtOptions;
+    },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const { psbt, psbtNetwork, options } = params;
+
+    const { encodedTx, inputsToSign } = await this.buildPsbtSignFlowPayload({
+      psbt,
+      psbtNetwork,
+      options,
+      accountId,
+      networkId,
+      address,
+    });
+
     const resp =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         accountId,
         networkId,
-        encodedTx: {
-          inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
-            ...v,
-            path: '',
-            value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
-          })) as IBtcInput[],
-          outputs,
-          inputsForCoinSelect: [],
-          outputsForCoinSelect: [],
-          fee: new BigNumber(decodedPsbt.fee).toFixed(),
-          inputsToSign,
-          psbtHex: psbt.toHex(),
-          disabledCoinSelect: true,
-          txSize: undefined,
-        },
+        encodedTx,
         signOnly: true,
       });
 
@@ -866,16 +1178,18 @@ class ProviderApiBtc extends ProviderApiBase {
         message: 'Failed to sign psbt',
       });
     }
-    const respPsbt = Psbt.fromHex(resp.psbtHex, { network: psbtNetwork });
 
-    if (options && options.autoFinalized === false) {
-      // do not finalize
-    } else {
-      inputsToSign.forEach((input: IToSignInput) => {
-        respPsbt.finalizeInput(input.index);
-      });
-    }
-    return respPsbt.toHex();
+    // KNOWN BEHAVIOR NOTE: the old tail always round-tripped
+    // Psbt.fromHex(...).toHex() even when autoFinalized === false; this
+    // helper returns the hex untouched in that case instead. Bytes are
+    // equivalent for our own signer output, so this is intentional.
+    const respPsbtHex = finalizeSignedPsbtHex({
+      signedPsbtHex: resp.psbtHex,
+      psbtNetwork,
+      inputsToSign,
+      autoFinalized: options?.autoFinalized,
+    });
+    return respPsbtHex;
   }
 
   @providerApiMethod()
