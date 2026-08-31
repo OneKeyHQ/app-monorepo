@@ -1,7 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions, type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -570,15 +569,6 @@ const showActionList = (
     </ModalNavigatorContext.Provider>,
   );
 };
-const debouncedShowActionList = debounce(
-  showActionList,
-  PROCESSING_RESET_DELAY,
-  {
-    leading: true,
-    trailing: false,
-  },
-);
-
 function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
 
@@ -616,8 +606,7 @@ function ActionListFrame(props: IActionListProps) {
   );
 }
 
-const show = (props: IShowActionListParams) =>
-  debouncedShowActionList(props, undefined);
+const show = (props: IShowActionListParams) => showActionList(props, undefined);
 
 export const ActionList = withStaticProperties(ActionListFrame, {
   show,

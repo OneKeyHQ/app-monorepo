@@ -16,10 +16,13 @@ function debounceEventHandler(
   if (!onPress) {
     return undefined;
   }
-  const debounced = debounce(onPress, onPressDebounce, {
-    leading: true,
-    trailing: false,
-  });
+  const debounced =
+    onPressDebounce > 0
+      ? debounce(onPress, onPressDebounce, {
+          leading: true,
+          trailing: false,
+        })
+      : debounce(onPress, onPressDebounce);
   return function (e: GestureResponderEvent) {
     if (stopPropagation) {
       e.stopPropagation();
