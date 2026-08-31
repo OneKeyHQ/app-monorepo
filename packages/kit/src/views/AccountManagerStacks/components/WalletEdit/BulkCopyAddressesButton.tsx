@@ -16,18 +16,22 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 export function BulkCopyAddressesButton({
   wallet,
   onClose,
   networkId,
   isPrimeActive,
   isPrimeUser,
+  entryPoint = 'accountSelectorAddMenu',
 }: {
   wallet: IDBWallet | undefined;
   networkId: string;
   isPrimeActive: boolean;
   isPrimeUser: boolean;
   onClose: () => void;
+  entryPoint?: 'walletEdit' | 'accountSelectorAddMenu';
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -41,6 +45,7 @@ export function BulkCopyAddressesButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.bulkCopyAddressesButton}
       icon="Copy3Outline"
       label={intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses,
@@ -61,7 +66,7 @@ export function BulkCopyAddressesButton({
         if (!isPrimeUser) {
           defaultLogger.prime.subscription.primeEntryClick({
             featureName: EPrimeFeatures.BulkCopyAddresses,
-            entryPoint: 'walletEdit',
+            entryPoint,
             isPrimeActive,
           });
           navigation?.pushModal(EModalRoutes.PrimeModal, {

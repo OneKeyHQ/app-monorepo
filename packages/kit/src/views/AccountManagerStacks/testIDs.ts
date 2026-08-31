@@ -19,6 +19,7 @@ export const AccountManagerTestIDs = {
   walletBackupButton: 'AccountSelector-WalletOption-Backup', // preserve existing
   walletBoundReferralCode: 'wallet-bound-referral-code-button', // preserve existing
   batchCreateAccountButton: 'batch-create-account-button-trigger', // preserve existing
+  bulkCopyAddressesButton: 'bulk-copy-addresses-button-trigger',
 
   // Account edit
   accountEditButton: (name: string) => `account-item-edit-button-${name}`, // preserve existing
