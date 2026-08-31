@@ -49,7 +49,13 @@ import {
 export class WcPayUserCancelledError extends OneKeyLocalError {}
 
 export type IWcPayInlinePlan =
-  | { mode: 'inline' }
+  | {
+      mode: 'inline';
+      // which calldata shape the consistency check proved: a transfer spends
+      // the order amount (budget-charged), an approve only enables the later
+      // permit (never charged, and gated on the executor's registry proof)
+      kind: 'transfer' | 'approve';
+    }
   | {
       mode: 'fallback';
       // Diagnostic text for logs/telemetry only — never render directly to
@@ -116,6 +122,15 @@ export type IWcPayInlineSolanaRequest =
  * old single-action gate would otherwise open.
  */
 export const WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE = 1;
+
+/**
+ * Hard ceiling on how many actions one payment sequence may carry (Phase 3
+ * §7). A legitimate payment never approaches it; a hostile 100-action
+ * sequence must fail outright rather than get a confirm page per action as
+ * a "fallback" griefing surface — so the executor THROWS on excess instead
+ * of falling back.
+ */
+export const WC_PAY_MAX_ACTIONS_PER_SEQUENCE = 8;
 
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
@@ -386,14 +401,26 @@ export function getWcPayInlineTxPlan({
   if (!consistency.ok) {
     return { mode: 'fallback', reason: consistency.reason };
   }
-  // Transitional guard: the validator accepts the Permit2 approve shape, but
-  // inlining it additionally requires the executor's registry proof of the
-  // token contract, which lands with the kind-aware plan (Phase 3 Task 6).
-  // Until then an approve must keep falling back to its confirm page.
-  if (consistency.kind === 'approve') {
-    return { mode: 'fallback', reason: 'approve inline pending' };
+  return {
+    mode: 'inline',
+    kind: consistency.kind === 'approve' ? 'approve' : 'transfer',
+  };
+}
+
+/**
+ * Whether approve calldata grants the customary unlimited (max-uint256)
+ * allowance. Read from the amount word alone; a malformed or missing
+ * calldata reads as limited — the answer only feeds the sheet copy, never a
+ * security decision (the validator already proved the shape).
+ */
+export function isWcPayUnlimitedApproveAmount(
+  data: string | undefined,
+): boolean {
+  if (typeof data !== 'string') {
+    return false;
   }
-  return { mode: 'inline' };
+  const amountWord = data.toLowerCase().slice(10 + 64);
+  return amountWord.length === 64 && /^f{64}$/.test(amountWord);
 }
 
 // Re-exported from this leaf module so a caller can resolve the permit's
@@ -765,9 +792,11 @@ export function classifyWcPayInlineFailure({
 export interface IWcPayInlineController {
   onPhase: (phase: IWcPayInlinePhase) => void;
   // What the sheet shows while a signature is being produced: the proven
-  // payload behind the `signingMessage` phase, tagged by which kind of
-  // signing it describes.
-  onSigningSummary?: (summary: IWcPayInlineSigningSummary) => void;
+  // payload behind the `signingMessage` phase (or the approve leg's send
+  // phases), tagged by which kind of signing it describes. `undefined`
+  // clears it — the executor clears at the top of every action so a stale
+  // summary can never describe a later action's signature.
+  onSigningSummary?: (summary: IWcPayInlineSigningSummary | undefined) => void;
   // 'retry' re-runs the attempt (honoured only for a fee-estimate failure —
   // the one transient class), 'fallback' reroutes to the confirm page,
   // 'abort' cancels the payment.

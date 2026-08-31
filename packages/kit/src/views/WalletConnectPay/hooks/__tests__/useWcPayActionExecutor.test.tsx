@@ -1729,3 +1729,218 @@ describe('useWcPayActionExecutor inline signing', () => {
     expect(wcPayInlineSignTypedData).not.toHaveBeenCalled();
   });
 });
+
+describe('useWcPayActionExecutor approve leg and sequence cap', () => {
+  const SENDER = '0x1111111111111111111111111111111111111111';
+  const TOKEN = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+  const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+  const option: IWcPayOption = {
+    id: 'opt-1',
+    account: `eip155:8453:${SENDER}`,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+  const approveData = (amountHex: string) =>
+    `0x095ea7b3${PERMIT2.slice(2).padStart(64, '0')}${amountHex.padStart(
+      64,
+      '0',
+    )}`;
+  const buildApproveAction = (amountHex = (1_000_000).toString(16)) =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [
+        { from: SENDER, to: TOKEN, value: '0x0', data: approveData(amountHex) },
+      ],
+      chainId: 'eip155:8453',
+    });
+  const buildTransferAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [{ from: SENDER, to: SENDER, value: '0xf4240' }],
+      chainId: 'eip155:8453',
+    });
+
+  const services = jest.requireMock<{
+    default: {
+      serviceToken: { fetchTokensDetails: jest.Mock };
+      serviceWalletConnectPay: {
+        waitForTxMined: jest.Mock;
+        isTxNeverBroadcast: jest.Mock;
+      };
+    };
+  }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+  const { wcPayInlineSendTx } = jest.requireMock<{
+    wcPayInlineSendTx: jest.Mock;
+  }>('../wcPayInlineSendTx');
+
+  const mockResolvedApproveToken = () => {
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([
+      { info: { address: TOKEN, symbol: 'USDC', decimals: 6 } },
+    ]);
+  };
+
+  beforeEach(() => {
+    pushModalMock.mockReset();
+    pushModalMock.mockImplementation((_route, { params }) => {
+      params.onSuccess([{ signedTx: { txid: '0xtxid-confirm' } }]);
+    });
+    wcPayInlineSendTx.mockReset();
+    wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
+    services.serviceToken.fetchTokensDetails.mockReset();
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([]);
+    services.serviceWalletConnectPay.waitForTxMined.mockReset();
+    services.serviceWalletConnectPay.waitForTxMined.mockResolvedValue({
+      isReverted: false,
+    });
+    services.serviceWalletConnectPay.isTxNeverBroadcast.mockReset();
+    services.serviceWalletConnectPay.isTxNeverBroadcast.mockResolvedValue(
+      false,
+    );
+  });
+
+  it('inlines the approve leg without charging the spend budget', async () => {
+    mockResolvedApproveToken();
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildApproveAction(), buildTransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: controller,
+    });
+
+    // both legs inline: the approve consumed no budget, so the transfer's
+    // spend was still available
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(2);
+    expect(wcPayInlineSendTx.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ intent: 'approve' }),
+    );
+    expect(wcPayInlineSendTx.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ intent: 'transfer' }),
+    );
+    expect(pushModalMock).not.toHaveBeenCalled();
+    expect(signatures).toEqual(['0xinline', '0xinline']);
+    expect(controller.onSigningSummary).toHaveBeenCalledWith({
+      kind: 'approve',
+      summary: { symbol: 'USDC', unlimited: false },
+    });
+  });
+
+  it('flags an unlimited allowance in the approve summary', async () => {
+    mockResolvedApproveToken();
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [buildApproveAction('f'.repeat(64))],
+      accountId: 'account-1',
+      option,
+      inlineController: controller,
+    });
+
+    expect(controller.onSigningSummary).toHaveBeenCalledWith({
+      kind: 'approve',
+      summary: { symbol: 'USDC', unlimited: true },
+    });
+  });
+
+  it('falls back to the confirm page when the approve token cannot be proven', async () => {
+    // default fetchTokensDetails mock resolves [] — unknown token
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildApproveAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xtxid-confirm']);
+  });
+
+  it('falls back when the resolved token disagrees with the order asset', async () => {
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([
+      { info: { address: TOKEN, symbol: 'SCAM', decimals: 6 } },
+    ]);
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [buildApproveAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not count a completed approve against a resumed budget', async () => {
+    mockResolvedApproveToken();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildApproveAction(), buildTransferAction()],
+      accountId: 'account-1',
+      // the approve was broadcast by an earlier run
+      completedResults: ['0xapprove-prev'],
+      option,
+      inlineController: buildController(),
+    });
+
+    // the transfer still inlines: the recorded approve consumed no budget
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(wcPayInlineSendTx.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ intent: 'transfer' }),
+    );
+    expect(signatures).toEqual(['0xapprove-prev', '0xinline']);
+  });
+
+  it('clears the signing summary at the top of every action', async () => {
+    mockResolvedApproveToken();
+    const controller = buildController();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [buildApproveAction(), buildTransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: controller,
+    });
+
+    // one clear per action, each BEFORE any summary of that action
+    const clearCalls = controller.onSigningSummary.mock.calls
+      .map((args: unknown[], index: number) => ({ args, index }))
+      .filter(({ args }) => args[0] === undefined);
+    expect(clearCalls).toHaveLength(2);
+    const approveSummaryIndex =
+      controller.onSigningSummary.mock.calls.findIndex(
+        (args: unknown[]) =>
+          (args[0] as { kind?: string } | undefined)?.kind === 'approve',
+      );
+    expect(clearCalls[0].index).toBeLessThan(approveSummaryIndex);
+  });
+
+  it('refuses a sequence longer than the action cap outright', async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: Array.from({ length: 9 }, () => buildTransferAction()),
+        accountId: 'account-1',
+        option,
+        inlineController: buildController(),
+      }),
+    ).rejects.toThrow('Too many payment actions');
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).not.toHaveBeenCalled();
+  });
+});

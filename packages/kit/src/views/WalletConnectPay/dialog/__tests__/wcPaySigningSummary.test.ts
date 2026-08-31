@@ -228,7 +228,7 @@ describe('describeWcPaySigningSummary — solana', () => {
 
 describe('personalSign summaries', () => {
   const personalSign = (text: string) =>
-    ({ kind: 'personalSign', summary: { text } } as const);
+    ({ kind: 'personalSign', summary: { text } }) as const;
 
   it('uses a message headline that does not name the amount', () => {
     expect(describeWcPaySigningHeadline(personalSign('hi'), '10 USDC')).toBe(
@@ -244,7 +244,7 @@ describe('personalSign summaries', () => {
 
 describe('approve summaries', () => {
   const approve = (unlimited: boolean) =>
-    ({ kind: 'approve', summary: { symbol: 'USDT', unlimited } } as const);
+    ({ kind: 'approve', summary: { symbol: 'USDT', unlimited } }) as const;
 
   it('names the token being allowed', () => {
     expect(describeWcPaySigningHeadline(approve(false), '10 USDT')).toBe(

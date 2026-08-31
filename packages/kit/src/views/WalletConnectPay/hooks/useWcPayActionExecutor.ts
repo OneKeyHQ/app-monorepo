@@ -41,6 +41,7 @@ import { wcPayInlineSendTx } from './wcPayInlineSendTx';
 import { wcPayInlineSignTypedData } from './wcPayInlineSignMessage';
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
+  WC_PAY_MAX_ACTIONS_PER_SEQUENCE,
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
@@ -49,6 +50,7 @@ import {
   getWcPayInlineSolanaPlan,
   getWcPayInlineSolanaRequest,
   getWcPayInlineTxPlan,
+  isWcPayUnlimitedApproveAmount,
   readWcPayPermitTokenAddress,
   runWcPayInlineAttempts,
 } from './wcPayInlineUtils';
@@ -95,7 +97,11 @@ function countWcPayCompletedInlineSpends({
     ) {
       return true;
     }
-    return getWcPayInlineTxPlan({ action, option }).mode === 'inline';
+    // Only the transfer kind is a spend: a completed approve enabled a later
+    // permit but moved nothing, and personal_sign is not listed above for
+    // the same reason — neither may consume the budget of a resumed run.
+    const plan = getWcPayInlineTxPlan({ action, option });
+    return plan.mode === 'inline' && plan.kind === 'transfer';
   }).length;
 }
 
@@ -255,6 +261,12 @@ export function useWcPayActionExecutor() {
       // re-executes the action instead of resuming a dead txid
       onActionInvalidated?: (params: { index: number }) => void | Promise<void>;
     }): Promise<string[]> => {
+      if (actions.length > WC_PAY_MAX_ACTIONS_PER_SEQUENCE) {
+        // A legitimate payment never approaches this; a hostile sequence
+        // must fail outright rather than get one confirm page per action
+        // as a "fallback" griefing surface (Phase 3 §7).
+        throw new OneKeyLocalError('Too many payment actions');
+      }
       const startIndex = Math.min(
         completedResults?.length ?? 0,
         actions.length,
@@ -528,6 +540,9 @@ export function useWcPayActionExecutor() {
         if (isStoppedAfterBroadcast()) {
           return results;
         }
+        // a summary reported for an earlier action must never describe this
+        // one; each leg that wants a summary re-reports its own
+        inlineController?.onSigningSummary?.(undefined);
         // terminate the whole sequence the moment the deadline passes;
         // progress persisted via onActionComplete keeps already-broadcast
         // transactions safe for the (server-driven) expired/failed settling
@@ -604,13 +619,61 @@ export function useWcPayActionExecutor() {
               // the gate is evaluated per action, so it judges the very
               // action this iteration executes
               let plan = getWcPayInlineTxPlan({ action: actions[i], option });
-              if (plan.mode === 'inline' && !takeInlineSpend()) {
+              // only the transfer kind spends the order amount; an approve
+              // enables the later permit and is never charged (Phase 3 §7)
+              if (
+                plan.mode === 'inline' &&
+                plan.kind === 'transfer' &&
+                !takeInlineSpend()
+              ) {
                 plan = {
                   mode: 'fallback',
                   reason: WC_PAY_INLINE_BUDGET_REASON,
                 };
               }
+              if (plan.mode === 'inline' && plan.kind === 'approve') {
+                // The calldata `to` is the token contract; prove its identity
+                // through the wallet registry — the same rule the permit leg
+                // applies to its token (§4.6). An approve for a token that is
+                // not the order's asset is exactly the shape a compromised
+                // server would send, and the pure validator cannot see it.
+                const approveTokenAddress = (encodedTx as { to?: string }).to;
+                const resolvedToken = approveTokenAddress
+                  ? await resolveWcPayToken({
+                      networkId,
+                      accountId: account.id,
+                      address: approveTokenAddress,
+                    })
+                  : undefined;
+                if (
+                  !resolvedToken ||
+                  resolvedToken.symbol !==
+                    option.amount?.display?.assetSymbol ||
+                  resolvedToken.decimals !== option.amount?.display?.decimals
+                ) {
+                  plan = { mode: 'fallback', reason: 'approve token mismatch' };
+                } else {
+                  // reported before the pipeline so the sheet describes the
+                  // allowance through the send-leg phases (§8)
+                  inlineController.onSigningSummary?.({
+                    kind: 'approve',
+                    summary: {
+                      symbol: resolvedToken.symbol,
+                      unlimited: isWcPayUnlimitedApproveAmount(
+                        (encodedTx as { data?: string }).data,
+                      ),
+                    },
+                  });
+                }
+              }
+              if (plan.mode === 'fallback') {
+                // the plan reasons otherwise vanish silently into the confirm
+                // push below; the signature legs log their fallbacks, and an
+                // approve demoted here must be as visible on a device
+                console.error('wcPay inline tx fallback', plan.reason);
+              }
               if (plan.mode === 'inline') {
+                const planKind = plan.kind;
                 const inlineOutcome = await runWcPayInlineAttempts({
                   controller: inlineController,
                   run: () =>
@@ -619,9 +682,9 @@ export function useWcPayActionExecutor() {
                       accountId: account.id,
                       unsignedTx,
                       option,
-                      // the transitional plan gate only admits transfers;
-                      // the approve kind arrives with the kind-aware plan
-                      intent: 'transfer',
+                      // the pipeline's final recheck asserts the signed tx
+                      // still has the calldata shape this plan approved
+                      intent: planKind,
                       sourceInfo: buildWcPaySourceInfo({
                         method,
                         params: parsed,

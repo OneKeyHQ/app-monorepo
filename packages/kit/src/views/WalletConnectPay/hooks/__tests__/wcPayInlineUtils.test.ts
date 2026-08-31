@@ -25,6 +25,7 @@ import {
   getWcPayInlineTxPlan,
   isWcPayInlinePostSignError,
   isWcPayInlineUserCancel,
+  isWcPayUnlimitedApproveAmount,
   nextWcPayPagePhaseAfterAttempt,
   runWcPayInlineAttempts,
 } from '../wcPayInlineUtils';
@@ -92,6 +93,31 @@ describe('getWcPayInlineTxPlan', () => {
   it('inlines a matching transfer action regardless of sequence length', () => {
     expect(getWcPayInlineTxPlan({ action: nativeAction, option })).toEqual({
       mode: 'inline',
+      kind: 'transfer',
+    });
+  });
+
+  it('inlines a Permit2 approve action, naming its kind', () => {
+    const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+    const approveAction: IWcPayAction = {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'eth_sendTransaction',
+        params: JSON.stringify([
+          {
+            from: SENDER,
+            to: '0x2222222222222222222222222222222222222222',
+            value: '0x0',
+            data: `0x095ea7b3${PERMIT2.slice(2).padStart(64, '0')}${(1_000_000)
+              .toString(16)
+              .padStart(64, '0')}`,
+          },
+        ]),
+      },
+    };
+    expect(getWcPayInlineTxPlan({ action: approveAction, option })).toEqual({
+      mode: 'inline',
+      kind: 'approve',
     });
   });
 
@@ -1119,5 +1145,31 @@ describe('getWcPayInlinePersonalSignPlan', () => {
       mode: 'fallback',
       reason: 'malformed action',
     });
+  });
+});
+
+describe('isWcPayUnlimitedApproveAmount', () => {
+  const PERMIT2_WORD =
+    '000000000022d473030f116ddee9f6b43ac78ba3'.padStart(64, '0');
+
+  it('recognizes the customary max-uint approve', () => {
+    expect(
+      isWcPayUnlimitedApproveAmount(
+        `0x095ea7b3${PERMIT2_WORD}${'f'.repeat(64)}`,
+      ),
+    ).toBe(true);
+  });
+
+  it('treats a finite amount as limited', () => {
+    expect(
+      isWcPayUnlimitedApproveAmount(
+        `0x095ea7b3${PERMIT2_WORD}${(1_000_000).toString(16).padStart(64, '0')}`,
+      ),
+    ).toBe(false);
+  });
+
+  it('treats missing or malformed calldata as limited', () => {
+    expect(isWcPayUnlimitedApproveAmount(undefined)).toBe(false);
+    expect(isWcPayUnlimitedApproveAmount('0x')).toBe(false);
   });
 });
