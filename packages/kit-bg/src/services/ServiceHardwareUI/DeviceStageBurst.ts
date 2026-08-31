@@ -152,15 +152,6 @@ const ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
 ]);
 
 /**
- * Who is on stage, kept across the burst.
- *
- * A payload saying `unknown` is one that does not know — the SDK stamps
- * that on every event carrying no device (progress ticks above all), and
- * taking it at face value would drop the replica mid-flow every time one
- * arrived. Identity only ever sharpens: once the stage knows the model,
- * only another real model replaces it.
- */
-/**
  * The failure's own words, for the card to speak when no reason claims
  * it (OK-59934).
  *
@@ -185,6 +176,15 @@ export function pickErrorMessage(error: unknown): string | undefined {
   return trimmed.length ? trimmed : undefined;
 }
 
+/**
+ * Who is on stage, kept across the burst.
+ *
+ * A payload saying `unknown` is one that does not know — the SDK stamps
+ * that on every event carrying no device (progress ticks above all), and
+ * taking it at face value would drop the replica mid-flow every time one
+ * arrived. Identity only ever sharpens: once the stage knows the model,
+ * only another real model replaces it.
+ */
 export function pickDeviceType(
   next: IDeviceStageState['deviceType'],
   prev: IDeviceStageState['deviceType'],
@@ -193,6 +193,25 @@ export function pickDeviceType(
     return next;
   }
   return prev ?? next;
+}
+
+/**
+ * The same rule for the identity's text fields — and `??` is not it.
+ *
+ * The SDK's call-end close arrives with `connectId: ''`, and an empty
+ * string is neither null nor undefined, so it wins a `??` and erases the
+ * device the stage had already named. That is how a burst reached its
+ * own end with no connectId to probe, leaving an unplugged device to
+ * land as a generic failure instead of a disconnect (OK-59934).
+ *
+ * Nothing is ever named by the empty string: it is the absence of news,
+ * and absence never replaces knowledge.
+ */
+export function pickIdentityText(
+  next: string | undefined,
+  prev: string | undefined,
+): string | undefined {
+  return next || prev;
 }
 
 export type IDeviceStageBurstBeginParams = {
@@ -489,6 +508,10 @@ export class DeviceStageBurstScope {
     this.authoredAuthStep = undefined;
     // The burst's own exit owns the beat from here.
     this.clearAuthHold();
+    // Kept for the probe below: a burst that failed inside its opening
+    // beat never painted, so the stage never learned the device — but
+    // the opening knew it all along.
+    const openingConnectId = this.pendingOpen?.connectId;
     this.clearPendingOpen();
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
@@ -504,7 +527,10 @@ export class DeviceStageBurstScope {
       this.isDeviceStillConnected
     ) {
       const stateAtLanding = await deviceStageAtom.get();
-      const connectId = stateAtLanding?.connectId;
+      const connectId = pickIdentityText(
+        stateAtLanding?.connectId,
+        openingConnectId,
+      );
       if (connectId) {
         let stillConnected: boolean | undefined;
         // DEVICE.DISCONNECT can land a beat after the failed call's
@@ -913,13 +939,24 @@ export class DeviceStageBurstScope {
     if (this.pendingOpen) {
       this.pendingOpen = {
         ...this.pendingOpen,
-        connectId: params.connectId ?? this.pendingOpen.connectId,
+        connectId: pickIdentityText(
+          params.connectId,
+          this.pendingOpen.connectId,
+        ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
-        deviceName: params.deviceName ?? this.pendingOpen.deviceName,
+        deviceName: pickIdentityText(
+          params.deviceName,
+          this.pendingOpen.deviceName,
+        ),
         vendor: params.vendor ?? this.pendingOpen.vendor,
-        vendorModel: params.vendorModel ?? this.pendingOpen.vendorModel,
-        vendorModelName:
-          params.vendorModelName ?? this.pendingOpen.vendorModelName,
+        vendorModel: pickIdentityText(
+          params.vendorModel,
+          this.pendingOpen.vendorModel,
+        ),
+        vendorModelName: pickIdentityText(
+          params.vendorModelName,
+          this.pendingOpen.vendorModelName,
+        ),
       };
       return;
     }
@@ -939,12 +976,15 @@ export class DeviceStageBurstScope {
       }
       return {
         ...prev,
-        connectId: params.connectId ?? prev.connectId,
+        connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
-        deviceName: params.deviceName ?? prev.deviceName,
+        deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
-        vendorModel: params.vendorModel ?? prev.vendorModel,
-        vendorModelName: params.vendorModelName ?? prev.vendorModelName,
+        vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
+        vendorModelName: pickIdentityText(
+          params.vendorModelName,
+          prev.vendorModelName,
+        ),
       };
     });
   }
@@ -1020,12 +1060,15 @@ export class DeviceStageBurstScope {
       this.clearPendingOpen();
       mergedExtras = {
         ...extras,
-        connectId: extras.connectId ?? opening.connectId,
+        connectId: pickIdentityText(extras.connectId, opening.connectId),
         deviceType: extras.deviceType ?? opening.deviceType,
-        deviceName: extras.deviceName ?? opening.deviceName,
+        deviceName: pickIdentityText(extras.deviceName, opening.deviceName),
         vendor: extras.vendor ?? opening.vendor,
-        vendorModel: extras.vendorModel ?? opening.vendorModel,
-        vendorModelName: extras.vendorModelName ?? opening.vendorModelName,
+        vendorModel: pickIdentityText(extras.vendorModel, opening.vendorModel),
+        vendorModelName: pickIdentityText(
+          extras.vendorModelName,
+          opening.vendorModelName,
+        ),
         resetOutcome: true,
       };
     }
@@ -1062,15 +1105,21 @@ export class DeviceStageBurstScope {
       return {
         burstId: this.burstSeq || (prev?.burstId ?? 1),
         step,
-        connectId: mergedExtras.connectId ?? base?.connectId,
+        connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
-        deviceName: mergedExtras.deviceName ?? base?.deviceName,
+        deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
         // never outlive their own step.
         vendor: mergedExtras.vendor ?? base?.vendor,
-        vendorModel: mergedExtras.vendorModel ?? base?.vendorModel,
-        vendorModelName: mergedExtras.vendorModelName ?? base?.vendorModelName,
+        vendorModel: pickIdentityText(
+          mergedExtras.vendorModel,
+          base?.vendorModel,
+        ),
+        vendorModelName: pickIdentityText(
+          mergedExtras.vendorModelName,
+          base?.vendorModelName,
+        ),
         thirdPartyAction: mergedExtras.thirdPartyAction,
         appName: mergedExtras.appName,
         installProgress: mergedExtras.installProgress,
