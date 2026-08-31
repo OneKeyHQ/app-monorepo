@@ -1,8 +1,13 @@
 const path = require('path');
 
 const {
+  ALLOCATION_VERSION,
+  MODULE_ID_RANGES,
+  REGISTRY_EPOCH,
+  SCHEMA_VERSION,
   collectRegistryErrors,
   createFileToIdMap,
+  getModuleIdDomain,
   isStrictRegistryMode,
   loadRegistry,
   toModuleKey,
@@ -10,8 +15,10 @@ const {
 
 function createRegistry({ modules = {}, tombstones = {} } = {}) {
   return {
-    schemaVersion: 1,
-    registryEpoch: 1,
+    schemaVersion: SCHEMA_VERSION,
+    registryEpoch: REGISTRY_EPOCH,
+    allocationVersion: ALLOCATION_VERSION,
+    ranges: MODULE_ID_RANGES,
     modules,
     tombstones,
   };
@@ -94,6 +101,21 @@ describe('moduleIdRegistry', () => {
     expect(fileMap.get(externalPath)).toBe(2);
   });
 
+  it('allocates lenient IDs inside independent module domains', () => {
+    const repoRoot = path.resolve('/tmp/worktree');
+    const fileMap = createFileToIdMap({
+      registry: createRegistry(),
+      repoRoot,
+      strict: false,
+    });
+
+    expect(fileMap.get(path.join(repoRoot, 'packages/new.ts'))).toBe(1);
+    expect(fileMap.get(path.join(repoRoot, 'node_modules/a/index.js'))).toBe(
+      MODULE_ID_RANGES.nodeModules.start,
+    );
+    expect(fileMap.get('\0virtual:test')).toBe(MODULE_ID_RANGES.virtual.start);
+  });
+
   it('rejects unknown and external paths in strict mode with an update hint', () => {
     const repoRoot = path.resolve('/tmp/worktree');
     const fileMap = createFileToIdMap({
@@ -164,5 +186,21 @@ describe('moduleIdRegistry', () => {
         'Module key is both active and tombstoned: packages/a.ts.',
       ]),
     );
+  });
+
+  it('classifies module ownership and rejects IDs outside its range', () => {
+    expect(getModuleIdDomain('packages/shared/index.ts')).toBe('workspace');
+    expect(getModuleIdDomain('node_modules/react/index.js')).toBe(
+      'nodeModules',
+    );
+    expect(getModuleIdDomain('__prelude__')).toBe('virtual');
+
+    expect(
+      collectRegistryErrors(
+        createRegistry({
+          modules: { 'node_modules/react/index.js': 1 },
+        }),
+      ),
+    ).toEqual([expect.stringContaining('must be in the nodeModules range')]);
   });
 });
