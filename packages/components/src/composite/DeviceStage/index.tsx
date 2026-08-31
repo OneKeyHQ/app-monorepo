@@ -482,6 +482,7 @@ export function DeviceStage({
   onQrNext,
   onQrBack,
   errorReason,
+  errorMessage,
   authChecklist,
   authFailureReason,
   authFailureMessage,
@@ -1200,6 +1201,7 @@ export function DeviceStage({
       deviceName,
       vendor,
       errorReason,
+      errorMessage,
     );
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
@@ -1539,7 +1541,14 @@ export function DeviceStage({
       <YStack>
         <View onLayout={panelMeasureHandlers.error.words}>
           <StepText
-            title={intl.formatMessage({ id: errorCopy.title })}
+            title={
+              // Same rule as the notice: the failure's own words when no
+              // reason claims it, the reason's considered wording when
+              // one does.
+              !errorReason && errorMessage
+                ? errorMessage
+                : intl.formatMessage({ id: errorCopy.title })
+            }
             sub={intl.formatMessage({ id: errorCopy.sub })}
             animated={errorAnimated}
           />
@@ -1557,7 +1566,15 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [errorAnimated, errorCopy, intl, onErrorAction, panelMeasureHandlers],
+    [
+      errorAnimated,
+      errorCopy,
+      errorMessage,
+      errorReason,
+      intl,
+      onErrorAction,
+      panelMeasureHandlers,
+    ],
   );
   const pairingCodePanel = useMemo(
     () => (
