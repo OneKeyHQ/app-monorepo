@@ -1008,27 +1008,26 @@ export function contextAtomBase<Value>({
           coldStartCacheKey: cacheKey,
         });
         const sourceValue = result[0];
-        if (!coldStartSourceValuesMap.has(scopedCacheKey)) {
+        const isInitialized = coldStartSourceValuesMap.has(scopedCacheKey);
+        if (
+          !isInitialized ||
+          coldStartSourceValuesMap.get(scopedCacheKey) !== sourceValue
+        ) {
           const currentValue = coldStartCacheTransform
             ? coldStartCacheTransform(sourceValue)
             : sourceValue;
           coldStartSourceValuesMap.set(scopedCacheKey, sourceValue);
           coldStartValuesMap.set(scopedCacheKey, currentValue);
-          coldStartLog(`init: ${scopedCacheKey}`);
-          return result;
-        }
-        if (coldStartSourceValuesMap.get(scopedCacheKey) !== sourceValue) {
-          const currentValue = coldStartCacheTransform
-            ? coldStartCacheTransform(sourceValue)
-            : sourceValue;
-          coldStartSourceValuesMap.set(scopedCacheKey, sourceValue);
-          coldStartValuesMap.set(scopedCacheKey, currentValue);
-          patchGlobalColdStartSnapshot({
-            scopedKey: scopedCacheKey,
-            value: currentValue,
-          });
-          coldStartLog(`changed: ${scopedCacheKey}`);
-          scheduleColdStartSave(scopedCacheKey);
+          if (isInitialized) {
+            patchGlobalColdStartSnapshot({
+              scopedKey: scopedCacheKey,
+              value: currentValue,
+            });
+            coldStartLog(`changed: ${scopedCacheKey}`);
+            scheduleColdStartSave(scopedCacheKey);
+          } else {
+            coldStartLog(`init: ${scopedCacheKey}`);
+          }
         }
         return result;
       }

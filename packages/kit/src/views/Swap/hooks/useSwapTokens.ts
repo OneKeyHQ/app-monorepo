@@ -62,7 +62,6 @@ import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
   buildServerAuthoritativeSearchResults,
   releaseSwapTokenListFetchEffectKey,
-  shouldShowSwapTokenListLoading,
 } from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
@@ -649,21 +648,19 @@ export function useSwapTokenList(
     currentTokensRef.current = currentTokens;
   }
 
-  const hasCurrentScopeSnapshot = Boolean(
+  const isAllNetworkListReady =
+    !isTokenFetchAllNetworks ||
+    (allNetworkTokenListReady && swapAllNetworkTokenList !== undefined);
+  const hasCurrentScopeSnapshot =
     isSwapSupportAllAccountsReady &&
-    tokenListCacheEntry &&
-    (!isTokenFetchAllNetworks ||
-      (allNetworkTokenListReady && swapAllNetworkTokenList !== undefined)),
-  );
-  const fetchLoading = shouldShowSwapTokenListLoading({
-    hasCurrentScopeSnapshot,
-    isAllNetworkListReady:
-      !isTokenFetchAllNetworks ||
-      (allNetworkTokenListReady && swapAllNetworkTokenList !== undefined),
-    isSupportAccountsReady: isSwapSupportAllAccountsReady,
-    isTokenListFetchSettled,
-    isTokenListFetching: swapTokenFetching,
-  });
+    Boolean(tokenListCacheEntry) &&
+    isAllNetworkListReady;
+  const fetchLoading =
+    !hasCurrentScopeSnapshot &&
+    (!isSwapSupportAllAccountsReady ||
+      !isTokenListFetchSettled ||
+      swapTokenFetching ||
+      !isAllNetworkListReady);
 
   return {
     fetchLoading,

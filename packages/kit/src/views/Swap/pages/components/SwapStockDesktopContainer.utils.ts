@@ -109,13 +109,10 @@ export function shouldDeferStockInitialContent({
   channelStage: ESwapStockChannelStage;
   startedWithoutContent: boolean;
 }) {
-  if (!startedWithoutContent) {
-    return false;
-  }
   return (
-    channelStage === ESwapStockChannelStage.InitializingStock ||
-    channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
-    channelStage === ESwapStockChannelStage.InitializingPayToken
+    startedWithoutContent &&
+    (isStockMarketPanelLoadingStage(channelStage) ||
+      channelStage === ESwapStockChannelStage.InitializingPayToken)
   );
 }
 

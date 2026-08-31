@@ -27,7 +27,7 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
 type ISpeedSwapConfigState = {
   config: ISpeedSwapConfig;
   scope?: string;
-  shouldPersist: boolean;
+  fromCache?: boolean;
 };
 
 export function useSpeedSwapInit(
@@ -42,7 +42,6 @@ export function useSpeedSwapInit(
           return {
             config: defaultSpeedSwapConfig,
             scope: speedSwapConfigScope,
-            shouldPersist: true,
           };
         }
         try {
@@ -53,7 +52,6 @@ export function useSpeedSwapInit(
           return {
             config,
             scope: speedSwapConfigScope,
-            shouldPersist: true,
           };
         } catch {
           const cachedConfig = speedSwapConfigScope
@@ -72,7 +70,7 @@ export function useSpeedSwapInit(
                 ? cachedConfig.config
                 : defaultSpeedSwapConfig,
             scope: speedSwapConfigScope,
-            shouldPersist: false,
+            fromCache: true,
           };
         }
       },
@@ -81,13 +79,12 @@ export function useSpeedSwapInit(
         initResult: {
           config: defaultSpeedSwapConfig,
           scope: undefined,
-          shouldPersist: true,
         },
         watchLoading: true,
         swrKey: speedSwapConfigScope
           ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
           : undefined,
-        swrShouldPersist: (result) => result.shouldPersist !== false,
+        swrShouldPersist: (result) => !result.fromCache,
       },
     );
   const speedSwapConfigReady =

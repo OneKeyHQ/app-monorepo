@@ -10,31 +10,6 @@ export function releaseSwapTokenListFetchEffectKey({
   return latestEffectKey === effectKey ? '' : latestEffectKey;
 }
 
-export function shouldShowSwapTokenListLoading({
-  hasCurrentScopeSnapshot,
-  isAllNetworkListReady,
-  isSupportAccountsReady,
-  isTokenListFetchSettled,
-  isTokenListFetching,
-}: {
-  hasCurrentScopeSnapshot: boolean;
-  isAllNetworkListReady: boolean;
-  isSupportAccountsReady: boolean;
-  isTokenListFetchSettled: boolean;
-  isTokenListFetching: boolean;
-}) {
-  if (hasCurrentScopeSnapshot) {
-    return false;
-  }
-
-  return (
-    !isSupportAccountsReady ||
-    !isTokenListFetchSettled ||
-    isTokenListFetching ||
-    !isAllNetworkListReady
-  );
-}
-
 // The server also matches aliases that are not present in the display fields.
 // Fuse enriches those rows with highlights but must not decide membership.
 export function buildServerAuthoritativeSearchResults<T>(

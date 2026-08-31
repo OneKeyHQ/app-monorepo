@@ -306,10 +306,6 @@ const NS = {
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
   swapHistoryPreviewList: 'swapHistoryPreviewList',
-  swapKLineStableChecks: 'swapKLineStableChecks',
-  swapKLineTokenMarketInfo: 'swapKLineTokenMarketInfo',
-  swapStockChartCoinGeckoId: 'swapStockChartCoinGeckoId',
-  swapStockSelectorMetadata: 'swapStockSelectorMetadata',
   swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
@@ -647,13 +643,13 @@ export const swrKeys = {
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
   swapKLineStableChecks: ({ scope }: { scope: string }) =>
-    [NS.swapKLineStableChecks, 'v1', scope].join(':'),
+    ['swapKLineStableChecks', 'v1', scope].join(':'),
   swapKLineTokenMarketInfo: ({ tokenScope }: { tokenScope: string }) =>
-    [NS.swapKLineTokenMarketInfo, 'v1', tokenScope].join(':'),
+    ['swapKLineTokenMarketInfo', 'v1', tokenScope].join(':'),
   swapStockChartCoinGeckoId: ({ tokenScope }: { tokenScope: string }) =>
-    [NS.swapStockChartCoinGeckoId, 'v1', tokenScope].join(':'),
+    ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':'),
   swapStockSelectorMetadata: ({ scope }: { scope: string }) =>
-    [NS.swapStockSelectorMetadata, 'v1', scope].join(':'),
+    ['swapStockSelectorMetadata', 'v1', scope].join(':'),
   swapStockChart: ({
     networkId,
     tokenAddress,

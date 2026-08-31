@@ -381,6 +381,7 @@ describe('jotaiContextStore reset flow', () => {
       contractAddress: '0xtoken',
       symbol: 'TOKEN',
       decimals: 18,
+      logoURI: 'https://example.com/token.png',
     });
   });
 
