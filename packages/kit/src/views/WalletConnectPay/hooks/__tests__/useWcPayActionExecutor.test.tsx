@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
 
 import {
+  WC_PAY_INLINE_APPROVE_BUDGET_REASON,
   WC_PAY_INLINE_BUDGET_REASON,
   useWcPayActionExecutor,
 } from '../useWcPayActionExecutor';
@@ -2089,5 +2090,85 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
     expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
     expect(pushModalMock).not.toHaveBeenCalled();
     expect(signatures).toEqual(['0xsig-personal-inline', '0xinline']);
+  });
+});
+
+describe('useWcPayActionExecutor approve budget', () => {
+  const SENDER = '0x1111111111111111111111111111111111111111';
+  const TOKEN = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+  const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+  const option: IWcPayOption = {
+    id: 'opt-1',
+    account: `eip155:8453:${SENDER}`,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+  const buildApproveAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [
+        {
+          from: SENDER,
+          to: TOKEN,
+          value: '0x0',
+          data: `0x095ea7b3${PERMIT2.slice(2).padStart(64, '0')}${(1_000_000)
+            .toString(16)
+            .padStart(64, '0')}`,
+        },
+      ],
+      chainId: 'eip155:8453',
+    });
+
+  const services = jest.requireMock<{
+    default: {
+      serviceToken: { fetchTokensDetails: jest.Mock };
+      serviceWalletConnectPay: { waitForTxMined: jest.Mock };
+    };
+  }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+  const { wcPayInlineSendTx } = jest.requireMock<{
+    wcPayInlineSendTx: jest.Mock;
+  }>('../wcPayInlineSendTx');
+
+  beforeEach(() => {
+    pushModalMock.mockReset();
+    pushModalMock.mockImplementation((_route, { params }) => {
+      params.onSuccess([{ signedTx: { txid: '0xtxid-confirm' } }]);
+    });
+    wcPayInlineSendTx.mockReset();
+    wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
+    services.serviceToken.fetchTokensDetails.mockReset();
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([
+      { info: { address: TOKEN, symbol: 'USDC', decimals: 6 } },
+    ]);
+    services.serviceWalletConnectPay.waitForTxMined.mockReset();
+    services.serviceWalletConnectPay.waitForTxMined.mockResolvedValue({
+      isReverted: false,
+    });
+  });
+
+  it('inlines only the first approve of a sequence', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildApproveAction(), buildApproveAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xinline', '0xtxid-confirm']);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      WC_PAY_INLINE_APPROVE_BUDGET_REASON,
+    );
+    errorSpy.mockRestore();
   });
 });

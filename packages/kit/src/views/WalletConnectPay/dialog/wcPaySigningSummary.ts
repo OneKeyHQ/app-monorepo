@@ -2,6 +2,8 @@ import BigNumber from 'bignumber.js';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { sanitizeWcPayDisplayText } from '../hooks/wcPayInlineUtils';
+
 import type { IWcPayInlineSigningSummary } from '../hooks/wcPayInlineUtils';
 
 // The two lines the sheet shows while a headless signature is being produced:
@@ -15,6 +17,12 @@ import type { IWcPayInlineSigningSummary } from '../hooks/wcPayInlineUtils';
 const LAMPORTS_PER_SOL_DECIMALS = 9;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * 60;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+
+// A registry symbol interpolated into trusted consent copy: long enough for
+// every legitimate ticker, short enough that a padded scam symbol cannot
+// smuggle a sentence into the headline.
+const APPROVE_SYMBOL_MAX_CHARS = 12;
 
 /**
  * The headline is split on `kind` rather than shared, because each signature
@@ -34,19 +42,33 @@ export function describeWcPaySigningHeadline(
     case 'personalSign':
       return 'Sign this message for the merchant';
     case 'approve':
-      return `Allow Permit2 to use your ${summary.summary.symbol}`;
+      // The symbol is server/registry-derived and lands inside trusted
+      // consent copy — sanitized and bounded so a crafted symbol cannot
+      // reorder or extend the headline (the personal_sign gate's rule).
+      return `Allow Permit2 to use your ${sanitizeWcPayDisplayText(
+        summary.summary.symbol,
+        APPROVE_SYMBOL_MAX_CHARS,
+      )}`;
     case 'solana':
-    default:
       return `Sign this ${amountText} payment`;
+    default: {
+      // compile-time exhaustiveness: a new signing kind must choose its own
+      // headline rather than silently inherit the Solana spend wording
+      const unhandled: never = summary;
+      throw new Error(`Unhandled signing summary: ${String(unhandled)}`);
+    }
   }
 }
 
 /**
  * How much longer the permit stays valid, always relative: the validator
- * refuses a deadline further out than WC_PAY_PERMIT_MAX_DEADLINE_S (24h), so
- * an absolute timestamp would only add a timezone the reader has to convert.
+ * refuses a deadline further out than WC_PAY_PERMIT_MAX_DEADLINE_S (30
+ * days), so an absolute timestamp would only add a timezone the reader has
+ * to convert. The days unit exists because multi-week server-issued
+ * deadlines are the common inline case — "672 h" is not a duration anyone
+ * parses.
  *
- * Both units are FLOORED — the text may never claim more validity than the
+ * All units are FLOORED — the text may never claim more validity than the
  * signature actually has. The non-finite branch is totality, not a defense:
  * `deadlineSec` is produced in-process from a regex-validated uint, so it
  * cannot arrive as NaN today; the branch keeps the function total if that
@@ -72,7 +94,10 @@ function describeWcPayPermitExpiry({
   if (remainingSec < SECONDS_PER_HOUR) {
     return `Expires in ${Math.floor(remainingSec / SECONDS_PER_MINUTE)} min`;
   }
-  return `Expires in ${Math.floor(remainingSec / SECONDS_PER_HOUR)} h`;
+  if (remainingSec < SECONDS_PER_DAY) {
+    return `Expires in ${Math.floor(remainingSec / SECONDS_PER_HOUR)} h`;
+  }
+  return `Expires in ${Math.floor(remainingSec / SECONDS_PER_DAY)} d`;
 }
 
 export function describeWcPaySigningSummary(

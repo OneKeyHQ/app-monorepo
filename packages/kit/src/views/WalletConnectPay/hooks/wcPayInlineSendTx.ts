@@ -289,8 +289,9 @@ export async function wcPayInlineSendTx({
     totalFiatForDisplay,
   } = feeForSend;
 
-  // The inline path only ever runs for a single plain EVM transfer (see
-  // getWcPayInlineTxPlan), so the encodedTx is an EVM tx.
+  // The inline path only ever runs for the shapes getWcPayInlineTxPlan
+  // admits — a plain EVM transfer or the Permit2 approve leg — so the
+  // encodedTx is an EVM tx either way.
   const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
   const tokenAddress = isWcPayEmptyCalldata(encodedTx.data)
     ? undefined
@@ -321,8 +322,13 @@ export async function wcPayInlineSendTx({
           feeInfo,
           totalNative,
           // The order amount is the raw smallest-unit value the pre-flight
-          // consistency check already proved equal to this tx's transfer
-          // amount, and the final recheck below re-proves it on the signed tx.
+          // consistency check bound this tx to: equal to the transfer
+          // amount for the transfer intent, a floor under the allowance for
+          // the approve intent. The approve leg keeps this token-balance
+          // requirement deliberately — its own tx moves nothing, but the
+          // sequence it enables spends exactly this amount, so a short
+          // balance should surface here rather than after an approve is
+          // burned on a payment that cannot complete.
           orderAmount: option.amount.value,
         }),
       ),

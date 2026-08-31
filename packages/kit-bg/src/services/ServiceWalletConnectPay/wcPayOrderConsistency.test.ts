@@ -663,3 +663,26 @@ describe('checkWcPayEvmActionMatchesOrder — Permit2 approve shape', () => {
     });
   });
 });
+
+describe('approve amount word fail-closed', () => {
+  it('rejects a non-hex amount word instead of passing it as NaN', () => {
+    const PERMIT2_WORD = '000000000022d473030f116ddee9f6b43ac78ba3'.padStart(
+      64,
+      '0',
+    );
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        // valid selector + spender word, amount word is not hex
+        data: `0x095ea7b3${PERMIT2_WORD}${'z'.repeat(64)}`,
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'invalid approve amount word',
+    });
+  });
+});

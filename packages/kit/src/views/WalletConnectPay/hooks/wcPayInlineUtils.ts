@@ -132,6 +132,15 @@ export const WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE = 1;
  */
 export const WC_PAY_MAX_ACTIONS_PER_SEQUENCE = 8;
 
+/**
+ * How many approve broadcasts a sequence may inline. An approve is not a
+ * spend (it only enables the later permit, and is pinned to Permit2 + the
+ * order token), so it stays outside the spend budget — but without a bound
+ * of its own, a hostile sequence could burn gas on one headless approve per
+ * remaining action slot. A legitimate Permit2 flow needs exactly one.
+ */
+export const WC_PAY_MAX_INLINE_APPROVES_PER_SEQUENCE = 1;
+
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
 // shapes (design doc §7).
@@ -408,10 +417,16 @@ export function getWcPayInlineTxPlan({
 }
 
 /**
- * Whether approve calldata grants the customary unlimited (max-uint256)
- * allowance. Read from the amount word alone; a malformed or missing
- * calldata reads as limited — the answer only feeds the sheet copy, never a
- * security decision (the validator already proved the shape).
+ * Whether approve calldata grants an effectively unlimited allowance, for
+ * DISCLOSURE: the validator accepts any amount covering the order, so the
+ * customary max-uint256 is not the only unbounded shape — a near-max value
+ * (2^256-2, 2^200, …) authorizes just as much and must not be presented as
+ * an ordinary one-time allowance. The threshold is 2^128 (top half of the
+ * amount word non-zero): unreachable by any real token amount, far below
+ * anything a spoofer could pass off as bounded. Read from the amount word
+ * alone; malformed or missing calldata reads as limited — the answer only
+ * feeds the sheet copy, never a security decision (the validator already
+ * proved the shape).
  */
 export function isWcPayUnlimitedApproveAmount(
   data: string | undefined,
@@ -420,7 +435,7 @@ export function isWcPayUnlimitedApproveAmount(
     return false;
   }
   const amountWord = data.toLowerCase().slice(10 + 64);
-  return amountWord.length === 64 && /^f{64}$/.test(amountWord);
+  return amountWord.length === 64 && !/^0{32}/.test(amountWord);
 }
 
 // Re-exported from this leaf module so a caller can resolve the permit's
@@ -612,11 +627,45 @@ export function getWcPayInlineSolanaPlan({
  */
 export const WC_PAY_PERSONAL_SIGN_MAX_BYTES = 4096;
 
-// Control characters other than \n \r \t would let the rendered text lie
-// about what is being signed (cursor tricks, bells, embedded nulls).
+/**
+ * Minimum time the message stays on screen before the signature is
+ * requested. Display is this leg's whole consent contract, and with a
+ * cached password nothing else pauses the pipeline — without a dwell the
+ * summary could be signed away within a frame of appearing.
+ */
+export const WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS = 1500;
+
+// Characters that would let the rendered text lie about what is being
+// signed: C0/C1 controls and DEL (cursor tricks, bells, embedded nulls;
+// only \n \r \t are legitimate), zero-width characters and direction
+// marks (U+200B-200F), line/paragraph separators (U+2028/29), bidi
+// embedding and override controls (U+202A-202E), invisible operators and
+// bidi isolates (U+2060-2069), and the BOM (U+FEFF) - a bidi override
+// alone can visually reorder a payment instruction in the trusted sheet
+// while those exact bytes are signed.
 // eslint-disable-next-line no-control-regex
 const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u2069\uFEFF]/u;
+
+/**
+ * Strips the forbidden display characters above and bounds the length, for
+ * server-derived strings interpolated into the sheet's trusted copy (the
+ * approve headline's token symbol). The personal_sign gate REFUSES such
+ * content instead - refusal has a fallback page to go to, a symbol does
+ * not.
+ */
+export function sanitizeWcPayDisplayText(
+  text: string,
+  maxLength: number,
+): string {
+  const cleaned = Array.from(text)
+    .filter((char) => !PERSONAL_SIGN_FORBIDDEN_CHARS_RE.test(char))
+    .join('')
+    .trim();
+  return cleaned.length > maxLength
+    ? `${cleaned.slice(0, maxLength)}…`
+    : cleaned;
+}
 
 /**
  * The human-readable decode of a normalized personal_sign message, or
@@ -627,6 +676,14 @@ const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
 function decodeWcPayPersonalSignText(message: string): string | undefined {
   let text = message;
   if (/^0x[0-9a-fA-F]*$/.test(message)) {
+    // An odd nibble count decodes differently here (Buffer drops the
+    // trailing nibble) than in the signer (which pads), so the display
+    // would show the decode of DIFFERENT bytes than are signed. Refuse
+    // outright rather than treat it as text - the signer still reads a
+    // hex-looking string as hex.
+    if (message.length % 2 !== 0) {
+      return undefined;
+    }
     const bytes = Buffer.from(message.slice(2), 'hex');
     text = bytes.toString('utf8');
     // A lossy decode (invalid UTF-8 becomes U+FFFD) or a non-round-tripping

@@ -1,6 +1,7 @@
 import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IWcPayOption } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -8,6 +9,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import {
+  WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS,
   WcPayUserCancelledError,
   isWcPayInlineUserCancel,
   wcPayInlineSignFallbackReason,
@@ -150,10 +152,17 @@ export async function wcPayInlineSignPersonalMessage({
     throw new OneKeyLocalError('This payment cannot be completed right now');
   }
 
+  throwIfCancelled();
+  onPhase?.('signingMessage');
+  // Display-before-sign, enforced: the sheet shows the message during this
+  // phase, and display is this leg's whole consent contract — with a cached
+  // password nothing else would keep the message on screen for even a
+  // frame before it is signed. The dwell sits before the last cancel gate
+  // so a page closed while the message is showing still cancels unsigned.
+  await timerUtils.wait(WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS);
   // Last pre-sign gate: past this point the signing session (hardware
   // especially) must run to completion rather than be abandoned.
   throwIfCancelled();
-  onPhase?.('signingMessage');
   let signature: string;
   try {
     signature = await backgroundApiProxy.serviceSend.signMessage({

@@ -7,7 +7,10 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { wcPayInlineSignPersonalMessage } from '../wcPayInlineSignPersonalMessage';
-import { WcPayUserCancelledError } from '../wcPayInlineUtils';
+import {
+  WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS,
+  WcPayUserCancelledError,
+} from '../wcPayInlineUtils';
 
 // yarn jest packages/kit/src/views/WalletConnectPay/hooks/__tests__/wcPayInlineSignPersonalMessage.test.ts
 
@@ -21,6 +24,22 @@ jest.mock('@onekeyhq/shared/src/utils/messageUtils', () => ({
   ),
   validateTypedSignMessageDataV3V4: jest.fn(),
 }));
+
+// The display dwell is a real wall-clock wait in production; only `wait` is
+// stubbed (other transitive consumers call the module at import time) so the
+// suite stays fast while the dwell's placement is asserted.
+jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
+  const actual = jest.requireActual<{
+    default: Record<string, unknown>;
+  }>('@onekeyhq/shared/src/utils/timerUtils');
+  return {
+    __esModule: true,
+    default: {
+      ...actual.default,
+      wait: jest.fn().mockResolvedValue(undefined),
+    },
+  };
+});
 
 // Every background method the pipeline touches must exist here: a missing one
 // would throw a TypeError that the pre-sign try/catch reports as a fallback,
@@ -258,5 +277,48 @@ describe('wcPayInlineSignPersonalMessage', () => {
       wcPayInlineSignPersonalMessage(baseParams),
     ).rejects.toBeInstanceOf(WcPayUserCancelledError);
     expect(api.serviceAccount.checkIsWalletNotBackedUp).not.toHaveBeenCalled();
+  });
+});
+
+describe('wcPayInlineSignPersonalMessage display dwell', () => {
+  const timerUtils = jest.requireMock<{
+    default: { wait: jest.Mock };
+  }>('@onekeyhq/shared/src/utils/timerUtils').default;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    api.serviceAccount.checkIsWalletNotBackedUp.mockResolvedValue(false);
+    api.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+      ACCOUNT_ADDRESS,
+    );
+    api.serviceSend.signMessage.mockResolvedValue(SIGNATURE);
+    api.serviceSignature.addItemFromSignMessage.mockResolvedValue(undefined);
+    timerUtils.wait.mockResolvedValue(undefined);
+  });
+
+  it('holds the message on screen before requesting the signature', async () => {
+    await wcPayInlineSignPersonalMessage(baseParams);
+
+    expect(timerUtils.wait).toHaveBeenCalledWith(
+      WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS,
+    );
+    // dwell strictly precedes the signature request — display-before-sign
+    // is this leg's whole consent contract
+    expect(timerUtils.wait.mock.invocationCallOrder[0]).toBeLessThan(
+      api.serviceSend.signMessage.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still cancels unsigned when the page closes during the dwell', async () => {
+    timerUtils.wait.mockImplementationOnce(async () => {
+      throwIfCancelled.mockImplementationOnce(() => {
+        throw new WcPayUserCancelledError('User canceled payment');
+      });
+    });
+
+    await expect(
+      wcPayInlineSignPersonalMessage(baseParams),
+    ).rejects.toBeInstanceOf(WcPayUserCancelledError);
+    expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
   });
 });

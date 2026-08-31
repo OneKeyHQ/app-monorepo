@@ -254,6 +254,13 @@ export function checkWcPayEvmTxMatchesOrder({
       return { ok: false, reason: 'approve spender is not Permit2' };
     }
     const approveAmount = new BigNumber(normalizedData.slice(10 + 64), 16);
+    // Fail-closed on an unparseable word FIRST: this comparison is written
+    // in the ACCEPTING direction (unlike the transfer branch's isEqualTo),
+    // so a NaN from non-hex calldata would sail through isLessThan === false
+    // and approve calldata the validator never understood.
+    if (!approveAmount.isFinite()) {
+      return { ok: false, reason: 'invalid approve amount word' };
+    }
     // Lenient by recorded product decision (2026-08-31): the customary
     // unlimited approve (2^256-1) and any amount covering the order both
     // pass; the later permit signature is what pins the actual spend to the

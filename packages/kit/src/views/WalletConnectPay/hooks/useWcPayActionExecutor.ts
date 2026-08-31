@@ -43,6 +43,7 @@ import { wcPayInlineSignPersonalMessage } from './wcPayInlineSignPersonalMessage
 import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_ACTIONS_PER_SEQUENCE,
+  WC_PAY_MAX_INLINE_APPROVES_PER_SEQUENCE,
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
@@ -74,6 +75,10 @@ export { WcPayUserCancelledError };
 // it can never drift apart.
 export const WC_PAY_INLINE_BUDGET_REASON = 'inline spend budget exhausted';
 
+// The approve counterpart, kept beside its sibling for the same reason.
+export const WC_PAY_INLINE_APPROVE_BUDGET_REASON =
+  'inline approve budget exhausted';
+
 /**
  * How many inline-eligible spends a resumed run must consider already made.
  *
@@ -104,6 +109,24 @@ function countWcPayCompletedInlineSpends({
     // the same reason — neither may consume the budget of a resumed run.
     const plan = getWcPayInlineTxPlan({ action, option });
     return plan.mode === 'inline' && plan.kind === 'transfer';
+  }).length;
+}
+
+/**
+ * Fail-closed seeding for the approve budget, the same rule the spend
+ * counter applies: a completed approve-shaped action may well have been
+ * inlined, so a resumed sequence must not inline a second one.
+ */
+function countWcPayCompletedInlineApproves({
+  completedActions,
+  option,
+}: {
+  completedActions: IWcPayAction[];
+  option: IWcPayOption | undefined;
+}): number {
+  return completedActions.filter((action) => {
+    const plan = getWcPayInlineTxPlan({ action, option });
+    return plan.mode === 'inline' && plan.kind === 'approve';
   }).length;
 }
 
@@ -528,6 +551,25 @@ export function useWcPayActionExecutor() {
         inlinedSpends += 1;
         return true;
       };
+      // The approve budget, same consumption rule: taken at the attempt.
+      // Outside the spend budget (an approve moves nothing) but bounded on
+      // its own, or a hostile sequence could burn gas on one headless
+      // approve per remaining action slot.
+      let inlinedApproves = countWcPayCompletedInlineApproves({
+        completedActions: actions.slice(0, effectiveStartIndex),
+        option,
+      });
+      const takeInlineApprove = () => {
+        if (inlinedApproves >= WC_PAY_MAX_INLINE_APPROVES_PER_SEQUENCE) {
+          console.error(
+            'wcPay inline fallback',
+            WC_PAY_INLINE_APPROVE_BUDGET_REASON,
+          );
+          return false;
+        }
+        inlinedApproves += 1;
+        return true;
+      };
 
       for (let i = effectiveStartIndex; i < actions.length; i += 1) {
         // the page owning this flow may have unmounted during the resume
@@ -633,6 +675,16 @@ export function useWcPayActionExecutor() {
                   reason: WC_PAY_INLINE_BUDGET_REASON,
                 };
               }
+              if (
+                plan.mode === 'inline' &&
+                plan.kind === 'approve' &&
+                !takeInlineApprove()
+              ) {
+                plan = {
+                  mode: 'fallback',
+                  reason: WC_PAY_INLINE_APPROVE_BUDGET_REASON,
+                };
+              }
               if (plan.mode === 'inline' && plan.kind === 'approve') {
                 // The calldata `to` is the token contract; prove its identity
                 // through the wallet registry — the same rule the permit leg
@@ -649,6 +701,11 @@ export function useWcPayActionExecutor() {
                   : undefined;
                 if (
                   !resolvedToken ||
+                  // the registry must be answering about the very contract
+                  // that was asked (parity with the permit/Solana legs'
+                  // address checks), not a normalized substitute
+                  resolvedToken.address.toLowerCase() !==
+                    approveTokenAddress?.toLowerCase() ||
                   resolvedToken.symbol !==
                     option.amount?.display?.assetSymbol ||
                   resolvedToken.decimals !== option.amount?.display?.decimals

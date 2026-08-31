@@ -28,6 +28,7 @@ import {
   isWcPayUnlimitedApproveAmount,
   nextWcPayPagePhaseAfterAttempt,
   runWcPayInlineAttempts,
+  sanitizeWcPayDisplayText,
 } from '../wcPayInlineUtils';
 
 import type {
@@ -1173,5 +1174,85 @@ describe('isWcPayUnlimitedApproveAmount', () => {
   it('treats missing or malformed calldata as limited', () => {
     expect(isWcPayUnlimitedApproveAmount(undefined)).toBe(false);
     expect(isWcPayUnlimitedApproveAmount('0x')).toBe(false);
+  });
+});
+
+describe('review-hardening: unlimited threshold and displayability', () => {
+  const PERMIT2_WORD = '000000000022d473030f116ddee9f6b43ac78ba3'.padStart(
+    64,
+    '0',
+  );
+  const approveDataWithAmountWord = (word: string) =>
+    `0x095ea7b3${PERMIT2_WORD}${word}`;
+
+  it('flags a near-max allowance as unlimited for disclosure', () => {
+    // 2^256 - 2: not the customary max-uint word, every bit as unbounded
+    expect(
+      isWcPayUnlimitedApproveAmount(
+        approveDataWithAmountWord(`${'f'.repeat(63)}e`),
+      ),
+    ).toBe(true);
+    // 2^128 exactly: first of the flagged range
+    expect(
+      isWcPayUnlimitedApproveAmount(
+        approveDataWithAmountWord(`${'0'.repeat(31)}1${'0'.repeat(32)}`),
+      ),
+    ).toBe(true);
+    // 2^128 - 1: largest amount still presented as bounded
+    expect(
+      isWcPayUnlimitedApproveAmount(
+        approveDataWithAmountWord(`${'0'.repeat(32)}${'f'.repeat(32)}`),
+      ),
+    ).toBe(false);
+  });
+
+  it('refuses an odd-nibble hex personal_sign message', () => {
+    // Buffer would drop the tail nibble while the signer pads it — the
+    // display and the signature would disagree about the bytes.
+    const action: IWcPayAction = {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'personal_sign',
+        params: JSON.stringify(['0x616', SENDER]),
+      },
+    };
+    expect(
+      getWcPayInlinePersonalSignPlan({
+        action,
+        option,
+        accountAddress: SENDER,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
+  });
+
+  it('refuses bidi and zero-width characters in a personal_sign message', () => {
+    const bidiOverride = String.fromCharCode(0x202e);
+    const zeroWidth = String.fromCharCode(0x200b);
+    for (const poison of [bidiOverride, zeroWidth]) {
+      const text = `Pay 10 USDC${poison}to merchant`;
+      const hex = `0x${Buffer.from(text, 'utf8').toString('hex')}`;
+      const action: IWcPayAction = {
+        walletRpc: {
+          chainId: 'eip155:8453',
+          method: 'personal_sign',
+          params: JSON.stringify([hex, SENDER]),
+        },
+      };
+      expect(
+        getWcPayInlinePersonalSignPlan({
+          action,
+          option,
+          accountAddress: SENDER,
+        }),
+      ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
+    }
+  });
+
+  it('sanitizeWcPayDisplayText strips forbidden characters and bounds length', () => {
+    const poisoned = `USD${String.fromCharCode(0x202e)}C`;
+    expect(sanitizeWcPayDisplayText(poisoned, 12)).toBe('USDC');
+    expect(sanitizeWcPayDisplayText('A'.repeat(20), 12)).toBe(
+      `${'A'.repeat(12)}…`,
+    );
   });
 });

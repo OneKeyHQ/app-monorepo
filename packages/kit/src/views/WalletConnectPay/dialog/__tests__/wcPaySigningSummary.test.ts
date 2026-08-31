@@ -124,7 +124,7 @@ describe('describeWcPaySigningSummary — typed data', () => {
         typedData({ deadlineSec: NOW_SEC + 24 * 60 * 60 }),
         NOW_MS,
       ),
-    ).toBe('Spender 0x1234...5678 · Expires in 24 h');
+    ).toBe('Spender 0x1234...5678 · Expires in 1 d');
   });
 
   it('reports a deadline reached exactly now as expired', () => {
@@ -259,5 +259,37 @@ describe('approve summaries', () => {
     expect(describeWcPaySigningSummary(approve(true))).toBe(
       'One-time setup for this payment · Unlimited allowance',
     );
+  });
+});
+
+describe('review-hardening: expiry days unit and symbol sanitizing', () => {
+  const NOW_SEC = NOW_MS / 1000;
+
+  it('renders multi-week permit deadlines in days, floored', () => {
+    expect(
+      describeWcPaySigningSummary(
+        typedData({ deadlineSec: NOW_SEC + 27 * 24 * 3600 + 3600 }),
+        NOW_MS,
+      ),
+    ).toContain('Expires in 27 d');
+  });
+
+  it('keeps sub-day deadlines in hours', () => {
+    expect(
+      describeWcPaySigningSummary(
+        typedData({ deadlineSec: NOW_SEC + 23 * 3600 + 60 }),
+        NOW_MS,
+      ),
+    ).toContain('Expires in 23 h');
+  });
+
+  it('sanitizes a hostile token symbol in the approve headline', () => {
+    const poisoned = `USD${String.fromCharCode(0x202e)}C — refund to 0xabc`;
+    expect(
+      describeWcPaySigningHeadline(
+        { kind: 'approve', summary: { symbol: poisoned, unlimited: false } },
+        '10 USDT',
+      ),
+    ).toBe('Allow Permit2 to use your USDC — refun…');
   });
 });

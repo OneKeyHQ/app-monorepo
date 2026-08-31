@@ -508,33 +508,50 @@ export function WcPayConfirmingStep({
 }) {
   // The signature kinds report during `signingMessage`; the approve leg runs
   // the send pipeline instead, so its summary stays up through those phases
-  // (the executor clears a stale summary at every action boundary).
+  // — `recording` included, because the post-broadcast mined-wait (minutes
+  // on a slow chain) runs under that phase and the allowance disclosure must
+  // not vanish for it. The executor clears a stale summary at every action
+  // boundary.
   const isSummaryVisible =
     Boolean(signingSummary) &&
     (phase === 'signingMessage' ||
       (signingSummary?.kind === 'approve' &&
         (phase === 'estimating' ||
           phase === 'checking' ||
-          phase === 'signing')));
+          phase === 'signing' ||
+          phase === 'recording')));
   // A personal_sign body is the message itself: multi-line, left-aligned,
-  // bounded — never a described one-liner.
+  // and SCROLLABLE within a bounded height — every signed byte must be
+  // reachable on screen, or the tail of a long message would be signed
+  // without ever being showable (display is that leg's whole contract).
   const isMessageBody = signingSummary?.kind === 'personalSign';
+  const summaryBody = signingSummary
+    ? describeWcPaySigningSummary(signingSummary)
+    : '';
   return (
     <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
       <WcPayHeaderLine>{CONFIRMING_HEADLINE}</WcPayHeaderLine>
       {isSummaryVisible && signingSummary ? (
-        <YStack pt="$3" gap="$1" alignItems="center">
+        <YStack pt="$3" gap="$1" alignItems="center" alignSelf="stretch">
           <SizableText size="$bodyMd" color="$text" textAlign="center">
             {describeWcPaySigningHeadline(signingSummary, amountText)}
           </SizableText>
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign={isMessageBody ? 'left' : 'center'}
-            numberOfLines={isMessageBody ? 6 : undefined}
-          >
-            {describeWcPaySigningSummary(signingSummary)}
-          </SizableText>
+          {isMessageBody ? (
+            <ScrollView
+              maxHeight="$36"
+              alignSelf="stretch"
+              px="$4"
+              showsVerticalScrollIndicator
+            >
+              <SizableText size="$bodySm" color="$textSubdued" textAlign="left">
+                {summaryBody}
+              </SizableText>
+            </ScrollView>
+          ) : (
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+              {summaryBody}
+            </SizableText>
+          )}
         </YStack>
       ) : null}
     </WcPayHeader>
