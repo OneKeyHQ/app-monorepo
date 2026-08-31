@@ -209,6 +209,52 @@ describe('isTxNeverBroadcast', () => {
   });
 });
 
+describe('waitForTxMined', () => {
+  it('keeps polling while the receipt promise resolves null, then reports success', async () => {
+    // regression: the null receipt arrives wrapped in an unresolved promise
+    // (preset-network shape); treating the bare promise object as a receipt
+    // would return { isReverted: false } on the first round without waiting
+    let calls = 0;
+    const { service, proxyRPCCall } = buildService({
+      rpcHandler: () => {
+        calls += 1;
+        return calls < 3
+          ? [Promise.resolve(null)]
+          : [Promise.resolve({ status: '0x1' })];
+      },
+      meta: undefined,
+    });
+    await expect(
+      service.waitForTxMined({ networkId: 'evm--8453', txid: TXID }),
+    ).resolves.toEqual({ isReverted: false });
+    expect(proxyRPCCall).toHaveBeenCalledTimes(3);
+  });
+
+  it('reports a reverted receipt delivered through a promise element', async () => {
+    const { service } = buildService({
+      rpcHandler: () => [Promise.resolve({ status: '0x0' })],
+      meta: undefined,
+    });
+    await expect(
+      service.waitForTxMined({ networkId: 'evm--8453', txid: TXID }),
+    ).resolves.toEqual({ isReverted: true });
+  });
+
+  it('times out when the receipt never appears', async () => {
+    const { service } = buildService({
+      rpcHandler: () => [Promise.resolve(null)],
+      meta: undefined,
+    });
+    await expect(
+      service.waitForTxMined({
+        networkId: 'evm--8453',
+        txid: TXID,
+        timeoutMs: -1,
+      }),
+    ).rejects.toThrow('Timed out waiting for transaction confirmation');
+  });
+});
+
 describe('getStoredActionResults', () => {
   const KEYS = {
     paymentId: 'pay-1',

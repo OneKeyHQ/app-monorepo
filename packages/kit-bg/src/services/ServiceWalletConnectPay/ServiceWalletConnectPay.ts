@@ -618,9 +618,12 @@ class ServiceWalletConnectPay extends ServiceBase {
           },
           origin: `https://${WALLET_CONNECT_PAY_TRUSTED_HOST}`,
         })
-        // proxyRPCCall's return items are loosely typed (raw envelope vs
-        // parsed result union), so narrow explicitly to the receipt shape
-        .then(([result]) => result as { status?: string } | null)
+        // on preset networks proxyRPCCall returns the parseRPCResponse
+        // promises unresolved inside the array (see isTxNeverBroadcast), so
+        // the element must be awaited before narrowing to the receipt shape
+        // — the bare promise object is truthy and would read as a mined,
+        // non-reverted receipt
+        .then(async ([result]) => (await result) as { status?: string } | null)
         .catch(() => null);
       if (receipt) {
         return { isReverted: !!receipt.status && receipt.status !== '0x1' };
