@@ -96,6 +96,7 @@ const dAppConnectionPathConfig = Object.values(EDAppConnectionModal)
 
 const signatureConfirmPathConfig = [
   route({ name: EModalSignatureConfirmRoutes.TxConfirmFromDApp }),
+  route({ name: EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp }),
   route({ name: EModalSignatureConfirmRoutes.LnurlPayRequest }),
   route({ name: EModalSignatureConfirmRoutes.LnurlWithdraw }),
