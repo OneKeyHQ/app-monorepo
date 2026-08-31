@@ -9,7 +9,7 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
 import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
