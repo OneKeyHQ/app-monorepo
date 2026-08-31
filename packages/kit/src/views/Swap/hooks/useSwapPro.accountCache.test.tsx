@@ -156,9 +156,17 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => ({
-  useSwapProJumpTokenAtom: () => [{ token: undefined }, jest.fn()],
-}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => {
+  const state: { token: ISwapToken | undefined } = { token: undefined };
+  (
+    globalThis as unknown as {
+      __swapProJumpTokenState: typeof state;
+    }
+  ).__swapProJumpTokenState = state;
+  return {
+    useSwapProJumpTokenAtom: () => [state, jest.fn()],
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
@@ -242,6 +250,11 @@ const swapProAtomState = (
     };
   }
 ).__swapProAtomState;
+const swapProJumpTokenState = (
+  globalThis as unknown as {
+    __swapProJumpTokenState: { token: ISwapToken | undefined };
+  }
+).__swapProJumpTokenState;
 
 beforeEach(() => {
   selectedAccountState.selectedAccount.deriveType = 'BIP44';
@@ -251,6 +264,7 @@ beforeEach(() => {
   promiseResultCalls.length = 0;
   promiseResultState.hasResult = false;
   promiseResultState.result = undefined;
+  swapProJumpTokenState.token = undefined;
 });
 
 describe('useSwapProAccount cache identity', () => {
@@ -365,6 +379,28 @@ describe('useSwapProAccount cache identity', () => {
 });
 
 describe('useSwapProTokenInit persistence authority', () => {
+  it('does not reload a persisted selection after consuming a jump token', () => {
+    swapProAtomState.initializeSwapProSelectToken.mockReset();
+    swapProJumpTokenState.token = {
+      contractAddress: 'jump-token',
+      networkId: 'evm--1',
+      symbol: 'JUMP',
+    } as ISwapToken;
+
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+
+    expect(
+      swapProAtomState.initializeSwapProSelectToken,
+    ).not.toHaveBeenCalled();
+
+    swapProJumpTokenState.token = undefined;
+    rerender({});
+
+    expect(
+      swapProAtomState.initializeSwapProSelectToken,
+    ).not.toHaveBeenCalled();
+  });
+
   it('delegates cold-start reconciliation to the shared persistence action', async () => {
     swapProAtomState.initializeSwapProSelectToken.mockReset();
 

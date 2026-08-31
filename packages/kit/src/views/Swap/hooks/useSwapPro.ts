@@ -1026,9 +1026,12 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
+    if (swapProJumpToken?.token) {
+      hasInitializedSwapProSelectTokenRef.current = true;
+      return;
+    }
     if (
       hasInitializedSwapProSelectTokenRef.current ||
-      swapProJumpToken?.token ||
       (!swapProSelectToken && !speedDefaultSelectToken)
     ) {
       return;
