@@ -434,17 +434,6 @@ export interface IQuoteRoutePath {
   subRoutes?: IQuoteRouteDataInfo[][];
 }
 
-export interface ISwapTokenMetadata {
-  buyToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
-  sellToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
-}
-
 export interface IQuoteTip {
   icon?: string;
   title?: string;
@@ -715,12 +704,13 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   orderSupportUrl?: string;
   isAntiMEV?: boolean;
-  tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
+  buyTax?: number;
+  sellTax?: number;
 }
 
 export interface IAllowanceResult {
