@@ -195,7 +195,11 @@ export const TradingViewNativeChartControlsContainer = memo(
     const shouldShowChartCloseControl =
       Boolean(onChartClose) && showChartCloseControl;
     const closeControl = shouldShowChartCloseControl ? (
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      <Icon
+        name="ChevronTriangleDownSmallSolid"
+        size="$5"
+        color="$iconSubdued"
+      />
     ) : null;
     const closeLabel = intl.formatMessage({ id: ETranslations.global_close });
 

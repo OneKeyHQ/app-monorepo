@@ -97,7 +97,9 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
 
   it('opens the Prime payment route in a separate modal', async () => {
     mockIsLoggedIn.mockResolvedValue(true);
-    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    const { result } = renderHook(() =>
+      usePrimeInfiniPurchase({ networkId: 'sol--101' }),
+    );
 
     await act(async () => {
       await result.current.purchaseByCrypto({
@@ -113,7 +115,28 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
         selectedSubscriptionPeriod: 'P1Y',
         featureName: undefined,
         createNewPayment: true,
+        networkId: 'sol--101',
       },
+    });
+  });
+
+  it('restores an existing payment without replacing it', async () => {
+    mockIsLoggedIn.mockResolvedValue(true);
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+
+    await act(async () => {
+      await result.current.purchaseByCrypto({
+        selectedSubscriptionPeriod: 'P1M',
+        createNewPayment: false,
+      });
+    });
+
+    expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeInfiniPayment,
+      params: expect.objectContaining({
+        selectedSubscriptionPeriod: 'P1M',
+        createNewPayment: false,
+      }),
     });
   });
 
@@ -218,6 +241,11 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
       primeSubscription: {
         isActive: false,
       },
+      infiniSubscription: {
+        subscriptionId: 'existing-subscription',
+        status: 'active',
+        plan: 'monthly',
+      },
     });
     mockApiGetInfiniCheckoutUrl.mockResolvedValue({
       checkoutUrl: 'https://checkout.example.com/payment',
@@ -242,7 +270,11 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     });
 
     expect(beforeOpenCheckout).toHaveBeenCalledTimes(1);
-    expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
+    expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledWith({
+      context: expect.objectContaining({
+        baselineInfiniSubscriptionId: 'existing-subscription',
+      }),
+    });
     expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
     expect(callOrder).toEqual(['close', 'waiting', 'open']);
   });

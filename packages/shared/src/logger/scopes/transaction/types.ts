@@ -49,6 +49,21 @@ export interface IGasAccountAnalyticsContext {
   orderId: string | undefined;
 }
 
+export type ICexDepositWarningPage = 'address' | 'amount';
+
+export type ICexDepositWarningAction = 'continue' | 'back' | 'close';
+
+export interface ISendCexDepositWarningContext {
+  network: string;
+  tokenSymbol: string | undefined;
+  exchange: string;
+  page: ICexDepositWarningPage;
+}
+
+export interface ISendCexDepositWarningActionParams extends ISendCexDepositWarningContext {
+  action: ICexDepositWarningAction;
+}
+
 export type IGasAccountActionType =
   | 'confirmClicked'
   | 'payerChanged'
