@@ -17,6 +17,7 @@ const {
   compareModuleKeys,
   createModuleIdAllocator,
   getModuleIdDomain,
+  isModuleIdInDomain,
   isPositiveSafeInteger,
   loadRegistry,
   toModuleKey,
@@ -196,6 +197,7 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
   assertValidRegistry(baseRegistry);
   const currentErrors = collectRegistryErrors(currentRegistry, {
     allowDuplicateIds: true,
+    allowOutOfDomainIds: true,
   });
   if (currentErrors.length > 0) {
     throw new Error(
@@ -246,7 +248,11 @@ function reconcileRegistries(baseRegistry, currentRegistry) {
   );
 
   for (const entry of sortedNewEntries) {
-    if (usedIds.has(entry.moduleId)) {
+    const domain = getModuleIdDomain(entry.moduleKey);
+    if (
+      usedIds.has(entry.moduleId) ||
+      !isModuleIdInDomain(entry.moduleId, domain)
+    ) {
       pending.push(entry);
     } else {
       usedIds.add(entry.moduleId);
