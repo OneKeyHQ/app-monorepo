@@ -31,6 +31,45 @@ add_git_config_env(
   'git@github.com:juicebox-systems/'
 )
 
+def patch_multiplatform_ble_adapter_write_without_response!
+  peripheral_path = File.join(
+    __dir__,
+    'Pods',
+    'MultiplatformBleAdapter',
+    'iOS',
+    'RxBluetoothKit',
+    'Peripheral.swift'
+  )
+  return unless File.exist?(peripheral_path)
+
+  original = [
+    '            observable = self.peripheral',
+    '                .rx_isReadyToSendWriteWithoutResponse',
+    '                .startWith(peripheral.canSendWriteWithoutResponse)',
+    '                .filter { $0 }',
+    '                .take(1)',
+    '                .map { [weak self] _ in',
+    '                    self?.peripheral.writeValue(data, for: characteristic.characteristic, type: type)',
+    '                    return characteristic',
+    '                }',
+  ].join("\n")
+  replacement = [
+    '            observable = Observable<Characteristic>.deferred { [weak self] in',
+    '                self?.peripheral.writeValue(data, for: characteristic.characteristic, type: type)',
+    '                return .just(characteristic)',
+    '            }',
+  ].join("\n")
+  content = File.read(peripheral_path)
+  return if content.include?(replacement)
+
+  unless content.include?(original)
+    raise '[MultiplatformBleAdapter] Unexpected writeWithoutResponse implementation'
+  end
+
+  File.write(peripheral_path, content.sub(original, replacement))
+  puts '[MultiplatformBleAdapter] Patched iOS writeWithoutResponse readiness deadlock'
+end
+
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 # React Native is patched in node_modules; prebuilt RN Core would bypass the
@@ -144,6 +183,8 @@ target 'OneKeyWallet' do
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
   post_install do |installer|
+    patch_multiplatform_ble_adapter_write_without_response!
+
     # Copy custom fonts from components package and add to Xcode Resources.
     # Fonts are registered via Info.plist UIAppFonts so iOS manages them natively,
     # making them resilient to background memory purge.
