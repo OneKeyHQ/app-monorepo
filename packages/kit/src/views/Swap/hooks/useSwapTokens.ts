@@ -109,9 +109,15 @@ export function useSwapTokenList(
       [
         indexedAccountId ?? '',
         otherWalletTypeAccountId ?? '',
+        swapAddressInfo.deriveType ?? '',
         swapSupportAllNetworks.map((network) => network.networkId).join(','),
       ].join('__'),
-    [indexedAccountId, otherWalletTypeAccountId, swapSupportAllNetworks],
+    [
+      indexedAccountId,
+      otherWalletTypeAccountId,
+      swapAddressInfo.deriveType,
+      swapSupportAllNetworks,
+    ],
   );
   const cachedSwapSupportAllAccounts = swapSupportAllAccountsCache.get(
     swapSupportAllAccountsRequestKey,
