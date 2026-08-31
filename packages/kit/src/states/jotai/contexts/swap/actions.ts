@@ -763,8 +763,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           sanitizeSwapProSelectTokenSnapshot(token),
         );
       } else {
+        const selectedTokenBeforeLoad = get(swapProSelectTokenAtom());
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
+        if (get(swapProSelectTokenAtom()) !== selectedTokenBeforeLoad) {
+          return;
+        }
         if (savedToken) {
           setSelectedToken(savedToken);
         } else if (defaultToken) {

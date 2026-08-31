@@ -21,6 +21,7 @@ export const STOCK_DESKTOP_HEADER_SLOT_PROPS = {
 } as const;
 
 export type IStockChartCoinGeckoIdLookupResult = {
+  cacheable?: boolean;
   tokenScope: string;
   coinGeckoId?: string;
 };

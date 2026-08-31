@@ -86,6 +86,18 @@ describe('SwapStockDesktopContainer utils', () => {
     });
   });
 
+  it('settles a failed CoinGecko lookup without an id', () => {
+    const tokenScope = 'evm--1:0xstock';
+
+    expect(
+      getStockChartCoinGeckoIdState({
+        lookupResult: { cacheable: false, tokenScope },
+        networkId: 'evm--1',
+        tokenScope,
+      }),
+    ).toEqual({ coinGeckoId: undefined, isLoading: false });
+  });
+
   it('ignores a completed CoinGecko lookup from another token scope', () => {
     expect(
       getStockChartCoinGeckoIdState({

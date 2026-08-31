@@ -35,6 +35,9 @@ export function useSpeedSwapInit(
   enableNoNetworkCheck?: boolean,
 ) {
   const speedSwapConfigScope = networkId;
+  const swrKey = speedSwapConfigScope
+    ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
+    : undefined;
   const { result: speedSwapConfigState, isLoading: speedSwapConfigLoading } =
     usePromiseResult<ISpeedSwapConfigState>(
       async () => {
@@ -44,46 +47,42 @@ export function useSpeedSwapInit(
             scope: speedSwapConfigScope,
           };
         }
-        try {
-          const config =
-            await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
-              networkId,
-            });
+        const config = await backgroundApiProxy.serviceSwap
+          .fetchSpeedSwapConfig({ networkId })
+          .catch(() => undefined);
+        if (
+          config &&
+          (config.provider ||
+            config.supportSpeedSwap !== false ||
+            config.speedConfig.spenderAddress ||
+            config.speedConfig.defaultTokens.length ||
+            config.speedConfig.defaultLimitTokens.length)
+        ) {
           return {
             config,
             scope: speedSwapConfigScope,
           };
-        } catch {
-          const cachedConfig = speedSwapConfigScope
-            ? swrCacheUtils.get<{
-                config: ISpeedSwapConfig;
-                scope: string;
-              }>(
-                swrKeys.swapStockSpeedConfig({
-                  networkId: speedSwapConfigScope,
-                }),
-              )
-            : undefined;
-          return {
-            config:
-              cachedConfig?.scope === speedSwapConfigScope
-                ? cachedConfig.config
-                : defaultSpeedSwapConfig,
-            scope: speedSwapConfigScope,
-            fromCache: true,
-          };
         }
+        const cachedConfig = swrKey
+          ? swrCacheUtils.get<ISpeedSwapConfigState>(swrKey)
+          : undefined;
+        return {
+          config:
+            cachedConfig?.scope === speedSwapConfigScope
+              ? cachedConfig.config
+              : defaultSpeedSwapConfig,
+          scope: speedSwapConfigScope,
+          fromCache: true,
+        };
       },
-      [enableNoNetworkCheck, networkId, speedSwapConfigScope],
+      [enableNoNetworkCheck, networkId, speedSwapConfigScope, swrKey],
       {
         initResult: {
           config: defaultSpeedSwapConfig,
           scope: undefined,
         },
         watchLoading: true,
-        swrKey: speedSwapConfigScope
-          ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
-          : undefined,
+        swrKey,
         swrShouldPersist: (result) => !result.fromCache,
       },
     );

@@ -58,7 +58,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
@@ -126,6 +129,7 @@ type IStockMetadataRequest = {
 };
 
 type IStockMetadataResult = {
+  cacheable?: boolean;
   metadataMap: Record<string, IMarketStockInfo>;
   tokenKey: string;
 };
@@ -189,7 +193,7 @@ function useStockMetadata({
   }
   const request = requestRef.current;
   const tokenKey = request.tokenKey;
-  const stockMetadataSwrKey =
+  const swrKey =
     enabled && tokenKey
       ? swrKeys.swapStockSelectorMetadata({
           scope: `${requestLocale}:${tokenKey}`,
@@ -203,20 +207,22 @@ function useStockMetadata({
           tokenKey,
         };
       }
-      const response = await (async () => {
-        try {
-          return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
-            {
-              requestLocale,
-              tokenAddressList: request.tokenAddressEntries.map(
-                ([, token]) => token,
-              ),
-            },
-          );
-        } catch {
-          return { list: [] };
-        }
-      })();
+      const response = await backgroundApiProxy.serviceMarketV2
+        .fetchMarketTokenListBatch({
+          requestLocale,
+          tokenAddressList: request.tokenAddressEntries.map(
+            ([, token]) => token,
+          ),
+        })
+        .catch(() => undefined);
+      if (!response) {
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockMetadataResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenKey === tokenKey
+          ? cachedResult
+          : { cacheable: false, metadataMap: {}, tokenKey };
+      }
       const metadataMap: Record<string, IMarketStockInfo> = {};
       response.list.forEach((token, index) => {
         const requestKey = request.tokenAddressEntries[index]?.[0];
@@ -229,15 +235,16 @@ function useStockMetadata({
         tokenKey,
       };
     },
-    [enabled, request, requestLocale, tokenKey],
+    [enabled, request, requestLocale, swrKey, tokenKey],
     {
       initResult: {
         metadataMap: {},
         tokenKey: '',
       },
       watchLoading: enabled,
-      swrKey: stockMetadataSwrKey,
-      swrShouldPersist: (value) => value.tokenKey === tokenKey,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value.cacheable !== false && value.tokenKey === tokenKey,
     },
   );
 

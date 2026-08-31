@@ -109,10 +109,11 @@ export function NetworkAvatar({
       initResult: cachedNetwork,
     },
   );
-  const { isCustomNetwork, name, isAllNetworks } =
-    cachedNetwork ?? res.result ?? {};
+  const network =
+    cachedNetwork ?? (res.result?.id === networkId ? res.result : undefined);
+  const { isCustomNetwork, name, isAllNetworks } = network ?? {};
   const effectiveLogoURI = useNetworkLogoUri({
-    logoUri: cachedNetwork?.logoURI ?? res.result?.logoURI,
+    logoUri: network?.logoURI,
     networkId,
   });
 

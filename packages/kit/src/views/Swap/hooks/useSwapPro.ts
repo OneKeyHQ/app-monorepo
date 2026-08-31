@@ -255,11 +255,16 @@ export function useSwapProAccount() {
     activeAccountId: activeAccount?.account?.id ?? activeAccount?.dbAccount?.id,
   });
   const hasConnectedAccount = Boolean(indexedAccountId || accountId);
-  const accountScope = buildSwapProAccountScope({
+  const accountIdentityScope = buildSwapProAccountScope({
     targetNetworkId,
     indexedAccountId,
     accountId,
   });
+  const accountScope = accountIdentityScope
+    ? `${accountIdentityScope}|${
+        indexedAccountId ? (selectedAccount.deriveType ?? 'default') : 'default'
+      }`
+    : '';
   const shouldResolveAccount = Boolean(accountScope && targetNetworkId);
   const cachedNetAccount = accountScope
     ? swapProAccountCache.get(accountScope)
@@ -280,6 +285,9 @@ export function useSwapProAccount() {
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: targetNetworkId,
           });
+        const resolvedAccountScope = `${accountIdentityScope}|${
+          indexedAccountId ? (defaultDeriveType ?? 'default') : 'default'
+        }`;
         const account =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId,
@@ -288,10 +296,10 @@ export function useSwapProAccount() {
             deriveType: defaultDeriveType ?? 'default',
           });
         if (account) {
-          swapProAccountCache.set(accountScope, account);
+          swapProAccountCache.set(resolvedAccountScope, account);
         }
         return {
-          scope: accountScope,
+          scope: resolvedAccountScope,
           account,
         };
       } catch (_e) {
@@ -304,6 +312,7 @@ export function useSwapProAccount() {
     },
     [
       accountId,
+      accountIdentityScope,
       accountScope,
       indexedAccountId,
       shouldResolveAccount,
@@ -830,6 +839,7 @@ export function useSwapProTokenInit() {
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const hasInitializedSwapProSelectTokenRef = useRef(false);
   const ownsActiveSwapProTradeState = isSwapProTradeStateOwner({
     isNative: Boolean(platformEnv.isNative),
     swapTypeSwitch,
@@ -986,16 +996,18 @@ export function useSwapProTokenInit() {
 
   useEffect(() => {
     if (
-      !swapProJumpToken?.token &&
-      !swapProSelectToken &&
-      speedDefaultSelectToken
+      hasInitializedSwapProSelectTokenRef.current ||
+      swapProJumpToken?.token ||
+      (!swapProSelectToken && !speedDefaultSelectToken)
     ) {
-      void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
+      return;
     }
+    hasInitializedSwapProSelectTokenRef.current = true;
+    void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
   }, [
-    swapProJumpToken,
     initializeSwapProSelectToken,
     speedDefaultSelectToken,
+    swapProJumpToken?.token,
     swapProSelectToken,
   ]);
 
@@ -1401,6 +1413,9 @@ export function useSwapProTokenSearch(
       } catch (e) {
         if (!isCancelled) {
           console.error(e);
+          if (swapProSearchTokenCache.get(searchScope) === undefined) {
+            setSearchTokenState({ items: [], scope: searchScope });
+          }
         }
       } finally {
         if (!isCancelled) {

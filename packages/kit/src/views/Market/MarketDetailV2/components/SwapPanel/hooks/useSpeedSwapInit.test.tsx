@@ -55,6 +55,18 @@ const cachedConfig: ISpeedSwapConfig = {
   speedDefaultSelectToken: undefined,
 };
 
+const unavailableConfig: ISpeedSwapConfig = {
+  ...cachedConfig,
+  provider: '',
+  speedConfig: {
+    ...cachedConfig.speedConfig,
+    spenderAddress: '',
+    defaultTokens: [],
+    defaultLimitTokens: [],
+  },
+  supportSpeedSwap: false,
+};
+
 describe('useSpeedSwapInit cold display config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,10 +103,12 @@ describe('useSpeedSwapInit cold display config', () => {
     renderHook(() => useSpeedSwapInit('evm--1'));
 
     const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
-      shouldPersist: boolean;
+      config: ISpeedSwapConfig;
+      fromCache?: boolean;
+      scope?: string;
     }>;
     const options = mockUsePromiseResult.mock.calls[0]?.[2] as {
-      swrShouldPersist: (value: { shouldPersist: boolean }) => boolean;
+      swrShouldPersist: (value: { fromCache?: boolean }) => boolean;
     };
     const failedResult = await request();
 
@@ -104,6 +118,32 @@ describe('useSpeedSwapInit cold display config', () => {
         scope: 'evm--1',
       }),
     );
+    expect(options.swrShouldPersist(failedResult)).toBe(false);
+  });
+
+  it('keeps the last-good SWR value when the service returns its unavailable config', async () => {
+    swrCacheUtils.set(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }), {
+      config: cachedConfig,
+      scope: 'evm--1',
+    });
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(unavailableConfig);
+    renderHook(() => useSpeedSwapInit('evm--1'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+      fromCache?: boolean;
+      scope?: string;
+    }>;
+    const options = mockUsePromiseResult.mock.calls[0]?.[2] as {
+      swrShouldPersist: (value: { fromCache?: boolean }) => boolean;
+    };
+    const failedResult = await request();
+
+    expect(failedResult).toEqual({
+      config: cachedConfig,
+      fromCache: true,
+      scope: 'evm--1',
+    });
     expect(options.swrShouldPersist(failedResult)).toBe(false);
   });
 });
