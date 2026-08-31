@@ -51,6 +51,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   supportedAssets,
   paymentOptionsLoaded,
   createNewPayment,
+  flowId,
   requestedPlan,
   requestedSubscriptionPeriod,
   fetchLatestPayment,
@@ -63,6 +64,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   supportedAssets: IPrimeInfiniPaymentAsset[];
   paymentOptionsLoaded: boolean;
   createNewPayment: boolean;
+  flowId?: string;
   requestedPlan: IPrimeInfiniSubscriptionPlan;
   requestedSubscriptionPeriod: 'P1M' | 'P1Y';
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
@@ -143,7 +145,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   const assetIsStillSupported =
     !paymentOptionsLoaded || Boolean(supportedAsset);
   const shouldReplacePayment =
-    createNewPayment ||
+    (createNewPayment && (!flowId || session.flowId !== flowId)) ||
     !transferSnapshotUnchanged ||
     !paymentMatchesAsset ||
     !routeMatches ||

@@ -1,5 +1,6 @@
 /* cspell:ignore Infini infini */
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
   EPrimeAuthSessionSource,
@@ -1272,6 +1273,160 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     infiniSubscription: undefined,
   };
 
+  function createSessionStore(initial: ISimpleDBPrime = {}) {
+    const entity = new SimpleDbEntityPrime();
+    let stored = initial;
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      stored = typeof updater === 'function' ? await updater(stored) : updater;
+      return stored;
+    });
+    return { entity, read: () => stored };
+  }
+
+  test('anchors legacy lifecycle fields before a validation refresh and never renews retention', async () => {
+    const createdAt = Date.now();
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: createdAt },
+      },
+    });
+    const clock = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(createdAt + 23 * 60 * 60 * 1000);
+    try {
+      await entity.recordInfiniPaymentValidation({
+        onekeyUserId: 'user-1',
+        payment: session.payment,
+        flowId: 'restored-flow',
+      });
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toMatchObject({
+        createdAt,
+        updatedAt: createdAt,
+        lastValidatedAt: Date.now(),
+        localRetentionDeadline: createdAt + 24 * 60 * 60 * 1000,
+        flowId: 'restored-flow',
+      });
+      clock.mockReturnValue(createdAt + 24 * 60 * 60 * 1000);
+      await expect(
+        entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+      ).resolves.toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test.each([true, false])(
+    'keeps the longer tracking retention for sendStarted=%s with payment progress',
+    async (sendStarted) => {
+      const createdAt = Date.now();
+      const trackedPayment = {
+        ...session.payment,
+        amountConfirming: sendStarted ? '0' : '1',
+      };
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            schemaVersion: 2,
+            payment: trackedPayment,
+            sendStarted,
+            updatedAt: createdAt,
+          },
+        },
+      });
+      const clock = jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(createdAt + 6 * 24 * 60 * 60 * 1000);
+      try {
+        await entity.recordInfiniPaymentValidation({
+          onekeyUserId: 'user-1',
+          payment: trackedPayment,
+          flowId: 'tracking-flow',
+        });
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toBeDefined();
+        clock.mockReturnValue(createdAt + 7 * 24 * 60 * 60 * 1000 + 1);
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toBeUndefined();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+
+  test('a stale writer cannot revive an unsent quote after its deadline', async () => {
+    const { entity } = createSessionStore();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    try {
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 25 * 60 * 60 * 1000);
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session,
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'localPersistenceFailed' },
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test('reports a failed lifecycle write separately from a remote payment failure', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'setRawData').mockRejectedValue(new Error('disk full'));
+    await expect(
+      entity.recordInfiniPaymentValidation({
+        onekeyUserId: 'user-1',
+        payment: session.payment,
+        flowId: 'flow-1',
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+  });
+
+  test('refreshing an unsent quote does not extend its absolute retention deadline', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    let persisted: ISimpleDBPrime = {};
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    try {
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 23 * 60 * 60 * 1000);
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 24 * 60 * 60 * 1000 + 1);
+      await expect(
+        entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+      ).resolves.toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   test('persists a versioned session without clobbering Prime auth data', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: Record<string, unknown> = {
@@ -1292,6 +1447,11 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(result.schemaVersion).toBe(2);
     expect(result.payerAccountId).toBe('hd-1--0--sol');
     expect(result.updatedAt).toEqual(expect.any(Number));
+    expect(result.createdAt).toBe(result.updatedAt);
+    expect(result.lastValidatedAt).toBe(result.updatedAt);
+    expect(result.localRetentionDeadline).toBe(
+      result.updatedAt + 24 * 60 * 60 * 1000,
+    );
     expect(persisted.authStateGeneration).toBe(3);
     expect(
       (
@@ -1708,32 +1868,31 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
-  test('self-heals a corrupted persisted session without a payment', async () => {
-    const entity = new SimpleDbEntityPrime();
-    let persisted = {
-      authStateGeneration: 4,
-      infiniPendingPaymentSessionByUserId: {
-        'user-1': {
-          schemaVersion: 2,
-          updatedAt: Date.now(),
+  test.each([undefined, 'restore-flow'])(
+    'self-heals a corrupted persisted session without a payment (flowId=%s)',
+    async (flowId) => {
+      const corruptedData = {
+        authStateGeneration: 4,
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+          },
         },
-      },
-    } as unknown as ISimpleDBPrime;
-    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
-    jest.spyOn(entity, 'setRawData').mockImplementation((async (
-      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-    ) => {
-      persisted = updater(persisted);
-      return persisted;
-    }) as never);
+      } as unknown as ISimpleDBPrime;
+      const { entity, read } = createSessionStore(corruptedData);
 
-    await expect(
-      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
-    ).resolves.toBeUndefined();
-    expect(
-      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
-    ).toBeUndefined();
-  });
+      await expect(
+        entity.getInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          flowContext: flowId ? { flowId } : undefined,
+        }),
+      ).resolves.toBeUndefined();
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toBeUndefined();
+    },
+  );
 
   test('does not clear a newer replacement session', async () => {
     const entity = new SimpleDbEntityPrime();
@@ -2648,6 +2807,59 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
         retiredAt: expect.any(Number),
       }),
     ]);
+  });
+
+  test.each([
+    { override: { chain: 'SOLANA' }, failure: 'assetMismatch' },
+    { override: { amountDue: '10.00' }, failure: 'transferSnapshotChanged' },
+  ])(
+    'classifies $failure while refusing a changed broadcast snapshot',
+    async ({ override, failure }) => {
+      const { entity, read } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+        },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim,
+          latestPayment: { ...session.payment, ...override },
+          purchaseStatusSnapshot,
+        }),
+      ).rejects.toMatchObject({ data: { paymentValidationFailure: failure } });
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+      ).toBe(false);
+    },
+  );
+
+  test('classifies a failed durable send claim as localPersistenceFailed', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const stored: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') await updater(stored);
+      throw new OneKeyLocalError('Storage write failed');
+    });
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+    expect(
+      stored.infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(false);
   });
 
   test('atomically marks the matching session before transaction broadcast', async () => {

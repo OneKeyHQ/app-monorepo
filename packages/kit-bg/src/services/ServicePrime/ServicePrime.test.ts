@@ -23,6 +23,7 @@ const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
+const mockPrimeCryptoPaymentFlowLog = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -70,6 +71,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
       get: (_target, property: string | symbol) => {
         const nextPath = [...path, String(property)];
         const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.primeCryptoPaymentFlow') {
+          return mockPrimeCryptoPaymentFlowLog;
+        }
         if (loggerMethod === 'prime.subscription.onekeyIdRemoteLogoutFlow') {
           return mockOneKeyIdRemoteLogoutFlowLog;
         }
@@ -296,6 +300,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
       async () => undefined as string | undefined,
@@ -1599,6 +1604,99 @@ describe('ServicePrime Infini payment APIs', () => {
       },
     });
   });
+
+  it.each([undefined, [], ['First warning', 'Second warning']])(
+    'preserves the latest payment warning messages: %p',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: { data: { ...payment, warningMessages } },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).resolves.toEqual({ ...payment, warningMessages });
+    },
+  );
+
+  it('carries the same UI flow into background validation without changing the HTTP request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    const flowContext = {
+      flowId: 'flow-from-ui',
+      paymentSource: 'restoreRefresh' as const,
+      expectedChain: payment.chain,
+      expectedToken: payment.token,
+    };
+    await service.apiGetInfiniPayment({
+      paymentId: payment.paymentId,
+      expectedOneKeyUserId: 'user-a',
+      flowContext,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      payment,
+      flowId: 'flow-from-ui',
+    });
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'flow-from-ui',
+        paymentSource: 'restoreRefresh',
+        stage: 'responseValidation',
+        actualChain: payment.chain,
+        actualToken: payment.token,
+      }),
+    );
+  });
+
+  it.each([null, 'warning', ['warning', 1]])(
+    'rejects malformed warnings as invalidResponse (%p)',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: async () => ({ data: { data: { ...payment, warningMessages } } }),
+      }));
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'invalidResponse' },
+      });
+    },
+  );
+
+  it.each(['NaN', 'Infinity', '-0.01', ''])(
+    'rejects invalid progress amounts (%s)',
+    async (amount) => {
+      const { service } = createInfiniService();
+      for (const field of ['amountConfirmed', 'amountConfirming']) {
+        service.getPrimeClient = jest.fn(async () => ({
+          get: async () => ({
+            data: { data: { ...payment, [field]: amount } },
+          }),
+        }));
+        await expect(
+          service.apiGetInfiniPayment({
+            paymentId: payment.paymentId,
+            expectedOneKeyUserId: 'user-a',
+          }),
+        ).rejects.toMatchObject({
+          data: { paymentValidationFailure: 'invalidResponse' },
+        });
+      }
+    },
+  );
 
   it('rejects a payment query response with a different paymentId', async () => {
     const { service } = createInfiniService();

@@ -67,6 +67,7 @@ type IPrimeInfiniCompletionPaymentContext = {
 
 export type IPrimeInfiniWaitingContext =
   | {
+      flowId?: string;
       checkoutType: 'externalWallet';
       plan: IPrimeInfiniSubscriptionPlan;
       onekeyUserId: string;
@@ -102,6 +103,7 @@ const INFINI_PLAN_USD_AMOUNT: Record<IPrimeInfiniSubscriptionPlan, number> = {
 };
 
 function usePrimeInfiniPurchaseCompletion({
+  flowId,
   plan,
   onekeyUserId,
   featureName,
@@ -109,6 +111,7 @@ function usePrimeInfiniPurchaseCompletion({
   subscriptionPeriod,
   beforeComplete,
 }: {
+  flowId?: string;
   plan: IPrimeInfiniSubscriptionPlan;
   onekeyUserId: string;
   featureName?: EPrimeFeatures;
@@ -116,6 +119,7 @@ function usePrimeInfiniPurchaseCompletion({
   subscriptionPeriod?: IInternalPaymentWaitingSession['selectedSubscriptionPeriod'];
   beforeComplete?: () => Promise<void>;
 }) {
+  const flowIdRef = useRef(flowId);
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
   const isSuccessHandledRef = useRef(false);
@@ -132,6 +136,7 @@ function usePrimeInfiniPurchaseCompletion({
       if (!purchaseUserMismatchLoggedRef.current) {
         purchaseUserMismatchLoggedRef.current = true;
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage,
           status: 'blocked',
           subscriptionPeriod,
@@ -179,6 +184,7 @@ function usePrimeInfiniPurchaseCompletion({
       }
       isSuccessHandledRef.current = true;
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
         stage: 'purchaseCompletion',
         status: 'started',
         subscriptionPeriod,
@@ -204,6 +210,7 @@ function usePrimeInfiniPurchaseCompletion({
             await finishPrimeSubscriptionPurchaseSuccess(successPayload);
           })().catch((error) => {
             logPrimeInfiniPaymentFlow({
+              flowId: flowIdRef.current,
               stage: 'purchaseCompletion',
               status: 'failed',
               subscriptionPeriod,
@@ -250,6 +257,7 @@ function usePrimeInfiniPurchaseCompletion({
         await dialogInstance.close();
         finishSuccess();
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage: 'purchaseCompletion',
           status: 'succeeded',
           subscriptionPeriod,
@@ -261,6 +269,7 @@ function usePrimeInfiniPurchaseCompletion({
       } catch (error) {
         isSuccessHandledRef.current = false;
         logPrimeInfiniPaymentFlow({
+          flowId: flowIdRef.current,
           stage: 'purchaseCompletion',
           status: 'failed',
           subscriptionPeriod,
@@ -337,6 +346,7 @@ function PrimeInfiniExternalWaitingMonitor({
     { checkoutType: 'externalWallet' }
   >;
 }) {
+  const flowIdRef = useRef(context.flowId);
   const intl = useIntl();
   const {
     plan,
@@ -351,6 +361,7 @@ function PrimeInfiniExternalWaitingMonitor({
     completePurchase,
     ensurePurchaseUserIsCurrent,
   } = usePrimeInfiniPurchaseCompletion({
+    flowId: context.flowId,
     plan,
     onekeyUserId,
     featureName,
@@ -433,7 +444,9 @@ function PrimeInfiniExternalWaitingMonitor({
       logPrimeInfiniPaymentMonitorEvent({
         event,
         context: {
-          stage: 'paymentPolling',
+          flowId: flowIdRef.current,
+          paymentSource: 'externalCheckout',
+          stage: 'polling',
           plan,
           featureName,
           checkoutType: 'externalWallet',
@@ -487,6 +500,7 @@ function PrimeInfiniExternalWaitingMonitor({
       }
     })().catch((error) => {
       logPrimeInfiniPaymentFlow({
+        flowId: flowIdRef.current,
         stage: 'paymentPolling',
         status: 'failed',
         plan,
@@ -524,6 +538,7 @@ function PrimeInfiniExternalWaitingMonitor({
         testID="prime-infini-open-checkout"
         onPress={() => {
           logPrimeInfiniPaymentFlow({
+            flowId: flowIdRef.current,
             stage: 'externalCheckout',
             status: 'refreshed',
             plan,
@@ -543,6 +558,7 @@ function PrimeInfiniExternalWaitingMonitor({
             }
           })().catch((error) => {
             logPrimeInfiniPaymentFlow({
+              flowId: flowIdRef.current,
               stage: 'externalCheckout',
               status: 'failed',
               plan,
@@ -617,6 +633,7 @@ function PrimeInfiniInternalWaitingMonitor({
     [baseline.onekeyUserId, session.paymentCacheKey],
   );
   const { completePurchase } = usePrimeInfiniPurchaseCompletion({
+    flowId: session.flowId,
     plan,
     onekeyUserId: baseline.onekeyUserId,
     featureName,
@@ -643,6 +660,7 @@ function PrimeInfiniInternalWaitingMonitor({
   );
 
   const polling = usePrimeInfiniPaymentPolling({
+    flowId: session.flowId,
     payment: session.payment,
     asset,
     baseline,

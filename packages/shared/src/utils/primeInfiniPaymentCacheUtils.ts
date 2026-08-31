@@ -1,6 +1,8 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 
+import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '../consts/primeConsts';
+
 import { generateUUID } from './miscUtils';
 import { normalizeTokenContractAddress } from './tokenUtils';
 
@@ -351,7 +353,7 @@ export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
     !isPrimeInfiniPaymentExplicitlyFailedSnapshot(payment) &&
     !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(payment) &&
     !isPrimeInfiniPaymentExplicitlySuccessfulSnapshot(payment) &&
-    now < payment.expiresAt
+    now + PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS < payment.expiresAt
   );
 }
 
