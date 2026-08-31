@@ -503,18 +503,36 @@ export function WcPayConfirmingStep({
   /** The attempt's current step; absent while no attempt is running. */
   phase?: IWcPayConfirmingPhase;
   amountText: string;
-  /** What the headless signature in flight commits to; `signingMessage` only. */
+  /** What the headless signature in flight commits to. */
   signingSummary?: IWcPayInlineSigningSummary;
 }) {
+  // The signature kinds report during `signingMessage`; the approve leg runs
+  // the send pipeline instead, so its summary stays up through those phases
+  // (the executor clears a stale summary at every action boundary).
+  const isSummaryVisible =
+    Boolean(signingSummary) &&
+    (phase === 'signingMessage' ||
+      (signingSummary?.kind === 'approve' &&
+        (phase === 'estimating' ||
+          phase === 'checking' ||
+          phase === 'signing')));
+  // A personal_sign body is the message itself: multi-line, left-aligned,
+  // bounded — never a described one-liner.
+  const isMessageBody = signingSummary?.kind === 'personalSign';
   return (
     <WcPayHeader visual={SPINNER_VISUAL} spacing="roomy">
       <WcPayHeaderLine>{CONFIRMING_HEADLINE}</WcPayHeaderLine>
-      {phase === 'signingMessage' && signingSummary ? (
+      {isSummaryVisible && signingSummary ? (
         <YStack pt="$3" gap="$1" alignItems="center">
           <SizableText size="$bodyMd" color="$text" textAlign="center">
             {describeWcPaySigningHeadline(signingSummary, amountText)}
           </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign={isMessageBody ? 'left' : 'center'}
+            numberOfLines={isMessageBody ? 6 : undefined}
+          >
             {describeWcPaySigningSummary(signingSummary)}
           </SizableText>
         </YStack>
