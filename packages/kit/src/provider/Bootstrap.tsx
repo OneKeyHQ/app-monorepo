@@ -103,9 +103,8 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 const LazyExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? lazy(async () => {
-        const { ExtensionMarketTokenDetailHashNavigation } = await import(
-          './useExtensionMarketTokenDetailHashNavigation'
-        );
+        const { ExtensionMarketTokenDetailHashNavigation } =
+          await import('./useExtensionMarketTokenDetailHashNavigation');
         return { default: ExtensionMarketTokenDetailHashNavigation };
       })
     : null;
