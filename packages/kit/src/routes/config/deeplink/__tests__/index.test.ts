@@ -429,6 +429,20 @@ describe('walletconnect pay deep links', () => {
     });
   });
 
+  it('opens the pay dialog for a direct https payment link', async () => {
+    // not a wc:-scheme URI, so only the bg isPaymentLink verdict routes it
+    const httpsPayUrl = 'https://pay.walletconnect.com/?pid=pay_123';
+
+    handleDeepLinkUrl({ url: httpsPayUrl });
+    await flushDeepAsyncTasks();
+
+    expect(mockedIsPaymentLink).toHaveBeenCalledWith({ uri: httpsPayUrl });
+    expect(getWcPayDialogState()).toMatchObject({
+      isOpen: true,
+      paymentLink: httpsPayUrl,
+    });
+  });
+
   it('refuses the pay link with an explicit toast when durable progress is unsupported', async () => {
     mockedSupportsDurableProgress.mockResolvedValue(false);
 

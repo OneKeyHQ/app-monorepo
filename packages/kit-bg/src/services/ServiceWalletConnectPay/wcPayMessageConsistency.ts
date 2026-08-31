@@ -153,7 +153,12 @@ function unexpectedKey(
  * Permit2 `PermitTransferFrom` for the order the user approved: same chain,
  * same amount, same token (identity confirmed via the wallet's own token
  * registry, not the payload alone), and a deadline that is neither expired
- * nor unreasonably far in the future. Any uncertainty returns ok:false; the
+ * nor unreasonably far in the future. The `spender` is shape-checked only —
+ * the option carries no expected spender, so who may execute the transfer
+ * remains server-trusted, exactly like the recipient in the tx-level
+ * validator (see wcPayOrderConsistency.ts). The deadline ceiling is measured
+ * against the caller's clock (`nowMs`), so a skewed device clock shifts the
+ * window with it. Any uncertainty returns ok:false; the
  * caller falls back to the full confirm UI, never refuses the payment
  * outright. Must never throw on hostile input — `typedData` crosses a trust
  * boundary (server response).

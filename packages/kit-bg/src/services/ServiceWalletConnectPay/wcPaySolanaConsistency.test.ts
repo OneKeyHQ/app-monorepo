@@ -1466,6 +1466,141 @@ describe('checkWcPaySolanaTxMatchesOrder', () => {
     ).toEqual({ ok: false, reason });
   });
 
+  // Theft-shaped instructions: each of these is refused today by the
+  // classifier's opcode allowlist, and these cases pin that behavior so any
+  // future relaxation of classifyTokenInstruction / classifySystemInstruction
+  // hits a failing test before it hits user assets.
+  it.each([
+    [
+      'a sneaked SPL Approve (delegate) instruction',
+      () =>
+        new TransactionInstruction({
+          programId: TOKEN_PROGRAM_ID,
+          keys: [
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: true,
+            },
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: false,
+            },
+            { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+          ],
+          data: (() => {
+            const data = Buffer.alloc(9);
+            data.writeUInt8(4, 0); // Approve
+            data.writeBigUInt64LE(1500n, 1);
+            return data;
+          })(),
+        }),
+    ],
+    [
+      'a sneaked SPL SetAuthority instruction',
+      () =>
+        new TransactionInstruction({
+          programId: TOKEN_PROGRAM_ID,
+          keys: [
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: true,
+            },
+            { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+          ],
+          data: Buffer.from([6, 2, 0]), // SetAuthority(AccountOwner, none)
+        }),
+    ],
+    [
+      'a sneaked SPL Burn instruction',
+      () =>
+        new TransactionInstruction({
+          programId: TOKEN_PROGRAM_ID,
+          keys: [
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: true,
+            },
+            { pubkey: mint, isSigner: false, isWritable: true },
+            { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+          ],
+          data: (() => {
+            const data = Buffer.alloc(9);
+            data.writeUInt8(8, 0); // Burn
+            data.writeBigUInt64LE(1500n, 1);
+            return data;
+          })(),
+        }),
+    ],
+    [
+      'a sneaked SPL CloseAccount instruction',
+      () =>
+        new TransactionInstruction({
+          programId: TOKEN_PROGRAM_ID,
+          keys: [
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: true,
+            },
+            {
+              pubkey: Keypair.generate().publicKey,
+              isSigner: false,
+              isWritable: true,
+            },
+            { pubkey: payer.publicKey, isSigner: true, isWritable: false },
+          ],
+          data: Buffer.from([9]), // CloseAccount
+        }),
+    ],
+    [
+      'a SystemProgram Assign instruction',
+      () =>
+        SystemProgram.assign({
+          accountPubkey: payer.publicKey,
+          programId: TOKEN_PROGRAM_ID,
+        }),
+    ],
+    [
+      'a SystemProgram AdvanceNonceAccount (durable nonce) instruction',
+      () =>
+        SystemProgram.nonceAdvance({
+          noncePubkey: Keypair.generate().publicKey,
+          authorizedPubkey: payer.publicKey,
+        }),
+    ],
+  ])('refuses %s', (_label, buildIx) => {
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: toBase64([buildIx()]),
+        caip2ChainId: CHAIN,
+        option: buildOption('1500'),
+      }),
+    ).toEqual({ ok: false, reason: 'unsupported instruction' });
+  });
+
+  it('refuses a second SystemProgram transfer sneaked beside an SPL payment leg', () => {
+    // an extra native transfer to a third party alongside the SPL leg must
+    // never ride along on the no-confirmation signature
+    expect(
+      checkWcPaySolanaTxMatchesOrder({
+        txBase64: toBase64([
+          splTransferChecked(1500n, payer.publicKey),
+          SystemProgram.transfer({
+            fromPubkey: payer.publicKey,
+            toPubkey: recipient.publicKey,
+            lamports: 1,
+          }),
+        ]),
+        caip2ChainId: CHAIN,
+        option: buildOption('1500', 6, 'USDC'),
+      }),
+    ).toEqual({ ok: false, reason: 'unexpected instruction count' });
+  });
+
   it('refuses a fee payer that is not the option account', () => {
     const other = Keypair.generate();
     const message = new TransactionMessage({

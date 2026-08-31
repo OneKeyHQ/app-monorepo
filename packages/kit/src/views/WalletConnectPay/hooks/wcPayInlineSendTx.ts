@@ -27,7 +27,9 @@ import {
 } from './wcPayInlineBalanceUtils';
 import {
   WC_PAY_INLINE_POST_SIGN_FLAG,
+  WcPayUserCancelledError,
   classifyWcPayInlineFailure,
+  isWcPayInlineUserCancel,
 } from './wcPayInlineUtils';
 
 import type {
@@ -507,6 +509,14 @@ export async function wcPayInlineSendTx({
       wcPayPreBroadcastRecord,
     });
   } catch (error) {
+    // The password / hardware prompt pops INSIDE this call, before anything is
+    // signed. A user cancel there must stay a plain cancel — tagging it
+    // post-sign would lock the option list behind a spurious SendFailed
+    // banner. Same guard as the two signature legs; class/code matched, so a
+    // real broadcast failure is never swallowed.
+    if (isWcPayInlineUserCancel(error)) {
+      throw new WcPayUserCancelledError('User canceled payment');
+    }
     throw markWcPayInlinePostSignError(error);
   }
   onPhase?.('recording');

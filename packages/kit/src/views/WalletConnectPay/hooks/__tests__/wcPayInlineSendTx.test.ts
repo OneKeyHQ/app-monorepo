@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { PasswordPromptDialogCancel } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type {
   IWcPayOption,
   IWcPayPreBroadcastRecord,
@@ -12,6 +13,7 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { wcPayInlineSendTx } from '../wcPayInlineSendTx';
 import {
   EWcPayInlineFailureKind,
+  WcPayUserCancelledError,
   isWcPayInlinePostSignError,
 } from '../wcPayInlineUtils';
 
@@ -528,6 +530,20 @@ describe('wcPayInlineSendTx', () => {
     );
 
     await expect(callInlineSend()).rejects.toThrow('broadcast rejected');
+  });
+
+  it('keeps a password-prompt cancel inside the send call a plain user cancel', async () => {
+    // the password / hardware prompt pops inside signAndSendTransaction,
+    // before anything is signed — a cancel there must not be tagged
+    // post-sign, or the flow would lock behind a spurious SendFailed banner
+    api.serviceSend.signAndSendTransaction.mockRejectedValue(
+      new PasswordPromptDialogCancel(),
+    );
+
+    const error = await callInlineSend().catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(WcPayUserCancelledError);
+    expect(isWcPayInlinePostSignError(error)).toBe(false);
   });
 
   it('tags post-sign throws and leaves pre-sign throws untagged', async () => {

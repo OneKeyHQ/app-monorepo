@@ -570,12 +570,10 @@ async function processDeepLinkWalletConnect({
 
     // ** WalletConnect Pay links (wc:...?pay=... or extracted ?uri=) must be
     // routed to the payment flow BEFORE pairing; pair() would fail on them
-    const payLinkCandidate =
-      wcUri ||
-      (scheme === WALLET_CONNECT_DEEP_LINK ||
-      scheme === WALLET_CONNECT_DEEP_LINK_NAME
-        ? url
-        : '');
+    // Any scheme can carry a direct payment link (plain https included), so
+    // the raw url is always offered to the strict isPaymentLink verdict
+    // below; non-pay links simply fail the verdict and fall through.
+    const payLinkCandidate = wcUri || url;
     if (
       payLinkCandidate &&
       (await backgroundApiProxy.serviceWalletConnectPay.isPaymentLink({
