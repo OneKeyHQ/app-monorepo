@@ -20,9 +20,12 @@ const {
   assertSafeOutputDirectory,
   collectPackageInventory,
   downloadReleaseAsset,
+  getPlatformCacheDirectory,
+  getSharedCacheRoot,
   packagePrebundleRelease,
   parseArgs,
   restorePlatformFromRelease,
+  verifyArtifactAttestation,
   verifyReleaseManifest,
 } = require('../metro-dev-prebundle');
 
@@ -115,6 +118,22 @@ function createReleaseFetch(outputDirectory) {
     }
     return new Response(await fs.readFile(filePath), { status: 200 });
   };
+}
+
+function createTestAttestationHandlers() {
+  const attestationDownloader = jest.fn(
+    async ({ artifactPath, bundlePath }) => {
+      await fs.writeFile(
+        bundlePath,
+        `${sha256(await fs.readFile(artifactPath))}\n`,
+      );
+    },
+  );
+  const attestationVerifier = jest.fn(async ({ artifactPath, bundlePath }) => {
+    const expectedDigest = (await fs.readFile(bundlePath, 'utf8')).trim();
+    expect(sha256(await fs.readFile(artifactPath))).toBe(expectedDigest);
+  });
+  return { attestationDownloader, attestationVerifier };
 }
 
 describe('metro-dev-prebundle release transport', () => {
@@ -220,12 +239,69 @@ describe('metro-dev-prebundle release transport', () => {
     );
   });
 
+  it('uses an explicit shared cache override', () => {
+    expect(
+      getSharedCacheRoot(
+        { ONEKEY_METRO_PREBUNDLE_CACHE_DIR: './shared-cache' },
+        'darwin',
+        '/Users/example',
+      ),
+    ).toBe(path.resolve('./shared-cache'));
+  });
+
+  it('pins repository provenance during offline attestation verification', async () => {
+    const fixture = createTemporaryRepo();
+    const artifactPath = path.join(fixture.repoRoot, 'artifact.bin');
+    const bundlePath = path.join(
+      fixture.repoRoot,
+      'artifact.attestation.jsonl',
+    );
+    const runGh = jest.fn(async () => undefined);
+    try {
+      await fs.writeFile(artifactPath, 'artifact');
+      await fs.writeFile(bundlePath, 'attestation');
+      await verifyArtifactAttestation({
+        artifactPath,
+        bundlePath,
+        repoRoot: fixture.repoRoot,
+        runGh,
+        sourceCommit: 'a'.repeat(40),
+      });
+      expect(runGh).toHaveBeenCalledWith([
+        'attestation',
+        'verify',
+        artifactPath,
+        '--repo',
+        'OneKeyHQ/app-monorepo',
+        '--bundle',
+        bundlePath,
+        '--custom-trusted-root',
+        path.join(
+          fixture.repoRoot,
+          'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
+        ),
+        '--signer-workflow',
+        'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml',
+        '--source-ref',
+        'refs/heads/x',
+        '--source-digest',
+        'a'.repeat(40),
+        '--deny-self-hosted-runners',
+      ]);
+    } finally {
+      await fs.remove(fixture.repoRoot);
+    }
+  });
+
   it('packages, verifies, and atomically restores a public prebundle', async () => {
     const fixture = createTemporaryRepo();
+    const cacheRoot = path.join(fixture.repoRoot, 'shared-cache');
     const outputDirectory = path.join(
       fixture.projectRoot,
       'out-dir-bundle/test-release',
     );
+    const { attestationDownloader, attestationVerifier } =
+      createTestAttestationHandlers();
     try {
       const releaseManifest = await packagePrebundleRelease({
         outputDirectory,
@@ -260,6 +336,9 @@ describe('metro-dev-prebundle release transport', () => {
       await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
       await expect(
         restorePlatformFromRelease({
+          attestationDownloader,
+          attestationVerifier,
+          cacheRoot,
           fetchImpl: createReleaseFetch(outputDirectory),
           platform: 'ios',
           projectRoot: fixture.projectRoot,
@@ -268,6 +347,7 @@ describe('metro-dev-prebundle release transport', () => {
         }),
       ).resolves.toEqual({
         fingerprint: expect.any(String),
+        sharedCacheHit: false,
         tagName: releaseManifest.tagName,
       });
       await expect(
@@ -288,6 +368,69 @@ describe('metro-dev-prebundle release transport', () => {
           ),
         ),
       ).toBe(true);
+
+      await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
+      const unexpectedFetch = jest.fn(async () => {
+        throw new TypeError('Shared cache hits must not access the network.');
+      });
+      await expect(
+        restorePlatformFromRelease({
+          attestationDownloader,
+          attestationVerifier,
+          cacheRoot,
+          fetchImpl: unexpectedFetch,
+          platform: 'ios',
+          projectRoot: fixture.projectRoot,
+          releaseBaseUrl: 'https://example.invalid/release',
+          repoRoot: fixture.repoRoot,
+        }),
+      ).resolves.toEqual({
+        fingerprint: expect.any(String),
+        sharedCacheHit: true,
+        tagName: releaseManifest.tagName,
+      });
+      expect(unexpectedFetch).not.toHaveBeenCalled();
+      expect(attestationVerifier).toHaveBeenCalled();
+
+      const cacheDirectory = getPlatformCacheDirectory({
+        cacheRoot,
+        platform: 'ios',
+        tagName: releaseManifest.tagName,
+      });
+      const tamperedAsset = Buffer.from('tampered');
+      await fs.writeFile(
+        path.join(cacheDirectory, 'metro-dev-prebundle-ios-common.js.gz'),
+        tamperedAsset,
+      );
+      const cachedReleaseManifestPath = path.join(
+        cacheDirectory,
+        RELEASE_MANIFEST_NAME,
+      );
+      const cachedReleaseManifest = await fs.readJson(
+        cachedReleaseManifestPath,
+      );
+      cachedReleaseManifest.platforms.ios.source.bytes = tamperedAsset.length;
+      cachedReleaseManifest.platforms.ios.source.sha256 = sha256(tamperedAsset);
+      await fs.writeJson(cachedReleaseManifestPath, cachedReleaseManifest);
+      await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
+      const refetch = jest.fn(createReleaseFetch(outputDirectory));
+      await expect(
+        restorePlatformFromRelease({
+          attestationDownloader,
+          attestationVerifier,
+          cacheRoot,
+          fetchImpl: refetch,
+          platform: 'ios',
+          projectRoot: fixture.projectRoot,
+          releaseBaseUrl: 'https://example.invalid/release',
+          repoRoot: fixture.repoRoot,
+        }),
+      ).resolves.toEqual({
+        fingerprint: expect.any(String),
+        sharedCacheHit: false,
+        tagName: releaseManifest.tagName,
+      });
+      expect(refetch).toHaveBeenCalled();
     } finally {
       await fs.remove(fixture.repoRoot);
     }

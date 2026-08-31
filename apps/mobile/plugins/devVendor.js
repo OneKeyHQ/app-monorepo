@@ -3,14 +3,6 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const metroRoot = path.resolve(__dirname, '../../../node_modules/metro/src');
-const baseJSBundle = require(
-  path.join(metroRoot, 'DeltaBundler/Serializers/baseJSBundle'),
-).default;
-const bundleToString = require(
-  path.join(metroRoot, 'lib/bundleToString'),
-).default;
-
 const devVendorConfig = require('../dev-vendor.config');
 
 const {
@@ -580,6 +572,13 @@ function composeDevVendorBundle({
 }
 
 function serializeDefault(entryPoint, prepend, graph, bundleOptions) {
+  const metroRoot = path.resolve(__dirname, '../../../node_modules/metro/src');
+  const baseJSBundle = require(
+    path.join(metroRoot, 'DeltaBundler/Serializers/baseJSBundle'),
+  ).default;
+  const bundleToString = require(
+    path.join(metroRoot, 'lib/bundleToString'),
+  ).default;
   return bundleToString(baseJSBundle(entryPoint, prepend, graph, bundleOptions))
     .code;
 }

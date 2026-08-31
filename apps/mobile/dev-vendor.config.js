@@ -93,6 +93,10 @@ module.exports = {
   outputRoot(projectRoot) {
     return path.resolve(projectRoot, 'out-dir-bundle/dev-vendor');
   },
-  releaseFingerprintFiles: ['apps/mobile/scripts/metro-dev-prebundle.js'],
+  releaseFingerprintFiles: [
+    '.github/workflows/metro-dev-prebundle.yml',
+    'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
+    'apps/mobile/scripts/metro-dev-prebundle.js',
+  ],
   releaseTagPrefix: `${RELEASE_ASSET_PREFIX}-v${RELEASE_SCHEMA_VERSION}`,
 };

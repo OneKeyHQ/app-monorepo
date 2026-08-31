@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /* eslint-disable onekey/no-raw-error */
-/* cspell:words prebundle */
+/* cspell:words LOCALAPPDATA prebundle sigstore */
 
+const { execFile } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
+const { promisify } = require('util');
 const zlib = require('zlib');
-
-const fs = require('fs-extra');
 
 const devVendorConfig = require('../dev-vendor.config');
 const {
@@ -21,13 +23,153 @@ const {
 const { REPO_ROOT, loadRegistry } = require('../plugins/moduleIdRegistry');
 
 const MOBILE_DIR = path.resolve(__dirname, '..');
+const execFileAsync = promisify(execFile);
 const RELEASE_MANIFEST_NAME = 'metro-dev-prebundle-release.json';
 const PACKAGE_INVENTORY_NAME = 'metro-dev-prebundle-packages.json';
 const THIRD_PARTY_NOTICES_NAME = 'THIRD_PARTY_NOTICES.txt';
+const TRUSTED_ROOT_REPO_PATH =
+  'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl';
+const RELEASE_SIGNER_WORKFLOW =
+  'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml';
+const RELEASE_SOURCE_REF = 'refs/heads/x';
+const ATTESTATION_PREDICATE_TYPE = 'https://slsa.dev/provenance/v1';
+const SHARED_CACHE_SCHEMA_VERSION = 1;
+const SHARED_CACHE_ENV = 'ONEKEY_METRO_PREBUNDLE_CACHE_DIR';
+const MAX_CACHED_RELEASES = 5;
 const SUPPORTED_PLATFORMS = ['ios', 'android'];
 const MAX_RELEASE_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_ASSET_BYTES = 512 * 1024 * 1024;
+const MAX_ATTESTATION_BYTES = 8 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+
+async function pathExists(filePath) {
+  try {
+    await fs.promises.access(filePath);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function readJsonFile(filePath, maxBytes = MAX_RELEASE_MANIFEST_BYTES) {
+  const stat = await fs.promises.lstat(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > maxBytes) {
+    throw new Error(
+      `[metroDevPrebundle] Invalid cached JSON file: ${filePath}.`,
+    );
+  }
+  return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+}
+
+function getSharedCacheRoot(
+  env = process.env,
+  platform = process.platform,
+  homeDirectory = os.homedir(),
+) {
+  if (env[SHARED_CACHE_ENV]) {
+    return path.resolve(env[SHARED_CACHE_ENV]);
+  }
+  if (platform === 'darwin') {
+    return path.join(
+      homeDirectory,
+      'Library/Caches/OneKey/metro-dev-prebundle',
+    );
+  }
+  if (platform === 'win32') {
+    return path.join(
+      env.LOCALAPPDATA || path.join(homeDirectory, 'AppData/Local'),
+      'OneKey/metro-dev-prebundle',
+    );
+  }
+  return path.join(
+    env.XDG_CACHE_HOME || path.join(homeDirectory, '.cache'),
+    'onekey/metro-dev-prebundle',
+  );
+}
+
+function getCacheVersionRoot(cacheRoot) {
+  return path.join(path.resolve(cacheRoot), `v${SHARED_CACHE_SCHEMA_VERSION}`);
+}
+
+function getPlatformCacheDirectory({ cacheRoot, platform, tagName }) {
+  if (!SUPPORTED_PLATFORMS.includes(platform)) {
+    throw new Error(`[metroDevPrebundle] Unsupported platform: ${platform}`);
+  }
+  const expectedPrefix = `${devVendorConfig.releaseTagPrefix}-`;
+  if (
+    !tagName.startsWith(expectedPrefix) ||
+    !/^[0-9a-f]{64}$/.test(tagName.slice(expectedPrefix.length))
+  ) {
+    throw new Error(`[metroDevPrebundle] Invalid release tag: ${tagName}.`);
+  }
+  return path.join(getCacheVersionRoot(cacheRoot), tagName, platform);
+}
+
+function getTrustedRootPath(repoRoot = REPO_ROOT) {
+  return path.resolve(repoRoot, TRUSTED_ROOT_REPO_PATH);
+}
+
+function getAttestationBundleName(fileName) {
+  return `${assertSafeFileName(fileName)}.attestation.jsonl`;
+}
+
+async function ensureCacheDirectory(directoryPath) {
+  await fs.promises.mkdir(directoryPath, { mode: 0o700, recursive: true });
+  const stat = await fs.promises.lstat(directoryPath);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error(
+      `[metroDevPrebundle] Shared cache path is not a directory: ${directoryPath}.`,
+    );
+  }
+  if (
+    typeof process.getuid === 'function' &&
+    Number.isSafeInteger(stat.uid) &&
+    stat.uid !== process.getuid()
+  ) {
+    throw new Error(
+      `[metroDevPrebundle] Shared cache is owned by another user: ${directoryPath}.`,
+    );
+  }
+  if (process.platform !== 'win32') {
+    await fs.promises.chmod(directoryPath, 0o700);
+  }
+}
+
+async function assertRegularFile(filePath, maxBytes) {
+  const stat = await fs.promises.lstat(filePath);
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    stat.size <= 0 ||
+    stat.size > maxBytes
+  ) {
+    throw new Error(
+      `[metroDevPrebundle] Invalid cached file: ${path.basename(filePath)}.`,
+    );
+  }
+  return stat;
+}
+
+async function runGhCommand(args, { cwd } = {}) {
+  try {
+    return await execFileAsync('gh', args, {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
+    });
+  } catch (error) {
+    throw new Error(
+      `[metroDevPrebundle] GitHub CLI attestation command failed: gh ${args
+        .slice(0, 2)
+        .join(
+          ' ',
+        )}. Install or update GitHub CLI and authenticate if required.`,
+      { cause: error },
+    );
+  }
+}
 
 function getReleaseOutputDirectory(projectRoot = MOBILE_DIR) {
   return path.join(projectRoot, 'out-dir-bundle/metro-dev-prebundle-release');
@@ -81,7 +223,7 @@ function assertSafeOutputDirectory({ outputDirectory, projectRoot }) {
 }
 
 async function getAssetMetadata(filePath) {
-  const content = await fs.readFile(filePath);
+  const content = await fs.promises.readFile(filePath);
   return {
     bytes: content.length,
     file: path.basename(filePath),
@@ -210,8 +352,8 @@ function collectPackageInventory(platformManifests, repoRoot = REPO_ROOT) {
         .join('/');
       let record = packages.get(relativeRoot);
       if (!record) {
-        const packageJson = fs.readJsonSync(
-          path.join(packageRoot, 'package.json'),
+        const packageJson = JSON.parse(
+          fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
         );
         record = {
           license: getPackageLicense(packageJson),
@@ -277,21 +419,21 @@ async function replaceDirectoryAtomically({
   temporaryDirectory,
 }) {
   const backupDirectory = `${outputDirectory}.previous-${process.pid}`;
-  await fs.remove(backupDirectory);
-  const hadPreviousOutput = await fs.pathExists(outputDirectory);
+  await fs.promises.rm(backupDirectory, { force: true, recursive: true });
+  const hadPreviousOutput = await pathExists(outputDirectory);
   if (hadPreviousOutput) {
-    await fs.rename(outputDirectory, backupDirectory);
+    await fs.promises.rename(outputDirectory, backupDirectory);
   }
   try {
-    await fs.rename(temporaryDirectory, outputDirectory);
+    await fs.promises.rename(temporaryDirectory, outputDirectory);
   } catch (error) {
-    if (hadPreviousOutput && (await fs.pathExists(backupDirectory))) {
-      await fs.rename(backupDirectory, outputDirectory);
+    if (hadPreviousOutput && (await pathExists(backupDirectory))) {
+      await fs.promises.rename(backupDirectory, outputDirectory);
     }
     throw error;
   }
   if (hadPreviousOutput) {
-    await fs.remove(backupDirectory);
+    await fs.promises.rm(backupDirectory, { force: true, recursive: true });
   }
 }
 
@@ -303,7 +445,10 @@ async function verifyAndReplaceDirectory({
   try {
     await verifyTemporaryDirectory(temporaryDirectory);
   } catch (error) {
-    await fs.remove(temporaryDirectory);
+    await fs.promises.rm(temporaryDirectory, {
+      force: true,
+      recursive: true,
+    });
     throw error;
   }
   await replaceDirectoryAtomically({ outputDirectory, temporaryDirectory });
@@ -333,8 +478,11 @@ async function packagePrebundleRelease({
   const tagName = `${devVendorConfig.releaseTagPrefix}-${compatibilityKey}`;
   const platformManifests = {};
   const platforms = {};
-  await fs.remove(releaseOutputDirectory);
-  await fs.ensureDir(releaseOutputDirectory);
+  await fs.promises.rm(releaseOutputDirectory, {
+    force: true,
+    recursive: true,
+  });
+  await fs.promises.mkdir(releaseOutputDirectory, { recursive: true });
   try {
     for (const platform of SUPPORTED_PLATFORMS) {
       const artifactDirectory = getPlatformOutputDirectory(
@@ -344,7 +492,7 @@ async function packagePrebundleRelease({
       const manifestPath = path.join(artifactDirectory, 'manifest.json');
       const manifest = verifyManifest({
         artifactDirectory,
-        manifest: await fs.readJson(manifestPath),
+        manifest: await readJsonFile(manifestPath),
         platform,
         projectRoot,
         repoRoot,
@@ -370,7 +518,7 @@ async function packagePrebundleRelease({
         releaseOutputDirectory,
         names.bytecode,
       );
-      await fs.copyFile(manifestPath, releaseManifestPath);
+      await fs.promises.copyFile(manifestPath, releaseManifestPath);
       await gzipFile(sourcePath, compressedSourcePath);
       await gzipFile(bytecodePath, compressedBytecodePath);
       platformManifests[platform] = manifest;
@@ -394,7 +542,7 @@ async function packagePrebundleRelease({
       ...packageRecord,
       licenseFiles: packageRecord.licenseFiles.map(({ name }) => name),
     }));
-    await fs.writeFile(
+    await fs.promises.writeFile(
       packageInventoryPath,
       `${JSON.stringify(
         { packages: inventoryPackages, schemaVersion: 1, sourceCommit },
@@ -402,7 +550,7 @@ async function packagePrebundleRelease({
         2,
       )}\n`,
     );
-    await fs.writeFile(noticesPath, createThirdPartyNotices(packages));
+    await fs.promises.writeFile(noticesPath, createThirdPartyNotices(packages));
 
     const releaseManifest = {
       assets: {
@@ -426,13 +574,16 @@ async function packagePrebundleRelease({
       sourceCommit,
       tagName,
     };
-    await fs.writeFile(
+    await fs.promises.writeFile(
       path.join(releaseOutputDirectory, RELEASE_MANIFEST_NAME),
       `${JSON.stringify(releaseManifest, null, 2)}\n`,
     );
     return releaseManifest;
   } catch (error) {
-    await fs.remove(releaseOutputDirectory);
+    await fs.promises.rm(releaseOutputDirectory, {
+      force: true,
+      recursive: true,
+    });
     throw error;
   }
 }
@@ -465,7 +616,8 @@ function verifyReleaseManifest({ manifest, platform, repoRoot = REPO_ROOT }) {
     manifest?.schemaVersion !== devVendorConfig.RELEASE_SCHEMA_VERSION ||
     manifest.repository !== devVendorConfig.RELEASE_REPOSITORY ||
     manifest.compatibilityKey !== compatibilityKey ||
-    manifest.tagName !== tagName
+    manifest.tagName !== tagName ||
+    !/^[0-9a-f]{40}$/.test(manifest.sourceCommit || '')
   ) {
     throw new Error(
       '[metroDevPrebundle] Release manifest is incompatible with this checkout.',
@@ -567,45 +719,191 @@ function assertDownloadedAsset(content, metadata) {
   }
 }
 
-async function restorePlatformFromRelease({
-  fetchImpl,
+function assertSourceCommit(sourceCommit) {
+  if (!/^[0-9a-f]{40}$/.test(sourceCommit || '')) {
+    throw new Error(
+      '[metroDevPrebundle] Release manifest has an invalid source commit.',
+    );
+  }
+  return sourceCommit;
+}
+
+function getAttestationBundlePath(cacheDirectory, fileName) {
+  return path.join(cacheDirectory, getAttestationBundleName(fileName));
+}
+
+async function downloadArtifactAttestation({
+  artifactPath,
+  bundlePath,
+  runGh = runGhCommand,
+}) {
+  const temporaryDirectory = `${bundlePath}.download-${process.pid}-${Date.now()}`;
+  await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+  await fs.promises.mkdir(temporaryDirectory, { mode: 0o700, recursive: true });
+  try {
+    await runGh(
+      [
+        'attestation',
+        'download',
+        artifactPath,
+        '--repo',
+        devVendorConfig.RELEASE_REPOSITORY,
+        '--predicate-type',
+        ATTESTATION_PREDICATE_TYPE,
+      ],
+      { cwd: temporaryDirectory },
+    );
+    const digest = sha256(await fs.promises.readFile(artifactPath));
+    const candidateNames = [`sha256:${digest}.jsonl`, `sha256-${digest}.jsonl`];
+    const candidatePath = (
+      await Promise.all(
+        candidateNames.map(async (fileName) => {
+          const filePath = path.join(temporaryDirectory, fileName);
+          return (await pathExists(filePath)) ? filePath : undefined;
+        }),
+      )
+    ).find(Boolean);
+    if (!candidatePath) {
+      throw new Error(
+        `[metroDevPrebundle] GitHub did not return an attestation for ${path.basename(artifactPath)}.`,
+      );
+    }
+    await assertRegularFile(candidatePath, MAX_ATTESTATION_BYTES);
+    await fs.promises.copyFile(candidatePath, bundlePath);
+  } finally {
+    await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+  }
+}
+
+async function verifyArtifactAttestation({
+  artifactPath,
+  bundlePath,
+  repoRoot = REPO_ROOT,
+  runGh = runGhCommand,
+  sourceCommit,
+}) {
+  const trustedRootPath = getTrustedRootPath(repoRoot);
+  await assertRegularFile(trustedRootPath, MAX_ATTESTATION_BYTES);
+  await assertRegularFile(bundlePath, MAX_ATTESTATION_BYTES);
+  await runGh([
+    'attestation',
+    'verify',
+    artifactPath,
+    '--repo',
+    devVendorConfig.RELEASE_REPOSITORY,
+    '--bundle',
+    bundlePath,
+    '--custom-trusted-root',
+    trustedRootPath,
+    '--signer-workflow',
+    RELEASE_SIGNER_WORKFLOW,
+    '--source-ref',
+    RELEASE_SOURCE_REF,
+    '--source-digest',
+    assertSourceCommit(sourceCommit),
+    '--deny-self-hosted-runners',
+  ]);
+}
+
+async function verifyCachedReleaseAssets({
+  attestationVerifier = verifyArtifactAttestation,
+  cacheDirectory,
   platform,
-  projectRoot = MOBILE_DIR,
-  releaseBaseUrl,
   repoRoot = REPO_ROOT,
 }) {
-  const tagName = getReleaseTag(repoRoot, process.env);
-  const releaseManifestBytes = await downloadReleaseAsset({
-    fetchImpl,
-    fileName: RELEASE_MANIFEST_NAME,
-    maxBytes: MAX_RELEASE_MANIFEST_BYTES,
-    releaseBaseUrl,
-    tagName,
-    timeoutMs: 15_000,
+  const releaseManifestPath = path.join(cacheDirectory, RELEASE_MANIFEST_NAME);
+  const releaseManifest = await readJsonFile(releaseManifestPath);
+  const sourceCommit = assertSourceCommit(releaseManifest.sourceCommit);
+  await attestationVerifier({
+    artifactPath: releaseManifestPath,
+    bundlePath: getAttestationBundlePath(cacheDirectory, RELEASE_MANIFEST_NAME),
+    repoRoot,
+    sourceCommit,
   });
-  let releaseManifest;
-  try {
-    releaseManifest = JSON.parse(releaseManifestBytes.toString('utf8'));
-  } catch (error) {
-    throw new Error('[metroDevPrebundle] Release manifest is not valid JSON.', {
-      cause: error,
-    });
-  }
-  const { platformAssets } = verifyReleaseManifest({
+  const { platformAssets, tagName } = verifyReleaseManifest({
     manifest: releaseManifest,
     platform,
     repoRoot,
   });
-  const outputDirectory = getPlatformOutputDirectory(projectRoot, platform);
-  const temporaryRoot = `${outputDirectory}.download-${process.pid}-${Date.now()}`;
-  const artifactDirectory = path.join(temporaryRoot, 'artifact');
-  const downloadDirectory = path.join(temporaryRoot, 'download');
-  await fs.remove(temporaryRoot);
-  await fs.ensureDir(path.join(artifactDirectory, 'stubs'));
-  await fs.ensureDir(downloadDirectory);
+  const assetPaths = {};
+  for (const [assetType, metadata] of Object.entries(platformAssets)) {
+    const artifactPath = path.join(
+      cacheDirectory,
+      assertSafeFileName(metadata.file),
+    );
+    await assertRegularFile(artifactPath, MAX_ASSET_BYTES);
+    assertDownloadedAsset(await fs.promises.readFile(artifactPath), metadata);
+    await attestationVerifier({
+      artifactPath,
+      bundlePath: getAttestationBundlePath(cacheDirectory, metadata.file),
+      repoRoot,
+      sourceCommit,
+    });
+    assetPaths[assetType] = artifactPath;
+  }
+  return { assetPaths, releaseManifest, tagName };
+}
+
+async function downloadReleaseIntoCache({
+  attestationDownloader = downloadArtifactAttestation,
+  attestationVerifier = verifyArtifactAttestation,
+  cacheDirectory,
+  fetchImpl,
+  platform,
+  releaseBaseUrl,
+  repoRoot,
+  tagName,
+}) {
+  const temporaryDirectory = `${cacheDirectory}.download-${process.pid}-${Date.now()}`;
+  await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+  await fs.promises.mkdir(temporaryDirectory, { mode: 0o700, recursive: true });
   try {
-    const downloadedAssets = {};
-    for (const [assetType, metadata] of Object.entries(platformAssets)) {
+    const releaseManifestBytes = await downloadReleaseAsset({
+      fetchImpl,
+      fileName: RELEASE_MANIFEST_NAME,
+      maxBytes: MAX_RELEASE_MANIFEST_BYTES,
+      releaseBaseUrl,
+      tagName,
+      timeoutMs: 15_000,
+    });
+    let releaseManifest;
+    try {
+      releaseManifest = JSON.parse(releaseManifestBytes.toString('utf8'));
+    } catch (error) {
+      throw new Error(
+        '[metroDevPrebundle] Release manifest is not valid JSON.',
+        { cause: error },
+      );
+    }
+    const sourceCommit = assertSourceCommit(releaseManifest.sourceCommit);
+    const releaseManifestPath = path.join(
+      temporaryDirectory,
+      RELEASE_MANIFEST_NAME,
+    );
+    await fs.promises.writeFile(releaseManifestPath, releaseManifestBytes, {
+      mode: 0o600,
+    });
+    const releaseManifestBundlePath = getAttestationBundlePath(
+      temporaryDirectory,
+      RELEASE_MANIFEST_NAME,
+    );
+    await attestationDownloader({
+      artifactPath: releaseManifestPath,
+      bundlePath: releaseManifestBundlePath,
+    });
+    await attestationVerifier({
+      artifactPath: releaseManifestPath,
+      bundlePath: releaseManifestBundlePath,
+      repoRoot,
+      sourceCommit,
+    });
+    const { platformAssets } = verifyReleaseManifest({
+      manifest: releaseManifest,
+      platform,
+      repoRoot,
+    });
+
+    for (const metadata of Object.values(platformAssets)) {
       const content = await downloadReleaseAsset({
         fetchImpl,
         fileName: metadata.file,
@@ -613,24 +911,64 @@ async function restorePlatformFromRelease({
         tagName,
       });
       assertDownloadedAsset(content, metadata);
-      downloadedAssets[assetType] = path.join(downloadDirectory, metadata.file);
-      await fs.writeFile(downloadedAssets[assetType], content);
+      const artifactPath = path.join(temporaryDirectory, metadata.file);
+      await fs.promises.writeFile(artifactPath, content, { mode: 0o600 });
+      await attestationDownloader({
+        artifactPath,
+        bundlePath: getAttestationBundlePath(temporaryDirectory, metadata.file),
+      });
     }
+    await verifyCachedReleaseAssets({
+      attestationVerifier,
+      cacheDirectory: temporaryDirectory,
+      platform,
+      repoRoot,
+    });
+    await replaceDirectoryAtomically({
+      outputDirectory: cacheDirectory,
+      temporaryDirectory,
+    });
+  } catch (error) {
+    await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+    throw error;
+  }
+}
 
-    const manifest = await fs.readJson(downloadedAssets.manifest);
-    await fs.copyFile(
-      downloadedAssets.manifest,
+async function materializePlatformFromCache({
+  attestationVerifier,
+  cacheDirectory,
+  platform,
+  projectRoot,
+  repoRoot,
+}) {
+  const { assetPaths, tagName } = await verifyCachedReleaseAssets({
+    attestationVerifier,
+    cacheDirectory,
+    platform,
+    repoRoot,
+  });
+  const manifest = await readJsonFile(assetPaths.manifest);
+  const outputDirectory = getPlatformOutputDirectory(projectRoot, platform);
+  const temporaryRoot = `${outputDirectory}.restore-${process.pid}-${Date.now()}`;
+  const artifactDirectory = path.join(temporaryRoot, 'artifact');
+  await fs.promises.rm(temporaryRoot, { force: true, recursive: true });
+  await fs.promises.mkdir(path.join(artifactDirectory, 'stubs'), {
+    recursive: true,
+  });
+  try {
+    await fs.promises.copyFile(
+      assetPaths.manifest,
       path.join(artifactDirectory, 'manifest.json'),
     );
     await gunzipFile(
-      downloadedAssets.source,
+      assetPaths.source,
       path.join(
         artifactDirectory,
         assertSafeFileName(manifest.common?.source?.file),
       ),
     );
     await gunzipFile(
-      downloadedAssets.bytecode,
+      assetPaths.bytecode,
       path.join(
         artifactDirectory,
         assertSafeFileName(manifest.common?.bytecode?.file),
@@ -642,7 +980,7 @@ async function restorePlatformFromRelease({
           '[metroDevPrebundle] Release manifest contains an invalid module ID.',
         );
       }
-      fs.writeFileSync(
+      await fs.promises.writeFile(
         path.join(artifactDirectory, 'stubs', `${moduleRecord.id}.js`),
         '',
       );
@@ -659,12 +997,161 @@ async function restorePlatformFromRelease({
           repoRoot,
         }),
     });
-    await fs.remove(temporaryRoot);
+    await fs.promises.rm(temporaryRoot, { force: true, recursive: true });
     return { fingerprint: manifest.fingerprint, tagName };
   } catch (error) {
-    await fs.remove(temporaryRoot);
+    await fs.promises.rm(temporaryRoot, { force: true, recursive: true });
     throw error;
   }
+}
+
+async function withCacheLock(cacheDirectory, callback) {
+  const lockDirectory = `${cacheDirectory}.lock`;
+  const startedAt = Date.now();
+  let lockAcquired = false;
+  await ensureCacheDirectory(path.dirname(cacheDirectory));
+  while (!lockAcquired) {
+    try {
+      await fs.promises.mkdir(lockDirectory, { mode: 0o700 });
+      lockAcquired = true;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      let stat;
+      try {
+        stat = await fs.promises.lstat(lockDirectory);
+      } catch (statError) {
+        if (statError?.code !== 'ENOENT') throw statError;
+      }
+      if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) {
+        throw new Error(
+          `[metroDevPrebundle] Invalid shared cache lock: ${lockDirectory}.`,
+          { cause: error },
+        );
+      }
+      if (stat && Date.now() - stat.mtimeMs > 10 * 60_000) {
+        await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+      } else if (stat) {
+        if (Date.now() - startedAt > 3 * 60_000) {
+          throw new Error(
+            `[metroDevPrebundle] Timed out waiting for shared cache lock: ${lockDirectory}.`,
+            { cause: error },
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+  }
+  try {
+    return await callback();
+  } finally {
+    await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+  }
+}
+
+async function touchAndPruneSharedCache(cacheRoot, currentTag) {
+  const cacheVersionRoot = getCacheVersionRoot(cacheRoot);
+  const currentTagDirectory = path.join(cacheVersionRoot, currentTag);
+  const now = new Date();
+  await fs.promises.utimes(currentTagDirectory, now, now);
+  const entries = await fs.promises.readdir(cacheVersionRoot, {
+    withFileTypes: true,
+  });
+  const tagDirectories = [];
+  const expectedTagPrefix = `${devVendorConfig.releaseTagPrefix}-`;
+  for (const entry of entries) {
+    if (
+      entry.isDirectory() &&
+      entry.name.startsWith(expectedTagPrefix) &&
+      /^[0-9a-f]{64}$/.test(entry.name.slice(expectedTagPrefix.length))
+    ) {
+      const directoryPath = path.join(cacheVersionRoot, entry.name);
+      const stat = await fs.promises.lstat(directoryPath);
+      if (!stat.isSymbolicLink()) {
+        const children = await fs.promises.readdir(directoryPath, {
+          withFileTypes: true,
+        });
+        tagDirectories.push({
+          directoryPath,
+          locked: children.some(
+            (child) => child.isDirectory() && child.name.endsWith('.lock'),
+          ),
+          mtimeMs: stat.mtimeMs,
+        });
+      }
+    }
+  }
+  tagDirectories.sort((first, second) => second.mtimeMs - first.mtimeMs);
+  for (const { directoryPath, locked } of tagDirectories.slice(
+    MAX_CACHED_RELEASES,
+  )) {
+    if (!locked) {
+      await fs.promises.rm(directoryPath, { force: true, recursive: true });
+    }
+  }
+}
+
+async function restorePlatformFromRelease({
+  attestationDownloader = downloadArtifactAttestation,
+  attestationVerifier = verifyArtifactAttestation,
+  cacheRoot = getSharedCacheRoot(),
+  fetchImpl,
+  platform,
+  projectRoot = MOBILE_DIR,
+  releaseBaseUrl,
+  repoRoot = REPO_ROOT,
+}) {
+  const tagName = getReleaseTag(repoRoot, process.env);
+  await ensureCacheDirectory(cacheRoot);
+  await ensureCacheDirectory(getCacheVersionRoot(cacheRoot));
+  const cacheDirectory = getPlatformCacheDirectory({
+    cacheRoot,
+    platform,
+    tagName,
+  });
+  return withCacheLock(cacheDirectory, async () => {
+    if (await pathExists(cacheDirectory)) {
+      try {
+        const restored = await materializePlatformFromCache({
+          attestationVerifier,
+          cacheDirectory,
+          platform,
+          projectRoot,
+          repoRoot,
+        });
+        await touchAndPruneSharedCache(cacheRoot, tagName);
+        console.log(
+          `[metroDevPrebundle] shared cache hit platform=${platform} tag=${tagName}`,
+        );
+        return { ...restored, sharedCacheHit: true };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[metroDevPrebundle] rejected shared cache platform=${platform} reason=${reason}`,
+        );
+        await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
+      }
+    }
+
+    await downloadReleaseIntoCache({
+      attestationDownloader,
+      attestationVerifier,
+      cacheDirectory,
+      fetchImpl,
+      platform,
+      releaseBaseUrl,
+      repoRoot,
+      tagName,
+    });
+    const restored = await materializePlatformFromCache({
+      attestationVerifier,
+      cacheDirectory,
+      platform,
+      projectRoot,
+      repoRoot,
+    });
+    await touchAndPruneSharedCache(cacheRoot, tagName);
+    return { ...restored, sharedCacheHit: false };
+  });
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -730,12 +1217,16 @@ module.exports = {
   collectPackageInventory,
   createThirdPartyNotices,
   downloadReleaseAsset,
+  getPlatformCacheDirectory,
   getPlatformAssetNames,
   getReleaseOutputDirectory,
+  getSharedCacheRoot,
   packagePrebundleRelease,
   parseArgs,
   replaceDirectoryAtomically,
   restorePlatformFromRelease,
+  verifyArtifactAttestation,
   verifyAndReplaceDirectory,
+  verifyCachedReleaseAssets,
   verifyReleaseManifest,
 };
