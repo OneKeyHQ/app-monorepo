@@ -584,6 +584,7 @@ export class DeviceStageBurstScope {
       if (this.authoredAuthStep) {
         // A call ended inside an authored flow: the runner narrates what
         // comes next, the stage stays on its beat meanwhile.
+        const isFailure = this.authoredAuthStep === 'authFailure';
         await this.setStep(this.authoredAuthStep, {
           connectId,
           // The re-assert carries no extras of its own, and a step keeps
@@ -591,10 +592,11 @@ export class DeviceStageBurstScope {
           // after a failure blanks the reason, the card falls back to the
           // generic one, and a verdict that may only be taken to Support
           // grows a "continue anyway" button it must never offer.
-          authFailureReason:
-            this.authoredAuthStep === 'authFailure'
-              ? current?.authFailureReason
-              : undefined,
+          authFailureReason: isFailure ? current?.authFailureReason : undefined,
+          authFailureMessage: isFailure
+            ? current?.authFailureMessage
+            : undefined,
+          authFailureCode: isFailure ? current?.authFailureCode : undefined,
         });
         return;
       }
@@ -800,6 +802,8 @@ export class DeviceStageBurstScope {
       errorReason?: IDeviceStageErrorReasonValue;
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
+      authFailureMessage?: string;
+      authFailureCode?: string;
     } = {},
   ) {
     if (!(await this.isEnabled())) {
@@ -960,6 +964,8 @@ export class DeviceStageBurstScope {
       passphraseMode?: IDeviceStageState['passphraseMode'];
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
+      authFailureMessage?: string;
+      authFailureCode?: string;
       vendor?: EHardwareVendor;
       vendorModel?: string;
       vendorModelName?: string;
@@ -1046,6 +1052,10 @@ export class DeviceStageBurstScope {
           : undefined,
         authFailureReason:
           step === 'authFailure' ? mergedExtras.authFailureReason : undefined,
+        authFailureMessage:
+          step === 'authFailure' ? mergedExtras.authFailureMessage : undefined,
+        authFailureCode:
+          step === 'authFailure' ? mergedExtras.authFailureCode : undefined,
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
         inputError: mergedExtras.inputError,
         passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,
