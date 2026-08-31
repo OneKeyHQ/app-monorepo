@@ -29,8 +29,7 @@ export type { IClassicDeviceAnimation } from './animation';
  * Scenes run on the shared presence machinery (../deviceSceneHost), the
  * same way the Pro's and the Pro 2's do: content renders in as the whole of
  * an entry, stays lit while the scene is on, and a scene change plays the
- * lit-to-lit handover (callers sequence anything else after SCREEN_SWAP_MS,
- * see ../deviceScene). The panel's faint glow rides the same opacity, so
+ * lit-to-lit handover. The panel's faint glow rides the same opacity, so
  * "lighting up" is nothing but content rendering in. The shell chrome (the
  * noise, the blurs, the four keys) mounts once here; a scene change only
  * swaps the screen slot's content, and scenes reach the OK key through the
