@@ -1907,10 +1907,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         releaseResult: ICheckAllFirmwareReleaseResult;
         transportType: EHardwareTransportType | undefined;
         startedAt: number;
-        activeStartedAt: number | undefined;
-        activeDurationMs: number;
-        attemptCount: number;
         retryCount: number;
+        lastFailure: IOneKeyError | undefined;
       }
     | undefined;
 
@@ -1931,10 +1929,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       releaseResult,
       transportType: undefined,
       startedAt,
-      activeStartedAt: startedAt,
-      activeDurationMs: 0,
-      attemptCount: 0,
       retryCount: 0,
+      lastFailure: undefined,
     };
     return workflowId;
   }
@@ -1978,25 +1974,24 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!tracking || !tracking.acceptsTaskResults) {
       return;
     }
-    this.pauseUpdateWorkflowTracking(tracking.workflowId);
     tracking.acceptsTaskResults = false;
   }
 
-  pauseUpdateWorkflowTracking(workflowId: number) {
+  recordUpdateWorkflowFailure(workflowId: number, error: unknown) {
     const tracking = this.getUpdateWorkflowTracking(workflowId);
-    if (!tracking || tracking.activeStartedAt === undefined) {
-      return;
+    if (
+      !tracking ||
+      error instanceof FirmwareUpdateExit ||
+      error instanceof FirmwareUpdateTasksClear
+    ) {
+      return false;
     }
-    tracking.activeDurationMs += Date.now() - tracking.activeStartedAt;
-    tracking.activeStartedAt = undefined;
-  }
-
-  resumeUpdateWorkflowTracking(workflowId: number) {
-    const tracking = this.getUpdateWorkflowTracking(workflowId);
-    if (!tracking || tracking.activeStartedAt !== undefined) {
-      return;
+    const err = toPlainErrorObject(error as any);
+    if (classifyFirmwareUpdateFailure(err) === 'cancelled') {
+      return false;
     }
-    tracking.activeStartedAt = Date.now();
+    tracking.lastFailure = err;
+    return true;
   }
 
   recordUpdateWorkflowRetry(workflowId: number) {
@@ -2011,19 +2006,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   async getUpdateWorkflowTrackingInfo(): Promise<{
     retryCount: number | undefined;
-    durationMs: number | undefined;
     totalDurationMs: number | undefined;
     transferredBytes: number | undefined;
     totalBytes: number | undefined;
-    rateBytesPerSecond: number | undefined;
-    transferElapsedMs: number | undefined;
+    averageTransferRateBytesPerSecond: number | undefined;
+    transferDurationMs: number | undefined;
+    lastFailureType:
+      | ReturnType<typeof classifyFirmwareUpdateFailure>
+      | undefined;
+    lastErrorCode: string | undefined;
   }> {
     const tracking = this.updateWorkflowTracking;
     const now = Date.now();
-    const currentActiveDurationMs =
-      tracking?.activeStartedAt === undefined
-        ? 0
-        : now - tracking.activeStartedAt;
     const [activeUiState, completedUiState] = await Promise.all([
       hardwareUiStateAtom.get(),
       hardwareUiStateCompletedAtom.get(),
@@ -2033,73 +2027,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
       completedUiState?.payload?.firmwareTransferMetrics;
     return {
       retryCount: tracking?.retryCount,
-      durationMs: tracking
-        ? tracking.activeDurationMs + currentActiveDurationMs
-        : undefined,
       totalDurationMs: tracking ? now - tracking.startedAt : undefined,
       transferredBytes: transferMetrics?.transferredBytes,
       totalBytes: transferMetrics?.totalBytes,
-      rateBytesPerSecond: transferMetrics?.rateBytesPerSecond,
-      transferElapsedMs: transferMetrics?.elapsedMs,
+      averageTransferRateBytesPerSecond: transferMetrics?.rateBytesPerSecond,
+      transferDurationMs: transferMetrics?.elapsedMs,
+      lastFailureType: tracking?.lastFailure
+        ? classifyFirmwareUpdateFailure(tracking.lastFailure)
+        : undefined,
+      lastErrorCode: resolveFirmwareUpdateErrorCode(tracking?.lastFailure),
     };
-  }
-
-  async trackUpdateTaskAttemptResult({
-    workflowId,
-    status,
-    error,
-  }: {
-    workflowId: number;
-    status: 'success' | 'failed';
-    error?: unknown;
-  }) {
-    // Never let analytics break the update/retry flow
-    try {
-      const tracking = this.getUpdateWorkflowTracking(workflowId);
-      if (!tracking) {
-        return;
-      }
-      // User exit is not a real update failure
-      if (
-        status === 'failed' &&
-        (error instanceof FirmwareUpdateExit ||
-          error instanceof FirmwareUpdateTasksClear)
-      ) {
-        return;
-      }
-      tracking.attemptCount += 1;
-      const attempt = tracking.attemptCount;
-      const err =
-        error === undefined ? undefined : toPlainErrorObject(error as any);
-      const failureType =
-        status === 'failed' ? classifyFirmwareUpdateFailure(err) : undefined;
-      // Start reading the attempt metrics before transport lookup or a later
-      // retry can clear the firmware UI state that owns the last sample.
-      const trackingInfoPromise = this.getUpdateWorkflowTrackingInfo();
-      const [hardwareTransportType, trackingInfo] = await Promise.all([
-        tracking.transportType ?? this.getActiveTransportType(),
-        trackingInfoPromise,
-      ]);
-      defaultLogger.update.firmware.firmwareUpdateAttemptResult({
-        deviceType: tracking.releaseResult.deviceType,
-        transportType: hardwareTransportType,
-        updateFlow: tracking.updateFlow,
-        firmwareVersions: parseFirmwareVersions(tracking.releaseResult),
-        attempt,
-        status: failureType === 'cancelled' ? 'cancelled' : status,
-        failureType,
-        errorCode: resolveFirmwareUpdateErrorCode(err),
-        transferredBytes: trackingInfo.transferredBytes,
-        totalBytes: trackingInfo.totalBytes,
-        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
-        transferElapsedMs: trackingInfo.transferElapsedMs,
-      });
-    } catch (loggingError) {
-      serviceHardwareUtils.hardwareLog(
-        'trackUpdateTaskAttemptResult logging ERROR',
-        loggingError,
-      );
-    }
   }
 
   updateTasksAdd({
@@ -2458,12 +2395,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
         toFirmwareType,
         status: 'success',
         retryCount: trackingInfo.retryCount,
-        durationMs: trackingInfo.durationMs,
         totalDurationMs: trackingInfo.totalDurationMs,
         transferredBytes: trackingInfo.transferredBytes,
         totalBytes: trackingInfo.totalBytes,
-        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
-        transferElapsedMs: trackingInfo.transferElapsedMs,
+        averageTransferRateBytesPerSecond:
+          trackingInfo.averageTransferRateBytesPerSecond,
+        transferDurationMs: trackingInfo.transferDurationMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -2506,6 +2443,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     try {
       const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
+      const resultFailureType =
+        failureType === 'cancelled'
+          ? trackingInfo.lastFailureType
+          : failureType;
+      if (!resultFailureType || resultFailureType === 'cancelled') {
+        return;
+      }
 
       defaultLogger.update.firmware.firmwareUpdateResult({
         deviceType: params.releaseResult.deviceType,
@@ -2514,16 +2458,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
         firmwareVersions: parseFirmwareVersions(params.releaseResult),
         fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
         toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-        status: failureType === 'cancelled' ? 'cancelled' : 'failed',
-        failureType,
-        errorCode: resolveFirmwareUpdateErrorCode(err),
+        status: 'failed',
+        failureType: resultFailureType,
+        errorCode:
+          failureType === 'cancelled'
+            ? trackingInfo.lastErrorCode
+            : resolveFirmwareUpdateErrorCode(err),
         retryCount: trackingInfo.retryCount,
-        durationMs: trackingInfo.durationMs,
         totalDurationMs: trackingInfo.totalDurationMs,
         transferredBytes: trackingInfo.transferredBytes,
         totalBytes: trackingInfo.totalBytes,
-        rateBytesPerSecond: trackingInfo.rateBytesPerSecond,
-        transferElapsedMs: trackingInfo.transferElapsedMs,
+        averageTransferRateBytesPerSecond:
+          trackingInfo.averageTransferRateBytesPerSecond,
+        transferDurationMs: trackingInfo.transferDurationMs,
       });
     } catch (loggingError) {
       serviceHardwareUtils.hardwareLog(
@@ -2850,29 +2797,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
-      if (task.workflowId !== undefined) {
-        void this.trackUpdateTaskAttemptResult({
-          workflowId: task.workflowId,
-          status: 'success',
-        });
-      }
     } catch (error) {
       if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
         return;
       }
       if (task.workflowId !== undefined) {
-        this.pauseUpdateWorkflowTracking(task.workflowId);
+        this.recordUpdateWorkflowFailure(task.workflowId, error);
       }
       serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
-
-      // OK-57543: track each real attempt even when a later retry succeeds
-      if (task.workflowId !== undefined) {
-        void this.trackUpdateTaskAttemptResult({
-          workflowId: task.workflowId,
-          status: 'failed',
-          error,
-        });
-      }
 
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
@@ -2929,7 +2861,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       return;
     }
     if (task.workflowId !== undefined) {
-      this.resumeUpdateWorkflowTracking(task.workflowId);
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
 

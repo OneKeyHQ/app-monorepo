@@ -204,12 +204,12 @@ export function FirmwareUpdateCheckList({
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
                     retryCount: trackingInfo?.retryCount,
-                    durationMs: trackingInfo?.durationMs,
                     totalDurationMs: trackingInfo?.totalDurationMs,
                     transferredBytes: trackingInfo?.transferredBytes,
                     totalBytes: trackingInfo?.totalBytes,
-                    rateBytesPerSecond: trackingInfo?.rateBytesPerSecond,
-                    transferElapsedMs: trackingInfo?.transferElapsedMs,
+                    averageTransferRateBytesPerSecond:
+                      trackingInfo?.averageTransferRateBytesPerSecond,
+                    transferDurationMs: trackingInfo?.transferDurationMs,
                   });
 
                   const { fromFirmwareType, toFirmwareType } =
@@ -244,25 +244,33 @@ export function FirmwareUpdateCheckList({
                     await backgroundApiProxy.serviceFirmwareUpdate
                       .getUpdateWorkflowTrackingInfo()
                       .catch(() => undefined);
-                  defaultLogger.update.firmware.firmwareUpdateResult({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                    fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
-                    toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-                    status:
-                      failureType === 'cancelled' ? 'cancelled' : 'failed',
-                    failureType,
-                    errorCode: resolveFirmwareUpdateErrorCode(err),
-                    retryCount: trackingInfo?.retryCount,
-                    durationMs: trackingInfo?.durationMs,
-                    totalDurationMs: trackingInfo?.totalDurationMs,
-                    transferredBytes: trackingInfo?.transferredBytes,
-                    totalBytes: trackingInfo?.totalBytes,
-                    rateBytesPerSecond: trackingInfo?.rateBytesPerSecond,
-                    transferElapsedMs: trackingInfo?.transferElapsedMs,
-                  });
+                  const resultFailureType =
+                    failureType === 'cancelled'
+                      ? trackingInfo?.lastFailureType
+                      : failureType;
+                  if (resultFailureType && resultFailureType !== 'cancelled') {
+                    defaultLogger.update.firmware.firmwareUpdateResult({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                      fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+                      toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+                      status: 'failed',
+                      failureType: resultFailureType,
+                      errorCode:
+                        failureType === 'cancelled'
+                          ? trackingInfo?.lastErrorCode
+                          : resolveFirmwareUpdateErrorCode(err),
+                      retryCount: trackingInfo?.retryCount,
+                      totalDurationMs: trackingInfo?.totalDurationMs,
+                      transferredBytes: trackingInfo?.transferredBytes,
+                      totalBytes: trackingInfo?.totalBytes,
+                      averageTransferRateBytesPerSecond:
+                        trackingInfo?.averageTransferRateBytesPerSecond,
+                      transferDurationMs: trackingInfo?.transferDurationMs,
+                    });
+                  }
                 } finally {
                   if (shouldResetWorkflowRunningInUi) {
                     setWorkflowIsRunning(false);
