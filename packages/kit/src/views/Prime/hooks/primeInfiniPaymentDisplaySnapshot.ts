@@ -94,10 +94,10 @@ export function shouldShowPrimeInfiniPaymentButtonSkeleton({
 
 export function shouldShowPrimeInfiniExternalCheckoutLink({
   canUseExternalCheckout,
-  isPaymentButtonPreparing,
+  isOptionsRefreshing,
 }: {
   canUseExternalCheckout: boolean;
-  isPaymentButtonPreparing: boolean;
+  isOptionsRefreshing: boolean;
 }) {
-  return canUseExternalCheckout && !isPaymentButtonPreparing;
+  return canUseExternalCheckout && !isOptionsRefreshing;
 }
