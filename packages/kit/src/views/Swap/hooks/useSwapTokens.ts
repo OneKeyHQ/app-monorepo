@@ -71,6 +71,10 @@ const swapSupportAllAccountsCache = new LRUCache<
   IAllNetworkAccountInfo[]
 >({ max: 20 });
 
+appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, () => {
+  swapSupportAllAccountsCache.clear();
+});
+
 export function useSwapTokenList(
   selectTokenModalType: ESwapDirectionType,
   currentNetworkId?: string,
@@ -104,23 +108,29 @@ export function useSwapTokenList(
     ? (swapAddressInfo?.accountInfo?.account?.id ??
       swapAddressInfo?.accountInfo?.dbAccount?.id)
     : undefined;
-  const swapSupportAllAccountsRequestKey = useMemo(
+  const swapSupportAllAccountsCacheKey = useMemo(
     () =>
       [
         indexedAccountId ?? '',
         otherWalletTypeAccountId ?? '',
-        swapAddressInfo.deriveType ?? '',
         swapSupportAllNetworks.map((network) => network.networkId).join(','),
       ].join('__'),
-    [
-      indexedAccountId,
-      otherWalletTypeAccountId,
-      swapAddressInfo.deriveType,
-      swapSupportAllNetworks,
-    ],
+    [indexedAccountId, otherWalletTypeAccountId, swapSupportAllNetworks],
   );
+  const swapSupportAllAccountsRequestKey = useMemo(
+    () =>
+      [
+        swapSupportAllAccountsCacheKey,
+        swapAddressInfo.deriveType ?? '',
+      ].join('__'),
+    [swapAddressInfo.deriveType, swapSupportAllAccountsCacheKey],
+  );
+  const swapSupportAllAccountsReadCacheKey =
+    swapAddressInfo.deriveType === undefined
+      ? swapSupportAllAccountsCacheKey
+      : swapSupportAllAccountsRequestKey;
   const cachedSwapSupportAllAccounts = swapSupportAllAccountsCache.get(
-    swapSupportAllAccountsRequestKey,
+    swapSupportAllAccountsReadCacheKey,
   );
   const [swapSupportAllAccountsState, setSwapSupportAllAccountsState] =
     useState<{
@@ -161,6 +171,10 @@ export function useSwapTokenList(
             swapSupportAllAccountsRequestKey,
             swapSupportAccounts,
           );
+          swapSupportAllAccountsCache.set(
+            swapSupportAllAccountsCacheKey,
+            swapSupportAccounts,
+          );
           setSwapSupportAllAccountsState({
             requestKey: swapSupportAllAccountsRequestKey,
             accounts: swapSupportAccounts,
@@ -169,8 +183,9 @@ export function useSwapTokenList(
       } catch {
         if (
           !isCancelled &&
-          swapSupportAllAccountsCache.get(swapSupportAllAccountsRequestKey) ===
-            undefined
+          swapSupportAllAccountsCache.get(
+            swapSupportAllAccountsReadCacheKey,
+          ) === undefined
         ) {
           setSwapSupportAllAccountsState({
             requestKey: swapSupportAllAccountsRequestKey,
@@ -185,6 +200,9 @@ export function useSwapTokenList(
   }, [
     indexedAccountId,
     otherWalletTypeAccountId,
+    swapAddressInfo.deriveType,
+    swapSupportAllAccountsCacheKey,
+    swapSupportAllAccountsReadCacheKey,
     swapSupportAllAccountsRequestKey,
     swapSupportAllNetworks,
   ]);
