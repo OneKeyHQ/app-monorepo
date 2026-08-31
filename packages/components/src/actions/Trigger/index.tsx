@@ -54,7 +54,10 @@ function BasicTrigger(
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
       const debounceHandlePress = stopPropagationPress(
-        debounce(handleOpen as () => void, 10),
+        debounce(handleOpen as () => void, 10, {
+          leading: true,
+          trailing: false,
+        }),
       );
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 

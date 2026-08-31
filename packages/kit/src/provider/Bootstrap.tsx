@@ -309,9 +309,16 @@ const useDesktopEvents = platformEnv.isDesktop
           void onCheckUpdateRef.current();
         });
 
-        const debounceOpenSettings = debounce((isVisible: boolean) => {
-          openSettingsRef.current(isVisible);
-        }, 250);
+        const debounceOpenSettings = debounce(
+          (isVisible: boolean) => {
+            openSettingsRef.current(isVisible);
+          },
+          250,
+          {
+            leading: true,
+            trailing: false,
+          },
+        );
         globalThis.desktopApi.on(
           ipcMessageKeys.APP_OPEN_SETTINGS,
           debounceOpenSettings,

@@ -573,6 +573,10 @@ const showActionList = (
 const debouncedShowActionList = debounce(
   showActionList,
   PROCESSING_RESET_DELAY,
+  {
+    leading: true,
+    trailing: false,
+  },
 );
 
 function ActionListFrame(props: IActionListProps) {
