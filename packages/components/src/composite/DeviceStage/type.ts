@@ -303,6 +303,14 @@ export interface IDeviceStageProps {
   /** Words the error step speaks. Omitted, it falls back to a generic line. */
   errorReason?: IDeviceStageErrorReason;
   /**
+   * The failure's own words, for the outcomes no `errorReason` claims —
+   * the driver hands over the message the error already carries, which
+   * the live flow's toast used to speak. Display-ready. It stands in for
+   * the generic title only: a reason's own words always win, and its
+   * `sub` and action are unaffected.
+   */
+  errorMessage?: string;
+  /**
    * The authenticity checklist, shown under the words on `authVerifying`,
    * on `authSuccess` when the checklist flow is what succeeded, and
    * inside `authFailure` for the unofficial-firmware reason, failed row
