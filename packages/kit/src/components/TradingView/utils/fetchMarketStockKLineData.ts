@@ -10,13 +10,15 @@ const WEEK_SECONDS = 7 * DAY_SECONDS;
 const YEAR_SECONDS = 365 * DAY_SECONDS;
 
 export function getMarketStockChartPeriod({
+  now = Math.floor(Date.now() / 1000),
   timeFrom,
   timeTo,
 }: {
+  now?: number;
   timeFrom: number;
   timeTo: number;
 }): IMarketStockPublicChartPeriod {
-  const requiredLookback = Math.max(0, timeTo - timeFrom);
+  const requiredLookback = Math.max(now, timeTo) - timeFrom;
   if (requiredLookback <= HOUR_SECONDS) return '1h';
   if (requiredLookback <= DAY_SECONDS) return '1d';
   if (requiredLookback <= WEEK_SECONDS) return '1w';

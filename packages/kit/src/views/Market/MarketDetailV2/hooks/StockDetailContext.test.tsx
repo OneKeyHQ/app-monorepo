@@ -4,7 +4,10 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicDetail,
+  IMarketStockTokenVariant,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { StockDetailProvider, useStockDetail } from './StockDetailContext';
 
@@ -74,6 +77,14 @@ const focusControl = jest.requireMock(
 
 // Mirrors STOCK_DETAIL_POLLING_INTERVAL in StockDetailContext.tsx.
 const STOCK_DETAIL_POLLING_MS = 15 * 1000;
+
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
 
 // usePromiseResult defers its very first run through a setTimeout, so awaiting
 // microtasks alone would observe a not-yet-started request and report success
@@ -468,6 +479,68 @@ describe('StockDetailProvider', () => {
 
     expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(2);
     expect(result.current.stockDetail?.stockId).toBe('AAPL');
+    expect(result.current.isStockDetailError).toBe(false);
+  });
+
+  it('does not let a superseded response replace the current stock fallback', async () => {
+    const appleRequest = createDeferred<IMarketStockPublicDetail>();
+    const appleDetail: IMarketStockPublicDetail = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    };
+    const microsoftDetail: IMarketStockPublicDetail = {
+      stockId: 'MSFT',
+      symbol: 'MSFT',
+      name: 'Microsoft Corp.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    };
+    serviceMarketV2.fetchMarketStockDetail
+      .mockImplementationOnce(() => appleRequest.promise)
+      .mockResolvedValueOnce(microsoftDetail)
+      .mockRejectedValueOnce(new Error('temporary network failure'));
+    serviceMarketV2.fetchMarketStockTokenVariants.mockImplementation(
+      async ({ stockId }) => ({ stockId, items: [] }),
+    );
+
+    let stockId = 'AAPL';
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId={stockId}>{children}</StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toContainEqual([
+        { stockId: 'AAPL' },
+      ]);
+    });
+
+    stockId = 'MSFT';
+    rerender();
+    await waitFor(() => {
+      expect(result.current.stockDetail?.stockId).toBe('MSFT');
+    });
+
+    await act(async () => {
+      appleRequest.resolve(appleDetail);
+      await appleRequest.promise;
+    });
+    await act(async () => {
+      await result.current.retryStockDetail();
+    });
+
+    expect(result.current.stockDetail?.stockId).toBe('MSFT');
     expect(result.current.isStockDetailError).toBe(false);
   });
 

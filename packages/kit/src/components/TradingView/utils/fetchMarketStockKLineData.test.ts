@@ -18,6 +18,10 @@ const serviceMarketV2Mock = backgroundApiProxy.serviceMarketV2 as jest.Mocked<
   typeof backgroundApiProxy.serviceMarketV2
 >;
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe('getMarketStockChartPeriod', () => {
   const now = 2_000_000;
 
@@ -31,23 +35,25 @@ describe('getMarketStockChartPeriod', () => {
     'uses the period that covers a %s-second lookback',
     (age, period) => {
       expect(
-        getMarketStockChartPeriod({ timeFrom: now - age, timeTo: now }),
+        getMarketStockChartPeriod({ now, timeFrom: now - age, timeTo: now }),
       ).toBe(period);
     },
   );
 
-  it('measures historical windows from the requested end time', () => {
+  it('requests a period that reaches a narrow historical window', () => {
     expect(
       getMarketStockChartPeriod({
+        now,
         timeFrom: now - 10 * 365 * 24 * 60 * 60,
         timeTo: now - 10 * 365 * 24 * 60 * 60 + 60 * 60,
       }),
-    ).toBe('1h');
+    ).toBe('all');
   });
 });
 
 describe('fetchMarketStockKLineData', () => {
   it('returns sorted OHLC points within the requested window', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(2_000_000 * 1000);
     serviceMarketV2Mock.fetchMarketStockChart.mockResolvedValue({
       stockId: 'AAPL',
       period: '1d',
@@ -66,7 +72,7 @@ describe('fetchMarketStockKLineData', () => {
     });
 
     expect(serviceMarketV2Mock.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: '1h', points: 299 }],
+      [{ stockId: 'AAPL', period: '1y', points: 299 }],
     ]);
     expect(result).toEqual({
       pointType: 'ohlc',

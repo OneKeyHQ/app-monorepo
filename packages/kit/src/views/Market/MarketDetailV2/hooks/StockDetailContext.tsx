@@ -92,10 +92,10 @@ export function StockDetailProvider({
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const [selectedTokenId, setSelectedTokenId] = useState<string>();
-  // Last value the detail endpoint actually returned, so a failed polling tick
-  // can fall back to it instead of blanking the page.
-  const lastStockDetailRef = useRef<IStockDetailRequestResult | undefined>(
-    undefined,
+  // Keep the last successful detail per stock so a superseded response cannot
+  // replace the fallback used by the currently selected stock.
+  const successfulStockDetailsRef = useRef(
+    new Map<string, IStockDetailRequestResult>(),
   );
   // Same idea for the variant list, kept per stock because a failed fetch here
   // must not drop the token the user already selected.
@@ -116,14 +116,15 @@ export function StockDetailProvider({
             stockId: normalizedStockId,
           });
         const result = { stockId: normalizedStockId, data };
-        lastStockDetailRef.current = result;
+        successfulStockDetailsRef.current.set(normalizedStockId, result);
         return result;
       } catch (_error) {
         // A polling tick that fails must not turn a loaded page into an error
         // page: keep the last good payload and retry silently on the next
         // tick. Only a stock we never loaded surfaces the retryable error.
-        const lastStockDetail = lastStockDetailRef.current;
-        if (lastStockDetail?.stockId === normalizedStockId) {
+        const lastStockDetail =
+          successfulStockDetailsRef.current.get(normalizedStockId);
+        if (lastStockDetail) {
           return lastStockDetail;
         }
         return { stockId: normalizedStockId, failed: true };
