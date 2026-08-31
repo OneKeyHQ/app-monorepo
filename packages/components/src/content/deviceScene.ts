@@ -32,8 +32,19 @@ export const easeInFn = Easing.bezierFn(0.42, 0, 1, 1);
 
 // Every track of a scene is evaluated against one master clock, so tracks can
 // never drift apart under infinite repeat (independent withRepeat loops would).
-export function trackAt(t: number, kfs: IKeyframe[]): number {
+/** The ambient choreography clock's quantum: scene tracks evaluate on a
+ * ~30fps grid instead of the display rate. Derived styles repeat between
+ * quanta, so reanimated's shallow-equal skips re-applying identical
+ * outputs and the per-frame apply/invalidate bill drops by half or more
+ * (twice that again on 120Hz displays). Entries, screen swaps and
+ * withTiming-driven beats ride their own clocks and are untouched;
+ * anything evaluated through trackAt — one-shot marks included — is on
+ * the grid, with no per-track opt-out. */
+const SCENE_TRACK_QUANTUM_MS = 33;
+
+export function trackAt(rawT: number, kfs: IKeyframe[]): number {
   'worklet';
+  const t = Math.floor(rawT / SCENE_TRACK_QUANTUM_MS) * SCENE_TRACK_QUANTUM_MS;
 
   if (t <= kfs[0].t) return kfs[0].v;
   for (let i = 0; i < kfs.length - 1; i += 1) {
@@ -110,8 +121,6 @@ export const CONTENT_IN_MS = 760;
 export const contentInEase = Easing.bezierFn(0.6, 0, 0.7, 1);
 /** Content-out; the device keeps the outgoing scene mounted this long. */
 export const SCREEN_SWAP_OUT_MS = 300;
-/** A full lit-to-lit handover, out then in — the beat callers queue after. */
-export const SCREEN_SWAP_MS = SCREEN_SWAP_OUT_MS + CONTENT_IN_MS;
 
 /* ------------------- the traveling glass light ------------------- *
  * One gradient band crossing a region top-left corner to bottom-right
