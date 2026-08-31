@@ -21,7 +21,7 @@ import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
-import { MarketTopCoinsList } from '../components/MarketTopCoinsList';
+import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {

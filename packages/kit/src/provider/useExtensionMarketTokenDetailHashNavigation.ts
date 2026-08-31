@@ -327,3 +327,8 @@ export const useExtensionMarketTokenDetailHashNavigation =
         }, [clearRetryTimer, startNavigationFromHash]);
       }
     : () => {};
+
+export function ExtensionMarketTokenDetailHashNavigation() {
+  useExtensionMarketTokenDetailHashNavigation();
+  return null;
+}

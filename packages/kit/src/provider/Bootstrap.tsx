@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
@@ -89,7 +89,6 @@ import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
-import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
 
 import type { IntlShape } from 'react-intl';
 
@@ -100,6 +99,16 @@ const useOnLockCallback = platformEnv.isDesktop
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+
+const LazyExtensionMarketTokenDetailHashNavigation =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtensionMarketTokenDetailHashNavigation } = await import(
+          './useExtensionMarketTokenDetailHashNavigation'
+        );
+        return { default: ExtensionMarketTokenDetailHashNavigation };
+      })
+    : null;
 
 // useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
 // and AppState 'active' resume listener now live in <AppUpdateForeground />,
@@ -1040,7 +1049,6 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
-  useExtensionMarketTokenDetailHashNavigation();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   return (
@@ -1051,6 +1059,11 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <SplitViewPrompt />
+      {LazyExtensionMarketTokenDetailHashNavigation ? (
+        <Suspense fallback={null}>
+          <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );
