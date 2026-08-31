@@ -3,21 +3,9 @@ import { memo, useMemo } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import {
-  ClipPath,
-  Defs,
-  FeGaussianBlur,
-  Filter,
-  G,
-  Path,
-  Pattern,
-  Rect,
-  Stop,
-  Svg,
-  Image as SvgImage,
-  LinearGradient as SvgLinearGradient,
-} from 'react-native-svg';
+import { Defs, Pattern, Rect, Svg, Image as SvgImage } from 'react-native-svg';
 
+import { BakedChrome } from '../deviceSceneHost';
 import { LinearGradient } from '../LinearGradient';
 
 import {
@@ -31,40 +19,36 @@ import type { IClassicDeviceAnimation } from './animation';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
- * PoC: code-drawn OneKey Classic device, 1:1 against Figma node 20249:27326
- * (327x539 @1x, the 2026-07-30 "After" revision of 20069:31306). Not exported
- * from the components barrel yet.
+ * OneKey Classic device, 1:1 against Figma node 20249:27326 (327x539
+ * @1x, the 2026-07-30 "After" revision). The chrome — body, noise
+ * grain, ambient top light, screen bevels, USB cutout and bottom fade —
+ * ships as a pre-baked bitmap (shell@2x/@3x, exported straight from the
+ * Figma frame at 280pt, the stage's largest rendering). Two things stay
+ * code, because they move:
  *
- * Every value is transcribed from the raw Figma node dump, not from the MCP
- * code translation (which silently drops the NOISE effect and mistranslates
- * the button-hole INSIDE stroke). Two conversion rules apply:
- * LAYER_BLUR radius R -> gaussian sigma R/2; INNER_SHADOW radius -> blur 1:1.
+ * - The screen: glass, panel glow and the 256x128 OLED slot (dynamic
+ *   content), plus the glass sheen that must paint ABOVE live content.
+ *   The code glass covers the baked glass region opaquely, so the sheen
+ *   renders exactly once.
+ * - The four keys: the press choreography sinks the cap, swallows the
+ *   top highlight and shades the face — opacity and transform per key —
+ *   so hole, face, engraving and press layers are all live. The baked
+ *   chrome carries no keys at all (the export drops that group), and
+ *   each face re-wears the noise grain as a tiled overlay so the keys
+ *   keep the body's texture.
  *
- * Two things here had no in-repo precedent and were verified on an iOS 26.5
- * simulator against the Figma render: multiple inset `boxShadow` entries on the
- * new architecture (the body ambient light), and react-native-svg
- * `FeGaussianBlur` (the screen bevels and the USB cutout).
+ * The chrome was first transcribed as code-drawn SVG and shadow views
+ * (see git history for the transcription rules and the sigma
+ * quantization). The 2026-08-28 flight profiling convicted that
+ * approach: react-native-svg filters sample their backdrop, so every
+ * frame of the capsule<->card morph re-rendered the shells through
+ * CoreImage on the main thread — and the whole family moved to baked
+ * chrome, which also restores the design's exact blur radii.
  *
- * Plain RN View + StyleSheet rather than Tamagui Stack is forced, not stylistic:
- * @tamagui/web lists `boxShadow` in webPropsToSkip.native, so a Stack drops all
- * three shadow layers on iOS and Android.
- *
- * Sizing goes through a paint-only transform rather than parametric geometry
- * because scaling the SVG itself would break the blurs on iOS: the sigma passed
- * to CIGaussianBlur in the react-native-svg gaussian-blur filter is multiplied by the display
- * scale only, with no viewBox term, so geometry would scale while the blur did
- * not. That code also picks its filter with an NSNumber POINTER comparison
- * (`_stdDeviationX == _stdDeviationY`), which only holds for integers - a
- * fractional sigma silently degrades to CIMotionBlur. Keeping every sigma at
- * an integer literal (1, 4, 8) sidesteps both, so Figma's 7.7 and 15 layer
- * blurs round to sigma 4 and 8. Cost of the transform: on iOS and Android the
- * SVG and the noise are magnified bitmaps above scale 1 (web stays vector), so
- * enlarging past roughly 1.3x visibly softens.
- *
- * Animation attaches through two optional props: `screenContent` fills the
- * 256x128 OLED area, `animation` (see ./animation.ts) drives the screen
- * power pair and the per-key press value. Everything animated is opacity or
- * transform only.
+ * Animation attaches through two optional props: `screenContent` fills
+ * the 256x128 OLED area, `animation` (see ./animation.ts) drives the
+ * screen power pair and the per-key press value. Everything animated is
+ * opacity or transform only.
  */
 
 const DEVICE_W = 327;
@@ -80,6 +64,44 @@ export const SCREEN_GLASS_H = 152;
 export const SCREEN_SLOT_LEFT = 4;
 export const SCREEN_SLOT_TOP = 12;
 
+const NOISE_TILE_SOURCE = require('./noise-tile.png');
+const SHELL_SOURCE = require('./shell.png');
+const NOISE_TILE_SIZE = 128;
+
+// Tiled through an SVG <Pattern> rather than an Image: RN core's
+// resizeMode="repeat" paints nothing at all under the new architecture
+// (the asset loads, the view stays empty) — same finding as
+// packages/kit/src/components/DotMap/plate.tsx, and the reason the
+// pre-bitmap body overlay already used this shape. A pattern fill
+// carries no filters, so none of the per-frame filter cost the baked
+// chrome removed comes back. Built once at module scope: it takes no
+// props, and react-native-svg re-runs transform/viewBox extraction on
+// every render.
+const KEY_NOISE_OVERLAY = (
+  <Svg
+    width="100%"
+    height="100%"
+    style={StyleSheet.absoluteFill}
+    pointerEvents="none"
+  >
+    <Defs>
+      <Pattern
+        id="cd-key-noise"
+        patternUnits="userSpaceOnUse"
+        width={NOISE_TILE_SIZE}
+        height={NOISE_TILE_SIZE}
+      >
+        <SvgImage
+          href={NOISE_TILE_SOURCE}
+          width={NOISE_TILE_SIZE}
+          height={NOISE_TILE_SIZE}
+        />
+      </Pattern>
+    </Defs>
+    <Rect x="0" y="0" width="100%" height="100%" fill="url(#cd-key-noise)" />
+  </Svg>
+);
+
 const styles = StyleSheet.create({
   frame: {
     alignItems: 'center',
@@ -88,16 +110,6 @@ const styles = StyleSheet.create({
   device: {
     width: DEVICE_W,
     height: DEVICE_H,
-    borderRadius: 12,
-    backgroundColor: '#262626',
-    overflow: 'hidden',
-  },
-  // The After revision keeps only the top light of the four-way ambient set
-  // (the other three inner shadows are toggled off in the Figma file).
-  bodyLight: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
-    boxShadow: 'inset 0 24px 24px rgba(255,255,255,0.08)',
   },
   screenHole: {
     position: 'absolute',
@@ -176,18 +188,6 @@ const styles = StyleSheet.create({
     boxShadow:
       'inset 0 2px 3px rgba(0,0,0,0.5), inset 0 -1px 1px rgba(255,255,255,0.05)',
   },
-  usb: {
-    // 12pt = 3 sigma of the layer blur, so the bleed is not clipped.
-    position: 'absolute',
-    left: 119,
-    top: 460,
-  },
-  bottomFade: {
-    // 30pt of the 53pt canvas pads the 23pt art above, for the upward bleed.
-    position: 'absolute',
-    left: 0,
-    top: 486,
-  },
 });
 
 // The gradient wrapper runs style through Tamagui's usePropsAndStyle, which
@@ -207,301 +207,6 @@ const BTN_SHADE_LOCATIONS = [0.4952, 1] as const;
 // Screen glass sheen: white 8% at the top fading out downwards.
 const SCREEN_SHEEN_COLORS = ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)'];
 
-// Monotone black grain, alpha U[0, 0.25], texel 0.5pt (Figma noiseSize 0.5).
-// The tile carries a 256x256 grid of them across 128pt; @2x is that grid
-// one-to-one, @1x its exact 2x2 box average, @3x area-weighted 1.5px per cell.
-const NOISE_TILE = require('./noise-tile.png');
-const NOISE_TILE_SIZE = 128;
-
-// Tiled through an SVG <Pattern> rather than an Image: RN core's
-// resizeMode="repeat" paints nothing at all under the new architecture (the
-// asset loads, the view stays empty), and a device-sized stretched PNG costs
-// 2.4MB and re-scales the grain with the device. Same approach, and the same
-// resizeMode finding, as packages/kit/src/components/DotMap/plate.tsx.
-// Built once at module scope - it takes no props and react-native-svg re-runs
-// transform/viewBox extraction on every render.
-const NOISE_OVERLAY = (
-  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-    <Defs>
-      <Pattern
-        id="cd-noise"
-        patternUnits="userSpaceOnUse"
-        width={NOISE_TILE_SIZE}
-        height={NOISE_TILE_SIZE}
-      >
-        <SvgImage
-          href={NOISE_TILE}
-          width={NOISE_TILE_SIZE}
-          height={NOISE_TILE_SIZE}
-        />
-      </Pattern>
-    </Defs>
-    <Rect x="0" y="0" width="100%" height="100%" fill="url(#cd-noise)" />
-  </Svg>
-);
-
-// Mitered 45-degree bevels around the screen recess. Geometry and gradients
-// verbatim from the Figma SVG export; the export's no-op feFlood/feBlend
-// preamble is dropped - a single FeGaussianBlur is mathematically identical.
-function ScreenBevels() {
-  return (
-    <Svg
-      width={278}
-      height={166}
-      viewBox="0 0 278 166"
-      fill="none"
-      style={StyleSheet.absoluteFill}
-    >
-      <G clipPath="url(#cd-bevel-clip)">
-        <G opacity={0.03} filter="url(#cd-bevel-fl)">
-          <Path d="M0 0L7 7V159L0 166V0Z" fill="url(#cd-bevel-gl)" />
-        </G>
-        <G opacity={0.03} filter="url(#cd-bevel-fr)">
-          <Path d="M278 0L271 7V159L278 166V0Z" fill="url(#cd-bevel-gr)" />
-        </G>
-        <G opacity={0.2} filter="url(#cd-bevel-ft)">
-          <Path d="M278 0L271 7L7 7L0 0L278 0Z" fill="url(#cd-bevel-gt)" />
-        </G>
-        <G opacity={0.05} filter="url(#cd-bevel-fb)">
-          <Path
-            d="M278 166L271 159L7 159L0 166L278 166Z"
-            fill="url(#cd-bevel-gb)"
-          />
-        </G>
-      </G>
-      <Defs>
-        <Filter
-          id="cd-bevel-fl"
-          x={-2}
-          y={-2}
-          width={11}
-          height={170}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={1} />
-        </Filter>
-        <Filter
-          id="cd-bevel-fr"
-          x={269}
-          y={-2}
-          width={11}
-          height={170}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={1} />
-        </Filter>
-        <Filter
-          id="cd-bevel-ft"
-          x={-2}
-          y={-2}
-          width={282}
-          height={11}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={1} />
-        </Filter>
-        <Filter
-          id="cd-bevel-fb"
-          x={-2}
-          y={157}
-          width={282}
-          height={11}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={1} />
-        </Filter>
-        <SvgLinearGradient
-          id="cd-bevel-gl"
-          x1={7}
-          y1={83}
-          x2={0}
-          y2={83}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#fff" stopOpacity={0.5} />
-          <Stop offset={1} stopColor="#fff" />
-        </SvgLinearGradient>
-        <SvgLinearGradient
-          id="cd-bevel-gr"
-          x1={278}
-          y1={83}
-          x2={271}
-          y2={83}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#fff" />
-          <Stop offset={1} stopColor="#fff" stopOpacity={0.5} />
-        </SvgLinearGradient>
-        <SvgLinearGradient
-          id="cd-bevel-gt"
-          x1={139}
-          y1={0}
-          x2={139}
-          y2={7}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#000" />
-          <Stop offset={1} stopColor="#000" stopOpacity={0.5} />
-        </SvgLinearGradient>
-        <SvgLinearGradient
-          id="cd-bevel-gb"
-          x1={139}
-          y1={166}
-          x2={139}
-          y2={159}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#fff" />
-          <Stop offset={1} stopColor="#fff" stopOpacity={0.5} />
-        </SvgLinearGradient>
-        <ClipPath id="cd-bevel-clip">
-          <Rect width={278} height={166} rx={4} />
-        </ClipPath>
-      </Defs>
-    </Svg>
-  );
-}
-
-const SCREEN_BEVELS = <ScreenBevels />;
-
-// USB cutout, After spec: one soft body-color tongue (66x67 at (131,472), top
-// radius 20). Figma models it as a solid shape with three INNER_SHADOWs (top
-// light white 15% offset 14 blur 8.9, side shades black 50% offset +-4 blur 4)
-// under a 7.7 LAYER_BLUR. The inner shadows are pre-painted here as gradient
-// bands shaped to the silhouette - a nested per-band Filter inside the layer
-// blur has no proven path in react-native-svg - and each band's stops sample
-// the Gaussian-blurred step profile of the true shadow. The shared layer blur
-// (integer sigma 4, see the fractional-sigma note above) then softens bands
-// and silhouette together, which is exactly what Figma's layer blur does. The
-// 90x79 canvas pads the 66x67 art by 12pt (3 sigma) on top/left/right to let
-// the blur bleed; the bottom edge coincides with the device bottom, where the
-// body frame clips in Figma too. That 12 is baked into the path data and the
-// filter region below, so it is not a knob.
-function UsbCutout() {
-  return (
-    <Svg
-      width={90}
-      height={79}
-      viewBox="0 0 90 79"
-      fill="none"
-      style={styles.usb}
-    >
-      <G filter="url(#cd-usb-blur)">
-        <Path
-          d="M12 79V32C12 20.9543 20.9543 12 32 12H58C69.0457 12 78 20.9543 78 32V79Z"
-          fill="#262626"
-        />
-        {/* Top inner light: the silhouette's top slice, fading downwards. */}
-        <Path
-          d="M12 34V32C12 20.9543 20.9543 12 32 12H58C69.0457 12 78 20.9543 78 32V34H12Z"
-          fill="url(#cd-usb-top)"
-        />
-        {/* Side inner shades, below the corner curve. */}
-        <Rect x={12} y={30} width={9} height={49} fill="url(#cd-usb-left)" />
-        <Rect x={69} y={30} width={9} height={49} fill="url(#cd-usb-right)" />
-      </G>
-      <Defs>
-        <Filter
-          id="cd-usb-blur"
-          x={0}
-          y={0}
-          width={90}
-          height={79}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={4} />
-        </Filter>
-        <SvgLinearGradient
-          id="cd-usb-top"
-          x1={45}
-          y1={12}
-          x2={45}
-          y2={35}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#fff" stopOpacity={0.15} />
-          <Stop offset={0.35} stopColor="#fff" stopOpacity={0.14} />
-          <Stop offset={0.65} stopColor="#fff" stopOpacity={0.065} />
-          <Stop offset={1} stopColor="#fff" stopOpacity={0} />
-        </SvgLinearGradient>
-        <SvgLinearGradient
-          id="cd-usb-left"
-          x1={12}
-          y1={0}
-          x2={21}
-          y2={0}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#000" stopOpacity={0.5} />
-          <Stop offset={0.44} stopColor="#000" stopOpacity={0.25} />
-          <Stop offset={1} stopColor="#000" stopOpacity={0} />
-        </SvgLinearGradient>
-        <SvgLinearGradient
-          id="cd-usb-right"
-          x1={78}
-          y1={0}
-          x2={69}
-          y2={0}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#000" stopOpacity={0.5} />
-          <Stop offset={0.44} stopColor="#000" stopOpacity={0.25} />
-          <Stop offset={1} stopColor="#000" stopOpacity={0} />
-        </SvgLinearGradient>
-      </Defs>
-    </Svg>
-  );
-}
-
-// "Rectangle 2": the grounding fade across the device bottom - black 0% -> 100%
-// over the last 23pt, layer opacity 25%, under a 15 LAYER_BLUR (integer sigma
-// 8). The filter region crops the downward bleed at the device bottom, where
-// the body frame clips in Figma too.
-function BottomFade() {
-  return (
-    <Svg
-      width={327}
-      height={53}
-      viewBox="0 0 327 53"
-      fill="none"
-      style={styles.bottomFade}
-    >
-      <G opacity={0.25} filter="url(#cd-bfade-blur)">
-        <Rect x={0} y={30} width={327} height={23} fill="url(#cd-bfade-grad)" />
-      </G>
-      <Defs>
-        <Filter
-          id="cd-bfade-blur"
-          x={0}
-          y={0}
-          width={327}
-          height={53}
-          filterUnits="userSpaceOnUse"
-        >
-          <FeGaussianBlur stdDeviation={8} />
-        </Filter>
-        <SvgLinearGradient
-          id="cd-bfade-grad"
-          x1={163.5}
-          y1={30}
-          x2={163.5}
-          y2={53}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop stopColor="#000" stopOpacity={0} />
-          <Stop offset={1} stopColor="#000" stopOpacity={1} />
-        </SvgLinearGradient>
-      </Defs>
-    </Svg>
-  );
-}
-
-// The static chrome is built once, like the noise: these are 91 of the body's
-// 96 react-native-svg elements, and rn-svg re-runs transform/viewBox
-// extraction on every render. Element constants keep them out of any
-// re-render the DeviceBody memo does not absorb.
-const USB_CUTOUT = <UsbCutout />;
-const BOTTOM_FADE = <BottomFade />;
 const POWER_ICON = <PowerIcon />;
 const UP_ICON = <UpIcon />;
 const DOWN_ICON = <DownIcon />;
@@ -583,6 +288,11 @@ function DeviceButton({
             positioned siblings regardless of DOM order, so the icon would
             fall under the two gradient overlays. */}
         <Animated.View style={iconLayerStyle}>{children}</Animated.View>
+        {/* The body's noise grain, re-worn: the baked chrome carries the
+            grain everywhere but here (the export drops the key group), and
+            a face without grain would read smoother than the body.
+            Above the engraving like the old full-body overlay was. */}
+        {KEY_NOISE_OVERLAY}
         {/* INNER_SHADOW 0 1 0 white 25%: crisp 1px top highlight */}
         <Animated.View pointerEvents="none" style={highlightLayerStyle} />
         <Animated.View pointerEvents="none" style={darkLayerStyle} />
@@ -592,10 +302,8 @@ function DeviceButton({
   );
 }
 
-// Memoized rather than a module constant (its pre-animation form): the body is
-// 96 react-native-svg elements and rn-svg re-runs transform/viewBox extraction
-// in render(), so it must only re-render when the scene actually changes.
-// Scenes keep both props referentially stable.
+// Memoized like the sibling bodies: it must only re-render when the scene
+// actually changes. Scenes keep both props referentially stable.
 const DeviceBody = memo(function DeviceBody({
   animation,
   screenContent,
@@ -619,6 +327,7 @@ const DeviceBody = memo(function DeviceBody({
   );
   return (
     <>
+      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
       <View style={styles.screenHole}>
         <View style={styles.screen}>
           <Animated.View pointerEvents="none" style={glowLayerStyle} />
@@ -635,7 +344,6 @@ const DeviceBody = memo(function DeviceBody({
             style={ABSOLUTE_FILL}
           />
         </View>
-        {SCREEN_BEVELS}
       </View>
 
       <View style={styles.buttons}>
@@ -652,13 +360,6 @@ const DeviceBody = memo(function DeviceBody({
           {OK_ICON}
         </DeviceButton>
       </View>
-
-      {USB_CUTOUT}
-      {BOTTOM_FADE}
-      {NOISE_OVERLAY}
-      {/* Body ambient light: Figma frame inner shadows render above children,
-          so this overlay is the last child, above the noise. */}
-      <View pointerEvents="none" style={styles.bodyLight} />
     </>
   );
 });
@@ -666,14 +367,12 @@ const DeviceBody = memo(function DeviceBody({
 export interface IClassicDeviceShellProps {
   /**
    * Rendered width in points. Height follows the fixed 327:539 aspect ratio.
-   * Shrinking is visually free; enlarging is fine to roughly 430 and softens
-   * beyond that (see the scaling note above).
    */
   width?: number;
   /**
    * Node lit on the 256x128 OLED area (an integer 2x of the 128x64 panel).
    * Keep it referentially stable (a module constant or useMemo): the body
-   * memoizes on it, and a fresh node re-renders all 76 SVG elements.
+   * memoizes on it.
    */
   screenContent?: ReactNode;
   /**
