@@ -39,7 +39,9 @@ import type { ISupabaseJWTPayload } from '@onekeyhq/shared/src/keylessWallet/key
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   getBoundOAuthProviders,
   getOneKeyIdOAuthProviderFromSocialLoginProvider,
@@ -47,6 +49,11 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentErrorFailure,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -67,8 +74,10 @@ import type {
   IPrimeDeviceInfo,
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentCreateParams,
+  IPrimeInfiniPaymentFlowContext,
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
+  IPrimeInfiniPaymentSource,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
@@ -180,6 +189,7 @@ type IPrimeInfiniPaymentApiResponse = {
   infiniStatus?: unknown;
   amountConfirmed?: unknown;
   amountConfirming?: unknown;
+  warningMessages?: unknown;
 };
 
 type IPrimeRedemptionApiResponse = {
@@ -209,6 +219,7 @@ function validatePrimeRedemptionResponse(
 function validateInfiniPaymentResponse(
   payment: IPrimeInfiniPaymentApiResponse | undefined,
   expectedPaymentId?: string,
+  flowContext?: IPrimeInfiniPaymentFlowContext,
 ): IPrimeInfiniPayment {
   const rawAmountDue =
     payment?.amountDue === undefined ? payment?.payAmount : payment.amountDue;
@@ -243,12 +254,44 @@ function validateInfiniPaymentResponse(
     (payment.status !== undefined && !isString(payment.status)) ||
     (payment.infiniStatus !== undefined && !isString(payment.infiniStatus)) ||
     (payment.amountConfirmed !== undefined &&
-      !isString(payment.amountConfirmed)) ||
+      (!isString(payment.amountConfirmed) ||
+        !new BigNumber(payment.amountConfirmed).isFinite() ||
+        new BigNumber(payment.amountConfirmed).lt(0))) ||
     (payment.amountConfirming !== undefined &&
-      !isString(payment.amountConfirming)) ||
+      (!isString(payment.amountConfirming) ||
+        !new BigNumber(payment.amountConfirming).isFinite() ||
+        new BigNumber(payment.amountConfirming).lt(0))) ||
+    (payment.warningMessages !== undefined &&
+      (!Array.isArray(payment.warningMessages) ||
+        !payment.warningMessages.every(
+          (warning) => typeof warning === 'string',
+        ))) ||
     (expectedPaymentId !== undefined && payment.paymentId !== expectedPaymentId)
   ) {
-    throw new OneKeyLocalError('Invalid Infini payment response');
+    defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+      ...flowContext,
+      stage: 'responseValidation',
+      status: 'failed',
+      failureReason: 'invalidResponse',
+      actualChain: isString(payment?.chain) ? payment.chain : undefined,
+      actualToken: isString(payment?.token) ? payment.token : undefined,
+      remainingMs:
+        typeof payment?.expiresAt === 'number'
+          ? payment.expiresAt - Date.now()
+          : undefined,
+    });
+    throw createPrimeInfiniPaymentValidationError('invalidResponse');
+  }
+  if (flowContext?.paymentSource !== 'polling') {
+    defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+      ...flowContext,
+      stage: 'responseValidation',
+      status: 'succeeded',
+      paymentId: payment.paymentId,
+      actualChain: payment.chain,
+      actualToken: payment.token,
+      remainingMs: payment.expiresAt - Date.now(),
+    });
   }
   return {
     paymentId: payment.paymentId,
@@ -261,6 +304,7 @@ function validateInfiniPaymentResponse(
     infiniStatus: payment.infiniStatus,
     amountConfirmed: payment.amountConfirmed,
     amountConfirming: payment.amountConfirming,
+    warningMessages: payment.warningMessages as string[] | undefined,
   };
 }
 
@@ -5317,38 +5361,105 @@ class ServicePrime extends ServiceBase {
     return result?.data?.data ?? [];
   }
 
+  private async runInfiniPaymentRequest<T>({
+    flowContext,
+    paymentSource,
+    stage,
+    request,
+  }: {
+    flowContext?: IPrimeInfiniPaymentFlowContext;
+    paymentSource: IPrimeInfiniPaymentSource;
+    stage: IPrimeCryptoPaymentStage;
+    request: (context: IPrimeInfiniPaymentFlowContext) => Promise<T>;
+  }): Promise<T> {
+    const context: IPrimeInfiniPaymentFlowContext = {
+      ...flowContext,
+      flowId: flowContext?.flowId ?? generateUUID(),
+      paymentSource,
+    };
+    // Polling reports transitions in the monitor; successful ticks would flood
+    // diagnostics. Failed requests still carry the same flow correlation.
+    const logSuccess = paymentSource !== 'polling';
+    if (logSuccess) {
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...context,
+        stage,
+        status: 'started',
+      });
+    }
+    try {
+      const result = await request(context);
+      if (logSuccess) {
+        defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+          ...context,
+          stage,
+          status: 'succeeded',
+        });
+      }
+      return result;
+    } catch (error) {
+      const failureReason = getPrimeInfiniPaymentErrorFailure(error);
+      let failureStage = stage;
+      if (failureReason) {
+        failureStage =
+          failureReason === 'localPersistenceFailed'
+            ? 'sessionPersistence'
+            : 'responseValidation';
+      }
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...context,
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: failureStage,
+        status: 'failed',
+        failureReason: failureReason ?? 'apiRequestFailed',
+      });
+      throw error;
+    }
+  }
+
   @backgroundMethod()
   async apiGetInfiniCheckoutUrl({
     plan,
     expectedOneKeyUserId,
+    flowContext,
   }: {
     plan: IPrimeInfiniSubscriptionPlan;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<{ checkoutUrl: string }> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    // The checkout API's wire enum uses 'annual' for the yearly plan, while
-    // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
-    // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
-    // which maps 'annual' back to 'yearly' on the read path.
-    const planParam = getInfiniPlanParam(plan);
-    // The authenticated OneKey API owns the checkout destination and may move
-    // it without a client release. Keep only generic external-URL validation
-    // here; checkout-origin policy and authorization belong on the server.
-    const result = await client.post<
-      IApiClientResponse<{ checkoutUrl?: unknown }>
-    >(
-      '/prime/v1/infini/checkout',
-      {
-        plan: planParam,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: 'externalCheckout',
+      stage: 'externalCheckout',
+      request: async () => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        // The checkout API's wire enum uses 'annual' for the yearly plan, while
+        // the app models it as 'yearly' everywhere else (IPrimeInfiniSubscriptionPlan);
+        // convert only at this boundary, mirroring normalizeInfiniSubscriptionPlan
+        // which maps 'annual' back to 'yearly' on the read path.
+        const planParam = getInfiniPlanParam(plan);
+        // The authenticated OneKey API owns the checkout destination and may move
+        // it without a client release. Keep only generic external-URL validation
+        // here; checkout-origin policy and authorization belong on the server.
+        const result = await client.post<
+          IApiClientResponse<{ checkoutUrl?: unknown }>
+        >(
+          '/prime/v1/infini/checkout',
+          {
+            plan: planParam,
+          },
+          this.getInfiniPurchaseRequestConfig(authSnapshot),
+        );
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return {
+          checkoutUrl: validateInfiniCheckoutUrl(
+            result?.data?.data?.checkoutUrl,
+          ),
+        };
       },
-      this.getInfiniPurchaseRequestConfig(authSnapshot),
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return {
-      checkoutUrl: validateInfiniCheckoutUrl(result?.data?.data?.checkoutUrl),
-    };
+    });
   }
 
   @backgroundMethod()
@@ -5414,124 +5525,205 @@ class ServicePrime extends ServiceBase {
     chain,
     token,
     expectedOneKeyUserId,
+    flowContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const result = await client.post<
-      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-    >(
-      '/prime/v1/infini/payment',
-      {
-        plan: getInfiniPlanParam(plan),
-        chain,
-        token,
+    return this.runInfiniPaymentRequest({
+      flowContext: flowContext
+        ? { ...flowContext, expectedChain: chain, expectedToken: token }
+        : undefined,
+      paymentSource: 'createResponse',
+      stage: 'paymentCreation',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        const result = await client.post<
+          IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+        >(
+          '/prime/v1/infini/payment',
+          {
+            plan: getInfiniPlanParam(plan),
+            chain,
+            token,
+          },
+          this.getInfiniPurchaseRequestConfig(authSnapshot),
+        );
+        let payment = result?.data?.data;
+        if (
+          payment &&
+          isString(payment.paymentId) &&
+          payment.paymentId &&
+          (!isString(payment.address) || !payment.address)
+        ) {
+          const paymentId = payment.paymentId;
+          const queryResult = await client.get<
+            IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+          >('/prime/v1/infini/payment', {
+            params: {
+              paymentId,
+            },
+            ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+          });
+          payment = queryResult?.data?.data;
+          const validatedPayment = validateInfiniPaymentResponse(
+            payment,
+            paymentId,
+            context,
+          );
+          await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+          return validatedPayment;
+        }
+        const validatedPayment = validateInfiniPaymentResponse(
+          payment,
+          undefined,
+          context,
+        );
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return validatedPayment;
       },
-      this.getInfiniPurchaseRequestConfig(authSnapshot),
-    );
-    let payment = result?.data?.data;
-    if (
-      payment &&
-      isString(payment.paymentId) &&
-      payment.paymentId &&
-      (!isString(payment.address) || !payment.address)
-    ) {
-      const paymentId = payment.paymentId;
-      const queryResult = await client.get<
-        IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-      >('/prime/v1/infini/payment', {
-        params: {
-          paymentId,
-        },
-        ...this.getInfiniPurchaseRequestConfig(authSnapshot),
-      });
-      payment = queryResult?.data?.data;
-      const validatedPayment = validateInfiniPaymentResponse(
+    });
+  }
+
+  private async recordInfiniPaymentValidationBestEffort({
+    onekeyUserId,
+    payment,
+    flowContext,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    flowContext: IPrimeInfiniPaymentFlowContext;
+  }): Promise<void> {
+    try {
+      await this.backgroundApi.simpleDb.prime.recordInfiniPaymentValidation({
+        onekeyUserId,
         payment,
-        paymentId,
-      );
-      await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-      return validatedPayment;
+        flowId: flowContext.flowId,
+      });
+    } catch (error) {
+      // Diagnostic metadata must not hide a successful payment query.
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...flowContext,
+        ...getPrimeInfiniPaymentSafeError(error),
+        paymentId: payment.paymentId,
+        stage: 'sessionPersistence',
+        status: 'failed',
+        failureReason: 'localPersistenceFailed',
+      });
     }
-    const validatedPayment = validateInfiniPaymentResponse(payment);
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return validatedPayment;
   }
 
   @backgroundMethod()
   async apiGetInfiniPayment({
     paymentId,
     expectedOneKeyUserId,
+    flowContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPayment> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const result = await client.get<
-      IApiClientResponse<IPrimeInfiniPaymentApiResponse>
-    >('/prime/v1/infini/payment', {
-      params: {
-        paymentId,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: flowContext?.paymentSource ?? 'preflightRefresh',
+      stage: 'paymentPreflight',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        const result = await client.get<
+          IApiClientResponse<IPrimeInfiniPaymentApiResponse>
+        >('/prime/v1/infini/payment', {
+          params: {
+            paymentId,
+          },
+          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+        });
+        const payment = validateInfiniPaymentResponse(
+          result?.data?.data,
+          paymentId,
+          context,
+        );
+        if (flowContext) {
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
+        }
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return payment;
       },
-      ...this.getInfiniPurchaseRequestConfig(authSnapshot),
     });
-    const payment = validateInfiniPaymentResponse(
-      result?.data?.data,
-      paymentId,
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return payment;
   }
 
   @backgroundMethod()
   async apiGetInfiniPaymentPreBroadcastSnapshot({
     paymentId,
     expectedOneKeyUserId,
+    flowContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPaymentPreBroadcastSnapshot> {
-    const authSnapshot =
-      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-    const client = await this.getPrimeClient();
-    const [paymentResult, serverUserInfo, infiniResult] = await Promise.all([
-      client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
-        '/prime/v1/infini/payment',
-        {
-          params: {
-            paymentId,
+    return this.runInfiniPaymentRequest({
+      flowContext,
+      paymentSource: 'preflightRefresh',
+      stage: 'paymentPreflight',
+      request: async (context) => {
+        const authSnapshot =
+          await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        const client = await this.getPrimeClient();
+        const [paymentResult, serverUserInfo, infiniResult] = await Promise.all(
+          [
+            client.get<IApiClientResponse<IPrimeInfiniPaymentApiResponse>>(
+              '/prime/v1/infini/payment',
+              {
+                params: {
+                  paymentId,
+                },
+                ...this.getInfiniPurchaseRequestConfig(authSnapshot),
+              },
+            ),
+            this.callApiFetchPrimeUserInfoWithRequestToken({
+              requestAuthToken: authSnapshot.requestAuthToken,
+            }),
+            client.get<
+              IApiClientResponse<IPrimeInfiniSubscription | undefined>
+            >(
+              '/prime/v1/infini/subscription',
+              this.getInfiniPurchaseRequestConfig(authSnapshot),
+            ),
+          ],
+        );
+        if (serverUserInfo.userId !== expectedOneKeyUserId) {
+          throw this.createInfiniPurchaseUserChangedError();
+        }
+        const payment = validateInfiniPaymentResponse(
+          paymentResult?.data?.data,
+          paymentId,
+          context,
+        );
+        if (flowContext) {
+          await this.recordInfiniPaymentValidationBestEffort({
+            onekeyUserId: expectedOneKeyUserId,
+            payment,
+            flowContext: context,
+          });
+        }
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return {
+          payment,
+          purchaseStatusSnapshot: {
+            onekeyUserId: expectedOneKeyUserId,
+            primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
+            infiniSubscription: normalizeInfiniSubscriptionResponse(
+              infiniResult?.data?.data,
+            ),
           },
-          ...this.getInfiniPurchaseRequestConfig(authSnapshot),
-        },
-      ),
-      this.callApiFetchPrimeUserInfoWithRequestToken({
-        requestAuthToken: authSnapshot.requestAuthToken,
-      }),
-      client.get<IApiClientResponse<IPrimeInfiniSubscription | undefined>>(
-        '/prime/v1/infini/subscription',
-        this.getInfiniPurchaseRequestConfig(authSnapshot),
-      ),
-    ]);
-    if (serverUserInfo.userId !== expectedOneKeyUserId) {
-      throw this.createInfiniPurchaseUserChangedError();
-    }
-    const payment = validateInfiniPaymentResponse(
-      paymentResult?.data?.data,
-      paymentId,
-    );
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return {
-      payment,
-      purchaseStatusSnapshot: {
-        onekeyUserId: expectedOneKeyUserId,
-        primeSubscription: this.buildPrimeSubscriptionInfo(serverUserInfo),
-        infiniSubscription: normalizeInfiniSubscriptionResponse(
-          infiniResult?.data?.data,
-        ),
+        };
       },
-    };
+    });
   }
 
   @backgroundMethod()

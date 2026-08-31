@@ -12,6 +12,8 @@ export function MarketDetailResponsiveLayout({
   isNative,
   networkId,
   tokenAddress,
+  marketTokenId,
+  marketTokenCategory,
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
@@ -25,6 +27,9 @@ export function MarketDetailResponsiveLayout({
         isNative={isNative}
         networkId={networkId}
         tokenAddress={tokenAddress}
+        marketTokenId={marketTokenId}
+        marketTokenCategory={marketTokenCategory}
+        disableTrade={disableTrade}
         showFavoriteButton={showFavoriteButton}
       />
     );

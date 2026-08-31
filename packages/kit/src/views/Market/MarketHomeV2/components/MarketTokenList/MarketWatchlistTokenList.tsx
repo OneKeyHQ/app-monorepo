@@ -54,6 +54,7 @@ type IMarketWatchlistTokenListProps = {
   enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
+  centerDesktopPortalContent?: boolean;
 };
 
 function MarketWatchlistTokenList({
@@ -70,6 +71,7 @@ function MarketWatchlistTokenList({
   enableWebSocket,
   pollingInterval,
   rowBg,
+  centerDesktopPortalContent,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
   // Get watchlist from atom if not provided externally
@@ -369,6 +371,7 @@ function MarketWatchlistTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
     />
   );
 }

@@ -7,6 +7,8 @@ export interface IMarketDetailResponsiveLayoutProps {
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
+  marketTokenId?: string;
+  marketTokenCategory?: string;
   showFavoriteButton?: boolean;
   disableTrade?: boolean;
 }
