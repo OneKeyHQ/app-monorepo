@@ -187,6 +187,11 @@ export function useAddHiddenWallet() {
         await actions.current.createHWHiddenWallet(
           {
             walletId: wallet?.id || '',
+            // The deliberate add teaches first, on the stage: the teach
+            // card carries the education and the wallet-list shortcut
+            // switch (onboarding's fork never asks for it — v6.5.2's
+            // split, declared here rather than inferred by the driver).
+            stagePassphraseIntro: true,
           },
           {
             addDefaultNetworkAccounts: true,
@@ -283,11 +288,16 @@ export function useAddHiddenWallet() {
 
   const createHiddenWalletWithDialogConfirm = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
-      // Education is this caller's to give, before the device flow starts
-      // (v6.5.2 parity): the dialog teaches and carries the wallet-list
-      // shortcut switch, then Continue hands over to the hardware flow.
-      // The stage no longer plays a teach card of its own, so hardware
-      // wallets take this dialog again, the same as QR wallets.
+      // Hardware wallets are taught on the stage: the deliberate add
+      // requests the teach card (stagePassphraseIntro above), which
+      // carries the education and the wallet-list shortcut switch in the
+      // unified stage UI. This legacy dialog stays only for QR wallets —
+      // they never open a stage — until it is retired with the rest of
+      // the legacy surfaces.
+      if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+        await createHiddenWallet({ wallet });
+        return;
+      }
       return new Promise<void>((resolve, reject) => {
         Dialog.show({
           showExitButton: false,
