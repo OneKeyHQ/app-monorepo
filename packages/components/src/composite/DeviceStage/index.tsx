@@ -484,6 +484,8 @@ export function DeviceStage({
   errorReason,
   authChecklist,
   authFailureReason,
+  authFailureMessage,
+  authFailureCode,
   onAuthSupport,
   onAuthRetry,
   onAuthContinueAnyway,
@@ -1509,6 +1511,8 @@ export function DeviceStage({
           <AuthFailureCard
             reason={authFailureReason}
             checklist={authChecklist}
+            failureMessage={authFailureMessage}
+            failureCode={authFailureCode}
             onSupport={onAuthSupport}
             onRetry={onAuthRetry}
             onContinueAnyway={onAuthContinueAnyway}
@@ -1522,6 +1526,8 @@ export function DeviceStage({
       authChecklist,
       authFailureEpoch,
       authFailureReason,
+      authFailureMessage,
+      authFailureCode,
       onAuthContinueAnyway,
       onAuthRetry,
       onAuthSupport,

@@ -212,6 +212,11 @@ export type IDeviceStageState = {
   /** Authenticity flow: the per-component checklist and what ended it. */
   authChecklist?: IDeviceStageAuthChecklistItem[];
   authFailureReason?: IDeviceStageAuthFailureReasonValue;
+  /** Fallback failure detail (v6.5.0 dialog parity): the real error
+   * message stands in for the generic unknown title and the code rides
+   * as a suffix. Display-ready strings — the runner resolves ids. */
+  authFailureMessage?: string;
+  authFailureCode?: string;
   errorReason?: IDeviceStageErrorReasonValue;
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;
