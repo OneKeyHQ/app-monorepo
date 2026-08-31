@@ -132,12 +132,27 @@ const DesktopWebView = forwardRef(
     // Parents hold wrapper closures across renders, so dom-ready must be read
     // from a ref, not a render snapshot.
     const isDomReadyRef = useRef(false);
+    const documentGenerationRef = useRef(0);
     const updateIsDomReady = useCallback((value: boolean) => {
       isDomReadyRef.current = value;
       setIsDomReady(value);
     }, []);
+    const resetDomReady = useCallback(() => {
+      documentGenerationRef.current += 1;
+      updateIsDomReady(false);
+    }, [updateIsDomReady]);
+    const onDomReadyRef = useRef(onDomReady);
+    onDomReadyRef.current = onDomReady;
+    const handleDomReady = useCallback(
+      (event: Event) => {
+        updateIsDomReady(true);
+        onDomReadyRef.current?.(event);
+      },
+      [updateIsDomReady],
+    );
     const webviewRef = useRef<IElectronWebView | null>(null);
     const pendingScriptsRef = useRef<string[]>([]);
+    const domReadyProbeRef = useRef<Promise<void> | null>(null);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
     const isUnmountingRef = useRef(false);
@@ -176,6 +191,39 @@ const DesktopWebView = forwardRef(
         }
       }, WEBVIEW_LOAD_TIMEOUT_MS);
     }, [clearLoadTimeout]);
+
+    const recoverDomReadyFromDocumentState = useCallback(() => {
+      const webview = webviewRef.current;
+      if (!webview || isDomReadyRef.current || domReadyProbeRef.current) {
+        return;
+      }
+
+      const documentGeneration = documentGenerationRef.current;
+      let probe: Promise<void>;
+      try {
+        probe = Promise.resolve(
+          webview.executeJavaScript('document.readyState'),
+        )
+          .then((readyState: unknown) => {
+            if (
+              webviewRef.current === webview &&
+              documentGenerationRef.current === documentGeneration &&
+              (readyState === 'interactive' || readyState === 'complete')
+            ) {
+              updateIsDomReady(true);
+            }
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            if (domReadyProbeRef.current === probe) {
+              domReadyProbeRef.current = null;
+            }
+          });
+        domReadyProbeRef.current = probe;
+      } catch {
+        domReadyProbeRef.current = null;
+      }
+    }, [updateIsDomReady]);
 
     const flushPendingScripts = useCallback(() => {
       if (!isDomReady || !webviewRef.current) {
@@ -300,7 +348,7 @@ const DesktopWebView = forwardRef(
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
-            updateIsDomReady(false);
+            resetDomReady();
             startLoadTimeout();
           }
           checkGoogleOauth(url);
@@ -310,6 +358,10 @@ const DesktopWebView = forwardRef(
 
         const didFinishLoad = (e: any) => {
           clearLoadTimeout();
+          // Fast loads and renderer hot reloads can finish before Electron's
+          // dom-ready listener is attached. A finished main-frame load is
+          // ready for executeJavaScript, so use it to release queued messages.
+          updateIsDomReady(true);
           if (!lastMainFrameLoadErrorRef.current) {
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);
@@ -357,13 +409,6 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
-        const handleDomReady = (event: Event) => {
-          updateIsDomReady(true);
-          onDomReady?.(event);
-        };
-
-        webview.addEventListener('dom-ready', handleDomReady);
-
         return () => {
           clearLoadTimeout();
           webview.removeEventListener('did-start-loading', onDidStartLoading);
@@ -387,7 +432,6 @@ const DesktopWebView = forwardRef(
             onPageFaviconUpdated,
           );
           webview.removeEventListener('new-window', onNewWindow);
-          webview.removeEventListener('dom-ready', handleDomReady);
         };
       } catch (error) {
         console.error(error);
@@ -399,11 +443,11 @@ const DesktopWebView = forwardRef(
       clearLoadTimeout,
       startLoadTimeout,
       updateIsDomReady,
+      resetDomReady,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
       onDidStopLoading,
-      onDomReady,
       onNewWindow,
       onPageFaviconUpdated,
       onPageTitleUpdated,
@@ -466,6 +510,10 @@ const DesktopWebView = forwardRef(
                 );
                 pendingScriptsRef.current.shift();
               }
+              // Electron may finish a fast navigation before React attaches
+              // load listeners. Probe the live document so the queue can
+              // recover without relying on an event that will not repeat.
+              recoverDomReadyFromDocumentState();
               return;
             }
             if (webviewRef.current) {
@@ -485,16 +533,25 @@ const DesktopWebView = forwardRef(
       },
       // dom-ready is read via isDomReadyRef so a parent holding an old
       // wrapper still delivers.
-      [isWebviewReady, jsBridgeHost],
+      [isWebviewReady, jsBridgeHost, recoverDomReadyFromDocumentState],
     );
 
     const initWebviewByRef = useCallback(
-      ($ref: any) => {
+      ($ref: IElectronWebView | null) => {
+        const previousWebview = webviewRef.current;
+        if (previousWebview && previousWebview !== $ref) {
+          previousWebview.removeEventListener('dom-ready', handleDomReady);
+        }
         webviewRef.current = $ref;
-        updateIsDomReady(false);
+        resetDomReady();
+        if ($ref && previousWebview !== $ref) {
+          // Register synchronously with the ref so a fast first navigation
+          // cannot emit dom-ready before the passive listener effect runs.
+          $ref.addEventListener('dom-ready', handleDomReady);
+        }
         setIsWebviewReady(Boolean($ref));
       },
-      [updateIsDomReady],
+      [handleDomReady, resetDomReady],
     );
 
     useEffect(() => {
