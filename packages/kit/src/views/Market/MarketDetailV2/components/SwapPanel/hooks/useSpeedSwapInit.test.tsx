@@ -55,7 +55,7 @@ const cachedConfig: ISpeedSwapConfig = {
   speedDefaultSelectToken: undefined,
 };
 
-const unavailableConfig: ISpeedSwapConfig = {
+const disabledConfig: ISpeedSwapConfig = {
   ...cachedConfig,
   provider: '',
   speedConfig: {
@@ -65,6 +65,11 @@ const unavailableConfig: ISpeedSwapConfig = {
     defaultLimitTokens: [],
   },
   supportSpeedSwap: false,
+};
+
+const unavailableConfig: ISpeedSwapConfig = {
+  ...disabledConfig,
+  unavailable: true,
 };
 
 describe('useSpeedSwapInit cold display config', () => {
@@ -145,5 +150,30 @@ describe('useSpeedSwapInit cold display config', () => {
       scope: 'evm--1',
     });
     expect(options.swrShouldPersist(failedResult)).toBe(false);
+  });
+
+  it('replaces the cached config when the service explicitly disables swap', async () => {
+    swrCacheUtils.set(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }), {
+      config: cachedConfig,
+      scope: 'evm--1',
+    });
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(disabledConfig);
+    renderHook(() => useSpeedSwapInit('evm--1'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+      fromCache?: boolean;
+      scope?: string;
+    }>;
+    const options = mockUsePromiseResult.mock.calls[0]?.[2] as {
+      swrShouldPersist: (value: { fromCache?: boolean }) => boolean;
+    };
+    const disabledResult = await request();
+
+    expect(disabledResult).toEqual({
+      config: disabledConfig,
+      scope: 'evm--1',
+    });
+    expect(options.swrShouldPersist(disabledResult)).toBe(true);
   });
 });

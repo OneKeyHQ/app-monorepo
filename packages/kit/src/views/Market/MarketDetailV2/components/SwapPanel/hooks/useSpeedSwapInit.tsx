@@ -50,14 +50,7 @@ export function useSpeedSwapInit(
         const config = await backgroundApiProxy.serviceSwap
           .fetchSpeedSwapConfig({ networkId })
           .catch(() => undefined);
-        if (
-          config &&
-          (config.provider ||
-            config.supportSpeedSwap !== false ||
-            config.speedConfig.spenderAddress ||
-            config.speedConfig.defaultTokens.length ||
-            config.speedConfig.defaultLimitTokens.length)
-        ) {
+        if (config && !config.unavailable) {
           return {
             config,
             scope: speedSwapConfigScope,
