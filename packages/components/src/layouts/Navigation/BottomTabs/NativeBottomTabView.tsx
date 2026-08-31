@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback } from 'react';
 
 import TabView from '@onekeyfe/react-native-tab-view';
 import {
@@ -9,7 +8,6 @@ import {
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { StyleSheet, View } from 'react-native';
 
 import { Spinner, Stack } from '../../../primitives';
 
@@ -24,14 +22,6 @@ type Props = NativeBottomTabNavigationConfig & {
   navigation: NativeBottomTabNavigationHelpers;
   descriptors: NativeBottomTabDescriptorMap;
 };
-
-const styles = StyleSheet.create({
-  scene: {
-    flex: 1,
-  },
-});
-
-const COLD_SCENE_LOADING_DURATION_MS = 500;
 
 function SceneLoadingView() {
   return (
@@ -51,39 +41,6 @@ function SceneLoadingView() {
   );
 }
 
-function SceneReadyView({
-  routeKey,
-  focused,
-  ready,
-  onReady,
-  children,
-}: {
-  routeKey: string;
-  focused: boolean;
-  ready: boolean;
-  onReady: (routeKey: string) => void;
-  children: ReactNode;
-}) {
-  useEffect(() => {
-    if (ready || !focused) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      onReady(routeKey);
-    }, COLD_SCENE_LOADING_DURATION_MS);
-
-    return () => clearTimeout(timer);
-  }, [focused, onReady, ready, routeKey]);
-
-  return (
-    <View style={styles.scene}>
-      {children}
-      {ready ? null : <SceneLoadingView />}
-    </View>
-  );
-}
-
 export function NativeBottomTabView({
   state,
   navigation,
@@ -91,27 +48,10 @@ export function NativeBottomTabView({
   tabBar,
   ...rest
 }: Props) {
-  const [readyRouteKeys, setReadyRouteKeys] = useState<string[]>(() => {
-    const focusedRouteKey = state.routes[state.index]?.key;
-    return focusedRouteKey ? [focusedRouteKey] : [];
-  });
-  const handleSceneReady = useCallback((routeKey: string) => {
-    setReadyRouteKeys((current) =>
-      current.includes(routeKey) ? current : [...current, routeKey],
-    );
-  }, []);
   const renderScene = useCallback(
-    ({ route }: { route: Route<string> }) => (
-      <SceneReadyView
-        routeKey={route.key}
-        focused={state.routes[state.index]?.key === route.key}
-        ready={readyRouteKeys.includes(route.key)}
-        onReady={handleSceneReady}
-      >
-        {descriptors[route.key]?.render()}
-      </SceneReadyView>
-    ),
-    [descriptors, handleSceneReady, readyRouteKeys, state.index, state.routes],
+    ({ route }: { route: Route<string> }) =>
+      descriptors[route.key]?.render() ?? null,
+    [descriptors],
   );
   const renderLazyPlaceholder = useCallback(() => <SceneLoadingView />, []);
   const getActiveTintColor = useCallback(
