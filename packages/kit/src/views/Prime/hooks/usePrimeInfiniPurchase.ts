@@ -16,6 +16,7 @@ import type {
   EPrimeFeatures,
   IPrimeParamList,
 } from '@onekeyhq/shared/src/routes/prime';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeInfiniSubscriptionPlan } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -62,11 +63,13 @@ export function usePrimeInfiniPurchase({
 
   const purchaseByExternalCheckout = useCallback(
     async ({
+      flowId = generateUUID(),
       selectedSubscriptionPeriod,
       featureName,
       beforeCheckout,
       beforeOpenCheckout,
     }: {
+      flowId?: string;
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
       beforeCheckout?: () => Promise<boolean>;
@@ -76,6 +79,7 @@ export function usePrimeInfiniPurchase({
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
       if (isExternalCheckoutInFlight || isWalletPaymentPageOpening) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -88,6 +92,7 @@ export function usePrimeInfiniPurchase({
       }
       isExternalCheckoutInFlight = true;
       logPrimeInfiniPaymentFlow({
+        flowId,
         stage: 'externalCheckout',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -102,6 +107,7 @@ export function usePrimeInfiniPurchase({
         // with PrimePurchaseDialog, so the login state is verified via bg service.
         if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -114,6 +120,7 @@ export function usePrimeInfiniPurchase({
         }
         if (beforeCheckout && !(await beforeCheckout())) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'cancelled',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -164,6 +171,7 @@ export function usePrimeInfiniPurchase({
             }),
           });
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'externalCheckout',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -182,6 +190,7 @@ export function usePrimeInfiniPurchase({
         });
         const checkoutResult =
           await backgroundApiProxy.servicePrime.apiGetInfiniCheckoutUrl({
+            flowContext: { flowId, paymentSource: 'externalCheckout' },
             plan,
             expectedOneKeyUserId: purchaserUserId,
           });
@@ -212,6 +221,7 @@ export function usePrimeInfiniPurchase({
         // so a new hosted checkout cannot reuse an older monitor generation.
         showPrimeInfiniWaitingDialog({
           context: {
+            flowId,
             checkoutType: 'externalWallet',
             plan,
             onekeyUserId: purchaserUserId,
@@ -236,6 +246,7 @@ export function usePrimeInfiniPurchase({
         // wallet-app deep links are unreliable inside the in-app browser
         openUrlUtils.openUrlExternal(checkoutUrl, { useSystemBrowser: true });
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -247,6 +258,7 @@ export function usePrimeInfiniPurchase({
         return true;
       } catch (error) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'externalCheckout',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -274,10 +286,12 @@ export function usePrimeInfiniPurchase({
       featureName?: EPrimeFeatures;
       createNewPayment?: boolean;
     }) => {
+      const flowId = generateUUID();
       const plan: IPrimeInfiniSubscriptionPlan =
         selectedSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
       if (isWalletPaymentPageOpening || isExternalCheckoutInFlight) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'blocked',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -290,6 +304,7 @@ export function usePrimeInfiniPurchase({
       }
       isWalletPaymentPageOpening = true;
       logPrimeInfiniPaymentFlow({
+        flowId,
         stage: 'walletPaymentPage',
         status: 'started',
         subscriptionPeriod: selectedSubscriptionPeriod,
@@ -300,6 +315,7 @@ export function usePrimeInfiniPurchase({
       try {
         if (!(await ensurePrimeLoggedIn(intl))) {
           logPrimeInfiniPaymentFlow({
+            flowId,
             stage: 'walletPaymentPage',
             status: 'blocked',
             subscriptionPeriod: selectedSubscriptionPeriod,
@@ -313,6 +329,7 @@ export function usePrimeInfiniPurchase({
         navigation.pushModal(EModalRoutes.PrimeModal, {
           screen: EPrimePages.PrimeInfiniPayment,
           params: {
+            flowId,
             selectedSubscriptionPeriod,
             featureName,
             createNewPayment,
@@ -320,6 +337,7 @@ export function usePrimeInfiniPurchase({
           },
         });
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'succeeded',
           subscriptionPeriod: selectedSubscriptionPeriod,
@@ -329,6 +347,7 @@ export function usePrimeInfiniPurchase({
         });
       } catch (error) {
         logPrimeInfiniPaymentFlow({
+          flowId,
           stage: 'walletPaymentPage',
           status: 'failed',
           subscriptionPeriod: selectedSubscriptionPeriod,

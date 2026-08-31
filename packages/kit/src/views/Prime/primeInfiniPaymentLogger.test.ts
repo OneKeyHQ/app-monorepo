@@ -101,7 +101,7 @@ describe('getPrimeInfiniPaymentLocalError', () => {
     });
   });
 
-  it('writes the scrubbed original error to the local defaultLogger scene', () => {
+  it('records error metadata without forwarding the free-form message', () => {
     const localErrorLog = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentError')
       .mockImplementation((params) => params);
@@ -127,15 +127,18 @@ describe('getPrimeInfiniPaymentLocalError', () => {
       expect.objectContaining({
         stage: 'paymentReplacement',
         status: 'failed',
-        errorMessage: 'identity changed for [email]',
+        errorName: 'Error',
       }),
+    );
+    expect(JSON.stringify(localErrorLog.mock.calls)).not.toContain(
+      'identity changed',
     );
 
     localErrorLog.mockRestore();
     flowLog.mockRestore();
   });
 
-  it('keeps an unknown diagnostic message in the local logger only', () => {
+  it('uses the action reason when error metadata is unavailable', () => {
     const localErrorLog = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentError')
       .mockImplementation((params) => params);
@@ -152,7 +155,7 @@ describe('getPrimeInfiniPaymentLocalError', () => {
 
     expect(localErrorLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        errorMessage: 'Unknown payment error',
+        reason: 'paymentActionRejected',
       }),
     );
 
@@ -199,14 +202,14 @@ describe('logPrimeInfiniPaymentMonitorEvent', () => {
       1,
       expect.objectContaining({
         reason: 'paymentUnavailableOrSnapshotMismatch',
-        errorMessage: 'payment endpoint failed',
+        errorName: 'Error',
       }),
     );
     expect(localErrorLog).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         reason: 'purchaseStatusUnavailable',
-        errorMessage: 'purchase status failed',
+        errorName: 'Error',
       }),
     );
 
