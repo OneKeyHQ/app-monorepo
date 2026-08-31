@@ -77,6 +77,9 @@ const CONTENT_SIDE_TOP_UP = CONTENT_SIDE_INSET - SHEET_SIDE_PADDING;
 // How long the outgoing height detent outlives a change: past the system's
 // detent spring, short enough that a drag can rarely catch it.
 const DETENT_SETTLE_MS = 800;
+// UIKit's standard form-sheet width: the widest sheet the system is always
+// willing to present on iPad, and the cap for our content width there.
+const FORM_SHEET_MAX_WIDTH = 540;
 
 export function BottomSheet({
   open,
@@ -190,11 +193,17 @@ export function BottomSheet({
   // 16pt side padding (the universal BottomSheet wrapper), and the RN content
   // is measured intrinsically — without an explicit width the column collapses
   // to its widest child and everything hangs left, jumping as titles change.
-  // Fill the padded frame instead; on iPhone the sheet spans the window. iPad
-  // form sheets are narrower and will need the real container width if the
-  // exploration ever goes there.
+  // Fill the padded frame instead; on iPhone the sheet spans the window. On
+  // iPad the system presents a narrower sheet, so the window width overflows
+  // it — but the content-sized path presents with fitted sizing, where the
+  // sheet hugs the content's ideal width, so capping the content at UIKit's
+  // form-sheet width (540pt) both fits inside any sheet the system offers
+  // and keeps the iPad presentation a standard form sheet. iPhone portrait
+  // windows are narrower than the cap, so this only bites on iPad (and
+  // iPhone landscape, where the window also outgrows a usable sheet).
   const { width: windowWidth } = useWindowDimensions();
-  const contentWidth = windowWidth - 2 * SHEET_SIDE_PADDING;
+  const contentWidth =
+    Math.min(windowWidth, FORM_SHEET_MAX_WIDTH) - 2 * SHEET_SIDE_PADDING;
 
   const handleDismiss = useCallback(() => {
     onOpenChange(false);
