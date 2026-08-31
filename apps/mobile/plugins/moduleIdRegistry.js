@@ -96,7 +96,7 @@ function getModuleIdDomain(moduleKey) {
   ) {
     return 'virtual';
   }
-  if (normalizedModuleKey.startsWith('node_modules/')) {
+  if (normalizedModuleKey.split('/').includes('node_modules')) {
     return 'nodeModules';
   }
   return 'workspace';
@@ -138,7 +138,10 @@ function createModuleIdAllocator(moduleIds) {
   };
 }
 
-function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
+function collectRegistryErrors(
+  registry,
+  { allowDuplicateIds = false, allowOutOfDomainIds = false } = {},
+) {
   const errors = [];
   if (!registry || typeof registry !== 'object' || Array.isArray(registry)) {
     return ['Registry must be a JSON object.'];
@@ -236,7 +239,7 @@ function collectRegistryErrors(registry, { allowDuplicateIds = false } = {}) {
       } else {
         if (normalizedModuleKey) {
           const domain = getModuleIdDomain(normalizedModuleKey);
-          if (!isModuleIdInDomain(moduleId, domain)) {
+          if (!allowOutOfDomainIds && !isModuleIdInDomain(moduleId, domain)) {
             const range = MODULE_ID_RANGES[domain];
             errors.push(
               `${sectionName}.${moduleKey} ID ${moduleId} must be in the ${domain} range ${range.start}-${range.end}.`,
