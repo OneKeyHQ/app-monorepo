@@ -29,6 +29,10 @@ const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 
 const splitCodePlugin = require('./plugins');
 const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
+const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
@@ -380,10 +384,6 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-const {
-  applyDevVendorConfig,
-  isDevVendorEnabled,
-} = require('./plugins/devVendor');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
