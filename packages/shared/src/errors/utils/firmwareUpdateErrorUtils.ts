@@ -185,8 +185,8 @@ export function classifyFirmwareUpdateFailure(
       HardwareErrorCode.BleTimeoutError,
       HardwareErrorCode.IframeTimeout,
       HardwareErrorCode.PollingTimeout,
-    ])
-    || getErrorText(error).toLowerCase().includes('timeout')
+    ]) ||
+    getErrorText(error).toLowerCase().includes('timeout')
   ) {
     return 'timeout';
   }

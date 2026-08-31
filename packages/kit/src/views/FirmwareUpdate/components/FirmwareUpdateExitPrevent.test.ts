@@ -43,13 +43,20 @@ jest.mock('../hooks/useFirmwareUpdateHooks', () => ({
   useModalExitPrevent: jest.fn(),
 }));
 
-const {
-  exitUpdateWorkflow: mockExitUpdateWorkflow,
-  cancel: mockCancel,
-} = jest.requireMock('../../../background/instance/backgroundApiProxy');
+const { exitUpdateWorkflow: mockExitUpdateWorkflow, cancel: mockCancel } =
+  jest.requireMock('../../../background/instance/backgroundApiProxy') as {
+    exitUpdateWorkflow: jest.MockedFunction<() => Promise<void>>;
+    cancel: jest.MockedFunction<
+      (params: { immediate: boolean }) => Promise<void>
+    >;
+  };
 const { useModalExitPrevent: mockUseModalExitPrevent } = jest.requireMock(
   '../hooks/useFirmwareUpdateHooks',
-);
+) as {
+  useModalExitPrevent: jest.MockedFunction<
+    typeof import('../hooks/useFirmwareUpdateHooks').useModalExitPrevent
+  >;
+};
 
 describe('cancelFirmwareUpdateWorkflow', () => {
   beforeEach(() => {
@@ -101,7 +108,8 @@ describe('cancelFirmwareUpdateAttempt', () => {
     );
 
     const [{ onConfirm }] = mockUseModalExitPrevent.mock.calls[0];
-    onConfirm();
+    expect(onConfirm).toBeDefined();
+    onConfirm?.();
     await Promise.resolve();
 
     expect(mockCancel).toHaveBeenCalledWith({ immediate: true });

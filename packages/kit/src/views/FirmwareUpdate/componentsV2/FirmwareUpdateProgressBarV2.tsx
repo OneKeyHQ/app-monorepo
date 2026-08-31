@@ -273,11 +273,7 @@ export function FirmwareUpdateProgressBarView({
             {desc}
           </SizableText>
           {estimatedTimeText ? (
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flexShrink={0}
-            >
+            <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
               {estimatedTimeText}
             </SizableText>
           ) : null}
@@ -363,9 +359,7 @@ export function FirmwareUpdateProgressBarV2({
 
   const firmwareProgressRef = useRef(firmwareProgress);
   firmwareProgressRef.current = firmwareProgress;
-  const firmwareInstallPhaseProgressRef = useRef(
-    firmwareInstallPhaseProgress,
-  );
+  const firmwareInstallPhaseProgressRef = useRef(firmwareInstallPhaseProgress);
   firmwareInstallPhaseProgressRef.current = firmwareInstallPhaseProgress;
 
   const updateProgress = useCallback(
@@ -444,8 +438,7 @@ export function FirmwareUpdateProgressBarV2({
               startAt: 50,
               maxAt: 90,
               currentProgress: resolveFirmwareInstallProgress({
-                installPhaseProgress:
-                  firmwareInstallPhaseProgressRef.current,
+                installPhaseProgress: firmwareInstallPhaseProgressRef.current,
                 firmwareProgress: firmwareProgressRef.current,
               }),
             }),
