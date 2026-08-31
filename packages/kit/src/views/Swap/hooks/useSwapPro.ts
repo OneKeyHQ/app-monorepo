@@ -350,7 +350,7 @@ export function useSwapProAccount() {
     netAccountStateRes.result.requestScope === accountRequestScope ||
     Boolean(
       knownAccountScope &&
-        netAccountStateRes.result.scope === knownAccountScope,
+      netAccountStateRes.result.scope === knownAccountScope,
     );
   const resolvedAccountScope = isResolvedAccountScopeCurrent
     ? netAccountStateRes.result.scope
