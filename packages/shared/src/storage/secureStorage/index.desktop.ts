@@ -1,5 +1,4 @@
 import { OneKeyLocalError } from '../../errors';
-import platformEnv from '../../platformEnv';
 
 import {
   SECURE_STORAGE_PERMANENT_READ_ERROR_MESSAGE_REGEX,
@@ -54,9 +53,6 @@ const removeSecureItem = async (key: string) =>
   globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
 const supportSecureStorage = async () => {
-  if (platformEnv.isDesktop && platformEnv.isDev && !platformEnv.isE2E) {
-    return false;
-  }
   const available =
     await globalThis?.desktopApiProxy?.storage?.isSecureStorageAvailable?.();
   return available ?? false;

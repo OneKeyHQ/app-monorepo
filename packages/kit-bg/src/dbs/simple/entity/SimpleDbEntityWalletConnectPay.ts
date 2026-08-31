@@ -86,10 +86,10 @@ function buildSecurePayloadKey(progressKey: string): string {
  * SimpleDb holds only the non-sensitive index; entries live encrypted in
  * secureStorage and are deleted together with the index on final payment
  * state or TTL expiry. On platforms without secure storage (bare web,
- * dev desktop) progress is simply not persisted — signatures are never
- * written to plaintext storage as a fallback; flows containing a
- * broadcast-capable action are refused upfront there instead (see
- * ServiceWalletConnectPay.getRequiredPaymentActions).
+ * Linux without a real keyring backend) progress is simply not persisted —
+ * signatures are never written to plaintext storage as a fallback; flows
+ * containing a broadcast-capable action are refused upfront there instead
+ * (see ServiceWalletConnectPay.getRequiredPaymentActions).
  */
 export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDbWalletConnectPay> {
   entityName = 'walletConnectPay';

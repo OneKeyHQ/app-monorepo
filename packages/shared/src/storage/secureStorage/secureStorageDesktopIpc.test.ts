@@ -17,10 +17,25 @@ import {
 // producer uses — so a format change breaks this test instead of silently
 // breaking the transport.
 
+// Simulate a dev desktop runtime: supportSecureStorage must follow the
+// main-process availability probe there, not a blanket build-flavor refusal
+// (an old Electron dev safeStorage bug once forced one; it no longer
+// reproduces, and the gate broke every secure-storage consumer in dev)
+jest.mock('../../platformEnv', () => ({
+  __esModule: true,
+  default: {
+    ...jest.requireActual<{ default: object }>('../../platformEnv').default,
+    isDesktop: true,
+    isDev: true,
+    isE2E: false,
+  },
+}));
+
 type IGlobalWithProxy = {
   desktopApiProxy?: {
     storage?: {
-      secureGetItemAsync: (key: string) => Promise<string | null | undefined>;
+      secureGetItemAsync?: (key: string) => Promise<string | null | undefined>;
+      isSecureStorageAvailable?: () => Promise<boolean | undefined>;
     };
   };
 };
@@ -129,5 +144,42 @@ describe('desktop secure storage IPC error labeling', () => {
 
     const thrown = await readAndCatch();
     expect(thrown.name).not.toBe(SECURE_STORAGE_PERMANENT_READ_ERROR_NAME);
+  });
+});
+
+describe('desktop supportSecureStorage (dev runtime)', () => {
+  afterEach(() => {
+    delete (globalThis as IGlobalWithProxy).desktopApiProxy;
+  });
+
+  const installProxyReportingAvailability = (
+    available: boolean | undefined,
+  ) => {
+    (globalThis as IGlobalWithProxy).desktopApiProxy = {
+      storage: {
+        isSecureStorageAvailable: jest.fn().mockResolvedValue(available),
+      },
+    };
+  };
+
+  it('follows the main-process availability probe even in dev desktop', async () => {
+    installProxyReportingAvailability(true);
+    await expect(desktopSecureStorage.supportSecureStorage()).resolves.toBe(
+      true,
+    );
+  });
+
+  it('reports unsupported when the main process says unavailable', async () => {
+    installProxyReportingAvailability(false);
+    await expect(desktopSecureStorage.supportSecureStorage()).resolves.toBe(
+      false,
+    );
+  });
+
+  it('reports unsupported when the probe is missing (older desktop API)', async () => {
+    (globalThis as IGlobalWithProxy).desktopApiProxy = { storage: {} };
+    await expect(desktopSecureStorage.supportSecureStorage()).resolves.toBe(
+      false,
+    );
   });
 });
