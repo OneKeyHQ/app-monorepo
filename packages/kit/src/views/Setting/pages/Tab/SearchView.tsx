@@ -22,6 +22,7 @@ import {
   TabSettingsSection,
 } from './ListItem';
 import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
   resolveSettingsSectionPresentation,
 } from './settingsSurface';
@@ -80,11 +81,11 @@ export function SearchView({
     </Fragment>
   ));
   return isMobileLayout ? (
-    <YStack px="$5" pt="$2">
+    <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$2">
       <MobileTabSettingsSection>{rows}</MobileTabSettingsSection>
     </YStack>
   ) : (
-    <YStack pl="$5" pr={sectionPresentation === 'tab' ? '$6' : '$5'}>
+    <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X}>
       <TabSettingsSection presentation={sectionPresentation}>
         {rows}
       </TabSettingsSection>

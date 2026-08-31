@@ -13,6 +13,7 @@ import {
 } from './ListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
   resolveSettingsSectionPresentation,
 } from './settingsSurface';
@@ -122,8 +123,7 @@ export function SubSettingsPage({
         >
           <YStack
             gap={isMobileLayout ? '$5' : '$4'}
-            pl={sectionPresentation === 'tab' ? '$5' : '$4'}
-            pr={sectionPresentation === 'tab' ? '$6' : '$4'}
+            px={SETTINGS_PAGE_CONTENT_PADDING_X}
             pt={isTabNavigator ? undefined : '$3'}
           >
             {configList.map((list, sectionIdx) => {

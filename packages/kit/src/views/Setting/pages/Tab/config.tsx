@@ -912,7 +912,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             isMobileLayout
               ? {
-                  id: 'official-channels',
                   icon: 'SpeakerPromoteOutline',
                   title: intl.formatMessage({
                     id: ETranslations.official_channels__title,

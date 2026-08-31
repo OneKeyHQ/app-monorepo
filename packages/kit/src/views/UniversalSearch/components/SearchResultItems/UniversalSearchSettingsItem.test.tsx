@@ -126,6 +126,18 @@ const sectionFallbackResult: IUniversalSearchSettings = {
   },
 };
 
+const dappConnectionsResult: IUniversalSearchSettings = {
+  type: EUniversalSearchType.Settings,
+  payload: {
+    id: 'dapp-connections',
+    title: 'dApp connections',
+    icon: 'LinkOutline',
+    sectionTitle: 'Security',
+    sectionIcon: 'Shield2CheckOutline',
+    settingRoute: EModalSettingRoutes.SettingDAppConnectionList,
+  },
+};
+
 describe('UniversalSearchSettingsItem settings tab navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -194,6 +206,33 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       });
     });
     expect(mockRootNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps an explicit id for analytics and recents while navigating by route', async () => {
+    const { getByTestId } = render(
+      <UniversalSearchSettingsItem
+        item={dappConnectionsResult}
+        getSearchInput={() => 'dapp'}
+        source={EUniversalSearchSource.Browser}
+      />,
+    );
+    fireEvent.click(getByTestId('settings-result'));
+
+    await waitFor(() => {
+      expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingDAppConnectionList,
+      });
+    });
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith({
+      source: EUniversalSearchSource.Browser,
+      searchText: 'dapp',
+      type: EUniversalSearchType.Settings,
+      itemId: 'dapp-connections',
+      itemTitle: 'dApp connections',
+    });
+    expect(mockAddIntoRecentSearchList).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'settings-dapp-connections' }),
+    );
   });
 
   it('uses the parent category tab for custom controls without a leaf route', async () => {

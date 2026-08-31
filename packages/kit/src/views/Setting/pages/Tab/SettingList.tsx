@@ -52,6 +52,7 @@ import {
   isVisibleSettingsCategory,
   resolveSettingsRootInsets,
 } from './settingsRootLayout';
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from './settingsSurface';
 import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 import { useSettingsPageStyle } from './useSettingsPageStyle';
@@ -127,7 +128,7 @@ function SettingCategoryListItem({
       iconProps={iconProps}
       title={title}
       subtitle={config.subtitle}
-      px={useMobilePresentation ? '$5' : '$7'}
+      px={SETTINGS_PAGE_CONTENT_PADDING_X}
       titleProps={titleProps}
       onPress={handlePress}
     />
@@ -274,7 +275,7 @@ export function SettingList() {
     content = <SearchView results={searchResult} isSearching={isSearching} />;
   } else if (isMobileLayout) {
     content = (
-      <YStack gap="$5" px="$5" pt="$4">
+      <YStack gap="$5" px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$4">
         {mobileSections.map((section, index) => (
           <MobileSettingsSection key={index} entries={section} />
         ))}
@@ -301,7 +302,10 @@ export function SettingList() {
         title={intl.formatMessage({ id: ETranslations.global_settings })}
       />
       <Page.Body>
-        <XStack px="$5" pb={isMobileLayout ? '$2' : '$4'}>
+        <XStack
+          px={SETTINGS_PAGE_CONTENT_PADDING_X}
+          pb={isMobileLayout ? '$2' : '$4'}
+        >
           <SearchBar onSearchTextChange={onSearch} />
         </XStack>
         <YStack flex={1}>

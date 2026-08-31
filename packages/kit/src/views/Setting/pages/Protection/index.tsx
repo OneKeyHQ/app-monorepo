@@ -36,6 +36,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 import { ReceiveRiskSupportedAssetsDialogContent } from './ReceiveRiskSupportedAssets';
 import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
 
@@ -467,7 +469,9 @@ const SettingProtectionModal = () => {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_protection })}
       />
-      <Page.Body>{renderEnableProtection()}</Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        {renderEnableProtection()}
+      </Page.Body>
     </Page>
   );
 };

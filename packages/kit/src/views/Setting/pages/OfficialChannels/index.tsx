@@ -14,6 +14,7 @@ import {
 } from '../Tab/ListItem';
 import { useOfficialChannels } from '../Tab/officialChannels';
 import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
   resolveSettingsSectionPresentation,
 } from '../Tab/settingsSurface';
@@ -55,8 +56,7 @@ export default function OfficialChannels() {
       <Page.Body>
         <ScrollView contentContainerStyle={{ pb: '$10' }}>
           <YStack
-            pl={sectionPresentation === 'tab' ? '$5' : '$4'}
-            pr={sectionPresentation === 'tab' ? '$6' : '$4'}
+            px={SETTINGS_PAGE_CONTENT_PADDING_X}
             pt={isTabNavigator ? undefined : '$3'}
           >
             <TabSettingsSection presentation={sectionPresentation}>

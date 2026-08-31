@@ -49,9 +49,9 @@ export function UniversalSearchSettingsItem({
       source,
       searchText: getSearchInput(),
       type: item.type,
-      // Prefer stable identities (route, then explicit id) over localized
-      // fallbacks so analytics series survive copy changes.
-      itemId: settingRoute ?? id ?? sectionName ?? title,
+      // Explicit ids survive navigation migrations; routes are the stable
+      // fallback for items that do not define one.
+      itemId: id ?? settingRoute ?? sectionName ?? title,
       itemTitle: title,
     });
 
@@ -95,7 +95,7 @@ export function UniversalSearchSettingsItem({
 
     await timerUtils.wait(10);
     universalSearchActions.current.addIntoRecentSearchList({
-      id: `settings-${settingRoute ?? id ?? title}`,
+      id: `settings-${id ?? settingRoute ?? title}`,
       text: title,
       type: item.type,
       timestamp: Date.now(),
