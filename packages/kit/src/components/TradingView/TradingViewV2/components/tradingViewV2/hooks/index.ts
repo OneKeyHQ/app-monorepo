@@ -15,3 +15,10 @@ export {
   fetchTradingViewV2DataWithSlicing,
 } from './useTradingViewV2';
 export { useTradingViewV2WebSocket } from './useTradingViewV2WebSocket';
+export {
+  completeTradingViewKlineFirstPaint,
+  markTradingViewKlinePerf,
+  resolveTradingViewKlineOptimizationMode,
+  startTradingViewKlinePerfSession,
+} from './tradingViewKlinePerf';
+export type { ITradingViewKlineOptimizationMode } from './tradingViewKlinePerf';

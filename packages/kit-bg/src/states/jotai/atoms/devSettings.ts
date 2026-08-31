@@ -80,6 +80,8 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // Disable TradingView K-line navigation prefetch and bootstrap for A/B tests.
+  disableTradingViewKLineFirstScreenOptimization?: boolean;
   // show the TradingViewNative event log panel
   showTradingViewNativeDebugPanel?: boolean;
   showPerpsRenderStats?: boolean;
@@ -175,6 +177,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      disableTradingViewKLineFirstScreenOptimization: false,
       showTradingViewNativeDebugPanel: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],

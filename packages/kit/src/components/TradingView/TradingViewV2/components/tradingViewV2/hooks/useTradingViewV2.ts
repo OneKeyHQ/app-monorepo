@@ -9,6 +9,8 @@ import type {
 
 import { sliceRequest } from '../sliceRequest';
 
+import { registerTradingViewKlineDataCacheReset } from './tradingViewKlinePerf';
+
 const FIRST_SCREEN_KLINE_PREFETCH_MIN_BAR_COUNT = 200;
 const FIRST_SCREEN_KLINE_ESTIMATED_BAR_WIDTH_PX = 5;
 const FIRST_SCREEN_KLINE_PREFETCH_BUFFER_BAR_COUNT = 128;
@@ -482,6 +484,19 @@ function cancelStaleFirstScreenPrefetchRecords(activeKey: string) {
     }
   }
 }
+
+export function clearTradingViewV2FirstScreenDataCache() {
+  for (const [key, record] of firstScreenPrefetchRecords) {
+    if (record.isInitialPending) {
+      cancelFirstScreenPrefetchRecord(key, record);
+    }
+  }
+  firstScreenPrefetchRecords.clear();
+  firstScreenPrefetchRecordSubscribers.clear();
+  kLineRequestEntries.length = 0;
+}
+
+registerTradingViewKlineDataCacheReset(clearTradingViewV2FirstScreenDataCache);
 
 function removeKLineRequest(entry: IKLineRequestEntry) {
   const index = kLineRequestEntries.indexOf(entry);

@@ -2240,6 +2240,15 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="disableTradingViewKLineFirstScreenOptimization"
+                        title="关闭 TradingView 首屏 K 线加速"
+                        subtitle="用于基线对照：关闭导航预取和 bootstrap"
+                        searchKeywords="TradingView Kline benchmark A/B performance"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       {platformEnv.isWeb ? (
                         <SearchFilterItem keywords="TradingViewNative event log debug panel 事件日志 调试窗口">
                           <ListItem
