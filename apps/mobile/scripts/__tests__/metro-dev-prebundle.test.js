@@ -15,18 +15,24 @@ const {
 const { REPO_ROOT, loadRegistry } = require('../../plugins/moduleIdRegistry');
 const {
   PACKAGE_INVENTORY_NAME,
+  PUBLIC_RELEASE_LICENSE_OVERRIDES,
   RELEASE_MANIFEST_NAME,
   THIRD_PARTY_NOTICES_NAME,
+  assertPublicRedistributionPolicy,
   assertSafeOutputDirectory,
   collectPackageInventory,
   downloadReleaseAsset,
   getPlatformCacheDirectory,
   getSharedCacheRoot,
+  getTagCacheLockDirectory,
   packagePrebundleRelease,
   parseArgs,
   restorePlatformFromRelease,
+  runGhCommand,
+  touchAndPruneSharedCache,
   verifyArtifactAttestation,
   verifyReleaseManifest,
+  withCacheLock,
 } = require('../metro-dev-prebundle');
 
 function createTemporaryRepo() {
@@ -120,20 +126,27 @@ function createReleaseFetch(outputDirectory) {
   };
 }
 
-function createTestAttestationHandlers() {
-  const attestationDownloader = jest.fn(
-    async ({ artifactPath, bundlePath }) => {
-      await fs.writeFile(
-        bundlePath,
-        `${sha256(await fs.readFile(artifactPath))}\n`,
-      );
-    },
+async function writeTestAttestationBundle(outputDirectory) {
+  const digests = {};
+  for (const fileName of await fs.readdir(outputDirectory)) {
+    digests[fileName] = sha256(
+      await fs.readFile(path.join(outputDirectory, fileName)),
+    );
+  }
+  await fs.writeJson(
+    path.join(outputDirectory, devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME),
+    digests,
   );
+}
+
+function createTestAttestationVerifier() {
   const attestationVerifier = jest.fn(async ({ artifactPath, bundlePath }) => {
-    const expectedDigest = (await fs.readFile(bundlePath, 'utf8')).trim();
+    const bundle = await fs.readJson(bundlePath);
+    const expectedDigest = bundle[path.basename(artifactPath)];
+    expect(expectedDigest).toBeDefined();
     expect(sha256(await fs.readFile(artifactPath))).toBe(expectedDigest);
   });
-  return { attestationDownloader, attestationVerifier };
+  return attestationVerifier;
 }
 
 describe('metro-dev-prebundle release transport', () => {
@@ -209,14 +222,107 @@ describe('metro-dev-prebundle release transport', () => {
       expect(packages).toEqual([
         expect.objectContaining({
           license: 'MIT',
+          licenseSource: 'package.json',
           name: '@example/library',
           packageRoot: 'node_modules/@example/library',
+          private: false,
           version: '1.0.0',
         }),
       ]);
     } finally {
       fs.removeSync(repoRoot);
     }
+  });
+
+  it('accepts only reviewed license override contents', () => {
+    for (const [packageKey, override] of Object.entries(
+      PUBLIC_RELEASE_LICENSE_OVERRIDES,
+    )) {
+      const packageName = packageKey.slice(0, packageKey.lastIndexOf('@'));
+      const packages = collectPackageInventory(
+        {
+          ios: {
+            modules: [
+              {
+                id: 50_000,
+                path: `node_modules/${packageName}/index.js`,
+              },
+            ],
+          },
+        },
+        REPO_ROOT,
+      );
+      expect(packages).toEqual([
+        expect.objectContaining({
+          license: override.license,
+          licenseSource: 'reviewed-override',
+          name: packageName,
+        }),
+      ]);
+    }
+
+    const repoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-metro-license-override-'),
+    );
+    try {
+      const packageRoot = path.join(repoRoot, 'node_modules/buffer-compare');
+      fs.ensureDirSync(packageRoot);
+      fs.writeJsonSync(path.join(packageRoot, 'package.json'), {
+        name: 'buffer-compare',
+        version: '1.1.1',
+      });
+      fs.writeFileSync(path.join(packageRoot, 'LICENSE'), 'changed');
+      expect(() =>
+        collectPackageInventory(
+          {
+            ios: {
+              modules: [
+                {
+                  id: 50_000,
+                  path: 'node_modules/buffer-compare/index.js',
+                },
+              ],
+            },
+          },
+          repoRoot,
+        ),
+      ).toThrow('Reviewed license file changed');
+    } finally {
+      fs.removeSync(repoRoot);
+    }
+  });
+
+  it('rejects private and unlicensed packages from public releases', () => {
+    expect(() =>
+      assertPublicRedistributionPolicy([
+        {
+          license: 'MIT',
+          name: '@example/private',
+          private: true,
+          version: '1.0.0',
+        },
+      ]),
+    ).toThrow('without redistribution approval');
+    expect(() =>
+      assertPublicRedistributionPolicy([
+        {
+          license: 'UNLICENSED',
+          name: '@example/unlicensed',
+          private: false,
+          version: '1.0.0',
+        },
+      ]),
+    ).toThrow('without redistribution approval');
+    expect(() =>
+      assertPublicRedistributionPolicy([
+        {
+          license: 'UNKNOWN',
+          name: '@example/unknown',
+          private: false,
+          version: '1.0.0',
+        },
+      ]),
+    ).toThrow('without redistribution approval');
   });
 
   it('parses tag and package commands without ambiguous options', () => {
@@ -293,6 +399,16 @@ describe('metro-dev-prebundle release transport', () => {
     }
   });
 
+  it('bounds offline GitHub CLI verification time', async () => {
+    const execFileImpl = jest.fn(async (_file, _args, options) => {
+      expect(options.timeout).toBe(120_000);
+      throw new TypeError('test failure');
+    });
+    await expect(
+      runGhCommand(['attestation', 'verify'], { execFileImpl }),
+    ).rejects.toThrow('GitHub CLI attestation command failed');
+  });
+
   it('packages, verifies, and atomically restores a public prebundle', async () => {
     const fixture = createTemporaryRepo();
     const cacheRoot = path.join(fixture.repoRoot, 'shared-cache');
@@ -300,8 +416,7 @@ describe('metro-dev-prebundle release transport', () => {
       fixture.projectRoot,
       'out-dir-bundle/test-release',
     );
-    const { attestationDownloader, attestationVerifier } =
-      createTestAttestationHandlers();
+    const attestationVerifier = createTestAttestationVerifier();
     try {
       const releaseManifest = await packagePrebundleRelease({
         outputDirectory,
@@ -332,11 +447,11 @@ describe('metro-dev-prebundle release transport', () => {
       expect(
         await fs.pathExists(path.join(outputDirectory, RELEASE_MANIFEST_NAME)),
       ).toBe(true);
+      await writeTestAttestationBundle(outputDirectory);
 
       await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
       await expect(
         restorePlatformFromRelease({
-          attestationDownloader,
           attestationVerifier,
           cacheRoot,
           fetchImpl: createReleaseFetch(outputDirectory),
@@ -375,7 +490,6 @@ describe('metro-dev-prebundle release transport', () => {
       });
       await expect(
         restorePlatformFromRelease({
-          attestationDownloader,
           attestationVerifier,
           cacheRoot,
           fetchImpl: unexpectedFetch,
@@ -391,6 +505,13 @@ describe('metro-dev-prebundle release transport', () => {
       });
       expect(unexpectedFetch).not.toHaveBeenCalled();
       expect(attestationVerifier).toHaveBeenCalled();
+      expect(
+        new Set(
+          attestationVerifier.mock.calls.map(([{ bundlePath }]) =>
+            path.basename(bundlePath),
+          ),
+        ),
+      ).toEqual(new Set([devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME]));
 
       const cacheDirectory = getPlatformCacheDirectory({
         cacheRoot,
@@ -416,7 +537,6 @@ describe('metro-dev-prebundle release transport', () => {
       const refetch = jest.fn(createReleaseFetch(outputDirectory));
       await expect(
         restorePlatformFromRelease({
-          attestationDownloader,
           attestationVerifier,
           cacheRoot,
           fetchImpl: refetch,
@@ -433,6 +553,112 @@ describe('metro-dev-prebundle release transport', () => {
       expect(refetch).toHaveBeenCalled();
     } finally {
       await fs.remove(fixture.repoRoot);
+    }
+  });
+
+  it('keeps cache locks outside evictable tag directories', () => {
+    const cacheRoot = path.resolve('/tmp/onekey-shared-cache');
+    const tagName = `${devVendorConfig.releaseTagPrefix}-${'a'.repeat(64)}`;
+    expect(getTagCacheLockDirectory(cacheRoot, tagName)).toBe(
+      path.join(cacheRoot, 'v2/.locks', `${tagName}.lock`),
+    );
+  });
+
+  it('only reclaims stale locks whose owner process has exited', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-lock-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(path.join(lockDirectory, 'owner.json'), {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+      await expect(
+        withCacheLock(lockDirectory, async () => 'recovered', {
+          processIsRunning: () => false,
+          staleMs: 0,
+          waitTimeoutMs: 50,
+        }),
+      ).resolves.toBe('recovered');
+
+      await fs.ensureDir(lockDirectory);
+      await expect(
+        withCacheLock(lockDirectory, async () => 'recovered-ownerless', {
+          staleMs: 0,
+          waitTimeoutMs: 50,
+        }),
+      ).resolves.toBe('recovered-ownerless');
+
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(path.join(lockDirectory, 'owner.json'), {
+        pid: 12_345,
+        token: 'active-owner',
+      });
+      await expect(
+        withCacheLock(lockDirectory, async () => 'unexpected', {
+          processIsRunning: () => true,
+          staleMs: 0,
+          waitPollIntervalMs: 5,
+          waitTimeoutMs: 10,
+        }),
+      ).rejects.toThrow('Timed out waiting for shared cache lock');
+      expect(await fs.pathExists(lockDirectory)).toBe(true);
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
+  it('does not release a lock after its ownership token changes', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-owner-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    try {
+      await withCacheLock(lockDirectory, async () => {
+        await fs.writeJson(path.join(lockDirectory, 'owner.json'), {
+          pid: process.pid,
+          token: 'replacement-owner',
+        });
+      });
+      expect(await fs.pathExists(lockDirectory)).toBe(true);
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
+  it('does not prune a tag while its external lock is held', async () => {
+    const cacheRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-prune-'),
+    );
+    const cacheVersionRoot = path.join(cacheRoot, 'v2');
+    const tags = Array.from(
+      { length: 6 },
+      (_, index) =>
+        `${devVendorConfig.releaseTagPrefix}-${index
+          .toString(16)
+          .padStart(64, '0')}`,
+    );
+    try {
+      for (const [index, tagName] of tags.entries()) {
+        const tagDirectory = path.join(cacheVersionRoot, tagName);
+        await fs.ensureDir(tagDirectory);
+        const mtime = new Date(Date.now() - (tags.length - index) * 1000);
+        await fs.utimes(tagDirectory, mtime, mtime);
+      }
+      const oldestTagDirectory = path.join(cacheVersionRoot, tags[0]);
+      await withCacheLock(
+        getTagCacheLockDirectory(cacheRoot, tags[0]),
+        async () => {
+          await touchAndPruneSharedCache(cacheRoot, tags.at(-1));
+          expect(await fs.pathExists(oldestTagDirectory)).toBe(true);
+        },
+      );
+      await touchAndPruneSharedCache(cacheRoot, tags.at(-1));
+      expect(await fs.pathExists(oldestTagDirectory)).toBe(false);
+    } finally {
+      await fs.remove(cacheRoot);
     }
   });
 

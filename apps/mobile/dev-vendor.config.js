@@ -1,9 +1,10 @@
 const path = require('path');
 
 const SCHEMA_VERSION = 2;
-const STRATEGY_VERSION = 3;
+const STRATEGY_VERSION = 4;
 const RELEASE_SCHEMA_VERSION = 1;
 const RELEASE_ASSET_PREFIX = 'metro-dev-prebundle';
+const RELEASE_ATTESTATION_BUNDLE_NAME = `${RELEASE_ASSET_PREFIX}-attestations.jsonl`;
 const RELEASE_REPOSITORY = 'OneKeyHQ/app-monorepo';
 
 const transformationEnvironment = {
@@ -76,6 +77,7 @@ function getTransformationEnvironment(env) {
 
 module.exports = {
   RELEASE_ASSET_PREFIX,
+  RELEASE_ATTESTATION_BUNDLE_NAME,
   RELEASE_REPOSITORY,
   RELEASE_SCHEMA_VERSION,
   SCHEMA_VERSION,

@@ -42,6 +42,7 @@ const {
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getPlatformOutputDirectory,
+  hashRepoFiles,
   isDevVendorEnabled,
   isDevVendorRequest,
   inspectDevVendorGraph,
@@ -421,6 +422,22 @@ describe('devVendor', () => {
       ).not.toBe(baseline);
     } finally {
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('canonicalizes line endings in repository fingerprints', () => {
+    const fingerprintRepoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-dev-vendor-line-endings-'),
+    );
+    const relativePath = 'fingerprint.txt';
+    const filePath = path.join(fingerprintRepoRoot, relativePath);
+    try {
+      fs.writeFileSync(filePath, 'first\nsecond\n');
+      const lfDigest = hashRepoFiles([relativePath], fingerprintRepoRoot);
+      fs.writeFileSync(filePath, 'first\r\nsecond\r\n');
+      expect(hashRepoFiles([relativePath], fingerprintRepoRoot)).toBe(lfDigest);
+    } finally {
+      fs.rmSync(fingerprintRepoRoot, { force: true, recursive: true });
     }
   });
 

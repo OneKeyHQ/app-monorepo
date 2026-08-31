@@ -13,6 +13,8 @@ concurrency:
   group: metro-dev-prebundle-x
   cancel-in-progress: true
 
+permissions: {}
+
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
@@ -29,10 +31,10 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Use Node.js 24
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
           check-latest: true
@@ -45,7 +47,9 @@ jobs:
           set -euo pipefail
           tag="$(node apps/mobile/scripts/metro-dev-prebundle.js tag)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          release_is_draft="$(gh release view "$tag" --json isDraft --jq '.isDraft' 2>/dev/null || true)"
+          release_is_draft="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .draft")"
           if [[ "$release_is_draft" == "false" ]]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "Prebundle release already exists: $tag"
@@ -78,12 +82,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
       - name: Use Node.js 24
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
           cache: yarn
@@ -108,7 +112,7 @@ jobs:
           --source-commit "$GITHUB_SHA"
 
       - name: Upload prebundle release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: metro-dev-prebundle-release
           path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/
@@ -134,10 +138,10 @@ jobs:
 
     steps:
       - name: Checkout trust policy
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Download prebundle release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: metro-dev-prebundle-release
           path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release
@@ -161,7 +165,7 @@ jobs:
 
       - name: Generate build provenance attestations
         id: attest
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/*
 
@@ -182,6 +186,9 @@ jobs:
               --source-digest "$GITHUB_SHA" \
               --deny-self-hosted-runners
           done
+          cp "$ATTESTATION_BUNDLE" \
+            "$release_dir/metro-dev-prebundle-attestations.jsonl"
+          test -s "$release_dir/metro-dev-prebundle-attestations.jsonl"
 
       - name: Publish pre-release
         env:
@@ -192,7 +199,9 @@ jobs:
           release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
           release_title="Metro dev prebundle ${RELEASE_TAG##*-}"
           release_notes="Public development prebundle for compatible iOS and Android Metro builds. Assets include generated third-party notices and GitHub build provenance attestations."
-          release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null || true)"
+          release_is_draft="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .draft")"
           if [[ "$release_is_draft" == "true" ]]; then
             gh release upload "$RELEASE_TAG" "$release_dir"/* --clobber
             gh release edit "$RELEASE_TAG" \

@@ -3,6 +3,7 @@
 /* cspell:words LOCALAPPDATA prebundle sigstore */
 
 const { execFile } = require('child_process');
+const { randomUUID } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -32,15 +33,37 @@ const TRUSTED_ROOT_REPO_PATH =
 const RELEASE_SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml';
 const RELEASE_SOURCE_REF = 'refs/heads/x';
-const ATTESTATION_PREDICATE_TYPE = 'https://slsa.dev/provenance/v1';
-const SHARED_CACHE_SCHEMA_VERSION = 1;
+const SHARED_CACHE_SCHEMA_VERSION = 2;
 const SHARED_CACHE_ENV = 'ONEKEY_METRO_PREBUNDLE_CACHE_DIR';
 const MAX_CACHED_RELEASES = 5;
+const CACHE_LOCK_OWNER_NAME = 'owner.json';
+const CACHE_LOCK_STALE_MS = 10 * 60_000;
+const CACHE_LOCK_WAIT_TIMEOUT_MS = 3 * 60_000;
+const CACHE_LOCK_POLL_INTERVAL_MS = 250;
+const CACHE_LOCK_HEARTBEAT_INTERVAL_MS = 30_000;
+const GH_COMMAND_TIMEOUT_MS = 2 * 60_000;
 const SUPPORTED_PLATFORMS = ['ios', 'android'];
 const MAX_RELEASE_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_ASSET_BYTES = 512 * 1024 * 1024;
 const MAX_ATTESTATION_BYTES = 8 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+const PUBLIC_RELEASE_LICENSE_OVERRIDES = {
+  '@aptos-labs/siwa@0.4.0': {
+    license: 'Apache-2.0',
+    licenseFile: 'LICENSE',
+    sha256: '50ea466a9376fe67c72a1da4533eda4460a14cd59c2c1759e0af4d4cdb1d33b5',
+  },
+  'buffer-compare@1.1.1': {
+    license: 'MIT',
+    licenseFile: 'LICENSE',
+    sha256: '7e13db436c0a802ef58d0096cc07323e53ad64ab9a5f3260c53e003e6dcd77d6',
+  },
+  'text-encoding-utf-8@1.0.2': {
+    license: 'Unlicense',
+    licenseFile: 'LICENSE.md',
+    sha256: 'caecf721eb8d6c1d74e57a798ef53d9cbeb58fc637af1877741a5572455206ec',
+  },
+};
 
 async function pathExists(filePath) {
   try {
@@ -92,10 +115,7 @@ function getCacheVersionRoot(cacheRoot) {
   return path.join(path.resolve(cacheRoot), `v${SHARED_CACHE_SCHEMA_VERSION}`);
 }
 
-function getPlatformCacheDirectory({ cacheRoot, platform, tagName }) {
-  if (!SUPPORTED_PLATFORMS.includes(platform)) {
-    throw new Error(`[metroDevPrebundle] Unsupported platform: ${platform}`);
-  }
+function assertReleaseTag(tagName) {
   const expectedPrefix = `${devVendorConfig.releaseTagPrefix}-`;
   if (
     !tagName.startsWith(expectedPrefix) ||
@@ -103,15 +123,30 @@ function getPlatformCacheDirectory({ cacheRoot, platform, tagName }) {
   ) {
     throw new Error(`[metroDevPrebundle] Invalid release tag: ${tagName}.`);
   }
-  return path.join(getCacheVersionRoot(cacheRoot), tagName, platform);
+  return tagName;
+}
+
+function getPlatformCacheDirectory({ cacheRoot, platform, tagName }) {
+  if (!SUPPORTED_PLATFORMS.includes(platform)) {
+    throw new Error(`[metroDevPrebundle] Unsupported platform: ${platform}`);
+  }
+  return path.join(
+    getCacheVersionRoot(cacheRoot),
+    assertReleaseTag(tagName),
+    platform,
+  );
+}
+
+function getTagCacheLockDirectory(cacheRoot, tagName) {
+  return path.join(
+    getCacheVersionRoot(cacheRoot),
+    '.locks',
+    `${assertReleaseTag(tagName)}.lock`,
+  );
 }
 
 function getTrustedRootPath(repoRoot = REPO_ROOT) {
   return path.resolve(repoRoot, TRUSTED_ROOT_REPO_PATH);
-}
-
-function getAttestationBundleName(fileName) {
-  return `${assertSafeFileName(fileName)}.attestation.jsonl`;
 }
 
 async function ensureCacheDirectory(directoryPath) {
@@ -151,21 +186,20 @@ async function assertRegularFile(filePath, maxBytes) {
   return stat;
 }
 
-async function runGhCommand(args, { cwd } = {}) {
+async function runGhCommand(args, { cwd, execFileImpl = execFileAsync } = {}) {
   try {
-    return await execFileAsync('gh', args, {
+    return await execFileImpl('gh', args, {
       cwd,
       encoding: 'utf8',
       maxBuffer: 16 * 1024 * 1024,
+      timeout: GH_COMMAND_TIMEOUT_MS,
       windowsHide: true,
     });
   } catch (error) {
     throw new Error(
       `[metroDevPrebundle] GitHub CLI attestation command failed: gh ${args
         .slice(0, 2)
-        .join(
-          ' ',
-        )}. Install or update GitHub CLI and authenticate if required.`,
+        .join(' ')}. Install or update GitHub CLI.`,
       { cause: error },
     );
   }
@@ -296,16 +330,31 @@ function findPackageRoot(modulePath, repoRoot) {
   return packageRoot;
 }
 
-function getPackageLicense(packageJson) {
-  if (typeof packageJson.license === 'string') return packageJson.license;
+function getPackageLicense(packageJson, licenseFiles) {
+  if (typeof packageJson.license === 'string') {
+    return { license: packageJson.license, licenseSource: 'package.json' };
+  }
   if (
     packageJson.license &&
     typeof packageJson.license === 'object' &&
     typeof packageJson.license.type === 'string'
   ) {
-    return packageJson.license.type;
+    return { license: packageJson.license.type, licenseSource: 'package.json' };
   }
-  return 'UNKNOWN';
+  const packageKey = `${packageJson.name}@${packageJson.version}`;
+  const override = PUBLIC_RELEASE_LICENSE_OVERRIDES[packageKey];
+  if (!override) {
+    return { license: 'UNKNOWN', licenseSource: 'missing' };
+  }
+  const reviewedFile = licenseFiles.find(
+    (licenseFile) => licenseFile.name === override.licenseFile,
+  );
+  if (!reviewedFile || reviewedFile.sha256 !== override.sha256) {
+    throw new Error(
+      `[metroDevPrebundle] Reviewed license file changed for ${packageKey}.`,
+    );
+  }
+  return { license: override.license, licenseSource: 'reviewed-override' };
 }
 
 function getPackageRepository(packageJson) {
@@ -336,8 +385,11 @@ function readPackageLicenseFiles(packageRoot) {
     const filePath = path.join(packageRoot, name);
     const stat = fs.statSync(filePath);
     if (stat.size > 1024 * 1024) return [];
-    const content = fs.readFileSync(filePath, 'utf8').trim();
-    return content.includes('\0') ? [] : [{ content, name }];
+    const bytes = fs.readFileSync(filePath);
+    const content = bytes.toString('utf8').trim();
+    return content.includes('\0')
+      ? []
+      : [{ content, name, sha256: sha256(bytes) }];
   });
 }
 
@@ -355,13 +407,15 @@ function collectPackageInventory(platformManifests, repoRoot = REPO_ROOT) {
         const packageJson = JSON.parse(
           fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
         );
+        const licenseFiles = readPackageLicenseFiles(packageRoot);
         record = {
-          license: getPackageLicense(packageJson),
-          licenseFiles: readPackageLicenseFiles(packageRoot),
+          ...getPackageLicense(packageJson, licenseFiles),
+          licenseFiles,
           modulePaths: new Set(),
           name: packageJson.name || relativeRoot,
           packageRoot: relativeRoot,
           platforms: new Set(),
+          private: packageJson.private === true,
           repository: getPackageRepository(packageJson),
           version: packageJson.version || 'UNKNOWN',
         };
@@ -375,10 +429,12 @@ function collectPackageInventory(platformManifests, repoRoot = REPO_ROOT) {
     .map((record) => ({
       license: record.license,
       licenseFiles: record.licenseFiles,
+      licenseSource: record.licenseSource,
       moduleCount: record.modulePaths.size,
       name: record.name,
       packageRoot: record.packageRoot,
       platforms: [...record.platforms].toSorted(),
+      private: record.private,
       repository: record.repository,
       version: record.version,
     }))
@@ -391,6 +447,25 @@ function collectPackageInventory(platformManifests, repoRoot = REPO_ROOT) {
     });
 }
 
+function assertPublicRedistributionPolicy(packages) {
+  const rejectedPackages = packages.filter((packageRecord) => {
+    const license = packageRecord.license.trim().toUpperCase();
+    return (
+      packageRecord.private || license === 'UNKNOWN' || license === 'UNLICENSED'
+    );
+  });
+  if (rejectedPackages.length > 0) {
+    throw new Error(
+      `[metroDevPrebundle] Public release contains packages without redistribution approval: ${rejectedPackages
+        .map(
+          (packageRecord) =>
+            `${packageRecord.name}@${packageRecord.version} (${packageRecord.license})`,
+        )
+        .join(', ')}.`,
+    );
+  }
+}
+
 function createThirdPartyNotices(packages) {
   const sections = [
     'Third-party notices for the OneKey Metro development prebundle.',
@@ -401,6 +476,7 @@ function createThirdPartyNotices(packages) {
       `${packageRecord.name}@${packageRecord.version}`,
       `Path: ${packageRecord.packageRoot}`,
       `License: ${packageRecord.license}`,
+      `License source: ${packageRecord.licenseSource}`,
       `Repository: ${packageRecord.repository || 'UNKNOWN'}`,
     ].join('\n');
     const licenseText =
@@ -530,6 +606,7 @@ async function packagePrebundleRelease({
     }
 
     const packages = collectPackageInventory(platformManifests, repoRoot);
+    assertPublicRedistributionPolicy(packages);
     const packageInventoryPath = path.join(
       releaseOutputDirectory,
       PACKAGE_INVENTORY_NAME,
@@ -728,51 +805,28 @@ function assertSourceCommit(sourceCommit) {
   return sourceCommit;
 }
 
-function getAttestationBundlePath(cacheDirectory, fileName) {
-  return path.join(cacheDirectory, getAttestationBundleName(fileName));
+function getAttestationBundlePath(cacheDirectory) {
+  return path.join(
+    cacheDirectory,
+    devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME,
+  );
 }
 
-async function downloadArtifactAttestation({
-  artifactPath,
+async function downloadReleaseAttestationBundle({
   bundlePath,
-  runGh = runGhCommand,
+  fetchImpl,
+  releaseBaseUrl,
+  tagName,
 }) {
-  const temporaryDirectory = `${bundlePath}.download-${process.pid}-${Date.now()}`;
-  await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
-  await fs.promises.mkdir(temporaryDirectory, { mode: 0o700, recursive: true });
-  try {
-    await runGh(
-      [
-        'attestation',
-        'download',
-        artifactPath,
-        '--repo',
-        devVendorConfig.RELEASE_REPOSITORY,
-        '--predicate-type',
-        ATTESTATION_PREDICATE_TYPE,
-      ],
-      { cwd: temporaryDirectory },
-    );
-    const digest = sha256(await fs.promises.readFile(artifactPath));
-    const candidateNames = [`sha256:${digest}.jsonl`, `sha256-${digest}.jsonl`];
-    const candidatePath = (
-      await Promise.all(
-        candidateNames.map(async (fileName) => {
-          const filePath = path.join(temporaryDirectory, fileName);
-          return (await pathExists(filePath)) ? filePath : undefined;
-        }),
-      )
-    ).find(Boolean);
-    if (!candidatePath) {
-      throw new Error(
-        `[metroDevPrebundle] GitHub did not return an attestation for ${path.basename(artifactPath)}.`,
-      );
-    }
-    await assertRegularFile(candidatePath, MAX_ATTESTATION_BYTES);
-    await fs.promises.copyFile(candidatePath, bundlePath);
-  } finally {
-    await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
-  }
+  const bundle = await downloadReleaseAsset({
+    fetchImpl,
+    fileName: devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME,
+    maxBytes: MAX_ATTESTATION_BYTES,
+    releaseBaseUrl,
+    tagName,
+    timeoutMs: 15_000,
+  });
+  await fs.promises.writeFile(bundlePath, bundle, { mode: 0o600 });
 }
 
 async function verifyArtifactAttestation({
@@ -816,7 +870,7 @@ async function verifyCachedReleaseAssets({
   const sourceCommit = assertSourceCommit(releaseManifest.sourceCommit);
   await attestationVerifier({
     artifactPath: releaseManifestPath,
-    bundlePath: getAttestationBundlePath(cacheDirectory, RELEASE_MANIFEST_NAME),
+    bundlePath: getAttestationBundlePath(cacheDirectory),
     repoRoot,
     sourceCommit,
   });
@@ -835,7 +889,7 @@ async function verifyCachedReleaseAssets({
     assertDownloadedAsset(await fs.promises.readFile(artifactPath), metadata);
     await attestationVerifier({
       artifactPath,
-      bundlePath: getAttestationBundlePath(cacheDirectory, metadata.file),
+      bundlePath: getAttestationBundlePath(cacheDirectory),
       repoRoot,
       sourceCommit,
     });
@@ -845,7 +899,7 @@ async function verifyCachedReleaseAssets({
 }
 
 async function downloadReleaseIntoCache({
-  attestationDownloader = downloadArtifactAttestation,
+  attestationDownloader = downloadReleaseAttestationBundle,
   attestationVerifier = verifyArtifactAttestation,
   cacheDirectory,
   fetchImpl,
@@ -883,13 +937,13 @@ async function downloadReleaseIntoCache({
     await fs.promises.writeFile(releaseManifestPath, releaseManifestBytes, {
       mode: 0o600,
     });
-    const releaseManifestBundlePath = getAttestationBundlePath(
-      temporaryDirectory,
-      RELEASE_MANIFEST_NAME,
-    );
+    const releaseManifestBundlePath =
+      getAttestationBundlePath(temporaryDirectory);
     await attestationDownloader({
-      artifactPath: releaseManifestPath,
       bundlePath: releaseManifestBundlePath,
+      fetchImpl,
+      releaseBaseUrl,
+      tagName,
     });
     await attestationVerifier({
       artifactPath: releaseManifestPath,
@@ -913,10 +967,6 @@ async function downloadReleaseIntoCache({
       assertDownloadedAsset(content, metadata);
       const artifactPath = path.join(temporaryDirectory, metadata.file);
       await fs.promises.writeFile(artifactPath, content, { mode: 0o600 });
-      await attestationDownloader({
-        artifactPath,
-        bundlePath: getAttestationBundlePath(temporaryDirectory, metadata.file),
-      });
     }
     await verifyCachedReleaseAssets({
       attestationVerifier,
@@ -1005,15 +1055,76 @@ async function materializePlatformFromCache({
   }
 }
 
-async function withCacheLock(cacheDirectory, callback) {
-  const lockDirectory = `${cacheDirectory}.lock`;
+class CacheLockTimeoutError extends Error {}
+
+function isProcessRunning(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== 'ESRCH';
+  }
+}
+
+async function readCacheLockOwner(lockDirectory) {
+  const ownerPath = path.join(lockDirectory, CACHE_LOCK_OWNER_NAME);
+  try {
+    const stat = await fs.promises.lstat(ownerPath);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size <= 0 ||
+      stat.size > 4096
+    ) {
+      return undefined;
+    }
+    const owner = JSON.parse(await fs.promises.readFile(ownerPath, 'utf8'));
+    if (
+      !Number.isSafeInteger(owner.pid) ||
+      owner.pid <= 0 ||
+      typeof owner.token !== 'string' ||
+      owner.token.length === 0
+    ) {
+      return undefined;
+    }
+    return owner;
+  } catch (error) {
+    if (error?.code === 'ENOENT' || error instanceof SyntaxError) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+async function withCacheLock(
+  lockDirectory,
+  callback,
+  {
+    heartbeatIntervalMs = CACHE_LOCK_HEARTBEAT_INTERVAL_MS,
+    processIsRunning = isProcessRunning,
+    staleMs = CACHE_LOCK_STALE_MS,
+    waitPollIntervalMs = CACHE_LOCK_POLL_INTERVAL_MS,
+    waitTimeoutMs = CACHE_LOCK_WAIT_TIMEOUT_MS,
+  } = {},
+) {
   const startedAt = Date.now();
-  let lockAcquired = false;
-  await ensureCacheDirectory(path.dirname(cacheDirectory));
-  while (!lockAcquired) {
+  const token = randomUUID();
+  await ensureCacheDirectory(path.dirname(lockDirectory));
+  while (true) {
     try {
       await fs.promises.mkdir(lockDirectory, { mode: 0o700 });
-      lockAcquired = true;
+      try {
+        await fs.promises.writeFile(
+          path.join(lockDirectory, CACHE_LOCK_OWNER_NAME),
+          `${JSON.stringify({ pid: process.pid, token })}\n`,
+          { flag: 'wx', mode: 0o600 },
+        );
+      } catch (error) {
+        await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+        throw error;
+      }
+      break;
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
       let stat;
@@ -1028,31 +1139,64 @@ async function withCacheLock(cacheDirectory, callback) {
           { cause: error },
         );
       }
-      if (stat && Date.now() - stat.mtimeMs > 10 * 60_000) {
-        await fs.promises.rm(lockDirectory, { force: true, recursive: true });
-      } else if (stat) {
-        if (Date.now() - startedAt > 3 * 60_000) {
-          throw new Error(
-            `[metroDevPrebundle] Timed out waiting for shared cache lock: ${lockDirectory}.`,
-            { cause: error },
-          );
+      const owner = stat ? await readCacheLockOwner(lockDirectory) : undefined;
+      let reclaimed = false;
+      if (
+        stat &&
+        Date.now() - stat.mtimeMs > staleMs &&
+        (!owner || !processIsRunning(owner.pid))
+      ) {
+        const staleDirectory = `${lockDirectory}.stale-${token}`;
+        try {
+          await fs.promises.rename(lockDirectory, staleDirectory);
+          await fs.promises.rm(staleDirectory, {
+            force: true,
+            recursive: true,
+          });
+          reclaimed = true;
+        } catch (renameError) {
+          if (renameError?.code !== 'ENOENT') throw renameError;
+          reclaimed = true;
         }
-        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      if (!reclaimed && stat && Date.now() - startedAt >= waitTimeoutMs) {
+        throw new CacheLockTimeoutError(
+          `[metroDevPrebundle] Timed out waiting for shared cache lock: ${lockDirectory}.`,
+          { cause: error },
+        );
+      }
+      if (!reclaimed && stat) {
+        await new Promise((resolve) => setTimeout(resolve, waitPollIntervalMs));
       }
     }
   }
+
+  let heartbeat = Promise.resolve();
+  const heartbeatTimer = setInterval(() => {
+    heartbeat = heartbeat
+      .then(async () => {
+        const owner = await readCacheLockOwner(lockDirectory);
+        if (owner?.token === token) {
+          const now = new Date();
+          await fs.promises.utimes(lockDirectory, now, now);
+        }
+      })
+      .catch(() => undefined);
+  }, heartbeatIntervalMs);
+  heartbeatTimer.unref();
   try {
     return await callback();
   } finally {
-    await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+    clearInterval(heartbeatTimer);
+    await heartbeat;
+    const owner = await readCacheLockOwner(lockDirectory);
+    if (owner?.token === token) {
+      await fs.promises.rm(lockDirectory, { force: true, recursive: true });
+    }
   }
 }
 
-async function touchAndPruneSharedCache(cacheRoot, currentTag) {
-  const cacheVersionRoot = getCacheVersionRoot(cacheRoot);
-  const currentTagDirectory = path.join(cacheVersionRoot, currentTag);
-  const now = new Date();
-  await fs.promises.utimes(currentTagDirectory, now, now);
+async function listCacheTagDirectories(cacheVersionRoot) {
   const entries = await fs.promises.readdir(cacheVersionRoot, {
     withFileTypes: true,
   });
@@ -1067,31 +1211,52 @@ async function touchAndPruneSharedCache(cacheRoot, currentTag) {
       const directoryPath = path.join(cacheVersionRoot, entry.name);
       const stat = await fs.promises.lstat(directoryPath);
       if (!stat.isSymbolicLink()) {
-        const children = await fs.promises.readdir(directoryPath, {
-          withFileTypes: true,
-        });
         tagDirectories.push({
           directoryPath,
-          locked: children.some(
-            (child) => child.isDirectory() && child.name.endsWith('.lock'),
-          ),
           mtimeMs: stat.mtimeMs,
+          tagName: entry.name,
         });
       }
     }
   }
-  tagDirectories.sort((first, second) => second.mtimeMs - first.mtimeMs);
-  for (const { directoryPath, locked } of tagDirectories.slice(
+  return tagDirectories.toSorted(
+    (first, second) => second.mtimeMs - first.mtimeMs,
+  );
+}
+
+async function touchAndPruneSharedCache(cacheRoot, currentTag) {
+  const cacheVersionRoot = getCacheVersionRoot(cacheRoot);
+  const currentTagDirectory = path.join(cacheVersionRoot, currentTag);
+  const now = new Date();
+  await fs.promises.utimes(currentTagDirectory, now, now);
+  const candidates = (await listCacheTagDirectories(cacheVersionRoot)).slice(
     MAX_CACHED_RELEASES,
-  )) {
-    if (!locked) {
-      await fs.promises.rm(directoryPath, { force: true, recursive: true });
+  );
+  for (const candidate of candidates) {
+    try {
+      await withCacheLock(
+        getTagCacheLockDirectory(cacheRoot, candidate.tagName),
+        async () => {
+          const expiredTags = (await listCacheTagDirectories(cacheVersionRoot))
+            .slice(MAX_CACHED_RELEASES)
+            .map(({ tagName }) => tagName);
+          if (expiredTags.includes(candidate.tagName)) {
+            await fs.promises.rm(candidate.directoryPath, {
+              force: true,
+              recursive: true,
+            });
+          }
+        },
+        { waitTimeoutMs: 0 },
+      );
+    } catch (error) {
+      if (!(error instanceof CacheLockTimeoutError)) throw error;
     }
   }
 }
 
 async function restorePlatformFromRelease({
-  attestationDownloader = downloadArtifactAttestation,
+  attestationDownloader = downloadReleaseAttestationBundle,
   attestationVerifier = verifyArtifactAttestation,
   cacheRoot = getSharedCacheRoot(),
   fetchImpl,
@@ -1103,55 +1268,64 @@ async function restorePlatformFromRelease({
   const tagName = getReleaseTag(repoRoot, process.env);
   await ensureCacheDirectory(cacheRoot);
   await ensureCacheDirectory(getCacheVersionRoot(cacheRoot));
+  await ensureCacheDirectory(
+    path.dirname(getTagCacheLockDirectory(cacheRoot, tagName)),
+  );
   const cacheDirectory = getPlatformCacheDirectory({
     cacheRoot,
     platform,
     tagName,
   });
-  return withCacheLock(cacheDirectory, async () => {
-    if (await pathExists(cacheDirectory)) {
-      try {
-        const restored = await materializePlatformFromCache({
-          attestationVerifier,
-          cacheDirectory,
-          platform,
-          projectRoot,
-          repoRoot,
-        });
-        await touchAndPruneSharedCache(cacheRoot, tagName);
-        console.log(
-          `[metroDevPrebundle] shared cache hit platform=${platform} tag=${tagName}`,
-        );
-        return { ...restored, sharedCacheHit: true };
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        console.warn(
-          `[metroDevPrebundle] rejected shared cache platform=${platform} reason=${reason}`,
-        );
-        await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
+  return withCacheLock(
+    getTagCacheLockDirectory(cacheRoot, tagName),
+    async () => {
+      if (await pathExists(cacheDirectory)) {
+        try {
+          const restored = await materializePlatformFromCache({
+            attestationVerifier,
+            cacheDirectory,
+            platform,
+            projectRoot,
+            repoRoot,
+          });
+          await touchAndPruneSharedCache(cacheRoot, tagName);
+          console.log(
+            `[metroDevPrebundle] shared cache hit platform=${platform} tag=${tagName}`,
+          );
+          return { ...restored, sharedCacheHit: true };
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[metroDevPrebundle] rejected shared cache platform=${platform} reason=${reason}`,
+          );
+          await fs.promises.rm(cacheDirectory, {
+            force: true,
+            recursive: true,
+          });
+        }
       }
-    }
 
-    await downloadReleaseIntoCache({
-      attestationDownloader,
-      attestationVerifier,
-      cacheDirectory,
-      fetchImpl,
-      platform,
-      releaseBaseUrl,
-      repoRoot,
-      tagName,
-    });
-    const restored = await materializePlatformFromCache({
-      attestationVerifier,
-      cacheDirectory,
-      platform,
-      projectRoot,
-      repoRoot,
-    });
-    await touchAndPruneSharedCache(cacheRoot, tagName);
-    return { ...restored, sharedCacheHit: false };
-  });
+      await downloadReleaseIntoCache({
+        attestationDownloader,
+        attestationVerifier,
+        cacheDirectory,
+        fetchImpl,
+        platform,
+        releaseBaseUrl,
+        repoRoot,
+        tagName,
+      });
+      const restored = await materializePlatformFromCache({
+        attestationVerifier,
+        cacheDirectory,
+        platform,
+        projectRoot,
+        repoRoot,
+      });
+      await touchAndPruneSharedCache(cacheRoot, tagName);
+      return { ...restored, sharedCacheHit: false };
+    },
+  );
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -1211,22 +1385,29 @@ if (require.main === module) {
 
 module.exports = {
   PACKAGE_INVENTORY_NAME,
+  PUBLIC_RELEASE_LICENSE_OVERRIDES,
   RELEASE_MANIFEST_NAME,
   THIRD_PARTY_NOTICES_NAME,
+  assertPublicRedistributionPolicy,
   assertSafeOutputDirectory,
   collectPackageInventory,
+  downloadReleaseAttestationBundle,
   createThirdPartyNotices,
   downloadReleaseAsset,
   getPlatformCacheDirectory,
   getPlatformAssetNames,
   getReleaseOutputDirectory,
   getSharedCacheRoot,
+  getTagCacheLockDirectory,
   packagePrebundleRelease,
   parseArgs,
   replaceDirectoryAtomically,
   restorePlatformFromRelease,
+  runGhCommand,
+  touchAndPruneSharedCache,
   verifyArtifactAttestation,
   verifyAndReplaceDirectory,
   verifyCachedReleaseAssets,
   verifyReleaseManifest,
+  withCacheLock,
 };

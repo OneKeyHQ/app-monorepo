@@ -71,7 +71,15 @@ function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
     }
     hash.update(relativePath);
     hash.update('\0');
-    hash.update(fs.readFileSync(absolutePath));
+    hash.update(
+      Buffer.from(
+        fs
+          .readFileSync(absolutePath)
+          .toString('latin1')
+          .replaceAll('\r\n', '\n'),
+        'latin1',
+      ),
+    );
     hash.update('\0');
   }
   return hash.digest('hex');
