@@ -420,6 +420,18 @@ class ServiceWalletConnectPay extends ServiceBase {
       return fingerprint !== null && entry.fingerprint === fingerprint;
     });
     if (!isMatching) {
+      const hasBroadcastEvidence = entries.some((entry) => entry.broadcastMeta);
+      if (hasBroadcastEvidence) {
+        // a stored entry carries a broadcast txid: deleting it would destroy
+        // the only duplicate-payment evidence, and the fresh attempt the
+        // deletion enables could pay twice. Same policy as the
+        // broadcast-beyond-hole case above — refuse this attempt and keep
+        // the record; the server-side final state or the TTL resolves it.
+        // copy pending product i18n keys
+        throw new OneKeyError(
+          'This payment cannot be resumed safely on this device',
+        );
+      }
       // fingerprint divergence means the server recomputed the action list;
       // replaying results by position would submit wrong data silently
       await this.backgroundApi.simpleDb.walletConnectPay.removeProgress({

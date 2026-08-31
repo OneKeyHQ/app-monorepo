@@ -209,6 +209,63 @@ describe('isTxNeverBroadcast', () => {
   });
 });
 
+describe('getStoredActionResults', () => {
+  const KEYS = {
+    paymentId: 'pay-1',
+    optionId: 'opt-1',
+    accountKey: 'acc-1',
+  };
+  // valid params so the action itself fingerprints fine; the stored entry
+  // carries a stale fingerprint so the record diverges
+  const divergentActions = [
+    {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'eth_sendTransaction',
+        params: '[{"to":"0x1"}]',
+      },
+    },
+  ] as never[];
+
+  function buildProgressService(entries: unknown[]) {
+    const getProgress = jest.fn(async () => ({ entries }));
+    const removeProgress = jest.fn(async () => {});
+    const backgroundApi = {
+      simpleDb: { walletConnectPay: { getProgress, removeProgress } },
+    };
+    const service = new ServiceWalletConnectPay({ backgroundApi });
+    return { service, removeProgress };
+  }
+
+  it('refuses instead of deleting when a divergent record carries broadcast evidence', async () => {
+    // deleting a txid-bearing record would destroy the only
+    // duplicate-payment evidence and let the fresh attempt pay twice
+    const { service, removeProgress } = buildProgressService([
+      {
+        fingerprint: 'stale-fp',
+        result: '0xdeadbeef',
+        broadcastMeta: { sender: SENDER, nonce: 7 },
+      },
+    ]);
+
+    await expect(
+      service.getStoredActionResults({ ...KEYS, actions: divergentActions }),
+    ).rejects.toThrow('This payment cannot be resumed safely on this device');
+    expect(removeProgress).not.toHaveBeenCalled();
+  });
+
+  it('still discards a divergent record that holds no broadcast evidence', async () => {
+    const { service, removeProgress } = buildProgressService([
+      { fingerprint: 'stale-fp', result: '0xsignature' },
+    ]);
+
+    await expect(
+      service.getStoredActionResults({ ...KEYS, actions: divergentActions }),
+    ).resolves.toEqual([]);
+    expect(removeProgress).toHaveBeenCalledWith(KEYS);
+  });
+});
+
 describe('isPaymentLink', () => {
   it('rejects non-pay inputs by the cheap domain filter', async () => {
     // recognition is platform-independent: no capability stubs required
