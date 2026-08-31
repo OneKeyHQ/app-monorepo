@@ -3,7 +3,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import {
   resolveWalletPassphraseProtection,
   shouldShowAddHiddenWalletButtonForWallet,
-  shouldShowBulkCopyAddressesButtonForWallet,
   shouldShowCreateHiddenWalletSidebarButtonForWallet,
   shouldShowDeviceManagementButtonForWallet,
 } from './WalletEditButtonUtils';
@@ -93,68 +92,6 @@ describe('shouldShowAddHiddenWalletButtonForWallet', () => {
         isQrWallet: false,
         hasPassphraseProtection: true,
         vendor: EHardwareVendor.ledger,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe('shouldShowBulkCopyAddressesButtonForWallet', () => {
-  const hdWalletId = 'hd-1';
-  const hwWalletId = 'hw-1';
-  const qrWalletId = 'qr-1';
-
-  it('shows the entry for backed-up HD and hardware wallets when Prime is available', () => {
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: hdWalletId,
-        backuped: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: hwWalletId,
-        backuped: true,
-      }),
-    ).toBe(true);
-  });
-
-  it('hides the entry when Prime is unavailable, the wallet is not backed up, or the type is unsupported', () => {
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: false,
-        walletId: hdWalletId,
-        backuped: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: hdWalletId,
-        backuped: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: hdWalletId,
-        deprecated: true,
-        backuped: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: qrWalletId,
-        backuped: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowBulkCopyAddressesButtonForWallet({
-        isPrimeAvailable: true,
-        walletId: undefined,
-        backuped: true,
       }),
     ).toBe(false);
   });

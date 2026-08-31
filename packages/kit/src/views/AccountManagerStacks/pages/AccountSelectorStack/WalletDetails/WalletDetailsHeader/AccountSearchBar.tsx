@@ -13,14 +13,12 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { BatchCreateAccountButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/BatchCreateAccountButton';
 import { BulkCopyAddressesButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/BulkCopyAddressesButton';
-import { shouldShowBulkCopyAddressesButtonForWallet } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletEdit/WalletEditButtonUtils';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import type {
   IDBDevice,
@@ -31,82 +29,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAddAccount } from '../hooks/useAddAccount';
 import { AccountManagerTestIDs } from '../testIDs';
-
-function AccountSelectorPlusMenuItems({
-  num,
-  focusedWalletInfo,
-  activeAccount,
-  currentNetworkId,
-  canBatchCreateAccount,
-  onAddAccount,
-  onClose,
-}: {
-  num: number;
-  focusedWalletInfo:
-    | {
-        wallet: IDBWallet;
-        device: IDBDevice | undefined;
-      }
-    | undefined;
-  activeAccount: IAccountSelectorActiveAccountInfo;
-  currentNetworkId?: string;
-  canBatchCreateAccount: boolean;
-  onAddAccount: () => void;
-  onClose: () => void;
-}) {
-  const intl = useIntl();
-  const { config } = useAccountSelectorContextData();
-  const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
-  const wallet = focusedWalletInfo?.wallet;
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
-
-  const showBulkCopyAddressesButton =
-    shouldShowBulkCopyAddressesButtonForWallet({
-      isPrimeAvailable,
-      walletId: wallet?.id,
-      deprecated: wallet?.deprecated,
-      backuped: wallet?.backuped,
-    });
-
-  return (
-    <>
-      <ActionList.Item
-        testID={AccountManagerTestIDs.addAccountButton}
-        icon="PlusSmallOutline"
-        label={intl.formatMessage({
-          id: ETranslations.global_add_account,
-        })}
-        onClose={onClose}
-        onPress={() => {
-          onAddAccount();
-          onClose();
-        }}
-      />
-      {canBatchCreateAccount ? (
-        <BatchCreateAccountButton
-          focusedWalletInfo={focusedWalletInfo}
-          activeAccount={activeAccount}
-          currentNetworkId={currentNetworkId}
-          onClose={onClose}
-        />
-      ) : null}
-      {showBulkCopyAddressesButton && config ? (
-        <AccountSelectorProviderMirror enabledNum={[num]} config={config}>
-          <Divider mx="$2" my="$1" />
-          <BulkCopyAddressesButton
-            wallet={wallet}
-            networkId={currentNetworkId ?? activeAccount.network?.id ?? ''}
-            isPrimeActive={isPrimeActive}
-            isPrimeUser={isPrimeUser}
-            onClose={onClose}
-            entryPoint="accountSelectorAddMenu"
-          />
-        </AccountSelectorProviderMirror>
-      ) : null}
-    </>
-  );
-}
 
 export function AccountSearchBar({
   searchText,
@@ -131,7 +53,10 @@ export function AccountSearchBar({
   currentNetworkId?: string;
 }) {
   const intl = useIntl();
+  const { config } = useAccountSelectorContextData();
   const { activeAccount } = useActiveAccount({ num });
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const { user, isPrimeActive } = useOneKeyAuth();
   const { handleAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
@@ -143,6 +68,15 @@ export function AccountSearchBar({
   }, 300);
 
   const wallet = focusedWalletInfo?.wallet;
+  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+
+  const showBulkCopyAddressesButton = Boolean(
+    isPrimeAvailable &&
+    !wallet?.deprecated &&
+    wallet?.backuped &&
+    (accountUtils.isHdWallet({ walletId: wallet.id }) ||
+      accountUtils.isHwWallet({ walletId: wallet.id })),
+  );
 
   const canBatchCreateAccount = useMemo(() => {
     if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
@@ -200,19 +134,47 @@ export function AccountSearchBar({
               size="small"
             />
           }
-          renderItems={({ handleActionListClose }) => (
-            <AccountSelectorPlusMenuItems
-              num={num}
-              focusedWalletInfo={focusedWalletInfo}
-              activeAccount={activeAccount}
-              currentNetworkId={currentNetworkId}
-              canBatchCreateAccount={canBatchCreateAccount}
-              onAddAccount={() => {
-                void handleAddAccount();
-              }}
-              onClose={handleActionListClose}
-            />
-          )}
+          renderItems={({ handleActionListClose }) =>
+            config ? (
+              <AccountSelectorProviderMirror enabledNum={[num]} config={config}>
+                <ActionList.Item
+                  testID={AccountManagerTestIDs.addAccountButton}
+                  icon="PlusSmallOutline"
+                  label={intl.formatMessage({
+                    id: ETranslations.global_add_account,
+                  })}
+                  onClose={handleActionListClose}
+                  onPress={() => {
+                    void handleAddAccount();
+                    handleActionListClose();
+                  }}
+                />
+                {canBatchCreateAccount ? (
+                  <BatchCreateAccountButton
+                    focusedWalletInfo={focusedWalletInfo}
+                    activeAccount={activeAccount}
+                    currentNetworkId={currentNetworkId}
+                    onClose={handleActionListClose}
+                  />
+                ) : null}
+                {showBulkCopyAddressesButton ? (
+                  <>
+                    <Divider mx="$2" my="$1" />
+                    <BulkCopyAddressesButton
+                      wallet={wallet}
+                      networkId={
+                        currentNetworkId ?? activeAccount.network?.id ?? ''
+                      }
+                      isPrimeActive={isPrimeActive}
+                      isPrimeUser={isPrimeUser}
+                      onClose={handleActionListClose}
+                      entryPoint="accountSelectorAddMenu"
+                    />
+                  </>
+                ) : null}
+              </AccountSelectorProviderMirror>
+            ) : null
+          }
         />
       ) : null}
     </XStack>

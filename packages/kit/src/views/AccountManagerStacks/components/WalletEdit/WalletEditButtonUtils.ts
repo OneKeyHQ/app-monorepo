@@ -1,6 +1,5 @@
 import { resolveHardwarePassphraseEnabled } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   EHardwareVendor,
   IOneKeyDeviceFeatures,
@@ -37,29 +36,6 @@ export function shouldShowAddHiddenWalletButtonForWallet(params: {
     return false;
   }
   return !isHiddenWallet && isHwOrQrWallet;
-}
-
-export function shouldShowBulkCopyAddressesButtonForWallet({
-  isPrimeAvailable,
-  walletId,
-  deprecated,
-  backuped,
-}: {
-  isPrimeAvailable: boolean;
-  walletId?: string;
-  deprecated?: boolean;
-  backuped?: boolean;
-}): boolean {
-  if (!isPrimeAvailable) {
-    return false;
-  }
-  if (deprecated || !backuped) {
-    return false;
-  }
-  return (
-    accountUtils.isHdWallet({ walletId }) ||
-    accountUtils.isHwWallet({ walletId })
-  );
 }
 
 export function shouldShowDeviceManagementButtonForWallet(params: {

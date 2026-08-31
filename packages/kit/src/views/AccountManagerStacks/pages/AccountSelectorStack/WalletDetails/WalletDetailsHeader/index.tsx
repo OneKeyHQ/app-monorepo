@@ -133,7 +133,7 @@ export function WalletDetailsHeader({
         </XStack>
 
         {/* more edit button */}
-        {editable ? <WalletEditButton wallet={wallet} /> : null}
+        {editable ? <WalletEditButton num={num} wallet={wallet} /> : null}
 
         {/* single chain deriveType selector */}
         {linkedNetworkId &&

@@ -17,8 +17,12 @@ import {
   useVerifyKeylessPinChecking,
 } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorContextData,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -35,9 +39,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 import { AccountManagerTestIDs } from '../../testIDs';
 
 import { AddHiddenWalletButton } from './AddHiddenWalletButton';
+import { BulkCopyAddressesButton } from './BulkCopyAddressesButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
@@ -47,17 +53,29 @@ import {
 } from './WalletEditButtonUtils';
 import { WalletRemoveButton } from './WalletRemoveButton';
 
-function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
+function WalletEditButtonView({
+  wallet,
+  num,
+}: {
+  wallet?: IDBWallet;
+  num?: number;
+}) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: num ?? 0 });
   const isKeyless = useMemo(() => wallet?.isKeyless, [wallet]);
   const [devSettings] = useDevSettingsPersistAtom();
 
+  const { isPrimeAvailable } = usePrimeAvailable();
+  const { user, isPrimeActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
+  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device
@@ -125,6 +143,14 @@ function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
       isKeylessWallet: isKeyless,
     });
   }, [wallet, isKeyless]);
+
+  const showMockedWalletBulkCopyAddressesButton = Boolean(
+    wallet?.isMocked &&
+    isPrimeAvailable &&
+    !wallet.deprecated &&
+    wallet.backuped &&
+    accountUtils.isHwWallet({ walletId: wallet.id }),
+  );
 
   const isBotWalletFeatureEnabled = useMemo(
     () =>
@@ -254,6 +280,17 @@ function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
             </>
           ) : null}
 
+          {showMockedWalletBulkCopyAddressesButton ? (
+            <BulkCopyAddressesButton
+              wallet={wallet}
+              networkId={network?.id || ''}
+              isPrimeActive={isPrimeActive}
+              isPrimeUser={isPrimeUser}
+              onClose={handleActionListClose}
+              entryPoint="walletEdit"
+            />
+          ) : null}
+
           {showBotWalletManagerButton ? (
             <ActionList.Item
               icon="WalletOutline"
@@ -291,7 +328,8 @@ function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
 
           {isKeyless ||
           showDeviceManagementButton ||
-          showAddHiddenWalletButton ? (
+          showAddHiddenWalletButton ||
+          showMockedWalletBulkCopyAddressesButton ? (
             <Divider mx="$2" my="$1" />
           ) : null}
 
@@ -322,7 +360,11 @@ function WalletEditButtonView({ wallet }: { wallet?: IDBWallet }) {
       devSettings.enabled,
       showBackupButton,
       showDeviceManagementButton,
+      showMockedWalletBulkCopyAddressesButton,
       showBotWalletManagerButton,
+      network?.id,
+      isPrimeActive,
+      isPrimeUser,
       showAddHiddenWalletButton,
       showRemoveWalletButton,
       showRemoveDeviceButton,
