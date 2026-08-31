@@ -961,6 +961,12 @@ export function useWcPayActionExecutor() {
                   reason: WC_PAY_INLINE_BUDGET_REASON,
                 };
               }
+              if (plan.mode === 'fallback') {
+                // a plan-level refusal otherwise vanishes silently into the
+                // confirm push — the pipeline-level fallbacks all log, and a
+                // gate demotion must be as visible on a device
+                console.error('wcPay inline permit plan fallback', plan.reason);
+              }
               if (plan.mode === 'inline') {
                 const outcome = await runInlineSignature({
                   index: i,
@@ -1061,6 +1067,14 @@ export function useWcPayActionExecutor() {
                 option,
                 accountAddress: account.address,
               });
+              if (plan.mode === 'fallback') {
+                // parity with the other branches: a gate demotion must be
+                // visible on a device (the confirm push itself is silent)
+                console.error(
+                  'wcPay inline personal-sign plan fallback',
+                  plan.reason,
+                );
+              }
               if (plan.mode === 'inline') {
                 const outcome = await runInlineSignature({
                   index: i,
@@ -1221,6 +1235,11 @@ export function useWcPayActionExecutor() {
                   mode: 'fallback',
                   reason: WC_PAY_INLINE_BUDGET_REASON,
                 };
+              }
+              if (plan.mode === 'fallback') {
+                // parity with the other branches: a gate demotion must be
+                // visible on a device (the confirm push itself is silent)
+                console.error('wcPay inline solana plan fallback', plan.reason);
               }
               if (plan.mode === 'inline') {
                 const outcome = await runInlineSignature({
