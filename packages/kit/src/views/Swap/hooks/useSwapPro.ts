@@ -260,39 +260,47 @@ export function useSwapProAccount() {
     indexedAccountId,
     accountId,
   });
-  const accountScope = accountIdentityScope
-    ? `${accountIdentityScope}|${
-        indexedAccountId ? (selectedAccount.deriveType ?? 'default') : 'default'
-      }`
-    : '';
   const selectedDeriveType =
     indexedAccountId && selectedAccount.networkId === targetNetworkId
       ? selectedAccount.deriveType
       : undefined;
-  const shouldResolveAccount = Boolean(accountScope && targetNetworkId);
-  const cachedNetAccount = accountScope
-    ? swapProAccountCache.get(accountScope)
+  const knownAccountDeriveType = indexedAccountId
+    ? selectedDeriveType
+    : 'default';
+  const knownAccountScope =
+    accountIdentityScope && knownAccountDeriveType
+      ? `${accountIdentityScope}|${knownAccountDeriveType}`
+      : '';
+  const accountRequestScope =
+    knownAccountScope ||
+    (accountIdentityScope ? `${accountIdentityScope}|network-default` : '');
+  const shouldResolveAccount = Boolean(accountRequestScope && targetNetworkId);
+  const cachedNetAccount = knownAccountScope
+    ? swapProAccountCache.get(knownAccountScope)
     : undefined;
   const netAccountStateRes = usePromiseResult<{
+    requestScope: string;
     scope: string;
     account: INetworkAccount | undefined;
   }>(
     async () => {
       if (!shouldResolveAccount) {
         return {
+          requestScope: '',
           scope: '',
           account: undefined,
         };
       }
+      let resolvedAccountScope = '';
       try {
         const accountDeriveType =
-          selectedDeriveType ??
+          knownAccountDeriveType ??
           (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
             {
               networkId: targetNetworkId,
             },
           ));
-        const resolvedAccountScope = `${accountIdentityScope}|${
+        resolvedAccountScope = `${accountIdentityScope}|${
           indexedAccountId ? (accountDeriveType ?? 'default') : 'default'
         }`;
         const account =
@@ -306,13 +314,17 @@ export function useSwapProAccount() {
           swapProAccountCache.set(resolvedAccountScope, account);
         }
         return {
+          requestScope: accountRequestScope,
           scope: resolvedAccountScope,
           account,
         };
       } catch (_e) {
-        const cachedAccount = swapProAccountCache.get(accountScope);
+        const cachedAccount = resolvedAccountScope
+          ? swapProAccountCache.get(resolvedAccountScope)
+          : undefined;
         return {
-          scope: accountScope,
+          requestScope: accountRequestScope,
+          scope: resolvedAccountScope,
           account: cachedAccount,
         };
       }
@@ -320,29 +332,35 @@ export function useSwapProAccount() {
     [
       accountId,
       accountIdentityScope,
-      accountScope,
+      accountRequestScope,
       indexedAccountId,
-      selectedDeriveType,
+      knownAccountDeriveType,
       shouldResolveAccount,
       targetNetworkId,
     ],
     {
       initResult: {
-        scope: cachedNetAccount ? accountScope : '',
+        requestScope: cachedNetAccount ? accountRequestScope : '',
+        scope: cachedNetAccount ? knownAccountScope : '',
         account: cachedNetAccount,
       },
     },
   );
+  const resolvedAccountScope =
+    netAccountStateRes.result.requestScope === accountRequestScope
+      ? netAccountStateRes.result.scope
+      : '';
+  const accountScope = knownAccountScope || resolvedAccountScope;
 
   const accountStatus = resolveSwapProAccountStatus({
     hasConnectedAccount,
     accountScope,
-    resolvedAccountScope: netAccountStateRes.result.scope,
+    resolvedAccountScope,
     accountAddress: netAccountStateRes.result.account?.addressDetail.address,
   });
   const accountForCurrentScope = getSwapProAccountForCurrentScope({
     accountScope,
-    resolvedAccountScope: netAccountStateRes.result.scope,
+    resolvedAccountScope,
     account: netAccountStateRes.result.account,
   });
   const isSwapProActive = Boolean(

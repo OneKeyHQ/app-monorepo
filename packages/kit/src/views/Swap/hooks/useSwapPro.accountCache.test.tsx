@@ -37,20 +37,33 @@ jest.mock('../../../hooks/usePromiseResult', () => {
     method: () => Promise<unknown>;
     options: { initResult?: unknown };
   }> = [];
+  const results = new Map<string, unknown>();
   (
     globalThis as unknown as {
       __swapProPromiseResultCalls: typeof calls;
+      __swapProPromiseResults: typeof results;
     }
   ).__swapProPromiseResultCalls = calls;
+  (
+    globalThis as unknown as {
+      __swapProPromiseResults: typeof results;
+    }
+  ).__swapProPromiseResults = results;
   return {
     usePromiseResult: (
       method: () => Promise<unknown>,
       deps: unknown[],
       options: { initResult?: unknown } = {},
     ) => {
-      calls.push({ method, deps, options });
+      const key = JSON.stringify(deps);
+      const trackedMethod = async () => {
+        const result = await method();
+        results.set(key, result);
+        return result;
+      };
+      calls.push({ method: trackedMethod, deps, options });
       return {
-        result: options.initResult,
+        result: results.get(key) ?? options.initResult,
         isLoading: false,
         run: jest.fn(),
       };
@@ -193,6 +206,11 @@ const promiseResultCalls = (
     }>;
   }
 ).__swapProPromiseResultCalls;
+const promiseResults = (
+  globalThis as unknown as {
+    __swapProPromiseResults: Map<string, unknown>;
+  }
+).__swapProPromiseResults;
 const selectedAccountState = (
   globalThis as unknown as {
     __swapProSelectedAccountState: {
@@ -218,9 +236,11 @@ const swapProAtomState = (
 
 beforeEach(() => {
   selectedAccountState.selectedAccount.deriveType = 'BIP44';
+  selectedAccountState.selectedAccount.networkId = 'btc--0';
   accountServices.getGlobalDeriveTypeOfNetwork.mockReset();
   accountServices.getNetworkAccount.mockReset();
   promiseResultCalls.length = 0;
+  promiseResults.clear();
 });
 
 describe('useSwapProAccount cache identity', () => {
@@ -250,6 +270,7 @@ describe('useSwapProAccount cache identity', () => {
     });
     expect(resolvedBip44State).toEqual({
       account: bip44Account,
+      requestScope: 'btc--0|indexed-1||BIP44',
       scope: 'btc--0|indexed-1||BIP44',
     });
     expect(accountServices.getGlobalDeriveTypeOfNetwork).not.toHaveBeenCalled();
@@ -273,6 +294,7 @@ describe('useSwapProAccount cache identity', () => {
     });
     expect(resolvedBip84State).toEqual({
       account: bip84Account,
+      requestScope: 'btc--0|indexed-1||BIP84',
       scope: 'btc--0|indexed-1||BIP84',
     });
     expect(accountServices.getNetworkAccount).toHaveBeenLastCalledWith(
@@ -281,6 +303,45 @@ describe('useSwapProAccount cache identity', () => {
 
     rerender({});
     expect(result.current.result).toBe(bip84Account);
+    expect(result.current.accountStatus).toBe('supported');
+  });
+
+  it('uses the target network derive type when the selector is on another network', async () => {
+    const targetNetworkAccount = {
+      addressDetail: { address: 'bc1q-bip84', networkId: 'btc--0' },
+      id: 'btc-bip84-account',
+    } as INetworkAccount;
+    selectedAccountState.selectedAccount.networkId = 'evm--1';
+    accountServices.getGlobalDeriveTypeOfNetwork.mockResolvedValue('BIP84');
+    accountServices.getNetworkAccount.mockResolvedValue(targetNetworkAccount);
+
+    const { result, rerender } = renderHook(() => useSwapProAccount());
+
+    expect(result.current.accountScope).toBe('');
+    expect(result.current.accountStatus).toBe('pending');
+
+    let resolvedState: unknown;
+    await act(async () => {
+      resolvedState = await promiseResultCalls.at(-1)?.method();
+    });
+    expect(resolvedState).toEqual({
+      account: targetNetworkAccount,
+      requestScope: 'btc--0|indexed-1||network-default',
+      scope: 'btc--0|indexed-1||BIP84',
+    });
+    expect(accountServices.getGlobalDeriveTypeOfNetwork).toHaveBeenCalledWith({
+      networkId: 'btc--0',
+    });
+    expect(accountServices.getNetworkAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deriveType: 'BIP84',
+        networkId: 'btc--0',
+      }),
+    );
+
+    rerender({});
+    expect(result.current.accountScope).toBe('btc--0|indexed-1||BIP84');
+    expect(result.current.result).toBe(targetNetworkAccount);
     expect(result.current.accountStatus).toBe('supported');
   });
 });
