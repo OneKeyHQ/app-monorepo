@@ -75,10 +75,11 @@ diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/n
 index f385284..d47e174 100644
 --- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
 +++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-@@ -248,3 +248,18 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
+@@ -247,4 +247,19 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
+       content
      }
    }
- }
++}
 +// OneKey patch: expose SwiftUI's preferredColorScheme. Unlike the environment
 +// colorScheme (subtree-only), it flows up to the enclosing presentation and
 +// flips the system sheet chrome - background material, grabber - to the given
@@ -93,7 +94,7 @@ index f385284..d47e174 100644
 +  func body(content: Content) -> some View {
 +    content.preferredColorScheme(colorScheme.toNativeColorScheme())
 +  }
-+}
+ }
 \ No newline at end of file
 diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
 index fbaa436..7f644b8 100644
