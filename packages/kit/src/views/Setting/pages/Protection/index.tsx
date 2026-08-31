@@ -144,8 +144,8 @@ const SettingProtectionModal = () => {
 
   const receiveRiskMonitoringTitle = useMemo(
     () => (
-      <XStack alignItems="center" gap="$2">
-        <SizableText size="$bodyLgMedium">
+      <XStack alignItems="center" gap="$2" flexShrink={1}>
+        <SizableText size="$bodyLgMedium" flexShrink={1}>
           {intl.formatMessage({
             id: ETranslations.prime_feature_receive_risk_monitoring__title,
           })}
