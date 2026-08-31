@@ -329,13 +329,10 @@ export function FirmwareUpdateProgressBarV2({
       return undefined;
     }
     const transferSummary = `${displayMetrics.transferredText} / ${displayMetrics.totalText} · ${displayMetrics.speedText}`;
-    if (
-      firmwareProgressType === 'transferData' &&
-      displayMetrics.estimatedRemainingText
-    ) {
+    if (firmwareProgressType === 'transferData') {
       const estimatedTime = intl.formatMessage(
         { id: ETranslations.firmware_update_estimated_time__desc },
-        { time: displayMetrics.estimatedRemainingText },
+        { time: displayMetrics.estimatedRemainingText ?? '- s' },
       );
       return `${transferSummary} · ${estimatedTime}`;
     }
