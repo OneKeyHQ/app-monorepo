@@ -15,6 +15,7 @@ import { useCurrency } from '../../../components/Currency';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import {
+  SWAP_PRO_TRANSACTION_LIMIT,
   buildSwapProMarketData,
   mergeSwapProTransactions,
 } from '../utils/swapProMarketDataUtils';
@@ -47,7 +48,6 @@ type ISwapProMarketDataState = {
   transactions: ISwapProMarketTransaction[];
 };
 
-const SWAP_PRO_TRANSACTION_LIMIT = 10;
 const swapProMarketDataCache = new LRUCache<string, ISwapProMarketDataState>({
   max: 20,
 });

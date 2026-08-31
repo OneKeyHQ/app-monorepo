@@ -10,7 +10,6 @@ import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
-import { DEFAULT_CACHE_POLICY } from './cachePolicy';
 import { buildOptimizedImageSource } from './optimization';
 import { useImage } from './useImage';
 import { isEmptyResolvedSource, useResetError } from './utils';
@@ -77,7 +76,6 @@ export function ImageV2({
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
-  const [androidRetryRevision, setAndroidRetryRevision] = useState(0);
   const rawSource = useMemo(() => {
     return (source as ImageSource) || src;
   }, [source, src]);
@@ -124,39 +122,34 @@ export function ImageV2({
     shouldUseRawSourceFallback,
   ]);
 
-  const { image, reFetchImage } = useImage(
-    activeSource ?? undefined,
-    {
-      onError(error, retry) {
-        console.error('Loading failed:', error.message);
-        if (
-          optimizedSourceResult.optimized &&
-          optimizedSourceResult.rawUri &&
-          !shouldUseRawSourceFallback
-        ) {
-          setRawSourceFallbackUri(optimizedSourceResult.rawUri);
-          return;
-        }
-        if (canRetry && retryTimes.current < retryTimesLimit.current) {
-          retryTimes.current += 1;
-          setTimeout(() => {
-            retry();
-          }, getRandomRetryTimes());
-        } else {
-          setHasError(true);
-        }
-      },
+  const { image, reFetchImage } = useImage(activeSource ?? undefined, {
+    onError(error, retry) {
+      console.error('Loading failed:', error.message);
+      if (
+        optimizedSourceResult.optimized &&
+        optimizedSourceResult.rawUri &&
+        !shouldUseRawSourceFallback
+      ) {
+        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
+        return;
+      }
+      if (canRetry && retryTimes.current < retryTimesLimit.current) {
+        retryTimes.current += 1;
+        setTimeout(() => {
+          retry();
+        }, getRandomRetryTimes());
+      } else {
+        setHasError(true);
+      }
     },
-    [],
-    rawResolvedSource?.cacheKey ?? rawResolvedSource?.uri,
-  );
+  });
 
   const onResetError = useCallback((error: boolean) => {
     setHasError(error);
     retryTimes.current = 0;
   }, []);
 
-  useResetError(image, hasError, onResetError);
+  useResetError(activeSource ?? null, hasError, onResetError);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -168,23 +161,10 @@ export function ImageV2({
         setRawSourceFallbackUri(optimizedSourceResult.rawUri);
         return;
       }
-      if (platformEnv.isNativeAndroid) {
-        if (canRetry && retryTimes.current < retryTimesLimit.current) {
-          retryTimes.current += 1;
-          setTimeout(() => {
-            setAndroidRetryRevision((value) => value + 1);
-          }, getRandomRetryTimes());
-        } else {
-          setHasError(true);
-        }
-        onError?.(event);
-        return;
-      }
       reFetchImage();
       onError?.(event);
     },
     [
-      canRetry,
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
@@ -203,9 +183,8 @@ export function ImageV2({
     }),
     [style],
   );
-  const cachePolicy = imageProps.cachePolicy ?? DEFAULT_CACHE_POLICY;
 
-  if (hasError || !image) {
+  if (!image) {
     if (hasError || isEmptyResolvedSource(activeSource)) {
       return <Stack style={fallbackStyle}>{fallback}</Stack>;
     }
@@ -215,7 +194,6 @@ export function ImageV2({
   if (animated) {
     return (
       <AnimatedExpoImage
-        key={platformEnv.isNativeAndroid ? androidRetryRevision : undefined}
         source={image}
         style={style}
         onError={handleError}
@@ -225,14 +203,12 @@ export function ImageV2({
         onLoadStart={onLoadStart}
         autoplay={autoplay ?? DEFAULT_AUTOPLAY}
         {...(imageProps as any)}
-        cachePolicy={cachePolicy}
       />
     );
   }
 
   return (
     <ExpoImage
-      key={platformEnv.isNativeAndroid ? androidRetryRevision : undefined}
       source={image}
       style={style}
       onError={handleError}
@@ -242,7 +218,6 @@ export function ImageV2({
       onLoadStart={onLoadStart}
       autoplay={autoplay ?? DEFAULT_AUTOPLAY}
       {...(imageProps as any)}
-      cachePolicy={cachePolicy}
     />
   );
 }

@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -57,22 +58,24 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx.objectStore(ELocalDBStoreNames.Wallet)?.delete(walletId);
       } catch (error) {
         console.error('ServiceDBBackup removeBackupHDWallet error', error);
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(walletId);
@@ -112,15 +115,17 @@ class ServiceDBBackup extends ServiceBase {
         EIndexedDBBucketNames.backupAccount,
       );
 
-      const createBackupTx = () => {
-        return backupDB.transaction(
+      // Deletes free space, so they stay allowed while the disk-full guard
+      // is raised.
+      const createBackupTx = () =>
+        backupDB.transactionAsync(
           INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
           'readwrite',
+          { allowWhenStorageFull: true },
         );
-      };
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Account)
           ?.delete(accountId);
@@ -132,7 +137,7 @@ class ServiceDBBackup extends ServiceBase {
       }
 
       try {
-        const backupTx = createBackupTx();
+        const backupTx = await createBackupTx();
         await backupTx
           .objectStore(ELocalDBStoreNames.Credential)
           ?.delete(accountId);
@@ -157,6 +162,87 @@ class ServiceDBBackup extends ServiceBase {
     } catch (error) {
       console.error('ServiceDBBackup removeBackupImportedAccount error', error);
     }
+  }
+
+  @backgroundMethod()
+  async removeBackupHyperLiquidAgentCredentials({
+    credentialIds,
+  }: {
+    credentialIds?: string[];
+  } = {}): Promise<boolean> {
+    if (!this.canBackup()) {
+      // No backup DB exists on this platform, so there is nothing to clean.
+      return true;
+    }
+
+    const credentialIdSet = credentialIds?.length
+      ? new Set(credentialIds)
+      : undefined;
+    const shouldRemove = (credentialId: string) =>
+      accountUtils.isHyperLiquidAgentCredentialId({ credentialId }) &&
+      (!credentialIdSet || credentialIdSet.has(credentialId));
+
+    let cleaned = true;
+
+    try {
+      const nativeDb = (await this.backgroundApi.localDb
+        .readyDb) as IndexedDBAgent;
+      const backupDB = nativeDb.getIndexedByBucketName(
+        EIndexedDBBucketNames.backupAccount,
+      );
+      const backupCredentials: IDBCredential[] = await backupDB.getAll(
+        ELocalDBStoreNames.Credential,
+      );
+      const credentialIdsToRemove = backupCredentials
+        .map((credential) => credential.id)
+        .filter(shouldRemove);
+
+      if (credentialIdsToRemove.length) {
+        // Deletes free space, so they stay allowed while the disk-full guard
+        // is raised.
+        const backupTx = await backupDB.transactionAsync(
+          INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
+          'readwrite',
+          { allowWhenStorageFull: true },
+        );
+        const credentialStore = backupTx.objectStore(
+          ELocalDBStoreNames.Credential,
+        );
+        await Promise.all(
+          credentialIdsToRemove.map((credentialId) =>
+            credentialStore?.delete(credentialId),
+          ),
+        );
+      }
+    } catch {
+      cleaned = false;
+      defaultLogger.app.error.log(
+        'Bucket backup HyperLiquid credential cleanup failed',
+      );
+    }
+
+    try {
+      // HyperLiquid agent credentials were introduced after bucket storage,
+      // so this legacy-DB branch is defensive cleanup, not a migration path.
+      const legacyCredentials = await legacyIndexedDb.getAll(
+        ELocalDBStoreNames.Credential,
+      );
+      const credentialIdsToRemove = legacyCredentials
+        .map((credential) => credential.id)
+        .filter(shouldRemove);
+      await Promise.all(
+        credentialIdsToRemove.map((credentialId) =>
+          legacyIndexedDb.delete(ELocalDBStoreNames.Credential, credentialId),
+        ),
+      );
+    } catch {
+      cleaned = false;
+      defaultLogger.app.error.log(
+        'Legacy backup HyperLiquid credential cleanup failed',
+      );
+    }
+
+    return cleaned;
   }
 
   _backupDatabaseDailyPromise: Promise<void> | undefined;
@@ -256,8 +342,13 @@ class ServiceDBBackup extends ServiceBase {
         ELocalDBStoreNames.Account,
       );
 
-      const credentials: IDBCredential[] = await db.getAll(
-        ELocalDBStoreNames.Credential,
+      const credentials: IDBCredential[] = (
+        await db.getAll(ELocalDBStoreNames.Credential)
+      ).filter(
+        (credential) =>
+          !accountUtils.isHyperLiquidAgentCredentialId({
+            credentialId: credential.id,
+          }),
       );
 
       const devices: IDBDevice[] = await db.getAll(ELocalDBStoreNames.Device);
@@ -272,23 +363,48 @@ class ServiceDBBackup extends ServiceBase {
         ELocalDBStoreNames.Context,
       );
 
-      const backupTx = backupDB.transaction(
+      // Agent credentials are device-bound signing secrets and must never stay
+      // in the recovery backup. Read the stale ids BEFORE opening backupTx: an
+      // idb transaction auto-commits when unrelated promises are awaited.
+      const staleAgentCredentialIds = (
+        await backupDB.getAll(ELocalDBStoreNames.Credential)
+      )
+        .map((credential) => credential.id)
+        .filter((credentialId) =>
+          accountUtils.isHyperLiquidAgentCredentialId({ credentialId }),
+        );
+
+      const backupTx = await backupDB.transactionAsync(
         INDEXED_DB_BUCKET_PRESET_STORE_NAMES[EIndexedDBBucketNames.account],
         'readwrite',
       );
 
-      await migrateAccountBucketRecords({
-        tx: backupTx,
-        records: {
-          cloudSyncItem: cloudSyncItems,
-          context: contexts,
-          credential: credentials,
-          device: devices,
-          indexedAccount: indexedAccounts,
-          wallet: wallets,
-          account: accounts,
-        },
-      });
+      // The scrub rides the snapshot transaction so a successful backup can
+      // never leave stale agent rows, while a scrub problem can never block
+      // the backup: a failed transaction rolls back everything and retries on
+      // the existing 24h cadence. The deletes and the put-by-id snapshot touch
+      // disjoint keys because the snapshot source already filters agent
+      // credentials.
+      const backupCredentialStore = backupTx.objectStore(
+        ELocalDBStoreNames.Credential,
+      );
+      await Promise.all([
+        migrateAccountBucketRecords({
+          tx: backupTx,
+          records: {
+            cloudSyncItem: cloudSyncItems,
+            context: contexts,
+            credential: credentials,
+            device: devices,
+            indexedAccount: indexedAccounts,
+            wallet: wallets,
+            account: accounts,
+          },
+        }),
+        ...staleAgentCredentialIds.map((credentialId) =>
+          backupCredentialStore?.delete(credentialId),
+        ),
+      ]);
     } catch (error) {
       // TODO log error
       console.error('ServiceDBBackup backupDatabase error', error);

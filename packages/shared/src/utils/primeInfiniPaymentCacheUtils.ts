@@ -355,7 +355,7 @@ export function isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
   );
 }
 
-export function isPrimeInfiniPurchaseCompletedSnapshot({
+export function isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
   baseline,
   purchaseStatusSnapshot,
 }: {
@@ -380,6 +380,53 @@ export function isPrimeInfiniPurchaseCompletedSnapshot({
     baseline.infiniPeriodEnd !== undefined &&
     infiniSubscription?.currentPeriodEnd &&
     infiniSubscription.currentPeriodEnd > baseline.infiniPeriodEnd,
+  );
+}
+
+export function isPrimeInfiniPurchaseCompletedSnapshot({
+  baseline,
+  purchaseStatusSnapshot,
+}: {
+  baseline: Pick<
+    IPrimeInfiniPendingPaymentSession['baseline'],
+    | 'wasPrimeActive'
+    | 'primeExpiresAt'
+    | 'infiniPeriodEnd'
+    | 'infiniSubscriptionId'
+  >;
+  purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+}) {
+  const { primeSubscription, infiniSubscription } = purchaseStatusSnapshot;
+  // Initial-purchase sessions created before this baseline was persisted have
+  // no Infini period. Renewals still require their explicit previous period.
+  const baselineInfiniPeriodEnd =
+    baseline.infiniPeriodEnd ?? (baseline.wasPrimeActive ? undefined : 0);
+  const hasNewInfiniPeriod = Boolean(
+    baselineInfiniPeriodEnd !== undefined &&
+    infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription.currentPeriodEnd > baselineInfiniPeriodEnd,
+  );
+  if (baseline.wasPrimeActive) {
+    return hasNewInfiniPeriod;
+  }
+
+  const hasInfiniChannel = primeSubscription?.subscriptions?.some(
+    (subscription) => subscription.channel?.trim().toLowerCase() === 'infini',
+  );
+  const currentInfiniSubscriptionId =
+    infiniSubscription?.subscriptionId?.trim();
+  const hasStatusOnlyActiveInfiniSubscription = Boolean(
+    baseline.infiniSubscriptionId !== undefined &&
+    currentInfiniSubscriptionId &&
+    currentInfiniSubscriptionId !== baseline.infiniSubscriptionId &&
+    !infiniSubscription?.currentPeriodEnd &&
+    infiniSubscription?.status?.toLowerCase() === 'active',
+  );
+  return Boolean(
+    primeSubscription?.isActive &&
+    (hasInfiniChannel ||
+      hasNewInfiniPeriod ||
+      hasStatusOnlyActiveInfiniSubscription),
   );
 }
 

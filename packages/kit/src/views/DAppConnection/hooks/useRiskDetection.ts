@@ -3,7 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { buildPrimeAnalyticsProfileSnapshot } from '@onekeyhq/kit-bg/src/services/ServicePrime/primeAnalyticsProfile';
+import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
   isEthSignType,
   isPrimaryTypeOrderSign,
@@ -14,7 +17,14 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
+import {
+  shouldReportSiteScanRiskWarnedForUser,
+  shouldStartSiteScanRiskWarningAttempt,
+} from './siteScanRiskWarning';
+
 import type { Verify } from '@walletconnect/types';
+
+let siteScanRiskWarnedInFlight = false;
 
 function overrideSecurityLevel(
   base: IHostSecurity | undefined,
@@ -137,6 +147,50 @@ function useRiskDetection({
       currentContinueOperate: continueOperate,
     });
   }, [riskLevel, showContinueOperate, continueOperate]);
+
+  // Prime benefit usage: a Prime user was shown an enhanced dapp-security
+  // risk warning. Read the persist atom once (no subscription, no token
+  // refresh) so this shared connection/sign hook gains no new re-render
+  // source and non-Prime users skip the event without a bg auth hop.
+  // Session-level emit flag is keyed by OneKey user so an account switch in
+  // the same JS runtime can still report; no URL/domain is reported.
+  useEffect(() => {
+    if (
+      !shouldStartSiteScanRiskWarningAttempt({
+        riskLevel,
+        inFlight: siteScanRiskWarnedInFlight,
+      })
+    ) {
+      return;
+    }
+    siteScanRiskWarnedInFlight = true;
+    void (async () => {
+      try {
+        const persist = await primePersistAtom.get();
+        const { isPrimeActive } = buildPrimeAnalyticsProfileSnapshot({
+          isLoggedIn: persist.isLoggedIn,
+          isLoggedInOnServer: persist.isLoggedInOnServer,
+          isPrimeSubscriptionActive: persist.primeSubscription?.isActive,
+        });
+        const currentUserId = persist.onekeyUserId;
+        if (
+          !isPrimeActive ||
+          !shouldReportSiteScanRiskWarnedForUser(currentUserId)
+        ) {
+          return;
+        }
+        defaultLogger.prime.usage.siteScanRiskWarned({
+          featureName: EPrimeFeatures.BlockaidSiteScan,
+          riskLevel,
+          isPrimeActive: true,
+        });
+      } catch {
+        // Analytics must never affect the risk detection flow.
+      } finally {
+        siteScanRiskWarnedInFlight = false;
+      }
+    })();
+  }, [riskLevel]);
 
   return {
     showContinueOperate,

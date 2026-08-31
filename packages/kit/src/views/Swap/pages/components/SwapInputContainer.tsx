@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
@@ -226,6 +226,37 @@ const SwapInputContainer = ({
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
     (selectTokenLoading || isInitialTokenSelectionPending);
+  const handleSelectToken = useCallback(() => {
+    onSelectToken(direction);
+  }, [direction, onSelectToken]);
+  const tokenSelectorTriggerProps = useMemo(
+    () => ({
+      testID:
+        direction === ESwapDirectionType.FROM
+          ? SwapTestIDs.fromTokenSelector
+          : SwapTestIDs.toTokenSelector,
+      minWidth: tokenSelectorMinWidth,
+      justifyContent: 'flex-end' as const,
+      loading: showTokenSelectorSkeleton,
+      selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+      selectedTokenNetworkId: tokenSelectorDisplayToken?.networkId,
+      selectedTokenAddress: tokenSelectorDisplayToken?.contractAddress,
+      selectedTokenIsNative: tokenSelectorDisplayToken?.isNative,
+      selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
+      onPress: handleSelectToken,
+    }),
+    [
+      direction,
+      handleSelectToken,
+      showTokenSelectorSkeleton,
+      tokenSelectorDisplayToken?.contractAddress,
+      tokenSelectorDisplayToken?.isNative,
+      tokenSelectorDisplayToken?.logoURI,
+      tokenSelectorDisplayToken?.networkId,
+      tokenSelectorDisplayToken?.symbol,
+      tokenSelectorMinWidth,
+    ],
+  );
   const displayBalance = useMemo(() => {
     const cachedBalance =
       resolveSwapBalanceDisplayCacheEntry({
@@ -445,23 +476,7 @@ const SwapInputContainer = ({
               ? SwapTestIDs.fromAmountInput
               : SwapTestIDs.toAmountInput,
         }}
-        tokenSelectorTriggerProps={{
-          testID:
-            direction === ESwapDirectionType.FROM
-              ? SwapTestIDs.fromTokenSelector
-              : SwapTestIDs.toTokenSelector,
-          minWidth: tokenSelectorMinWidth,
-          justifyContent: 'flex-end',
-          loading: showTokenSelectorSkeleton,
-          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
-          selectedTokenNetworkId: tokenSelectorDisplayToken?.networkId,
-          selectedTokenAddress: tokenSelectorDisplayToken?.contractAddress,
-          selectedTokenIsNative: tokenSelectorDisplayToken?.isNative,
-          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
-          onPress: () => {
-            onSelectToken(direction);
-          },
-        }}
+        tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
       {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (

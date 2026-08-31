@@ -41,8 +41,10 @@ import {
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import {
+  EMarketPresetKey,
   EMarketPresetTradeSide,
   getMarketNonPresetSlippageValue,
+  resolveMarketQuoteSlippageMode,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
@@ -213,9 +215,19 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     tokenDetail?.symbol,
   ]);
 
+  const nonPresetSlippage = getMarketNonPresetSlippageValue({
+    mode: swapSlippagePercentageMode,
+    customValue: swapSlippagePercentageCustomValue,
+    defaultSlippage: speedConfig?.slippage,
+  });
   const effectiveSlippage = marketPresetSettings.enabled
     ? marketPresetSettings.selectedSlippageValue
-    : slippage;
+    : (nonPresetSlippage ?? slippage);
+  const effectiveSlippageMode = resolveMarketQuoteSlippageMode({
+    presetEnabled: marketPresetSettings.enabled,
+    selectedPresetKey: marketPresetSettings.selectedPresetKey,
+    nonPresetMode: swapSlippagePercentageMode,
+  });
   const effectiveNetworkFeeLevel = marketPresetSettings.enabled
     ? marketPresetSettings.selectedNetworkFeeLevel
     : ESwapNetworkFeeLevel.MEDIUM;
@@ -235,7 +247,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       ? paymentAmount.toFixed()
       : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
-    slippage: effectiveSlippage,
+    slippageItem: {
+      key: effectiveSlippageMode,
+      value: effectiveSlippage,
+    },
     // Market status never gates quoting. A live open-state flip only refreshes
     // the current provider quote so a server-reported closed error can recover.
     stockIsOpen: tokenDetail?.stock?.isOpen,
@@ -285,6 +300,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
     quoteError,
     quoteReadyForReview,
     quoteNeedsRefresh,
+    quoteRefreshActionActive,
     refreshMarketQuote,
     paymentTokenPrice,
     swapNativeTokenReserveGas,
@@ -485,21 +501,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
       return;
     }
 
-    const savedSlippage = getMarketNonPresetSlippageValue({
-      mode: swapSlippagePercentageMode,
-      customValue: swapSlippagePercentageCustomValue,
-      defaultSlippage: speedConfig?.slippage,
-    });
-    if (savedSlippage !== undefined) {
-      setSlippage(savedSlippage);
+    if (nonPresetSlippage !== undefined) {
+      setSlippage(nonPresetSlippage);
     }
-  }, [
-    marketPresetSettings.enabled,
-    setSlippage,
-    speedConfig?.slippage,
-    swapSlippagePercentageCustomValue,
-    swapSlippagePercentageMode,
-  ]);
+  }, [marketPresetSettings.enabled, nonPresetSlippage, setSlippage]);
 
   const saveMarketSlippageForFutureOrders = useCallback(
     async (slippagePercentage: number) => {
@@ -643,6 +648,10 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
           renderContent: (
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
+              disableSaveSlippageForFutureOrders={
+                marketPresetSettings.enabled &&
+                marketPresetSettings.selectedPresetKey === EMarketPresetKey.AUTO
+              }
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
               defaultCustomPriorityFee={effectiveCustomPriorityFee}
               showCustomNetworkFeeOption={showReviewCustomNetworkFeeOption}
@@ -776,7 +785,7 @@ function SwapPanelWrapContent({ onCloseDialog }: ISwapPanelWrapProps) {
         marketPresetSettings.isLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
       }
-      isRefreshQuote={quoteNeedsRefresh}
+      isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}

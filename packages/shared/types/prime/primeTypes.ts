@@ -169,6 +169,16 @@ export type IPrimeInfiniPaymentCreateParams = {
   expectedOneKeyUserId: string;
 };
 
+export type IPrimeRedemptionParams = {
+  code: string;
+  expectedOneKeyUserId: string;
+};
+
+export type IPrimeRedemptionResult = {
+  addedDays: number;
+  finalExpiresAt: number;
+};
+
 export type IPrimeInfiniPaymentAsset = {
   key: string;
   chain: string;
@@ -221,6 +231,8 @@ export type IPrimeInfiniPendingPaymentSession = {
     wasPrimeActive: boolean;
     primeExpiresAt?: number;
     infiniPeriodEnd?: number;
+    // undefined is a legacy baseline; null means no subscription was observed.
+    infiniSubscriptionId?: string | null;
   };
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: 'P1Y' | 'P1M';

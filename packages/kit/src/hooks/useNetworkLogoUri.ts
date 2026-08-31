@@ -4,7 +4,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -17,14 +19,8 @@ import {
 } from './useNetworkLogoUri.utils';
 import { usePromiseResult } from './usePromiseResult';
 
-const pendingNetworkLogoRequests = new Map<string, Promise<string>>();
-
-function fetchNetworkLogo(networkId: string): Promise<string> {
-  const pendingRequest = pendingNetworkLogoRequests.get(networkId);
-  if (pendingRequest) {
-    return pendingRequest;
-  }
-  const request = (async () => {
+const fetchNetworkLogo = memoizee(
+  async (networkId: string): Promise<string> => {
     try {
       const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
         networkId,
@@ -35,12 +31,12 @@ function fetchNetworkLogo(networkId: string): Promise<string> {
     } catch {
       return '';
     }
-  })().finally(() => {
-    pendingNetworkLogoRequests.delete(networkId);
-  });
-  pendingNetworkLogoRequests.set(networkId, request);
-  return request;
-}
+  },
+  {
+    promise: true,
+    maxAge: timerUtils.getTimeDurationMs({ hour: 24 }),
+  },
+);
 
 /**
  * Hook to get network logo URI with async fallback.
@@ -95,6 +91,9 @@ export function useNetworkLogoUri({
   useEffect(() => {
     const handleNetworksChanged = () => {
       deleteCachedNetworkLogoUri(networkId);
+      if (networkId) {
+        void fetchNetworkLogo.delete(networkId);
+      }
       setCacheRevision((value) => value + 1);
       void run({ alwaysSetState: true });
     };

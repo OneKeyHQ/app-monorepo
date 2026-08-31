@@ -22,6 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -97,7 +98,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature } = route.params || {};
+  const { fromFeature, networkId } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -113,6 +114,9 @@ export default function PrimeDashboard({
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
 
   const { top } = useSafeAreaInsets();
   const { isNative, isWebMobile } = platformEnv;
@@ -120,7 +124,7 @@ export default function PrimeDashboard({
   const mobileTopValue = isMobile ? top + 25 : '$10';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
-    usePrimeRequirements();
+    usePrimeRequirements({ networkId: networkId ?? network?.id });
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);

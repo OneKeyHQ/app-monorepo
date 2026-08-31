@@ -7,12 +7,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 
 import type { ITradingViewNativeIndicatorSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import {
-  type ITradingViewNativeIndicatorSettings,
-  createTradingViewNativeIndicatorSettings,
-} from '@onekeyhq/shared/types/tradingViewNative';
 
-import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/indicatorCatalog';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators/subIndicatorTypes';
@@ -36,10 +31,9 @@ const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const defaultIndicatorSettingsProps = {
-  indicatorSettingsValue: getTradingViewNativeIndicatorSettingsValue(
-    createTradingViewNativeIndicatorSettings(),
-  ),
-  onIndicatorSettingsConfirm: jest.fn(),
+  activeChartType: 'candlestick' as const,
+  onChartTypeChange: jest.fn(),
+  onIndicatorSettingsPress: jest.fn(),
   onIndicatorSelectionConfirm: jest.fn(),
 };
 
@@ -111,9 +105,45 @@ describe('TradingViewNative chart controls', () => {
         hasVisibleIntervalSelector: true,
         settingsEnabled: false,
         showIndicatorPopover: false,
+        showChartTypeSelect: true,
         showChartTypeToggle: false,
+        activeChartType: 1,
+        chartTypes: [
+          { id: 'candlestick', label: 'Candles', value: 1 },
+          { id: 'heikinAshi', label: 'Heikin Ashi', value: 8 },
+          { id: 'bars', label: 'Bars', value: 0 },
+          { id: 'line', label: 'Line', value: 2 },
+          { id: 'area', label: 'Area', value: 3 },
+        ],
       }),
     );
+  });
+
+  it('maps shared menu values back to native chart types', () => {
+    const handleChartTypeChange = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeChartType="line"
+        activeIndicatorValues={new Set(['MA'])}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartTypeChange={handleChartTypeChange}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      activeChartType: number;
+      onChartTypeChange: (chartType: number) => void;
+    };
+    expect(controlsProps.activeChartType).toBe(2);
+
+    controlsProps.onChartTypeChange(8);
+    controlsProps.onChartTypeChange(21);
+
+    expect(handleChartTypeChange).toHaveBeenCalledTimes(1);
+    expect(handleChartTypeChange).toHaveBeenCalledWith('heikinAshi');
   });
 
   it('keeps chart settings hidden in desktop layout without an opt-in', () => {
@@ -131,6 +161,82 @@ describe('TradingViewNative chart controls', () => {
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
         settingsEnabled: false,
+      }),
+    );
+  });
+
+  it('hides the chart type selector in the compact mobile toolbar', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        compactMobileLayout
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        compactMobileLayout: true,
+        showChartTypeSelect: false,
+      }),
+    );
+  });
+
+  it('replaces the mobile indicator control with a close action', () => {
+    const handleChartClose = jest.fn();
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={handleChartClose}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      hasVisibleIndicators: boolean;
+      rightControl: ReactElement<{
+        name: string;
+        size: string;
+      }>;
+      rightControlLabel: string;
+      onRightControlPress: () => void;
+    };
+    expect(controlsProps.hasVisibleIndicators).toBe(false);
+    expect(controlsProps.rightControl.props.name).toBe(
+      'ChevronTriangleDownSmallSolid',
+    );
+    expect(controlsProps.rightControl.props.size).toBe('$5');
+    expect(controlsProps.rightControlLabel).toBe('global.close');
+
+    controlsProps.onRightControlPress();
+    expect(handleChartClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('can suppress the close action without restoring indicator controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set()}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onChartClose={jest.fn()}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+        showChartCloseControl={false}
+      />,
+    );
+
+    expect(mockTradingViewChartControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasVisibleIndicators: false,
+        onRightControlPress: undefined,
+        rightControl: null,
+        rightControlLabel: undefined,
       }),
     );
   });
@@ -217,7 +323,7 @@ describe('TradingViewNative chart controls', () => {
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the desktop indicator editor uncapped when confirming persisted settings', async () => {
+  it('delegates desktop indicator settings to the chart owner', () => {
     render(
       <TradingViewNativeChartControlsContainer
         {...defaultIndicatorSettingsProps}
@@ -237,57 +343,10 @@ describe('TradingViewNative chart controls', () => {
     expect(controlsProps.showIndicatorPopover).toBe(false);
     controlsProps.onShowIndicatorsDialog();
 
-    expect(mockDialogShow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        showFooter: false,
-        showHeader: false,
-        testID: 'trading-view-native-indicator-settings-dialog',
-      }),
-    );
-    const dialogContent = mockDialogShow.mock.calls[0][0]
-      .renderContent as unknown as ReactElement<{
-      createDefaultValue: () => ReturnType<
-        typeof getTradingViewNativeIndicatorSettingsValue
-      >;
-      maxActiveSubIndicatorCount: number | null;
-      onConfirm: (
-        value: ReturnType<typeof getTradingViewNativeIndicatorSettingsValue>,
-      ) => Promise<void>;
-    }>;
-    expect(dialogContent.props.maxActiveSubIndicatorCount).toBeNull();
-    const resetValue = dialogContent.props.createDefaultValue();
-    const ma = resetValue.indicators.find((indicator) => indicator.id === 'MA');
-    expect(ma).toBeDefined();
-    if (ma) {
-      ma.active = true;
-    }
-    const activeSubIndicatorIds: readonly string[] =
-      TRADING_VIEW_NATIVE_SUB_INDICATORS.slice(0, 5);
-    resetValue.indicators.forEach((indicator) => {
-      if (activeSubIndicatorIds.includes(indicator.id)) {
-        indicator.active = true;
-      }
-    });
-
-    await dialogContent.props.onConfirm(resetValue);
-
     expect(
-      defaultIndicatorSettingsProps.onIndicatorSettingsConfirm,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mainIndicators: expect.arrayContaining([
-          expect.objectContaining({ active: true, id: 'MA' }),
-        ]),
-      }),
-    );
-    const confirmedSettings = defaultIndicatorSettingsProps
-      .onIndicatorSettingsConfirm.mock
-      .calls[0][0] as ITradingViewNativeIndicatorSettings;
-    expect(
-      confirmedSettings.subIndicators
-        .filter((indicator) => indicator.active)
-        .map((indicator) => indicator.id),
-    ).toEqual(activeSubIndicatorIds);
+      defaultIndicatorSettingsProps.onIndicatorSettingsPress,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
   it('selects subpane indicators from the mobile dialog', () => {

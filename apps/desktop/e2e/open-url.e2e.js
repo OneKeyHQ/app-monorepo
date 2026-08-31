@@ -23,7 +23,12 @@ const expectedHost = stripWww(new URL(targetUrl).hostname);
 const expectedContentText =
   process.env.DESKTOP_E2E_EXPECT_TEXT ||
   (expectedHost === 'apple.com' ? 'Apple' : expectedHost);
-
+const sniTarget = {
+  hostname: process.env.DESKTOP_E2E_SNI_HOSTNAME || 'wallet.onekeytest.com',
+  ip: process.env.DESKTOP_E2E_SNI_IP || '104.18.31.39',
+  path: process.env.DESKTOP_E2E_SNI_PATH || '/health',
+  timeout: Number(process.env.DESKTOP_E2E_SNI_TIMEOUT_MS) || 15_000,
+};
 const COPY_INJECT_TIMEOUT_MS =
   Number(process.env.DESKTOP_E2E_COPY_INJECT_TIMEOUT_MS) || 60_000;
 const BUILD_MAIN_TIMEOUT_MS =
@@ -44,8 +49,25 @@ function log(message) {
   console.log(`[desktop-e2e] ${message}`);
 }
 
-function yarnBin() {
-  return process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
+function getRepoYarnCliPath() {
+  const yarnRc = fs.readFileSync(path.join(repoRoot, '.yarnrc.yml'), 'utf8');
+  const yarnPathMatch = /^yarnPath:\s*["']?([^"'\r\n]+)["']?\s*$/mu.exec(
+    yarnRc,
+  );
+  if (!yarnPathMatch) {
+    throw new Error('Unable to resolve yarnPath from .yarnrc.yml');
+  }
+  return path.resolve(repoRoot, yarnPathMatch[1].trim());
+}
+
+function yarnInvocation(args) {
+  if (process.platform === 'win32') {
+    return {
+      command: process.execPath,
+      args: [getRepoYarnCliPath(), ...args],
+    };
+  }
+  return { command: 'yarn', args };
 }
 
 function getHostnameFromUrlLikeInput(input) {
@@ -116,7 +138,8 @@ function appendOutput(buffer, chunk) {
 
 function runYarn(args, { timeoutMs }) {
   log(`run: yarn ${args.join(' ')}`);
-  const result = spawnSync(yarnBin(), args, {
+  const invocation = yarnInvocation(args);
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: repoRoot,
     env: process.env,
     stdio: 'inherit',
@@ -193,22 +216,26 @@ async function startRenderer() {
   const rendererUrl = `http://localhost:${port}/`;
 
   log(`start renderer on ${rendererUrl}`);
-  const child = spawn(
-    yarnBin(),
-    ['workspace', '@onekeyhq/desktop', 'exec', 'rspack', 'serve'],
-    {
-      cwd: repoRoot,
-      detached: process.platform !== 'win32',
-      env: {
-        ...process.env,
-        ...desktopE2EEnv,
-        BROWSER: 'none',
-        TRANSFORM_REGENERATOR_DISABLED: 'true',
-        WEB_PORT: String(port),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
+  const rspackPackagePath = require.resolve('@rspack/cli/package.json', {
+    paths: [repoRoot],
+  });
+  const rspackCliPath = path.join(
+    path.dirname(rspackPackagePath),
+    'bin',
+    'rspack.js',
   );
+  const child = spawn(process.execPath, [rspackCliPath, 'serve'], {
+    cwd: desktopDir,
+    detached: process.platform !== 'win32',
+    env: {
+      ...process.env,
+      ...desktopE2EEnv,
+      BROWSER: 'none',
+      TRANSFORM_REGENERATOR_DISABLED: 'true',
+      WEB_PORT: String(port),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   let output = '';
   child.stdout.on('data', (chunk) => {
@@ -499,7 +526,9 @@ async function runLocalSecretEnvelopeFlow(page) {
         globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
           ?.runLocalSecretEnvelopeSelfTest &&
         globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
-          ?.runLocalSecretEnvelopeRestoreSelfTest,
+          ?.runLocalSecretEnvelopeRestoreSelfTest &&
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
+          ?.runHyperLiquidAgentMigrationSelfTest,
       ),
     undefined,
     { timeout: APP_TIMEOUT_MS },
@@ -517,6 +546,11 @@ async function runLocalSecretEnvelopeFlow(page) {
       if (!serviceE2E.runLocalSecretEnvelopeRestoreSelfTest) {
         throw new Error(
           'serviceE2E.runLocalSecretEnvelopeRestoreSelfTest unavailable',
+        );
+      }
+      if (!serviceE2E.runHyperLiquidAgentMigrationSelfTest) {
+        throw new Error(
+          'serviceE2E.runHyperLiquidAgentMigrationSelfTest unavailable',
         );
       }
       return serviceE2E.runLocalSecretEnvelopeSelfTest(
@@ -590,10 +624,274 @@ async function runLocalSecretEnvelopeFlow(page) {
   assert.equal(restoreSummary.backupRejectsRawLocalSecretEnvelope, true);
   assert.equal(restoreSummary.primeTransferRejectsRawLocalSecretEnvelope, true);
 
+  const agentMigrationResult = await page.evaluate(
+    async ({ devOnlyPassword }) => {
+      const serviceE2E =
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
+      return serviceE2E.runHyperLiquidAgentMigrationSelfTest(
+        {
+          $$devOnlyPassword: devOnlyPassword,
+        },
+        {
+          expectedCredentialLayerKinds: [
+            'indexeddb-cryptokey',
+            'secure-storage',
+          ],
+          expectedRuntimePlatform: 'desktop',
+          expectedStrength: 'secure-storage-bound',
+        },
+      );
+    },
+    {
+      devOnlyPassword: getDevOnlyPassword(),
+    },
+  );
+
+  assert.equal(
+    agentMigrationResult.passed,
+    true,
+    `HL Agent migration failures: ${JSON.stringify(
+      agentMigrationResult.checkpoints?.filter(
+        (checkpoint) => checkpoint.status === 'failed',
+      ),
+    )}`,
+  );
+  assert.equal(agentMigrationResult.runtimePlatform, 'desktop');
+  const agentSummary = agentMigrationResult.summary || {};
+  assert.equal(agentSummary.legacySourceStored, true);
+  assert.equal(agentSummary.rawCredentialIsLse, true);
+  assert.equal(agentSummary.expectedInnerPrefix, '|HLE|');
+  assert.equal(agentSummary.migratedInnerPrefix, '|HLE|');
+  assertIncludesAll(
+    agentSummary.credentialLayerKinds,
+    ['indexeddb-cryptokey', 'secure-storage'],
+    'HL Agent credential layers',
+  );
+  assert.equal(agentSummary.credentialStrength, 'secure-storage-bound');
+  assert.equal(agentSummary.privateKeyAbsentFromEnvelope, true);
+  assert.equal(agentSummary.readBackMatches, true);
+  assert.equal(agentSummary.signatureVerified, true);
+  assert.equal(agentSummary.sessionRestored, true);
+  assert.equal(agentSummary.restoredSessionDecrypts, true);
+  assert.equal(agentSummary.lockedSigningBlocked, true);
+  assert.equal(agentSummary.wrongPasswordSigningBlocked, true);
+  assert.equal(agentSummary.signingAfterUnlockAgainVerified, true);
+
   log(
     `local secret envelope self-test passed (${result.credentialLayerKinds.join(
       ' + ',
-    )} + restore)`,
+    )} + restore + HL Agent migration)`,
+  );
+}
+
+function assertSniResponseStatus(statusCode, label) {
+  assert(
+    Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599,
+    `${label} should return a valid HTTPS status, got ${statusCode}`,
+  );
+}
+
+async function runSniRequestFlow(page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: APP_TIMEOUT_MS });
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        globalThis.desktopApiProxy?.sniRequest?.isSupported &&
+        globalThis.desktopApiProxy.sniRequest.request,
+      ),
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+
+  const result = await page.evaluate(async (target) => {
+    const proxy = globalThis.desktopApiProxy?.sniRequest;
+    if (!proxy) {
+      throw new Error('desktopApiProxy.sniRequest unavailable');
+    }
+
+    const runId = `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const config = {
+      requestId: `desktop-e2e-smoke-${runId}`,
+      ip: target.ip,
+      hostname: target.hostname,
+      path: target.path,
+      headers: {
+        Accept: 'application/json',
+        'X-OneKey-Desktop-E2E': 'smoke',
+      },
+      method: 'GET',
+      body: null,
+      timeout: target.timeout,
+    };
+
+    const supported = await proxy.isSupported();
+    const response = await proxy.request(config);
+
+    return {
+      supported,
+      statusCode: response.statusCode,
+    };
+  }, sniTarget);
+
+  assert.equal(result.supported, true);
+  assertSniResponseStatus(result.statusCode, 'SNI bridge smoke request');
+
+  await page.waitForFunction(
+    () => globalThis.$$appGlobals?.$navigationRef?.current?.isReady(),
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+  await page.keyboard.press('Escape');
+  await page.evaluate(async () => {
+    await globalThis.$$appGlobals.$backgroundApiProxy.serviceDevSetting.switchDevMode(
+      true,
+    );
+    await globalThis.$$appGlobals.$backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'networkThrottleEnabled',
+      false,
+    );
+    globalThis.$$appGlobals.$navigationRef.current.navigate('modal', {
+      screen: 'SettingModal',
+      params: {
+        screen: 'SettingListModal',
+      },
+    });
+  });
+  const settingsModal = page.locator('[data-testid="APP-Modal-Screen"]').last();
+  const developerModeTab = settingsModal.locator(
+    '[data-testid="tab-modal-no-active-item-CodeSolid"], [data-testid="tab-modal-active-item-CodeSolid"]',
+  );
+  await developerModeTab.waitFor({
+    state: 'visible',
+    timeout: APP_TIMEOUT_MS,
+  });
+  await developerModeTab.click();
+  await settingsModal
+    .getByText('Dev Tools & Dev Settings', { exact: true })
+    .click();
+  const queueQaMenu = settingsModal.locator(
+    '[data-testid="desktop-sni-queue-qa-menu"]',
+  );
+  await queueQaMenu.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
+  await queueQaMenu.click();
+  const queuePanel = page.locator('[data-testid="desktop-sni-queue-panel"]');
+  const queueRunButton = page.locator('[data-testid="desktop-sni-queue-run"]');
+  await queueRunButton.waitFor({ state: 'visible', timeout: APP_TIMEOUT_MS });
+
+  const healthRunButton = page.locator(
+    '[data-testid="desktop-sni-case-health-run"]',
+  );
+  await healthRunButton.click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-testid="desktop-sni-case-health-result"]')
+        ?.textContent?.includes('PASSED'),
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+
+  await queueRunButton.click();
+  await page.waitForFunction(
+    () => {
+      const text = document.querySelector(
+        '[data-testid="desktop-sni-queue-result"]',
+      )?.textContent;
+      return text?.includes('PASS') || text?.includes('PARTIAL');
+    },
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+  const passedCaseIds = [
+    'health',
+    'burst-20',
+    'burst-40',
+    'abort-all-recovery',
+    'repeat-40',
+  ];
+  const caseResultTexts = await Promise.all(
+    passedCaseIds.map((caseId) =>
+      page
+        .locator(`[data-testid="desktop-sni-case-${caseId}-result"]`)
+        .textContent(),
+    ),
+  );
+  caseResultTexts.forEach((caseResultText, index) => {
+    assert(
+      caseResultText.includes('PASSED'),
+      `desktop SNI QA case ${passedCaseIds[index]} should pass`,
+    );
+  });
+  const notObservedCaseIds = ['active-abort', 'pending-abort'];
+  const notObservedResultTexts = await Promise.all(
+    notObservedCaseIds.map((caseId) =>
+      page
+        .locator(`[data-testid="desktop-sni-case-${caseId}-result"]`)
+        .textContent(),
+    ),
+  );
+  notObservedResultTexts.forEach((caseResultText, index) => {
+    assert(
+      caseResultText.includes('NOT OBSERVED'),
+      `desktop SNI QA case ${notObservedCaseIds[index]} should honestly report the unavailable request-ID observation`,
+    );
+  });
+
+  const caseIds = [...passedCaseIds, ...notObservedCaseIds];
+  for (const caseId of caseIds) {
+    const evidenceToggleTestId = `desktop-sni-case-${caseId}-evidence-toggle`;
+    const evidenceToggle = page.locator(
+      `[data-testid="${evidenceToggleTestId}"]`,
+    );
+    await evidenceToggle.evaluate((element) => element.click());
+    await page.waitForFunction(
+      (testId) =>
+        document
+          .querySelector(`[data-testid="${testId}"]`)
+          ?.textContent?.includes('Hide evidence'),
+      evidenceToggleTestId,
+      { timeout: APP_TIMEOUT_MS },
+    );
+  }
+  const queuePanelText = await queuePanel.textContent();
+  assert.equal(
+    (
+      await page
+        .locator('[data-testid="desktop-sni-queue-fixed-target"]')
+        .textContent()
+    ).trim(),
+    'wallet.onekeytest.com (104.18.31.39)/health',
+    'desktop SNI QA page should display its fixed first-party target',
+  );
+  assert(
+    queuePanelText.includes('Observed limiter peaks') &&
+      queuePanelText.includes('Renderer outcomes') &&
+      queuePanelText.includes('responded=40, cancelled=0, failed=0'),
+    'desktop SNI QA page should display real 40-request outcomes and limiter observations',
+  );
+  assert(
+    queuePanelText.includes('active state not observed') &&
+      queuePanelText.includes('pending state not observed'),
+    'desktop SNI QA page should disclose unavailable request-ID observations',
+  );
+  assert(
+    queuePanelText.includes('cancelRequest acknowledgements') &&
+      queuePanelText.includes('Raw transport outcomes'),
+    'desktop SNI QA page should display real cancellation acknowledgements and transport outcomes',
+  );
+  assert(
+    queuePanelText.includes('Recovery response') &&
+      /Recovery responseHTTP [1-5]\d\d/u.test(queuePanelText),
+    'desktop SNI queue panel should display the real recovery response',
+  );
+  await queuePanel.screenshot({
+    path: path.join(artifactDir, 'sni-queue-panel.png'),
+  });
+
+  log(
+    `SNI bridge smoke and QA page passed (${sniTarget.hostname} via ${sniTarget.ip}, smoke HTTP ${result.statusCode}, 7 UI cases)`,
   );
 }
 
@@ -647,6 +945,8 @@ async function main() {
       await runBrowserOpenUrlFlow(app, page);
     } else if (desktopE2EFlow === 'local-secret-envelope') {
       await runLocalSecretEnvelopeFlow(page);
+    } else if (desktopE2EFlow === 'sni-request') {
+      await runSniRequestFlow(page);
     } else {
       throw new Error(`Unknown desktop E2E flow: ${desktopE2EFlow}`);
     }

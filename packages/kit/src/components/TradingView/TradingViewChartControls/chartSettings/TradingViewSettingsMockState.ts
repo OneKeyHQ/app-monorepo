@@ -113,6 +113,7 @@ export type ITradingViewChartSettingsOptions = {
   depth: boolean;
   priceChange: boolean;
   latestPrice: boolean;
+  previousClose: boolean;
   futureEvents: boolean;
   pastEvents: boolean;
   clickInteraction: boolean;
@@ -1666,6 +1667,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
       depth: true,
       priceChange: true,
       latestPrice: true,
+      previousClose: false,
       futureEvents: true,
       pastEvents: false,
       clickInteraction: false,
@@ -1731,6 +1733,34 @@ export function getDefaultTradingViewIndicatorIdForScope(
     scopedIndicators[0]?.id ??
     ''
   );
+}
+
+export function resetTradingViewSettingsMockIndicator(
+  state: ITradingViewIndicatorSettingsValue,
+  defaultState: ITradingViewIndicatorSettingsValue,
+  indicatorId: string,
+): ITradingViewIndicatorSettingsValue {
+  const currentIndicator = state.indicators.find(
+    (indicator) => indicator.id === indicatorId,
+  );
+  const defaultIndicator = defaultState.indicators.find(
+    (indicator) => indicator.id === indicatorId,
+  );
+  if (!currentIndicator || !defaultIndicator) {
+    return state;
+  }
+
+  return {
+    ...state,
+    indicators: state.indicators.map((indicator) =>
+      indicator.id === indicatorId
+        ? {
+            ...defaultIndicator,
+            active: currentIndicator.active,
+          }
+        : indicator,
+    ),
+  };
 }
 
 export function toggleTradingViewSettingsMockIndicator(

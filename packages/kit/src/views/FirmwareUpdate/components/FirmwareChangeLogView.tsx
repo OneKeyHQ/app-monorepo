@@ -198,7 +198,7 @@ function ChangeLogSection({
               )}
             </XStack>
             <Stack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
               flexShrink={0}
@@ -212,9 +212,9 @@ function ChangeLogSection({
           </>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           px="$5"

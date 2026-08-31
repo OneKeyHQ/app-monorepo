@@ -43,9 +43,13 @@ async function refreshFirmwareManifestSnapshot({
     // Keep using the last known-good remote snapshot below.
   }
 
-  if (allowStaleFallback && cached) {
+  // Check freshness after the request, since the snapshot may expire in flight.
+  const isCacheFresh = cached !== undefined && cached.expiresAt > Date.now();
+  if (cached && (isCacheFresh || allowStaleFallback)) {
     defaultLogger.ipTable.request.info({
-      info: '[FirmwareManifest] config_fetch route=cache outcome=stale_fallback',
+      info: `[FirmwareManifest] config_fetch route=cache outcome=${
+        isCacheFresh ? 'fresh_fallback' : 'stale_fallback'
+      }`,
     });
     return cached.config;
   }

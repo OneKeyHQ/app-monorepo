@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapProEnableCurrentSymbolAtom,
   useSwapProSelectTokenAtom,
@@ -40,6 +40,24 @@ interface ISwapProTabListContainerProps {
   supportNetworksReady: boolean;
 }
 
+function SwapProTabListSkeleton() {
+  return (
+    <YStack gap="$2" minHeight={118} p="$2">
+      <XStack>
+        <Skeleton w="$20" h="$8" radius="round" />
+      </XStack>
+      <XStack justifyContent="space-between">
+        <Skeleton w="$20" h="$5" radius="round" />
+        <Skeleton w="$10" h="$5" radius="round" />
+      </XStack>
+      <XStack justifyContent="space-between">
+        <Skeleton w="$24" h="$5" radius="round" />
+        <Skeleton w="$12" h="$5" radius="round" />
+      </XStack>
+    </YStack>
+  );
+}
+
 function getSwapProAnalyticsTab(tab: ETabName | string) {
   if (tab === ETabName.Positions) {
     return ESwapProAnalyticsTab.POSITIONS;
@@ -69,11 +87,13 @@ const SwapProTabListContainer = memo(
     const [swapCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
     const [swapToToken] = useSwapSelectToTokenAtom();
+    const [shouldRenderLists, setShouldRenderLists] = useState(false);
+
     const {
-      cachedPositionTokenList,
-      hasCachedPositionSnapshot,
-      hasPositionOwner,
-      isLiveTokenListForCurrentOwner,
+      positionLoadError,
+      positionLoading,
+      positionTokenList,
+      swapProLoadSupportNetworksTokenListRun,
     } = useSwapProSupportNetworksTokenList(
       supportNetworksList,
       supportNetworksReady,
@@ -98,6 +118,15 @@ const SwapProTabListContainer = memo(
       swapToToken,
       swapProTokenSelect,
     ]);
+    const shouldRenderListContent = shouldRenderLists;
+    const shouldRenderPositionsContent =
+      shouldRenderListContent || positionTokenList.length > 0;
+    const retryPositions = useCallback(() => {
+      void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+        forceRefresh: true,
+      });
+    }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
+
     const handleTabPress = useCallback(
       (tab: ETabName) => {
         if (activeTab === tab) {
@@ -148,6 +177,16 @@ const SwapProTabListContainer = memo(
       };
     }, [changeTabToLimitOrderList]);
 
+    // Defer heavy list components only while initial position data is pending.
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setShouldRenderLists(true);
+      }, 200);
+      return () => {
+        clearTimeout(timer);
+      };
+    }, []);
+
     return (
       <YStack>
         <XStack
@@ -187,15 +226,19 @@ const SwapProTabListContainer = memo(
                 focusSwapPro ? ESwapProAnalyticsTab.POSITIONS : undefined
               }
             />
-            <SwapProPositionsList
-              onTokenPress={onTokenPress}
-              onSearchClick={onSearchClick}
-              filterToken={filterToken}
-              cachedTokenList={cachedPositionTokenList}
-              hasPositionOwner={hasPositionOwner}
-              hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-              isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
-            />
+            {shouldRenderPositionsContent ? (
+              <SwapProPositionsList
+                onTokenPress={onTokenPress}
+                onSearchClick={onSearchClick}
+                filterToken={filterToken}
+                positionTokenList={positionTokenList}
+                positionLoadError={positionLoadError}
+                positionLoading={positionLoading}
+                onRetry={retryPositions}
+              />
+            ) : (
+              <SwapProTabListSkeleton />
+            )}
           </YStack>
           {focusSwapPro ? (
             <YStack
@@ -207,13 +250,15 @@ const SwapProTabListContainer = memo(
               <SwapProCurrentSymbolEnable
                 analyticsTab={ESwapProAnalyticsTab.OPEN_ORDERS}
               />
-              {activeTab === ETabName.SwapProOpenOrders ? (
+              {shouldRenderListContent ? (
                 <LimitOrderList
                   onClickCell={onOpenOrdersClick}
                   type="open"
                   filterToken={filterToken}
                 />
-              ) : null}
+              ) : (
+                <SwapProTabListSkeleton />
+              )}
             </YStack>
           ) : null}
           <YStack
@@ -225,7 +270,7 @@ const SwapProTabListContainer = memo(
                 regardless of the shared current-symbol filter. Swap & Bridge
                 and Pro share this surface, so they clear the same (non-stock)
                 dataset. */}
-            {activeTab === ETabName.SwapOrderHistory ? (
+            {shouldRenderListContent ? (
               <XStack mx="$-6">
                 <SwapMarketHistoryList
                   isPushModal
@@ -237,7 +282,9 @@ const SwapProTabListContainer = memo(
                   }
                 />
               </XStack>
-            ) : null}
+            ) : (
+              <SwapProTabListSkeleton />
+            )}
           </YStack>
         </YStack>
       </YStack>

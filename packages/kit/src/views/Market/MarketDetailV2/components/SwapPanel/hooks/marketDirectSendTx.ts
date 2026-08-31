@@ -86,7 +86,9 @@ type IMarketDirectSendParams = {
 type IEstimateMarketDirectGasInfosParams = Omit<
   IMarketDirectSendParams,
   'gasInfos'
->;
+> & {
+  preparedUnsignedTx?: IUnsignedTxPro;
+};
 
 export type IMarketPresetFeeEstimateFakeTxToken = Pick<
   ISwapTokenBase,
@@ -924,6 +926,31 @@ export function buildMarketGasInfoFeeInfo(gasInfo: ISwapGasInfo): IFeeInfoUnit {
   };
 }
 
+export async function prepareMarketDirectUnsignedTx({
+  accountId,
+  networkId,
+  buildUnsignedParams,
+  approveUnsignedTxArr,
+}: Pick<
+  IEstimateMarketDirectGasInfosParams,
+  'accountId' | 'networkId' | 'buildUnsignedParams' | 'approveUnsignedTxArr'
+>) {
+  if (!accountId || !networkId) {
+    throw new OneKeyError('account error');
+  }
+
+  const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
+  if (approveUnsignedTxArr?.length) {
+    buildUnsignedParamsCheckNonce.prevNonce =
+      approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
+  }
+
+  return backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+    ...buildUnsignedParamsCheckNonce,
+    isInternalSwap: true,
+  });
+}
+
 export async function estimateMarketDirectGasInfos({
   accountAddress,
   accountId,
@@ -933,6 +960,7 @@ export async function estimateMarketDirectGasInfos({
   networkFeeLevel,
   customPriorityFee,
   gasAccountAnalytics,
+  preparedUnsignedTx,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
@@ -944,17 +972,14 @@ export async function estimateMarketDirectGasInfos({
     throw new OneKeyError('account error');
   }
 
-  const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
-  if (approveUnsignedTxArr?.length) {
-    buildUnsignedParamsCheckNonce.prevNonce =
-      approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
-  }
-
   const unsignedTx =
-    await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-      ...buildUnsignedParamsCheckNonce,
-      isInternalSwap: true,
-    });
+    preparedUnsignedTx ??
+    (await prepareMarketDirectUnsignedTx({
+      accountId,
+      networkId,
+      buildUnsignedParams,
+      approveUnsignedTxArr,
+    }));
 
   const gasInfos = await resolveMarketGasInfos({
     accountAddress,

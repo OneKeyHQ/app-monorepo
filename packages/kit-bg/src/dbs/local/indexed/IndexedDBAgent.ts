@@ -70,10 +70,16 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
   clearRecords({ name }: { name: ELocalDBStoreNames }): Promise<void> {
     const bucketName = indexedUtils.getBucketNameByStoreName(name);
-    return this.withTransaction(bucketName, async (tx) => {
-      const store = this._getObjectStoreFromTx(tx, name);
-      await store.clear();
-    });
+    return this.withTransaction(
+      bucketName,
+      async (tx) => {
+        const store = this._getObjectStoreFromTx(tx, name);
+        await store.clear();
+      },
+      // Clearing a store frees space, so it must stay available while the
+      // disk-full guard is raised.
+      { allowWhenStorageFull: true },
+    );
   }
 
   getIndexedByBucketName(
@@ -134,10 +140,12 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     bucketName,
     alwaysCreate = true,
     readOnly = false,
+    allowWhenStorageFull = false,
   }: {
     bucketName: EIndexedDBBucketNames;
     alwaysCreate: boolean;
     readOnly?: boolean;
+    allowWhenStorageFull?: boolean;
   }) {
     // oxlint-disable-next-line @cspell/spellchecker
     // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
@@ -154,6 +162,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
         // 'readwrite',
         mode,
+        { allowWhenStorageFull },
       );
       let contextStore: any;
       let walletStore: any;
@@ -365,6 +374,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       bucketName,
       alwaysCreate: true,
       readOnly: options?.readOnly,
+      allowWhenStorageFull: options?.allowWhenStorageFull,
     });
 
     try {

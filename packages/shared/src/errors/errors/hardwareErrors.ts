@@ -462,6 +462,19 @@ export class BluetoothUnavailableWhileUsbConnectedError extends OneKeyHardwareEr
   override code = HardwareErrorCode.BleUnavailableWhileUsbConnected;
 }
 
+export class DeviceLockedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceLockedError',
+        defaultKey: ETranslations.hardware_third_party_device_locked,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceLocked;
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

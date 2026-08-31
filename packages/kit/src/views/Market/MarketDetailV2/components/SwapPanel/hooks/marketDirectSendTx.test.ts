@@ -562,6 +562,25 @@ describe('marketDirectSendTx', () => {
     expect(highFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
   });
 
+  it('reuses a prepared unsigned transaction for fee estimation', async () => {
+    const preparedUnsignedTx = createUnsignedTx();
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        isInternalSwap: true,
+      },
+      preparedUnsignedTx,
+    });
+
+    expect(mockPrepareSendConfirmUnsignedTx).not.toHaveBeenCalled();
+    expect(result.preparedUnsignedTx).toBe(preparedUnsignedTx);
+  });
+
   it('converts a custom EVM legacy priority fee from Gwei to fee unit', async () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
 

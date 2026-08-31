@@ -2189,28 +2189,15 @@ function StockMobilePositionsSection({
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { selectStockSwapToken } = stockChannel;
   const {
-    cachedPositionTokenList,
-    hasCachedPositionSnapshot,
-    hasPositionOwner,
-    isLiveTokenListForCurrentOwner,
+    positionLoadError,
+    positionLoading,
+    positionTokenList,
+    swapProLoadSupportNetworksTokenListRun,
   } = useSwapProSupportNetworksTokenList(
     supportNetworksList,
     supportNetworksReady,
+    { stockOnly: true },
   );
-  const startedWithoutPositionsContentRef = useRef<boolean | undefined>(
-    undefined,
-  );
-  if (
-    startedWithoutPositionsContentRef.current === undefined &&
-    hasPositionOwner
-  ) {
-    startedWithoutPositionsContentRef.current =
-      !hasCachedPositionSnapshot && !isLiveTokenListForCurrentOwner;
-  }
-  const deferInitialPositionsContent = shouldDeferStockInitialContent({
-    channelStage: stockChannel.channelStage,
-    startedWithoutContent: startedWithoutPositionsContentRef.current === true,
-  });
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockChannel.stockNetworkId || undefined,
     storeName,
@@ -2238,6 +2225,12 @@ function StockMobilePositionsSection({
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
     'position',
   );
+  const retryPositions = useCallback(() => {
+    void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+      forceRefresh: true,
+      stockOnly: true,
+    });
+  }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
   return (
     <YStack mt="$2">
@@ -2300,11 +2293,10 @@ function StockMobilePositionsSection({
             onTokenPress={handlePositionPress}
             onSearchClick={handleOpenStockTokenSelector}
             filterToken={filterToken}
-            cachedTokenList={cachedPositionTokenList}
-            hasPositionOwner={hasPositionOwner}
-            hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-            isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
-            deferInitialContent={deferInitialPositionsContent}
+            positionTokenList={positionTokenList}
+            positionLoadError={positionLoadError}
+            positionLoading={positionLoading}
+            onRetry={retryPositions}
             stockOnly
             hideSearch
           />

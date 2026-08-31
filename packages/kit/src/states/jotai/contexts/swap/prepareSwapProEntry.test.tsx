@@ -21,6 +21,7 @@ import {
   swapFromTokenAmountAtom,
   swapProDirectionAtom,
   swapProSelectTokenAtom,
+  swapProUserSelectedTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
@@ -187,6 +188,7 @@ describe('prepareSwapProEntry', () => {
     store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
     store.set(swapSelectToTokenAtom(), ordinaryToToken);
     store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
+    store.set(swapProUserSelectedTokenAtom(), proToken);
 
     prepareSwapProEntry({
       direction: ESwapDirection.BUY,
@@ -209,6 +211,7 @@ describe('prepareSwapProEntry', () => {
       value: '1',
       isInput: true,
     });
+    expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
   });
 
   it('does not modify the modal Swap store', () => {

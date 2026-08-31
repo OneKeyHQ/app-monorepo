@@ -1,4 +1,5 @@
 import {
+  TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
   TRADING_VIEW_NATIVE_THEME_COLORS,
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
@@ -20,6 +21,7 @@ describe('TradingViewNative chart settings adapter', () => {
 
   it('round-trips supported chart settings without the countdown option', () => {
     const currentSettings = createTradingViewNativeChartSettings();
+    currentSettings.chartType = 'area';
     currentSettings.options.yAxis = false;
     const value = getTradingViewChartSettingsValue(currentSettings);
     const candleSection = value.appearanceSections.find(
@@ -33,6 +35,7 @@ describe('TradingViewNative chart settings adapter', () => {
     value.options.yAxis = true;
     value.options.countdown = false;
     value.options.latestPrice = false;
+    value.options.previousClose = true;
     value.latestPriceLine.upColor = '#123456';
     value.latestPriceLine.downColor = '#654321';
     value.background.style = 'gradient';
@@ -43,9 +46,11 @@ describe('TradingViewNative chart settings adapter', () => {
       value,
     });
 
+    expect(nextSettings.chartType).toBe('area');
     expect(nextSettings.options.yAxis).toBe(true);
     expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
+    expect(nextSettings.options.previousClose).toBe(true);
     expect(nextSettings.latestPriceLine).toEqual({
       ...currentSettings.latestPriceLine,
       upColor: '#123456',
@@ -90,10 +95,50 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(migrated).toEqual(createTradingViewNativeChartSettings());
   });
 
+  it('does not repeat the theme migration for schema version 2 settings', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+    Object.assign(previousSettings, {
+      schemaVersion: 2,
+      background: { style: 'solid', colors: ['#000000', '#171717'] },
+      grid: {
+        style: 'both',
+        horizontalColor: '#171717',
+        verticalColor: '#171717',
+      },
+    });
+
+    const migrated = normalizeTradingViewNativeChartSettings(previousSettings);
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.background.colors).toEqual(['#000000', '#171717']);
+    expect(migrated.grid.horizontalColor).toBe('#171717');
+    expect(migrated.grid.verticalColor).toBe('#171717');
+  });
+
+  it('keeps the previous-close line hidden when migrating schema version 3 settings', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+    const { previousClose: _previousClose, ...legacyOptions } =
+      previousSettings.options;
+
+    const migrated = normalizeTradingViewNativeChartSettings({
+      ...previousSettings,
+      schemaVersion: 3,
+      options: legacyOptions,
+    });
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.options.previousClose).toBe(false);
+  });
+
   it('sanitizes malformed nested values in the current persisted schema', () => {
     const fallback = createTradingViewNativeChartSettings();
     const normalized = normalizeTradingViewNativeChartSettings({
       schemaVersion: fallback.schemaVersion,
+      chartType: 'unsupported',
       candles: null,
       options: {
         yAxis: false,

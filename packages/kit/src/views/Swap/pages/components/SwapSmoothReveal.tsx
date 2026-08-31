@@ -67,7 +67,7 @@ export function SwapSmoothReveal({
       {visible ? (
         <Stack
           key="swapSmoothReveal"
-          animation="smooth"
+          transition="smooth"
           animateOnly={ANIMATE_ONLY_SMOOTH_REVEAL}
           overflow="hidden"
           mt={isGapTop && parentGap ? -parentGap : undefined}

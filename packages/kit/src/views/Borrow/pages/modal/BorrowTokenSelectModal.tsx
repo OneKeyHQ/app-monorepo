@@ -337,10 +337,7 @@ export default function BorrowTokenSelectModal() {
           isLoading={Boolean(isLoading)}
           columns={columns}
           skeletonCount={6}
-          onPressRow={(item) => {
-            if (item.reserveAddress === currentReserveAddress) return;
-            handleSelect(item);
-          }}
+          onPressRow={handleSelect}
           listProps={{
             listItemProps: (item) =>
               item.reserveAddress === currentReserveAddress

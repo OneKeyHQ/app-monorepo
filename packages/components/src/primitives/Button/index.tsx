@@ -182,14 +182,15 @@ const useSizeStyles = (size: IButtonProps['size']) =>
   }, [size]);
 
 export const ButtonFrame = styled(ThemeableStack, {
-  tag: 'button',
+  // The accessible label is supplied by ButtonFrame children at render time.
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label
+  render: <button type="button" />,
   role: 'button',
-  type: 'button',
   flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
   borderRadius: '$full',
-} as IButtonProps);
+});
 
 function ButtonIcon({
   size,
@@ -353,7 +354,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
                 : buttonTextColor
             }
             textAlign={textAlign}
-            ellipse={textEllipsis}
+            ellipsis={textEllipsis}
           >
             {children}
           </SizableText>

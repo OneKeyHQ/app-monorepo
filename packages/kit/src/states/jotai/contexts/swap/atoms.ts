@@ -10,6 +10,7 @@ import { sanitizeSwapSelectedTokenColdStartSnapshot } from '@onekeyhq/kit/src/vi
 import {
   EMPTY_SWAP_PRO_POSITIONS_CACHE,
   type ISwapProPositionsCache,
+  type ISwapProPositionsRuntimeData,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsCacheUtils';
 import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -427,6 +428,7 @@ export const {
   address?: string;
   receivingAddress?: string;
   quoteRequestId?: string;
+  manualRefresh?: boolean;
 }>({ actionLock: false });
 
 export const {
@@ -800,6 +802,10 @@ export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
       token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
   });
 
+export const { atom: swapProUserSelectedTokenAtom } = contextAtom<
+  ISwapToken | undefined
+>(undefined);
+
 export const { atom: swapProDirectionAtom, use: useSwapProDirectionAtom } =
   contextAtom<ESwapDirection>(ESwapDirection.BUY);
 
@@ -843,24 +849,22 @@ export const { atom: swapProTimeRangeAtom, use: useSwapProTimeRangeAtom } =
     value: defaultTimeRangeItem.value,
   });
 
-export const {
-  atom: swapProSupportNetworksTokenListAtom,
-  use: useSwapProSupportNetworksTokenListAtom,
-} = contextAtom<ISwapToken[]>([]);
-
 export function buildSwapProPositionsOwnerKey({
   accountId,
   networkIdsKey,
   currencyId,
+  stockOnly,
 }: {
   accountId?: string;
   networkIdsKey: string;
   currencyId: string;
+  stockOnly?: boolean;
 }) {
   if (!accountId || !networkIdsKey || !currencyId) {
     return '';
   }
-  return `${accountId}__${networkIdsKey}__${currencyId.toLowerCase()}`;
+  const baseKey = `${accountId}__${networkIdsKey}__${currencyId.toLowerCase()}`;
+  return stockOnly ? `${baseKey}__stock` : baseKey;
 }
 
 export const {
@@ -873,9 +877,9 @@ export const {
 });
 
 export const {
-  atom: swapProPositionsCurrentOwnerKeyAtom,
-  use: useSwapProPositionsCurrentOwnerKeyAtom,
-} = contextAtom<string>('');
+  atom: swapProPositionsRuntimeDataAtom,
+  use: useSwapProPositionsRuntimeDataAtom,
+} = contextAtom<ISwapProPositionsRuntimeData>({});
 
 export const {
   atom: swapProPositionsRequestIdAtom,
@@ -886,11 +890,6 @@ export const {
   atom: swapProPositionsRequestIdsAtom,
   use: useSwapProPositionsRequestIdsAtom,
 } = contextAtom<Record<string, number>>({});
-
-export const {
-  atom: swapProPositionsDataOwnerKeyAtom,
-  use: useSwapProPositionsDataOwnerKeyAtom,
-} = contextAtom<string>('');
 
 export const { atom: swapProTokenBalanceRequestIdAtom } =
   contextAtom<number>(0);

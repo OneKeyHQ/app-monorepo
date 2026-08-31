@@ -121,7 +121,9 @@ async function waitForBackgroundApi(page) {
           globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
             ?.runLocalSecretEnvelopeSelfTest &&
           globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
-            ?.runLocalSecretEnvelopeRestoreSelfTest,
+            ?.runLocalSecretEnvelopeRestoreSelfTest &&
+          globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
+            ?.runHyperLiquidAgentMigrationSelfTest,
         ),
       )
       .catch(() => false);
@@ -148,6 +150,11 @@ async function runLocalSecretEnvelopeFlow(page) {
       if (!serviceE2E.runLocalSecretEnvelopeRestoreSelfTest) {
         throw new Error(
           'serviceE2E.runLocalSecretEnvelopeRestoreSelfTest unavailable',
+        );
+      }
+      if (!serviceE2E.runHyperLiquidAgentMigrationSelfTest) {
+        throw new Error(
+          'serviceE2E.runHyperLiquidAgentMigrationSelfTest unavailable',
         );
       }
       return serviceE2E.runLocalSecretEnvelopeSelfTest(
@@ -210,8 +217,46 @@ async function runLocalSecretEnvelopeFlow(page) {
   assert.equal(restoreSummary.backupRejectsRawLocalSecretEnvelope, true);
   assert.equal(restoreSummary.primeTransferRejectsRawLocalSecretEnvelope, true);
 
+  const agentMigrationResult = await page.evaluate(
+    async ({ devOnlyPassword }) => {
+      const serviceE2E =
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
+      return serviceE2E.runHyperLiquidAgentMigrationSelfTest(
+        {
+          $$devOnlyPassword: devOnlyPassword,
+        },
+        {
+          expectedCredentialLayerKinds: ['indexeddb-cryptokey'],
+          expectedRuntimePlatform: 'extension',
+          expectedStrength: 'profile-bound',
+        },
+      );
+    },
+    {
+      devOnlyPassword: getDevOnlyPassword(),
+    },
+  );
+
+  assert.equal(agentMigrationResult.passed, true);
+  assert.equal(agentMigrationResult.runtimePlatform, 'extension');
+  const agentSummary = agentMigrationResult.summary || {};
+  assert.equal(agentSummary.legacySourceStored, true);
+  assert.equal(agentSummary.rawCredentialIsLse, true);
+  assert.equal(agentSummary.expectedInnerPrefix, '|HLE|');
+  assert.equal(agentSummary.migratedInnerPrefix, '|HLE|');
+  assert.deepEqual(agentSummary.credentialLayerKinds, ['indexeddb-cryptokey']);
+  assert.equal(agentSummary.credentialStrength, 'profile-bound');
+  assert.equal(agentSummary.privateKeyAbsentFromEnvelope, true);
+  assert.equal(agentSummary.readBackMatches, true);
+  assert.equal(agentSummary.signatureVerified, true);
+  assert.equal(agentSummary.sessionRestored, true);
+  assert.equal(agentSummary.restoredSessionDecrypts, true);
+  assert.equal(agentSummary.lockedSigningBlocked, true);
+  assert.equal(agentSummary.wrongPasswordSigningBlocked, true);
+  assert.equal(agentSummary.signingAfterUnlockAgainVerified, true);
+
   log(
-    'local secret envelope extension self-test passed (indexeddb-cryptokey + restore)',
+    'local secret envelope extension self-test passed (indexeddb-cryptokey + restore + HL Agent migration)',
   );
 }
 

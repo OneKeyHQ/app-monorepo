@@ -1759,14 +1759,47 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       return persisted;
     }) as never);
 
-    await entity.clearInfiniPendingPaymentSession({
-      onekeyUserId: 'user-1',
-      expectedPaymentCacheIdentity: session.paymentCacheKey,
-    });
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
 
     expect(persisted.infiniPendingPaymentSessionByUserId['user-1']).toEqual(
       replacement,
     );
+  });
+
+  test('atomically clears the matching payment session', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const persistedSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now(),
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': persistedSession,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(true);
+
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
+    ).toBeUndefined();
   });
 
   test('atomically discards the matching unsent payment session', async () => {
@@ -2967,4 +3000,208 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       ).toBe(false);
     },
   );
+});
+
+function createPrimeAnalyticsEntityWithStore(initial: ISimpleDBPrime = {}) {
+  const entity = new SimpleDbEntityPrime();
+  let persisted: ISimpleDBPrime = initial;
+  jest
+    .spyOn(entity, 'getRawData')
+    .mockImplementation((async () => persisted) as never);
+  const setRawDataSpy = jest
+    .spyOn(entity, 'setRawData')
+    .mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+  return { entity, getPersisted: () => persisted, setRawDataSpy };
+}
+
+describe('SimpleDbEntityPrime identity-link analytics TTL', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  test('records the first link for a user', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+    await entity.recordIdentityLinkReported({ onekeyUserId: 'user-1', now });
+    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
+      'user-1': now,
+    });
+  });
+
+  test('suppresses re-reports within the TTL without touching storage', async () => {
+    const now = Date.now();
+    const { entity, getPersisted, setRawDataSpy } =
+      createPrimeAnalyticsEntityWithStore({
+        identityLinkReportedAtByUserId: { 'user-1': now - DAY_MS },
+      });
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(false);
+    expect(getPersisted().identityLinkReportedAtByUserId).toEqual({
+      'user-1': now - DAY_MS,
+    });
+    expect(setRawDataSpy).not.toHaveBeenCalled();
+  });
+
+  test('peeking due does not write the timestamp', async () => {
+    const { entity, setRawDataSpy } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+    expect(setRawDataSpy).not.toHaveBeenCalled();
+  });
+
+  test('re-reports after the TTL elapses', async () => {
+    const now = Date.now();
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      identityLinkReportedAtByUserId: { 'user-1': now - 8 * DAY_MS },
+    });
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+  });
+
+  test('re-reports when the recorded timestamp is in the future (clock rollback)', async () => {
+    const now = Date.now();
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      identityLinkReportedAtByUserId: { 'user-1': now + DAY_MS },
+    });
+
+    await expect(
+      entity.isIdentityLinkDue({ onekeyUserId: 'user-1', now }),
+    ).resolves.toBe(true);
+  });
+
+  test('prunes the record to the most recent users', async () => {
+    const now = Date.now();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      identityLinkReportedAtByUserId: {
+        'user-1': now - 5,
+        'user-2': now - 4,
+        'user-3': now - 3,
+        'user-4': now - 2,
+        'user-5': now - 1,
+      },
+    });
+
+    await entity.recordIdentityLinkReported({ onekeyUserId: 'user-6', now });
+    const persistedRecord = getPersisted().identityLinkReportedAtByUserId;
+    expect(Object.keys(persistedRecord ?? {})).toHaveLength(5);
+    expect(persistedRecord?.['user-6']).toBe(now);
+    expect(persistedRecord?.['user-1']).toBeUndefined();
+  });
+});
+
+describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  test('records the first profile snapshot', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: false,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toBe(true);
+    await entity.recordPrimeProfileReported({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+      now,
+    });
+    expect(getPersisted().analyticsPrimeProfileReport).toEqual({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+      reportedAt: now,
+    });
+  });
+
+  test('peeking due does not write the profile snapshot', async () => {
+    const { entity, setRawDataSpy } = createPrimeAnalyticsEntityWithStore();
+    const now = Date.now();
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: false,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toBe(true);
+    expect(setRawDataSpy).not.toHaveBeenCalled();
+  });
+
+  test('suppresses unchanged values within the TTL without touching storage', async () => {
+    const now = Date.now();
+    const { entity, getPersisted, setRawDataSpy } =
+      createPrimeAnalyticsEntityWithStore({
+        analyticsPrimeProfileReport: {
+          isOneKeyIdLoggedIn: true,
+          isPrimeActive: false,
+          reportedAt: now - DAY_MS,
+        },
+      });
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: false,
+        now,
+      }),
+    ).resolves.toBe(false);
+    expect(getPersisted().analyticsPrimeProfileReport?.reportedAt).toBe(
+      now - DAY_MS,
+    );
+    expect(setRawDataSpy).not.toHaveBeenCalled();
+  });
+
+  test('reports immediately when a value changes', async () => {
+    const now = Date.now();
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: false,
+        reportedAt: now - 1000,
+      },
+    });
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        now,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  test('re-asserts unchanged values after the TTL', async () => {
+    const now = Date.now();
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        reportedAt: now - 8 * DAY_MS,
+      },
+    });
+
+    await expect(
+      entity.isPrimeProfileDue({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+        now,
+      }),
+    ).resolves.toBe(true);
+  });
 });

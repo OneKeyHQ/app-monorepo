@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import * as hardwareInstance from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -179,6 +180,43 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: undefined,
     });
+  });
+
+  it('Protocol V2 硬件调用边界不再固定等待', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    }) as unknown as {
+      getKnownDeviceProtocol: jest.Mock;
+      waitForLegacyHardwareCallBoundary(connectId: string): Promise<void>;
+    };
+    service.getKnownDeviceProtocol = jest.fn().mockResolvedValue('V2');
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.waitForLegacyHardwareCallBoundary('PRO2_USB');
+
+    expect(waitSpy).not.toHaveBeenCalled();
+    waitSpy.mockRestore();
+  });
+
+  it('Protocol V1 和未知协议保留硬件调用边界等待', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    }) as unknown as {
+      getKnownDeviceProtocol: jest.Mock;
+      waitForLegacyHardwareCallBoundary(connectId: string): Promise<void>;
+    };
+    service.getKnownDeviceProtocol = jest
+      .fn()
+      .mockResolvedValueOnce('V1')
+      .mockResolvedValueOnce(undefined);
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.waitForLegacyHardwareCallBoundary('PRO_USB');
+    await service.waitForLegacyHardwareCallBoundary('UNKNOWN_USB');
+
+    expect(waitSpy).toHaveBeenNthCalledWith(1, 600);
+    expect(waitSpy).toHaveBeenNthCalledWith(2, 600);
+    waitSpy.mockRestore();
   });
 
   it('升级时仅迁移历史 OneKey 硬件设备的连接协议', async () => {

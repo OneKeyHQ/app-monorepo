@@ -13,6 +13,7 @@ export function TradingViewNativeFullscreenButton({
   chartHeight,
   isFullscreen,
   onPress,
+  timeAxisHeight,
   visibleSubIndicatorCount,
 }: ITradingViewNativeFullscreenButtonProps) {
   const intl = useIntl();
@@ -25,6 +26,7 @@ export function TradingViewNativeFullscreenButton({
       bottom={getTradingViewNativeFullscreenButtonBottom({
         chartHeight,
         paneCount: visibleSubIndicatorCount,
+        timeAxisHeight,
       })}
       zIndex={2}
       size="small"

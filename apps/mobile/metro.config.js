@@ -7,6 +7,14 @@
  */
 const path = require('path');
 
+// This must run before Metro dependencies load the Babel/environment config.
+// oxlint-disable-next-line import-js/order
+const devVendorConfig = require('./dev-vendor.config');
+
+if (process.env.ONEKEY_DEV_VENDOR === 'true') {
+  devVendorConfig.applyTransformationEnvironment(process.env);
+}
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
@@ -29,6 +37,17 @@ const defaultConfig = getDefaultConfig(projectRoot);
 // Use Sentry Expo's Metro config as a base, merged with the RN default config
 const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
+
+// Expo CLI normally injects this polyfill around Metro. Our native release and
+// union builders call Metro directly, so include it in the shared config too.
+const originalGetPolyfills = config.serializer.getPolyfills;
+config.serializer.getPolyfills = (options) =>
+  Array.from(
+    new Set([
+      ...originalGetPolyfills(options),
+      require.resolve('expo/virtual/streams.js'),
+    ]),
+  );
 
 config.projectRoot = projectRoot;
 config.watchFolders = Array.from(
@@ -299,10 +318,21 @@ if (process.env.RN_HARNESS === 'true') {
         }
       }
     }
-    // Replace react-native-mmkv with an in-memory mock during harness tests.
-    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
-    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
-    if (moduleName === 'react-native-mmkv') {
+    const normalizedOriginModulePath = context.originModulePath?.replaceAll(
+      '\\',
+      '/',
+    );
+    const isLocalSecretEnvelopeNativeMmkvStorage =
+      normalizedOriginModulePath?.includes(
+        '/packages/kit-bg/src/dbs/local/localSecretEnvelope/mmkvProfileKeyStorage.native.',
+      );
+    // Most harness tests use an in-memory MMKV facade because appStorage is
+    // mocked. The native LSE storage adapter is the deliberate exception: its
+    // restart suite must exercise the real JSI-backed persistent MMKV instance.
+    if (
+      moduleName === 'react-native-mmkv' &&
+      !isLocalSecretEnvelopeNativeMmkvStorage
+    ) {
       return {
         type: 'sourceFile',
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
@@ -344,12 +374,21 @@ if (process.env.RN_HARNESS === 'true') {
 }
 
 const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+
+const splitCodePlugin = require('./plugins');
+const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+if (isDevVendorEnabled()) {
+  config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
+}
 
 if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
   const configuredMaxWorkers = Number.parseInt(
@@ -462,12 +501,31 @@ config.server.rewriteRequestUrl = (url) => {
     }resolver.runtimeTarget=${runtimeTarget}`;
   }
 
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('resolver.devVendor=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.devVendor=true`;
+  }
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('unstable_transformProfile=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }unstable_transformProfile=hermes-stable`;
+  }
+
   return rewrittenUrl;
 };
 
 // Apply split code plugin, then wrap with Rozenite plugin
-const splitCodePlugin = require('./plugins');
-
 const GET_TOP_DIR_SYMBOL = 'relative_dir_symbol';
 const buildRelativeDirPath = (url, depth = 2) => {
   const symbols = Array.from({ length: depth }, () => GET_TOP_DIR_SYMBOL).join(
@@ -532,11 +590,16 @@ config.cacheVersion = [
   .filter(Boolean)
   .join('-');
 
+const metroConfigWithPlugins = applyDevVendorConfig(
+  splitCodePlugin(config, projectRoot),
+  projectRoot,
+);
+
 module.exports = withRozenite(
   // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
   // strips every storybook module from the bundle via its resolver, so normal
   // and production builds are unaffected.
-  withStorybook(splitCodePlugin(config, projectRoot), {
+  withStorybook(metroConfigWithPlugins, {
     enabled: process.env.STORYBOOK_ENABLED === 'true',
     configPath: path.resolve(projectRoot, './.rnstorybook'),
     // Explicit localhost keeps the generated storybook.requires.ts stable —
