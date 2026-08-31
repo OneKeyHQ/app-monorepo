@@ -84,11 +84,11 @@ const styles = StyleSheet.create({
   },
   // Powered-on-but-empty panel: the family's faint luminance field.
   screenGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   screenSlot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });
 
