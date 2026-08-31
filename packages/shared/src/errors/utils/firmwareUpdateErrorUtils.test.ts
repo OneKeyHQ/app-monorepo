@@ -123,6 +123,25 @@ describe('firmwareUpdateErrorUtils', () => {
   });
 
   it.each([
+    [HardwareErrorCode.BleTimeoutError, 'timeout'],
+    [HardwareErrorCode.BleDeviceDisconnected, 'device_disconnected'],
+  ] as const)(
+    'prefers wrapped transport cause code %s for classification as %s',
+    (causeCode, expected) => {
+      const error = {
+        code: HardwareErrorCode.RuntimeError,
+        payload: {
+          code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+          params: { causeCode },
+        },
+      };
+
+      expect(classifyFirmwareUpdateFailure(error)).toBe(expected);
+      expect(resolveFirmwareUpdateErrorCode(error)).toBe(String(causeCode));
+    },
+  );
+
+  it.each([
     ['ARTIFACT_NETWORK_FAILED: request failed', 'download'],
     ['ARTIFACT_HTTP_503: unavailable', 'download'],
     ['ARTIFACT_TLS_FAILED: validation failed', 'download'],

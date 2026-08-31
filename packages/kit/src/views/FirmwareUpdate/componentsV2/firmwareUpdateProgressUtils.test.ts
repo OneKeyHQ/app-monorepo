@@ -4,6 +4,7 @@ import {
   calculateProgressInRange,
   getFirmwareTransferDisplayMetrics,
   normalizeFirmwareUpdateProgressType,
+  resolveFirmwareInstallProgress,
 } from './firmwareUpdateProgressUtils';
 
 describe('firmwareUpdateProgressUtils', () => {
@@ -37,6 +38,21 @@ describe('firmwareUpdateProgressUtils', () => {
         currentProgress: 150,
       }),
     ).toBe(90);
+  });
+
+  test('安装阶段优先使用 phase progress，并在缺失时回退总体进度', () => {
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: 45,
+        firmwareProgress: 0,
+      }),
+    ).toBe(45);
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: undefined,
+        firmwareProgress: 30,
+      }),
+    ).toBe(30);
   });
 
   test('formats stable transfer speed and ETA after warm-up', () => {

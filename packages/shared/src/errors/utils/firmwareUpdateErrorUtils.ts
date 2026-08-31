@@ -43,7 +43,11 @@ function getErrorText(error: IOneKeyError | undefined): string {
 function getFirmwareUpdateErrorCodes(
   error: IOneKeyError | undefined,
 ): (number | string)[] {
-  return [error?.payload?.code, error?.code].filter(
+  return [
+    error?.payload?.params?.causeCode,
+    error?.payload?.code,
+    error?.code,
+  ].filter(
     (code): code is number | string =>
       typeof code === 'number' || typeof code === 'string',
   );
@@ -177,6 +181,17 @@ export function classifyFirmwareUpdateFailure(
   }
   if (
     hasFirmwareUpdateErrorCode(error, [
+      HardwareErrorCode.BridgeTimeoutError,
+      HardwareErrorCode.BleTimeoutError,
+      HardwareErrorCode.IframeTimeout,
+      HardwareErrorCode.PollingTimeout,
+    ])
+    || getErrorText(error).toLowerCase().includes('timeout')
+  ) {
+    return 'timeout';
+  }
+  if (
+    hasFirmwareUpdateErrorCode(error, [
       HardwareErrorCode.EmmcFileWriteFirmwareError,
       HardwareErrorCode.BleWriteCharacteristicError,
       HardwareErrorCode.BridgeNetworkError,
@@ -191,17 +206,6 @@ export function classifyFirmwareUpdateFailure(
     ])
   ) {
     return 'verification';
-  }
-  if (
-    hasFirmwareUpdateErrorCode(error, [
-      HardwareErrorCode.BridgeTimeoutError,
-      HardwareErrorCode.BleTimeoutError,
-      HardwareErrorCode.IframeTimeout,
-      HardwareErrorCode.PollingTimeout,
-    ]) ||
-    getErrorText(error).toLowerCase().includes('timeout')
-  ) {
-    return 'timeout';
   }
   if (
     hasFirmwareUpdateErrorCode(error, [

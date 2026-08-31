@@ -932,6 +932,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
       } as never),
     ).rejects.toThrow('hardware processing unavailable');
 
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
     expect(
       jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
@@ -990,6 +991,9 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
   });
 
   it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const startedSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateStarted')
+      .mockImplementation((params) => params);
     const setForceTransportType = jest.fn().mockResolvedValue(undefined);
     const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
     const resolveHardwareTransport = jest.fn().mockResolvedValue({
@@ -1022,13 +1026,17 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       updatingConnectId: 'PRO2_BLE_ID',
       updateInfos: {},
     } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
 
     await expect(
       service.runUpdateWorkflowV2({
         backuped: true,
         usbConnected: true,
         releaseResult,
-      }),
+      }, workflowId),
     ).rejects.toThrow('stop after transport lock');
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
@@ -1039,6 +1047,15 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       forceTransportType: EHardwareTransportType.WEBUSB,
     });
     expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(startedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transportType: EHardwareTransportType.WEBUSB,
+        updateFlow: 'v2',
+      }),
+    );
+    expect(service.updateWorkflowTracking?.transportType).toBe(
+      EHardwareTransportType.WEBUSB,
+    );
     expect(clearForceTransportType).toHaveBeenCalledTimes(1);
   });
 });
@@ -1050,6 +1067,25 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('clears stale transfer samples before starting a V2 workflow', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'runUpdateWorkflowV2')
+      .mockReturnValue(new Promise(() => undefined));
+
+    await service.startUpdateWorkflowV2({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
   it('excludes time spent waiting for the user to retry', async () => {
@@ -1151,6 +1187,42 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
       expect.objectContaining({ retryCount: 2 }),
     );
+  });
+
+  it('uses the workflow transport instead of the persisted transport for attempts', async () => {
+    const attemptResultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+      .mockImplementation((params) => params);
+    const getHardwareTransportType = jest
+      .fn()
+      .mockResolvedValue(EHardwareTransportType.BLE);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceSetting: { getHardwareTransportType },
+      } as unknown as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+    service.recordUpdateWorkflowTransportType(
+      workflowId,
+      EHardwareTransportType.WEBUSB,
+    );
+
+    await service.trackUpdateTaskAttemptResult({
+      workflowId,
+      status: 'success',
+    });
+
+    expect(attemptResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(getHardwareTransportType).not.toHaveBeenCalled();
   });
 
   it('tracks an SDK cancellation separately from failed attempts', async () => {
@@ -1262,10 +1334,14 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const releaseResult = {
       updateInfos: {},
     } as ICheckAllFirmwareReleaseResult;
-    service.resetUpdateWorkflowTracking({
+    const workflowId = service.resetUpdateWorkflowTracking({
       updateFlow: 'v2',
       releaseResult,
     });
+    service.recordUpdateWorkflowTransportType(
+      workflowId,
+      EHardwareTransportType.WEBUSB,
+    );
 
     await service.failUpdateWorkflow({
       params: {
@@ -1281,6 +1357,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
         status: 'cancelled',
         failureType: 'cancelled',
         errorCode: 'ARTIFACT_CANCELLED',
+        transportType: EHardwareTransportType.WEBUSB,
       }),
     );
     expect(resultSpy.mock.calls[0][0]).not.toHaveProperty('errorMessage');

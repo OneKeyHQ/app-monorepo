@@ -86,3 +86,15 @@ export function calculateProgressInRange({
   const progress = startAt + (currentProgress ?? 0) * ((maxAt - startAt) / 100);
   return Math.min(progress, maxAt);
 }
+
+export function resolveFirmwareInstallProgress({
+  installPhaseProgress,
+  firmwareProgress,
+}: {
+  installPhaseProgress: number | undefined;
+  firmwareProgress: number | undefined;
+}) {
+  return Number.isFinite(installPhaseProgress)
+    ? installPhaseProgress
+    : firmwareProgress;
+}

@@ -50,6 +50,7 @@ import {
   calculateProgressInRange,
   getFirmwareTransferDisplayMetrics,
   normalizeFirmwareUpdateProgressType,
+  resolveFirmwareInstallProgress,
 } from './firmwareUpdateProgressUtils';
 
 interface IFirmwareUpdateVersionInfo {
@@ -312,6 +313,8 @@ export function FirmwareUpdateProgressBarV2({
   const firmwareProgress = progressState?.payload?.firmwareProgress;
   const firmwareProgressType = progressState?.payload?.firmwareProgressType;
   const firmwareInstallPhase = progressState?.payload?.firmwareInstallPhase;
+  const firmwareInstallPhaseProgress =
+    progressState?.payload?.firmwareInstallPhaseProgress;
   const firmwareTransferMetrics =
     progressState?.payload?.firmwareTransferMetrics ??
     state?.payload?.firmwareTransferMetrics ??
@@ -331,7 +334,7 @@ export function FirmwareUpdateProgressBarV2({
       displayMetrics.estimatedRemainingText
     ) {
       const estimatedTime = intl.formatMessage(
-        { id: ETranslations.perp_unifold_estimated_time__value },
+        { id: ETranslations.firmware_update_estimated_time__desc },
         { time: displayMetrics.estimatedRemainingText },
       );
       return `${transferSummary} · ${estimatedTime}`;
@@ -341,6 +344,10 @@ export function FirmwareUpdateProgressBarV2({
 
   const firmwareProgressRef = useRef(firmwareProgress);
   firmwareProgressRef.current = firmwareProgress;
+  const firmwareInstallPhaseProgressRef = useRef(
+    firmwareInstallPhaseProgress,
+  );
+  firmwareInstallPhaseProgressRef.current = firmwareInstallPhaseProgress;
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
@@ -417,7 +424,11 @@ export function FirmwareUpdateProgressBarV2({
             calculateProgressInRange({
               startAt: 50,
               maxAt: 90,
-              currentProgress: firmwareProgressRef.current,
+              currentProgress: resolveFirmwareInstallProgress({
+                installPhaseProgress:
+                  firmwareInstallPhaseProgressRef.current,
+                firmwareProgress: firmwareProgressRef.current,
+              }),
             }),
           desc: () => {
             return intl.formatMessage({
@@ -520,7 +531,11 @@ export function FirmwareUpdateProgressBarV2({
   }, [firmwareTipMessage]);
 
   useEffect(() => {
-    if (isNumber(firmwareProgress)) {
+    if (
+      isNumber(firmwareProgress) ||
+      (firmwareProgressType === 'installingFirmware' &&
+        isNumber(firmwareInstallPhaseProgress))
+    ) {
       if (
         firmwareProgress === 0 &&
         firmwareProgressType === 'installingFirmware' &&
@@ -536,6 +551,7 @@ export function FirmwareUpdateProgressBarV2({
     }
   }, [
     firmwareInstallPhase,
+    firmwareInstallPhaseProgress,
     firmwareProgress,
     firmwareProgressType,
     lastFirmwareTipMessage,

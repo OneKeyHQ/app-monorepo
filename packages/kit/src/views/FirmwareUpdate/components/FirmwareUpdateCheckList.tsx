@@ -148,15 +148,16 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  defaultLogger.update.firmware.firmwareUpdateStarted({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                  });
+                  if (!useV2FirmwareUpdateFlow) {
+                    defaultLogger.update.firmware.firmwareUpdateStarted({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                    });
+                  }
 
                   if (useV2FirmwareUpdateFlow) {
-                    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });

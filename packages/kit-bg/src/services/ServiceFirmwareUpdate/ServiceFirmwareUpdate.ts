@@ -1905,6 +1905,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         acceptsTaskResults: boolean;
         updateFlow: 'v1' | 'v2';
         releaseResult: ICheckAllFirmwareReleaseResult;
+        transportType: EHardwareTransportType | undefined;
         startedAt: number;
         activeStartedAt: number | undefined;
         activeDurationMs: number;
@@ -1928,6 +1929,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       acceptsTaskResults: true,
       updateFlow,
       releaseResult,
+      transportType: undefined,
       startedAt,
       activeStartedAt: startedAt,
       activeDurationMs: 0,
@@ -1942,6 +1944,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return tracking?.workflowId === workflowId && tracking.acceptsTaskResults
       ? tracking
       : undefined;
+  }
+
+  recordUpdateWorkflowTransportType(
+    workflowId: number,
+    transportType: EHardwareTransportType,
+  ) {
+    const tracking = this.getUpdateWorkflowTracking(workflowId);
+    if (!tracking) {
+      return false;
+    }
+    tracking.transportType = transportType;
+    return true;
+  }
+
+  private async getUpdateWorkflowTransportType() {
+    return (
+      this.updateWorkflowTracking?.transportType ??
+      this.getActiveTransportType()
+    );
   }
 
   isUpdateWorkflowCurrent(workflowId: number | undefined) {
@@ -2056,7 +2077,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // retry can clear the firmware UI state that owns the last sample.
       const trackingInfoPromise = this.getUpdateWorkflowTrackingInfo();
       const [hardwareTransportType, trackingInfo] = await Promise.all([
-        this.getActiveTransportType(),
+        tracking.transportType ?? this.getActiveTransportType(),
         trackingInfoPromise,
       ]);
       defaultLogger.update.firmware.firmwareUpdateAttemptResult({
@@ -2198,10 +2219,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startUpdateWorkflow(params: IUpdateFirmwareWorkflowParams) {
-    this.resetUpdateWorkflowTracking({
+    const workflowId = this.resetUpdateWorkflowTracking({
       updateFlow: 'v1',
       releaseResult: params.releaseResult,
     });
+    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
     });
@@ -2221,6 +2243,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
             // This prevents the system from switching to BLE when USB device is temporarily
             // unavailable during device reboot
             const currentTransportType = await this.getActiveTransportType();
+            this.recordUpdateWorkflowTransportType(
+              workflowId,
+              currentTransportType,
+            );
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
@@ -2420,7 +2446,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
 
     try {
-      const hardwareTransportType = await this.getActiveTransportType();
+      const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -2478,7 +2504,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     try {
-      const hardwareTransportType = await this.getActiveTransportType();
+      const hardwareTransportType = await this.getUpdateWorkflowTransportType();
       const trackingInfo = await this.getUpdateWorkflowTrackingInfo();
 
       defaultLogger.update.firmware.firmwareUpdateResult({
@@ -2523,7 +2549,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
   }
 
-  async runUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+  async runUpdateWorkflowV2(
+    params: IUpdateFirmwareWorkflowParams,
+    workflowId: number,
+  ) {
     try {
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
@@ -2561,6 +2590,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
                 );
               }
             }
+            this.recordUpdateWorkflowTransportType(
+              workflowId,
+              currentTransportType,
+            );
+            defaultLogger.update.firmware.firmwareUpdateStarted({
+              deviceType: params.releaseResult.deviceType,
+              transportType: currentTransportType,
+              updateFlow: 'v2',
+              firmwareVersions: parseFirmwareVersions(params.releaseResult),
+            });
             await this.backgroundApi.serviceHardware.setForceTransportType({
               forceTransportType: currentTransportType,
             });
@@ -2676,15 +2715,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async startUpdateWorkflowV2(
     params: IUpdateFirmwareWorkflowParams,
   ): Promise<IStartUpdateWorkflowV2Result> {
-    this.resetUpdateWorkflowTracking({
+    const workflowId = this.resetUpdateWorkflowTracking({
       updateFlow: 'v2',
       releaseResult: params.releaseResult,
     });
+    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     await firmwareUpdateWorkflowRunningAtom.set(true);
 
     void (async () => {
       try {
-        await this.runUpdateWorkflowV2(params);
+        await this.runUpdateWorkflowV2(params, workflowId);
         await this.completeUpdateWorkflow({
           params,
         });
