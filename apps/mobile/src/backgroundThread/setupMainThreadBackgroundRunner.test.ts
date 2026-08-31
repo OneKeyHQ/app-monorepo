@@ -28,6 +28,7 @@ jest.mock('@onekeyfe/react-native-background-thread', () => ({
   }),
   getSharedStore: () => ({
     get: () => mockReadyPayload,
+    keys: () => [],
     set: mockSharedStoreSet,
   }),
 }));
