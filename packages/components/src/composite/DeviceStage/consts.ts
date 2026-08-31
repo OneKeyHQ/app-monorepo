@@ -10,14 +10,15 @@ export const PORT_HEIGHT = 376;
 
 /**
  * The compact arrangement (the confirm step): the replica shrinks to a
- * full-body miniature. Scale is the flow spec's 80/290; the port height is
- * the whole scaled replica — width x the Pro 2 shell's 1714/1084 aspect x
- * scale — so nothing is cropped and the foot dissolve sits below the box.
- *
- * Derived from the Pro 2, the model the flow was drawn against. The
- * Classic and Pro are slightly taller for their width, so their miniatures
- * lose a few points of foot to the window here; deriving this per model
- * (each shell fixes its own aspect) is what that would take.
+ * full-body miniature. Scale is the flow spec's 80/290; the port height
+ * covers the tallest shell the window means to show whole — the Touch,
+ * 280 wide x its aspect x scale ≈ 129.6 — so the Classic, Pro, Pro 2 and
+ * Touch miniatures all keep their feet, the foot dissolve below the box.
+ * The Mini's tall body (~166.7 scaled) still overruns and loses its foot
+ * to the window: accepted (2026-08-31). A per-model port is not a
+ * drop-in: the port value doubles as the compact/full discriminator and
+ * as the height-arrange token in DeviceStage, so those roles would need
+ * their own flag first.
  */
 export const COMPACT_SCALE = 0.276;
-export const COMPACT_PORT_HEIGHT = 122;
+export const COMPACT_PORT_HEIGHT = 130;
