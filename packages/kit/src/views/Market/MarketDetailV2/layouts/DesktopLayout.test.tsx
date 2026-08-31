@@ -1,11 +1,14 @@
 /** @jest-environment jsdom */
 import { render } from '@testing-library/react';
 
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
+
 import { DesktopLayout } from './DesktopLayout';
 
 const mockStockDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
 );
+const fetchMarketStockKLineDataMock = jest.mocked(fetchMarketStockKLineData);
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -152,6 +155,11 @@ jest.mock('./TopCoinsDesktopLayout', () => ({
 }));
 
 describe('DesktopLayout', () => {
+  beforeEach(() => {
+    fetchMarketStockKLineDataMock.mockClear();
+    mockStockDesktopLayout.mockClear();
+  });
+
   it('forwards disableTrade to the stock desktop layout', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
@@ -174,5 +182,46 @@ describe('DesktopLayout', () => {
     expect(mockStockDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ disableTrade: true }),
     );
+  });
+
+  it('forwards the selected Pro interval to stock K-line requests', async () => {
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    const marketTradingView = mockStockDesktopLayout.mock.calls.at(-1)?.[0]
+      ?.marketTradingView as {
+      props: {
+        kLineDataFallback: (params: {
+          interval: string;
+          networkId: string;
+          timeFrom: number;
+          timeTo: number;
+          tokenAddress: string;
+        }) => Promise<unknown>;
+      };
+    };
+    await marketTradingView.props.kLineDataFallback({
+      interval: '15m',
+      networkId: 'evm--1',
+      timeFrom: 100,
+      timeTo: 200,
+      tokenAddress: '0xaapl',
+    });
+
+    expect(fetchMarketStockKLineDataMock).toHaveBeenCalledWith({
+      interval: '15m',
+      stockId: 'AAPL',
+      timeFrom: 100,
+      timeTo: 200,
+    });
   });
 });

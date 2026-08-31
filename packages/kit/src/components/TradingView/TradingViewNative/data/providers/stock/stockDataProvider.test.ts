@@ -42,7 +42,7 @@ describe('createTradingViewNativeStockDataProvider', () => {
       total: 1,
     });
     expect(fetchMarketStockKLineDataMock.mock.calls).toEqual([
-      [{ stockId: 'AAPL', timeFrom: 100, timeTo: 200 }],
+      [{ interval: '1H', stockId: 'AAPL', timeFrom: 100, timeTo: 200 }],
     ]);
     expect(provider.key).toBe('stock:AAPL');
     expect(provider.isReady).toBe(true);

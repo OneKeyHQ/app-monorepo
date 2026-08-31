@@ -305,8 +305,13 @@ export function DesktopLayout({
   const stockKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
     () =>
       stockId
-        ? ({ timeFrom, timeTo }) =>
-            fetchMarketStockKLineData({ stockId, timeFrom, timeTo })
+        ? ({ interval, timeFrom, timeTo }) =>
+            fetchMarketStockKLineData({
+              interval,
+              stockId,
+              timeFrom,
+              timeTo,
+            })
         : undefined,
     [stockId],
   );

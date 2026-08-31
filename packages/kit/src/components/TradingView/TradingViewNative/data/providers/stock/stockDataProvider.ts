@@ -16,8 +16,9 @@ export function createTradingViewNativeStockDataProvider(
     isReady: Boolean(source.stockId.trim()),
     key: getTradingViewNativeSourceKey(source),
     supportsRealtime: false,
-    fetchHistory: ({ timeFrom, timeTo }) =>
+    fetchHistory: ({ interval, timeFrom, timeTo }) =>
       fetchMarketStockKLineData({
+        interval: interval.label,
         stockId: source.stockId,
         timeFrom,
         timeTo,
