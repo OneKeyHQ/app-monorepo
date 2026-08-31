@@ -224,6 +224,14 @@ export type IDeviceStageBurstBeginParams = {
   vendorModelName?: string;
   /** Confirm-card payload for this burst, if the caller knows it upfront. */
   confirmContent?: IDeviceStageConfirmContent;
+  /**
+   * The caller wants the passphrase teach card played before the entry
+   * (the account selector's Add-hidden-wallet). Education is declared,
+   * never inferred: the driver cannot tell a deliberate add from
+   * onboarding's fork by the SDK event alone, and v6.5.2 teaches only
+   * on the deliberate one.
+   */
+  passphraseIntro?: boolean;
 };
 
 export class DeviceStageBurstScope {
@@ -273,6 +281,10 @@ export class DeviceStageBurstScope {
 
   /** The active burst's third-party vendor — drives the ✓ done beat. */
   private activeVendor: EHardwareVendor | undefined;
+
+  /** This burst's caller asked for the passphrase teach card — see
+   * IDeviceStageBurstBeginParams.passphraseIntro. */
+  private passphraseIntroRequested = false;
 
   /**
    * The step a UI-side runner authored (the authenticity flow's beats).
@@ -378,6 +390,9 @@ export class DeviceStageBurstScope {
     this.depth += 1;
     if (params.confirmContent) {
       this.confirmContent = params.confirmContent;
+    }
+    if (params.passphraseIntro) {
+      this.passphraseIntroRequested = true;
     }
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
@@ -492,6 +507,7 @@ export class DeviceStageBurstScope {
       return;
     }
     this.confirmContent = undefined;
+    this.passphraseIntroRequested = false;
     // A ✓ still resting when the last burst layer ends keeps its own
     // exit: the armed handover retires the narrative at full rest and
     // schedules this burst's off itself once depth is 0. Ending over it
@@ -726,15 +742,15 @@ export class DeviceStageBurstScope {
       // device is opening a wallet that does not exist yet: a creation,
       // which plays as the Add-hidden-wallet entry form.
       //
-      // No teach card here, on purpose (v6.5.2 parity): education is the
-      // caller's to give BEFORE the device flow starts — the account
-      // selector primes its own dialog, onboarding deliberately teaches
-      // nothing — and the driver cannot tell those intents apart from the
-      // event alone. The `passphraseIntro` step stays a component-level
-      // state (stories drive it); production no longer routes to it.
+      // The teach card plays only where the CALLER asked for it (the
+      // account selector's deliberate add, v6.5.2's one teaching moment).
+      // Declared, never inferred: the driver cannot tell that add apart
+      // from onboarding's fork — which deliberately teaches nothing — by
+      // the SDK event alone.
       const isCreate =
         !payload?.passphraseState && !payload?.expectedPassphraseState;
-      await this.setStep('passphraseOnApp', {
+      const teachFirst = isCreate && this.passphraseIntroRequested;
+      await this.setStep(teachFirst ? 'passphraseIntro' : 'passphraseOnApp', {
         connectId,
         deviceType: payload?.deviceType,
         payload,
@@ -933,6 +949,7 @@ export class DeviceStageBurstScope {
     this.depth = 0;
     this.explicitToken = undefined;
     this.confirmContent = undefined;
+    this.passphraseIntroRequested = false;
     this.activeVendor = undefined;
     this.authoredAuthStep = undefined;
     // The person's own exit wins outright.
