@@ -44,6 +44,7 @@ import {
   TabSettingsListItem,
 } from './ListItem';
 import { SearchView } from './SearchView';
+import { logSettingCategoryOpened } from './settingsAnalytics';
 import {
   getSettingsDisplayIcon,
   getSettingsDisplayTitle,
@@ -67,6 +68,7 @@ type IMobileHomeEntry =
       type: 'setting';
       key: string;
       config: ISubSettingConfig;
+      category: ESettingsTabNames;
     };
 
 function SettingCategoryListItem({
@@ -105,11 +107,15 @@ function SettingCategoryListItem({
     // Match the sibling row paths: drop the search keyboard before pushing so
     // it does not linger over the pushed page (Android IME especially).
     await dismissKeyboardWithDelay(100);
+    logSettingCategoryOpened({
+      category: config.name,
+      source: useMobilePresentation ? 'mobileHome' : 'flatRoot',
+    });
     navigation.push(EModalSettingRoutes.SettingListSubModal, {
       title,
       name: config.name,
     });
-  }, [navigation, title, config.name]);
+  }, [config.name, navigation, title, useMobilePresentation]);
 
   // Use custom tab item renderer if provided
   if (config.renderTabItem) {
@@ -150,6 +156,8 @@ function MobileSettingsSection({ entries }: { entries: IMobileHomeEntry[] }) {
               item={entry.config}
               preferMobileNaming
               useMobilePresentation
+              analyticsSource="mobileHome"
+              analyticsCategory={entry.category}
             />
           )}
           {index !== entries.length - 1 ? <TabSettingsInsetDivider /> : null}
@@ -212,6 +220,7 @@ export function SettingList() {
         type: 'setting',
         key: `setting-${name}-${index}`,
         config: item,
+        category: name,
       }));
     };
 
@@ -269,10 +278,17 @@ export function SettingList() {
       );
     }
   }, [mobileHomeOrphans]);
-  const { onSearch, searchResult, isSearching } = useSearch(settingsConfig);
+  const { onSearch, searchResult, isSearching, searchText } =
+    useSearch(settingsConfig);
   let content: ReactNode;
   if (isSearching) {
-    content = <SearchView results={searchResult} isSearching={isSearching} />;
+    content = (
+      <SearchView
+        results={searchResult}
+        isSearching={isSearching}
+        searchQueryLength={searchText.length}
+      />
+    );
   } else if (isMobileLayout) {
     content = (
       <YStack gap="$5" px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$4">

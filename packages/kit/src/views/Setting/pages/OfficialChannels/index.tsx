@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Page, ScrollView, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
@@ -73,6 +74,8 @@ export default function OfficialChannels() {
                     }}
                     preferMobileNaming={isMobileLayout}
                     useMobilePresentation={isMobileLayout}
+                    analyticsSource="categoryPage"
+                    analyticsCategory={ESettingsTabNames.About}
                   />
                   {index !== channels.length - 1 ? (
                     <TabSettingsInsetDivider />

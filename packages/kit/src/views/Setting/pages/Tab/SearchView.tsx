@@ -21,6 +21,7 @@ import {
   TabSettingsListGrid,
   TabSettingsSection,
 } from './ListItem';
+import { getSettingsItemAnalyticsId } from './settingsAnalytics';
 import {
   SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
@@ -34,9 +35,11 @@ import type { ISettingsSearchResult } from './useSearch';
 export function SearchView({
   results,
   isSearching,
+  searchQueryLength,
 }: {
   results: ISettingsSearchResult[];
   isSearching: boolean;
+  searchQueryLength: number;
 }) {
   const intl = useIntl();
   const { isMobileLayout, isTabNavigator, preferMobileNaming } =
@@ -64,8 +67,7 @@ export function SearchView({
   const rows = results.map((result, index) => (
     <Fragment
       key={`${result.item.sectionName}-${
-        result.item.id ??
-        result.item.settingRoute ??
+        getSettingsItemAnalyticsId(result.item) ??
         result.item.desktopTab ??
         `${result.item.title}-${index}`
       }`}
@@ -76,6 +78,10 @@ export function SearchView({
         preferMobileNaming={preferMobileNaming}
         searchPath={result.item.sectionTitle}
         useMobilePresentation={isMobileLayout}
+        analyticsSource="search"
+        analyticsCategory={result.item.sectionName}
+        searchResultIndex={index}
+        searchQueryLength={searchQueryLength}
       />
       {index !== results.length - 1 ? <TabSettingsInsetDivider /> : null}
     </Fragment>
@@ -160,7 +166,11 @@ export function SearchViewPage() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ pb: '$10' }}
         >
-          <SearchView isSearching={isSearching} results={searchResult} />
+          <SearchView
+            isSearching={isSearching}
+            results={searchResult}
+            searchQueryLength={searchText.length}
+          />
         </ScrollView>
       </Page.Body>
     </Page>

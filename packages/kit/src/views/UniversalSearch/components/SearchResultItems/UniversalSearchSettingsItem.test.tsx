@@ -88,12 +88,21 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         universalSearchClick: jest.fn(),
       },
     },
+    setting: {
+      page: {
+        settingItemClicked: jest.fn(),
+      },
+    },
   },
 }));
 
 const mockUniversalSearchClick = jest.spyOn(
   defaultLogger.universalSearch.search,
   'universalSearchClick',
+);
+const mockSettingItemClicked = jest.spyOn(
+  defaultLogger.setting.page,
+  'settingItemClicked',
 );
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
@@ -108,6 +117,7 @@ const settingsResult: IUniversalSearchSettings = {
     id: 'notifications',
     title: 'Notifications',
     icon: 'BellOutline',
+    sectionName: ESettingsTabNames.Preferences,
     sectionTitle: 'Preferences',
     sectionIcon: 'SliderThreeOutline',
     settingsTab: ESettingsTabNames.Notifications,
@@ -181,6 +191,11 @@ describe('UniversalSearchSettingsItem settings tab navigation', () => {
       type: EUniversalSearchType.Settings,
       itemId: 'notifications',
       itemTitle: 'Notifications',
+    });
+    expect(mockSettingItemClicked).toHaveBeenCalledWith({
+      itemId: 'notifications',
+      category: ESettingsTabNames.Preferences,
+      source: 'universalSearch',
     });
   });
 

@@ -6,6 +6,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { tryNavigateToSettingsTabInModal } from '@onekeyhq/kit/src/views/Setting/pages/Tab/navigateToSettingsTab';
+import { logSettingItemClicked } from '@onekeyhq/kit/src/views/Setting/pages/Tab/settingsAnalytics';
 import { useIsTabNavigator } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useIsTabNavigator';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -54,6 +55,13 @@ export function UniversalSearchSettingsItem({
       itemId: id ?? settingRoute ?? sectionName ?? title,
       itemTitle: title,
     });
+    if (sectionName) {
+      logSettingItemClicked({
+        item: { id, settingRoute },
+        category: sectionName,
+        source: 'universalSearch',
+      });
+    }
 
     navigation.pop();
     await timerUtils.wait(300);

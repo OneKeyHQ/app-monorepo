@@ -126,35 +126,41 @@ export function SubSettingsPage({
             px={SETTINGS_PAGE_CONTENT_PADDING_X}
             pt={isTabNavigator ? undefined : '$3'}
           >
-            {configList.map((list, sectionIdx) => {
-              const showMobileAboutHeader =
-                isMobileAboutPage && sectionIdx === 0;
-              return (
-                <TabSettingsSection
-                  key={sectionIdx}
-                  presentation={sectionPresentation}
-                >
-                  {showMobileAboutHeader ? (
-                    <>
-                      <MobileAboutHeader />
-                      <Divider borderColor="$neutral3" />
-                    </>
-                  ) : null}
-                  {list.map((item, idx) => (
-                    <Fragment key={idx}>
-                      <TabSettingsListGrid
-                        item={item}
-                        preferMobileNaming={preferMobileNaming}
-                        useMobilePresentation={isMobileLayout}
-                      />
-                      {idx !== list.length - 1 ? (
-                        <TabSettingsInsetDivider />
+            {config
+              ? configList.map((list, sectionIdx) => {
+                  const showMobileAboutHeader =
+                    isMobileAboutPage && sectionIdx === 0;
+                  return (
+                    <TabSettingsSection
+                      key={sectionIdx}
+                      presentation={sectionPresentation}
+                    >
+                      {showMobileAboutHeader ? (
+                        <>
+                          <MobileAboutHeader />
+                          <Divider borderColor="$neutral3" />
+                        </>
                       ) : null}
-                    </Fragment>
-                  ))}
-                </TabSettingsSection>
-              );
-            })}
+                      {list.map((item, idx) => (
+                        <Fragment key={idx}>
+                          <TabSettingsListGrid
+                            item={item}
+                            preferMobileNaming={preferMobileNaming}
+                            useMobilePresentation={isMobileLayout}
+                            analyticsSource={
+                              insideTabNavigator ? 'sidebar' : 'categoryPage'
+                            }
+                            analyticsCategory={config.name}
+                          />
+                          {idx !== list.length - 1 ? (
+                            <TabSettingsInsetDivider />
+                          ) : null}
+                        </Fragment>
+                      ))}
+                    </TabSettingsSection>
+                  );
+                })
+              : null}
           </YStack>
         </ScrollView>
       </Page.Body>
