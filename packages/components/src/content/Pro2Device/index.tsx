@@ -28,8 +28,7 @@ export type { IPro2DeviceAnimation } from './animation';
  * The shell chrome mounts once here; a scene change only swaps the screen
  * slot's content. A change away from a scene with content on the glass
  * plays the swap: the outgoing content fades off, then the incoming scene
- * renders in — one continuous move, no waiting built in (callers sequence
- * anything else after SCREEN_SWAP_MS, see ../deviceScene). `animation`
+ * renders in — one continuous move, no waiting built in. `animation`
  * also accepts a custom IPro2DeviceAnimation contract (see ./animation.ts)
  * paired with your own `screenContent` on the 288x484 canvas.
  */
