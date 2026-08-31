@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
-index a99d39ee99cb9bd4b324413f587a821976399a15..7d7af2ae62797b57656ae815cb44f96422085b49 100644
+index a99d39ee99cb9bd4b324413f587a821976399a15..6b05fb73bb402a3a366b2fc3dcae775f9a3268f4 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
 +++ b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabView.kt
 @@ -70,2 +70,14 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
@@ -17,12 +17,18 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7d7af2ae62797b57656ae815cb44f964
 +      layoutHolder.requestLayout()
 +    }
    var items: MutableList<TabInfo> = mutableListOf()
-@@ -199,3 +211,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -80,3 +92,4 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+   private val uncheckedStateSet = intArrayOf(-android.R.attr.state_checked)
+-  private var hapticFeedbackEnabled = false
++  // OneKey patch: rely on View.isHapticFeedbackEnabled as the single source of truth.
++  // private var hapticFeedbackEnabled = false
+   private var fontSize: Int? = null
+@@ -199,3 +212,3 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
        isSaveEnabled = false
 -      visibility = GONE
 +      visibility = if (disablePageAnimations) INVISIBLE else GONE
        isEnabled = false
-@@ -207,7 +219,20 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -207,7 +220,20 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
      bottomNavigation.selectedItemId = itemId
 -    if (!disablePageAnimations) {
 -      val fadeThrough = MaterialFadeThrough()
@@ -47,7 +53,8 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7d7af2ae62797b57656ae815cb44f964
 +    TransitionManager.beginDelayedTransition(layoutHolder, fadeThrough)
 +    // Apply every visibility change to the transition's captured frame.
      layoutHolder.forEachIndexed { index, view ->
-@@ -228,2 +253,8 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -227,3 +253,9 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+ 
 -    view.visibility = if (isVisible) VISIBLE else GONE
 +    view.visibility = if (isVisible) {
 +      VISIBLE
@@ -57,12 +64,19 @@ index a99d39ee99cb9bd4b324413f587a821976399a15..7d7af2ae62797b57656ae815cb44f964
 +      GONE
 +    }
      view.isEnabled = isVisible
-@@ -234,2 +265,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+@@ -234,2 +266,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
      selectedItem.let {
 +      if (!selectedItem.preventsDefault) {
 +        setSelectedItem(selectedItem.key)
 +      }
        onTabSelectedListener?.invoke(selectedItem.key)
+@@ -491,3 +526,5 @@ class ReactBottomNavigationView(context: Context) : LinearLayout(context) {
+   private fun emitHapticFeedback(feedbackConstants: Int) {
+-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && hapticFeedbackEnabled) {
++    // OneKey patch: use the Fabric-populated View flag on every supported API level.
++    // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && hapticFeedbackEnabled) {
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isHapticFeedbackEnabled) {
+       this.performHapticFeedback(feedbackConstants)
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
 index 79bfa4b2e30665d92e1cd76066d5175eba4b98cc..7011ae3094a58e6267608cd849e5daa77bb9556c 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
@@ -128,7 +142,7 @@ index 302f239fd8ca6576ca9cd594e57c3ef2c3133a6b..386998c5b03635521eaa9aebf7adc92e
 +  }
  }
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
-index 917dd5a..5f9caa3 100644
+index 917dd5aef6a35e8103f5f86e2a63f1c41b1943f5..5f9caa3f5e94ea7b056250301c1d2d9f24a1934b 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
 @@ -18,2 +18,3 @@ const TabView = ({
@@ -174,7 +188,7 @@ index 917dd5a..5f9caa3 100644
 \ No newline at end of file
 +//# sourceMappingURL=TabView.js.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
-index 054c9fe..ef52539 100644
+index 054c9fed92e3f1f71e8d1fe9907a1ba407415674..ef525399706ba4be1021a152beadc3db9f3c868b 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
 +++ b/node_modules/@onekeyfe/react-native-tab-view/lib/typescript/src/TabView.d.ts
 @@ -53,2 +53,8 @@ interface Props<Route extends BaseRoute> {
@@ -200,7 +214,7 @@ index 054c9fe..ef52539 100644
 \ No newline at end of file
 +//# sourceMappingURL=TabView.d.ts.map
 diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
-index ad7afed..7f07e63 100644
+index ad7afed155226491d0b7e68bd292e4a8b989b69c..679c26d3e5c457776c8d7b58d7f0ceca1a771c17 100644
 --- a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
 +++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
 @@ -83,2 +83,6 @@ interface Props<Route extends BaseRoute> {
