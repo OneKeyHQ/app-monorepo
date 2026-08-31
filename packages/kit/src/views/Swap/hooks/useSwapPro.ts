@@ -265,6 +265,10 @@ export function useSwapProAccount() {
         indexedAccountId ? (selectedAccount.deriveType ?? 'default') : 'default'
       }`
     : '';
+  const selectedDeriveType =
+    indexedAccountId && selectedAccount.networkId === targetNetworkId
+      ? selectedAccount.deriveType
+      : undefined;
   const shouldResolveAccount = Boolean(accountScope && targetNetworkId);
   const cachedNetAccount = accountScope
     ? swapProAccountCache.get(accountScope)
@@ -281,19 +285,22 @@ export function useSwapProAccount() {
         };
       }
       try {
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: targetNetworkId,
-          });
+        const accountDeriveType =
+          selectedDeriveType ??
+          (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+            {
+              networkId: targetNetworkId,
+            },
+          ));
         const resolvedAccountScope = `${accountIdentityScope}|${
-          indexedAccountId ? (defaultDeriveType ?? 'default') : 'default'
+          indexedAccountId ? (accountDeriveType ?? 'default') : 'default'
         }`;
         const account =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId,
             indexedAccountId: indexedAccountId ?? '',
             networkId: targetNetworkId,
-            deriveType: defaultDeriveType ?? 'default',
+            deriveType: accountDeriveType ?? 'default',
           });
         if (account) {
           swapProAccountCache.set(resolvedAccountScope, account);
@@ -315,6 +322,7 @@ export function useSwapProAccount() {
       accountIdentityScope,
       accountScope,
       indexedAccountId,
+      selectedDeriveType,
       shouldResolveAccount,
       targetNetworkId,
     ],

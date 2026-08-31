@@ -218,36 +218,70 @@ const swapProAtomState = (
 
 beforeEach(() => {
   selectedAccountState.selectedAccount.deriveType = 'BIP44';
+  accountServices.getGlobalDeriveTypeOfNetwork.mockReset();
+  accountServices.getNetworkAccount.mockReset();
+  promiseResultCalls.length = 0;
 });
 
 describe('useSwapProAccount cache identity', () => {
-  it('exposes a cached indexed account only for its resolved derive type', async () => {
-    const networkAccount = {
+  it('resolves and caches the selected alternate derive type', async () => {
+    const bip44Account = {
+      addressDetail: { address: 'bc1q-bip44', networkId: 'btc--0' },
+      id: 'btc-bip44-account',
+    } as INetworkAccount;
+    const bip84Account = {
       addressDetail: { address: 'bc1q-bip84', networkId: 'btc--0' },
       id: 'btc-bip84-account',
     } as INetworkAccount;
     accountServices.getGlobalDeriveTypeOfNetwork.mockResolvedValue('BIP84');
-    accountServices.getNetworkAccount.mockResolvedValue(networkAccount);
+    accountServices.getNetworkAccount.mockImplementation(
+      async ({ deriveType }: { deriveType: string }) =>
+        deriveType === 'BIP44' ? bip44Account : bip84Account,
+    );
 
     const { result, rerender } = renderHook(() => useSwapProAccount());
 
     expect(result.current.accountScope).toBe('btc--0|indexed-1||BIP44');
     expect(result.current.result).toBeUndefined();
 
-    let resolvedState: unknown;
+    let resolvedBip44State: unknown;
     await act(async () => {
-      resolvedState = await promiseResultCalls.at(-1)?.method();
+      resolvedBip44State = await promiseResultCalls.at(-1)?.method();
     });
-    expect(resolvedState).toEqual({
-      account: networkAccount,
-      scope: 'btc--0|indexed-1||BIP84',
+    expect(resolvedBip44State).toEqual({
+      account: bip44Account,
+      scope: 'btc--0|indexed-1||BIP44',
     });
+    expect(accountServices.getGlobalDeriveTypeOfNetwork).not.toHaveBeenCalled();
+    expect(accountServices.getNetworkAccount).toHaveBeenLastCalledWith(
+      expect.objectContaining({ deriveType: 'BIP44' }),
+    );
+
+    rerender({});
+    expect(result.current.result).toBe(bip44Account);
+    expect(result.current.accountStatus).toBe('supported');
 
     selectedAccountState.selectedAccount.deriveType = 'BIP84';
     rerender({});
 
     expect(result.current.accountScope).toBe('btc--0|indexed-1||BIP84');
-    expect(result.current.result).toBe(networkAccount);
+    expect(result.current.result).toBeUndefined();
+
+    let resolvedBip84State: unknown;
+    await act(async () => {
+      resolvedBip84State = await promiseResultCalls.at(-1)?.method();
+    });
+    expect(resolvedBip84State).toEqual({
+      account: bip84Account,
+      scope: 'btc--0|indexed-1||BIP84',
+    });
+    expect(accountServices.getNetworkAccount).toHaveBeenLastCalledWith(
+      expect.objectContaining({ deriveType: 'BIP84' }),
+    );
+
+    rerender({});
+    expect(result.current.result).toBe(bip84Account);
+    expect(result.current.accountStatus).toBe('supported');
   });
 });
 
