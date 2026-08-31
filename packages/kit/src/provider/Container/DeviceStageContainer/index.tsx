@@ -364,6 +364,8 @@ function DeviceStageContainerCmp() {
       errorReason={stage?.errorReason}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
+      authFailureMessage={stage?.authFailureMessage}
+      authFailureCode={stage?.authFailureCode}
       onAuthSupport={handleAuthSupport}
       onAuthRetry={handleAuthRetry}
       onAuthContinueAnyway={handleAuthContinueAnyway}
