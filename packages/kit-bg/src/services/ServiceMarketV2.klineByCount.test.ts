@@ -150,6 +150,43 @@ describe('ServiceMarketV2 kline by count', () => {
     });
   });
 
+  it('falls back to the legacy range endpoint when v3 has a network error', async () => {
+    const legacyResult: IMarketTokenKLineResponse = {
+      points: [{ t: 960, o: 1, h: 2, l: 1, c: 2, v: 3 }],
+      total: 1,
+    };
+    const get = jest
+      .fn()
+      .mockRejectedValueOnce({ code: 'ERR_NETWORK' })
+      .mockResolvedValueOnce({
+        data: { code: 0, message: 'ok', data: legacyResult },
+      });
+    const service = createService();
+    service.getClient = jest.fn().mockResolvedValue({ get });
+
+    const result = await service.fetchMarketTokenKlineByCount({
+      tokenAddress: '0xtoken',
+      networkId: 'evm--1',
+      interval: '4H',
+      timeTo: 1000,
+      targetCount: 1,
+      stopAfterCount: 1,
+      historyStartTime: 940,
+    });
+
+    expect(result.points).toEqual(legacyResult.points);
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/utility/v3/market/token/kline',
+      expect.any(Object),
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/utility/v2/market/token/kline',
+      expect.any(Object),
+    );
+  });
+
   it('preserves the monthly interval for v3 and v2 fallback requests', async () => {
     const legacyResult: IMarketTokenKLineResponse = {
       points: [

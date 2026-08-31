@@ -318,6 +318,16 @@ export function MobileLayout({
     tokenDetailPreview,
     isNative,
     websocketConfig,
+    // Responsive Web uses the same DOM runtime as desktop. Route-bound
+    // identity prevents the eager token store update from switching it twice.
+    routeIdentity:
+      platformEnv.isWeb && !isTradingViewNative
+        ? {
+            tokenAddress: routeTokenAddress,
+            networkId: routeNetworkId,
+            isNative: routeIsNative,
+          }
+        : undefined,
   });
   let marketTradingViewKey = 'v2';
   if (isTradingViewNative) {

@@ -23,6 +23,7 @@ export type IMarketTokenDetailRouteParams = {
   legacyTokenPreview?: IMarketTokenDetailPreview;
   stockId?: never;
   isNative?: boolean;
+  chartMode?: 'native' | 'tradingView';
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -33,6 +34,7 @@ export type IMarketStockDetailRouteParams = {
   tokenAddress?: string;
   network?: string;
   isNative?: boolean;
+  chartMode?: 'native' | 'tradingView';
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -52,6 +54,7 @@ export type ITabMarketParamList = {
     marketTokenCategory?: string;
     skipMarketDataFetch?: boolean;
     isNative?: boolean;
+    chartMode?: 'native' | 'tradingView';
     from?: EEnterWay;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;

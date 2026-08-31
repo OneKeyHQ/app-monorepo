@@ -1,11 +1,5 @@
 import { prepareHyperLiquidKlineSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/hyperLiquidKlineSource';
-import {
-  markTradingViewKlinePerf,
-  resolveTradingViewKlineOptimizationMode,
-  startTradingViewKlinePerfSession,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/tradingViewKlinePerf';
 import { prefetchTradingViewV2FirstScreenData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/useTradingViewV2';
-import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -191,61 +185,12 @@ export async function prefetchMarketDetailV2FirstScreenKLine({
     return;
   }
 
-  const identity = { tokenAddress, networkId };
-  const initialMode = resolveTradingViewKlineOptimizationMode({
-    disabledByDevSettings: false,
-  });
-  startTradingViewKlinePerfSession({ identity, mode: initialMode });
-  const devSettings = await devSettingsPersistAtom.get().catch(() => undefined);
-  const mode = resolveTradingViewKlineOptimizationMode({
-    disabledByDevSettings: Boolean(
-      devSettings?.enabled &&
-      devSettings.settings?.disableTradingViewKLineFirstScreenOptimization,
-    ),
-  });
-  if (mode === 'baseline') {
-    markTradingViewKlinePerf({
-      identity,
-      mode,
-      mark: 'navigation_start',
-      prefetchStatus: 'disabled',
-      bootstrapStatus: 'disabled',
-    });
-    return;
-  }
-
   preloadMarketDetailV2TradingView();
-  markTradingViewKlinePerf({
-    identity,
-    mode,
-    mark: 'prefetch_start',
-    prefetchStatus: 'pending',
+  await prefetchMarketDetailV2FirstScreenKLineData({
+    tokenAddress,
+    networkId,
+    historyStartTime,
   });
-  try {
-    const result = await prefetchMarketDetailV2FirstScreenKLineData({
-      tokenAddress,
-      networkId,
-      historyStartTime,
-    });
-    markTradingViewKlinePerf({
-      identity,
-      mode,
-      mark: 'prefetch_end',
-      prefetchStatus:
-        result && (result.points.length > 0 || result.historyExhausted)
-          ? 'completed'
-          : 'empty',
-      prefetchedCount: result?.points.length,
-    });
-  } catch (error) {
-    markTradingViewKlinePerf({
-      identity,
-      mode,
-      mark: 'prefetch_end',
-      prefetchStatus: 'failed',
-    });
-    throw error;
-  }
 }
 
 export function preloadMarketDetailV2SwapPanel(

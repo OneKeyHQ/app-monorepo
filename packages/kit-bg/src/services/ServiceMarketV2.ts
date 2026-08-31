@@ -16,6 +16,7 @@ import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/mark
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ICandleSnapshotParameters } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -181,11 +182,18 @@ function isMarketTokenKLineResponse(
   return Array.isArray(response.points) && typeof response.total === 'number';
 }
 
-function isMarketKlineByCountEndpointUnavailable(error: unknown) {
+function shouldFallbackMarketKlineByCountRequest(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false;
   }
-  return (error as { httpStatusCode?: unknown }).httpStatusCode === 404;
+  const httpStatusCode = (error as { httpStatusCode?: unknown }).httpStatusCode;
+  if (httpStatusCode === 404) {
+    return true;
+  }
+
+  // Keep definite server/business failures visible, but preserve chart
+  // functionality when the optimized endpoint cannot be reached at all.
+  return httpStatusCode === undefined && isTransientNetworkLikeError(error);
 }
 
 function getMarketKlineIntervalSeconds(interval?: string) {
@@ -720,7 +728,7 @@ class ServiceMarketV2 extends ServiceBase {
           return response.data.data;
         }
       } catch (error) {
-        if (!isMarketKlineByCountEndpointUnavailable(error)) {
+        if (!shouldFallbackMarketKlineByCountRequest(error)) {
           throw error;
         }
       }

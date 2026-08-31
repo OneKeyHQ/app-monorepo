@@ -103,12 +103,14 @@ export function useMarketSymbolSync({
   frameIdentity,
   documentGeneration,
   enabled,
+  deliveryDelayMs = 0,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   identity: IMarketTradingViewSymbolIdentity;
   frameIdentity: IMarketTradingViewSymbolIdentity;
   documentGeneration: number;
   enabled: boolean;
+  deliveryDelayMs?: number;
 }) {
   const identityKey = buildMarketTradingViewIdentityKey(identity);
   const frameIdentityKey = buildMarketTradingViewIdentityKey(frameIdentity);
@@ -134,27 +136,41 @@ export function useMarketSymbolSync({
       return;
     }
 
-    webRef.current.sendMessageViaInjectedScript({
-      type: 'SYMBOL_CHANGE',
-      payload: {
-        symbol: identity.symbol,
-        force: true,
-        market: {
-          address: identity.tokenAddress,
-          networkId: identity.networkId,
-          decimal: identity.decimal.toString(),
-          ...(identity.initialHyperLiquidPriceScale
-            ? {
-                initialPriceScale:
-                  identity.initialHyperLiquidPriceScale.toString(),
-                initialPriceScaleSymbol: identity.symbol,
-              }
-            : {}),
+    const deliverSymbolChange = () => {
+      if (!webRef.current) {
+        return;
+      }
+      webRef.current.sendMessageViaInjectedScript({
+        type: 'SYMBOL_CHANGE',
+        payload: {
+          symbol: identity.symbol,
+          force: true,
+          market: {
+            address: identity.tokenAddress,
+            networkId: identity.networkId,
+            decimal: identity.decimal.toString(),
+            ...(identity.initialHyperLiquidPriceScale
+              ? {
+                  initialPriceScale:
+                    identity.initialHyperLiquidPriceScale.toString(),
+                  initialPriceScaleSymbol: identity.symbol,
+                }
+              : {}),
+          },
         },
-      },
-    });
-    deliveredIdentityKeyRef.current = identityKey;
+      });
+      deliveredIdentityKeyRef.current = identityKey;
+    };
+
+    if (deliveryDelayMs <= 0) {
+      deliverSymbolChange();
+      return;
+    }
+
+    const timeout = setTimeout(deliverSymbolChange, deliveryDelayMs);
+    return () => clearTimeout(timeout);
   }, [
+    deliveryDelayMs,
     documentGeneration,
     enabled,
     frameIdentityKey,

@@ -144,4 +144,58 @@ describe('useMarketSymbolSync', () => {
       }),
     );
   });
+
+  it('cancels a delayed symbol change when the outgoing screen unmounts', () => {
+    jest.useFakeTimers();
+    const { sendMessageViaInjectedScript, webRef } = createWebRef();
+    const { rerender, unmount } = renderHook(
+      ({ identity }: { identity: typeof firstIdentity }) =>
+        useMarketSymbolSync({
+          webRef,
+          identity,
+          frameIdentity: firstIdentity,
+          documentGeneration: 0,
+          enabled: true,
+          deliveryDelayMs: 150,
+        }),
+      { initialProps: { identity: firstIdentity } },
+    );
+
+    rerender({ identity: secondIdentity });
+    unmount();
+    jest.advanceTimersByTime(150);
+
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('delivers a delayed symbol change when the screen remains mounted', () => {
+    jest.useFakeTimers();
+    const { sendMessageViaInjectedScript, webRef } = createWebRef();
+    const { rerender } = renderHook(
+      ({ identity }: { identity: typeof firstIdentity }) =>
+        useMarketSymbolSync({
+          webRef,
+          identity,
+          frameIdentity: firstIdentity,
+          documentGeneration: 0,
+          enabled: true,
+          deliveryDelayMs: 150,
+        }),
+      { initialProps: { identity: firstIdentity } },
+    );
+
+    rerender({ identity: secondIdentity });
+    jest.advanceTimersByTime(149);
+    expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(1);
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SYMBOL_CHANGE',
+        payload: expect.objectContaining({ symbol: 'TWO' }),
+      }),
+    );
+    jest.useRealTimers();
+  });
 });

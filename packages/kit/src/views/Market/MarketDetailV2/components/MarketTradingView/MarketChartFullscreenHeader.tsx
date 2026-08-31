@@ -6,7 +6,11 @@ import { MarketTestIDs } from '../../../testIDs';
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
 
-export function MarketChartFullscreenHeader() {
+export function MarketChartFullscreenHeader({
+  chartMode,
+}: {
+  chartMode: 'native' | 'tradingView';
+}) {
   const { tokenDetail } = useMarketDetailHeaderDisplayData();
 
   if (!tokenDetail) {
@@ -27,7 +31,7 @@ export function MarketChartFullscreenHeader() {
       alignItems="center"
       gap="$2"
     >
-      <MarketTokenSelector showAddress />
+      <MarketTokenSelector chartMode={chartMode} showAddress />
 
       <YStack flexShrink={0} pointerEvents="none">
         <BaseMarketTokenPrice

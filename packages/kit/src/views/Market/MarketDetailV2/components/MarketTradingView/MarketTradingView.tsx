@@ -305,7 +305,7 @@ export const MarketTradingView = memo(
         onChartSwitch={onChartSwitch}
         nativeChartFullscreenHeader={
           !platformEnv.isNative && nativeControlsLayoutMode === 'desktop' ? (
-            <MarketChartFullscreenHeader />
+            <MarketChartFullscreenHeader chartMode="tradingView" />
           ) : undefined
         }
         showNativeIndicatorQuickBar={showNativeIndicatorQuickBar}

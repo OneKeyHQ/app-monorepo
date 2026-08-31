@@ -74,4 +74,63 @@ describe('useMarketTradingViewParams', () => {
 
     expect(result.current).toBeUndefined();
   });
+
+  it('waits for the detail route before switching the Web chart identity', () => {
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useMarketTradingViewParams>[0]) =>
+        useMarketTradingViewParams(props),
+      {
+        initialProps: {
+          ...initialProps,
+          routeIdentity: {
+            tokenAddress,
+            networkId,
+            isNative: false,
+          },
+        },
+      },
+    );
+    const nextTokenAddress = '0x0000000000000000000000000000000000000002';
+    const nextPreview: IMarketTokenDetailPreview = {
+      address: nextTokenAddress,
+      networkId,
+      name: 'Next token',
+      symbol: 'NEXT',
+      decimals: 6,
+      selectedAt: 2,
+    };
+
+    rerender({
+      tokenAddress: nextTokenAddress,
+      networkId,
+      tokenDetailPreview: nextPreview,
+      isNative: false,
+      routeIdentity: {
+        tokenAddress,
+        networkId,
+        isNative: false,
+      },
+    });
+
+    expect(result.current?.tokenSymbol).toBe('CASHCAT');
+
+    rerender({
+      tokenAddress: nextTokenAddress,
+      networkId,
+      tokenDetailPreview: nextPreview,
+      isNative: false,
+      routeIdentity: {
+        tokenAddress: nextTokenAddress,
+        networkId,
+        isNative: false,
+      },
+    });
+
+    expect(result.current).toMatchObject({
+      tokenAddress: nextTokenAddress,
+      networkId,
+      tokenSymbol: 'NEXT',
+      decimal: 6,
+    });
+  });
 });

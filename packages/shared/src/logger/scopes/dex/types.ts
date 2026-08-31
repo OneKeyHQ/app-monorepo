@@ -176,30 +176,6 @@ export interface IDexTVTimeframeParams {
   tvTimeframeSelect: string;
 }
 
-export interface IDexTVFirstPaintParams {
-  durationMs: number;
-  chartReadyMs?: number;
-  historyReadyMs?: number;
-  prefetchDurationMs?: number;
-  prefetchLeadMs?: number;
-  tvInterval: string;
-  status: 'rendered' | 'empty' | 'failed';
-  source: 'bootstrap' | 'bridge';
-  returnedCount: number;
-  appPlatform: string;
-  optimizationMode: 'optimized' | 'baseline';
-  prefetchStatus:
-    | 'not_started'
-    | 'pending'
-    | 'completed'
-    | 'empty'
-    | 'failed'
-    | 'disabled';
-  bootstrapStatus: 'not_sent' | 'sent' | 'unavailable' | 'disabled';
-  provider: 'onekey' | 'hyperliquid';
-  startSource: 'navigation' | 'chart';
-}
-
 export interface IDexBannerEnterParams {
   bannerId: string;
 }

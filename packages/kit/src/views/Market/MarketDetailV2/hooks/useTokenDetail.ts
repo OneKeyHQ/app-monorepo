@@ -81,6 +81,11 @@ type IUseMarketTradingViewParamsOptions = {
   tokenDetailPreview?: IMarketTokenDetailPreview;
   isNative: boolean;
   websocketConfig?: IMarketTokenDetailWebsocket;
+  routeIdentity?: {
+    tokenAddress: string;
+    networkId: string;
+    isNative: boolean;
+  };
 };
 
 export function useMarketTradingViewParams({
@@ -90,21 +95,25 @@ export function useMarketTradingViewParams({
   tokenDetailPreview,
   isNative,
   websocketConfig,
+  routeIdentity,
 }: IUseMarketTradingViewParamsOptions) {
-  const chartIdentity = `${networkId}:${normalizeChartTokenAddress(
-    tokenAddress,
-    networkId,
-  )}:${isNative ? 'native' : 'token'}`;
+  const chartTokenAddress = routeIdentity?.tokenAddress ?? tokenAddress;
+  const chartNetworkId = routeIdentity?.networkId ?? networkId;
+  const chartIsNative = routeIdentity?.isNative ?? isNative;
+  const chartIdentity = `${chartNetworkId}:${normalizeChartTokenAddress(
+    chartTokenAddress,
+    chartNetworkId,
+  )}:${chartIsNative ? 'native' : 'token'}`;
   const chartBootstrapRef = useRef<{
     identity: string;
     value?: IMarketTradingViewBootstrap;
   } | null>(null);
   const nextChartBootstrap = buildMarketTradingViewBootstrap({
-    tokenAddress,
-    networkId,
+    tokenAddress: chartTokenAddress,
+    networkId: chartNetworkId,
     tokenDetail,
     tokenDetailPreview,
-    isNative,
+    isNative: chartIsNative,
   });
 
   if (chartBootstrapRef.current?.identity !== chartIdentity) {

@@ -132,8 +132,10 @@ SelectorTabItem.displayName = 'SelectorTabItem';
 
 function BaseMarketTokenSelectorContent({
   defaultCategory,
+  chartMode,
 }: {
   defaultCategory: IMarketTokenSelectorDefaultCategory;
+  chartMode?: 'native' | 'tradingView';
 }) {
   const intl = useIntl();
   const route = useRoute();
@@ -282,6 +284,7 @@ function BaseMarketTokenSelectorContent({
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
+        chartMode,
         showFavoriteButton,
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
@@ -291,6 +294,7 @@ function BaseMarketTokenSelectorContent({
     [
       tokenDetailActions,
       closePopover,
+      chartMode,
       navigateToPerps,
       searchValueDebounce,
       selectedCategory,
@@ -419,24 +423,31 @@ function BaseMarketTokenSelectorContent({
 function MarketTokenSelectorContent({
   isOpen,
   defaultCategory,
+  chartMode,
 }: {
   isOpen: boolean;
   defaultCategory: IMarketTokenSelectorDefaultCategory;
+  chartMode?: 'native' | 'tradingView';
 }) {
   return isOpen ? (
-    <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />
+    <BaseMarketTokenSelectorContent
+      chartMode={chartMode}
+      defaultCategory={defaultCategory}
+    />
   ) : null;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
 function BaseMarketTokenSelector({
+  chartMode,
   showAddress = false,
   showName = false,
   variant = 'default',
   defaultCategory = 'trending',
   renderTrigger,
 }: {
+  chartMode?: 'native' | 'tradingView';
   showAddress?: boolean;
   showName?: boolean;
   variant?: 'default' | 'compact' | 'large';
@@ -495,11 +506,12 @@ function BaseMarketTokenSelector({
   const renderSelectorContent = useCallback(
     ({ isOpen: isOpenProp }: { isOpen?: boolean }) => (
       <MarketTokenSelectorContentMemo
+        chartMode={chartMode}
         isOpen={isOpenProp ?? false}
         defaultCategory={defaultCategory}
       />
     ),
-    [defaultCategory],
+    [chartMode, defaultCategory],
   );
 
   // Keep the popover element stable during token detail polling.
@@ -608,6 +620,7 @@ function BaseMarketTokenSelector({
     ),
     [
       address,
+      chartMode,
       effectiveNetworkLogoUri,
       intl,
       isOpen,

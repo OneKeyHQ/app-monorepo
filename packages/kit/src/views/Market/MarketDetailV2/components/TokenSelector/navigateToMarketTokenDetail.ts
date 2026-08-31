@@ -21,6 +21,7 @@ export function navigateToMarketTokenDetail(
   opts: {
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
     beforeNavigate?: () => void;
+    chartMode?: 'native' | 'tradingView';
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
@@ -68,6 +69,7 @@ export function navigateToMarketTokenDetail(
     ...(opts.marketTokenCategory
       ? { marketTokenCategory: opts.marketTokenCategory }
       : undefined),
+    ...(opts.chartMode ? { chartMode: opts.chartMode } : undefined),
     ...(typeof opts.showFavoriteButton === 'boolean'
       ? { showFavoriteButton: opts.showFavoriteButton }
       : undefined),
