@@ -57,6 +57,47 @@ const MESSAGE_KEYS = ['permitted', 'spender', 'nonce', 'deadline'];
 const PERMITTED_KEYS = ['token', 'amount'];
 const DOMAIN_KEYS = ['name', 'chainId', 'verifyingContract'];
 
+// EIP-3009 ReceiveWithAuthorization — the gasless-pull shape the Pay server
+// actually issues for Circle-native USDC (observed live 2026-08-31): the
+// TOKEN CONTRACT is the verifying contract, and the user authorizes the
+// named `to` to pull exactly `value` within the validity window. Only the
+// Receive variant is supported: unlike TransferWithAuthorization, the chain
+// enforces that only `to` itself can submit it, so a leaked signature cannot
+// be redeemed by a third party.
+const RECEIVE_WITH_AUTHORIZATION = 'ReceiveWithAuthorization';
+const EIP3009_MESSAGE_KEYS = [
+  'from',
+  'to',
+  'value',
+  'validAfter',
+  'validBefore',
+  'nonce',
+];
+const EIP3009_DOMAIN_KEYS = ['name', 'version', 'chainId', 'verifyingContract'];
+// Bounded length for the free-string domain fields (name/version). They are
+// not pinned to specific values: the domain binds the signature to
+// `verifyingContract`, whose identity the registry check proves — a wrong
+// name/version merely produces a signature the chain rejects.
+const EIP3009_DOMAIN_STRING_MAX_CHARS = 64;
+const BYTES32_RE = /^0x[0-9a-fA-F]{64}$/;
+const EIP3009_CANONICAL_TYPES: Record<string, ITypedDataField[]> = {
+  EIP712Domain: [
+    { name: 'name', type: 'string' },
+    { name: 'version', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'verifyingContract', type: 'address' },
+  ],
+  ReceiveWithAuthorization: [
+    { name: 'from', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'validAfter', type: 'uint256' },
+    { name: 'validBefore', type: 'uint256' },
+    { name: 'nonce', type: 'bytes32' },
+  ],
+};
+const EIP3009_TYPE_NAMES = Object.keys(EIP3009_CANONICAL_TYPES);
+
 // The exact EIP-712 type definitions Permit2's canonical PermitTransferFrom
 // signature is built from — struct name, field order, and each field's
 // name/type must all match verbatim. `@metamask/eth-sig-util`'s V4 encoder
@@ -211,6 +252,18 @@ export function checkWcPayTypedDataMatchesOrder({
   ) {
     return { ok: false, reason: 'invalid typed data shape' };
   }
+  if (primaryType === RECEIVE_WITH_AUTHORIZATION) {
+    return checkWcPayReceiveWithAuthorization({
+      types,
+      domain,
+      message,
+      caip2ChainId,
+      option,
+      nowMs,
+      resolvedToken,
+      maxDeadlineS,
+    });
+  }
   if (primaryType !== PERMIT_TRANSFER_FROM) {
     return { ok: false, reason: 'unsupported primaryType' };
   }
@@ -346,9 +399,177 @@ export function checkWcPayTypedDataMatchesOrder({
 }
 
 /**
- * Best-effort read of `message.permitted.token` from the serialized typed
- * data, so the caller can resolve the token before the full check runs.
- * Returns undefined for anything that is not shaped like a Permit2 payload.
+ * The EIP-3009 half of `checkWcPayTypedDataMatchesOrder` (which owns the
+ * common shape checks and dispatched here on `primaryType`). Everything
+ * Permit2 proves is proven here too, plus one property Permit2 cannot offer:
+ * `from` is the payload's own field and must equal the option account, so
+ * the authorization provably moves the order amount from the very account
+ * the user approved. What stays server-trusted is `to` (the puller and
+ * recipient) — the same accepted limitation as Permit2's `spender` and the
+ * tx-level recipient. Must never throw — all inputs cross a trust boundary.
+ */
+function checkWcPayReceiveWithAuthorization({
+  types,
+  domain,
+  message,
+  caip2ChainId,
+  option,
+  nowMs,
+  resolvedToken,
+  maxDeadlineS,
+}: {
+  types: Record<string, unknown>;
+  domain: Record<string, unknown>;
+  message: Record<string, unknown>;
+  caip2ChainId: string;
+  option: IWcPayOption;
+  nowMs: number;
+  resolvedToken: IWcPayResolvedToken | undefined;
+  maxDeadlineS?: number;
+}): IWcPayMessageConsistencyResult {
+  if (
+    !hasExactKeys(types, EIP3009_TYPE_NAMES) ||
+    !EIP3009_TYPE_NAMES.every((name) =>
+      fieldsMatchCanonical(types[name], EIP3009_CANONICAL_TYPES[name]),
+    )
+  ) {
+    return { ok: false, reason: 'unsupported typed data types' };
+  }
+  if (
+    !hasExactKeys(domain, EIP3009_DOMAIN_KEYS) ||
+    typeof domain.name !== 'string' ||
+    domain.name.length > EIP3009_DOMAIN_STRING_MAX_CHARS ||
+    typeof domain.version !== 'string' ||
+    domain.version.length > EIP3009_DOMAIN_STRING_MAX_CHARS
+  ) {
+    return { ok: false, reason: 'unsupported domain' };
+  }
+
+  const accountParts =
+    typeof option?.account === 'string' ? option.account.split(':') : [];
+  if (accountParts.length !== 3 || accountParts.some((part) => !part)) {
+    return { ok: false, reason: 'invalid option account shape' };
+  }
+  const [namespace, optionChainReference, optionAddress] = accountParts;
+  if (namespace !== 'eip155') {
+    return { ok: false, reason: 'invalid option account shape' };
+  }
+  const domainChainId = parseUint(domain.chainId);
+  if (
+    !domainChainId ||
+    !domainChainId.isEqualTo(optionChainReference) ||
+    caip2ChainId !== `eip155:${optionChainReference}`
+  ) {
+    return { ok: false, reason: 'chain mismatch' };
+  }
+
+  const extraMessageKey = unexpectedKey(message, EIP3009_MESSAGE_KEYS);
+  if (extraMessageKey) {
+    return { ok: false, reason: `unexpected message key: ${extraMessageKey}` };
+  }
+
+  const { from } = message;
+  if (typeof from !== 'string' || !ADDRESS_RE.test(from)) {
+    return { ok: false, reason: 'invalid from address' };
+  }
+  // Provable, unlike anything in the Permit2 shape: the authorization names
+  // its own payer, and it must be the account the user approved paying from.
+  if (from.toLowerCase() !== optionAddress.toLowerCase()) {
+    return { ok: false, reason: 'from mismatch' };
+  }
+  const { to } = message;
+  if (typeof to !== 'string' || !ADDRESS_RE.test(to)) {
+    return { ok: false, reason: 'invalid to address' };
+  }
+
+  const value = parseUint(message.value);
+  if (!value || value.isZero()) {
+    return { ok: false, reason: 'invalid amount' };
+  }
+  if (
+    typeof option.amount?.value !== 'string' ||
+    !ORDER_AMOUNT_RE.test(option.amount.value)
+  ) {
+    return { ok: false, reason: 'invalid order amount format' };
+  }
+  if (!value.isEqualTo(option.amount.value)) {
+    return { ok: false, reason: 'amount mismatch' };
+  }
+
+  // Token identity: the VERIFYING CONTRACT is the token being moved —
+  // proven through the wallet's own registry, the §4.6 rule every other
+  // signing leg applies.
+  const { verifyingContract } = domain;
+  if (
+    typeof verifyingContract !== 'string' ||
+    !ADDRESS_RE.test(verifyingContract)
+  ) {
+    return { ok: false, reason: 'invalid token address' };
+  }
+  if (!resolvedToken) {
+    return { ok: false, reason: 'unknown token' };
+  }
+  if (resolvedToken.address.toLowerCase() !== verifyingContract.toLowerCase()) {
+    return { ok: false, reason: 'token address mismatch' };
+  }
+  if (resolvedToken.symbol !== option.amount.display?.assetSymbol) {
+    return { ok: false, reason: 'token symbol mismatch' };
+  }
+  if (resolvedToken.decimals !== option.amount.display?.decimals) {
+    return { ok: false, reason: 'token decimals mismatch' };
+  }
+
+  if (typeof message.nonce !== 'string' || !BYTES32_RE.test(message.nonce)) {
+    return { ok: false, reason: 'invalid nonce' };
+  }
+  const nowSec = Math.floor(nowMs / 1000);
+  const validAfter = parseUint(message.validAfter);
+  if (!validAfter) {
+    return { ok: false, reason: 'invalid validAfter' };
+  }
+  // An authorization that only becomes redeemable later cannot settle the
+  // payment now; refusing keeps the signed window entirely observable.
+  if (validAfter.isGreaterThan(nowSec)) {
+    return { ok: false, reason: 'authorization not yet valid' };
+  }
+  const validBefore = parseUint(message.validBefore);
+  if (!validBefore) {
+    return { ok: false, reason: 'invalid deadline' };
+  }
+  if (validBefore.isLessThan(nowSec)) {
+    return { ok: false, reason: 'deadline expired' };
+  }
+  // Same ceiling semantics as the Permit2 branch (see the comment there).
+  const effectiveMaxDeadlineS =
+    typeof maxDeadlineS === 'number' &&
+    Number.isFinite(maxDeadlineS) &&
+    maxDeadlineS > 0
+      ? Math.min(maxDeadlineS, WC_PAY_PERMIT_MAX_DEADLINE_S)
+      : WC_PAY_PERMIT_MAX_DEADLINE_S;
+  if (validBefore.isGreaterThan(nowSec + effectiveMaxDeadlineS)) {
+    return { ok: false, reason: 'deadline too far' };
+  }
+
+  return {
+    ok: true,
+    summary: {
+      amountRaw: value.toFixed(),
+      tokenAddress: resolvedToken.address,
+      // the named puller/recipient — plays the same "who may take it" role
+      // the Permit2 spender does, and the sheet describes it identically
+      spender: to,
+      deadlineSec: validBefore.toNumber(),
+      chainReference: optionChainReference,
+    },
+  };
+}
+
+/**
+ * Best-effort read of the typed data's token address, so the caller can
+ * resolve it through the registry before the full check runs: Permit2
+ * payloads name it as `message.permitted.token`, EIP-3009 payloads move
+ * value on the verifying contract itself. Returns undefined for anything
+ * shaped like neither.
  */
 export function readWcPayPermitTokenAddress(
   typedDataJson: string,
@@ -363,8 +584,16 @@ export function readWcPayPermitTokenAddress(
     return undefined;
   }
   const { permitted } = parsed.message;
-  if (!isRecord(permitted) || typeof permitted.token !== 'string') {
-    return undefined;
+  if (isRecord(permitted) && typeof permitted.token === 'string') {
+    return ADDRESS_RE.test(permitted.token) ? permitted.token : undefined;
   }
-  return ADDRESS_RE.test(permitted.token) ? permitted.token : undefined;
+  if (
+    parsed.primaryType === RECEIVE_WITH_AUTHORIZATION &&
+    isRecord(parsed.domain) &&
+    typeof parsed.domain.verifyingContract === 'string' &&
+    ADDRESS_RE.test(parsed.domain.verifyingContract)
+  ) {
+    return parsed.domain.verifyingContract;
+  }
+  return undefined;
 }

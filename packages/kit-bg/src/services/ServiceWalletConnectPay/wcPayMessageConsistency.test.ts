@@ -440,3 +440,197 @@ describe('readWcPayPermitTokenAddress', () => {
     ).toBeUndefined();
   });
 });
+
+// EIP-3009 ReceiveWithAuthorization — the shape the Pay server actually
+// issues for USDC on Base (observed live 2026-08-31): the token contract
+// itself is the verifying contract, the user authorizes the named `to` to
+// pull exactly `value` before `validBefore`.
+describe('checkWcPayTypedDataMatchesOrder — ReceiveWithAuthorization', () => {
+  const EIP3009_TYPES = {
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
+    ReceiveWithAuthorization: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'validAfter', type: 'uint256' },
+      { name: 'validBefore', type: 'uint256' },
+      { name: 'nonce', type: 'bytes32' },
+    ],
+  };
+  const NONCE_32 = `0x${'f4'.repeat(32)}`;
+
+  function buildReceiveAuth(
+    overrides: {
+      types?: Record<string, unknown>;
+      domain?: Record<string, unknown>;
+      message?: Record<string, unknown>;
+    } = {},
+  ) {
+    return {
+      types: overrides.types ?? EIP3009_TYPES,
+      primaryType: 'ReceiveWithAuthorization',
+      domain: {
+        name: 'USD Coin',
+        version: '2',
+        chainId: 8453,
+        verifyingContract: USDC_BASE,
+        ...overrides.domain,
+      },
+      message: {
+        from: ACCOUNT,
+        to: SPENDER,
+        value: '100000',
+        validAfter: '0',
+        validBefore: String(NOW_S + 3600),
+        nonce: NONCE_32,
+        ...overrides.message,
+      },
+    };
+  }
+
+  const checkAuth = (
+    typedData: unknown,
+    extras: {
+      nowMs?: number;
+      resolvedToken?: typeof resolvedToken;
+      maxDeadlineS?: number;
+      caip2ChainId?: string;
+      option?: IWcPayOption;
+    } = {},
+  ) =>
+    checkWcPayTypedDataMatchesOrder({
+      typedData,
+      caip2ChainId: extras.caip2ChainId ?? 'eip155:8453',
+      option: extras.option ?? option,
+      nowMs: extras.nowMs ?? NOW_MS,
+      resolvedToken:
+        'resolvedToken' in extras ? extras.resolvedToken : resolvedToken,
+      maxDeadlineS: extras.maxDeadlineS,
+    });
+
+  it('inlines the observed Base USDC shape and maps the summary', () => {
+    expect(checkAuth(buildReceiveAuth())).toEqual({
+      ok: true,
+      summary: {
+        amountRaw: '100000',
+        tokenAddress: USDC_BASE,
+        spender: SPENDER,
+        deadlineSec: NOW_S + 3600,
+        chainReference: '8453',
+      },
+    });
+  });
+
+  it('accepts a case-different from address', () => {
+    const payload = buildReceiveAuth({
+      message: { from: ACCOUNT.toUpperCase().replace('0X', '0x') },
+    });
+    expect(checkAuth(payload).ok).toBe(true);
+  });
+
+  it('refuses a from that is not the option account', () => {
+    expect(
+      checkAuth(
+        buildReceiveAuth({
+          message: { from: '0x3333333333333333333333333333333333333333' },
+        }),
+      ),
+    ).toEqual({ ok: false, reason: 'from mismatch' });
+  });
+
+  it('refuses a value that differs from the order amount', () => {
+    expect(
+      checkAuth(buildReceiveAuth({ message: { value: '100001' } })),
+    ).toEqual({ ok: false, reason: 'amount mismatch' });
+  });
+
+  it('refuses a verifying contract the registry does not confirm', () => {
+    expect(checkAuth(buildReceiveAuth(), { resolvedToken: undefined })).toEqual(
+      { ok: false, reason: 'unknown token' },
+    );
+    expect(
+      checkAuth(
+        buildReceiveAuth({
+          domain: {
+            verifyingContract: '0x4444444444444444444444444444444444444444',
+          },
+        }),
+      ),
+    ).toEqual({ ok: false, reason: 'token address mismatch' });
+  });
+
+  it('refuses a registry token that disagrees with the order asset', () => {
+    expect(
+      checkAuth(buildReceiveAuth(), {
+        resolvedToken: { address: USDC_BASE, symbol: 'SCAM', decimals: 6 },
+      }),
+    ).toEqual({ ok: false, reason: 'token symbol mismatch' });
+  });
+
+  it('refuses an expired or too-far validBefore', () => {
+    expect(
+      checkAuth(
+        buildReceiveAuth({ message: { validBefore: String(NOW_S - 1) } }),
+      ),
+    ).toEqual({ ok: false, reason: 'deadline expired' });
+    expect(
+      checkAuth(
+        buildReceiveAuth({
+          message: { validBefore: String(NOW_S + 31 * 24 * 3600) },
+        }),
+      ),
+    ).toEqual({ ok: false, reason: 'deadline too far' });
+  });
+
+  it('refuses an authorization that is not yet valid', () => {
+    expect(
+      checkAuth(
+        buildReceiveAuth({ message: { validAfter: String(NOW_S + 600) } }),
+      ),
+    ).toEqual({ ok: false, reason: 'authorization not yet valid' });
+  });
+
+  it('refuses a malformed nonce', () => {
+    expect(
+      checkAuth(buildReceiveAuth({ message: { nonce: '0x1234' } })),
+    ).toEqual({ ok: false, reason: 'invalid nonce' });
+  });
+
+  it('refuses extra message keys and non-canonical types', () => {
+    expect(checkAuth(buildReceiveAuth({ message: { extra: '1' } }))).toEqual({
+      ok: false,
+      reason: 'unexpected message key: extra',
+    });
+    expect(
+      checkAuth(
+        buildReceiveAuth({
+          types: {
+            ...EIP3009_TYPES,
+            ReceiveWithAuthorization: [
+              ...EIP3009_TYPES.ReceiveWithAuthorization,
+              { name: 'extra', type: 'uint256' },
+            ],
+          },
+        }),
+      ),
+    ).toEqual({ ok: false, reason: 'unsupported typed data types' });
+  });
+
+  it('refuses a chain mismatch', () => {
+    expect(checkAuth(buildReceiveAuth({ domain: { chainId: 1 } }))).toEqual({
+      ok: false,
+      reason: 'chain mismatch',
+    });
+  });
+
+  it('reads the token address from the domain for registry resolution', () => {
+    expect(
+      readWcPayPermitTokenAddress(JSON.stringify(buildReceiveAuth())),
+    ).toBe(USDC_BASE);
+  });
+});
