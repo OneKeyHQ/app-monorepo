@@ -1,3 +1,4 @@
+// cspell:ignore spoofer DISPLAYABILITY
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
@@ -643,9 +644,10 @@ export const WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS = 1500;
 // bidi isolates (U+2060-2069), and the BOM (U+FEFF) - a bidi override
 // alone can visually reorder a payment instruction in the trusted sheet
 // while those exact bytes are signed.
-// eslint-disable-next-line no-control-regex
+/* eslint-disable no-control-regex */
 const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u2069\uFEFF]/u;
+/* eslint-enable no-control-regex */
 
 /**
  * Strips the forbidden display characters above and bounds the length, for

@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { sanitizeWcPayDisplayText } from '../hooks/wcPayInlineUtils';
@@ -55,7 +56,9 @@ export function describeWcPaySigningHeadline(
       // compile-time exhaustiveness: a new signing kind must choose its own
       // headline rather than silently inherit the Solana spend wording
       const unhandled: never = summary;
-      throw new Error(`Unhandled signing summary: ${String(unhandled)}`);
+      throw new OneKeyLocalError(
+        `Unhandled signing summary: ${String(unhandled)}`,
+      );
     }
   }
 }

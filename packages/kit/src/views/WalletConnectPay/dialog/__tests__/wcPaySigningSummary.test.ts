@@ -265,8 +265,6 @@ describe('approve summaries', () => {
 });
 
 describe('review-hardening: expiry days unit and symbol sanitizing', () => {
-  const NOW_SEC = NOW_MS / 1000;
-
   it('renders multi-week permit deadlines in days, floored', () => {
     expect(
       describeWcPaySigningSummary(
