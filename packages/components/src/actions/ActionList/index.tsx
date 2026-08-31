@@ -568,6 +568,7 @@ const showActionList = (
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );
+  return ref;
 };
 function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
@@ -606,7 +607,12 @@ function ActionListFrame(props: IActionListProps) {
   );
 }
 
-const show = (props: IShowActionListParams) => showActionList(props, undefined);
+// Imperative action lists share one overlay slot; newer calls replace the active one.
+let imperativeActionListRef: ReturnType<typeof showActionList> | undefined;
+const show = (props: IShowActionListParams) => {
+  imperativeActionListRef?.destroy();
+  imperativeActionListRef = showActionList(props, undefined);
+};
 
 export const ActionList = withStaticProperties(ActionListFrame, {
   show,
