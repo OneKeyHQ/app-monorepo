@@ -8,8 +8,12 @@ import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes'
 
 import { EErc20MethodSelectors } from '../../vaults/impls/evm/decoder/abi';
 
+import { WC_PAY_PERMIT2_ADDRESS } from './wcPayMessageConsistency';
+
 // ERC20 transfer(address,uint256): 4-byte selector + two 32-byte words
 const ERC20_TRANSFER_DATA_LENGTH = 2 + 8 + 64 + 64; // '0x' + selector + 2 words
+// ERC20 approve(address,uint256): same '0x' + selector + 2 words layout
+const ERC20_APPROVE_DATA_LENGTH = 2 + 8 + 64 + 64;
 
 // A raw hex word is at most 64 hex chars (32 bytes); 78 is the digit length
 // of uint256 max (2^256 - 1). This is a digit-length cap, not full
@@ -46,7 +50,7 @@ const ALLOWED_TX_KEYS = new Set([
 ]);
 
 export type IWcPayOrderConsistencyResult =
-  | { ok: true; kind: 'native' | 'erc20' }
+  | { ok: true; kind: 'native' | 'erc20' | 'approve' }
   | { ok: false; reason: string };
 
 /**
@@ -229,6 +233,35 @@ export function checkWcPayEvmTxMatchesOrder({
       return { ok: false, reason: 'erc20 amount mismatch' };
     }
     return { ok: true, kind: 'erc20' };
+  }
+
+  // The Permit2 approve leg of the two-action flow (Phase 3, §5). The
+  // calldata `to` (token contract) is proven by the CALLER through the
+  // wallet registry — this pure layer has no registry — so what is pinned
+  // here is the spender and the amount floor.
+  if (
+    normalizedData.startsWith(EErc20MethodSelectors.tokenApprove) &&
+    normalizedData.length === ERC20_APPROVE_DATA_LENGTH
+  ) {
+    if (!valueAmount.isZero()) {
+      return { ok: false, reason: 'approve carries native value' };
+    }
+    const spenderWord = normalizedData.slice(10, 10 + 64);
+    if (!/^0+$/.test(spenderWord.slice(0, 24))) {
+      return { ok: false, reason: 'non-canonical spender word' };
+    }
+    if (`0x${spenderWord.slice(24)}` !== WC_PAY_PERMIT2_ADDRESS.toLowerCase()) {
+      return { ok: false, reason: 'approve spender is not Permit2' };
+    }
+    const approveAmount = new BigNumber(normalizedData.slice(10 + 64), 16);
+    // Lenient by recorded product decision (2026-08-31): the customary
+    // unlimited approve (2^256-1) and any amount covering the order both
+    // pass; the later permit signature is what pins the actual spend to the
+    // order amount and nonce.
+    if (approveAmount.isLessThan(orderAmount)) {
+      return { ok: false, reason: 'approve amount below order' };
+    }
+    return { ok: true, kind: 'approve' };
   }
 
   return { ok: false, reason: 'unrecognized calldata shape' };

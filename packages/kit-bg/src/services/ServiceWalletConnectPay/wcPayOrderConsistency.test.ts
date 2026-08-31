@@ -504,3 +504,162 @@ describe('checkWcPayEvmTxMatchesOrder', () => {
     });
   });
 });
+
+describe('checkWcPayEvmActionMatchesOrder — Permit2 approve shape', () => {
+  const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+  const pad32 = (hex: string) =>
+    hex.toLowerCase().replace('0x', '').padStart(64, '0');
+  const approveData = ({
+    spender = PERMIT2,
+    amountHex,
+  }: {
+    spender?: string;
+    amountHex: string;
+  }) => `0x095ea7b3${pad32(spender)}${pad32(amountHex)}`;
+
+  it('accepts an exact-amount approve to Permit2', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: (1_000_000).toString(16) }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: true,
+      kind: 'approve',
+    });
+  });
+
+  it('accepts the customary unlimited approve', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: 'f'.repeat(64) }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: true,
+      kind: 'approve',
+    });
+  });
+
+  it('accepts an approve amount above the order (lenient by decision)', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: (2_000_000).toString(16) }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: true,
+      kind: 'approve',
+    });
+  });
+
+  it('rejects an approve amount below the order', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: (999_999).toString(16) }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'approve amount below order',
+    });
+  });
+
+  it('rejects a zero approve amount', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: '0' }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'approve amount below order',
+    });
+  });
+
+  it('rejects an approve whose spender is not Permit2', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({
+          spender: RECIPIENT,
+          amountHex: (1_000_000).toString(16),
+        }),
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'approve spender is not Permit2',
+    });
+  });
+
+  it('rejects a non-canonical spender word', () => {
+    const option = buildOption();
+    // high 12 bytes of the spender word must be zero — poison one nibble
+    const data = `0x095ea7b3${'1'.padStart(1, '0')}${pad32(PERMIT2).slice(
+      1,
+    )}${pad32((1_000_000).toString(16))}`;
+    const action = buildAction({
+      tx: { from: SENDER, to: TOKEN, data, value: '0x0' },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'non-canonical spender word',
+    });
+  });
+
+  it('rejects an approve that also moves native value', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: approveData({ amountHex: (1_000_000).toString(16) }),
+        value: '0x1',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'approve carries native value',
+    });
+  });
+
+  it('rejects approve calldata with trailing bytes', () => {
+    const option = buildOption();
+    const action = buildAction({
+      tx: {
+        from: SENDER,
+        to: TOKEN,
+        data: `${approveData({ amountHex: (1_000_000).toString(16) })}ff`,
+        value: '0x0',
+      },
+    });
+    expect(checkWcPayEvmActionMatchesOrder({ action, option })).toEqual({
+      ok: false,
+      reason: 'unrecognized calldata shape',
+    });
+  });
+});

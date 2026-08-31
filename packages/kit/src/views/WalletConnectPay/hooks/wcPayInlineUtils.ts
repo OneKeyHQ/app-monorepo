@@ -366,6 +366,13 @@ export function getWcPayInlineTxPlan({
   if (!consistency.ok) {
     return { mode: 'fallback', reason: consistency.reason };
   }
+  // Transitional guard: the validator accepts the Permit2 approve shape, but
+  // inlining it additionally requires the executor's registry proof of the
+  // token contract, which lands with the kind-aware plan (Phase 3 Task 6).
+  // Until then an approve must keep falling back to its confirm page.
+  if (consistency.kind === 'approve') {
+    return { mode: 'fallback', reason: 'approve inline pending' };
+  }
   return { mode: 'inline' };
 }
 
