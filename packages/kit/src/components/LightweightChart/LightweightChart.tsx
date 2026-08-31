@@ -69,6 +69,10 @@ export function LightweightChart({
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
   priceFormatter,
   fontSize,
   seriesType,
@@ -110,6 +114,10 @@ export function LightweightChart({
     priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
+    crosshairVertLineColor,
+    crosshairVertLineStyle,
+    patternColor,
+    pulseLastPointColor,
     priceFormatter,
     fontSize,
     seriesType,
@@ -174,6 +182,10 @@ export function LightweightChart({
           currentChartConfig.priceScalePosition,
           currentChartConfig.timeZone,
           currentChartConfig.locale,
+          {
+            color: currentChartConfig.crosshairVertLineColor,
+            style: currentChartConfig.crosshairVertLineStyle,
+          },
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -204,6 +216,7 @@ export function LightweightChart({
               lineWidth: currentChartConfig.lineWidth,
               showLastValue,
               showLastPointMarker: currentChartConfig.showLastPointMarker,
+              patternColor: currentChartConfig.patternColor,
               priceFormatter: currentChartConfig.priceFormatter,
             }),
           );
@@ -413,11 +426,14 @@ export function LightweightChart({
     };
   }, [
     chartConfig.baselineOptions,
+    chartConfig.crosshairVertLineColor,
+    chartConfig.crosshairVertLineStyle,
     chartConfig.fontSize,
     chartConfig.horzLineColor,
     chartConfig.horzLineStyle,
     chartConfig.lineWidth,
     chartConfig.lineType,
+    chartConfig.patternColor,
     chartConfig.priceFormatter,
     chartConfig.priceScalePosition,
     chartConfig.priceScaleEntireTextOnly,
@@ -465,7 +481,6 @@ export function LightweightChart({
     setLastPointPosition(null);
 
     currentSeries.setData(chartConfig.data);
-    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -487,11 +502,18 @@ export function LightweightChart({
         canPublishLastPointPositionRef.current = false;
       }
     };
-  }, [
-    chartConfig.data,
-    chartConfig.secondaryLineData,
-    preserveChartInstanceOnDataChange,
-  ]);
+  }, [chartConfig.data, preserveChartInstanceOnDataChange]);
+
+  // The overlay series is re-cut on every crosshair step by charts that dim the
+  // part of the line past the cursor, so it gets its own update path: replacing
+  // its data must not re-fit the time scale or drop the pulse-dot anchor, or
+  // scrubbing would make the chart strobe.
+  useEffect(() => {
+    if (!preserveChartInstanceOnDataChange) {
+      return;
+    }
+    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
+  }, [chartConfig.secondaryLineData, preserveChartInstanceOnDataChange]);
 
   return (
     <Stack position="relative" width="100%" height={height}>
@@ -504,7 +526,7 @@ export function LightweightChart({
         <LightweightChartPulseDot
           x={lastPointPosition.x}
           y={lastPointPosition.y}
-          color={chartConfig.theme.lineColor}
+          color={chartConfig.pulseLastPointColor ?? chartConfig.theme.lineColor}
         />
       ) : null}
     </Stack>

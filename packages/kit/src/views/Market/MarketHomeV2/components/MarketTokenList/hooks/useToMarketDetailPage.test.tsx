@@ -3,8 +3,11 @@ import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToDetailPage } from './useToMarketDetailPage';
+
+const mockNavigationPush = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -28,6 +31,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceApp: {
       openExtensionMarketTokenDetail: jest.fn(),
+      openExtensionMarketStockDetail: jest.fn(),
     },
   },
 }));
@@ -48,7 +52,7 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: jest.fn(() => ({
-    push: jest.fn(),
+    push: mockNavigationPush,
     switchTab: jest.fn(),
   })),
 }));
@@ -83,6 +87,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 describe('useToDetailPage', () => {
   const originalWindowClose = globalThis.close;
   let openExtensionMarketTokenDetailMock: jest.Mock;
+  let openExtensionMarketStockDetailMock: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -92,6 +97,11 @@ describe('useToDetailPage', () => {
       'openExtensionMarketTokenDetail',
     ) as unknown as jest.Mock;
     openExtensionMarketTokenDetailMock.mockResolvedValue(undefined);
+    openExtensionMarketStockDetailMock = jest.spyOn(
+      backgroundApiProxy.serviceApp,
+      'openExtensionMarketStockDetail',
+    ) as unknown as jest.Mock;
+    openExtensionMarketStockDetailMock.mockResolvedValue(undefined);
     Object.defineProperty(globalThis, 'close', {
       configurable: true,
       value: jest.fn(),
@@ -104,6 +114,135 @@ describe('useToDetailPage', () => {
       configurable: true,
       value: originalWindowClose,
     });
+  });
+
+  it('navigates stock items with stockId instead of chain identity', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        disableTrade: true,
+        showFavoriteButton: false,
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+      disableTrade: true,
+      showFavoriteButton: false,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('preserves the originating market category for normal token detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards legacy top-coins compatibility params to V2 detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--999',
+        symbol: 'HYPE',
+        isNative: true,
+        marketTokenId: 'hyperliquid',
+        skipMarketDataFetch: true,
+        disableTrade: true,
+        showFavoriteButton: false,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'hyperliquid',
+      skipMarketDataFetch: true,
+      disableTrade: true,
+      showFavoriteButton: false,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('opens stock detail by stockId from an extension surface', async () => {
+    const { result } = renderHook(() =>
+      useToDetailPage({ showFavoriteButton: false }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        disableTrade: true,
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      });
+    });
+
+    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledWith({
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: EEnterWay.ExtensionPopup,
+      disableTrade: true,
+      showFavoriteButton: false,
+    });
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
   });
 
   it('delays closing the extension popup after opening market token detail in expand tab', async () => {

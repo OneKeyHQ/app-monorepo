@@ -17,6 +17,8 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteListAtom,
   swapShouldRefreshQuoteAtom,
+  swapStockExecutionTokensAtom,
+  swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
 import type {
   ISwapReviewGasInfoEntry,
@@ -39,12 +41,14 @@ import {
   ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapStepType,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
+  isMarketQuoteResultForPair,
   isMarketUserCancelledError,
   parseMarketTokenBalance,
   useSpeedSwapActions,
@@ -159,6 +163,11 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    simpleDb: {
+      swapNetworksSort: {
+        setRawData: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     serviceSwap: {
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
@@ -325,6 +334,15 @@ const btcToken: ISwapToken = {
   isNative: false,
 };
 
+const stockToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xstock',
+  symbol: 'NVDAon',
+  decimals: 18,
+  isNative: false,
+  isStock: true,
+};
+
 const nativeBtcToken: ISwapToken = {
   networkId: 'btc--0',
   contractAddress: '',
@@ -457,6 +475,36 @@ describe('isMarketUserCancelledError', () => {
     { message: 'User rejected the request' },
   ])('accepts an explicit cancellation signal %#', (error) => {
     expect(isMarketUserCancelledError(error)).toBe(true);
+  });
+});
+
+describe('isMarketQuoteResultForPair', () => {
+  const quoteResult: IFetchQuoteResult = {
+    info: {
+      provider: 'liquidMesh',
+      providerName: 'liquidMesh',
+    },
+    fromTokenInfo: usdcToken,
+    toTokenInfo: stockToken,
+    fromAmount: '1',
+    toAmount: '0.01',
+  };
+
+  it('accepts only a quote for the currently selected pair', () => {
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: usdcToken,
+        quoteResult,
+        toToken: stockToken,
+      }),
+    ).toBe(true);
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: stockToken,
+        quoteResult,
+        toToken: usdcToken,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -659,6 +707,90 @@ describe('useSpeedSwapActions', () => {
     });
   });
 
+  it('uses the Trade Stocks execution channel for a stock market token', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        swapType: ESwapTabSwitchType.STOCK,
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          protocol: ESwapTabSwitchType.STOCK,
+          source: ESwapQuoteSource.MARKET,
+          fromToken: expect.objectContaining({
+            contractAddress: usdcToken.contractAddress,
+          }),
+          toToken: expect.objectContaining({
+            contractAddress: stockToken.contractAddress,
+            isStock: true,
+          }),
+        }),
+      );
+    });
+
+    expect(mockSwapStore.get(swapTypeSwitchAtom())).toBe(
+      ESwapTabSwitchType.STOCK,
+    );
+    expect(mockSwapStore.get(swapStockExecutionTokensAtom())).toEqual(
+      expect.objectContaining({
+        fromToken: expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+        toToken: expect.objectContaining({
+          contractAddress: stockToken.contractAddress,
+          isStock: true,
+        }),
+      }),
+    );
+  });
+
+  it('keeps the stock token as the sell side in the Trade Stocks channel', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        tradeType: ESwapDirection.SELL,
+        swapType: ESwapTabSwitchType.STOCK,
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          protocol: ESwapTabSwitchType.STOCK,
+          source: ESwapQuoteSource.MARKET,
+          fromToken: expect.objectContaining({
+            contractAddress: stockToken.contractAddress,
+            isStock: true,
+          }),
+          toToken: expect.objectContaining({
+            contractAddress: usdcToken.contractAddress,
+          }),
+        }),
+      );
+    });
+
+    expect(mockSwapStore.get(swapStockExecutionTokensAtom())).toEqual(
+      expect.objectContaining({
+        fromToken: expect.objectContaining({
+          contractAddress: stockToken.contractAddress,
+          isStock: true,
+        }),
+        toToken: expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+      }),
+    );
+  });
+
   it.each([
     {
       autoSlippage: true,
@@ -741,6 +873,51 @@ describe('useSpeedSwapActions', () => {
         slippagePercentage: 0.5,
         source: ESwapQuoteSource.MARKET,
       }),
+    );
+  });
+
+  it('allows the rate row to force-refresh a current Market quote', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps(),
+        fromTokenAmount: '1',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+    });
+    const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), {
+        ...quoteRequest,
+        actionLock: false,
+      });
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), false);
+    });
+
+    await waitFor(() => {
+      expect(result.current.quoteNeedsRefresh).toBe(false);
+    });
+    act(() => {
+      result.current.forceRefreshMarketQuote();
+    });
+
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(2);
+    });
+    expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        source: ESwapQuoteSource.MARKET,
+      }),
+    );
+    expect(mockSwapStore.get(swapQuoteActionLockAtom()).manualRefresh).toBe(
+      true,
     );
   });
 
