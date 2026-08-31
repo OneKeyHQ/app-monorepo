@@ -160,6 +160,31 @@ const ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
  * arrived. Identity only ever sharpens: once the stage knows the model,
  * only another real model replaces it.
  */
+/**
+ * The failure's own words, for the card to speak when no reason claims
+ * it (OK-59934).
+ *
+ * The error layer has already localized these: a hardware error class
+ * built without an explicit message resolves its translation key into
+ * `.message`, which is the very sentence the legacy toast showed —
+ * "Passphrase does not match the current wallet, please try again" and
+ * some hundred others. The stage clears that toast (failures must not
+ * spill), so without carrying the message here the card can only say
+ * "Something went wrong".
+ *
+ * Deliberately unfiltered: where the SDK had nothing better than its own
+ * technical string, showing it still matches what production showed, and
+ * beats saying nothing.
+ */
+export function pickErrorMessage(error: unknown): string | undefined {
+  const message = (error as { message?: unknown } | undefined)?.message;
+  if (typeof message !== 'string') {
+    return undefined;
+  }
+  const trimmed = message.trim();
+  return trimmed.length ? trimmed : undefined;
+}
+
 export function pickDeviceType(
   next: IDeviceStageState['deviceType'],
   prev: IDeviceStageState['deviceType'],
@@ -523,6 +548,12 @@ export class DeviceStageBurstScope {
     if (params.error && reason !== 'silent') {
       await this.setStep('error', {
         errorReason: reason === 'generic' ? undefined : reason,
+        // Only where no reason claims the failure. A mapped reason's
+        // words are the considered ones — the disconnect notice above
+        // all, which exists precisely because the raw message was
+        // unreadable — so they are never overwritten.
+        errorMessage:
+          reason === 'generic' ? pickErrorMessage(params.error) : undefined,
       });
       return;
     }
@@ -800,6 +831,7 @@ export class DeviceStageBurstScope {
       confirmDescriptionDanger?: boolean;
       inputError?: string;
       errorReason?: IDeviceStageErrorReasonValue;
+      errorMessage?: string;
       authChecklist?: IDeviceStageState['authChecklist'];
       authFailureReason?: IDeviceStageState['authFailureReason'];
       authFailureMessage?: string;
@@ -956,6 +988,7 @@ export class DeviceStageBurstScope {
       deviceName?: string;
       payload?: IHardwareUiPayload;
       errorReason?: IDeviceStageErrorReasonValue;
+      errorMessage?: string;
       confirmDetails?: IDeviceStageState['confirmDetails'];
       confirmMessage?: string;
       confirmDescription?: string;
@@ -1057,6 +1090,7 @@ export class DeviceStageBurstScope {
         authFailureCode:
           step === 'authFailure' ? mergedExtras.authFailureCode : undefined,
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
+        errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
         inputError: mergedExtras.inputError,
         passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,
         confirmDetails: pickConfirm(
