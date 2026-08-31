@@ -188,15 +188,15 @@ describe('PerpLayoutSettings', () => {
     expect(view.getByText('不展示')).toBeTruthy();
   });
 
-  it('defaults to the top position without a saved preference', () => {
+  it('defaults to the bottom position without a saved preference', () => {
     mockChartPosition = undefined;
     const view = render(<PerpLayoutSettingsContent />);
     const top = view.getByTestId('perp-mobile-chart-position-option-top');
     const bottom = view.getByTestId('perp-mobile-chart-position-option-bottom');
 
-    expect(top.getAttribute('aria-checked')).toBe('true');
-    expect(top.getAttribute('data-border-color')).toBe('$borderActive');
-    expect(bottom.getAttribute('aria-checked')).toBe('false');
+    expect(top.getAttribute('aria-checked')).toBe('false');
+    expect(bottom.getAttribute('aria-checked')).toBe('true');
+    expect(bottom.getAttribute('data-border-color')).toBe('$borderActive');
   });
 
   it('persists the selected chart position', () => {

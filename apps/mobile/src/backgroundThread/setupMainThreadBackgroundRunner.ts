@@ -1038,10 +1038,10 @@ function handleBackgroundThreadResponse(
   }
 
   const errorInfo = response.error;
-  const error = createTransportError(
+  const errorMessage =
     errorInfo?.message ||
-      `Background request failed without error payload. callId=${callId}`,
-  ) as Error & {
+    `Background request failed without error payload. callId=${callId}`;
+  let error = new Error(errorMessage) as Error & {
     name?: string;
     stack?: string;
     autoToast?: boolean;
@@ -1051,52 +1051,58 @@ function handleBackgroundThreadResponse(
     key?: string;
     requestId?: string;
     httpStatusCode?: number;
-    constructorName?: string;
     data?: unknown;
     payload?: unknown;
   };
-  if (errorInfo?.name) {
-    error.name = errorInfo.name;
+  try {
+    error = createTransportError(errorMessage);
+    if (errorInfo?.name) {
+      error.name = errorInfo.name;
+    }
+    if (errorInfo?.stack) {
+      error.stack = errorInfo.stack;
+    }
+    // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
+    // toast / i18n / dedup logic behaves the same as non-split thread mode.
+    if (typeof errorInfo?.autoToast === 'boolean') {
+      error.autoToast = errorInfo.autoToast;
+    }
+    if (typeof errorInfo?.className === 'string') {
+      error.className = errorInfo.className;
+    }
+    if (errorInfo?.$isHardwareError === true) {
+      error.$isHardwareError = true;
+    }
+    if (
+      typeof errorInfo?.code === 'string' ||
+      typeof errorInfo?.code === 'number'
+    ) {
+      error.code = errorInfo.code;
+    }
+    if (typeof errorInfo?.key === 'string') {
+      error.key = errorInfo.key;
+    }
+    if (typeof errorInfo?.requestId === 'string') {
+      error.requestId = errorInfo.requestId;
+    }
+    if (typeof errorInfo?.httpStatusCode === 'number') {
+      error.httpStatusCode = errorInfo.httpStatusCode;
+    }
+    if (errorInfo?.data !== undefined) {
+      error.data = errorInfo.data;
+    }
+    if (errorInfo?.payload !== undefined) {
+      error.payload = errorInfo.payload;
+    }
+  } catch (metadataError) {
+    transportLog(
+      `handleResponse: failed to rehydrate error metadata. callId=${callId}, error=${
+        (metadataError as Error)?.message || String(metadataError)
+      }`,
+    );
+  } finally {
+    pendingCall.reject(error);
   }
-  if (errorInfo?.stack) {
-    error.stack = errorInfo.stack;
-  }
-  // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
-  // toast / i18n / dedup logic behaves the same as non-split thread mode.
-  if (typeof errorInfo?.autoToast === 'boolean') {
-    error.autoToast = errorInfo.autoToast;
-  }
-  if (typeof errorInfo?.className === 'string') {
-    error.className = errorInfo.className;
-  }
-  if (errorInfo?.$isHardwareError === true) {
-    error.$isHardwareError = true;
-  }
-  if (
-    typeof errorInfo?.code === 'string' ||
-    typeof errorInfo?.code === 'number'
-  ) {
-    error.code = errorInfo.code;
-  }
-  if (typeof errorInfo?.key === 'string') {
-    error.key = errorInfo.key;
-  }
-  if (typeof errorInfo?.requestId === 'string') {
-    error.requestId = errorInfo.requestId;
-  }
-  if (typeof errorInfo?.httpStatusCode === 'number') {
-    error.httpStatusCode = errorInfo.httpStatusCode;
-  }
-  if (typeof errorInfo?.constructorName === 'string') {
-    error.constructorName = errorInfo.constructorName;
-  }
-  if (errorInfo?.data !== undefined) {
-    error.data = errorInfo.data;
-  }
-  if (errorInfo?.payload !== undefined) {
-    error.payload = errorInfo.payload;
-  }
-  pendingCall.reject(error);
 }
 
 function handleBackgroundThreadJotaiStateUpdate(
