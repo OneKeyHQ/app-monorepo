@@ -31,10 +31,19 @@ describe('getMarketStockChartPeriod', () => {
     'uses the period that covers a %s-second lookback',
     (age, period) => {
       expect(
-        getMarketStockChartPeriod({ now, timeFrom: now - age, timeTo: now }),
+        getMarketStockChartPeriod({ timeFrom: now - age, timeTo: now }),
       ).toBe(period);
     },
   );
+
+  it('measures historical windows from the requested end time', () => {
+    expect(
+      getMarketStockChartPeriod({
+        timeFrom: now - 10 * 365 * 24 * 60 * 60,
+        timeTo: now - 10 * 365 * 24 * 60 * 60 + 60 * 60,
+      }),
+    ).toBe('1h');
+  });
 });
 
 describe('fetchMarketStockKLineData', () => {
@@ -57,7 +66,7 @@ describe('fetchMarketStockKLineData', () => {
     });
 
     expect(serviceMarketV2Mock.fetchMarketStockChart.mock.calls).toEqual([
-      [{ stockId: 'AAPL', period: 'all', points: 299 }],
+      [{ stockId: 'AAPL', period: '1h', points: 299 }],
     ]);
     expect(result).toEqual({
       pointType: 'ohlc',
