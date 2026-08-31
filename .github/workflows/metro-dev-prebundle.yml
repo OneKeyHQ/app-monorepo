@@ -202,7 +202,18 @@ jobs:
           release_is_draft="$(gh api --paginate \
             "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .draft")"
-          if [[ "$release_is_draft" == "true" ]]; then
+          if [[ "$release_is_draft" == "false" ]]; then
+            echo "Prebundle release was published by another run: $RELEASE_TAG"
+          else
+            if [[ "$release_is_draft" != "true" ]]; then
+              gh release create "$RELEASE_TAG" \
+                --draft \
+                --target "$GITHUB_SHA" \
+                --title "$release_title" \
+                --notes "$release_notes" \
+                --prerelease \
+                --latest=false
+            fi
             gh release upload "$RELEASE_TAG" "$release_dir"/* --clobber
             gh release edit "$RELEASE_TAG" \
               --draft=false \
@@ -211,16 +222,6 @@ jobs:
               --prerelease \
               --target "$GITHUB_SHA" \
               --title "$release_title"
-          elif [[ "$release_is_draft" == "false" ]]; then
-            echo "Prebundle release was published by another run: $RELEASE_TAG"
-          else
-            gh release create "$RELEASE_TAG" \
-              "$release_dir"/* \
-              --target "$GITHUB_SHA" \
-              --title "$release_title" \
-              --notes "$release_notes" \
-              --prerelease \
-              --latest=false
           fi
 
       - name: Write publish summary
