@@ -1,10 +1,7 @@
-import {
-  TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
-} from '../chartConstants';
+import { TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING } from '../chartConstants';
 
 import { getTradingViewNativeChartWidth } from './chartLayout';
-import { getTradingViewNativeSubIndicatorPaneStackHeight } from './subIndicatorRender/layout';
+import { getTradingViewNativeSubIndicatorPaneStackLayout } from './subIndicatorRender/layout';
 
 // Keep scaling stable near the bottom edge where the inverted Y coordinate approaches zero.
 const PRICE_AXIS_SCALE_MARGIN_RATIO = 0.2;
@@ -14,24 +11,23 @@ const MAX_PRICE_RANGE_SCALE = 10;
 export function getTradingViewNativeMainPriceAxisLayout({
   height,
   paneCount,
+  timeAxisHeight,
 }: {
   height: number;
   paneCount: number;
+  timeAxisHeight?: number;
 }) {
   'worklet';
 
   const normalizedHeight = Number.isFinite(height) ? Math.max(height, 0) : 0;
-  const paneStackHeight = getTradingViewNativeSubIndicatorPaneStackHeight({
+  const paneStackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
     height: normalizedHeight,
     paneCount,
+    timeAxisHeight,
   });
-  const bottomInset = Math.min(
-    TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT + paneStackHeight,
-    normalizedHeight,
-  );
   return {
-    bottomInset,
-    height: Math.max(normalizedHeight - bottomInset, 0),
+    bottomInset: normalizedHeight - paneStackLayout.top,
+    height: paneStackLayout.top,
   };
 }
 
@@ -121,6 +117,7 @@ export function isTradingViewNativeMainPriceAxisTouch({
   height,
   paneCount,
   priceAxisWidth,
+  timeAxisHeight,
   width,
   x,
   y,
@@ -128,6 +125,7 @@ export function isTradingViewNativeMainPriceAxisTouch({
   height: number;
   paneCount: number;
   priceAxisWidth: number;
+  timeAxisHeight?: number;
   width: number;
   x: number;
   y: number;
@@ -138,6 +136,7 @@ export function isTradingViewNativeMainPriceAxisTouch({
     priceAxisHeight: getTradingViewNativeMainPriceAxisLayout({
       height,
       paneCount,
+      timeAxisHeight,
     }).height,
     priceAxisWidth,
     width,

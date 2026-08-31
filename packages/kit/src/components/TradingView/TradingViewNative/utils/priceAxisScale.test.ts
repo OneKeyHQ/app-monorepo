@@ -20,6 +20,16 @@ describe('TradingViewNative price-axis scaling', () => {
       bottomInset: 24,
       height: 76,
     });
+    expect(
+      getTradingViewNativeMainPriceAxisLayout({
+        height: 400,
+        paneCount: 2,
+        timeAxisHeight: 20,
+      }),
+    ).toEqual({
+      bottomInset: 132,
+      height: 268,
+    });
   });
 
   it('clamps the price-range scale to safe bounds', () => {
@@ -85,5 +95,19 @@ describe('TradingViewNative price-axis scaling', () => {
     expect(isTradingViewNativeMainPriceAxisTouch({ ...input, y: 350 })).toBe(
       false,
     );
+    expect(
+      isTradingViewNativeMainPriceAxisTouch({
+        ...input,
+        timeAxisHeight: 20,
+        y: 267,
+      }),
+    ).toBe(true);
+    expect(
+      isTradingViewNativeMainPriceAxisTouch({
+        ...input,
+        timeAxisHeight: 20,
+        y: 268,
+      }),
+    ).toBe(false);
   });
 });

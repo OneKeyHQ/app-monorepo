@@ -376,7 +376,7 @@ describe('devVendor', () => {
       schemaVersion: 1,
       strategyVersion: 1,
       platform: 'ios',
-      registryEpoch: 1,
+      registryEpoch: loadRegistry().registryEpoch,
       configInputsDigest: 'config',
       modulesDigest: 'modules',
       modules: [
@@ -448,7 +448,7 @@ describe('devVendor', () => {
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
       platform: 'ios',
-      registryEpoch: 1,
+      registryEpoch: loadRegistry().registryEpoch,
       configInputsDigest: computeConfigInputsDigest(),
       modulesDigest: computeModulesDigest(modules),
       modules,

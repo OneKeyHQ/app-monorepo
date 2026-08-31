@@ -74,7 +74,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   ) => Promise<boolean>;
   clearCompletedPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   persistRestoredSession: (
     session: IPrimeInfiniPendingPaymentSession,
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
@@ -108,7 +108,11 @@ export async function resolvePrimeInfiniPaymentRestore({
       purchaseStatusSnapshot,
     })
   ) {
-    await clearCompletedPaymentSession(session.paymentCacheKey);
+    if (!(await clearCompletedPaymentSession(session.paymentCacheKey))) {
+      throw new OneKeyLocalError(
+        'Infini payment session changed during restore',
+      );
+    }
     return { type: 'completed' };
   }
   const transferSnapshotUnchanged = isSamePrimeInfiniPaymentTransferSnapshot({

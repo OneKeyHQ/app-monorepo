@@ -785,6 +785,7 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),
@@ -849,6 +850,7 @@ describe('resolvePrimeInfiniPaymentForcedReplacement', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),

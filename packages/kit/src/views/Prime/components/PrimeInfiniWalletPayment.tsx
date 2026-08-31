@@ -96,6 +96,7 @@ import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
@@ -4194,6 +4195,7 @@ function PrimeInfiniWalletPaymentRoot({
   onExitPreventedChange,
   hasValidRouteParams,
   createNewPayment,
+  preferredNetworkId,
 }: {
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: ISubscriptionPeriod;
@@ -4203,6 +4205,7 @@ function PrimeInfiniWalletPaymentRoot({
   onExitPreventedChange: (isPrevented: boolean) => void;
   hasValidRouteParams: boolean;
   createNewPayment: boolean;
+  preferredNetworkId?: string;
 }) {
   const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
@@ -4249,7 +4252,9 @@ function PrimeInfiniWalletPaymentRoot({
   const initialAccountSyncPromiseRef = useRef<Promise<void> | undefined>(
     undefined,
   );
-  const { purchase } = usePrimePurchaseCallback();
+  const { purchase } = usePrimePurchaseCallback({
+    networkId: preferredNetworkId,
+  });
   const completedPaymentHandledRef = useRef('');
   const paymentCreationIntentRef = useRef(createNewPayment);
   const forcedReplacementGenerationRef = useRef(0);
@@ -4461,15 +4466,14 @@ function PrimeInfiniWalletPaymentRoot({
       const primeExpiresAt = wasPrimeActive
         ? primeSubscription?.expiresAt || undefined
         : undefined;
-      let infiniPeriodEnd: number | undefined;
-      if (wasPrimeActive) {
-        infiniPeriodEnd = infiniSubscription?.currentPeriodEnd ?? 0;
-      }
+      const infiniPeriodEnd = infiniSubscription?.currentPeriodEnd ?? 0;
       const freshBaseline = {
         onekeyUserId,
         wasPrimeActive,
         primeExpiresAt,
         infiniPeriodEnd,
+        infiniSubscriptionId:
+          infiniSubscription?.subscriptionId?.trim() || null,
       };
       let hasError = false;
       if (!completedPaymentId) {
@@ -4789,12 +4793,18 @@ function PrimeInfiniWalletPaymentRoot({
 
   const selectedAsset = useMemo(
     () =>
-      result?.assets.find(
-        (asset) =>
-          asset.key ===
-          (selectedAssetKey || effectivePendingSession?.asset.key),
-      ) ?? result?.assets[0],
-    [effectivePendingSession?.asset.key, result, selectedAssetKey],
+      resolvePrimeInfiniPaymentAsset({
+        assets: result?.assets ?? [],
+        selectedAssetKey,
+        pendingAssetKey: effectivePendingSession?.asset.key,
+        preferredNetworkId,
+      }),
+    [
+      effectivePendingSession?.asset.key,
+      preferredNetworkId,
+      result?.assets,
+      selectedAssetKey,
+    ],
   );
   const availableNetworksMap = useMemo(
     () =>
@@ -5062,6 +5072,9 @@ function PrimeInfiniWalletPaymentRoot({
         // and having accepted the duplicate-transfer warning they are entitled
         // to every channel, not just the crypto one.
         onClose();
+        if (platformEnv.isNative) {
+          await timerUtils.wait(PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS);
+        }
         await purchase({ selectedSubscriptionPeriod, featureName });
         return;
       }
@@ -5376,6 +5389,7 @@ export default function PrimeInfiniWalletPayment() {
                 onExitPreventedChange={setIsExitPrevented}
                 hasValidRouteParams={hasValidRouteParams}
                 createNewPayment={createNewPaymentRef.current}
+                preferredNetworkId={route.params?.networkId}
               />
             ) : (
               <Stack alignItems="center" py="$6">

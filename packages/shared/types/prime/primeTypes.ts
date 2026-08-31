@@ -263,6 +263,8 @@ export type IPrimeInfiniPendingPaymentSession = {
     wasPrimeActive: boolean;
     primeExpiresAt?: number;
     infiniPeriodEnd?: number;
+    // undefined is a legacy baseline; null means no subscription was observed.
+    infiniSubscriptionId?: string | null;
   };
   plan: IPrimeInfiniSubscriptionPlan;
   selectedSubscriptionPeriod: 'P1Y' | 'P1M';

@@ -400,7 +400,11 @@ describe('usePrimeInfiniPaymentPolling', () => {
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 
@@ -427,13 +431,20 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
-  it('does not attribute a Prime activation to a pending payment', async () => {
-    const payment = buildPayment('payment-a');
+  it('does not attribute a redemption activation to a pending crypto payment', async () => {
+    const payment = {
+      ...buildPayment('payment-a'),
+      amountConfirmed: '29.99',
+    };
     const onSuccess = jest.fn();
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'redemption' }],
+      },
       infiniSubscription: undefined,
     });
 
@@ -772,7 +783,11 @@ describe('usePrimeInfiniPaymentPolling', () => {
     );
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 
@@ -807,7 +822,11 @@ describe('usePrimeInfiniPaymentPolling', () => {
     servicePrime.apiGetInfiniPayment.mockResolvedValue(payment);
     servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
       onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+      primeSubscription: {
+        isActive: true,
+        expiresAt: Date.now() + 60_000,
+        subscriptions: [{ channel: 'infini' }],
+      },
       infiniSubscription: undefined,
     });
 

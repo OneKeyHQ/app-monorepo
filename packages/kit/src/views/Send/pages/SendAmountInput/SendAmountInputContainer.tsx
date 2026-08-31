@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
@@ -88,6 +89,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -842,6 +844,7 @@ function SendAmountInputContainer() {
     onCancel,
     amount: prefillAmount,
     isInvoiceAmountLocked,
+    hasAcknowledgedCexDepositWarning,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -857,6 +860,14 @@ function SendAmountInputContainer() {
       accountId: currentAccountId,
       networkId,
     });
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    isNative: tokenInfo?.isNative,
+    tokenAddress: tokenInfo?.address,
+    nativeTokenAddress:
+      vaultSettings?.networkInfo[networkId]?.nativeTokenAddress ??
+      vaultSettings?.networkInfo.default.nativeTokenAddress,
+  });
 
   const walletId = useMemo(
     () =>
@@ -1428,6 +1439,7 @@ function SendAmountInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: false,
+            tokenAddress: badgeQueryTokenAddress,
           });
 
         const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -1453,6 +1465,7 @@ function SendAmountInputContainer() {
       }
     },
     [
+      badgeQueryTokenAddress,
       currentAccountId,
       enableAllowListValidation,
       networkId,
@@ -2667,6 +2680,7 @@ function SendAmountInputContainer() {
         enableAllowListValidation,
         ignoreSimilarAddressInAddressBook: true,
         enableCheckSimilarAddressInAddressBook: true,
+        tokenAddress: badgeQueryTokenAddress,
       });
 
     const validationStatus = queryResult.validStatus ?? 'unknown';
@@ -2696,19 +2710,38 @@ function SendAmountInputContainer() {
       }
     }
 
+    const { canProceed } = await confirmCexDepositIfUnsupported({
+      intl,
+      isNFT,
+      networkId,
+      tokenSymbol: tokenInfo?.symbol,
+      networkName: network?.name,
+      page: 'amount',
+      cexSupportedInfo: queryResult.cexSupportedInfo,
+      hasAcknowledgedWarning: hasAcknowledgedCexDepositWarning,
+    });
+    if (!canProceed) {
+      return undefined;
+    }
+
     return {
       recipientAddress: resolvedRecipientAddress,
       recipientIsContract:
         queryResult.isContract ?? recipientIsContract ?? false,
     };
   }, [
+    badgeQueryTokenAddress,
     currentAccountId,
     enableAllowListValidation,
     getRecipientValidateMessage,
+    hasAcknowledgedCexDepositWarning,
     intl,
+    isNFT,
+    network?.name,
     networkId,
     recipientAddress,
     recipientIsContract,
+    tokenInfo?.symbol,
   ]);
 
   const confirmPrivateSendValueDrop = useCallback(

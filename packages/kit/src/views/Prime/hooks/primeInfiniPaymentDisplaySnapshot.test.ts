@@ -1,10 +1,73 @@
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from './primeInfiniPaymentDisplaySnapshot';
+
+const assets = [
+  { key: 'sol-usdc', networkId: 'sol--101' },
+  { key: 'eth-usdc', networkId: 'evm--1' },
+  { key: 'bsc-usdt', networkId: 'evm--56' },
+];
+
+describe('resolvePrimeInfiniPaymentAsset', () => {
+  it('prefers the selected or restored asset over the route network', () => {
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: 'bsc-usdt',
+        pendingAssetKey: 'eth-usdc',
+        preferredNetworkId: 'sol--101',
+      }),
+    ).toBe(assets[2]);
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: '',
+        pendingAssetKey: 'bsc-usdt',
+        preferredNetworkId: 'sol--101',
+      }),
+    ).toBe(assets[2]);
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: 'unsupported-asset',
+        pendingAssetKey: 'bsc-usdt',
+        preferredNetworkId: 'sol--101',
+      }),
+    ).toBe(assets[2]);
+  });
+
+  it('uses the first supported asset on the preferred network', () => {
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: '',
+        preferredNetworkId: 'sol--101',
+      }),
+    ).toBe(assets[0]);
+  });
+
+  it('falls back to Ethereum and then the first backend asset', () => {
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets,
+        selectedAssetKey: '',
+        preferredNetworkId: 'unsupported',
+      }),
+    ).toBe(assets[1]);
+    expect(
+      resolvePrimeInfiniPaymentAsset({
+        assets: [assets[0], assets[2]],
+        selectedAssetKey: '',
+        preferredNetworkId: 'unsupported',
+      }),
+    ).toBe(assets[0]);
+  });
+});
 
 describe('resolvePrimeInfiniPaymentPinnedAssetKey', () => {
   it('keeps the selected BSC token while an account reload temporarily loses its session', () => {
