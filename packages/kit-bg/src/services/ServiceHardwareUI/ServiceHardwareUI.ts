@@ -87,6 +87,9 @@ export type IWithHardwareProcessingOptions = {
   /** DeviceStage confirm channel (OK-59934): what the confirm card shows
    * when this operation asks for a device confirmation. */
   stageConfirmContent?: IDeviceStageConfirmContent;
+  /** Play the passphrase teach card before the entry (the account
+   * selector's deliberate Add-hidden-wallet; onboarding never asks). */
+  stagePassphraseIntro?: boolean;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -1255,6 +1258,7 @@ class ServiceHardwareUI extends ServiceBase {
             ? device?.settings?.vendorModelName
             : undefined,
           confirmContent: params.stageConfirmContent,
+          passphraseIntro: params.stagePassphraseIntro,
         });
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
