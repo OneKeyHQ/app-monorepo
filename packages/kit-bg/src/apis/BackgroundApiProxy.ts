@@ -19,6 +19,7 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
@@ -182,6 +183,10 @@ class BackgroundApiProxy
 
   get serviceSend(): ServiceSend {
     return this.getProxyService<ServiceSend>('serviceSend');
+  }
+
+  get serviceBatchTxSign(): ServiceBatchTxSign {
+    return this.getProxyService<ServiceBatchTxSign>('serviceBatchTxSign');
   }
 
   get serviceSwap(): ServiceSwap {
