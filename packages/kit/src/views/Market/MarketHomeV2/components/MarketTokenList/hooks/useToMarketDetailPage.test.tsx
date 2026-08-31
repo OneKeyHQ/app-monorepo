@@ -75,6 +75,15 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   })),
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+    prepareMarketDetailV2KlineSource: jest.fn(),
+  }),
+);
+
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
     current: {

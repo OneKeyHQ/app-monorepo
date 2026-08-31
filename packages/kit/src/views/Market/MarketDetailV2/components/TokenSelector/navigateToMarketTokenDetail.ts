@@ -10,6 +10,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
+import {
+  prefetchMarketDetailV2FirstScreenKLine,
+  prepareMarketDetailV2KlineSource,
+} from '../../utils/marketDetailPagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 export function navigateToMarketTokenDetail(
@@ -35,6 +39,15 @@ export function navigateToMarketTokenDetail(
   if (stockId) {
     opts.tokenDetailActions.current.clearTokenDetail();
   } else {
+    prepareMarketDetailV2KlineSource({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+    });
+    void prefetchMarketDetailV2FirstScreenKLine({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+      historyStartTime: opts.tokenDetailPreview?.firstTradeTime,
+    }).catch(() => undefined);
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
       networkId: token.networkId,

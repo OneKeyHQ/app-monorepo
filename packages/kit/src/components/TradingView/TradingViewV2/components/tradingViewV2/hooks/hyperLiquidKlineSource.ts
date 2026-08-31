@@ -108,3 +108,20 @@ export function getPreparedHyperLiquidKlineSource({
     ? preparedKlineSource.result
     : undefined;
 }
+
+export function resolveMarketTradingViewStorageNamespace({
+  isHyperLiquidSource,
+  storageNamespace,
+}: {
+  isHyperLiquidSource: boolean;
+  storageNamespace?: string;
+}) {
+  const requestedNamespace = storageNamespace?.trim();
+  if (
+    isHyperLiquidSource &&
+    (!requestedNamespace || requestedNamespace === 'market')
+  ) {
+    return 'market-hyperliquid';
+  }
+  return requestedNamespace || 'market';
+}

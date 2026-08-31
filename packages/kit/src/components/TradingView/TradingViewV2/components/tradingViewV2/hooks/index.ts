@@ -1,6 +1,7 @@
 export { useAutoKLineUpdate } from './useAutoKLineUpdate';
 export { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
 export { useHyperLiquidKlineSource } from './useHyperLiquidKlineSource';
+export { resolveMarketTradingViewStorageNamespace } from './hyperLiquidKlineSource';
 export {
   buildMarketTradingViewIdentityKey,
   buildMarketTradingViewUrl,

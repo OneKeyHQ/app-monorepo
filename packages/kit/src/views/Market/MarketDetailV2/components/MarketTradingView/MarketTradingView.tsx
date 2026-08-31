@@ -170,10 +170,6 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
-    const resolutionNamespace =
-      storageNamespace === 'market-hyperliquid'
-        ? 'market-hyperliquid'
-        : 'market';
     const initialKLineResolutions = useMemo(
       () => ({
         market: getMarketTradingViewSessionPreference({
@@ -233,26 +229,33 @@ export const MarketTradingView = memo(
           void saveMarketTradingViewFirstScreenRequestPreference({
             resolution: data.period,
             ...data.requestRange,
-            namespace: resolutionNamespace,
+            namespace:
+              data.storageNamespace === 'market-hyperliquid'
+                ? 'market-hyperliquid'
+                : 'market',
           });
         }
       },
-      [resolutionNamespace],
+      [],
     );
     const handleKLinePeriodChange = useCallback(
       (data: ITradingViewKLinePeriodChangeData) => {
+        const namespace =
+          data.storageNamespace === 'market-hyperliquid'
+            ? 'market-hyperliquid'
+            : 'market';
         void saveMarketTradingViewResolutionPreference(
           data.toPeriod,
-          resolutionNamespace,
+          namespace,
         );
         updateMarketTradingViewSessionResolution({
           tokenAddress,
           networkId,
           resolution: data.toPeriod,
-          namespace: resolutionNamespace,
+          namespace,
         });
       },
-      [networkId, resolutionNamespace, tokenAddress],
+      [networkId, tokenAddress],
     );
 
     return (

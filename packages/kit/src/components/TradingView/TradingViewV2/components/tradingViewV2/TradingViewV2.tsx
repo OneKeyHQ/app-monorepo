@@ -45,6 +45,7 @@ import {
   buildMarketTradingViewIdentityKey,
   buildMarketTradingViewUrl,
   prefetchTradingViewV2FirstScreenData,
+  resolveMarketTradingViewStorageNamespace,
   subscribeTradingViewV2FirstScreenPrefetch,
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
@@ -506,6 +507,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const kLineProvider = useHyperLiquid ? 'hyperliquid' : 'onekey';
   const kLineProviderSymbol = useHyperLiquid ? hyperLiquidSymbol : undefined;
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
+  const finalStorageNamespace = resolveMarketTradingViewStorageNamespace({
+    isHyperLiquidSource: useHyperLiquid,
+    storageNamespace,
+  });
   const bootstrapKLineResolution = normalizeTradingViewKLineInterval(
     (useHyperLiquid
       ? (initialHyperLiquidKLineResolution ?? initialKLineResolution)
@@ -579,7 +584,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const handleKLineDataReady = useCallback(
     (data: ITradingViewKLineDataReadyData) => {
-      onKLineDataReady?.({ ...data, storageNamespace });
+      onKLineDataReady?.({ ...data, storageNamespace: finalStorageNamespace });
       if (
         isHistoryReadyAckSupported === false &&
         data.requestRange?.firstDataRequest
@@ -597,17 +602,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [
       chartSymbol,
+      finalStorageNamespace,
       isHistoryReadyAckSupported,
       networkId,
       onKLineDataReady,
       onLegacyHistoryReady,
-      storageNamespace,
       tokenAddress,
     ],
   );
   const handleKLineLoadError = useCallback(
     (data: ITradingViewKLineLoadErrorData) => {
-      onKLineLoadError?.({ ...data, storageNamespace });
+      onKLineLoadError?.({
+        ...data,
+        storageNamespace: finalStorageNamespace,
+      });
       if (
         isHistoryReadyAckSupported === false &&
         data.requestRange?.firstDataRequest
@@ -626,20 +634,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [
       chartSymbol,
+      finalStorageNamespace,
       isHistoryReadyAckSupported,
       networkId,
       onKLineLoadError,
       onLegacyHistoryReady,
-      storageNamespace,
       tokenAddress,
     ],
   );
   const handleKLinePeriodChange = useCallback(
     (data: ITradingViewKLinePeriodChangeData) => {
       setIsKLineHistoryReady(false);
-      onKLinePeriodChange?.({ ...data, storageNamespace });
+      onKLinePeriodChange?.({
+        ...data,
+        storageNamespace: finalStorageNamespace,
+      });
     },
-    [onKLinePeriodChange, storageNamespace],
+    [finalStorageNamespace, onKLinePeriodChange],
   );
 
   const { customReceiveHandler } = useTradingViewMessageHandler({
@@ -706,7 +717,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       storageNamespace,
       forceCandlestickChart,
     });
-
     return {
       type: 'market',
       storageNamespace: finalStorageNamespace,

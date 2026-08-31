@@ -9,6 +9,9 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import { prefetchMarketDetailV2FirstScreenKLine } from '../views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 
 type IMarketTokenDetailNavigationTarget =
   | {
@@ -231,6 +234,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? () => {
         const handledHashRef = useRef<string | undefined>(undefined);
+        const preparedHashRef = useRef<string | undefined>(undefined);
         const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
           undefined,
         );
@@ -242,6 +246,29 @@ export const useExtensionMarketTokenDetailHashNavigation =
             retryTimerRef.current = undefined;
           }
         }, []);
+
+        const prepareTargetFromHash = useCallback(
+          (hash: string, target: IMarketTokenDetailNavigationTarget) => {
+            if (preparedHashRef.current === hash) {
+              return;
+            }
+            preparedHashRef.current = hash;
+
+            const networkId =
+              networkUtils.getNetworkIdFromShortCode({
+                shortCode: target.params.network,
+              }) || target.params.network;
+            const tokenAddress =
+              target.screen === ETabMarketRoutes.MarketDetailV2
+                ? target.params.tokenAddress
+                : '';
+            void prefetchMarketDetailV2FirstScreenKLine({
+              tokenAddress,
+              networkId,
+            }).catch(() => undefined);
+          },
+          [],
+        );
 
         const navigateFromHash = useCallback((expectedHash: string) => {
           const currentHash = globalThis.location?.hash ?? '';
@@ -291,6 +318,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
             handledHashRef.current = undefined;
             return;
           }
+          prepareTargetFromHash(hash, target);
 
           const runId = retryRunIdRef.current + 1;
           retryRunIdRef.current = runId;
@@ -315,7 +343,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
           };
 
           run();
-        }, [clearRetryTimer, navigateFromHash]);
+        }, [clearRetryTimer, navigateFromHash, prepareTargetFromHash]);
 
         useEffect(() => {
           startNavigationFromHash();

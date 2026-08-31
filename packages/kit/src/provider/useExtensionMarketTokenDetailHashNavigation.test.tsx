@@ -26,6 +26,13 @@ jest.mock('@onekeyhq/components', () => ({
   },
 }));
 
+jest.mock(
+  '../views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    prefetchMarketDetailV2FirstScreenKLine: jest.fn(() => Promise.resolve()),
+  }),
+);
+
 const mockRootNavigationRef = rootNavigationRef as unknown as {
   current:
     | {
