@@ -3485,6 +3485,7 @@
   "perps.token_selector_perps": "永續合約",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易獎勵",
+  "perps__action": "合約",
   "perps__claim_failed__msg": "手續費折扣領取失敗，請稍後再試",
   "perps__claim_fee_discount__desc": "僅需一次免費簽名，即可永久享受永續合約交易 4% 手續費折扣。無需支付 Gas，簽名即刻生效。",
   "perps__claim_fee_discount__title": "領取永續合約 4% 手續費優惠",

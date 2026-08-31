@@ -3490,6 +3490,7 @@ export enum ETranslations {
   perps_token_selector_perps = 'perps.token_selector_perps',
   perps_token_selector_stocks = 'perps.token_selector_stocks',
   perps_trade_reward = 'perps.trade_reward',
+  perps__action = 'perps__action',
   perps__claim_failed__msg = 'perps__claim_failed__msg',
   perps__claim_fee_discount__desc = 'perps__claim_fee_discount__desc',
   perps__claim_fee_discount__title = 'perps__claim_fee_discount__title',

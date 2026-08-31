@@ -986,7 +986,7 @@ function SelectPrivateKeyNetworkView() {
         ) : null}
       </YStack>
       {!gtMd ? (
-        <Page.Footer>
+        <Page.Footer safeAreaBottomMode="content">
           <YStack
             px="$5"
             pt="$3"
