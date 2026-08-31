@@ -335,6 +335,7 @@ function readBaseRegistry(base) {
     contents = execFileSync('git', ['show', `${base}:${REGISTRY_REPO_PATH}`], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (error) {
@@ -356,7 +357,10 @@ function readBaseRegistry(base) {
 function run(argv = process.argv.slice(2)) {
   const { base, command, mapPaths } = parseArgs(argv);
   if (command === 'reconcile') {
-    const result = reconcileRegistries(readBaseRegistry(base), loadRegistry());
+    const result = reconcileRegistries(
+      readBaseRegistry(base),
+      JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8')),
+    );
     writeRegistry(result.registry);
     console.log(
       `[module-id:reconcile] wrote ${REGISTRY_REPO_PATH}; reassigned ${result.reassigned} new collision(s).`,

@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,6 +12,7 @@ import {
   LottieView,
   SizableText,
   Stack,
+  UnOrderedList,
   YStack,
   useThemeName,
 } from '@onekeyhq/components';
@@ -21,6 +23,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { PrimeTestIDs } from '../../testIDs';
 
 type IPrimeRedemptionFormValues = {
@@ -41,6 +44,8 @@ function PrimeRedemptionDialogContent({
   });
   const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
+    useState(false);
   const [redemptionResult, setRedemptionResult] =
     useState<IPrimeRedemptionResult>();
   const codeValue = form.watch('code');
@@ -53,23 +58,33 @@ function PrimeRedemptionDialogContent({
     id: ETranslations.redemption_enter_code_placeholder,
   });
 
-  const handleRedeem = useCallback(
-    async ({
-      close,
-      preventClose,
-    }: IDialogInstance & { preventClose: () => void }) => {
-      preventClose();
+  const runWithSubmittingLock = useCallback(
+    async (action: () => Promise<void>) => {
       if (isSubmittingRef.current) {
-        return;
-      }
-      const code = form.getValues('code').trim();
-      if (!code) {
         return;
       }
 
       isSubmittingRef.current = true;
       setIsSubmitting(true);
       form.clearErrors('code');
+      try {
+        await action();
+      } finally {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    },
+    [form],
+  );
+
+  const submitRedemption = useCallback(
+    async ({
+      code,
+      close,
+    }: {
+      code: string;
+      close: IDialogInstance['close'];
+    }) => {
       try {
         const result = await backgroundApiProxy.servicePrime.apiRedeemPrimeCode(
           {
@@ -87,6 +102,7 @@ function PrimeRedemptionDialogContent({
           .apiFetchPrimeUserInfo({ forceRefresh: true })
           .catch(() => undefined);
       } catch (error) {
+        setIsPendingPaymentConfirmation(false);
         const apiError = error as {
           code?: unknown;
           data?: {
@@ -133,12 +149,66 @@ function PrimeRedemptionDialogContent({
               id: ETranslations.redemption_invalid_code_error,
             }),
         });
-      } finally {
-        isSubmittingRef.current = false;
-        setIsSubmitting(false);
       }
     },
     [expectedOneKeyUserId, form, intl, isPrimeActiveBeforeRedeem],
+  );
+
+  const handleRedeem = useCallback(
+    async ({
+      close,
+      preventClose,
+    }: IDialogInstance & { preventClose: () => void }) => {
+      preventClose();
+      const code = form.getValues('code').trim();
+      if (!code) {
+        return;
+      }
+
+      await runWithSubmittingLock(async () => {
+        let entryGuard:
+          | Awaited<ReturnType<typeof getPrimeInfiniPaymentEntryGuard>>
+          | undefined;
+        try {
+          entryGuard = await getPrimeInfiniPaymentEntryGuard();
+        } catch {
+          entryGuard = undefined;
+        }
+        if (
+          !entryGuard?.isLoggedIn ||
+          entryGuard.onekeyUserId !== expectedOneKeyUserId
+        ) {
+          form.setError('code', {
+            message: intl.formatMessage({
+              id: ETranslations.global_unknown_error_retry_message,
+            }),
+          });
+          return;
+        }
+        if (entryGuard.hasPendingPayment) {
+          setIsPendingPaymentConfirmation(true);
+          return;
+        }
+
+        await submitRedemption({ code, close });
+      });
+    },
+    [expectedOneKeyUserId, form, intl, runWithSubmittingLock, submitRedemption],
+  );
+
+  const handleConfirmedRedeem = useCallback(
+    async ({
+      close,
+      preventClose,
+    }: IDialogInstance & { preventClose: () => void }) => {
+      preventClose();
+      const code = form.getValues('code').trim();
+      if (!code) {
+        return;
+      }
+      await runWithSubmittingLock(() => submitRedemption({ code, close }));
+    },
+    [form, runWithSubmittingLock, submitRedemption],
   );
 
   if (redemptionResult) {
@@ -162,6 +232,7 @@ function PrimeRedemptionDialogContent({
 
     return (
       <YStack mx="$-5" testID={PrimeTestIDs.redemptionSuccess}>
+        <Dialog.Header />
         <YStack
           px="$5"
           pt="$2"
@@ -211,8 +282,38 @@ function PrimeRedemptionDialogContent({
     );
   }
 
+  if (isPendingPaymentConfirmation) {
+    return (
+      <YStack mx="$-5">
+        <Dialog.Header
+          title={intl.formatMessage({
+            id: ETranslations.prime_redeem_pending_payment__title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.prime_redeem_pending_payment__desc,
+          })}
+        />
+        <Dialog.Footer
+          showCancelButton
+          cancelButtonProps={{
+            onPress: () => setIsPendingPaymentConfirmation(false),
+          }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.global_back,
+          })}
+          onConfirm={handleConfirmedRedeem}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.prime_redeem_anyway__action,
+          })}
+          confirmButtonProps={{ loading: isSubmitting }}
+        />
+      </YStack>
+    );
+  }
+
   return (
     <YStack mx="$-5">
+      <Dialog.Header />
       <YStack px="$5" py="$5" alignItems="center">
         <Stack
           w="$16"
@@ -232,7 +333,23 @@ function PrimeRedemptionDialogContent({
         </SizableText>
         <YStack width="100%">
           <Form form={form}>
-            <Form.Field name="code">
+            <Form.Field
+              name="code"
+              description={
+                <UnOrderedList width="100%" pt="$2">
+                  <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.prime_redemption_codes_cumulative__desc,
+                    })}
+                  </UnOrderedList.Item>
+                  <UnOrderedList.Item titleSize="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.prime_redemption_paid_subscription_blocked__desc,
+                    })}
+                  </UnOrderedList.Item>
+                </UnOrderedList>
+              }
+            >
               <Input
                 testID={PrimeTestIDs.redemptionCodeInput}
                 size="large"

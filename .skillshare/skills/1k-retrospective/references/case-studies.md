@@ -241,3 +241,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
 **Fix**: Session-scoped Set of OneKey user IDs; add before emit. Account switch still reports the new account; switching back does not.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (a per-user session guard must keep every seen user, not only the last)
+
+## Case: iOS Infini subscription management opened a OneKey invite page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android Google Play, desktop, web
+**Symptom**: Tapping Prime 订阅管理 on iOS opened Safari to a OneKey Perps invite/marketing page instead of Infini or store subscription management (OK-61464).
+**Root Cause**: Infini has no web portal. The router fell through to `subscriptions[].managementUrl`, which was a OneKey marketing page.
+**Fix**: Infini channel always opens the in-app Infini cancel-renewal page and never uses that marketing URL. Redemption-only still shows 管理订阅 and toasts that the activation method cannot be managed.
+**Catchable by**: Section 4: Edge cases — a channel without a real management portal must not fall through to another destination
+
+## Case: Channel-less Prime managementUrl opened a marketing page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: A Prime row with no `channel` but a leftover `managementUrl` (often the OneKey invite page) would open that URL and skip the legacy Infini probe.
+**Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
+**Fix**: Only trust a nested management URL when the same row declares a non-Infini, non-redemption channel. Channel-less rows stay on the Infini probe / unsupported toast path.
+**Catchable by**: Section 4: Edge cases — a URL without a declared channel is not a management portal
