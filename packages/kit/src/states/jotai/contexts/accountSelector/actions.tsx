@@ -2040,10 +2040,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         walletId,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        stagePassphraseIntro,
       }: {
         walletId: string;
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
+        /** Play the stage's passphrase teach card before the entry — the
+         * account selector's deliberate add; onboarding never asks. */
+        stagePassphraseIntro?: boolean;
       },
       options: {
         showAddAccountsLoading?: boolean;
@@ -2065,6 +2069,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ? true
             : skipDeviceCancel,
           hideCheckingDeviceLoading,
+          stagePassphraseIntro,
         });
         const { wallet, indexedAccount, isOverrideWallet, isAttachPinMode } =
           res;
