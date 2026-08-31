@@ -133,7 +133,13 @@ export function useBorrowApyHistory({
   );
 
   const latestApy = useMemo(() => {
-    const latest = history[history.length - 1];
+    const latest = history.reduce<(typeof history)[number] | undefined>(
+      (currentLatest, item) =>
+        currentLatest === undefined || item.timestamp > currentLatest.timestamp
+          ? item
+          : currentLatest,
+      undefined,
+    );
     return latest?.apy ?? '0';
   }, [history]);
 
