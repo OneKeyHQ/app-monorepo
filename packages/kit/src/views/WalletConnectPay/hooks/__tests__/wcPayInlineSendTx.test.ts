@@ -90,6 +90,13 @@ const TRANSFER_DATA = `0xa9059cbb${RECIPIENT.slice(2).padStart(64, '0')}${(1_000
   .toString(16)
   .padStart(64, '0')}`;
 
+// approve(PERMIT2, 1_000_000) — the Permit2 approve leg's calldata
+const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+const APPROVE_DATA = `0x095ea7b3${PERMIT2_ADDRESS.slice(2).padStart(
+  64,
+  '0',
+)}${(1_000_000).toString(16).padStart(64, '0')}`;
+
 const option: IWcPayOption = {
   id: 'opt-1',
   account: `eip155:8453:${SENDER}`,
@@ -240,15 +247,23 @@ function callInlineSend(
     unsignedTx?: IUnsignedTxPro;
     wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
     onPhase?: (phase: string) => void;
+    intent?: 'transfer' | 'approve';
   } = {},
 ) {
-  const { networkId, option: optionOverride, unsignedTx, ...rest } = params;
+  const {
+    networkId,
+    option: optionOverride,
+    unsignedTx,
+    intent,
+    ...rest
+  } = params;
   return wcPayInlineSendTx({
     networkId: networkId ?? NETWORK_ID,
     accountId: ACCOUNT_ID,
     unsignedTx: unsignedTx ?? buildUnsignedTx(),
     option: optionOverride ?? option,
     sourceInfo,
+    intent: intent ?? 'transfer',
     ...rest,
   });
 }
@@ -588,5 +603,42 @@ describe('wcPayInlineSendTx', () => {
       1,
     );
     consoleError.mockRestore();
+  });
+});
+
+describe('wcPayInlineSendTx — plan intent vs final kind', () => {
+  const approveUnsignedTx = (): IUnsignedTxPro => ({
+    encodedTx: { from: SENDER, to: TOKEN, value: '0x0', data: APPROVE_DATA },
+    nonce: NONCE,
+  });
+
+  it('broadcasts an approve-shaped tx under the approve intent', async () => {
+    api.serviceSend.updateUnSignedTxBeforeSending.mockResolvedValue([
+      buildUpdatedUnsignedTx({ data: APPROVE_DATA }),
+    ]);
+
+    await expect(
+      callInlineSend({ unsignedTx: approveUnsignedTx(), intent: 'approve' }),
+    ).resolves.toEqual({ status: 'ok', txid: TXID });
+  });
+
+  it('throws without signing when a transfer intent resolves to approve calldata', async () => {
+    api.serviceSend.updateUnSignedTxBeforeSending.mockResolvedValue([
+      buildUpdatedUnsignedTx({ data: APPROVE_DATA }),
+    ]);
+
+    await expect(
+      callInlineSend({ unsignedTx: approveUnsignedTx(), intent: 'transfer' }),
+    ).rejects.toThrow(GENERIC_ABORT_MESSAGE);
+    expect(loggedDiagnostics()).toContain('kind changed after validation');
+    expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('throws without signing when an approve intent resolves to transfer calldata', async () => {
+    await expect(callInlineSend({ intent: 'approve' })).rejects.toThrow(
+      GENERIC_ABORT_MESSAGE,
+    );
+    expect(loggedDiagnostics()).toContain('kind changed after validation');
+    expect(api.serviceSend.signAndSendTransaction).not.toHaveBeenCalled();
   });
 });

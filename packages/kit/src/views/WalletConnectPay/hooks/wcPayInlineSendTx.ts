@@ -142,6 +142,7 @@ export async function wcPayInlineSendTx({
   unsignedTx,
   option,
   sourceInfo,
+  intent,
   expiryMs,
   wcPayPreBroadcastRecord,
   throwIfCancelled,
@@ -152,6 +153,10 @@ export async function wcPayInlineSendTx({
   unsignedTx: IUnsignedTxPro;
   option: IWcPayOption;
   sourceInfo: IDappSourceInfo;
+  // Which calldata shape the plan gate approved for this action. The final
+  // pre-sign recheck asserts the re-proven kind still corresponds to it, so
+  // an approve plan can never end up signing a transfer or vice versa.
+  intent: 'transfer' | 'approve';
   expiryMs?: number;
   wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   // pre-sign cancellation boundary (page unmounted): checked on entry and at
@@ -470,6 +475,21 @@ export async function wcPayInlineSendTx({
     console.error(
       'wcPay inline transaction changed after validation:',
       consistency.reason,
+    );
+    // copy pending product i18n keys
+    throw new OneKeyLocalError('This payment cannot be completed right now');
+  }
+  // The plan approved one calldata shape; the signer must get that shape.
+  // Fee/nonce rewriting cannot change calldata, so a kind flip here is the
+  // same class of post-decision mutation as a failed recheck above.
+  const kindMatchesIntent =
+    intent === 'approve'
+      ? consistency.kind === 'approve'
+      : consistency.kind === 'native' || consistency.kind === 'erc20';
+  if (!kindMatchesIntent) {
+    console.error(
+      'wcPay inline tx kind changed after validation:',
+      consistency.kind,
     );
     // copy pending product i18n keys
     throw new OneKeyLocalError('This payment cannot be completed right now');

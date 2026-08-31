@@ -144,9 +144,9 @@ describe('wcPayInlineSignPersonalMessage', () => {
   it('aborts when the wallet is not backed up (the check shows its own dialog)', async () => {
     api.serviceAccount.checkIsWalletNotBackedUp.mockResolvedValue(true);
 
-    await expect(
-      wcPayInlineSignPersonalMessage(baseParams),
-    ).resolves.toEqual({ status: 'abort' });
+    await expect(wcPayInlineSignPersonalMessage(baseParams)).resolves.toEqual({
+      status: 'abort',
+    });
     expect(api.serviceSend.signMessage).not.toHaveBeenCalled();
     expect(onPhase).not.toHaveBeenCalled();
   });
@@ -235,9 +235,7 @@ describe('wcPayInlineSignPersonalMessage', () => {
     const boom = new Error('device exploded');
     api.serviceSend.signMessage.mockRejectedValueOnce(boom);
 
-    await expect(wcPayInlineSignPersonalMessage(baseParams)).rejects.toBe(
-      boom,
-    );
+    await expect(wcPayInlineSignPersonalMessage(baseParams)).rejects.toBe(boom);
   });
 
   it('still succeeds when the history write fails', async () => {

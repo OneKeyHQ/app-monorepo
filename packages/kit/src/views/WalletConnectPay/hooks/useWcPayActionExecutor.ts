@@ -619,6 +619,9 @@ export function useWcPayActionExecutor() {
                       accountId: account.id,
                       unsignedTx,
                       option,
+                      // the transitional plan gate only admits transfers;
+                      // the approve kind arrives with the kind-aware plan
+                      intent: 'transfer',
                       sourceInfo: buildWcPaySourceInfo({
                         method,
                         params: parsed,
