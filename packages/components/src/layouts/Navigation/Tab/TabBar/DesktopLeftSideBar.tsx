@@ -27,6 +27,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { getTabRouteShortcutEvent } from '@onekeyhq/shared/src/shortcuts/tabRouteShortcuts';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { switchTab } from '../../Navigator/NavigationContainer';
@@ -34,6 +35,7 @@ import { switchTab } from '../../Navigator/NavigationContainer';
 import { BrowserSubmenuColumn } from './BrowserSubmenuColumn';
 import { DesktopTabItem } from './DesktopTabItem';
 import { MenuHamburger } from './Menu';
+import { ModifierShortcutHintBadge } from './ModifierShortcutHintBadge';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
@@ -165,10 +167,15 @@ function BasicTabItemView({
           gap="$0.5"
           pt={6}
           pb={6}
+          position="relative"
           onPress={handlePress}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >
+          <ModifierShortcutHintBadge
+            shortcutKey={getTabRouteShortcutEvent(route.name)}
+            routeName={route.name}
+          />
           <DesktopTabItem
             isContainerHovered={isContainerHovered}
             onPress={handlePress}
@@ -331,6 +338,7 @@ function OverflowMenuItem({
   isActive,
   options,
   onPress,
+  isPopoverOpen,
 }: {
   route: NavigationState['routes'][0];
   isActive: boolean;
@@ -338,6 +346,7 @@ function OverflowMenuItem({
     collapseTabBarLabel?: string;
   };
   onPress: () => void;
+  isPopoverOpen: boolean;
 }) {
   // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
   const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
@@ -367,9 +376,21 @@ function OverflowMenuItem({
         size="$5"
         color={isActive ? '$iconActive' : '$iconSubdued'}
       />
-      <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+      >
         {label}
       </SizableText>
+      <ModifierShortcutHintBadge
+        shortcutKey={getTabRouteShortcutEvent(route.name)}
+        routeName={route.name}
+        requiresPopoverOpen
+        isPopoverOpen={isPopoverOpen}
+        placement="inline"
+      />
     </XStack>
   );
 }
@@ -380,6 +401,7 @@ function OverflowMenuItemWithHandler({
   options,
   handleTabPress,
   setIsOpen,
+  isPopoverOpen,
 }: {
   route: NavigationState['routes'][0];
   isActive: boolean;
@@ -396,6 +418,7 @@ function OverflowMenuItemWithHandler({
     },
   ) => void;
   setIsOpen: (value: boolean) => void;
+  isPopoverOpen: boolean;
 }) {
   const handlePress = useCallback(() => {
     handleTabPress(route, isActive, {
@@ -412,6 +435,7 @@ function OverflowMenuItemWithHandler({
       isActive={isActive}
       options={options}
       onPress={handlePress}
+      isPopoverOpen={isPopoverOpen}
     />
   );
 }
@@ -505,6 +529,7 @@ function OverflowMoreButton({
               options={options}
               handleTabPress={handleTabPress}
               setIsOpen={setIsOpen}
+              isPopoverOpen={isOpen}
             />
           );
         })}
@@ -514,6 +539,7 @@ function OverflowMoreButton({
       descriptors,
       extraConfig?.name,
       handleTabPress,
+      isOpen,
       overflowRoutes,
       state.index,
       state.routes,
