@@ -62,13 +62,11 @@ function WebMarketTradingViewLoadingBoundary({
   const [showSlowLoading, setShowSlowLoading] = useState(false);
 
   useEffect(() => {
-    setIsChartVisible(false);
-    setShowSlowLoading(false);
     const timer = setTimeout(() => {
       setShowSlowLoading(true);
     }, SLOW_CHART_LOADING_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [props.networkId, props.tokenAddress]);
+  }, []);
 
   const handleVisualReady = useCallback(() => {
     setIsChartVisible(true);
