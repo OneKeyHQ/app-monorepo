@@ -1,7 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions, type GestureResponderEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
@@ -482,19 +481,26 @@ const showActionList = (
   // Use let so the destroy callback can reference it after assignment
   // eslint-disable-next-line prefer-const
   let ref: { destroy: () => void };
+  let isClosed = false;
 
   // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const handleOpenChange = (isOpen: boolean) => {
-    restProps.onOpenChange?.(isOpen);
-    if (!isOpen) {
-      setTimeout(() => {
-        restProps.onClose?.();
-      });
-      // delay the destruction of the reference to allow for the completion of the animation transition.
-      setTimeout(() => {
-        ref.destroy();
-      }, 500);
+    if (isOpen) {
+      restProps.onOpenChange?.(true);
+      return;
     }
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
+    restProps.onOpenChange?.(false);
+    setTimeout(() => {
+      restProps.onClose?.();
+    });
+    // delay the destruction of the reference to allow for the completion of the animation transition.
+    setTimeout(() => {
+      ref.destroy();
+    }, 500);
   };
 
   // For context menu positioning: compute the optimal placement direction
@@ -569,12 +575,13 @@ const showActionList = (
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
   );
+  return {
+    close: () => {
+      handleOpenChange(false);
+      ref.destroy();
+    },
+  };
 };
-const debouncedShowActionList = debounce(
-  showActionList,
-  PROCESSING_RESET_DELAY,
-);
-
 function ActionListFrame(props: IActionListProps) {
   const isProcessing = useRef(false);
 
@@ -612,8 +619,12 @@ function ActionListFrame(props: IActionListProps) {
   );
 }
 
-const show = (props: IShowActionListParams) =>
-  debouncedShowActionList(props, undefined);
+// Imperative action lists share one overlay slot; newer calls replace the active one.
+let imperativeActionList: ReturnType<typeof showActionList> | undefined;
+const show = (props: IShowActionListParams) => {
+  imperativeActionList?.close();
+  imperativeActionList = showActionList(props, undefined);
+};
 
 export const ActionList = withStaticProperties(ActionListFrame, {
   show,
