@@ -11,6 +11,7 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
+mac_catalyst_enabled = ENV['ONEKEY_MAC_CATALYST'] == '1'
 
 # JuiceboxSdk 0.3.2 points its artifacts submodule at an SSH URL. CocoaPods
 # invokes `git submodule update` directly, so pass a scoped Git config through
@@ -114,7 +115,7 @@ setup_permissions([
 ])
 
 target 'OneKeyWallet' do
-  use_expo_modules!
+  use_expo_modules!(mac_catalyst_enabled ? { exclude: ['expo-camera'] } : {})
   config = use_native_modules!
 
   # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -171,8 +172,30 @@ target 'OneKeyWallet' do
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false
+      :mac_catalyst_enabled => mac_catalyst_enabled
     )
+
+    if mac_catalyst_enabled
+      installer.aggregate_targets.each do |aggregate_target|
+        aggregate_target.user_project.native_targets.each do |target|
+          target.build_configurations.each do |build_config|
+            build_config.build_settings.delete('DEAD_CODE_STRIPPING')
+            build_config.build_settings.delete('PRESERVE_DEAD_CODE_INITS_AND_TERMS')
+            build_config.build_settings.delete('LIBRARY_SEARCH_PATHS')
+
+            next unless target.name == 'OneKeyWallet'
+
+            build_config.build_settings['DEAD_CODE_STRIPPING[sdk=macosx*]'] = 'YES'
+            build_config.build_settings['PRESERVE_DEAD_CODE_INITS_AND_TERMS[sdk=macosx*]'] = 'YES'
+            build_config.build_settings['LIBRARY_SEARCH_PATHS[sdk=macosx*]'] = [
+              '$(SDKROOT)/usr/lib/swift',
+              '$(SDKROOT)/System/iOSSupport/usr/lib/swift',
+              '$(inherited)'
+            ]
+          end
+        end
+      end
+    end
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
@@ -229,6 +252,8 @@ target 'OneKeyWallet' do
     rescue => e
       Pod::UI.warn e
     end
+
+    next if mac_catalyst_enabled
 
     # Fix JuiceboxSdkFfi linking - directly modify xcconfig files after integration
     pods_dir = File.join(__dir__, 'Pods')
