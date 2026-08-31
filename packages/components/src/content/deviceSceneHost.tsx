@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -24,7 +24,7 @@ import {
 import { LinearGradient } from './LinearGradient';
 
 import type { IKeyframe } from './deviceScene';
-import type { ViewStyle } from 'react-native';
+import type { ImageSourcePropType, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
@@ -70,6 +70,37 @@ export interface IDeviceScreenAnimation {
 
 /** The traveling light's peak brightness, shared by every sheen layer. */
 export const SHEEN_COLOR = 'rgba(255,255,255,0.22)';
+
+/**
+ * A shell's pre-baked chrome bitmap, covering the device box it mounts
+ * in — sized explicitly off the canvas constants rather than
+ * absolute-filling, so the chrome never depends on the parent's resolved
+ * bounds. Stretch is exact — each asset is exported at its box's own
+ * aspect — and fadeDuration kills Android Image's default 300ms
+ * fade-in: the shell must land with its mount, not blink in after it.
+ */
+export function BakedChrome({
+  source,
+  width,
+  height,
+}: {
+  source: ImageSourcePropType;
+  width: number;
+  height: number;
+}) {
+  const style = useMemo(
+    () => ({ position: 'absolute' as const, left: 0, top: 0, width, height }),
+    [height, width],
+  );
+  return (
+    <Image
+      source={source}
+      style={style}
+      resizeMode="stretch"
+      fadeDuration={0}
+    />
+  );
+}
 
 const styles = StyleSheet.create({
   slot: {
