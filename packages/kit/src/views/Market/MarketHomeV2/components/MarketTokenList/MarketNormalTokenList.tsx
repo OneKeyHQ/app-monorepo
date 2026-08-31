@@ -37,6 +37,8 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  centerDesktopPortalContent?: boolean;
+  desktopColumnVariant?: 'default' | 'trending';
 };
 
 function MarketNormalTokenList({
@@ -58,6 +60,8 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
+  centerDesktopPortalContent,
+  desktopColumnVariant,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -125,6 +129,10 @@ function MarketNormalTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
+      marketTokenCategory={selectedCategory}
+      desktopColumnVariant={desktopColumnVariant}
+      timeRange={timeRange}
     />
   );
 }

@@ -43,6 +43,8 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -51,6 +53,7 @@ import {
   useMarketHomeTokenListWebSocket,
 } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
+import { useTrendingColumnsDesktop } from './hooks/useMarketTokenColumns/useTrendingColumnsDesktop';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import {
@@ -59,18 +62,24 @@ import {
 } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
+import type { IMarketTimeRangeValue } from '../../types';
 
 const SPINNER_HEIGHT = 52;
-const MARKET_HOME_WS_ROW_HEIGHT_PX = 60;
+const MARKET_HOME_MOBILE_ROW_HEIGHT_PX = 60;
+const MARKET_HOME_DESKTOP_ROW_HEIGHT_PX = 72;
 const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
 const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT = 4;
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
-const MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE = {
+const MARKET_HOME_WEB_MOBILE_ROW_CONTENT_VISIBILITY_STYLE = {
   contentVisibility: 'auto',
   containIntrinsicSize: '60px',
+} satisfies CSSProperties;
+const MARKET_HOME_WEB_DESKTOP_ROW_CONTENT_VISIBILITY_STYLE = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: '72px',
 } satisfies CSSProperties;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
@@ -87,6 +96,14 @@ const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
 // Sort key → IMarketToken field mapping for client-side sorting
 const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
   change24h: 'change24h',
+};
+
+const TRENDING_SORTABLE_COLUMNS: Record<string, string> = {
+  marketCapPrice: 'mc',
+  change24h: 'priceChangePercent',
+  liquidity: 'liquidity',
+  transactions: 'tradeCount',
+  turnover: 'v24hUSD',
 };
 
 // Map sort keys to ESortWay enum values for logging
@@ -164,9 +181,11 @@ function getLimitedSubscriptionRange({
 function getMarketHomeVisibleSubscriptionRange({
   rootElement,
   tokenCount,
+  rowHeight,
 }: {
   rootElement: HTMLElement | null;
   tokenCount: number;
+  rowHeight: number;
 }): IMarketHomeSubscriptionRange {
   if (tokenCount <= 0) {
     return { start: 0, end: 0 };
@@ -202,8 +221,8 @@ function getMarketHomeVisibleSubscriptionRange({
 
   return getLimitedSubscriptionRange({
     tokenCount,
-    visibleStartIndex: Math.floor(visibleTop / MARKET_HOME_WS_ROW_HEIGHT_PX),
-    visibleEndIndex: Math.ceil(visibleBottom / MARKET_HOME_WS_ROW_HEIGHT_PX),
+    visibleStartIndex: Math.floor(visibleTop / rowHeight),
+    visibleEndIndex: Math.ceil(visibleBottom / rowHeight),
   });
 }
 
@@ -257,6 +276,10 @@ type IMarketTokenListBaseProps = {
   enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
+  centerDesktopPortalContent?: boolean;
+  marketTokenCategory?: string;
+  desktopColumnVariant?: 'default' | 'trending';
+  timeRange?: IMarketTimeRangeValue;
 };
 
 function MarketTokenListBase({
@@ -287,6 +310,10 @@ function MarketTokenListBase({
   enableWebSocket,
   rowBg,
   testID,
+  centerDesktopPortalContent = false,
+  marketTokenCategory,
+  desktopColumnVariant = 'default',
+  timeRange,
 }: IMarketTokenListBaseProps) {
   useMarketRenderCommitProbe('MarketTokenListBase', {
     tabName,
@@ -294,7 +321,7 @@ function MarketTokenListBase({
     tabIntegrated: Boolean(tabIntegrated),
   });
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({ marketTokenCategory });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
   const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
@@ -351,13 +378,16 @@ function MarketTokenListBase({
       ? getMarketHomeVisibleSubscriptionRange({
           rootElement: listRootRef.current,
           tokenCount: orderedData.length,
+          rowHeight: md
+            ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
+            : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX,
         })
       : { start: 0, end: 0 };
 
     setSubscriptionRange((prev) =>
       isSameSubscriptionRange(prev, nextRange) ? prev : nextRange,
     );
-  }, [orderedData.length, webSocketEnabled]);
+  }, [md, orderedData.length, webSocketEnabled]);
 
   useEffect(() => {
     updateSubscriptionRange();
@@ -468,7 +498,7 @@ function MarketTokenListBase({
       ? MARKET_HOME_WEB_EAGER_RICH_ROW_COUNT
       : undefined;
 
-  const marketTokenColumns = useMarketTokenColumns(
+  const defaultMarketTokenColumns = useMarketTokenColumns(
     networkId,
     isWatchlistMode,
     hideTokenAge,
@@ -481,6 +511,14 @@ function MarketTokenListBase({
     useStockMetadataColumns,
     deferRichRowAfterIndex,
   );
+  const trendingColumnsDesktop = useTrendingColumnsDesktop({
+    networkId,
+    timeRange,
+  });
+  const marketTokenColumns =
+    desktopColumnVariant === 'trending' && !md
+      ? trendingColumnsDesktop
+      : defaultMarketTokenColumns;
 
   const data = useMemo(() => {
     if (!liveTokenOverride) {
@@ -551,7 +589,9 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode && !clientSort) {
+      const isTrendingDesktopColumns =
+        desktopColumnVariant === 'trending' && !md;
+      if (!isWatchlistMode && !clientSort && !isTrendingDesktopColumns) {
         return undefined;
       }
 
@@ -562,11 +602,14 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Client sort mode is used by banner detail for 24h change sorting,
-      // watchlist mode uses restricted server-side sortable columns.
-      const columnsMap = clientSort
-        ? CLIENT_SORTABLE_COLUMNS
-        : SORTABLE_COLUMNS;
+      // Client sort mode is used by banner detail for 24h change sorting.
+      // Watchlist and Trending use their own server-side sort key maps.
+      let columnsMap: Record<string, string> = SORTABLE_COLUMNS;
+      if (clientSort) {
+        columnsMap = CLIENT_SORTABLE_COLUMNS;
+      } else if (isTrendingDesktopColumns) {
+        columnsMap = TRENDING_SORTABLE_COLUMNS;
+      }
       const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
 
       if (sortKey) {
@@ -590,6 +633,8 @@ function MarketTokenListBase({
       currentSortBy,
       currentSortType,
       useStockMetadataColumns,
+      desktopColumnVariant,
+      md,
     ],
   );
 
@@ -654,15 +699,17 @@ function MarketTokenListBase({
           ? (position?: { x: number; y: number }) =>
               onItemContextMenuRef.current!(item, index, position)
           : undefined,
-        rowProps:
-          showWebSocketDebugRows &&
+        rowProps: {
+          testID: MarketTestIDs.tokenRow(item.symbol),
+          ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
           !!item.address &&
           index >= debugSubscriptionRangeStart &&
           index < debugSubscriptionRangeEnd
             ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
-            : undefined,
+            : undefined),
+        },
       };
     },
     [
@@ -765,7 +812,15 @@ function MarketTokenListBase({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        <YStack
+          // Must resolve to the same frame as the rows this header labels,
+          // otherwise the column titles drift once the header sticks.
+          {...(centerDesktopPortalContent
+            ? MARKET_DESKTOP_CONTENT_FRAME_PROPS
+            : { width: '100%' as const })}
+          bg="$bgApp"
+          px={centerDesktopPortalContent ? '$3' : '$4'}
+        >
           {toolbar ? (
             <Stack width="100%" mb="$3">
               {toolbar}
@@ -774,6 +829,7 @@ function MarketTokenListBase({
           <Table.HeaderRow
             columns={marketTokenColumns}
             onHeaderRow={stableHandleHeaderRow}
+            headerRowProps={{ height: 36 }}
           />
         </YStack>
       </StickyHeaderPortal>
@@ -785,6 +841,7 @@ function MarketTokenListBase({
     toolbar,
     marketTokenColumns,
     stableHandleHeaderRow,
+    centerDesktopPortalContent,
   ]);
 
   let integratedContentPaddingBottom = tabBarHeight;
@@ -817,16 +874,24 @@ function MarketTokenListBase({
   );
   const tableRowProps = useMemo<IXStackProps | undefined>(() => {
     const hasWebRowStyle = platformEnv.isWeb && webTabIntegrated;
-    if (!rowBg && !hasWebRowStyle) {
+    const hasDesktopRowStyle = !md;
+    if (!rowBg && !hasWebRowStyle && !hasDesktopRowStyle) {
       return undefined;
     }
     return {
       ...(rowBg ? { bg: rowBg } : undefined),
+      ...(hasDesktopRowStyle
+        ? { height: MARKET_HOME_DESKTOP_ROW_HEIGHT_PX }
+        : undefined),
       ...(hasWebRowStyle
-        ? { style: MARKET_HOME_WEB_ROW_CONTENT_VISIBILITY_STYLE }
+        ? {
+            style: md
+              ? MARKET_HOME_WEB_MOBILE_ROW_CONTENT_VISIBILITY_STYLE
+              : MARKET_HOME_WEB_DESKTOP_ROW_CONTENT_VISIBILITY_STYLE,
+          }
         : undefined),
     };
-  }, [rowBg, webTabIntegrated]);
+  }, [md, rowBg, webTabIntegrated]);
 
   return (
     <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
@@ -862,7 +927,7 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               count={skeletonRowCount}
               rowProps={{
-                minHeight: '$14',
+                minHeight: md ? '$14' : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX,
               }}
             />
           ) : (
@@ -875,6 +940,7 @@ function MarketTokenListBase({
               tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
+              headerRowProps={md ? undefined : { height: 36 }}
               onEndReached={webTabIntegrated ? undefined : handleEndReached}
               dataSource={data}
               keyExtractor={(item) => item.id}
@@ -882,7 +948,11 @@ function MarketTokenListBase({
               onHeaderRow={stableHandleHeaderRow}
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={60}
+              estimatedItemSize={
+                md
+                  ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
+                  : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX
+              }
               onRow={stableOnRow}
               rowProps={tableRowProps}
             />

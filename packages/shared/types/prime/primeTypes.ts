@@ -160,6 +160,35 @@ export type IPrimeInfiniPayment = {
   infiniStatus?: string;
   amountConfirmed?: string;
   amountConfirming?: string;
+  warningMessages?: string[];
+};
+
+export type IPrimeInfiniPaymentValidationFailure =
+  | 'quoteExpired'
+  | 'quoteValidityTooShort'
+  | 'assetMismatch'
+  | 'transferSnapshotChanged'
+  | 'invalidResponse'
+  | 'localPersistenceFailed';
+
+export type IPrimeInfiniPaymentSource =
+  | 'createResponse'
+  | 'localPendingSession'
+  | 'restoreRefresh'
+  | 'preflightRefresh'
+  | 'polling'
+  | 'externalCheckout';
+
+export type IPrimeInfiniPaymentFlowContext = {
+  flowId: string;
+  paymentSource?: IPrimeInfiniPaymentSource;
+  expectedChain?: string;
+  expectedToken?: string;
+  createNewPaymentIntent?: boolean;
+  sessionAgeMs?: number;
+  sessionMode?: 'quote' | 'tracking';
+  sendStarted?: boolean;
+  hasPaymentProgress?: boolean;
 };
 
 export type IPrimeInfiniPaymentCreateParams = {
@@ -167,6 +196,7 @@ export type IPrimeInfiniPaymentCreateParams = {
   chain: string;
   token: string;
   expectedOneKeyUserId: string;
+  flowContext?: IPrimeInfiniPaymentFlowContext;
 };
 
 export type IPrimeRedemptionParams = {
@@ -190,6 +220,8 @@ export type IPrimeInfiniPaymentAsset = {
 export type IPrimeInfiniBeforeBroadcastAction = {
   type: 'primeInfiniPayment';
   paymentCacheKey: IPrimeInfiniPaymentCacheKey;
+  flowContext?: IPrimeInfiniPaymentFlowContext;
+  confirmedWarningsFingerprint?: string;
 };
 
 export type IPrimeInfiniPaymentCacheIdentity = Pick<
@@ -244,6 +276,12 @@ export type IPrimeInfiniPendingPaymentSession = {
   // Durable no-replacement latch. It becomes true after either the local
   // broadcast claim or any server-observed payment progress.
   sendStarted: boolean;
+  // Optional only for legacy v2 records. SimpleDB anchors missing lifecycle
+  // fields to the old updatedAt before any refresh can advance that timestamp.
+  flowId?: string;
+  createdAt?: number;
+  lastValidatedAt?: number;
+  localRetentionDeadline?: number;
   updatedAt: number;
 };
 
