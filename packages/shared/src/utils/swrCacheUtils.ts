@@ -642,14 +642,6 @@ export const swrKeys = {
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
-  swapKLineStableChecks: ({ scope }: { scope: string }) =>
-    ['swapKLineStableChecks', 'v1', scope].join(':'),
-  swapKLineTokenMarketInfo: ({ tokenScope }: { tokenScope: string }) =>
-    ['swapKLineTokenMarketInfo', 'v1', tokenScope].join(':'),
-  swapStockChartCoinGeckoId: ({ tokenScope }: { tokenScope: string }) =>
-    ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':'),
-  swapStockSelectorMetadata: ({ scope }: { scope: string }) =>
-    ['swapStockSelectorMetadata', 'v1', scope].join(':'),
   swapStockChart: ({
     networkId,
     tokenAddress,

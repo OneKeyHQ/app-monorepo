@@ -114,6 +114,30 @@ function sanitizeSwapStockPayTokenDisplaySnapshot(
   );
 }
 
+function memoizeSnapshotTransform<Value>(transform: (value: Value) => Value) {
+  let source: Value;
+  let snapshot: Value;
+  return (value: Value) => {
+    if (value !== source) {
+      source = value;
+      snapshot = transform(value);
+    }
+    return snapshot;
+  };
+}
+
+const sanitizeSwapStockSelectedTokenColdStartSnapshot =
+  memoizeSnapshotTransform((token: ISwapToken | undefined) =>
+    token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+  );
+const sanitizeSwapProSelectedTokenColdStartSnapshot = memoizeSnapshotTransform(
+  (token: ISwapToken | undefined) =>
+    token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+);
+const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
+  sanitizeSwapStockPayTokenDisplaySnapshot,
+);
+
 export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
@@ -244,8 +268,7 @@ export const {
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
-  coldStartCacheTransform: (token) =>
-    token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+  coldStartCacheTransform: sanitizeSwapStockSelectedTokenColdStartSnapshot,
 });
 
 export const {
@@ -280,7 +303,7 @@ export const {
     coldStartCache: true,
     coldStartCacheKey:
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
-    coldStartCacheTransform: sanitizeSwapStockPayTokenDisplaySnapshot,
+    coldStartCacheTransform: sanitizeSwapStockPayTokenColdStartSnapshot,
   },
 );
 
@@ -793,8 +816,7 @@ export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
     coldStartCache: true,
     coldStartCacheKey:
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProSelectTokenAtom,
-    coldStartCacheTransform: (token) =>
-      token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+    coldStartCacheTransform: sanitizeSwapProSelectedTokenColdStartSnapshot,
   });
 
 export const { atom: swapProUserSelectedTokenAtom } = contextAtom<

@@ -116,22 +116,6 @@ describe('SWR cache keys', () => {
       }),
     ).toBe('swapStockTokenDetail:v1:evm--1:0xstock');
     expect(swrKeys.swapHistoryPreviewList()).toBe('swapHistoryPreviewList');
-    expect(swrKeys.swapKLineStableChecks({ scope: 'from|to' })).toBe(
-      'swapKLineStableChecks:v1:from|to',
-    );
-    expect(
-      swrKeys.swapKLineTokenMarketInfo({ tokenScope: 'evm--1:__native__' }),
-    ).toBe('swapKLineTokenMarketInfo:v1:evm--1:__native__');
-    expect(
-      swrKeys.swapStockChartCoinGeckoId({
-        tokenScope: 'evm--1:0xstock',
-      }),
-    ).toBe('swapStockChartCoinGeckoId:v1:evm--1:0xstock');
-    expect(
-      swrKeys.swapStockSelectorMetadata({
-        scope: 'en-US:evm--1:0xstock',
-      }),
-    ).toBe('swapStockSelectorMetadata:v1:en-US:evm--1:0xstock');
     expect(
       swrKeys.swapStockChart({
         networkId: 'evm--1',

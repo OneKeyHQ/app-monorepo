@@ -41,10 +41,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -174,7 +171,7 @@ function useSwapKLineTokenMarketInfo(
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       swrKey: tokenKey
-        ? swrKeys.swapKLineTokenMarketInfo({ tokenScope: tokenKey })
+        ? ['swapKLineTokenMarketInfo', 'v1', tokenKey].join(':')
         : undefined,
       swrShouldPersist: (value) => value?.status === 'success',
     },
@@ -339,7 +336,7 @@ function useSwapKLineStableTokenChecks({
   const stableTokenChecksScope = `${fromStableTokenKey}|${toStableTokenKey}`;
   const stableTokenChecksSWRKey =
     fromToken || toToken
-      ? swrKeys.swapKLineStableChecks({ scope: stableTokenChecksScope })
+      ? ['swapKLineStableChecks', 'v1', stableTokenChecksScope].join(':')
       : undefined;
   const fromStableTokenIdentity = useMemo(
     () =>

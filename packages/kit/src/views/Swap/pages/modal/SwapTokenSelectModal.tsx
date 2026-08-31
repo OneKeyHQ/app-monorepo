@@ -58,10 +58,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import {
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
@@ -195,9 +192,7 @@ function useStockMetadata({
   const tokenKey = request.tokenKey;
   const swrKey =
     enabled && tokenKey
-      ? swrKeys.swapStockSelectorMetadata({
-          scope: `${requestLocale}:${tokenKey}`,
-        })
+      ? ['swapStockSelectorMetadata', 'v1', requestLocale, tokenKey].join(':')
       : undefined;
   const { result } = usePromiseResult<IStockMetadataResult>(
     async () => {

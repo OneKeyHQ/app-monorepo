@@ -298,7 +298,7 @@ function useStockChartCoinGeckoId({
     ? `${networkId}:${tokenAddress?.trim().toLowerCase() || '__native__'}`
     : '';
   const swrKey = tokenScope
-    ? swrKeys.swapStockChartCoinGeckoId({ tokenScope })
+    ? ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':')
     : undefined;
   const { result } = usePromiseResult<
     IStockChartCoinGeckoIdLookupResult | undefined
