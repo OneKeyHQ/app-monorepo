@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+// cspell:ignore inlines
 
 import { renderHook } from '@testing-library/react-native';
 
@@ -680,7 +681,6 @@ describe('useWcPayActionExecutor inline signing', () => {
     };
   }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
   const { getNetworkAccount } = services.serviceAccount;
-  const { getGlobalDeriveTypeOfNetwork } = services.serviceNetwork;
   const { fetchTokensDetails } = services.serviceToken;
   const { waitForTxMined, isTxNeverBroadcast, checkSolanaTxMatchesOrder } =
     services.serviceWalletConnectPay;

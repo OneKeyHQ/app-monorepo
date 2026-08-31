@@ -1,3 +1,4 @@
+// cspell:ignore showable
 import type { ReactNode } from 'react';
 import { useCallback } from 'react';
 

@@ -1,3 +1,4 @@
+// cspell:ignore DISPLAYABILITY
 import type { IUnsignedMessageEth } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
