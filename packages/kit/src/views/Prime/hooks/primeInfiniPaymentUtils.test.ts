@@ -51,6 +51,92 @@ const statusOnlyInfiniSubscription = {
 };
 
 describe('primeInfiniPaymentUtils', () => {
+  it.each([
+    { chain: 'ETHEREUM', networkId: networkIdsMap.eth, token: 'ETH' },
+    { chain: 'BASE', networkId: networkIdsMap.base, token: 'ETH' },
+    { chain: 'BSC', networkId: networkIdsMap.bsc, token: 'BNB' },
+    { chain: 'SOLANA', networkId: networkIdsMap.sol, token: 'SOL' },
+    { chain: 'TRON', networkId: networkIdsMap.trx, token: 'TRX' },
+  ])(
+    'keeps the native $token payment asset on $chain',
+    ({ chain, networkId, token }) => {
+      const asset = {
+        chain,
+        networkId,
+        token,
+        contractAddress: '',
+      };
+      const canonicalAsset = {
+        ...asset,
+        key: getPrimeInfiniPaymentAssetKey(asset),
+      };
+
+      expect(
+        getPrimeInfiniPaymentAssets([
+          { chain, networkId, tokens: [{ symbol: token, contract: '' }] },
+        ]),
+      ).toEqual([canonicalAsset]);
+      expect(getCanonicalPrimeInfiniPaymentAsset(canonicalAsset)).toEqual(
+        canonicalAsset,
+      );
+    },
+  );
+
+  it.each([
+    { chain: 'ETHEREUM', networkId: networkIdsMap.eth, token: 'USDC' },
+    { chain: 'BSC', networkId: networkIdsMap.bsc, token: 'ETH' },
+    { chain: 'UNKNOWN', networkId: 'unknown--1', token: 'ETH' },
+    { chain: 'ALL', networkId: networkIdsMap.onekeyall, token: 'ALL NETWORKS' },
+  ])(
+    'rejects an empty contract for a non-native $token asset on $chain',
+    ({ chain, networkId, token }) => {
+      expect(
+        getPrimeInfiniPaymentAssets([
+          { chain, networkId, tokens: [{ symbol: token, contract: '' }] },
+        ]),
+      ).toEqual([]);
+    },
+  );
+
+  it('builds a native ETH transfer without substituting a token contract', () => {
+    const asset = {
+      key: 'ethereum-eth',
+      chain: 'ETHEREUM',
+      token: 'ETH',
+      networkId: networkIdsMap.eth,
+      contractAddress: '',
+    };
+    const nativePayment = { ...payment, token: 'ETH', amountDue: '0.01' };
+    const { transferInfo, transferPayload } =
+      buildPrimeInfiniPaymentTransferIntent({
+        accountId: 'hd-1--0',
+        accountAddress: '0xpayer',
+        asset,
+        payment: nativePayment,
+        tokenInfo: {
+          decimals: 18,
+          name: 'Ethereum',
+          symbol: 'ETH',
+          address: '',
+          isNative: true,
+        },
+      });
+
+    expect(transferInfo).toMatchObject({
+      from: '0xpayer',
+      to: nativePayment.address,
+      amount: '0.01',
+      tokenInfo: { address: '', isNative: true, decimals: 18, symbol: 'ETH' },
+    });
+    expect(transferPayload).toMatchObject({
+      amountToSend: '0.01',
+      isMaxSend: false,
+      isNFT: false,
+      originalRecipient: nativePayment.address,
+    });
+    expect(transferPayload.tokenInfo).toBe(transferInfo.tokenInfo);
+  });
+
   it('builds an explicit non-EVM transfer intent from the displayed payment', () => {
     const asset = {
       key: 'tron-usdt',

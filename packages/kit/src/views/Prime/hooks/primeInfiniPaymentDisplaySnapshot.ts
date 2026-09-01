@@ -72,12 +72,14 @@ export function resolvePrimeInfiniPaymentDisplaySnapshot<
 }
 
 export function shouldShowPrimeInfiniPaymentButtonSkeleton({
+  hasPaymentAccount,
   hasCurrentPayment,
   isOptionsRefreshing,
   isBalanceLoading,
   accountSyncReady,
   accountSyncFailed,
 }: {
+  hasPaymentAccount: boolean;
   hasCurrentPayment: boolean;
   isOptionsRefreshing: boolean;
   isBalanceLoading: boolean;
@@ -85,10 +87,11 @@ export function shouldShowPrimeInfiniPaymentButtonSkeleton({
   accountSyncFailed: boolean;
 }) {
   return (
-    !hasCurrentPayment ||
     isOptionsRefreshing ||
-    isBalanceLoading ||
-    (!accountSyncReady && !accountSyncFailed)
+    (!accountSyncReady && !accountSyncFailed) ||
+    (hasPaymentAccount &&
+      !accountSyncFailed &&
+      (!hasCurrentPayment || isBalanceLoading))
   );
 }
 

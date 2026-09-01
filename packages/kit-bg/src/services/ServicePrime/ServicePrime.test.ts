@@ -1430,6 +1430,40 @@ describe('ServicePrime Infini payment APIs', () => {
     expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/options');
   });
 
+  it.each([
+    { symbol: ' eth ' },
+    { symbol: 'ETH', contract: '' },
+    { symbol: 'ETH', contract: null },
+    { symbol: 'ETH', contract: ' ' },
+  ])(
+    'normalizes a native payment option with contract $contract',
+    async (token) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: {
+          data: {
+            chains: [
+              {
+                chain: 'ETHEREUM',
+                networkId: 'evm--1',
+                tokens: [token],
+              },
+            ],
+          },
+        },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'ETH', contract: '' }],
+        },
+      ]);
+    },
+  );
+
   it('drops malformed payment options at the service boundary', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
@@ -1445,6 +1479,10 @@ describe('ServicePrime Infini payment APIs', () => {
                   contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
                 },
                 { symbol: 'USDT', contract: '' },
+                { symbol: 'USDT' },
+                { symbol: 'ETH', contract: 123 },
+                { symbol: 'ETH', contract: {} },
+                { symbol: 'ETH', contract: false },
                 123,
               ],
             },

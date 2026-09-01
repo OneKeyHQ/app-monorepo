@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
 
+import { getListedNetworkMap } from '../config/networkIds';
 import { PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS } from '../consts/primeConsts';
 
 import { generateUUID } from './miscUtils';
@@ -121,6 +122,33 @@ export function normalizePrimeInfiniContractAddress({
     networkId,
     address: contractAddress,
   });
+}
+
+export function isValidPrimeInfiniPaymentContract({
+  networkId,
+  token,
+  contractAddress,
+}: {
+  networkId: string;
+  token: string;
+  contractAddress: unknown;
+}): boolean {
+  if (typeof contractAddress !== 'string') {
+    return false;
+  }
+  if (contractAddress !== '') {
+    return Boolean(contractAddress.trim());
+  }
+  // An empty contract identifies the native asset, not a token with missing
+  // metadata.
+  const network = getListedNetworkMap()[networkId.trim()];
+  return Boolean(
+    network &&
+    !network.isAllNetworks &&
+    !network.isAggregateNetwork &&
+    typeof network.symbol === 'string' &&
+    normalizeIdentityValue(token) === normalizeIdentityValue(network.symbol),
+  );
 }
 
 export function isSamePrimeInfiniNetworkAddress({
