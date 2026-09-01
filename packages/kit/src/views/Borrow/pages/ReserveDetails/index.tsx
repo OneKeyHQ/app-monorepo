@@ -100,23 +100,32 @@ const ReserveDetailsPage = () => {
     provider,
     marketAddress,
     reserveAddress,
-    symbol,
-    logoURI,
+    symbol: routeSymbol,
+    logoURI: routeLogoURI,
     accountId: routeAccountId,
     indexedAccountId,
   } = resolvedParams;
 
-  const { earnAccount, details, userInfo, isLoading, refreshData } =
-    useBorrowReserveDetailData({
-      accountId: routeAccountId,
-      networkId,
-      indexedAccountId,
-      provider,
-      marketAddress,
-      reserveAddress,
-    });
+  const {
+    earnAccount,
+    details,
+    reserveToken,
+    userInfo,
+    isLoading,
+    refreshData,
+  } = useBorrowReserveDetailData({
+    accountId: routeAccountId,
+    networkId,
+    indexedAccountId,
+    provider,
+    marketAddress,
+    reserveAddress,
+    resolveTokenMetadata: !routeLogoURI,
+  });
 
   const accountId = routeAccountId || earnAccount?.account?.id || '';
+  const symbol = reserveToken?.symbol || routeSymbol;
+  const logoURI = reserveToken?.logoURI || routeLogoURI;
 
   const shareUrl = useMemo(() => {
     if (
@@ -134,6 +143,7 @@ const ReserveDetailsPage = () => {
       provider,
       marketAddress,
       reserveAddress,
+      logoURI,
       isDevMode: devSettings.enabled,
     });
   }, [
@@ -142,6 +152,7 @@ const ReserveDetailsPage = () => {
     networkId,
     marketAddress,
     reserveAddress,
+    logoURI,
     devSettings.enabled,
   ]);
 

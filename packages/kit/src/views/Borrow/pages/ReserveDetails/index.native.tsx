@@ -34,6 +34,7 @@ const ReserveDetailsPage = () => {
   const route = useAppRoute<
     ITabEarnParamList & IModalStakingParamList,
     | ETabEarnRoutes.BorrowReserveDetails
+    | ETabEarnRoutes.BorrowReserveDetailsShare
     | EModalStakingRoutes.BorrowReserveDetails
   >();
   const { shareText } = useShare();
@@ -48,20 +49,25 @@ const ReserveDetailsPage = () => {
     provider,
     marketAddress,
     reserveAddress,
-    symbol,
-    logoURI,
+    symbol: routeSymbol,
+    logoURI: routeLogoURI,
     accountId: routeAccountId,
     indexedAccountId,
   } = route.params;
 
-  const { details, isLoading, refreshData } = useBorrowReserveDetailData({
-    accountId: routeAccountId,
-    networkId,
-    indexedAccountId,
-    provider,
-    marketAddress,
-    reserveAddress,
-  });
+  const { details, reserveToken, isLoading, refreshData } =
+    useBorrowReserveDetailData({
+      accountId: routeAccountId,
+      networkId,
+      indexedAccountId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      resolveTokenMetadata: !routeLogoURI,
+    });
+
+  const symbol = reserveToken?.symbol || routeSymbol;
+  const logoURI = reserveToken?.logoURI || routeLogoURI;
 
   const shareUrl = useMemo(() => {
     if (
@@ -79,6 +85,7 @@ const ReserveDetailsPage = () => {
       provider,
       marketAddress,
       reserveAddress,
+      logoURI,
       isDevMode: devSettings.enabled,
     });
   }, [
@@ -87,6 +94,7 @@ const ReserveDetailsPage = () => {
     networkId,
     marketAddress,
     reserveAddress,
+    logoURI,
     devSettings.enabled,
   ]);
 
