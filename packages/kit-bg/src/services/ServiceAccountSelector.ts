@@ -46,6 +46,23 @@ import type {
   IVaultSettings,
 } from '../vaults/types';
 
+function hasAccountAddress(account: IDBAccount): boolean {
+  if (account.address) {
+    return true;
+  }
+
+  const addressMaps = [
+    'addresses' in account ? account.addresses : undefined,
+    'customAddresses' in account ? account.customAddresses : undefined,
+    'findAddresses' in account ? account.findAddresses : undefined,
+    'connectedAddresses' in account ? account.connectedAddresses : undefined,
+  ];
+
+  return addressMaps.some((addressMap) =>
+    Object.values(addressMap ?? {}).some(Boolean),
+  );
+}
+
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -334,7 +351,7 @@ class ServiceAccountSelector extends ServiceBase {
                 indexedAccountId,
               },
             );
-          account = accounts.some((item) => Boolean(item.address))
+          account = accounts.some(hasAccountAddress)
             ? await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
                 {
                   indexedAccountId,

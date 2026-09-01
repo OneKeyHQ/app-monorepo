@@ -220,6 +220,30 @@ describe('ServiceAccountSelector', () => {
     expect(result.activeAccount.canCreateAddress).toBe(true);
   });
 
+  it('keeps the all-networks mock account for a Cosmos variant address', async () => {
+    const cosmosNetworkId = getNetworkIdsMap().cosmoshub;
+    const dbAccount = {
+      id: `${HD_WALLET_ID}--118--0`,
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+      name: 'Account #1',
+      impl: 'cosmos',
+      address: '',
+      addresses: {
+        [cosmosNetworkId]: 'cosmos1variantaddress',
+      },
+    } as IDBAccount;
+    const { service, selectedAccount } = buildAllNetworksService({
+      accounts: [dbAccount],
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(result.activeAccount.account).toBe(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+  });
+
   it('normalizes imported account network pairs when merging home data into swap map', async () => {
     const service = buildService({
       homeSelectedAccount: {
