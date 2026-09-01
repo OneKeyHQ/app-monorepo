@@ -14,7 +14,7 @@ import type { IPro2DeviceAnimation } from './animation';
  * Pro 2 device, 1:1 against Figma node 20496:27747. The chrome — the
  * black body, the metal highlight rings, the top bloom, the corner
  * glints, the decoration bar and the side power button — ships as a
- * pre-baked bitmap (shell@2x/@3x, exported straight from the Figma
+ * pre-baked bitmap (shell-pro2@2x/@3x, exported straight from the Figma
  * frame at 280pt, the stage's largest rendering). Only the screen stays
  * code: its content is dynamic (scenes on the 288x484 canvas) and its
  * cutout provides the clip.
@@ -72,7 +72,9 @@ function px(v: number): number {
 
 const DEVICE_H = px(FIGMA_H);
 
-const SHELL_SOURCE = require('./shell.png');
+// The model suffix keeps the filename unique: webpack/rspack dev emits
+// assets as bare [name].[ext], where same-named files overwrite each other.
+const SHELL_SOURCE = require('./shell-pro2.png');
 
 const styles = StyleSheet.create({
   frame: {
