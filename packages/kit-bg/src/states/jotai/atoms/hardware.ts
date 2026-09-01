@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   EFirmwareUpdateTipMessages,
@@ -229,6 +230,15 @@ export type IDeviceStageState = {
   /** Inline retry line for the active input panel (wrong PIN etc.). */
   inputError?: string;
   passphraseMode?: 'create' | 'verify';
+  /** Air-gap track (doc §4.6): the request UR the showQr card presents,
+   * animated by the panel itself. Carried across showQr ⇄ scanQr — the
+   * way back re-presents the same code — and cleared everywhere else. */
+  qrValueUr?: IAirGapUrJson;
+  /** The air-gap session's tag: the viewfinder echoes it back with the
+   * completed scan, and a submit whose tag no longer matches the live
+   * session is dropped — a stale frame must never answer a newer
+   * request. The servicePromise id itself never leaves bg. */
+  qrSessionId?: number;
   confirmDetails?: IDeviceStageConfirmDetail[];
   confirmMessage?: string;
   confirmDescription?: string;

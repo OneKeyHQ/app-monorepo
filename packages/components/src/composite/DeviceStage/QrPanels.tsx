@@ -1,5 +1,8 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { QRCode } from '../../content/QRCode';
@@ -40,6 +43,12 @@ const CORNER_WIDTH = 3;
 const CORNER_INSET = 10;
 const CORNER_COLOR = 'rgba(255,255,255,0.5)';
 
+/** The no-op filter forces a stacking context so Chromium clips the
+ * composited camera `<video>` to the rounded corners — the same
+ * workaround the full-screen scan page ships ("the filter property used
+ * for overflow-hidden work on web"). */
+const FRAME_CLIP_STYLE = { filter: 'blur(0px)' } as const;
+
 function QrStep({ index, text }: { index: number; text: string }) {
   return (
     <XStack gap="$1.5">
@@ -55,9 +64,13 @@ function QrStep({ index, text }: { index: number; text: string }) {
 
 export function QrPresent({
   value,
+  valueUr,
   onNext,
 }: {
   value?: string;
+  /** The animated multi-part UR — outranks `value`; the QRCode rotates
+   * the parts itself and draws the line style device cameras decode. */
+  valueUr?: IAirGapUrJson;
   onNext?: () => void;
 }) {
   const intl = useIntl();
@@ -72,7 +85,7 @@ export function QrPresent({
           borderRadius="$4"
           borderCurve="continuous"
         >
-          <QRCode value={value} size={QR_SIZE} />
+          <QRCode value={value} valueUr={valueUr} size={QR_SIZE} />
         </YStack>
       </YStack>
       {onNext ? (
@@ -110,11 +123,19 @@ export function QrPresent({
 }
 
 /**
- * A visual stand-in for the camera: the integration layer mounts the real
- * preview inside this window; the stage only fixes where the window sits
- * and how it is framed.
+ * The camera window: the integration layer mounts the real preview into
+ * `scannerView` (a components package cannot reach the app's camera);
+ * the stage only fixes where the window sits and how it is framed. With
+ * no view supplied the window keeps its placeholder face — the corner
+ * brackets ride above either.
  */
-export function QrScanFrame({ onBack }: { onBack?: () => void }) {
+export function QrScanFrame({
+  onBack,
+  scannerView,
+}: {
+  onBack?: () => void;
+  scannerView?: ReactNode;
+}) {
   const intl = useIntl();
   return (
     <YStack alignItems="center" py="$2">
@@ -126,8 +147,16 @@ export function QrScanFrame({ onBack }: { onBack?: () => void }) {
         bg="rgba(255,255,255,0.04)"
         alignItems="center"
         justifyContent="center"
+        overflow="hidden"
+        style={FRAME_CLIP_STYLE}
       >
-        <Icon name="CameraOutline" size="$8" color="$iconSubdued" />
+        {scannerView ? (
+          <Stack position="absolute" top={0} left={0} right={0} bottom={0}>
+            {scannerView}
+          </Stack>
+        ) : (
+          <Icon name="CameraOutline" size="$8" color="$iconSubdued" />
+        )}
         <Stack
           position="absolute"
           top={CORNER_INSET}
@@ -177,9 +206,11 @@ export function QrScanFrame({ onBack }: { onBack?: () => void }) {
           borderCurve="continuous"
         />
       </YStack>
-      <SizableText size="$bodySm" color="$textSubdued" mt="$2.5">
-        Camera preview mounts here.
-      </SizableText>
+      {scannerView ? null : (
+        <SizableText size="$bodySm" color="$textSubdued" mt="$2.5">
+          Camera preview mounts here.
+        </SizableText>
+      )}
       {onBack ? (
         // The escape hatch for a premature handoff: the code left the
         // screen the moment the person advanced, so if the device never
