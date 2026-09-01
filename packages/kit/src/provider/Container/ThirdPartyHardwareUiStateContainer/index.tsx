@@ -109,7 +109,7 @@ function InlineProgressBar({
         h="100%"
         width={`${clamped}%`}
         bg="$bgPrimary"
-        animation="quick"
+        transition="quick"
         animateOnly={['width']}
       />
     </Stack>

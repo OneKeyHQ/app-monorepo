@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+/* cspell:ignore Infini */
 
 import type { ReactElement, ReactNode } from 'react';
 
@@ -8,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,6 +43,14 @@ const mockFetchPrimeUserInfo = jest.fn<
 >();
 const mockDialogFooterClose = jest.fn<Promise<void>, []>();
 const mockPrimeRedemptionResult = jest.fn();
+const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
+  Promise<{
+    isLoggedIn: boolean;
+    hasPendingPayment: boolean;
+    onekeyUserId: string | undefined;
+  }>,
+  []
+>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -98,12 +108,14 @@ jest.mock('@onekeyhq/components', () => {
   }
   Form.Field = ({
     children,
+    description,
     name,
   }: {
     children: ReactElement<{
       onChangeText?: (value: string) => void;
       value?: string;
     }>;
+    description?: ReactNode;
     name: string;
   }) =>
     React.createElement(Controller, {
@@ -119,17 +131,31 @@ jest.mock('@onekeyhq/components', () => {
           fieldState.error?.message
             ? React.createElement('span', null, fieldState.error.message)
             : null,
+          description,
         ),
     });
+
+  function UnOrderedList({ children }: { children?: ReactNode }) {
+    return React.createElement('ul', null, children);
+  }
+  UnOrderedList.Item = ({ children }: { children?: ReactNode }) =>
+    React.createElement('li', null, children);
 
   return {
     Dialog: {
       Footer: ({
+        cancelButtonProps,
         confirmButtonProps,
+        onCancel,
+        onCancelText,
         onConfirm,
         onConfirmText,
+        showCancelButton,
       }: {
+        cancelButtonProps?: { onPress?: () => void };
         confirmButtonProps?: { disabled?: boolean };
+        onCancel?: () => void;
+        onCancelText?: string;
         onConfirm?: (args: {
           close: () => Promise<void>;
           getForm: () => undefined;
@@ -137,21 +163,58 @@ jest.mock('@onekeyhq/components', () => {
           preventClose: () => void;
         }) => Promise<void> | void;
         onConfirmText?: string;
-      }) =>
-        React.createElement(
-          'button',
-          {
-            disabled: confirmButtonProps?.disabled,
-            onClick: () =>
+        showCancelButton?: boolean;
+      }) => (
+        <>
+          {showCancelButton ? (
+            <button
+              type="button"
+              onClick={
+                cancelButtonProps?.onPress ??
+                (() => {
+                  onCancel?.();
+                  void mockDialogFooterClose();
+                })
+              }
+            >
+              {onCancelText}
+            </button>
+          ) : null}
+          <button
+            disabled={confirmButtonProps?.disabled}
+            onClick={() =>
               onConfirm?.({
                 close: mockDialogFooterClose,
                 getForm: () => undefined,
                 isExist: () => true,
                 preventClose: jest.fn(),
-              }),
-            type: 'button',
-          },
-          onConfirmText,
+              })
+            }
+            type="button"
+          >
+            {onConfirmText}
+          </button>
+        </>
+      ),
+      Header: ({
+        children,
+        description,
+        title,
+      }: {
+        children?: ReactNode;
+        description?: ReactNode;
+        title?: ReactNode;
+      }) =>
+        React.createElement(
+          'header',
+          { 'data-testid': 'dialog-header' },
+          children ??
+            React.createElement(
+              React.Fragment,
+              null,
+              title ? React.createElement('h2', null, title) : null,
+              description ? React.createElement('p', null, description) : null,
+            ),
         ),
       show: (config: IDialogConfig) => mockDialogShow(config),
     },
@@ -185,6 +248,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Container,
     useThemeName: () => 'light',
     useForm: jest.requireActual('react-hook-form').useForm,
+    UnOrderedList,
     YStack: Container,
   };
 });
@@ -217,6 +281,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+jest.mock('../../hooks/primeInfiniExternalCheckoutGuard', () => ({
+  getPrimeInfiniPaymentEntryGuard: () => mockGetPrimeInfiniPaymentEntryGuard(),
+}));
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -225,10 +293,14 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
-function renderDialog() {
+function renderDialog({
+  isPrimeActiveBeforeRedeem = false,
+}: {
+  isPrimeActiveBeforeRedeem?: boolean;
+} = {}) {
   showPrimeRedemptionDialog({
     expectedOneKeyUserId: 'user-a',
-    isPrimeActiveBeforeRedeem: false,
+    isPrimeActiveBeforeRedeem,
   });
   const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
   return render(config.renderContent as ReactElement);
@@ -244,6 +316,11 @@ describe('PrimeRedemptionDialog', () => {
     });
     mockFetchPrimeUserInfo.mockResolvedValue(undefined);
     mockDialogFooterClose.mockResolvedValue(undefined);
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-a',
+    });
   });
 
   it('keeps submission disabled for an empty code', () => {
@@ -262,6 +339,125 @@ describe('PrimeRedemptionDialog', () => {
       target: { value: '   ' },
     });
     expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(ETranslations.prime_redemption_codes_cumulative__desc),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        ETranslations.prime_redemption_paid_subscription_blocked__desc,
+      ),
+    ).toBeTruthy();
+  });
+
+  it('keeps the code and skips the API when pending confirmation is cancelled', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-a',
+    });
+    renderDialog();
+    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
+      target: { value: 'OKP-PJ37L-DYXWR' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: ETranslations.redemption_redeem_button,
+      }),
+    );
+
+    const dialogHeader = screen.getByTestId('dialog-header');
+    expect(
+      await within(dialogHeader).findByRole('heading', {
+        name: ETranslations.prime_redeem_pending_payment__title,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(dialogHeader).getByText(
+        ETranslations.prime_redeem_pending_payment__desc,
+      ),
+    ).toBeTruthy();
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.global_back }),
+    );
+
+    expect(
+      (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
+        .value,
+    ).toBe('OKP-PJ37L-DYXWR');
+    expect(mockDialogFooterClose).not.toHaveBeenCalled();
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(ETranslations.prime_redeem_pending_payment__title),
+    ).toBeNull();
+  });
+
+  it('redeems exactly once after pending confirmation continues', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: true,
+      onekeyUserId: 'user-a',
+    });
+    mockRedeemPrimeCode.mockResolvedValue({
+      addedDays: 30,
+      finalExpiresAt: 1_800_000_000_000,
+    });
+    renderDialog();
+    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
+      target: { value: 'OKP-PJ37L-DYXWR' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: ETranslations.redemption_redeem_button,
+      }),
+    );
+    const continueButton = await screen.findByRole('button', {
+      name: ETranslations.prime_redeem_anyway__action,
+    });
+
+    fireEvent.click(continueButton);
+    fireEvent.click(continueButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
+    });
+    expect(mockGetPrimeInfiniPaymentEntryGuard).toHaveBeenCalledTimes(1);
+    expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      name: 'the guard request fails',
+      arrange: () =>
+        mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(
+          new Error('guard failed'),
+        ),
+    },
+    {
+      name: 'the OneKey ID session changes',
+      arrange: () =>
+        mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+          isLoggedIn: true,
+          hasPendingPayment: false,
+          onekeyUserId: 'user-b',
+        }),
+    },
+  ])('blocks redemption when $name', async ({ arrange }) => {
+    arrange();
+    renderDialog();
+    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
+      target: { value: 'OKP-PJ37L-DYXWR' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: ETranslations.redemption_redeem_button,
+      }),
+    );
+
+    expect(
+      await screen.findByText(ETranslations.global_unknown_error_retry_message),
+    ).toBeTruthy();
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
   });
 
@@ -282,7 +478,9 @@ describe('PrimeRedemptionDialog', () => {
     fireEvent.click(confirmButton);
     fireEvent.click(confirmButton);
 
-    expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(1);
+    });
     expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
       code: 'OKP-PJ37L-DYXWR',
       expectedOneKeyUserId: 'user-a',
@@ -345,7 +543,7 @@ describe('PrimeRedemptionDialog', () => {
     });
   });
 
-  it('shows the localized server error inline and allows retry', async () => {
+  it('delegates active Prime eligibility to the server and shows its error inline', async () => {
     const serverMessage = '当前订阅不支持兑换；不会影响订阅扣款日期';
     mockRedeemPrimeCode.mockRejectedValueOnce({
       code: 90_506,
@@ -356,7 +554,7 @@ describe('PrimeRedemptionDialog', () => {
       },
       message: serverMessage,
     });
-    renderDialog();
+    renderDialog({ isPrimeActiveBeforeRedeem: true });
     fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
       target: { value: 'OKP-PJ37L-DYXWR' },
     });
@@ -370,7 +568,7 @@ describe('PrimeRedemptionDialog', () => {
     });
     expect(mockPrimeRedemptionResult).toHaveBeenLastCalledWith({
       result: 'failed',
-      isPrimeActiveBeforeRedeem: false,
+      isPrimeActiveBeforeRedeem: true,
       errorCode: 90_506,
     });
     expect(
@@ -390,7 +588,7 @@ describe('PrimeRedemptionDialog', () => {
     expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(2);
     expect(mockPrimeRedemptionResult).toHaveBeenLastCalledWith({
       result: 'success',
-      isPrimeActiveBeforeRedeem: false,
+      isPrimeActiveBeforeRedeem: true,
       addedDays: 30,
     });
     expect(mockPrimeRedemptionResult).toHaveBeenCalledTimes(2);

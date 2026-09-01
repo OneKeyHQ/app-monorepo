@@ -394,7 +394,7 @@ function SignatureAdvanceSection() {
                   Advance
                 </SizableText>
                 <YStack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                 >
@@ -407,12 +407,12 @@ function SignatureAdvanceSection() {
               </>
             )}
           </Accordion.Trigger>
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               unstyled
               pt="$2.5"
               gap="$5"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}

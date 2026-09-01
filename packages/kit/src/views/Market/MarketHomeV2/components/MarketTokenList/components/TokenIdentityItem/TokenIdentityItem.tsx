@@ -11,8 +11,10 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import type { ITokenSize } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
@@ -98,6 +100,8 @@ interface ITokenIdentityItemProps {
    * Whether to show the stock subtitle. Defaults to true.
    */
   showStockSubtitle?: boolean;
+  tokenSize?: ITokenSize;
+  gap?: IXStackProps['gap'];
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -117,6 +121,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   maxLeverage,
   perpsSubtitle,
   showStockSubtitle = true,
+  tokenSize = 'md',
+  gap = '$3',
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -196,13 +202,13 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     );
 
   return (
-    <XStack alignItems="center" gap="$3" userSelect="none">
+    <XStack alignItems="center" gap={gap} userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
         tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
-        size="md"
+        size={tokenSize}
       />
 
       <Stack flex={1} minWidth={0}>

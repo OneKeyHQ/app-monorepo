@@ -44,6 +44,11 @@ const buildInfiniSubscription = (currentPeriodEnd: number) => ({
   plan: 'monthly' as const,
   currentPeriodEnd,
 });
+const statusOnlyInfiniSubscription = {
+  subscriptionId: 'subscription-id',
+  status: 'active',
+  plan: 'monthly' as const,
+};
 
 describe('primeInfiniPaymentUtils', () => {
   it('builds an explicit non-EVM transfer intent from the displayed payment', () => {
@@ -606,24 +611,84 @@ describe('primeInfiniPaymentUtils', () => {
     );
   });
 
-  it('confirms initial purchases only from fresh Prime state', () => {
+  it('confirms initial purchases only from fresh Prime and Infini state', () => {
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false },
-        primeSubscription: { isActive: true, expiresAt: 3000 },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'infini' }],
+        },
         infiniSubscription: undefined,
       }),
     ).toBe(true);
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+        infiniSubscription: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: null,
+        },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: statusOnlyInfiniSubscription.subscriptionId,
+        },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },
         primeSubscription: undefined,
         infiniSubscription: buildInfiniSubscription(3000),
       }),
     ).toBe(false);
   });
 
-  it('confirms renewals from either the merged or Infini expiry baseline', () => {
+  it('confirms renewals only from a newer Infini period', () => {
     const baseline = {
       wasPrimeActive: true,
       primeExpiresAt: 5000,
@@ -633,10 +698,14 @@ describe('primeInfiniPaymentUtils', () => {
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline,
-        primeSubscription: { isActive: true, expiresAt: 5001 },
-        infiniSubscription: undefined,
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 5001,
+          subscriptions: [{ channel: 'infini' }],
+        },
+        infiniSubscription: buildInfiniSubscription(3000),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline,
@@ -649,6 +718,23 @@ describe('primeInfiniPaymentUtils', () => {
         baseline,
         primeSubscription: { isActive: true, expiresAt: 5000 },
         infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: true,
+          primeExpiresAt: 5000,
+        },
+        primeSubscription: { isActive: true, expiresAt: 5001 },
+        infiniSubscription: buildInfiniSubscription(3001),
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline,
+        primeSubscription: { isActive: true, expiresAt: 5001 },
+        infiniSubscription: statusOnlyInfiniSubscription,
       }),
     ).toBe(false);
   });

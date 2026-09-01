@@ -42,6 +42,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  flushDesktopControls?: ITradingViewChartControlsProps['flushDesktopControls'];
   showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -73,6 +74,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
+    flushDesktopControls,
     showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
@@ -195,7 +197,11 @@ export const TradingViewNativeChartControlsContainer = memo(
     const shouldShowChartCloseControl =
       Boolean(onChartClose) && showChartCloseControl;
     const closeControl = shouldShowChartCloseControl ? (
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      <Icon
+        name="ChevronTriangleDownSmallSolid"
+        size="$5"
+        color="$iconSubdued"
+      />
     ) : null;
     const closeLabel = intl.formatMessage({ id: ETranslations.global_close });
 
@@ -222,13 +228,14 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect
+        showChartTypeSelect={!compactMobileLayout}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
+        flushDesktopControls={flushDesktopControls}
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}

@@ -354,7 +354,7 @@ const ApyChartComponent = ({
           height={160}
           position="relative"
           overflow="hidden"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
         >
@@ -375,7 +375,7 @@ const ApyChartComponent = ({
       {chartData && !isLoading ? (
         <YStack
           position="relative"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, scale: 0.98 }}
           exitStyle={{ opacity: 0, scale: 0.98 }}

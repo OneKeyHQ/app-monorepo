@@ -3,26 +3,75 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IPrimeInfiniSubscription } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { PrimeTestIDs } from '../../testIDs';
 
+import { getPrimeSubscriptionManagementSourceKey } from './primeSubscriptionManagementUtils';
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 const mockActionListClose = jest.fn();
 const mockShowPrimeRedemptionDialog = jest.fn();
 const mockPrimeRedemptionEntryClick = jest.fn();
 const mockPrimeManageSubscriptionClick = jest.fn();
-const mockResolvePrimeSubscriptionManagementTarget = jest.fn();
+const mockNavigationPush = jest.fn();
+const mockOpenUrlExternal = jest.fn();
+const mockToastMessage = jest.fn();
+const mockApiFetchPrimeUserInfo = jest.fn<
+  Promise<{
+    userInfo: {
+      primeSubscription?: {
+        isActive: boolean;
+        subscriptions?: { channel?: string; managementUrl?: string }[];
+      };
+    };
+  }>,
+  [{ forceRefresh: boolean }]
+>();
+const mockApiGetInfiniSubscription = jest.fn<
+  Promise<IPrimeInfiniSubscription | undefined>,
+  [{ expectedOneKeyUserId: string }]
+>();
+const mockGetCustomerInfo = jest.fn<
+  Promise<{ managementURL?: string | null }>,
+  []
+>();
+let mockPromiseResultMethod: (() => Promise<unknown>) | undefined;
+let mockManagementResolution:
+  | {
+      onekeyUserId: string;
+      subscriptionSourceKey: string;
+      target:
+        | { type: 'infini' }
+        | { type: 'external'; url: string }
+        | {
+            type: 'unavailable';
+            reason: 'channel-without-management-url';
+          };
+    }
+  | undefined;
 const mockUser: {
   displayEmail: string;
   onekeyUserId: string;
-  primeSubscription?: { isActive: boolean };
+  primeSubscription?: {
+    isActive: boolean;
+    expiresAt?: number;
+    subscriptions?: { channel?: string; managementUrl?: string }[];
+  };
   subscriptionManageUrl?: string;
 } = {
   displayEmail: 'user@example.com',
   onekeyUserId: 'user-a',
 };
+
+const getMockSubscriptionSourceKey = () =>
+  getPrimeSubscriptionManagementSourceKey({
+    primeSubscription: mockUser.primeSubscription,
+    subscriptionManageUrl: mockUser.subscriptionManageUrl,
+  });
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -77,12 +126,15 @@ jest.mock('@onekeyhq/components', () => {
     ActionList,
     Dialog: {
       debugMessage: jest.fn(),
-      loading: jest.fn(() => ({ close: jest.fn() })),
     },
     IconButton: () => null,
     SizableText: Container,
     Stack: Container,
-    Toast: { error: jest.fn() },
+    Toast: {
+      message: (...args: unknown[]) => {
+        mockToastMessage(...args);
+      },
+    },
     XStack: Container,
   };
 });
@@ -102,29 +154,32 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ push: jest.fn() }),
+  default: () => ({ push: mockNavigationPush }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: (method: () => Promise<unknown>) => {
+    mockPromiseResultMethod = method;
+    return {
+      result: mockManagementResolution,
+    };
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
-      apiFetchPrimeUserInfo: jest.fn(),
-      apiGetInfiniSubscription: jest.fn(),
+      apiFetchPrimeUserInfo: (params: { forceRefresh: boolean }) =>
+        mockApiFetchPrimeUserInfo(params),
+      apiGetInfiniSubscription: (params: { expectedOneKeyUserId: string }) =>
+        mockApiGetInfiniSubscription(params),
     },
   },
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: false }],
-}));
-
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: {
-    showToastOfError: jest.fn(),
-    toastIfError: jest.fn(),
-  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -150,20 +205,13 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-jest.mock('./primeSubscriptionManagementUtils', () => ({
-  getPrimeSubscriptionManagementTarget: () => ({
-    type: 'unavailable',
-    reason: 'missing-channel-and-management-url',
-  }),
-  resolvePrimeSubscriptionManagementTarget: (
-    ...args: unknown[]
-  ): Promise<unknown> =>
-    mockResolvePrimeSubscriptionManagementTarget(...args) as Promise<unknown>,
-}));
-
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   __esModule: true,
-  default: { openUrlExternal: jest.fn() },
+  default: {
+    openUrlExternal: (...args: unknown[]) => {
+      mockOpenUrlExternal(...args);
+    },
+  },
 }));
 
 jest.mock('../../components/PrimePurchaseDialog/PrimePurchaseDialog', () => ({
@@ -171,7 +219,7 @@ jest.mock('../../components/PrimePurchaseDialog/PrimePurchaseDialog', () => ({
 }));
 
 jest.mock('../../hooks/usePrimePayment', () => ({
-  usePrimePayment: () => ({ getCustomerInfo: jest.fn() }),
+  usePrimePayment: () => ({ getCustomerInfo: () => mockGetCustomerInfo() }),
 }));
 
 jest.mock('./PrimeRedemptionDialog', () => ({
@@ -185,6 +233,8 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
     jest.clearAllMocks();
     mockUser.primeSubscription = undefined;
     mockUser.subscriptionManageUrl = undefined;
+    mockManagementResolution = undefined;
+    mockPromiseResultMethod = undefined;
   });
 
   it.each([false, true])(
@@ -210,24 +260,301 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
 describe('PrimeUserInfoMoreButton manage subscription', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUser.primeSubscription = { isActive: true };
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ channel: 'redemption' }],
+    };
     mockUser.subscriptionManageUrl = undefined;
-    mockResolvePrimeSubscriptionManagementTarget.mockRejectedValue(
-      new Error('subscription lookup failed'),
-    );
+    mockManagementResolution = undefined;
+    mockPromiseResultMethod = undefined;
+    mockGetCustomerInfo.mockReset();
   });
 
-  it('records an unresolved click when destination resolution throws', async () => {
+  it('shows the entry and explains when only a redemption subscription exists', () => {
+    mockUser.subscriptionManageUrl = 'https://example.com/stale-manage';
     render(<PrimeUserInfoMoreButton />);
 
     fireEvent.click(
       screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
     );
 
-    await waitFor(() =>
-      expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
-        target: 'unresolved',
-      }),
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.prime_subscription_management_unsupported__msg,
+    });
+    expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      target: 'unresolved',
+    });
+  });
+
+  it('hydrates a RevenueCat management URL when the server record has none', async () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ channel: 'revenuecat' }],
+    };
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'revenuecat' }],
+        },
+      },
+    });
+    mockGetCustomerInfo.mockResolvedValue({
+      managementURL: ' https://example.com/revenuecat-manage ',
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'external',
+        url: 'https://example.com/revenuecat-manage',
+      },
+    });
+    expect(mockGetCustomerInfo).toHaveBeenCalled();
+  });
+
+  it('opens a locally available management URL before refresh resolves', () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        {
+          channel: 'app-store',
+          managementUrl: 'https://example.com/manage',
+        },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
     );
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://example.com/manage',
+    );
+    expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      target: 'externalUrl',
+    });
+  });
+
+  it('force refreshes the current server record for an unresolved target', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [
+            {
+              channel: 'app-store',
+              managementUrl: 'https://example.com/manage',
+            },
+          ],
+        },
+      },
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'external',
+        url: 'https://example.com/manage',
+      },
+    });
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
+  });
+
+  it('refreshes an available cached management target', async () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ channel: 'revenuecat' }],
+    };
+    mockUser.subscriptionManageUrl = 'https://example.com/cached-manage';
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+      },
+    });
+    const view = render(<PrimeUserInfoMoreButton />);
+
+    const resolution = {
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'unavailable',
+        reason: 'channel-without-management-url',
+      },
+    } as const;
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual(resolution);
+    expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
+    mockManagementResolution = resolution;
+    view.rerender(<PrimeUserInfoMoreButton />);
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.prime_subscription_management_unsupported__msg,
+    });
+  });
+
+  it('does not open a channel-less marketing URL and still probes Infini', async () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [{ managementUrl: 'https://onekey.so/invite' }],
+    };
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ managementUrl: 'https://onekey.so/invite' }],
+        },
+      },
+    });
+    mockApiGetInfiniSubscription.mockResolvedValue({
+      subscriptionId: 'legacy-infini',
+      status: 'active',
+      plan: 'monthly',
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.prime_subscription_management_unsupported__msg,
+    });
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: { type: 'infini' },
+    });
+    expect(mockApiGetInfiniSubscription).toHaveBeenCalledWith({
+      expectedOneKeyUserId: 'user-a',
+    });
+  });
+
+  it('opens in-app Infini management and does not open its marketing URL', () => {
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        {
+          channel: 'infini',
+          managementUrl: 'https://onekey.so/invite',
+        },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalledWith('PrimeInfiniSubscription');
+    expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      target: 'infiniPage',
+    });
+  });
+
+  it('restores a legacy Infini target when routing metadata is missing', async () => {
+    mockUser.primeSubscription = { isActive: true };
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: { isActive: true },
+      },
+    });
+    mockApiGetInfiniSubscription.mockResolvedValue({
+      subscriptionId: 'legacy-infini',
+      status: 'active',
+      plan: 'monthly',
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await expect(mockPromiseResultMethod?.()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: { type: 'infini' },
+    });
+    expect(mockApiGetInfiniSubscription).toHaveBeenCalledWith({
+      expectedOneKeyUserId: 'user-a',
+    });
+  });
+
+  it('does not probe Infini when the current source is redemption', async () => {
+    mockApiFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: {
+        primeSubscription: { isActive: true },
+      },
+    });
+    render(<PrimeUserInfoMoreButton />);
+
+    await mockPromiseResultMethod?.();
+
+    expect(mockApiGetInfiniSubscription).not.toHaveBeenCalled();
+    expect(mockGetCustomerInfo).not.toHaveBeenCalled();
+  });
+
+  it('opens a refreshed management target for the same user and source', () => {
+    mockManagementResolution = {
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+      target: {
+        type: 'external',
+        url: 'https://example.com/fresh-manage',
+      },
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://example.com/fresh-manage',
+    );
+  });
+
+  it.each([
+    {
+      name: 'another user',
+      onekeyUserId: 'user-b',
+      subscriptionSourceKey: getMockSubscriptionSourceKey(),
+    },
+    {
+      name: 'another subscription source',
+      onekeyUserId: 'user-a',
+      subscriptionSourceKey: 'stale-subscription-source',
+    },
+  ])('ignores a stale resolution from $name', (resolutionSource) => {
+    mockManagementResolution = {
+      onekeyUserId: resolutionSource.onekeyUserId,
+      subscriptionSourceKey: resolutionSource.subscriptionSourceKey,
+      target: {
+        type: 'external',
+        url: 'https://example.com/stale-manage',
+      },
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.prime_subscription_management_unsupported__msg,
+    });
   });
 });

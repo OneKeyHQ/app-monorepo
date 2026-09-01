@@ -2524,7 +2524,7 @@ export function UniversalStake({
                               </SizableText>
                             </XStack>
                             <YStack
-                              animation="quick"
+                              transition="quick"
                               animateOnly={ANIMATE_ONLY_TRANSFORM}
                               rotate={
                                 open && !isAccordionTriggerDisabled
@@ -2548,9 +2548,9 @@ export function UniversalStake({
                       </>
                     )}
                   </Accordion.Trigger>
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                       px={0}

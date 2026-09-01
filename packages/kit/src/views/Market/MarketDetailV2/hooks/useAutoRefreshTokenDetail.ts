@@ -10,6 +10,7 @@ interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
+  skipMarketDataFetch?: boolean;
 }
 
 function toFiniteNumber(value?: string | number) {
@@ -108,7 +109,12 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   return usePromiseResult(
     async () => {
-      if (!currencyInfo.id) {
+      if (
+        data.skipMarketDataFetch ||
+        !currencyInfo.id ||
+        !data.networkId ||
+        (!data.tokenAddress && !data.isNative)
+      ) {
         return;
       }
       // Only fetch token detail data; atom identity is set synchronously above
@@ -117,7 +123,14 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         data.networkId,
       );
     },
-    [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions],
+    [
+      currencyInfo.id,
+      data.isNative,
+      data.tokenAddress,
+      data.networkId,
+      data.skipMarketDataFetch,
+      tokenDetailActions,
+    ],
     {
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,

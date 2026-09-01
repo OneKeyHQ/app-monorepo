@@ -9,6 +9,7 @@ const baseParams = {
   gasAccountQuoteEligible: false,
   isCustomRpcEnabled: false,
   sponsorDisabledForBatch: false,
+  sponsorDisabledForExternalAccount: false,
   megafuelDisabledForPrivateSend: false,
   gasAccountDisabledByScenario: false,
   gasAccountTemporarilyDisabled: false,
@@ -191,6 +192,35 @@ describe('resolveSponsorPayerState', () => {
           megafuelSponsorable: true,
           gasAccountQuoteEligible: true,
           sponsorDisabledForBatch: true,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'user',
+        selectedPayer: 'user',
+      });
+    });
+
+    it('forces user for both payers for external-wallet accounts (OK-61254)', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'megafuel',
+          megafuelSponsorable: true,
+          gasAccountQuoteEligible: true,
+          sponsorDisabledForExternalAccount: true,
+        }),
+      ).toEqual({
+        effectiveFeePayer: 'user',
+        selectedPayer: 'user',
+      });
+    });
+
+    it('forces user for external-wallet accounts when the server prefers gasAccount', () => {
+      expect(
+        resolveSponsorPayerState({
+          ...baseParams,
+          serverPayer: 'gasAccount',
+          gasAccountQuoteEligible: true,
+          sponsorDisabledForExternalAccount: true,
         }),
       ).toEqual({
         effectiveFeePayer: 'user',

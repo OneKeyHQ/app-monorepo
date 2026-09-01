@@ -57,6 +57,7 @@ const mockTradingViewNativeFullscreenButton = jest.fn<
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
+let mockChartType: 'candlestick' | 'line' = 'candlestick';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
 let mockViewportRequest: unknown;
@@ -81,7 +82,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
     return {
       calendarAvailableTimeRange: { from: 100 },
       candleIntervalSeconds: 3600,
-      chartType: 'candlestick' as const,
+      chartType: mockChartType,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
       dataState: mockDataState,
@@ -124,7 +125,10 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  LottieView: () => <div data-testid="trading-view-native-loading-animation" />,
+  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
   useTheme: () => ({
     amber9: { val: '#amber9' },
     bgApp: { val: '#bgApp' },
@@ -232,6 +236,7 @@ describe('TradingViewNativeContainer', () => {
     jest.clearAllMocks();
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
+    mockChartType = 'candlestick';
     mockDataState = {
       status: 'error',
       error: new Error('history unavailable'),
@@ -250,6 +255,38 @@ describe('TradingViewNativeContainer', () => {
     jest.restoreAllMocks();
   });
 
+  it('shows the loading animation until the initial K-line points arrive', () => {
+    mockDataState = { status: 'idle' };
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const { rerender } = render(
+      <TradingViewNativeContainer source={source} testID="chart" />,
+    );
+
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+    expect(
+      screen.getByTestId('trading-view-native-loading-animation'),
+    ).toBeTruthy();
+
+    mockDataState = { status: 'loading' };
+    rerender(
+      <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
+    );
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    rerender(
+      <TradingViewNativeContainer source={{ ...source }} testID="chart" />,
+    );
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
   it('renders a retryable error state when history has no points', () => {
     render(
       <TradingViewNativeContainer
@@ -265,6 +302,7 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(screen.getByTestId('chart-error')).toBeTruthy();
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
     fireEvent.click(screen.getByTestId('chart-retry'));
     expect(mockHandleRetry).toHaveBeenCalledTimes(1);
   });
@@ -356,6 +394,27 @@ describe('TradingViewNativeContainer', () => {
 
     expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
       expect.objectContaining({ initialRightOffset }),
+    );
+  });
+
+  it('forces candlesticks without changing the stored native chart preference', () => {
+    mockChartType = 'line';
+
+    render(
+      <TradingViewNativeContainer
+        forcedChartType="candlestick"
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'candlestick' }),
     );
   });
 
@@ -1402,6 +1461,7 @@ describe('TradingViewNativeContainer', () => {
     render(
       <TradingViewNativeContainer
         nativeChartDisplayMode="compact"
+        nativeControlsLayoutMode="mobile"
         source={{
           kind: 'market',
           networkId: 'evm--1',
@@ -1409,6 +1469,7 @@ describe('TradingViewNativeContainer', () => {
           symbol: 'TOKEN',
           realtime: 'disabled',
         }}
+        onNativeChartFullscreenChange={jest.fn()}
       />,
     );
 
@@ -1426,6 +1487,9 @@ describe('TradingViewNativeContainer', () => {
     );
     expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalledWith(
       expect.objectContaining({ compactMobileLayout: true }),
+    );
+    expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
+      expect.objectContaining({ timeAxisHeight: 20 }),
     );
   });
   it('keeps shared chart defaults outside compact mode', () => {
@@ -1448,7 +1512,7 @@ describe('TradingViewNativeContainer', () => {
         priceAxisTickCount: undefined,
         showLegend: true,
         timeAxisFontSize: undefined,
-        timeAxisHeight: undefined,
+        timeAxisHeight: 24,
         timeAxisBorderWidth: undefined,
       }),
     );

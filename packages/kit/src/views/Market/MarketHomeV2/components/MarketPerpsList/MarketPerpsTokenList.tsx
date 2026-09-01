@@ -15,6 +15,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
+import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -107,7 +109,7 @@ function MarketPerpsTokenListImpl({
     if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
-        <YStack bg="$bgApp" px="$4">
+        <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} bg="$bgApp" px="$3">
           <Stack width="100%" mb="$3">
             {CategorySelector}
           </Stack>
@@ -141,7 +143,7 @@ function MarketPerpsTokenListImpl({
       };
 
   return (
-    <Stack flex={1} width="100%">
+    <Stack flex={1} width="100%" testID={MarketTestIDs.perpsList}>
       {portalContent}
       {useDesktopPortal ? null : CategorySelector}
       <Stack

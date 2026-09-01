@@ -79,9 +79,11 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeMyOrders]: undefined;
   [EPrimePages.OneKeyIdProfileEdit]: undefined;
   [EPrimePages.PrimeInfiniPayment]: {
+    flowId?: string;
     selectedSubscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     createNewPayment?: boolean;
+    networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;
 };

@@ -638,6 +638,7 @@ export function buildTradingViewNativeChartScene({
     getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
       paneCount: visibleSubIndicatorPanes.length,
+      timeAxisHeight,
     });
   const subIndicatorPaneStackHeight = subIndicatorPaneStackLayout.height;
   const customPaintStyles: Record<
@@ -706,11 +707,8 @@ export function buildTradingViewNativeChartScene({
           },
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
-    height: Math.max(
-      height - TIME_AXIS_HEIGHT - subIndicatorPaneStackHeight,
-      0,
-    ),
-    width,
+    canvasWidth: width,
+    mainChartBottom: subIndicatorPaneStackLayout.top,
   });
   if (watermarkRect) {
     commands.push({
