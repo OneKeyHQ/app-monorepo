@@ -1185,7 +1185,11 @@ export function MorphOverlay<T>({
     // driver navigating away must drop the stage first, the discipline
     // the dialogs themselves follow.
     <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
-      <Stack style={layerStyle} pointerEvents="box-none">
+      {/* collapsable={false}: RN 0.86 Fabric flattens this layout-only
+          box-none layer out of the native hierarchy, and the flattened
+          path loses hit-testing for the whole subtree — the stage draws
+          but nothing inside takes a touch. Keep the native view. */}
+      <Stack style={layerStyle} pointerEvents="box-none" collapsable={false}>
         {/* The wall blocks the app whenever the shell is there, and is
             deliberately NOT a dismissal surface: a stray tap outside
             must never cancel a device operation mid-flight — the close
