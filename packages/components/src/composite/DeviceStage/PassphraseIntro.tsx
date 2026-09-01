@@ -31,20 +31,25 @@ const PASSPHRASE_GUIDE_URL =
 export function PassphraseIntro({
   onContinue,
   resetSignal,
+  keepShortcutDefault = true,
 }: {
   /** The one exit, carrying the wallet-list shortcut choice with it. */
   onContinue?: (options: { keepShortcut: boolean }) => void;
   /** Fresh-visit signal, the app inputs' own: parked presenters bump it
    * per activation to stand in for a remount's clean slate. */
   resetSignal?: number;
+  /**
+   * Where the switch starts — the person's remembered choice, fed by the
+   * integration layer. Without it a parked card re-opened ON would hand
+   * Continue an ON to commit, silently overwriting a stored OFF.
+   */
+  keepShortcutDefault?: boolean;
 }) {
   const intl = useIntl();
-  // The design's first-run default: keep the shortcut. Remembering the
-  // person's previous choice is the integration layer's.
-  const [keepShortcut, setKeepShortcut] = useState(true);
+  const [keepShortcut, setKeepShortcut] = useState(keepShortcutDefault);
   useEffect(() => {
-    setKeepShortcut(true);
-  }, [resetSignal]);
+    setKeepShortcut(keepShortcutDefault);
+  }, [resetSignal, keepShortcutDefault]);
   const handleContinue = useCallback(() => {
     onContinue?.({ keepShortcut });
   }, [keepShortcut, onContinue]);
