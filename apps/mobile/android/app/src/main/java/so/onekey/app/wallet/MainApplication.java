@@ -184,10 +184,10 @@ public class MainApplication extends Application implements ReactApplication {
           manifestText = manifestBuilder.toString();
         }
         JSONObject manifest = new JSONObject(manifestText);
-        if (manifest.optInt("schemaVersion", -1) != 2) {
+        if (manifest.optInt("schemaVersion", -1) != 3) {
           throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
         }
-        if (manifest.optInt("strategyVersion", -1) != 2) {
+        if (manifest.optInt("strategyVersion", -1) != 4) {
           throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
         }
         if (!"android".equals(manifest.optString("platform"))) {
