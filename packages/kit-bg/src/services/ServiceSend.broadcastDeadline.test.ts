@@ -181,6 +181,30 @@ const decodedTx = {
   outputActions: [],
 } as unknown as IDecodedTx;
 
+function createNativePaymentFixture() {
+  return {
+    paymentCacheKey: { ...paymentCacheKey, contractAddress: '' },
+    payment: { ...latestPayment, token: 'ETH', amountDue: '0.01' },
+    decodedTx: {
+      ...decodedTx,
+      actions: decodedTx.actions.map((action) => ({
+        ...action,
+        assetTransfer: action.assetTransfer
+          ? {
+              ...action.assetTransfer,
+              sends: action.assetTransfer.sends.map((transfer) => ({
+                ...transfer,
+                tokenIdOnNetwork: '',
+                isNative: true,
+                amount: '0.01',
+              })),
+            }
+          : undefined,
+      })),
+    },
+  };
+}
+
 function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
   return {
     raw_data: {
@@ -301,6 +325,136 @@ function createDeferred<T>() {
 describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('verifies and durably claims a native ETH payment before broadcasting', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const native = createNativePaymentFixture();
+    vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: native.payment,
+        purchaseStatusSnapshot,
+      },
+    );
+
+    await expect(
+      signAndSend(service, {
+        beforeBroadcastAction: {
+          ...beforeBroadcastAction,
+          paymentCacheKey: native.paymentCacheKey,
+        },
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentCacheKey: native.paymentCacheKey,
+        transferClaim: expect.objectContaining({
+          contractAddress: '',
+          amount: '0.01',
+          toAddress: native.payment.address,
+        }),
+      }),
+    );
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted
+        .mock.invocationCallOrder[0],
+    ).toBeLessThan(vault.broadcastTransaction.mock.invocationCallOrder[0]);
+  });
+
+  test.each([
+    { label: 'a token transfer', changes: { isNative: false } },
+    { label: 'a missing native flag', changes: { isNative: undefined } },
+    { label: 'a nonempty contract', changes: { tokenIdOnNetwork: '0xtoken' } },
+    { label: 'a whitespace contract', changes: { tokenIdOnNetwork: ' ' } },
+    { label: 'an NFT transfer', changes: { isNFT: true } },
+  ])(
+    'rejects $label for a native invoice before claiming or broadcasting',
+    async ({ changes }) => {
+      const { service, vault, backgroundApi } = makeService();
+      const native = createNativePaymentFixture();
+      const transfer = native.decodedTx.actions[0].assetTransfer?.sends[0];
+      if (!transfer) {
+        throw new OneKeyLocalError('Missing native transfer fixture');
+      }
+      Object.assign(transfer, changes);
+      vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: native.payment,
+          purchaseStatusSnapshot,
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          beforeBroadcastAction: {
+            ...beforeBroadcastAction,
+            paymentCacheKey: native.paymentCacheKey,
+          },
+        }),
+      ).rejects.toThrow('Infini payment transaction cannot be verified');
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    { label: 'token symbol', changes: { token: 'USDC' } },
+    { label: 'chain', changes: { chain: 'BSC' } },
+    { label: 'recipient', changes: { address: '0xotherrecipient' } },
+    { label: 'amount', changes: { amountDue: '0.02' } },
+  ])(
+    'rejects a native payment with a changed $label before claiming or broadcasting',
+    async ({ changes }) => {
+      const { service, vault, backgroundApi } = makeService();
+      const native = createNativePaymentFixture();
+      vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...native.payment, ...changes },
+          purchaseStatusSnapshot,
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          beforeBroadcastAction: {
+            ...beforeBroadcastAction,
+            paymentCacheKey: native.paymentCacheKey,
+          },
+        }),
+      ).rejects.toThrow();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not substitute a native transfer for a token invoice', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const native = createNativePaymentFixture();
+    vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, amountDue: native.payment.amountDue },
+        purchaseStatusSnapshot,
+      },
+    );
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toThrow('Infini payment transaction cannot be verified');
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 
   test('keeps existing callers unchanged when deadline is omitted', async () => {
