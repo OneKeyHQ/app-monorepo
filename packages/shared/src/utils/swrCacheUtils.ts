@@ -548,6 +548,7 @@ export const swrKeys = {
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
   marketHomeTokenList: ({
     networkId,
+    locale,
     sortBy,
     sortType,
     pageSize,
@@ -557,6 +558,7 @@ export const swrKeys = {
     timeFrame,
   }: {
     networkId: string;
+    locale: string;
     sortBy?: string;
     sortType?: string;
     pageSize?: number;
@@ -567,8 +569,9 @@ export const swrKeys = {
   }) => {
     const parts = [
       NS.marketHomeTokenList,
-      'v1',
+      'v2',
       networkId,
+      locale,
       sortBy ?? '',
       sortType ?? '',
       pageSize ?? '',

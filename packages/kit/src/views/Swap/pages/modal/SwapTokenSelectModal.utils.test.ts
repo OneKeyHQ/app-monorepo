@@ -173,7 +173,6 @@ describe('SwapTokenSelectModal.utils', () => {
       isSwapStockMetadataPending({
         isSwapStockSelectTarget: true,
         stockMetadataTokenKey: 'evm--56:0x123',
-        stockMetadataLoading: false,
         resolvedStockMetadataTokenKey: '',
       }),
     ).toBe(true);
@@ -182,16 +181,14 @@ describe('SwapTokenSelectModal.utils', () => {
       isSwapStockMetadataPending({
         isSwapStockSelectTarget: true,
         stockMetadataTokenKey: 'evm--56:0x123',
-        stockMetadataLoading: true,
         resolvedStockMetadataTokenKey: 'evm--56:0x123',
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       isSwapStockMetadataPending({
         isSwapStockSelectTarget: true,
         stockMetadataTokenKey: 'evm--56:0x123',
-        stockMetadataLoading: false,
         resolvedStockMetadataTokenKey: 'evm--56:0x123',
       }),
     ).toBe(false);

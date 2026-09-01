@@ -367,14 +367,10 @@ export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
   return globalAtomComputedR({ read });
 }
 
-/**
- * Registry of named contextAtoms for MMKV snapshot save/restore.
- * Unlike globalAtomRegistry (for globalAtoms), this tracks contextAtom
- * name→atomBuilder mappings so snapshot injection can work.
- */
+/** Context atom builders and optional snapshot transforms. */
 export const contextAtomSnapshotRegistry = new Map<
   string,
-  { atom: () => any }
+  { atom: () => any; transform?: (value: unknown) => unknown }
 >();
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -409,14 +405,7 @@ function getScopedColdStartSnapshotValue({
   return undefined;
 }
 
-// ============================================================
-// Jotai Cold Start SSR — Phase 3: Value Tracking + Debounced Save
-//
-// Tracks atom value changes at runtime and debounce-writes them to
-// MMKV so the next cold start can hydrate from fresh data.
-// This is the "server render" side — generating the snapshot that
-// Phase 1 (index.ts pre-read) and Phase 2 (hydration below) consume.
-// ============================================================
+// Track scoped context atom values for debounced MMKV snapshot writes.
 
 /** Latest values of all coldStartCache atoms, updated on every use() call */
 const coldStartValuesMap = new Map<string, unknown>();
@@ -874,7 +863,7 @@ export function hydrateContextColdStartCacheForProvider({
         | undefined) ?? readColdStartSnapshotFromStorage();
     for (const [
       cacheKey,
-      { atom: atomBuilder },
+      { atom: atomBuilder, transform },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
       const recentAccountSelectorCached =
@@ -900,16 +889,20 @@ export function hydrateContextColdStartCacheForProvider({
         });
         const atomInstance = atomBuilder();
         const currentValue = store.get(atomInstance);
+        const safeCached = transform ? transform(cached) : cached;
         const nextValue =
           typeof currentValue === 'object' &&
           currentValue !== null &&
-          typeof cached === 'object' &&
-          cached !== null
-            ? { ...(currentValue as any), ...(cached as any) }
-            : cached;
+          typeof safeCached === 'object' &&
+          safeCached !== null
+            ? { ...(currentValue as any), ...(safeCached as any) }
+            : safeCached;
 
         store.set(atomInstance, nextValue);
-        coldStartValuesMap.set(scopedCacheKey, nextValue);
+        coldStartValuesMap.set(
+          scopedCacheKey,
+          transform ? transform(nextValue) : nextValue,
+        );
         coldStartLog(`hydrate: ${scopedCacheKey}`);
         if (
           typedCacheKey ===
@@ -952,10 +945,12 @@ export function contextAtomBase<Value>({
   useColdStartScopeKey,
   coldStartCache,
   coldStartCacheKey,
+  coldStartCacheTransform,
 }: {
   initialValue: Value;
   coldStartCache?: boolean;
   coldStartCacheKey?: IContextAtomColdStartCacheKey;
+  coldStartCacheTransform?: (value: Value) => Value;
   useColdStartScopeKey?: () => string | undefined;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
@@ -970,11 +965,7 @@ export function contextAtomBase<Value>({
   const activeColdStartCacheKey =
     coldStartCache && coldStartCacheKey ? coldStartCacheKey : undefined;
 
-  // Hydration of context atoms is scoped (per-provider store) and happens in
-  // hydrateContextColdStartCacheForProvider, keyed by
-  // `${coldStartScopeKey}::${coldStartCacheKey}`. Module-load-time hydration
-  // via a bare atom name would never match those scoped keys and therefore
-  // does not apply to contextAtoms.
+  // Scoped providers hydrate through hydrateContextColdStartCacheForProvider.
   const atomBuilder = memoizee(() => atom(initialValue));
 
   // coldStartCache: wrap use() to auto-track value changes
@@ -983,10 +974,7 @@ export function contextAtomBase<Value>({
         const cacheKey = activeColdStartCacheKey;
         const coldStartScopeKey = useColdStartScopeKey?.();
         const result = useContextAtom(atomBuilder());
-        // Missing scopeKey means the atom is being consumed from a store not
-        // created via JotaiContextStore.createStore (e.g. a test harness or a
-        // future embedded renderer). Fall back to plain useContextAtom and
-        // skip cold-start tracking rather than crashing the render tree.
+        // Non-provider stores skip scoped cold-start tracking.
         if (!coldStartScopeKey) {
           coldStartLog(`no-scope-key: ${cacheKey}`);
           return result;
@@ -995,7 +983,9 @@ export function contextAtomBase<Value>({
           coldStartScopeKey,
           coldStartCacheKey: cacheKey,
         });
-        const currentValue = result[0];
+        const currentValue = coldStartCacheTransform
+          ? coldStartCacheTransform(result[0])
+          : result[0];
         if (!coldStartValuesMap.has(scopedCacheKey)) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
           coldStartLog(`init: ${scopedCacheKey}`);
@@ -1017,6 +1007,9 @@ export function contextAtomBase<Value>({
   if (activeColdStartCacheKey) {
     contextAtomSnapshotRegistry.set(activeColdStartCacheKey, {
       atom: atomBuilder,
+      transform: coldStartCacheTransform
+        ? (value) => coldStartCacheTransform(value as Value)
+        : undefined,
     });
   }
 
