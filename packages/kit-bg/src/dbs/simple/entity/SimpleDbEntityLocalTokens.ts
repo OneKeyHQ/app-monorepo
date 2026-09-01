@@ -4,9 +4,14 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  compareAssetSnapshotMeta,
+  normalizeServerDateMs,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type {
   IAccountToken,
   IToken,
@@ -21,6 +26,51 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 // safe. 5000 covers any realistic multi-chain wallet's working set.
 const LOCAL_TOKENS_METADATA_MAX_ENTRIES = 5000;
 
+function normalizeSnapshotMeta(
+  meta: IAssetSnapshotMeta | undefined,
+): IAssetSnapshotMeta | undefined {
+  if (!meta) {
+    return undefined;
+  }
+  const localSeq = Number(meta.localSeq);
+  if (!Number.isFinite(localSeq)) {
+    return undefined;
+  }
+  const serverDateMs = normalizeServerDateMs(meta.serverDateMs);
+  return serverDateMs === undefined ? { localSeq } : { localSeq, serverDateMs };
+}
+
+/** Compare metadata while tolerating malformed or legacy persisted entries. */
+function compareSnapshotMeta(
+  incoming: IAssetSnapshotMeta | undefined,
+  existing: IAssetSnapshotMeta | undefined,
+): number {
+  const next = normalizeSnapshotMeta(incoming);
+  const previous = normalizeSnapshotMeta(existing);
+  if (!next && !previous) {
+    return 0;
+  }
+  if (!next) {
+    return -1;
+  }
+  if (!previous) {
+    return 1;
+  }
+  return compareAssetSnapshotMeta(next, previous);
+}
+
+/** A legacy write may initialize an unversioned key, but never clobber a
+ * versioned snapshot. */
+function canApplySnapshotMeta(
+  incoming: IAssetSnapshotMeta | undefined,
+  existing: IAssetSnapshotMeta | undefined,
+): boolean {
+  if (!normalizeSnapshotMeta(existing)) {
+    return true;
+  }
+  return compareSnapshotMeta(incoming, existing) > 0;
+}
+
 export interface ISimpleDBLocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>
   tokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
@@ -32,6 +82,10 @@ export interface ISimpleDBLocalTokens {
   // pre-migration entries in the user's then-active display currency;
   // ServiceToken supplies the lazy fallback.
   tokenListCurrency?: Record<string, string>;
+  // Source freshness for the six per-account token-list slices above. One
+  // metadata entry covers the whole snapshot for a key so the slices are
+  // accepted or rejected atomically.
+  assetSnapshotMetaByKey?: Record<string, IAssetSnapshotMeta>;
 }
 
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
@@ -82,6 +136,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
       tokenListCurrency: rawData?.tokenListCurrency ?? {},
+      assetSnapshotMetaByKey: rawData?.assetSnapshotMetaByKey ?? {},
     }));
   }
 
@@ -158,6 +213,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap,
     tokenListValue,
     currency,
+    assetSnapshotMeta,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -168,6 +224,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -191,33 +248,59 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('setRawData');
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        [key]: tokenList,
-      },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        [key]: smallBalanceTokenList,
-      },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        [key]: riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        [key]: tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        [key]: tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        [key]: currency,
-      },
-    }));
+    await this.setRawData((rawData) => {
+      const base = rawData ?? {
+        data: {},
+        tokenList: {},
+        smallBalanceTokenList: {},
+        riskyTokenList: {},
+        tokenListMap: {},
+        tokenListValue: {},
+        tokenListCurrency: {},
+      };
+      const existingMeta = base.assetSnapshotMetaByKey?.[key];
+      const normalizedMeta = normalizeSnapshotMeta(assetSnapshotMeta);
+      // Compare against the value read inside setRawData's per-instance mutex.
+      // The background service funnels normal writes through this entity, so a
+      // stale response cannot replace a newer snapshot in this writer.
+      if (!canApplySnapshotMeta(normalizedMeta, existingMeta)) {
+        return base;
+      }
+
+      const nextMetaByKey = { ...base.assetSnapshotMetaByKey };
+      if (normalizedMeta !== undefined) {
+        nextMetaByKey[key] = normalizedMeta;
+      }
+      return {
+        ...base,
+        data: base.data ?? {},
+        tokenList: {
+          ...base.tokenList,
+          [key]: tokenList,
+        },
+        smallBalanceTokenList: {
+          ...base.smallBalanceTokenList,
+          [key]: smallBalanceTokenList,
+        },
+        riskyTokenList: {
+          ...base.riskyTokenList,
+          [key]: riskyTokenList,
+        },
+        tokenListMap: {
+          ...base.tokenListMap,
+          [key]: tokenListMap,
+        },
+        tokenListValue: {
+          ...base.tokenListValue,
+          [key]: tokenListValue,
+        },
+        tokenListCurrency: {
+          ...base.tokenListCurrency,
+          [key]: currency,
+        },
+        assetSnapshotMetaByKey: nextMetaByKey,
+      };
+    });
     perf.markEnd('setRawData');
     perf.done();
   }
@@ -230,34 +313,98 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
     tokenListCurrency: Record<string, string>;
+    assetSnapshotMetaByKey?: Record<string, IAssetSnapshotMeta>;
   }) {
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        ...tokenListCache.tokenList,
-      },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        ...tokenListCache.smallBalanceTokenList,
-      },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        ...tokenListCache.riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        ...tokenListCache.tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        ...tokenListCache.tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        ...tokenListCache.tokenListCurrency,
-      },
-    }));
+    const cacheKeys = new Set([
+      ...Object.keys(tokenListCache.tokenList ?? {}),
+      ...Object.keys(tokenListCache.smallBalanceTokenList ?? {}),
+      ...Object.keys(tokenListCache.riskyTokenList ?? {}),
+      ...Object.keys(tokenListCache.tokenListMap ?? {}),
+      ...Object.keys(tokenListCache.tokenListValue ?? {}),
+      ...Object.keys(tokenListCache.tokenListCurrency ?? {}),
+      ...Object.keys(tokenListCache.assetSnapshotMetaByKey ?? {}),
+    ]);
+    if (cacheKeys.size === 0) {
+      return;
+    }
+
+    await this.setRawData((rawData) => {
+      const base = rawData ?? {
+        data: {},
+        tokenList: {},
+        smallBalanceTokenList: {},
+        riskyTokenList: {},
+        tokenListMap: {},
+        tokenListValue: {},
+        tokenListCurrency: {},
+      };
+      const existingMetaByKey = base.assetSnapshotMetaByKey ?? {};
+      const nextMetaByKey = { ...existingMetaByKey };
+      const acceptedKeys = [...cacheKeys].filter((key) => {
+        const incomingMeta = normalizeSnapshotMeta(
+          tokenListCache.assetSnapshotMetaByKey?.[key],
+        );
+        const existingMeta = existingMetaByKey[key];
+        // A legacy/unversioned write is allowed only while this key has never
+        // received versioned data. Once versioned data exists, dropping the
+        // legacy write is safer than allowing it to overwrite a fresh snapshot.
+        return canApplySnapshotMeta(incomingMeta, existingMeta);
+      });
+      if (acceptedKeys.length === 0) {
+        return base;
+      }
+
+      const hasOwn = (map: object, key: string) =>
+        Object.prototype.hasOwnProperty.call(map, key);
+      const nextTokenList = { ...base.tokenList };
+      const nextSmallBalanceTokenList = {
+        ...base.smallBalanceTokenList,
+      };
+      const nextRiskyTokenList = { ...base.riskyTokenList };
+      const nextTokenListMap = { ...base.tokenListMap };
+      const nextTokenListValue = { ...base.tokenListValue };
+      const nextTokenListCurrency = { ...base.tokenListCurrency };
+
+      for (const key of acceptedKeys) {
+        if (hasOwn(tokenListCache.tokenList ?? {}, key)) {
+          nextTokenList[key] = tokenListCache.tokenList[key];
+        }
+        if (hasOwn(tokenListCache.smallBalanceTokenList ?? {}, key)) {
+          nextSmallBalanceTokenList[key] =
+            tokenListCache.smallBalanceTokenList[key];
+        }
+        if (hasOwn(tokenListCache.riskyTokenList ?? {}, key)) {
+          nextRiskyTokenList[key] = tokenListCache.riskyTokenList[key];
+        }
+        if (hasOwn(tokenListCache.tokenListMap ?? {}, key)) {
+          nextTokenListMap[key] = tokenListCache.tokenListMap[key];
+        }
+        if (hasOwn(tokenListCache.tokenListValue ?? {}, key)) {
+          nextTokenListValue[key] = tokenListCache.tokenListValue[key];
+        }
+        if (hasOwn(tokenListCache.tokenListCurrency ?? {}, key)) {
+          nextTokenListCurrency[key] = tokenListCache.tokenListCurrency[key];
+        }
+        const incomingMeta = normalizeSnapshotMeta(
+          tokenListCache.assetSnapshotMetaByKey?.[key],
+        );
+        if (incomingMeta !== undefined) {
+          nextMetaByKey[key] = incomingMeta;
+        }
+      }
+
+      return {
+        ...base,
+        data: base.data ?? {},
+        tokenList: nextTokenList,
+        smallBalanceTokenList: nextSmallBalanceTokenList,
+        riskyTokenList: nextRiskyTokenList,
+        tokenListMap: nextTokenListMap,
+        tokenListValue: nextTokenListValue,
+        tokenListCurrency: nextTokenListCurrency,
+        assetSnapshotMetaByKey: nextMetaByKey,
+      };
+    });
   }
 
   @backgroundMethod()
@@ -311,6 +458,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         key,
       ),
       currency: rawData?.tokenListCurrency?.[key],
+      ...(rawData?.assetSnapshotMetaByKey?.[key]
+        ? { assetSnapshotMeta: rawData.assetSnapshotMetaByKey[key] }
+        : {}),
     };
 
     perf.done();
@@ -328,6 +478,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: {},
       tokenListValue: {},
       tokenListCurrency: {},
+      assetSnapshotMetaByKey: {},
     });
   }
 
@@ -373,6 +524,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         tokenListMap: filterByOwner(base?.tokenListMap),
         tokenListValue: filterByOwner(base?.tokenListValue),
         tokenListCurrency: filterByOwner(base?.tokenListCurrency),
+        assetSnapshotMetaByKey: filterByOwner(base?.assetSnapshotMetaByKey),
       };
     });
   }

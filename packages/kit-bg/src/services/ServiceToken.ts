@@ -14,6 +14,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  createAssetSnapshotMeta,
+  getServerDateMsFromHeaders,
+  isAssetSnapshotNewer,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -26,6 +31,7 @@ import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBinancePreOrderParams,
@@ -63,6 +69,28 @@ type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
 };
+
+type ILocalAccountTokensCache = {
+  tokenList: Record<string, IAccountToken[]>;
+  smallBalanceTokenList: Record<string, IAccountToken[]>;
+  riskyTokenList: Record<string, IAccountToken[]>;
+  tokenListValue: Record<string, string>;
+  tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  tokenListCurrency: Record<string, string>;
+  assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta>;
+};
+
+function createEmptyLocalAccountTokensCache(): ILocalAccountTokensCache {
+  return {
+    tokenList: {},
+    smallBalanceTokenList: {},
+    riskyTokenList: {},
+    tokenListValue: {},
+    tokenListMap: {},
+    tokenListCurrency: {},
+    assetSnapshotMetaByKey: {},
+  };
+}
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -112,21 +140,47 @@ class ServiceToken extends ServiceBase {
       );
   }
 
-  localAccountTokensCache: {
-    tokenList: Record<string, IAccountToken[]>;
-    smallBalanceTokenList: Record<string, IAccountToken[]>;
-    riskyTokenList: Record<string, IAccountToken[]>;
-    tokenListValue: Record<string, string>;
-    tokenListMap: Record<string, Record<string, ITokenFiat>>;
-    tokenListCurrency: Record<string, string>;
-  } = {
-    tokenList: {},
-    smallBalanceTokenList: {},
-    riskyTokenList: {},
-    tokenListValue: {},
-    tokenListMap: {},
-    tokenListCurrency: {},
-  };
+  localAccountTokensCache: ILocalAccountTokensCache =
+    createEmptyLocalAccountTokensCache();
+
+  private mergeLocalAccountTokensCache(source: ILocalAccountTokensCache): void {
+    const target = this.localAccountTokensCache;
+    const keys = new Set([
+      ...Object.keys(source.tokenList),
+      ...Object.keys(source.smallBalanceTokenList),
+      ...Object.keys(source.riskyTokenList),
+      ...Object.keys(source.tokenListValue),
+      ...Object.keys(source.tokenListMap),
+      ...Object.keys(source.tokenListCurrency),
+      ...Object.keys(source.assetSnapshotMetaByKey ?? {}),
+    ]);
+    keys.forEach((key) => {
+      const incomingMeta = source.assetSnapshotMetaByKey?.[key];
+      const existingMeta = target.assetSnapshotMetaByKey[key];
+      if (existingMeta && !isAssetSnapshotNewer(incomingMeta, existingMeta)) {
+        return;
+      }
+      if (!incomingMeta && existingMeta) {
+        return;
+      }
+      if (source.tokenList[key]) target.tokenList[key] = source.tokenList[key];
+      if (source.smallBalanceTokenList[key]) {
+        target.smallBalanceTokenList[key] = source.smallBalanceTokenList[key];
+      }
+      if (source.riskyTokenList[key]) {
+        target.riskyTokenList[key] = source.riskyTokenList[key];
+      }
+      if (source.tokenListValue[key] !== undefined) {
+        target.tokenListValue[key] = source.tokenListValue[key];
+      }
+      if (source.tokenListMap[key])
+        target.tokenListMap[key] = source.tokenListMap[key];
+      if (source.tokenListCurrency[key] !== undefined) {
+        target.tokenListCurrency[key] = source.tokenListCurrency[key];
+      }
+      if (incomingMeta) target.assetSnapshotMetaByKey[key] = incomingMeta;
+    });
+  }
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -218,6 +272,10 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
   ): Promise<IFetchAccountTokensResp> {
+    // Allocate the ordering token before any await. The background service is
+    // the writer for this runtime, so this sequence orders requests even when
+    // their network responses settle out of order.
+    const requestMeta = createAssetSnapshotMeta();
     const {
       mergeTokens,
       flag,
@@ -420,6 +478,13 @@ class ServiceToken extends ServiceBase {
       }
     })();
 
+    const assetSnapshotMeta = createAssetSnapshotMeta({
+      localSeq: requestMeta.localSeq,
+      serverDateMs: getServerDateMsFromHeaders(
+        (resp as unknown as { headers?: unknown }).headers,
+      ),
+    });
+
     const resolvedCurrency = await this.normalizeTokensRespToUsd(
       resp.data.data,
       requestCurrency,
@@ -520,15 +585,25 @@ class ServiceToken extends ServiceBase {
           xpub,
         });
 
-        this.localAccountTokensCache.tokenList[key] = filteredTokenList;
-        this.localAccountTokensCache.smallBalanceTokenList[key] =
-          filteredSmallBalanceTokenList;
-        this.localAccountTokensCache.riskyTokenList[key] =
-          filteredRiskyTokenList;
-        this.localAccountTokensCache.tokenListValue[key] =
-          tokenListValue.toFixed();
-        this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
-        this.localAccountTokensCache.tokenListCurrency[key] = resolvedCurrency;
+        const existingMeta =
+          this.localAccountTokensCache.assetSnapshotMetaByKey[key];
+        if (
+          !existingMeta ||
+          isAssetSnapshotNewer(assetSnapshotMeta, existingMeta)
+        ) {
+          this.localAccountTokensCache.tokenList[key] = filteredTokenList;
+          this.localAccountTokensCache.smallBalanceTokenList[key] =
+            filteredSmallBalanceTokenList;
+          this.localAccountTokensCache.riskyTokenList[key] =
+            filteredRiskyTokenList;
+          this.localAccountTokensCache.tokenListValue[key] =
+            tokenListValue.toFixed();
+          this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
+          this.localAccountTokensCache.tokenListCurrency[key] =
+            resolvedCurrency;
+          this.localAccountTokensCache.assetSnapshotMetaByKey[key] =
+            assetSnapshotMeta;
+        }
 
         await this._updateAccountLocalTokensDebounced();
       } else {
@@ -542,6 +617,7 @@ class ServiceToken extends ServiceBase {
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
           currency: resolvedCurrency,
+          assetSnapshotMeta,
         });
       }
     }
@@ -554,6 +630,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
+    resp.data.data.assetSnapshotMeta = assetSnapshotMeta;
 
     return resp.data.data;
   }
@@ -622,17 +699,21 @@ class ServiceToken extends ServiceBase {
 
   _updateAccountLocalTokensDebounced = debounce(
     async () => {
-      await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
-        this.localAccountTokensCache,
-      );
-      this.localAccountTokensCache = {
-        tokenList: {},
-        smallBalanceTokenList: {},
-        riskyTokenList: {},
-        tokenListValue: {},
-        tokenListMap: {},
-        tokenListCurrency: {},
-      };
+      // Swap the pending batch before awaiting storage. Fetches that settle
+      // while the write is in flight must remain in the next batch instead of
+      // being cleared by the completion handler.
+      const pending = this.localAccountTokensCache;
+      this.localAccountTokensCache = createEmptyLocalAccountTokensCache();
+      try {
+        await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+          pending,
+        );
+      } catch (error) {
+        // Preserve failed writes, but let a newer in-memory snapshot win for
+        // each key when the pending batch is merged back.
+        this.mergeLocalAccountTokensCache(pending);
+        throw error;
+      }
     },
     3000,
     {
@@ -976,6 +1057,7 @@ class ServiceToken extends ServiceBase {
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
     const {
       dbAccount,
@@ -987,6 +1069,7 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      assetSnapshotMeta,
     } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
@@ -1011,6 +1094,7 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      ...(assetSnapshotMeta ? { assetSnapshotMeta } : {}),
     });
   }
 

@@ -5,6 +5,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  compareAssetSnapshotMeta,
+  normalizeServerDateMs,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -14,6 +19,8 @@ import type ServiceAccount from '../../../services/ServiceAccount/ServiceAccount
 export interface IAccountValueEntry {
   value: string;
   currency: 'usd';
+  /** Freshness of the response that produced this single-network value. */
+  assetSnapshotMeta?: IAssetSnapshotMeta;
 }
 
 // Stored value entry for All Networks aggregate, keyed only by addressOrXpub.
@@ -22,6 +29,10 @@ export interface IAccountValueEntry {
 export interface IAllNetworkAccountValueEntry {
   value: Record<string, string>; // <networkId, value>
   currency: 'usd';
+  /** Freshness of the complete all-network snapshot, when known. */
+  assetSnapshotMeta?: IAssetSnapshotMeta;
+  /** Freshness for each network in the value map (partial writes need this). */
+  assetSnapshotMetaByNetwork?: Record<string, IAssetSnapshotMeta>;
 }
 
 export interface IAccountValueDb {
@@ -34,10 +45,22 @@ export interface IAccountValueDb {
 
   // Legacy fields preserved during the one-shot address-key migration so a rollback
   // PR can keep reading old data. Cleaned up in a later release.
-  _legacy_data?: Record<string, { value: string; currency: string }>;
+  _legacy_data?: Record<
+    string,
+    {
+      value: string;
+      currency: string;
+      assetSnapshotMeta?: IAssetSnapshotMeta;
+    }
+  >;
   _legacy_all?: Record<
     string,
-    { value: Record<string, string>; currency: string }
+    {
+      value: Record<string, string>;
+      currency: string;
+      assetSnapshotMeta?: IAssetSnapshotMeta;
+      assetSnapshotMetaByNetwork?: Record<string, IAssetSnapshotMeta>;
+    }
   >;
   _migratedAt?: number;
   // Migration version. Bumped when the migration logic itself is corrected so we
@@ -64,6 +87,71 @@ export interface IAccountValueAllWriteItem {
   xpub?: string;
   networkId: string;
   value: string;
+  assetSnapshotMeta?: IAssetSnapshotMeta;
+}
+
+function normalizeSnapshotMeta(
+  meta: IAssetSnapshotMeta | undefined,
+): IAssetSnapshotMeta | undefined {
+  if (!meta) {
+    return undefined;
+  }
+  const localSeq = Number(meta.localSeq);
+  if (!Number.isFinite(localSeq)) {
+    return undefined;
+  }
+  const serverDateMs = normalizeServerDateMs(meta.serverDateMs);
+  return serverDateMs === undefined ? { localSeq } : { localSeq, serverDateMs };
+}
+
+/** Compare two metadata values after tolerating malformed legacy records. */
+function compareSnapshotMeta(
+  incoming: IAssetSnapshotMeta | undefined,
+  existing: IAssetSnapshotMeta | undefined,
+): number {
+  const next = normalizeSnapshotMeta(incoming);
+  const previous = normalizeSnapshotMeta(existing);
+  if (!next && !previous) {
+    return 0;
+  }
+  if (!next) {
+    return -1;
+  }
+  if (!previous) {
+    return 1;
+  }
+  return compareAssetSnapshotMeta(next, previous);
+}
+
+/** A write without metadata is legacy and must not clobber a versioned value. */
+function canApplySnapshotMeta(
+  incoming: IAssetSnapshotMeta | undefined,
+  existing: IAssetSnapshotMeta | undefined,
+): boolean {
+  if (!normalizeSnapshotMeta(existing)) {
+    return true;
+  }
+  return compareSnapshotMeta(incoming, existing) > 0;
+}
+
+function sameSnapshotMeta(
+  left: IAssetSnapshotMeta | undefined,
+  right: IAssetSnapshotMeta | undefined,
+): boolean {
+  return compareSnapshotMeta(left, right) === 0;
+}
+
+function maxSnapshotMeta(
+  values: Array<IAssetSnapshotMeta | undefined>,
+): IAssetSnapshotMeta | undefined {
+  let result: IAssetSnapshotMeta | undefined;
+  values.forEach((value) => {
+    const normalized = normalizeSnapshotMeta(value);
+    if (normalized && compareSnapshotMeta(normalized, result) > 0) {
+      result = normalized;
+    }
+  });
+  return result;
 }
 
 function emptyData(): IAccountValueDb {
@@ -111,6 +199,9 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return {
         value: entry?.value,
         currency: entry?.currency,
+        ...(entry?.assetSnapshotMeta
+          ? { assetSnapshotMeta: entry.assetSnapshotMeta }
+          : {}),
       };
     });
   }
@@ -121,28 +212,47 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     xpub,
     value,
     currency,
+    assetSnapshotMeta,
   }: {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
     value: string;
     currency: 'usd';
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
     const key = this.buildSingleKey({ networkId, accountAddress, xpub });
     if (!key) {
       return;
     }
-    const existing = (await this.getRawData())?.byAddress?.[key];
-    if (existing?.value === value && existing?.currency === currency) {
-      return;
-    }
     await this.setRawData((rawData) => {
       const base = rawData ?? emptyData();
+      const existing = base.byAddress[key];
+      const normalizedMeta = normalizeSnapshotMeta(assetSnapshotMeta);
+      // The comparison must happen inside the builder: setRawData serializes
+      // this entity's writes, whereas a pre-read can be stale by the time the
+      // write acquires the mutex.
+      if (
+        !canApplySnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta)
+      ) {
+        return base;
+      }
+      if (
+        existing?.value === value &&
+        existing?.currency === currency &&
+        sameSnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta)
+      ) {
+        return base;
+      }
       return {
         ...base,
         byAddress: {
           ...base.byAddress,
-          [key]: { value, currency },
+          [key]: {
+            value,
+            currency,
+            ...(normalizedMeta ? { assetSnapshotMeta: normalizedMeta } : {}),
+          },
         },
       };
     });
@@ -160,6 +270,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return {
         value: entry?.value,
         currency: entry?.currency,
+        ...(entry?.assetSnapshotMeta
+          ? { assetSnapshotMeta: entry.assetSnapshotMeta }
+          : {}),
+        ...(entry?.assetSnapshotMetaByNetwork
+          ? { assetSnapshotMetaByNetwork: entry.assetSnapshotMetaByNetwork }
+          : {}),
       };
     });
   }
@@ -168,6 +284,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     items,
     currency,
     updateAll,
+    snapshotMeta,
   }: {
     items: IAccountValueAllWriteItem[];
     currency: 'usd';
@@ -181,37 +298,44 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     // preserved. When `updateAll === false` writes are partial and merge
     // by networkId.
     updateAll?: boolean;
+    /** Freshness of the complete snapshot (used for updateAll replacement). */
+    snapshotMeta?: IAssetSnapshotMeta;
   }) {
+    const normalizedSnapshotMeta = normalizeSnapshotMeta(snapshotMeta);
+
     // Group write items by addressKey so a single setRawData call handles
     // multi-network entries that share the same address.
-    const grouped: Record<string, Record<string, string>> = {};
+    const grouped: Record<
+      string,
+      {
+        value: Record<string, string>;
+        assetSnapshotMetaByNetwork: Record<string, IAssetSnapshotMeta>;
+      }
+    > = {};
     for (const it of items) {
       const key = this.buildAllKey(it);
       if (key) {
-        grouped[key] = { ...grouped[key], [it.networkId]: it.value };
+        const entry =
+          grouped[key] ??
+          (grouped[key] = {
+            value: {},
+            assetSnapshotMetaByNetwork: {},
+          });
+        const incomingMeta = normalizeSnapshotMeta(
+          it.assetSnapshotMeta ?? normalizedSnapshotMeta,
+        );
+        const existingMeta = entry.assetSnapshotMetaByNetwork[it.networkId];
+        // Multiple derive rows can collapse to one address/network. Keep the
+        // newest item from this call before entering the serialized builder.
+        if (!existingMeta || canApplySnapshotMeta(incomingMeta, existingMeta)) {
+          entry.value[it.networkId] = it.value;
+          if (incomingMeta) {
+            entry.assetSnapshotMetaByNetwork[it.networkId] = incomingMeta;
+          }
+        }
       }
     }
     if (Object.keys(grouped).length === 0) {
-      return;
-    }
-
-    const existingMap = (await this.getRawData())?.allByAddress ?? {};
-    const isNoop = Object.entries(grouped).every(([key, valueMap]) => {
-      const prev = existingMap[key];
-      if (!prev || prev.currency !== currency) return false;
-      if (updateAll) {
-        // Replace mode: the existing map must match the incoming snapshot
-        // exactly, otherwise we still need to write to drop stale networkIds.
-        const prevKeys = Object.keys(prev.value);
-        const nextKeys = Object.keys(valueMap);
-        if (prevKeys.length !== nextKeys.length) return false;
-        return nextKeys.every((nId) => prev.value[nId] === valueMap[nId]);
-      }
-      return Object.entries(valueMap).every(
-        ([nId, v]) => prev.value[nId] === v,
-      );
-    });
-    if (isNoop) {
       return;
     }
 
@@ -221,13 +345,109 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       const next: Record<string, IAllNetworkAccountValueEntry> = {
         ...existing,
       };
-      for (const [key, valueMap] of Object.entries(grouped)) {
-        next[key] = {
-          value: updateAll
-            ? valueMap
-            : { ...existing[key]?.value, ...valueMap },
-          currency,
-        };
+      for (const [
+        key,
+        { value: valueMap, assetSnapshotMetaByNetwork },
+      ] of Object.entries(grouped)) {
+        const previous = existing[key];
+        const previousMetaByNetwork =
+          previous?.assetSnapshotMetaByNetwork ?? {};
+
+        // A complete snapshot can replace the map only when its own version
+        // is newer than the stored complete snapshot (or any per-network
+        // metadata left by earlier partial writes). This decision is made
+        // under the entity mutex so overlapping writes in this writer see the
+        // latest persisted marker.
+        const previousComparableMeta = maxSnapshotMeta([
+          previous?.assetSnapshotMeta,
+          ...Object.values(previousMetaByNetwork),
+        ]);
+        const incomingNetworksAreFresh = Object.keys(valueMap).every(
+          (networkId) => {
+            const incomingMeta = assetSnapshotMetaByNetwork[networkId];
+            const previousNetworkMeta = maxSnapshotMeta([
+              previousMetaByNetwork[networkId],
+              previous?.assetSnapshotMeta,
+            ]);
+            return canApplySnapshotMeta(incomingMeta, previousNetworkMeta);
+          },
+        );
+        const hasCompleteIncomingSnapshotMeta =
+          Boolean(normalizedSnapshotMeta) &&
+          Object.keys(valueMap).every(
+            (networkId) =>
+              normalizeSnapshotMeta(assetSnapshotMetaByNetwork[networkId]) !==
+              undefined,
+          );
+        const canReplaceWhole =
+          updateAll &&
+          hasCompleteIncomingSnapshotMeta &&
+          incomingNetworksAreFresh &&
+          canApplySnapshotMeta(normalizedSnapshotMeta, previousComparableMeta);
+
+        // Without a complete snapshot version, an address that already has
+        // per-network versions is treated as a partial merge. Dropping absent
+        // networks in that case could resurrect stale data from a legacy
+        // caller, so preserve them until a versioned full snapshot arrives.
+        if (canReplaceWhole) {
+          next[key] = {
+            value: { ...valueMap },
+            currency,
+            ...(normalizedSnapshotMeta
+              ? { assetSnapshotMeta: normalizedSnapshotMeta }
+              : {}),
+            ...(Object.keys(assetSnapshotMetaByNetwork).length > 0
+              ? {
+                  assetSnapshotMetaByNetwork: { ...assetSnapshotMetaByNetwork },
+                }
+              : {}),
+          };
+        } else {
+          // A full snapshot that is not admitted (for example, because one
+          // sibling network has a newer version) degrades to a per-network merge;
+          // this keeps the newer sibling and avoids deleting it.
+          const mergedValue: Record<string, string> = {
+            ...previous?.value,
+          };
+          const mergedMetaByNetwork: Record<string, IAssetSnapshotMeta> = {
+            ...previousMetaByNetwork,
+          };
+          let changed = !previous || previous.currency !== currency;
+          for (const [networkId, incomingValue] of Object.entries(valueMap)) {
+            const incomingMeta = assetSnapshotMetaByNetwork[networkId];
+            const previousNetworkMeta = maxSnapshotMeta([
+              previousMetaByNetwork[networkId],
+              previous?.assetSnapshotMeta,
+            ]);
+            if (canApplySnapshotMeta(incomingMeta, previousNetworkMeta)) {
+              if (
+                mergedValue[networkId] !== incomingValue ||
+                !sameSnapshotMeta(mergedMetaByNetwork[networkId], incomingMeta)
+              ) {
+                changed = true;
+              }
+              mergedValue[networkId] = incomingValue;
+              if (incomingMeta) {
+                mergedMetaByNetwork[networkId] = incomingMeta;
+              } else {
+                delete mergedMetaByNetwork[networkId];
+              }
+            }
+          }
+
+          if (changed) {
+            next[key] = {
+              value: updateAll && !previous ? { ...valueMap } : mergedValue,
+              currency,
+              ...(previous?.assetSnapshotMeta
+                ? { assetSnapshotMeta: previous.assetSnapshotMeta }
+                : {}),
+              ...(Object.keys(mergedMetaByNetwork).length > 0
+                ? { assetSnapshotMetaByNetwork: mergedMetaByNetwork }
+                : {}),
+            };
+          }
+        }
       }
       return {
         ...base,
@@ -247,10 +467,22 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }) {
     const raw = (await this.getRawData()) as
       | (IAccountValueDb & {
-          data?: Record<string, { value: string; currency: string }>;
+          data?: Record<
+            string,
+            {
+              value: string;
+              currency: string;
+              assetSnapshotMeta?: IAssetSnapshotMeta;
+            }
+          >;
           all?: Record<
             string,
-            { value: Record<string, string>; currency: string }
+            {
+              value: Record<string, string>;
+              currency: string;
+              assetSnapshotMeta?: IAssetSnapshotMeta;
+              assetSnapshotMetaByNetwork?: Record<string, IAssetSnapshotMeta>;
+            }
           >;
         })
       | null
@@ -341,7 +573,13 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
               accountAddress: account.address,
               xpub: accountUtils.pickXpubFromDBAccount(account),
             });
-            byAddress[addressKey] = { value: entry.value, currency: 'usd' };
+            byAddress[addressKey] = {
+              value: entry.value,
+              currency: 'usd',
+              ...(entry.assetSnapshotMeta
+                ? { assetSnapshotMeta: entry.assetSnapshotMeta }
+                : {}),
+            };
           }
         } catch {
           hadResolveError = true;
@@ -372,13 +610,44 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
                 xpub: resolved.xpub,
               });
               const existing = allByAddress[addressKey];
-              allByAddress[addressKey] = {
-                value: {
-                  ...existing?.value,
-                  [parsed.networkId]: worth,
-                },
-                currency: 'usd',
-              };
+              const networkMeta = maxSnapshotMeta([
+                entry.assetSnapshotMetaByNetwork?.[parsed.networkId],
+                entry.assetSnapshotMeta,
+              ]);
+              const existingValueForNetwork =
+                existing?.value?.[parsed.networkId];
+              const existingNetworkMeta = maxSnapshotMeta([
+                existing?.assetSnapshotMetaByNetwork?.[parsed.networkId],
+                existing?.assetSnapshotMeta,
+              ]);
+              // A global legacy marker applies to the whole map, but it must
+              // not prevent copying a different network that has not been
+              // emitted yet. Compare markers only when this network already
+              // has a value; otherwise the legacy row fills the missing key.
+              const canApplyLegacy =
+                existingValueForNetwork === undefined ||
+                canApplySnapshotMeta(networkMeta, existingNetworkMeta);
+              if (canApplyLegacy) {
+                const legacyEntry: IAllNetworkAccountValueEntry = {
+                  value: {
+                    ...existing?.value,
+                    [parsed.networkId]: worth,
+                  },
+                  currency: 'usd',
+                };
+                if (entry.assetSnapshotMeta) {
+                  legacyEntry.assetSnapshotMeta = entry.assetSnapshotMeta;
+                } else if (existing?.assetSnapshotMeta) {
+                  legacyEntry.assetSnapshotMeta = existing.assetSnapshotMeta;
+                }
+                if (networkMeta || existing?.assetSnapshotMetaByNetwork) {
+                  legacyEntry.assetSnapshotMetaByNetwork = {
+                    ...existing?.assetSnapshotMetaByNetwork,
+                    ...(networkMeta ? { [parsed.networkId]: networkMeta } : {}),
+                  };
+                }
+                allByAddress[addressKey] = legacyEntry;
+              }
             }
           }
         }
@@ -399,12 +668,29 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       };
       for (const [key, legacyEntry] of Object.entries(allByAddress)) {
         const cur = mergedAllByAddress[key];
-        mergedAllByAddress[key] = cur
-          ? {
-              value: { ...legacyEntry.value, ...cur.value },
-              currency: cur.currency,
-            }
-          : legacyEntry;
+        if (!cur) {
+          mergedAllByAddress[key] = legacyEntry;
+        } else {
+          const mergedEntry: IAllNetworkAccountValueEntry = {
+            value: { ...legacyEntry.value, ...cur.value },
+            currency: cur.currency,
+          };
+          if (cur.assetSnapshotMeta) {
+            mergedEntry.assetSnapshotMeta = cur.assetSnapshotMeta;
+          } else if (legacyEntry.assetSnapshotMeta) {
+            mergedEntry.assetSnapshotMeta = legacyEntry.assetSnapshotMeta;
+          }
+          if (
+            cur.assetSnapshotMetaByNetwork ||
+            legacyEntry.assetSnapshotMetaByNetwork
+          ) {
+            mergedEntry.assetSnapshotMetaByNetwork = {
+              ...legacyEntry.assetSnapshotMetaByNetwork,
+              ...cur.assetSnapshotMetaByNetwork,
+            };
+          }
+          mergedAllByAddress[key] = mergedEntry;
+        }
       }
 
       return {

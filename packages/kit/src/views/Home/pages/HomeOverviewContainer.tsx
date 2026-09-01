@@ -277,6 +277,7 @@ function HomeOverviewContainer() {
           accountId: account.id,
           worth: {},
           initialized: false,
+          reset: true,
         });
         updateAccountDeFiOverview({
           accountId: account.id,
@@ -459,19 +460,35 @@ function HomeOverviewContainer() {
         // accountValue SimpleDB.
         const accountWorthCurrency =
           accountWorth.currency ?? settings.currencyInfo.id;
+        const createAtNetworkValueKey = accountUtils.buildAccountValueKey({
+          accountId: account.id,
+          networkId: account.createAtNetwork ?? '',
+        });
         if (isOthers) {
           if (
             account.createAtNetwork &&
             (network.isAllNetworks || account.createAtNetwork === network.id)
           ) {
-            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-              accountId: accountValueId,
-              networkAccountId: account.id,
-              networkId: account.createAtNetwork,
-              value: accountWorth.createAtNetworkWorth,
-              currency: accountWorthCurrency,
-              shouldUpdateActiveAccountValue: true,
-            });
+            const createAtNetworkValue =
+              accountWorth.worth[createAtNetworkValueKey];
+            if (createAtNetworkValue !== undefined) {
+              void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+                accountId: accountValueId,
+                networkAccountId: account.id,
+                networkId: account.createAtNetwork,
+                // The compound-key map stores the absolute value for this
+                // network. Prefer it over the legacy scalar, which can be
+                // transiently stale while independent network responses
+                // merge.
+                value: createAtNetworkValue,
+                currency: accountWorthCurrency,
+                shouldUpdateActiveAccountValue: true,
+                assetSnapshotMeta:
+                  accountWorth.assetSnapshotMetaByKey?.[
+                    createAtNetworkValueKey
+                  ],
+              });
+            }
           }
         } else if (!network.isAllNetworks) {
           const singleNetworkValue =
@@ -481,6 +498,10 @@ function HomeOverviewContainer() {
                 networkId: network.id,
               })
             ];
+          const singleNetworkValueKey = accountUtils.buildAccountValueKey({
+            accountId: account.id,
+            networkId: network.id,
+          });
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
@@ -488,6 +509,8 @@ function HomeOverviewContainer() {
               networkId: network.id,
               value: singleNetworkValue ?? '0',
               currency: accountWorthCurrency,
+              assetSnapshotMeta:
+                accountWorth.assetSnapshotMetaByKey?.[singleNetworkValueKey],
             },
           );
         }
@@ -498,6 +521,8 @@ function HomeOverviewContainer() {
             value: accountWorth.worth,
             currency: accountWorthCurrency,
             updateAll: accountWorth.updateAll,
+            assetSnapshotMetaByKey: accountWorth.assetSnapshotMetaByKey,
+            assetSnapshotMeta: accountWorth.assetSnapshotMeta,
           },
         );
       }
