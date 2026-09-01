@@ -1467,6 +1467,25 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     });
   }
 
+  private async reportPortfolioSynced(deviceDbId: string | undefined) {
+    if (!deviceDbId) {
+      return;
+    }
+    try {
+      const device = await localDb.getDeviceSafe(deviceDbId);
+      const deviceId =
+        device?.deviceStateInfo?.identity.deviceId || device?.deviceId;
+      if (deviceId && device?.deviceType) {
+        defaultLogger.hardware.connection.portfolioSynced({
+          deviceId,
+          deviceType: device.deviceType,
+        });
+      }
+    } catch {
+      // Analytics must never affect a successful device sync.
+    }
+  }
+
   private scheduleSyncAfterCooldown({
     deviceConnectId,
     eventPayload,
@@ -1967,6 +1986,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
       }
       const upload: { portfolioUpdated: boolean } = uploadResult.value;
+      if (upload.portfolioUpdated) {
+        await this.reportPortfolioSynced(eventPayload.deviceDbId);
+      }
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         this.releaseInFlightReservation({
           contentHash: artifacts.contentHash,

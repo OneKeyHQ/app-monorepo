@@ -12,4 +12,12 @@ export class HardwareConnectionScene extends BaseScene {
   }) {
     return params;
   }
+
+  @LogToServer()
+  public portfolioSynced(params: {
+    deviceId: string;
+    deviceType: IDeviceType;
+  }) {
+    return params;
+  }
 }

@@ -2,6 +2,7 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -2018,6 +2019,27 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         upload: { portfolioUpdated: true },
       }),
     );
+  });
+
+  test('reports a successful Portfolio sync by physical device', async () => {
+    const portfolioSyncedSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSynced')
+      .mockImplementation((params) => params);
+    try {
+      const { serviceInternals } = prepareHardwareSync({
+        busyResults: [false, false],
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(portfolioSyncedSpy).toHaveBeenCalledTimes(1);
+      expect(portfolioSyncedSpy).toHaveBeenCalledWith({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+      });
+    } finally {
+      portfolioSyncedSpy.mockRestore();
+    }
   });
 
   test('retries the latest snapshot when hardware is busy before server packing', async () => {
