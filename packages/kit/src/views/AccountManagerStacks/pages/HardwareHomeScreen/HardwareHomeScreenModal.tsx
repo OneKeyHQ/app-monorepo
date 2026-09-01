@@ -484,7 +484,9 @@ function WallpaperCustomCategorySection({
     // blank wallpaper and only failed on apply, with an internal error string.
     if (!img?.base64) {
       Toast.error({
-        title: intl.formatMessage({ id: ETranslations.global_failed }),
+        title: intl.formatMessage({
+          id: ETranslations.hardware_wallpaper_crop_failed__msg,
+        }),
       });
       return;
     }
