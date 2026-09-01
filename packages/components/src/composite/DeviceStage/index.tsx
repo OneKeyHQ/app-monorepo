@@ -1132,11 +1132,23 @@ export function DeviceStage({
     [intl],
   );
 
-  // enterPin's switch back to app entry (OK-61489). Confirmed is
-  // per-mount on purpose: the preference is persisted through the
-  // handler, so within this surface's life the entry must not re-offer
-  // itself — and the next request mounts a fresh stage anyway.
+  // enterPin's switch back to app entry (OK-61489). Confirmed lives per
+  // CARD STAY, not per mount: the production surface is permanently
+  // mounted, so a once-only flag would pin the set-to-app banner onto
+  // every later enterPin card (the app-pad hop's card wore a stale
+  // banner) and swallow the entry after the person switches the setting
+  // back. Within one stay the entry must not re-offer itself; when the
+  // step leaves, the flag resets and the next card's wiring decides
+  // eligibility afresh.
   const [pinSwitchDone, setPinSwitchDone] = useState(false);
+  useEffect(() => {
+    // Keyed to the LIVE step, not stageWordsStep: the stage panel's
+    // words freeze while another panel (the app pad) is up, so the
+    // parked value would still read 'enterPin' and never reset.
+    if (step !== 'enterPin') {
+      setPinSwitchDone(false);
+    }
+  }, [step]);
   const pinSwitchBusyRef = useRef(false);
   const handleSwitchPinToApp = useCallback(async () => {
     if (pinSwitchBusyRef.current) {
