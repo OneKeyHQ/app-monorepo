@@ -9646,14 +9646,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bundle-update@npm:3.0.95":
-  version: 3.0.95
-  resolution: "@onekeyfe/react-native-bundle-update@npm:3.0.95"
+"@onekeyfe/react-native-bundle-update@npm:3.0.96":
+  version: 3.0.96
+  resolution: "@onekeyfe/react-native-bundle-update@npm:3.0.96"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.36.5
-  checksum: 10/e52efc63d04f103687f4bd070650fa7d03c3a016b286a64f9d6f0ff77066e09ab9d28671c414ce606608a666fcbae88a2ed0e39c64bb91498b0b7e5ac6993641
+  checksum: 10/2e2af7a790e0e8fbab99f249191328084a60f8990c5f5988384e5de6fe0ece2709e28720f2fa8f21d0cc52808eadf76b63bf385a88951aa85f4960d313ea8da9
   languageName: node
   linkType: hard
 
@@ -10326,7 +10326,7 @@ __metadata:
     "@onekeyfe/react-native-background-thread": "npm:3.0.95"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.6"
     "@onekeyfe/react-native-bundle-crypto": "npm:3.0.95"
-    "@onekeyfe/react-native-bundle-update": "npm:3.0.95"
+    "@onekeyfe/react-native-bundle-update": "npm:3.0.96"
     "@onekeyfe/react-native-chart-webview": "npm:3.0.95"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:3.0.95"
     "@onekeyfe/react-native-cloud-kit-module": "npm:3.0.95"

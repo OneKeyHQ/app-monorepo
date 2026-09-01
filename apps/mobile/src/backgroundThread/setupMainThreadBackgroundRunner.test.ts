@@ -1,8 +1,14 @@
+import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
 const mockSharedStoreSet = jest.fn();
 const mockNativeLoggerWrite = jest.fn();
 const mockAsyncStorageWriteForwarderGlobal: Record<string, unknown> = {};
+const mockJotaiUpdateFromUiByBgBroadcast = jest.fn<
+  Promise<void>,
+  [IGlobalStatesSyncBroadcastParams]
+>(async () => undefined);
 
 let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
@@ -28,6 +34,7 @@ jest.mock('@onekeyfe/react-native-background-thread', () => ({
   }),
   getSharedStore: () => ({
     get: () => mockReadyPayload,
+    keys: () => [],
     set: mockSharedStoreSet,
   }),
 }));
@@ -96,7 +103,8 @@ jest.mock('@onekeyhq/kit-bg/src/apis/backgroundApiPermissions', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi', () => ({
-  jotaiUpdateFromUiByBgBroadcast: jest.fn(),
+  jotaiUpdateFromUiByBgBroadcast: (params: IGlobalStatesSyncBroadcastParams) =>
+    mockJotaiUpdateFromUiByBgBroadcast(params),
 }));
 
 jest.mock('./runtimeState', () => ({
@@ -237,5 +245,48 @@ describe('main thread background runner', () => {
       'info',
       expect.stringContaining('failed to rehydrate error metadata'),
     );
+  });
+
+  it('replays single and batched Jotai broadcasts after hydration', async () => {
+    const {
+      buildBackgroundThreadJotaiStateBatchKey,
+      buildBackgroundThreadJotaiStateKey,
+      serializeBackgroundThreadJotaiStateBroadcastBatchPayload,
+      serializeBackgroundThreadJotaiStateBroadcastPayload,
+    } = await import('./rpcProtocol');
+    const { runJotaiMainHydration } = await import('./jotaiMainHydrationGate');
+    let resolveInitialization!: () => void;
+    const initializationPromise = new Promise<void>((resolve) => {
+      resolveInitialization = resolve;
+    });
+    mockJotaiUpdateFromUiByBgBroadcast.mockClear();
+
+    const hydrationPromise = runJotaiMainHydration(() => initializationPromise);
+    mockInboundMessageHandler?.(
+      buildBackgroundThreadJotaiStateKey('1'),
+      serializeBackgroundThreadJotaiStateBroadcastPayload({
+        name: 'firstAtom',
+        payload: 'first',
+      }),
+    );
+    mockInboundMessageHandler?.(
+      buildBackgroundThreadJotaiStateBatchKey('1'),
+      serializeBackgroundThreadJotaiStateBroadcastBatchPayload({
+        items: [
+          { name: 'secondAtom', payload: 'second' },
+          { name: 'thirdAtom', payload: 'third' },
+        ],
+      }),
+    );
+
+    expect(mockJotaiUpdateFromUiByBgBroadcast).not.toHaveBeenCalled();
+    resolveInitialization();
+    await hydrationPromise;
+
+    expect(
+      mockJotaiUpdateFromUiByBgBroadcast.mock.calls.map(
+        ([params]) => params.name,
+      ),
+    ).toEqual(['firstAtom', 'secondAtom', 'thirdAtom']);
   });
 });
