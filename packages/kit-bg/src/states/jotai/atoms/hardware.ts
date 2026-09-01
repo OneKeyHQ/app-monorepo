@@ -79,6 +79,11 @@ export type IHardwareUiPayload = {
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';
+  // The stage's enterPin card may offer "Prefer to enter PIN in app?"
+  // (OK-61489). Set only on the button-device on-device-entry route when
+  // the opt-in would actually take: a stored device record to write, app
+  // entry supported by firmware, and a plain (non attach-PIN) request.
+  pinSwitchToAppAvailable?: boolean;
   // service promise for waiting user interaction
   promiseId?: string;
 };

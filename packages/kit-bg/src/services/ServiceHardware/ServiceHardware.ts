@@ -1380,6 +1380,20 @@ class ServiceHardware extends ServiceBase {
         newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
         if (!supportInputPinOnSoftware && isCurrent()) {
+          // Offer the stage's switch-to-app entry (OK-61489) only when
+          // the opt-in would actually take: a stored device record to
+          // write (first-connect has none yet), a button device whose
+          // firmware supports app entry, and a plain PIN request. The
+          // app-pad hop reuses the REQUEST_PIN payload, so it never
+          // carries this flag.
+          newPayload.pinSwitchToAppAvailable =
+            Boolean(dbDevice) &&
+            !isAttachPin &&
+            Boolean(
+              requestDeviceType &&
+              deviceUtils.checkInputPinOnSoftwareSupport(requestDeviceType),
+            ) &&
+            inputPinOnSoftware.support;
           await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice({
             responseCorrelation: newPayload.uiResponseCorrelation,
           });
