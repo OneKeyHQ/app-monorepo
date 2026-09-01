@@ -1240,15 +1240,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
       let price: string;
+      // Market close must not rest: when open interest is at cap, Hyperliquid
+      // rejects resting orders priced beyond the oracle band, so a Gtc order
+      // carrying the slippage price is refused while FrontendMarket is not.
+      let tif: 'Gtc' | 'FrontendMarket';
 
       if (param.limitPx) {
         price = param.limitPx;
+        tif = 'Gtc';
       } else if (param.midPx) {
         price = this._calculateSlippagePrice({
           markPrice: param.midPx,
           isBuy: !param.isBuy,
           slippage: param.slippage || this.slippage,
         });
+        tif = 'FrontendMarket';
       } else {
         throw new OneKeyLocalError(
           'Either limitPx or midPx must be provided for order close',
@@ -1261,7 +1267,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         p: price,
         s: param.size,
         r: true,
-        t: { limit: { tif: 'Gtc' } },
+        t: { limit: { tif } },
       };
 
       return orderParams;
