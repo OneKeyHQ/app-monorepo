@@ -49,8 +49,17 @@ export const WALLET_CONNECT_PAY_SOLANA_CHAINS: Record<string, string> = {
  * rejected before signing.
  */
 export function wcPayChainIdToNetworkId(caip2ChainId: string): string | null {
-  const [namespace, reference] = caip2ChainId.split(':');
-  if (!reference) {
+  // Exactly two non-empty segments: CAIP-2 is `namespace:reference` and
+  // nothing else. Destructuring only the first two fields would silently
+  // accept trailing segments (`eip155:1:extra` as `evm--1`); such an id can
+  // still only ever map onto the whitelisted chain it names, but a malformed
+  // id from the server must not pass as a valid one.
+  const parts = caip2ChainId.split(':');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [namespace, reference] = parts;
+  if (!namespace || !reference) {
     return null;
   }
   if (
