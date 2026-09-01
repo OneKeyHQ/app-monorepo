@@ -334,6 +334,11 @@ function BasicActionList({
     }
   }, []);
 
+  useEffect(
+    () => () => clearAsyncItemsFallbackTimer(),
+    [clearAsyncItemsFallbackTimer],
+  );
+
   const commitPendingAsyncItems = useCallback(() => {
     const pendingItems = pendingAsyncItemsRef.current;
     if (
