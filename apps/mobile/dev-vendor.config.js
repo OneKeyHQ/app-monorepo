@@ -2,10 +2,13 @@ const path = require('path');
 
 const SCHEMA_VERSION = 3;
 const STRATEGY_VERSION = 4;
-const RELEASE_SCHEMA_VERSION = 1;
+const RELEASE_SCHEMA_VERSION = 2;
 const RELEASE_ASSET_PREFIX = 'metro-dev-prebundle';
 const RELEASE_ATTESTATION_BUNDLE_NAME = `${RELEASE_ASSET_PREFIX}-attestations.jsonl`;
-const RELEASE_REPOSITORY = 'OneKeyHQ/app-monorepo';
+const OCI_ARTIFACT_TYPE = 'application/vnd.onekey.metro-dev-prebundle.v2';
+const OCI_REGISTRY = 'ghcr.io';
+const OCI_REPOSITORY = 'onekeyhq/metro-dev-prebundle';
+const SOURCE_REPOSITORY = 'OneKeyHQ/app-monorepo';
 
 const transformationEnvironment = {
   BABEL_ENV: 'development',
@@ -76,11 +79,14 @@ function getTransformationEnvironment(env) {
 }
 
 module.exports = {
+  OCI_ARTIFACT_TYPE,
+  OCI_REGISTRY,
+  OCI_REPOSITORY,
   RELEASE_ASSET_PREFIX,
   RELEASE_ATTESTATION_BUNDLE_NAME,
-  RELEASE_REPOSITORY,
   RELEASE_SCHEMA_VERSION,
   SCHEMA_VERSION,
+  SOURCE_REPOSITORY,
   STRATEGY_VERSION,
   applyTransformationEnvironment,
   commonBytecodeName: 'common.hbc',

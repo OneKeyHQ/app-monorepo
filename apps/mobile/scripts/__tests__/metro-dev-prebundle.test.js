@@ -21,7 +21,7 @@ const {
   assertPublicRedistributionPolicy,
   assertSafeOutputDirectory,
   collectPackageInventory,
-  downloadReleaseAsset,
+  downloadOciAsset,
   getPlatformCacheDirectory,
   getSharedCacheRoot,
   getTagCacheLockDirectory,
@@ -31,6 +31,7 @@ const {
   runGhCommand,
   touchAndPruneSharedCache,
   verifyArtifactAttestation,
+  verifyOciManifest,
   verifyReleaseManifest,
   withCacheLock,
 } = require('../metro-dev-prebundle');
@@ -137,17 +138,72 @@ function createTemporaryRepo() {
   return { moduleId, projectRoot, repoRoot };
 }
 
-function createReleaseFetch(outputDirectory) {
-  return async (url) => {
-    const fileName = decodeURIComponent(
-      new URL(url).pathname.split('/').at(-1),
-    );
-    const filePath = path.join(outputDirectory, fileName);
-    if (!(await fs.pathExists(filePath))) {
-      return new Response('missing', { status: 404 });
-    }
-    return new Response(await fs.readFile(filePath), { status: 200 });
+function createOciFetch(outputDirectory, sourceCommit = 'a'.repeat(40)) {
+  const registryBaseUrl = 'https://example.invalid';
+  const config = Buffer.from('{}');
+  const blobs = new Map();
+  const layers = fs
+    .readdirSync(outputDirectory)
+    .toSorted()
+    .map((fileName) => {
+      const content = fs.readFileSync(path.join(outputDirectory, fileName));
+      const digest = `sha256:${sha256(content)}`;
+      blobs.set(digest, content);
+      return {
+        annotations: { 'org.opencontainers.image.title': fileName },
+        digest,
+        mediaType: 'application/octet-stream',
+        size: content.length,
+      };
+    });
+  const manifest = {
+    annotations: {
+      'org.opencontainers.image.revision': sourceCommit,
+      'org.opencontainers.image.source':
+        'https://github.com/OneKeyHQ/app-monorepo',
+    },
+    artifactType: devVendorConfig.OCI_ARTIFACT_TYPE,
+    config: {
+      digest: `sha256:${sha256(config)}`,
+      mediaType: 'application/vnd.unknown.config.v1+json',
+      size: config.length,
+    },
+    layers,
+    mediaType: 'application/vnd.oci.image.manifest.v1+json',
+    schemaVersion: 2,
   };
+  const manifestBytes = Buffer.from(JSON.stringify(manifest));
+  const manifestDigest = `sha256:${sha256(manifestBytes)}`;
+  const fetchImpl = jest.fn(async (url, options = {}) => {
+    const requestUrl = new URL(url);
+    if (requestUrl.pathname === '/token') {
+      return new Response(JSON.stringify({ token: 'public-read-token' }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (options.headers?.Authorization !== 'Bearer public-read-token') {
+      return new Response('authentication required', {
+        headers: {
+          'www-authenticate': `Bearer realm="${registryBaseUrl}/token",service="ghcr.io",scope="repository:${devVendorConfig.OCI_REPOSITORY}:pull"`,
+        },
+        status: 401,
+      });
+    }
+    if (requestUrl.pathname.includes('/manifests/')) {
+      return new Response(manifestBytes, {
+        headers: {
+          'content-type': 'application/vnd.oci.image.manifest.v1+json',
+          'docker-content-digest': manifestDigest,
+        },
+      });
+    }
+    const digest = requestUrl.pathname.split('/').at(-1);
+    const content = blobs.get(digest);
+    return content
+      ? new Response(content, { status: 200 })
+      : new Response('missing', { status: 404 });
+  });
+  return { fetchImpl, manifest, registryBaseUrl };
 }
 
 async function writeTestAttestationBundle(outputDirectory) {
@@ -199,18 +255,26 @@ describe('metro-dev-prebundle release transport', () => {
   });
 
   it('enforces download limits while streaming bodies without a length', async () => {
-    const fetchImpl = jest.fn().mockResolvedValue(
-      new Response(Buffer.alloc(6), {
-        headers: { 'content-type': 'application/octet-stream' },
-      }),
-    );
+    const content = Buffer.alloc(6);
+    const ociArtifact = {
+      client: {
+        fetchBlob: jest.fn().mockResolvedValue(new Response(content)),
+      },
+      layersByFileName: new Map([
+        [
+          'asset.bin',
+          {
+            digest: `sha256:${sha256(content)}`,
+            size: 5,
+          },
+        ],
+      ]),
+    };
     await expect(
-      downloadReleaseAsset({
-        fetchImpl,
+      downloadOciAsset({
         fileName: 'asset.bin',
         maxBytes: 5,
-        releaseBaseUrl: 'https://example.invalid/release',
-        tagName: 'test',
+        ociArtifact,
       }),
     ).rejects.toThrow('Downloaded asset is too large');
   });
@@ -452,7 +516,7 @@ describe('metro-dev-prebundle release transport', () => {
         android: expect.any(Object),
         ios: expect.any(Object),
       });
-      expect(releaseManifest.tagName).toMatch(/^metro-dev-prebundle-v1-/);
+      expect(releaseManifest.tagName).toMatch(/^metro-dev-prebundle-v2-/);
       expect(
         await fs.readFile(
           path.join(outputDirectory, THIRD_PARTY_NOTICES_NAME),
@@ -476,16 +540,24 @@ describe('metro-dev-prebundle release transport', () => {
         await fs.pathExists(path.join(outputDirectory, RELEASE_MANIFEST_NAME)),
       ).toBe(true);
       await writeTestAttestationBundle(outputDirectory);
+      const oci = createOciFetch(outputDirectory);
+      expect(verifyOciManifest(oci.manifest).size).toBe(10);
+      expect(() =>
+        verifyOciManifest({
+          ...oci.manifest,
+          layers: [...oci.manifest.layers.slice(0, -1), oci.manifest.layers[0]],
+        }),
+      ).toThrow('Invalid OCI artifact layer');
 
       await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
       await expect(
         restorePlatformFromRelease({
           attestationVerifier,
           cacheRoot,
-          fetchImpl: createReleaseFetch(outputDirectory),
+          fetchImpl: oci.fetchImpl,
           platform: 'ios',
           projectRoot: fixture.projectRoot,
-          releaseBaseUrl: 'https://example.invalid/release',
+          registryBaseUrl: oci.registryBaseUrl,
           repoRoot: fixture.repoRoot,
         }),
       ).resolves.toEqual({
@@ -493,6 +565,18 @@ describe('metro-dev-prebundle release transport', () => {
         sharedCacheHit: false,
         tagName: releaseManifest.tagName,
       });
+      expect(
+        oci.fetchImpl.mock.calls.some(
+          ([url]) => new URL(url).pathname === '/token',
+        ),
+      ).toBe(true);
+      expect(
+        oci.fetchImpl.mock.calls.some(
+          ([url, options]) =>
+            new URL(url).pathname.includes('/blobs/') &&
+            options.headers.Authorization === 'Bearer public-read-token',
+        ),
+      ).toBe(true);
       await expect(
         fs.readFile(
           path.join(
@@ -523,7 +607,7 @@ describe('metro-dev-prebundle release transport', () => {
           fetchImpl: unexpectedFetch,
           platform: 'ios',
           projectRoot: fixture.projectRoot,
-          releaseBaseUrl: 'https://example.invalid/release',
+          registryBaseUrl: oci.registryBaseUrl,
           repoRoot: fixture.repoRoot,
         }),
       ).resolves.toEqual({
@@ -562,15 +646,15 @@ describe('metro-dev-prebundle release transport', () => {
       cachedReleaseManifest.platforms.ios.source.sha256 = sha256(tamperedAsset);
       await fs.writeJson(cachedReleaseManifestPath, cachedReleaseManifest);
       await fs.remove(getPlatformOutputDirectory(fixture.projectRoot, 'ios'));
-      const refetch = jest.fn(createReleaseFetch(outputDirectory));
+      const refetchOci = createOciFetch(outputDirectory);
       await expect(
         restorePlatformFromRelease({
           attestationVerifier,
           cacheRoot,
-          fetchImpl: refetch,
+          fetchImpl: refetchOci.fetchImpl,
           platform: 'ios',
           projectRoot: fixture.projectRoot,
-          releaseBaseUrl: 'https://example.invalid/release',
+          registryBaseUrl: refetchOci.registryBaseUrl,
           repoRoot: fixture.repoRoot,
         }),
       ).resolves.toEqual({
@@ -578,7 +662,7 @@ describe('metro-dev-prebundle release transport', () => {
         sharedCacheHit: false,
         tagName: releaseManifest.tagName,
       });
-      expect(refetch).toHaveBeenCalled();
+      expect(refetchOci.fetchImpl).toHaveBeenCalled();
     } finally {
       await fs.remove(fixture.repoRoot);
     }
@@ -696,8 +780,9 @@ describe('metro-dev-prebundle release transport', () => {
       expect(() =>
         verifyReleaseManifest({
           manifest: {
+            artifactRepository: `${devVendorConfig.OCI_REGISTRY}/${devVendorConfig.OCI_REPOSITORY}`,
             compatibilityKey: 'different',
-            repository: devVendorConfig.RELEASE_REPOSITORY,
+            repository: devVendorConfig.SOURCE_REPOSITORY,
             schemaVersion: devVendorConfig.RELEASE_SCHEMA_VERSION,
             tagName: 'different',
           },
