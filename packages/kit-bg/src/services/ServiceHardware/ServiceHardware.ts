@@ -1369,8 +1369,11 @@ class ServiceHardware extends ServiceBase {
         const inputPinOnSoftware = features
           ? supportInputPinOnSoftwareSdk(features)
           : { support: false };
+        // On-device entry is the default (OK-61489): only an explicit
+        // opt-in (`true`, via the stage's switch entry or device
+        // settings) routes PIN input to the app keyboard.
         const supportInputPinOnSoftware =
-          dbDevice?.settings?.inputPinOnSoftware !== false &&
+          dbDevice?.settings?.inputPinOnSoftware === true &&
           inputPinOnSoftware.support;
 
         const isAttachPin = type === 'PinMatrixRequestType_AttachToPin';
@@ -3411,6 +3414,14 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId(p: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    return this.deviceSettingsManager.setInputPinOnSoftwareByConnectId(p);
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async setAutoLockDelayMs(p: ISetAutoLockDelayMsParams) {
     return this.deviceSettingsManager.setAutoLockDelayMs(p);
@@ -3532,6 +3543,43 @@ class ServiceHardware extends ServiceBase {
       (v): ISimpleDBAppStatus => ({
         ...v,
         removeDeviceHomeScreenMigrated: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async migrateClassicPinInputDefault() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.classicPinInputDefaultMigrated) {
+      return;
+    }
+
+    // One-time default flip (OK-61489): button devices (Classic / 1S /
+    // Mini) now enter PIN on the device by default. Stored `true` values
+    // were written at record creation, not chosen by anyone, so they are
+    // flipped wholesale; from here on `true` only ever means an explicit
+    // opt-in back to app entry.
+    const { devices } = await localDb.getAllDevices();
+    for (const device of devices) {
+      if (
+        (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
+        deviceUtils.checkInputPinOnSoftwareSupport(device.deviceType) &&
+        device.settings?.inputPinOnSoftware === true
+      ) {
+        await localDb.updateDeviceDbSettings({
+          dbDeviceId: device.id,
+          settings: {
+            ...device.settings,
+            inputPinOnSoftware: false,
+          },
+        });
+      }
+    }
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        classicPinInputDefaultMigrated: true,
       }),
     );
   }
