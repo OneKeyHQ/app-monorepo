@@ -429,14 +429,7 @@ export function LimitOrderForm({
     const buildStats = (targetSide: ITradeSide) => {
       const sidePriceBN = resolvePriceForSide(targetSide).price;
       const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
-      const hasResolvedSide =
-        sideSizeBN.isFinite() &&
-        sideSizeBN.gt(0) &&
-        sidePriceBN.isFinite() &&
-        sidePriceBN.gt(0);
-      const sideOrderValueBN = hasResolvedSide
-        ? sideSizeBN.multipliedBy(sidePriceBN)
-        : new BigNumber(0);
+      const sideOrderValueBN = sideSizeBN.multipliedBy(sidePriceBN);
 
       if (isSpot) {
         return {
@@ -447,15 +440,23 @@ export function LimitOrderForm({
         };
       }
 
-      const sideMarginRequiredBN = hasResolvedSide
-        ? sideOrderValueBN.dividedBy(leverage || 1)
-        : new BigNumber(0);
+      const sideMarginRequiredBN =
+        !sideSizeBN.isFinite() ||
+        sideSizeBN.lte(0) ||
+        !sidePriceBN.isFinite() ||
+        sidePriceBN.lte(0)
+          ? new BigNumber(0)
+          : sideSizeBN.multipliedBy(sidePriceBN).dividedBy(leverage || 1);
 
       const sideLiquidationPriceBN =
-        !activeAssetData?.leverage?.type || !hasResolvedSide
+        !activeAssetData?.leverage?.type ||
+        !sideSizeBN.isFinite() ||
+        sideSizeBN.lte(0) ||
+        !sidePriceBN.isFinite() ||
+        sidePriceBN.lte(0)
           ? null
           : calculateLiquidationPrice({
-              totalValue: sideOrderValueBN,
+              totalValue: sideSizeBN.multipliedBy(sidePriceBN),
               referencePrice: sidePriceBN,
               clampToCurrentMark: true,
               markPrice: activeAssetCtx?.ctx?.markPrice
