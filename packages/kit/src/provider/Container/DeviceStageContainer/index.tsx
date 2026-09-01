@@ -21,6 +21,8 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
+import { DeviceStageQrScanner } from './DeviceStageQrScanner';
+
 /**
  * DeviceStage driver (OK-59934): renders the stage from deviceStageAtom.
  * One permanently mounted instance; every step change morphs in place and
@@ -313,6 +315,18 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  // Air-gap pair (doc §4.6): Next and the way back walk the two steps in
+  // bg; the completed scan answers through ServiceQrWallet from inside
+  // the viewfinder itself. The camera mounts only while the step is
+  // scanQr — every visit a fresh session, no idle camera behind a
+  // parked panel.
+  const handleQrNext = useCallback(() => {
+    void serviceHardwareUI.deviceStageQrProceedToScan();
+  }, [serviceHardwareUI]);
+  const handleQrBack = useCallback(() => {
+    void serviceHardwareUI.deviceStageQrBackToShow();
+  }, [serviceHardwareUI]);
+
   const handleBtcHighIndexConfirm = useCallback(() => {
     sendVendorUiResponse(true);
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
@@ -393,6 +407,14 @@ function DeviceStageContainerCmp() {
       confirmDescription={stage?.confirmDescription}
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
+      qrValueUr={stage?.qrValueUr}
+      qrScannerView={
+        step === 'scanQr' ? (
+          <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
+        ) : undefined
+      }
+      onQrNext={handleQrNext}
+      onQrBack={handleQrBack}
       onClose={closable ? handleClose : undefined}
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
