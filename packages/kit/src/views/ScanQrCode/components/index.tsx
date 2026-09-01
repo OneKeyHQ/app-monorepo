@@ -25,11 +25,15 @@ import { ScanCamera } from './ScanCamera';
 export type IScanQrCodeProps = {
   handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
   qrWalletScene?: boolean;
+  /** Host is outside any screen (the DeviceStage viewfinder): skip the
+   * native screen-removal guard, whose hooks throw without a route. */
+  disableNavigationGuard?: boolean;
 };
 
 export function ScanQrCode({
   handleBarCodeScanned,
   qrWalletScene,
+  disableNavigationGuard,
 }: IScanQrCodeProps) {
   const intl = useIntl();
   const scanned = useRef<string | undefined>(undefined);
@@ -164,6 +168,7 @@ export function ScanQrCode({
         flex: 1,
       }}
       handleScanResult={reloadHandleBarCodeScanned}
+      disableNavigationGuard={disableNavigationGuard}
     >
       {qrWalletScene ? (
         <>
