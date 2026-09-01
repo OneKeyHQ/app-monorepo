@@ -46,6 +46,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isJest: true,
     isNative: true,
     isSupportDesktopBle: false,
+    isSupportWebUSB: false,
   },
 }));
 
@@ -53,6 +54,7 @@ const mutablePlatformEnv = platformEnv as unknown as {
   isDesktop: boolean;
   isNative: boolean;
   isSupportDesktopBle: boolean;
+  isSupportWebUSB: boolean;
 };
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
@@ -1097,6 +1099,74 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(getDeviceState).toHaveBeenCalledTimes(3);
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
+  });
+
+  test('prefers an exact connected WebUSB device over the persisted BLE transport', async () => {
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
+    );
+    const previousPlatformEnv = {
+      isDesktop: mutablePlatformEnv.isDesktop,
+      isNative: mutablePlatformEnv.isNative,
+      isSupportDesktopBle: mutablePlatformEnv.isSupportDesktopBle,
+      isSupportWebUSB: mutablePlatformEnv.isSupportWebUSB,
+    };
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+      isSupportWebUSB: true,
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        usb: {
+          getDevices: jest.fn().mockResolvedValue([
+            { serialNumber: 'PRO2_CONNECT_ID' } as USBDevice,
+          ]),
+        },
+      },
+    });
+
+    try {
+      const {
+        getCurrentTransportType,
+        prepareHardwareTransport,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      prepareHardwareTransport.mockResolvedValue(
+        EHardwareTransportType.WEBUSB,
+      );
+      getCurrentTransportType.mockResolvedValue(EHardwareTransportType.WEBUSB);
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(prepareHardwareTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_CONNECT_ID',
+          hardwareCallContext:
+            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          requestedTransportType: 'usb',
+        }),
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+        }),
+      );
+    } finally {
+      Object.assign(mutablePlatformEnv, previousPlatformEnv);
+      Object.defineProperty(
+        globalThis,
+        'navigator',
+        navigatorDescriptor ?? { configurable: true, value: undefined },
+      );
+    }
   });
 
   test('keeps only the latest mobile BLE snapshot pending without communication', async () => {

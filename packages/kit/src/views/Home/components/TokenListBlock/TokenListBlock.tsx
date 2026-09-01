@@ -90,6 +90,7 @@ import {
   type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -119,6 +120,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -209,6 +211,34 @@ type IActiveAccountTokenListRequestContext = {
   mergeDeriveAddressData: boolean;
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
 };
+
+type IPortfolioSyncRequestPhase =
+  | 'queued'
+  | 'refreshing'
+  | 'settled'
+  | 'communicating';
+
+type IPortfolioSyncRequest = {
+  id: number;
+  phase: IPortfolioSyncRequestPhase;
+  targetKey: string;
+};
+
+type IPortfolioSyncTarget = {
+  deviceDbId: string;
+  indexedAccountId: string;
+  networkId: string;
+  walletId: string;
+};
+
+function buildPortfolioSyncTargetKey({
+  deviceDbId,
+  indexedAccountId,
+  networkId,
+  walletId,
+}: IPortfolioSyncTarget) {
+  return [walletId, indexedAccountId, networkId, deviceDbId].join('|');
+}
 
 function buildTokenSelectorFilterMode(
   lpToken: boolean,
@@ -372,8 +402,91 @@ function TokenListBlock({
     tokenSelectorFilterMode,
   };
   const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
-  const interactivePortfolioSyncRequestedRef = useRef(false);
+  const portfolioSyncRequestIdRef = useRef(0);
+  const portfolioSyncRequestRef = useRef<
+    IPortfolioSyncRequest | undefined
+  >(undefined);
+  const portfolioSyncAllNetworksFallbackTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
+    useState<IPortfolioSyncRequestPhase>();
+  const portfolioSyncDeviceDbId =
+    device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
+  const portfolioSyncIndexedAccountId =
+    indexedAccount?.id ?? account?.indexedAccountId ?? '';
+  const portfolioSyncNetworkId = network?.id ?? '';
+  const portfolioSyncWalletId = wallet?.id ?? '';
+  const hasPortfolioSyncTarget = Boolean(
+    portfolioSyncDeviceDbId &&
+      portfolioSyncIndexedAccountId &&
+      portfolioSyncNetworkId &&
+      portfolioSyncWalletId,
+  );
+  const portfolioSyncTargetKey = buildPortfolioSyncTargetKey({
+    deviceDbId: portfolioSyncDeviceDbId,
+    indexedAccountId: portfolioSyncIndexedAccountId,
+    networkId: portfolioSyncNetworkId,
+    walletId: portfolioSyncWalletId,
+  });
+  const portfolioSyncTargetKeyRef = useRef(portfolioSyncTargetKey);
+  portfolioSyncTargetKeyRef.current = portfolioSyncTargetKey;
+
+  const getCurrentPortfolioSyncRequest = useCallback(() => {
+    const request = portfolioSyncRequestRef.current;
+    return request?.targetKey === portfolioSyncTargetKeyRef.current
+      ? request
+      : undefined;
+  }, []);
+
+  const clearPortfolioSyncFallbackTimer = useCallback(() => {
+    const timer = portfolioSyncAllNetworksFallbackTimerRef.current;
+    if (timer) {
+      clearTimeout(timer);
+      portfolioSyncAllNetworksFallbackTimerRef.current = undefined;
+    }
+  }, []);
+
+  const finishPortfolioSyncRequest = useCallback(
+    (requestId: number) => {
+      if (portfolioSyncRequestRef.current?.id !== requestId) {
+        return;
+      }
+      clearPortfolioSyncFallbackTimer();
+      portfolioSyncRequestRef.current = undefined;
+      setPortfolioSyncRequestPhase(undefined);
+    },
+    [clearPortfolioSyncFallbackTimer],
+  );
+
+  const transitionPortfolioSyncRequest = useCallback(
+    (requestId: number, phase: IPortfolioSyncRequestPhase) => {
+      const request = portfolioSyncRequestRef.current;
+      if (request?.id !== requestId) {
+        return false;
+      }
+      clearPortfolioSyncFallbackTimer();
+      portfolioSyncRequestRef.current = { ...request, phase };
+      setPortfolioSyncRequestPhase(phase);
+      return true;
+    },
+    [clearPortfolioSyncFallbackTimer],
+  );
   const syncTokenFilterToOverview = true;
+
+  useEffect(() => {
+    const request = portfolioSyncRequestRef.current;
+    if (request && request.targetKey !== portfolioSyncTargetKey) {
+      finishPortfolioSyncRequest(request.id);
+    }
+  }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
+
+  useEffect(
+    () => () => {
+      clearPortfolioSyncFallbackTimer();
+    },
+    [clearPortfolioSyncFallbackTimer],
+  );
 
   const accountTokensValue = useMemo(
     () =>
@@ -501,10 +614,8 @@ function TokenListBlock({
 
   const { run } = usePromiseResult(
     async () => {
-      const shouldSyncPortfolioInteractively =
-        interactivePortfolioSyncRequestedRef.current;
-      interactivePortfolioSyncRequestedRef.current = false;
       let accountId = account?.id ?? '';
+      let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
@@ -528,6 +639,14 @@ function TokenListBlock({
         }
 
         if (network.isAllNetworks) return;
+
+        portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+        if (portfolioSyncRequest?.phase === 'queued') {
+          transitionPortfolioSyncRequest(
+            portfolioSyncRequest.id,
+            'refreshing',
+          );
+        }
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
@@ -671,7 +790,7 @@ function TokenListBlock({
         }
 
         if (
-          shouldSyncPortfolioInteractively &&
+          portfolioSyncRequest &&
           currencyInfo?.id &&
           isProtocolV2ProductType(device?.deviceType) &&
           wallet &&
@@ -690,31 +809,44 @@ function TokenListBlock({
             keepDefault:
               cellsIngestInputsRef.current.nonZeroInputs.keepDefault ?? true,
           });
-          await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({
-            eventPayload: {
-              accountAddress: account?.address,
-              accountId: account?.id,
-              accountName,
-              aggregateTokenMap: {},
-              deviceConnectId:
-                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
-              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
-              indexedAccountId: indexedAccount?.id,
-              indexedAccountIndex: indexedAccount?.index,
-              indexedAccountName: indexedAccount?.name,
-              networkId: network.id,
-              ownerAccountId: account?.id,
-              ownerNetworkId: network.id,
-              totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
-              totalFiatCurrency: currencyInfo.id,
-              totalTokenCount: portfolioTokens.length,
-              tokenMap: portfolioTokenMap,
-              tokens: portfolioTokens,
-              walletId: wallet.id,
-              walletType: wallet.type,
-            },
-            syncMode: 'interactive',
-          });
+          transitionPortfolioSyncRequest(
+            portfolioSyncRequest.id,
+            'communicating',
+          );
+          try {
+            await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+              {
+                eventPayload: {
+                  accountAddress: account?.address,
+                  accountId: account?.id,
+                  accountName,
+                  aggregateTokenMap: {},
+                  deviceConnectId:
+                    device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+                  deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+                  indexedAccountId: indexedAccount?.id,
+                  indexedAccountIndex: indexedAccount?.index,
+                  indexedAccountName: indexedAccount?.name,
+                  networkId: network.id,
+                  ownerAccountId: account?.id,
+                  ownerNetworkId: network.id,
+                  totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
+                  totalFiatCurrency: currencyInfo.id,
+                  totalTokenCount: portfolioTokens.length,
+                  tokenMap: portfolioTokenMap,
+                  tokens: portfolioTokens,
+                  walletId: wallet.id,
+                  walletType: wallet.type,
+                },
+                syncMode: 'interactive',
+              },
+            );
+          } catch (error) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          } finally {
+            finishPortfolioSyncRequest(portfolioSyncRequest.id);
+          }
         }
 
         // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
@@ -785,6 +917,9 @@ function TokenListBlock({
           throw e;
         }
       } finally {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
         endTokenListRefreshEvent();
         setIsHeaderRefreshing(false);
       }
@@ -796,6 +931,8 @@ function TokenListBlock({
       device?.connectId,
       device?.deviceType,
       device?.id,
+      finishPortfolioSyncRequest,
+      getCurrentPortfolioSyncRequest,
       network,
       mergeDeriveAddressData,
       updateAccountOverviewState,
@@ -806,6 +943,7 @@ function TokenListBlock({
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
+      transitionPortfolioSyncRequest,
       walletTokenFilterParams,
       wallet,
     ],
@@ -1291,8 +1429,26 @@ function TokenListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+
+      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      if (portfolioSyncRequest?.phase === 'refreshing') {
+        clearPortfolioSyncFallbackTimer();
+        portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
+          const currentRequest = getCurrentPortfolioSyncRequest();
+          if (
+            currentRequest?.id === portfolioSyncRequest.id &&
+            currentRequest.phase === 'refreshing'
+          ) {
+            finishPortfolioSyncRequest(currentRequest.id);
+          }
+        }, POLLING_DEBOUNCE_INTERVAL);
+      }
     },
-    [],
+    [
+      clearPortfolioSyncFallbackTimer,
+      finishPortfolioSyncRequest,
+      getCurrentPortfolioSyncRequest,
+    ],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -1326,6 +1482,13 @@ function TokenListBlock({
       networkId?: string;
       allNetworkDataInit?: boolean;
     }) => {
+      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      if (portfolioSyncRequest?.phase === 'queued') {
+        transitionPortfolioSyncRequest(
+          portfolioSyncRequest.id,
+          'refreshing',
+        );
+      }
       const updateCurrentAccountTask =
         accountId && networkId
           ? backgroundApiProxy.serviceToken.updateCurrentAccount({
@@ -1398,10 +1561,12 @@ function TokenListBlock({
     },
     [
       account?.id,
+      getCurrentPortfolioSyncRequest,
       indexedAccount?.id,
       network?.id,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
+      transitionPortfolioSyncRequest,
     ],
   );
 
@@ -1715,7 +1880,11 @@ function TokenListBlock({
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
+    let portfolioSyncRequest = getCurrentPortfolioSyncRequest();
     if (!allNetworksResult?.length) {
+      if (portfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
       return;
     }
     const resultTokenSelectorFilterMode =
@@ -1728,6 +1897,9 @@ function TokenListBlock({
       resultTokenSelectorFilterMode !== 'wallet-token' ||
       hasMixedTokenSelectorFilterResult
     ) {
+      if (portfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
       return;
     }
     // This callback's identity changes on owner switch, re-firing the
@@ -1740,7 +1912,14 @@ function TokenListBlock({
       allNetworksResult[0].ownerAccountId !== account?.id ||
       allNetworksResult[0].ownerNetworkId !== network?.id
     ) {
+      if (portfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
       return;
+    }
+    portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+    if (portfolioSyncRequest?.phase === 'refreshing') {
+      transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'settled');
     }
     const shouldSyncTokenFilterToOverview =
       allNetworksResult[0].syncTokenFilterToOverview;
@@ -1755,11 +1934,11 @@ function TokenListBlock({
     // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
     const snapshot = await buildAuthoritativeSnapshot();
     if (!snapshot || isStaleOwnerRequest()) {
+      if (portfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
       return;
     }
-    const shouldSyncPortfolioInteractively =
-      interactivePortfolioSyncRequestedRef.current;
-    interactivePortfolioSyncRequestedRef.current = false;
 
     const assetStatusAggregationComplete =
       isWalletAssetStatusAggregationComplete({
@@ -1779,6 +1958,9 @@ function TokenListBlock({
           includingAccounts: true,
         });
       if (isStaleOwnerRequest()) {
+        if (portfolioSyncRequest) {
+          finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        }
         return;
       }
       const eligibleAccountIds = Array.from(
@@ -1801,6 +1983,9 @@ function TokenListBlock({
             },
           );
         if (isStaleOwnerRequest()) {
+          if (portfolioSyncRequest) {
+            finishPortfolioSyncRequest(portfolioSyncRequest.id);
+          }
           return;
         }
         const currentAccountValueId =
@@ -1883,6 +2068,9 @@ function TokenListBlock({
     }
 
     if (isStaleOwnerRequest()) {
+      if (portfolioSyncRequest) {
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+      }
       return;
     }
 
@@ -1968,7 +2156,11 @@ function TokenListBlock({
             walletId: wallet.id,
             walletType: wallet.type,
           };
-          if (shouldSyncPortfolioInteractively) {
+          if (portfolioSyncRequest) {
+            transitionPortfolioSyncRequest(
+              portfolioSyncRequest.id,
+              'communicating',
+            );
             try {
               await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
                 {
@@ -1976,8 +2168,11 @@ function TokenListBlock({
                   syncMode: 'interactive',
                 },
               );
-            } catch {
-              // Hardware processing owns interactive error feedback.
+            } catch (error) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+            } finally {
+              finishPortfolioSyncRequest(portfolioSyncRequest.id);
             }
           } else {
             void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
@@ -1986,6 +2181,10 @@ function TokenListBlock({
           }
         }
       }
+    }
+
+    if (portfolioSyncRequest) {
+      finishPortfolioSyncRequest(portfolioSyncRequest.id);
     }
 
     // Authoritative ingest (facade, design §2): ingest the FULL merged
@@ -2021,6 +2220,8 @@ function TokenListBlock({
     device?.connectId,
     device?.deviceType,
     device?.id,
+    finishPortfolioSyncRequest,
+    getCurrentPortfolioSyncRequest,
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
@@ -2032,6 +2233,7 @@ function TokenListBlock({
     commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
+    transitionPortfolioSyncRequest,
     wallet,
   ]);
 
@@ -2389,8 +2591,21 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
-    void updateAllNetworksTokenList();
-  }, [updateAllNetworksTokenList]);
+    void updateAllNetworksTokenList().catch((error) => {
+      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      if (portfolioSyncRequest) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        return;
+      }
+      console.error('updateAllNetworksTokenList error:', error);
+    });
+  }, [
+    finishPortfolioSyncRequest,
+    getCurrentPortfolioSyncRequest,
+    updateAllNetworksTokenList,
+  ]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -2513,9 +2728,23 @@ function TokenListBlock({
   };
 
   const handleSyncPortfolio = useCallback(() => {
-    interactivePortfolioSyncRequestedRef.current = true;
-    refreshWalletTokenListRef.current?.();
-  }, []);
+    if (portfolioSyncRequestRef.current) {
+      return;
+    }
+    const refreshWalletTokenList = refreshWalletTokenListRef.current;
+    if (!refreshWalletTokenList || !hasPortfolioSyncTarget) {
+      return;
+    }
+    portfolioSyncRequestIdRef.current += 1;
+    const request: IPortfolioSyncRequest = {
+      id: portfolioSyncRequestIdRef.current,
+      phase: 'queued',
+      targetKey: portfolioSyncTargetKey,
+    };
+    portfolioSyncRequestRef.current = request;
+    setPortfolioSyncRequestPhase(request.phase);
+    refreshWalletTokenList();
+  }, [hasPortfolioSyncTarget, portfolioSyncTargetKey]);
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
@@ -2826,8 +3055,16 @@ function TokenListBlock({
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
+  const isPortfolioSyncing = portfolioSyncRequestPhase !== undefined;
+  const deviceVendor = device?.vendor ?? device?.settings?.vendor;
+  const isProtocolV2Device =
+    device?.connectProtocol === 'V2' ||
+    device?.deviceStateInfo?.protocol === 'V2';
   const showPortfolioSyncButton = Boolean(
     isProtocolV2ProductType(device?.deviceType) &&
+    isProtocolV2Device &&
+    deviceVendor === EHardwareVendor.onekey &&
+    hasPortfolioSyncTarget &&
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
     !accountUtils.isQrWallet({ walletId: wallet.id }),
@@ -2848,17 +3085,17 @@ function TokenListBlock({
         variant="tertiary"
         icon="RefreshCwOutline"
         onPress={handleSyncPortfolio}
-        disabled={showLpTokensOnly}
-        loading={tokenListState.isRefreshing}
+        disabled={showLpTokensOnly || isPortfolioSyncing}
+        loading={isPortfolioSyncing}
         size="small"
       />
     );
   }, [
     handleSyncPortfolio,
     intl,
+    isPortfolioSyncing,
     showLpTokensOnly,
     showPortfolioSyncButton,
-    tokenListState.isRefreshing,
   ]);
 
   const renderSubTitle = useCallback(() => {

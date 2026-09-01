@@ -1075,6 +1075,42 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     return isConnected ? 'eligible' : 'disconnected';
   }
 
+  private async isTargetWebUsbConnected(
+    eventPayload: IPortfolioSyncSettledPayload,
+  ) {
+    if (!platformEnv.isSupportWebUSB) {
+      return false;
+    }
+    try {
+      const device = eventPayload.deviceDbId
+        ? await localDb.getDeviceSafe(eventPayload.deviceDbId)
+        : undefined;
+      const targetIdentityKeys = new Set(
+        uniq(
+          [
+            eventPayload.deviceConnectId,
+            device?.connectId,
+            device?.usbConnectId,
+            device?.deviceId,
+            device?.uuid,
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      );
+      const usb = globalThis?.navigator?.usb;
+      if (!targetIdentityKeys.size || typeof usb?.getDevices !== 'function') {
+        return false;
+      }
+      const devices = await usb.getDevices();
+      return devices.some(
+        (usbDevice) =>
+          Boolean(usbDevice.serialNumber) &&
+          targetIdentityKeys.has(usbDevice.serialNumber as string),
+      );
+    } catch {
+      return false;
+    }
+  }
+
   private handleIneligibleSync({
     eligibility,
     eventPayload,
@@ -1691,6 +1727,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     deviceConnectId,
     eventPayload,
     generation,
+    hardwareTransportType: preparedHardwareTransportType,
     oneKeyOperationLease,
     serverPackageBase64,
     serverSubmit,
@@ -1703,6 +1740,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
     generation: number;
+    hardwareTransportType?: EHardwareTransportType;
     oneKeyOperationLease?: IOneKeyHardwareOperationLease;
     serverPackageBase64: string;
     serverSubmit: IPortfolioServerSubmitResult;
@@ -1819,7 +1857,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       }
       const hardwareTransportType = desktopBleExecution
         ? EHardwareTransportType.DesktopWebBle
-        : await this.backgroundApi.serviceHardware.getCurrentTransportType();
+        : (preparedHardwareTransportType ??
+          (await this.backgroundApi.serviceHardware.getCurrentTransportType()));
       if (!isExecutionCurrent()) {
         this.releaseInFlightReservation({
           contentHash: artifacts.contentHash,
@@ -1900,6 +1939,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 deviceConnectId,
                 eventPayload,
                 generation,
+                hardwareTransportType: preparedHardwareTransportType,
                 serverPackageBase64,
                 serverSubmit,
                 targetKey,
@@ -2153,18 +2193,30 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
       const desktopBleExecution = options?.desktopBleExecution;
       let currentTransportType: EHardwareTransportType;
+      let pinnedHardwareTransportType: EHardwareTransportType | undefined;
       if (desktopBleExecution) {
         currentTransportType = EHardwareTransportType.DesktopWebBle;
       } else if (syncMode === 'interactive') {
         currentTransportType =
           await this.backgroundApi.serviceHardware.getCurrentTransportType();
       } else {
+        const targetWebUsbConnected =
+          await this.isTargetWebUsbConnected(eventPayload);
+        if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+          return;
+        }
         currentTransportType =
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId: deviceConnectId,
             hardwareCallContext:
               EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+            ...(targetWebUsbConnected
+              ? { requestedTransportType: 'usb' as const }
+              : {}),
           });
+        if (targetWebUsbConnected) {
+          pinnedHardwareTransportType = currentTransportType;
+        }
       }
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
@@ -2370,6 +2422,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         deviceConnectId,
         eventPayload,
         generation,
+        hardwareTransportType: pinnedHardwareTransportType,
         oneKeyOperationLease: options?.oneKeyOperationLease,
         serverPackageBase64,
         serverSubmit,

@@ -41,12 +41,14 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).not.toContain(
       'appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled',
     );
+    expect(source).not.toContain('interactivePortfolioSyncRequestedRef');
     expect(source).toContain(
-      'const interactivePortfolioSyncRequestedRef = useRef(false)',
+      'const portfolioSyncRequestRef = useRef<',
     );
-    expect(source).toContain(
-      'interactivePortfolioSyncRequestedRef.current = true',
-    );
+    expect(source).toContain('buildPortfolioSyncTargetKey({');
+    expect(source).toContain("phase: 'queued'");
+    expect(source).toContain("'communicating'");
+    expect(source).toContain('finishPortfolioSyncRequest');
     expect(source).toContain(
       'backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio',
     );
@@ -56,6 +58,10 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
     expect(source).toContain('testID="home-sync-portfolio"');
     expect(source).toContain('icon="RefreshCwOutline"');
+    expect(source).toContain('loading={isPortfolioSyncing}');
+    expect(source).toContain('errorToastUtils.showToastOfError(error)');
+    expect(source).toContain('deviceVendor === EHardwareVendor.onekey');
+    expect(source).toContain("device?.connectProtocol === 'V2'");
     expect(source).toContain('pollingInterval: POLLING_INTERVAL_FOR_TOKEN');
   });
 });
