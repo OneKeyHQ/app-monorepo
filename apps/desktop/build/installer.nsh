@@ -12,6 +12,8 @@ Var OneKeyModernResult
 Var OneKeyModernIsInner
 
 !ifndef BUILD_UNINSTALLER
+  !include "StrContains.nsh"
+
   Var OneKeyModernInstallScope
   Var OneKeyModernWasInstalled
   Var OneKeyModernHadPerUser
@@ -52,6 +54,7 @@ Var OneKeyModernIsInner
     StrCpy $OneKeyModernIsInner "1"
     !insertmacro UAC_AsUser_GetGlobal $OneKeyModernAccepted $OneKeyModernAccepted
     !insertmacro UAC_AsUser_GetGlobal $OneKeyModernChosenDirectory $OneKeyModernChosenDirectory
+    !insertmacro UAC_AsUser_GetGlobal $OneKeyModernInstallScope $OneKeyModernInstallScope
   ${EndIf}
   ${If} ${UAC_IsAdmin}
     StrCpy $OneKeyModernIsAdmin "1"
@@ -86,7 +89,20 @@ Var OneKeyModernIsInner
   # page authoritatively resolves the selected scope. Only an explicitly
   # browsed directory is written back after that page.
   ${If} $OneKeyModernPerUserDirectory == ""
-    StrCpy $OneKeyModernPerUserDirectory "$LocalAppData\Programs\${APP_FILENAME}"
+    StrCpy $0 "$LocalAppData\Programs"
+    Push $1
+    Push $2
+    StrCpy $2 0
+    System::Call 'SHELL32::SHGetKnownFolderPath(g "${FOLDERID_UserProgramFiles}", i ${KF_FLAG_CREATE}, p 0, *p .r2)i.r1'
+    ${If} $1 == 0
+      System::Call 'KERNEL32::lstrcpynW(w .r0, p r2, i ${NSIS_MAX_STRLEN})p'
+    ${EndIf}
+    ${If} $2 != 0
+      System::Call 'OLE32::CoTaskMemFree(p r2)'
+    ${EndIf}
+    Pop $2
+    Pop $1
+    StrCpy $OneKeyModernPerUserDirectory "$0\${APP_FILENAME}"
   ${EndIf}
   ${If} $OneKeyModernPerMachineDirectory == ""
     StrCpy $0 "$PROGRAMFILES"
@@ -238,10 +254,18 @@ FunctionEnd
   # The uninstaller path identifies the exact per-user or per-machine entry
   # launched by Windows, so the native scope page never needs to be displayed.
   !macro customInstallMode
-    ${If} $EXEDIR == $perMachineInstallationFolder
+    ${If} $INSTDIR == $perMachineInstallationFolder
       StrCpy $isForceMachineInstall "1"
-    ${ElseIf} $EXEDIR == $perUserInstallationFolder
+    ${ElseIf} $INSTDIR == $perUserInstallationFolder
       StrCpy $isForceCurrentInstall "1"
+    ${ElseIf} $hasPerUserInstallation == "1"
+    ${AndIf} $hasPerMachineInstallation == "1"
+      ${If} $OneKeyModernUiActive == "1"
+        nsis-duilib-ui::Shutdown
+        Pop $0
+        StrCpy $OneKeyModernUiActive "0"
+      ${EndIf}
+      ShowWindow $HWNDPARENT ${SW_SHOW}
     ${EndIf}
   !macroend
 
@@ -514,6 +538,10 @@ FunctionEnd
       ${IfNot} ${Errors}
       ${AndIf} $0 != ""
       ${AndIf} $0 != "error"
+        ${StrContains} $1 "${APP_FILENAME}" $0
+        ${If} $1 == ""
+          StrCpy $0 "$0\${APP_FILENAME}"
+        ${EndIf}
         StrCpy $OneKeyModernPerUserDirectory "$0"
         StrCpy $OneKeyModernPerUserChosenDirectory "$0"
         nsis-duilib-ui::SetPerUserInstallDirectory "$0"
@@ -539,6 +567,10 @@ FunctionEnd
       ${IfNot} ${Errors}
       ${AndIf} $0 != ""
       ${AndIf} $0 != "error"
+        ${StrContains} $1 "${APP_FILENAME}" $0
+        ${If} $1 == ""
+          StrCpy $0 "$0\${APP_FILENAME}"
+        ${EndIf}
         StrCpy $OneKeyModernPerMachineDirectory "$0"
         StrCpy $OneKeyModernPerMachineChosenDirectory "$0"
         nsis-duilib-ui::SetPerMachineInstallDirectory "$0"

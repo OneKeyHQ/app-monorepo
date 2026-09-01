@@ -4,20 +4,17 @@
     {
       "id": "security-center",
       "titleKey": "feature.security.title",
-      "descriptionKey": "feature.security.description",
-      "actionUrl": "https://onekey.so/"
+      "descriptionKey": "feature.security.description"
     },
     {
       "id": "cross-platform",
       "titleKey": "feature.crossPlatform.title",
-      "descriptionKey": "feature.crossPlatform.description",
-      "actionUrl": "https://onekey.so/download/"
+      "descriptionKey": "feature.crossPlatform.description"
     },
     {
       "id": "release-highlights",
       "titleKey": "feature.release.title",
-      "descriptionKey": "feature.release.description",
-      "actionUrl": "https://help.onekey.so/"
+      "descriptionKey": "feature.release.description"
     }
   ]
 }
