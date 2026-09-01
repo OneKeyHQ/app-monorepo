@@ -15,6 +15,7 @@ import { getSettingsDisplayTitle } from './settingsDisplay';
 import {
   SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
+  isVisibleSubSettingsItem,
   resolveSettingsSectionPresentation,
 } from './settingsSurface';
 import { useSettingsLayout } from './useIsTabNavigator';
@@ -60,18 +61,20 @@ export function SubSettingsPage({
       config?.configs
         .map((items) =>
           items.filter((item): item is ISubSettingConfig => {
-            if (!item || item.desktopTab) {
+            if (!item) {
               return false;
             }
-            if (!isMobileLayout) {
-              return true;
-            }
-            return !item.mobileHome;
+            return isVisibleSubSettingsItem({
+              hasDesktopTab: Boolean(item.desktopTab),
+              isMobileHome: Boolean(item.mobileHome),
+              isTabNavigator,
+              isMobileLayout,
+            });
           }),
         )
         .filter((items) => items.length > 0) || []
     );
-  }, [config?.configs, isMobileLayout]);
+  }, [config?.configs, isMobileLayout, isTabNavigator]);
   const isMobileAboutPage =
     isMobileLayout && config?.name === ESettingsTabNames.About;
 

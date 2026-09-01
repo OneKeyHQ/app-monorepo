@@ -151,6 +151,12 @@ const MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE = { color: '$text' } as const;
 const MORE_ACTION_DESKTOP_ROW_HOVER_STYLE = { bg: '$bgHover' } as const;
 // Default zh / en menus fit under this cap; other locales may wrap and scroll.
 const MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT = 680;
+const MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 'auto',
+  minHeight: 0,
+} as const;
 
 function pickDesktopThemeStyle<TDark, TLight>(
   isDesktopMode: boolean,
@@ -353,6 +359,7 @@ function MoreActionContentHeader({
       bg={isDesktopMode ? '$bg' : '$bgSubdued'}
       $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
       zIndex={10}
+      flexShrink={0}
       borderTopLeftRadius="$3"
       borderTopRightRadius="$3"
     >
@@ -1554,6 +1561,7 @@ function MoreActionFixedFooter({ isDesktopMode }: { isDesktopMode: boolean }) {
       py={isDesktopMode ? '$1' : '$2'}
       bg={isDesktopMode ? '$bg' : '$bgSubdued'}
       $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
+      flexShrink={0}
       borderTopWidth={isDesktopMode ? StyleSheet.hairlineWidth : 0}
       borderTopColor="$borderSubdued"
       borderBottomLeftRadius="$3"
@@ -1591,11 +1599,14 @@ function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
     <YStack
       flex={isDesktopMode ? undefined : 1}
       minHeight={isDesktopMode ? undefined : 0}
+      {...(isDesktopMode ? MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE : undefined)}
       bg={isDesktopMode ? '$bg' : '$bgSubdued'}
       $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
     >
       {isDesktopMode ? (
-        body
+        <YStack overflow="scroll" {...MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE}>
+          {body}
+        </YStack>
       ) : (
         <ScrollView overflow="scroll" flex={1}>
           {body}
@@ -1662,7 +1673,7 @@ function MoreActionContent({
         maxHeight={
           isDesktopMode ? MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT : undefined
         }
-        overflow={isDesktopMode ? 'scroll' : undefined}
+        overflow={isDesktopMode ? 'hidden' : undefined}
         minHeight={0}
         bg={isDesktopMode ? '$bg' : '$bgSubdued'}
         $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}

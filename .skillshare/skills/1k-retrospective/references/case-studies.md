@@ -290,3 +290,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Promoted `desktopTab` items were hidden only when `insideTabNavigator` was true. `SettingListSubModal` has no sidebar, so the source item stayed visible.
 **Fix**: Hide any item with `desktopTab` on every category host. Mobile home still shows it via `mobileHome`.
 **Catchable by**: Section 4: a hide rule gated on "has sidebar" will re-show the item on standalone hosts.
+
+## Case: Desktop More overflow scrolled Menu header and About
+**Date**: 2026-09-01 | **Platforms**: desktop, wide web
+**Symptom**: When the popover exceeded `maxHeight`, Menu title and About scrolled away with the body.
+**Root Cause**: `overflow: scroll` was on the outer stack that also owns header and the pinned footer. Inner `ScrollView` + `flex={1}` had collapsed, so the whole panel became the scroller.
+**Fix**: Clip the outer stack. Scroll only the body with `flexGrow` / `flexShrink` / `flexBasis: auto` so short menus still hug and chrome stays pinned when content overflows.
+**Catchable by**: Section 3: header/footer that look pinned must live outside the scrollport, not just sit at the ends of an overflowing column
+
+## Case: Hiding every desktopTab item removed extension Notifications
+**Date**: 2026-09-01 | **Platforms**: extension, narrow web
+**Symptom**: Preferences / Security category pages lost Notifications and Connections. Search could still open them; the list could not.
+**Root Cause**: `desktopTab` means "also a sidebar tab", but the sidebar only exists when `useIsTabNavigator()` is true. Always hiding the source row deleted the only entry on extension popup and narrow web.
+**Fix**: Hide `desktopTab` items only on tab-navigator hosts. Phone still hides them via `mobileHome`.
+**Catchable by**: Section 4: a hide rule must keep the host that still needs the list entry; Section 6: layout-visibility helpers need a host-matrix test
