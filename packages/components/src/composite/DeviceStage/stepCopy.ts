@@ -152,9 +152,11 @@ export const STEP_TEXT: Record<
   // Titles name the place only when it is not here: the app is where the
   // person already is, so app-side steps stay bare and device-side steps
   // carry "on device" — the one fact that changes when a step hops sides.
+  // No sub: the old "Unlock your device." line retired for the
+  // switch-to-app entry (OK-61489), which the stage panel renders as an
+  // interactive line in the same seat — see pinSwitchSlot in index.
   enterPin: {
     title: ETranslations.enter_pin_enter_on_device,
-    sub: ETranslations.device_stage_enter_pin_on_device__desc,
   },
   pinOnApp: { title: ETranslations.device_stage_enter_pin__title },
   // The wallet-creation fork's title, the ratified design's own words
@@ -329,8 +331,9 @@ export function resolveInstallText(
 }
 
 /**
- * The card steps that wear the device's name as the corner badge — the
- * ones where the person acts on the connected device, so the card names
+ * The card steps that wear the device's name as the title row's pill
+ * (the ratified seat — it left the card's top-left corner) — the ones
+ * where the person acts on the connected device, so the card names
  * which device to reach for. The authenticity flow keeps it through its
  * landing: the three beats share one card, and the board keeps the name
  * on Verification successful rather than blinking it out under the ✓.
