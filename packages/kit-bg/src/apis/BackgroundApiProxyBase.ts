@@ -14,6 +14,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -331,9 +332,16 @@ export class BackgroundApiProxyBase
     }
     this.backgroundApiFactory = getBackgroundApi;
     jotaiBgSync.setBackgroundApi(this as any);
-    void jotaiBgSync.jotaiInitFromUi().catch((err: unknown) => {
-      console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
-    });
+    // Native main awaits this initialization in NativeStorageBootstrapRoot so
+    // startup failures can use the existing Retry/Restart recovery surface.
+    if (
+      !platformEnv.isNativeMainThread ||
+      !platformEnv.enableNativeBackgroundThread
+    ) {
+      void this.initializeJotaiFromBackground().catch((err: unknown) => {
+        console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
+      });
+    }
     // Register the 'main' role transport: forward ui-emitted events to the
     // singleton background, which will fan-out to every foreground. The
     // sender's `originNodeId` travels with the message so it can skip its
@@ -396,6 +404,10 @@ export class BackgroundApiProxyBase
 
   async writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void> {
     return this.callBackground('writeAsyncStorage', request);
+  }
+
+  async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    return this.callBackground('nativeStorage', request);
   }
 
   bridge = {} as JsBridgeBase;
@@ -665,6 +677,10 @@ export class BackgroundApiProxyBase
       backgroundMethodName,
       params,
     });
+  }
+
+  initializeJotaiFromBackground() {
+    return jotaiBgSync.jotaiInitFromUi();
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {

@@ -31,7 +31,7 @@ function createDetail(
 }
 
 describe('legacyMarketNetwork', () => {
-  it('prefers a native platform for native top coins', () => {
+  it('prefers a native platform for native legacy tokens', () => {
     const detail = createDetail({
       symbol: 'ETH',
       detailPlatforms: {
@@ -126,15 +126,13 @@ describe('legacyMarketNetwork', () => {
       },
     });
 
-    expect(
-      getLegacyMarketDetailV2RouteParams({
-        marketTokenId: 'ethereum',
-        token: detail,
-      }),
-    ).toMatchObject({
+    const params = getLegacyMarketDetailV2RouteParams({
+      marketTokenId: 'ethereum',
+      token: detail,
+    });
+    expect(params).toMatchObject({
       disableTrade: false,
       isNative: true,
-      marketTokenCategory: 'top_coins',
       marketTokenId: 'ethereum',
       network: 'evm--1',
       showFavoriteButton: true,
@@ -149,6 +147,7 @@ describe('legacyMarketNetwork', () => {
         symbol: 'ETH',
       },
     });
+    expect(params).not.toHaveProperty('marketTokenCategory');
   });
 
   it('keeps an identityless legacy token in the V2 shell', () => {
@@ -164,15 +163,13 @@ describe('legacyMarketNetwork', () => {
       } as IMarketTokenDetail['stats'],
     });
 
-    expect(
-      getLegacyMarketDetailV2RouteParams({
-        marketTokenId: 'unknown-coin',
-        token: detail,
-      }),
-    ).toMatchObject({
+    const params = getLegacyMarketDetailV2RouteParams({
+      marketTokenId: 'unknown-coin',
+      token: detail,
+    });
+    expect(params).toMatchObject({
       disableTrade: true,
       isNative: false,
-      marketTokenCategory: 'top_coins',
       marketTokenId: 'unknown-coin',
       network: 'coingecko',
       showFavoriteButton: false,
@@ -186,5 +183,6 @@ describe('legacyMarketNetwork', () => {
         symbol: 'UNKNOWN',
       },
     });
+    expect(params).not.toHaveProperty('marketTokenCategory');
   });
 });

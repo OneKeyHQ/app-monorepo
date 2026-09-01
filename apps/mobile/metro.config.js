@@ -24,6 +24,17 @@ const {
 const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
+
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+
+const splitCodePlugin = require('./plugins');
+const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
+const {
+  getThirdPartyMMKVImportError,
+} = require('./scripts/native-storage-metro-policy');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -373,13 +384,6 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
-
-const splitCodePlugin = require('./plugins');
-const {
-  applyDevVendorConfig,
-  isDevVendorEnabled,
-} = require('./plugins/devVendor');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
@@ -407,6 +411,60 @@ const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
   'main';
+
+// Native storage ownership is enforced at bundle resolution as well as at
+// runtime. This redirects application and third-party AsyncStorage imports to
+// the compatible bg proxy without patching dependencies. Deep imports are
+// rejected because they could bypass the adapter. MMKV itself resolves to a
+// throwing guard in main bundles.
+{
+  const previousResolveRequest = config.resolver.resolveRequest;
+  const asyncStorageAdapter = path.resolve(
+    monorepoRoot,
+    'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
+  );
+  const mmkvMainGuard = path.resolve(
+    projectRoot,
+    'shims/reactNativeMMKVMainGuard.js',
+  );
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
+      moduleName,
+      originModulePath: context.originModulePath,
+    });
+    if (thirdPartyMMKVImportError) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(thirdPartyMMKVImportError);
+    }
+    if (moduleName === '@react-native-async-storage/async-storage') {
+      return { type: 'sourceFile', filePath: asyncStorageAdapter };
+    }
+    if (moduleName.startsWith('@react-native-async-storage/async-storage/')) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
+      );
+    }
+    if (
+      moduleName === 'react-native-mmkv' &&
+      getMetroRuntimeTarget(context) !== 'background' &&
+      process.env.RN_HARNESS !== 'true'
+    ) {
+      return { type: 'sourceFile', filePath: mmkvMainGuard };
+    }
+    if (
+      moduleName.startsWith('react-native-mmkv/') &&
+      getMetroRuntimeTarget(context) !== 'background' &&
+      process.env.RN_HARNESS !== 'true'
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `MMKV deep import bypasses the native main-runtime guard: ${moduleName}`,
+      );
+    }
+    return previousResolveRequest(context, moduleName, platform);
+  };
+}
 
 // --- Native background thread: prefer `.native-ui` in the main runtime ---
 // In native background-thread mode, main-thread JS should prefer the

@@ -1,5 +1,6 @@
 internal import CryptoKit
 internal import Expo
+import MMKV
 import React
 import ReactAppDependencyProvider
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
@@ -207,6 +208,10 @@ class AppDelegate: ExpoAppDelegate {
       window?.makeKeyAndVisible()
       return true
     }
+
+    // The migration bridge uses MMKV's Objective-C wrapper, whose
+    // initialization state is separate from react-native-mmkv's C++ factory.
+    MMKV.initialize(rootDir: nil)
 
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")

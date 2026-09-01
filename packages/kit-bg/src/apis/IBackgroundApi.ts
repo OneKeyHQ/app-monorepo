@@ -2,6 +2,7 @@
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
@@ -142,6 +143,7 @@ export interface IBackgroundApiBridge {
     originNodeId?: string,
   ): Promise<boolean>;
   writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
+  nativeStorage(request: INativeStorageRequest): Promise<unknown>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;

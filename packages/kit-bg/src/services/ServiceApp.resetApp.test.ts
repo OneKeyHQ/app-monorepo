@@ -173,4 +173,37 @@ describe('ServiceApp.resetApp', () => {
       reason: 'auth.resetData',
     });
   });
+
+  test('does not restart after a storage reset failure', async () => {
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceIdentityExit: {
+          prepareIdentityAuthForAppReset: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+        serviceNotification: {
+          unregisterClient: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+    jest
+      .spyOn(
+        service as unknown as {
+          resetData: () => Promise<void>;
+        },
+        'resetData',
+      )
+      .mockRejectedValue(new Error('jotai reset failed'));
+    const restartApp = jest
+      .spyOn(service, 'restartApp')
+      .mockResolvedValue(undefined);
+    const endResetting = jest.spyOn(resetUtils, 'endResetting');
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await expect(service.resetApp()).rejects.toThrow('jotai reset failed');
+
+    expect(endResetting).toHaveBeenCalledTimes(1);
+    expect(restartApp).not.toHaveBeenCalled();
+  });
 });
