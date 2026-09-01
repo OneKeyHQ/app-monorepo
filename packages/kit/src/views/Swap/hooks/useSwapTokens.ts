@@ -61,6 +61,7 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
   buildServerAuthoritativeSearchResults,
+  isSwapSupportAllAccountsRequestCurrent,
   releaseSwapTokenListFetchEffectKey,
 } from './useSwapTokens.utils';
 
@@ -70,8 +71,10 @@ const swapSupportAllAccountsCache = new LRUCache<
   string,
   IAllNetworkAccountInfo[]
 >({ max: 20 });
+let swapSupportAllAccountsCacheGeneration = 0;
 
 appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, () => {
+  swapSupportAllAccountsCacheGeneration += 1;
   swapSupportAllAccountsCache.clear();
 });
 
@@ -157,6 +160,7 @@ export function useSwapTokenList(
 
   useEffect(() => {
     let isCancelled = false;
+    const requestGeneration = swapSupportAllAccountsCacheGeneration;
     void (async () => {
       try {
         const { swapSupportAccounts } =
@@ -165,7 +169,13 @@ export function useSwapTokenList(
             otherWalletTypeAccountId,
             swapSupportNetworks: swapSupportAllNetworks,
           });
-        if (!isCancelled) {
+        if (
+          isSwapSupportAllAccountsRequestCurrent({
+            isCancelled,
+            requestGeneration,
+            currentGeneration: swapSupportAllAccountsCacheGeneration,
+          })
+        ) {
           swapSupportAllAccountsCache.set(
             swapSupportAllAccountsRequestKey,
             swapSupportAccounts,
@@ -181,7 +191,11 @@ export function useSwapTokenList(
         }
       } catch {
         if (
-          !isCancelled &&
+          isSwapSupportAllAccountsRequestCurrent({
+            isCancelled,
+            requestGeneration,
+            currentGeneration: swapSupportAllAccountsCacheGeneration,
+          }) &&
           swapSupportAllAccountsCache.get(
             swapSupportAllAccountsReadCacheKey,
           ) === undefined
