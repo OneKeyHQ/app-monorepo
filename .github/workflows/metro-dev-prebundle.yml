@@ -8,27 +8,39 @@ on:
   schedule:
     - cron: '0 18 * * 0'
   workflow_dispatch:
+    inputs:
+      publish_test:
+        description: Publish and verify an isolated ci-* GHCR tag
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: metro-dev-prebundle-x
+  group: metro-dev-prebundle-${{ github.ref }}
   cancel-in-progress: true
 
 permissions: {}
 
 env:
+  OCI_ARTIFACT_TYPE: application/vnd.onekey.metro-dev-prebundle.v2
+  OCI_REGISTRY: ghcr.io
+  OCI_REPOSITORY: onekeyhq/metro-dev-prebundle
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
   resolve:
-    name: Resolve public prebundle
-    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    name: Resolve public OCI prebundle
+    if: >-
+      github.repository == 'OneKeyHQ/app-monorepo' &&
+      (github.ref == 'refs/heads/x' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
+      packages: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      exists: ${{ steps.release.outputs.exists }}
-      tag: ${{ steps.release.outputs.tag }}
+      exists: ${{ steps.artifact.outputs.exists }}
+      tag: ${{ steps.artifact.outputs.tag }}
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -39,42 +51,73 @@ jobs:
           node-version: 24.x
           check-latest: true
 
-      - name: Resolve immutable release tag
-        id: release
+      - name: Verify OCI configuration
+        run: |
+          node <<'NODE'
+          const config = require('./apps/mobile/dev-vendor.config');
+          const expected = {
+            OCI_ARTIFACT_TYPE: config.OCI_ARTIFACT_TYPE,
+            OCI_REGISTRY: config.OCI_REGISTRY,
+            OCI_REPOSITORY: config.OCI_REPOSITORY,
+          };
+          for (const [name, value] of Object.entries(expected)) {
+            if (process.env[name] !== value) {
+              throw new Error(`${name} does not match dev-vendor.config.js.`);
+            }
+          }
+          NODE
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+        with:
+          version: 1.3.1
+
+      - name: Log in to GHCR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$GHCR_TOKEN" |
+          oras login "$OCI_REGISTRY"
+          --username "$GITHUB_ACTOR"
+          --password-stdin
+
+      - name: Resolve immutable OCI tag
+        id: artifact
         run: |
           set -euo pipefail
           tag="$(node apps/mobile/scripts/metro-dev-prebundle.js tag)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          release_is_draft="$(gh api --paginate \
-            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq ".[] | select(.tag_name == \"$tag\") | .draft")"
-          if [[ "$release_is_draft" == "false" ]]; then
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$tag"
+          if descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Prebundle release already exists: $tag"
+            echo "Prebundle OCI artifact already exists: $reference"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            if [[ "$release_is_draft" == "true" ]]; then
-              echo "A draft prebundle release will be resumed: $tag"
+            if grep -Eiq 'manifest unknown|not found' <<< "$descriptor"; then
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+            else
+              printf '%s\n' "$descriptor" >&2
+              exit 1
             fi
           fi
 
       - name: Write resolve summary
         env:
-          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_EXISTS: ${{ steps.artifact.outputs.exists }}
+          RELEASE_TAG: ${{ steps.artifact.outputs.tag }}
         run: |
           {
             echo "### Metro dev prebundle"
             echo "- Tag: \`$RELEASE_TAG\`"
             echo "- Already existed: \`$RELEASE_EXISTS\`"
+            echo "- Registry: \`$OCI_REGISTRY/$OCI_REPOSITORY\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build public prebundle
     needs: resolve
-    if: needs.resolve.outputs.exists != 'true'
+    if: >-
+      needs.resolve.outputs.exists != 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_test)
     permissions:
       contents: read
       packages: read
@@ -121,24 +164,31 @@ jobs:
           compression-level: 0
 
   publish:
-    name: Publish public prebundle
+    name: Publish public OCI prebundle
     needs:
       - resolve
       - build
-    if: needs.resolve.outputs.exists != 'true' && needs.build.result == 'success'
+    if: >-
+      needs.build.result == 'success' &&
+      ((github.ref == 'refs/heads/x' && needs.resolve.outputs.exists != 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_test))
     permissions:
       actions: read
       attestations: write
-      contents: write
+      contents: read
       id-token: write
-    env:
-      GH_REPO: ${{ github.repository }}
+      packages: write
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Checkout trust policy
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install ORAS
+        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+        with:
+          version: 1.3.1
 
       - name: Download prebundle release assets
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -172,17 +222,22 @@ jobs:
       - name: Verify generated provenance offline
         env:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          PUBLISH_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_test }}
         run: |
           set -euo pipefail
           release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
           trusted_root="apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl"
+          source_ref="refs/heads/x"
+          if [[ "$PUBLISH_TEST" == "true" ]]; then
+            source_ref="$GITHUB_REF"
+          fi
           for asset in "$release_dir"/*; do
             gh attestation verify "$asset" \
               --repo "$GITHUB_REPOSITORY" \
               --bundle "$ATTESTATION_BUNDLE" \
               --custom-trusted-root "$trusted_root" \
               --signer-workflow "OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml" \
-              --source-ref "refs/heads/x" \
+              --source-ref "$source_ref" \
               --source-digest "$GITHUB_SHA" \
               --deny-self-hosted-runners
           done
@@ -190,46 +245,108 @@ jobs:
             "$release_dir/metro-dev-prebundle-attestations.jsonl"
           test -s "$release_dir/metro-dev-prebundle-attestations.jsonl"
 
-      - name: Publish pre-release
+      - name: Log in to GHCR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$GHCR_TOKEN" |
+          oras login "$OCI_REGISTRY"
+          --username "$GITHUB_ACTOR"
+          --password-stdin
+
+      - name: Publish OCI artifact
+        id: publish
+        env:
+          PUBLISH_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_test }}
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
           release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
-          release_title="Metro dev prebundle ${RELEASE_TAG##*-}"
-          release_notes="Public development prebundle for compatible iOS and Android Metro builds. Assets include generated third-party notices and GitHub build provenance attestations."
-          release_is_draft="$(gh api --paginate \
-            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .draft")"
-          if [[ "$release_is_draft" == "false" ]]; then
-            echo "Prebundle release was published by another run: $RELEASE_TAG"
-          else
-            if [[ "$release_is_draft" != "true" ]]; then
-              gh release create "$RELEASE_TAG" \
-                --draft \
-                --target "$GITHUB_SHA" \
-                --title "$release_title" \
-                --notes "$release_notes" \
-                --prerelease \
-                --latest=false
-            fi
-            gh release upload "$RELEASE_TAG" "$release_dir"/* --clobber
-            gh release edit "$RELEASE_TAG" \
-              --draft=false \
-              --latest=false \
-              --notes "$release_notes" \
-              --prerelease \
-              --target "$GITHUB_SHA" \
-              --title "$release_title"
+          publish_tag="$RELEASE_TAG"
+          if [[ "$PUBLISH_TEST" == "true" ]]; then
+            publish_tag="ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           fi
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$publish_tag"
+          if oras manifest fetch --descriptor "$reference" > /tmp/metro-prebundle-descriptor.json 2>/dev/null; then
+            echo "Prebundle OCI artifact was published by another run: $reference"
+          else
+            (
+              cd "$release_dir"
+              oras push \
+                --artifact-type "$OCI_ARTIFACT_TYPE" \
+                --annotation "org.opencontainers.image.description=Public Metro development prebundle for compatible iOS and Android builds" \
+                --annotation "org.opencontainers.image.revision=$GITHUB_SHA" \
+                --annotation "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+                --annotation "org.opencontainers.image.version=$publish_tag" \
+                "$reference" \
+                "THIRD_PARTY_NOTICES.txt:text/plain" \
+                "metro-dev-prebundle-packages.json:application/vnd.onekey.metro-dev-prebundle.metadata.v2+json" \
+                "metro-dev-prebundle-release.json:application/vnd.onekey.metro-dev-prebundle.metadata.v2+json" \
+                "metro-dev-prebundle-attestations.jsonl:application/vnd.onekey.metro-dev-prebundle.attestation.v2+jsonl" \
+                "metro-dev-prebundle-ios-common.js.gz:application/vnd.onekey.metro-dev-prebundle.layer.v2+gzip" \
+                "metro-dev-prebundle-ios-common.hbc.gz:application/vnd.onekey.metro-dev-prebundle.layer.v2+gzip" \
+                "metro-dev-prebundle-ios-manifest.json:application/vnd.onekey.metro-dev-prebundle.metadata.v2+json" \
+                "metro-dev-prebundle-android-common.js.gz:application/vnd.onekey.metro-dev-prebundle.layer.v2+gzip" \
+                "metro-dev-prebundle-android-common.hbc.gz:application/vnd.onekey.metro-dev-prebundle.layer.v2+gzip" \
+                "metro-dev-prebundle-android-manifest.json:application/vnd.onekey.metro-dev-prebundle.metadata.v2+json"
+            )
+            oras manifest fetch --descriptor "$reference" > /tmp/metro-prebundle-descriptor.json
+          fi
+          digest="$(jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))' /tmp/metro-prebundle-descriptor.json)"
+          {
+            echo "digest=$digest"
+            echo "reference=$reference"
+            echo "tag=$publish_tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify published OCI artifact
+        env:
+          OCI_REFERENCE: ${{ steps.publish.outputs.reference }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          manifest_path="$RUNNER_TEMP/metro-prebundle-oci-manifest.json"
+          verify_dir="$RUNNER_TEMP/metro-prebundle-oci-pull"
+          oras manifest fetch "$OCI_REFERENCE" > "$manifest_path"
+          jq -e \
+            --arg artifact_type "$OCI_ARTIFACT_TYPE" \
+            --arg revision "$GITHUB_SHA" \
+            --arg source "https://github.com/$GITHUB_REPOSITORY" \
+            '
+              .schemaVersion == 2 and
+              .mediaType == "application/vnd.oci.image.manifest.v1+json" and
+              .artifactType == $artifact_type and
+              .annotations["org.opencontainers.image.revision"] == $revision and
+              .annotations["org.opencontainers.image.source"] == $source and
+              ([.layers[].annotations["org.opencontainers.image.title"]] | sort) ==
+                ([
+                  "THIRD_PARTY_NOTICES.txt",
+                  "metro-dev-prebundle-packages.json",
+                  "metro-dev-prebundle-release.json",
+                  "metro-dev-prebundle-attestations.jsonl",
+                  "metro-dev-prebundle-ios-common.js.gz",
+                  "metro-dev-prebundle-ios-common.hbc.gz",
+                  "metro-dev-prebundle-ios-manifest.json",
+                  "metro-dev-prebundle-android-common.js.gz",
+                  "metro-dev-prebundle-android-common.hbc.gz",
+                  "metro-dev-prebundle-android-manifest.json"
+                ] | sort)
+            ' "$manifest_path"
+          oras pull --output "$verify_dir" "$OCI_REFERENCE"
+          for asset in "$release_dir"/*; do
+            cmp "$asset" "$verify_dir/$(basename "$asset")"
+          done
 
       - name: Write publish summary
         env:
-          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          OCI_DIGEST: ${{ steps.publish.outputs.digest }}
+          OCI_REFERENCE: ${{ steps.publish.outputs.reference }}
+          RELEASE_TAG: ${{ steps.publish.outputs.tag }}
         run: |
           {
             echo "### Metro dev prebundle"
             echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- OCI reference: \`$OCI_REFERENCE\`"
+            echo "- OCI digest: \`$OCI_DIGEST\`"
             echo "- Published: \`true\`"
           } >> "$GITHUB_STEP_SUMMARY"
