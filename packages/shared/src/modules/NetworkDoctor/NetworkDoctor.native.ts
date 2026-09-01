@@ -11,7 +11,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import axios from 'axios';
-import { NetworkInfo } from 'react-native-network-info';
+import { Platform } from 'react-native';
 import {
   clearRequests,
   getRequests,
@@ -52,6 +52,13 @@ import type {
   ITcpConnectionResult,
   ITlsHandshakeResult,
 } from './types';
+
+type INetworkInfoModule = typeof import('react-native-network-info');
+
+const NetworkInfo: INetworkInfoModule['NetworkInfo'] | undefined =
+  Platform.OS === 'ios' && Platform.isMacCatalyst
+    ? undefined
+    : (require('react-native-network-info') as INetworkInfoModule).NetworkInfo;
 
 export class NetworkDoctor {
   private config: IMergedConfig;
@@ -365,6 +372,14 @@ export class NetworkDoctor {
 
   private async testNetworkEnv(): Promise<INetworkEnvironment> {
     try {
+      if (!NetworkInfo) {
+        return {
+          ipAddress: null,
+          gateway: null,
+          subnet: null,
+          broadcast: null,
+        };
+      }
       const [ipAddress, gateway, subnet, broadcast] = await Promise.all([
         NetworkInfo.getIPAddress(),
         NetworkInfo.getGatewayIPAddress(),

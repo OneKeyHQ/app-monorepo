@@ -162,6 +162,10 @@ target 'OneKeyWallet' do
     main_group = user_project.main_group.find_subpath('OneKeyWallet', false)
     fonts_group = main_group.find_subpath('Fonts', false) || main_group.new_group('Fonts', 'OneKeyWallet/Fonts')
 
+    main_target.build_configurations.each do |build_configuration|
+      build_configuration.build_settings['SUPPORTS_MACCATALYST'] = mac_catalyst_enabled ? 'YES' : 'NO'
+    end
+
     font_files.each do |f|
       next if fonts_group.files.any? { |ref| ref.path == f }
       file_ref = fonts_group.new_file(f)
