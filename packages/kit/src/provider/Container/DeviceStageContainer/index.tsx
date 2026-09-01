@@ -5,7 +5,10 @@ import { Keyboard } from 'react-native';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type { IDeviceStageStep } from '@onekeyhq/components/src/composite/DeviceStage';
-import type { IDeviceStageVendor } from '@onekeyhq/components/src/composite/DeviceStage/type';
+import type {
+  IDeviceStageConnectionType,
+  IDeviceStageVendor,
+} from '@onekeyhq/components/src/composite/DeviceStage/type';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -18,6 +21,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
@@ -97,6 +102,18 @@ function DeviceStageContainerCmp() {
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
+
+  // Channel badge (design hard rule: BLE waits must declare the channel).
+  // Same source and formula as the legacy CommonDeviceLoading dialog: the
+  // persisted transport type is written back on every SDK transport commit,
+  // so it names the channel the current call runs on — native is BLE-only,
+  // web/ext transports are all USB-class, only desktop Mac/Win can flip.
+  const connectionType: IDeviceStageConnectionType =
+    platformEnv.isNative ||
+    (platformEnv.isSupportDesktopBle &&
+      settings.hardwareTransportType === EHardwareTransportType.DesktopWebBle)
+      ? 'bluetooth'
+      : 'usb';
 
   // Close grant: armed per burst, sticky until the burst leaves. The
   // authenticity flow arms at once; so does the error outcome — its
@@ -402,6 +419,7 @@ function DeviceStageContainerCmp() {
       step={step}
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceName={stage?.deviceName}
+      connectionType={connectionType}
       vendor={toStageVendor(stage?.vendor)}
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}
