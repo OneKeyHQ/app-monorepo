@@ -6,6 +6,7 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -44,28 +45,6 @@ export function useMarketTopCoins() {
   );
   const data = result?.list ?? EMPTY_MARKET_ASSET_LIST;
 
-  const navigateToFallbackDetail = useCallback(
-    async (item: IMarketAssetListItem) => {
-      await toMarketDetailPage({
-        address: item.assetId,
-        change24h: toFiniteNumber(item.priceChange24hPercent),
-        decimals: 0,
-        disableTrade: true,
-        marketCap: toFiniteNumber(item.marketCap),
-        name: item.symbol.toUpperCase(),
-        networkId: 'coingecko',
-        price: toFiniteNumber(item.price),
-        showFavoriteButton: false,
-        skipMarketDataFetch: true,
-        symbol: item.symbol.toUpperCase(),
-        tokenAddress: item.assetId,
-        tokenImageUri: item.logoUrl,
-        turnover: toFiniteNumber(item.volume24h),
-      });
-    },
-    [toMarketDetailPage],
-  );
-
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
       if (isNavigatingRef.current) {
@@ -73,29 +52,23 @@ export function useMarketTopCoins() {
       }
       isNavigatingRef.current = true;
       try {
-        let detail: Awaited<
-          ReturnType<
-            typeof backgroundApiProxy.serviceMarket.fetchMarketAssetDetail
-          >
-        >;
-        try {
-          detail =
-            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-              assetId: item.assetId,
-              currency: 'usd',
-            });
-        } catch (_error) {
-          await navigateToFallbackDetail(item);
-          return;
-        }
+        const detail =
+          await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+            assetId: item.assetId,
+            currency: 'usd',
+          });
         const { asset, market, selectedVariant } = detail;
-        if (!selectedVariant?.networkId) {
-          await navigateToFallbackDetail(item);
-          return;
+        const networkInfo = selectedVariant?.networkId
+          ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)
+          : undefined;
+        const hasTokenIdentity = Boolean(
+          selectedVariant?.isNative || selectedVariant?.tokenAddress,
+        );
+        if (!networkInfo || !hasTokenIdentity) {
+          throw new OneKeyLocalError('Invalid market asset variant');
         }
         const decimals = selectedVariant.isNative
-          ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)
-              ?.decimals
+          ? networkInfo.decimals
           : undefined;
         await toMarketDetailPage({
           address: selectedVariant.tokenAddress,
@@ -122,7 +95,7 @@ export function useMarketTopCoins() {
         isNavigatingRef.current = false;
       }
     },
-    [intl, navigateToFallbackDetail, toMarketDetailPage],
+    [intl, toMarketDetailPage],
   );
 
   return {

@@ -141,7 +141,7 @@ describe('useMarketTopCoins', () => {
     });
   });
 
-  it('falls back to a synthetic detail route when lookup fails', async () => {
+  it('reports a detail lookup failure without opening a CoinGecko route', async () => {
     const { result } = renderHook(() => useMarketTopCoins());
 
     await act(async () => {
@@ -150,27 +150,44 @@ describe('useMarketTopCoins', () => {
     });
 
     expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(2);
-    expect(mockToMarketDetailPage).toHaveBeenCalledTimes(2);
-    expect(mockToMarketDetailPage).toHaveBeenLastCalledWith({
-      address: 'btc',
-      change24h: 1,
-      decimals: 0,
-      disableTrade: true,
-      marketCap: 2_000_000,
-      name: 'BTC',
-      networkId: 'coingecko',
-      price: 100_000,
-      showFavoriteButton: false,
-      skipMarketDataFetch: true,
-      symbol: 'BTC',
-      tokenAddress: 'btc',
-      tokenImageUri: 'https://example.com/btc.png',
-      turnover: 1_000_000,
+    expect(mockToMarketDetailPage).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    {
+      name: 'a non-native variant without a token address',
+      selectedVariant: {
+        ...bitcoinDetail.selectedVariant,
+        tokenAddress: '',
+      },
+    },
+    {
+      name: 'a variant with an unknown network',
+      selectedVariant: {
+        ...bitcoinDetail.selectedVariant,
+        networkId: 'unknown--network',
+      },
+    },
+  ])('rejects $name', async ({ selectedVariant }) => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce({
+      ...bitcoinDetail,
+      selectedVariant,
     });
-    expect(Toast.error).not.toHaveBeenCalled();
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(mockToMarketDetailPage).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.global_an_error_occurred,
+    });
   });
 
   it('reports a navigation failure and releases the navigation guard', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValue(bitcoinDetail);
     mockToMarketDetailPage
       .mockRejectedValueOnce(new Error('navigation unavailable'))
       .mockResolvedValueOnce(undefined);
