@@ -16,7 +16,7 @@ import type { IDeviceScreenAnimation } from '../deviceSceneHost';
  * the canvas: a 651-wide white body plus the power tab on the right
  * edge). The chrome — body, edge vignette, top lights and bottom
  * shadows, the embossed direction-key dots and the power tab — ships as
- * a pre-baked bitmap (shell@2x/@3x, exported straight from the Figma
+ * a pre-baked bitmap (shell-mini@2x/@3x, exported straight from the Figma
  * frame at 280pt, the stage's largest rendering). Only the screen stays
  * code: its content is dynamic and its cutout provides the clip.
  *
@@ -61,7 +61,9 @@ export const MINI_DEVICE_SCREEN_ON: IMiniDeviceAnimation = {
   screenContent: SCREEN_ON_VALUE,
 };
 
-const SHELL_SOURCE = require('./shell.png');
+// The model suffix keeps the filename unique: webpack/rspack dev emits
+// assets as bare [name].[ext], where same-named files overwrite each other.
+const SHELL_SOURCE = require('./shell-mini.png');
 
 const styles = StyleSheet.create({
   frame: {
