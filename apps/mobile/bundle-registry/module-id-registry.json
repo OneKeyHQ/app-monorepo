@@ -22085,6 +22085,7 @@
     "packages/kit/src/views/Prime/hooks/getPrimePaymentApiKey.ts": 6103,
     "packages/kit/src/views/Prime/hooks/primeInfiniExternalCheckoutGuard.ts": 6104,
     "packages/kit/src/views/Prime/hooks/primeInfiniPaymentDisplaySnapshot.ts": 6105,
+    "packages/kit/src/views/Prime/hooks/primeInfiniPaymentNavigation.ts": 7931,
     "packages/kit/src/views/Prime/hooks/primeInfiniPaymentReload.ts": 6106,
     "packages/kit/src/views/Prime/hooks/primeInfiniPaymentReplacement.ts": 6107,
     "packages/kit/src/views/Prime/hooks/primeInfiniPaymentRestore.ts": 6108,
