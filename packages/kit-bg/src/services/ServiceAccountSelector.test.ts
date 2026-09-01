@@ -1,5 +1,8 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_IMPORTED,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceAccountSelector from './ServiceAccountSelector';
@@ -86,6 +89,92 @@ const evmNetworkAccount = {
   address: '0x9403a0ec47a062f82d2ac402394eecb61a030d57',
 } as INetworkAccount;
 
+const HD_WALLET_ID = 'hd-1';
+const HD_INDEXED_ACCOUNT_ID = `${HD_WALLET_ID}--0`;
+const allNetworksMockAccount = {
+  id: `${HD_WALLET_ID}--0000/0`,
+  indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+  name: 'Account #1',
+  impl: 'all',
+  address: 'all-network-mock-address',
+} as INetworkAccount;
+
+function buildAllNetworksService({
+  accounts,
+  walletOverrides,
+}: {
+  accounts: IDBAccount[];
+  walletOverrides?: Partial<IDBWallet>;
+}) {
+  const allNetworkId = getNetworkIdsMap().onekeyall;
+  const getAccountsInSameIndexedAccountId = jest.fn(async () => ({
+    accounts,
+    allDbAccounts: accounts,
+  }));
+  const getDbAccountIdFromIndexedAccountId = jest.fn(
+    async () => allNetworksMockAccount.id,
+  );
+  const getNetworkAccount = jest.fn(async () => allNetworksMockAccount);
+  const getMockedAllNetworkAccount = jest.fn(
+    async () => allNetworksMockAccount,
+  );
+  const service = new ServiceAccountSelector({
+    backgroundApi: {
+      serviceAccount: {
+        getWallet: jest.fn(
+          async () =>
+            ({
+              id: HD_WALLET_ID,
+              name: 'HD Wallet',
+              type: WALLET_TYPE_HD,
+              ...walletOverrides,
+            }) as IDBWallet,
+        ),
+        getIndexedAccount: jest.fn(async () => ({
+          id: HD_INDEXED_ACCOUNT_ID,
+          name: 'Account #1',
+          index: 0,
+        })),
+        getDbAccountIdFromIndexedAccountId,
+        getNetworkAccount,
+        getMockedAllNetworkAccount,
+        getAccountsInSameIndexedAccountId,
+        isTempWalletRemoved: jest.fn(async () => false),
+      },
+      serviceNetwork: {
+        getNetwork: jest.fn(async () => ({
+          id: allNetworkId,
+          name: 'All networks',
+          isAllNetworks: true,
+        })),
+        getDeriveInfoOfNetwork: jest.fn(async () => ({
+          label: 'Default',
+          value: 'default',
+        })),
+        getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+      },
+    },
+  });
+
+  const selectedAccount: IAccountSelectorSelectedAccount = {
+    walletId: HD_WALLET_ID,
+    focusedWallet: HD_WALLET_ID,
+    networkId: allNetworkId,
+    indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+    deriveType: 'default',
+    othersWalletAccountId: undefined,
+  };
+
+  return {
+    service,
+    selectedAccount,
+    getAccountsInSameIndexedAccountId,
+    getDbAccountIdFromIndexedAccountId,
+    getNetworkAccount,
+    getMockedAllNetworkAccount,
+  };
+}
+
 function buildService({
   homeSelectedAccount,
 }: {
@@ -115,6 +204,104 @@ function buildService({
 }
 
 describe('ServiceAccountSelector', () => {
+  it('does not expose an all-networks mock account when the indexed account has no chain addresses', async () => {
+    const {
+      service,
+      selectedAccount,
+      getAccountsInSameIndexedAccountId,
+      getDbAccountIdFromIndexedAccountId,
+      getNetworkAccount,
+      getMockedAllNetworkAccount,
+    } = buildAllNetworksService({ accounts: [] });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(getAccountsInSameIndexedAccountId).toHaveBeenCalledWith({
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+    });
+    expect(result.activeAccount.account).toBeUndefined();
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+    expect(getDbAccountIdFromIndexedAccountId).not.toHaveBeenCalled();
+    expect(getNetworkAccount).not.toHaveBeenCalled();
+    expect(getMockedAllNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('keeps the all-networks mock account when at least one chain address exists', async () => {
+    const dbAccount = {
+      id: `${HD_WALLET_ID}--60--0`,
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+      name: 'Account #1',
+      impl: 'evm',
+      address: '0x1234',
+    } as IDBAccount;
+    const {
+      service,
+      selectedAccount,
+      getDbAccountIdFromIndexedAccountId,
+      getNetworkAccount,
+      getMockedAllNetworkAccount,
+    } = buildAllNetworksService({ accounts: [dbAccount] });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(result.activeAccount.account).toBe(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+    expect(getDbAccountIdFromIndexedAccountId).not.toHaveBeenCalled();
+    expect(getNetworkAccount).not.toHaveBeenCalled();
+    expect(getMockedAllNetworkAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the all-networks mock account for a Cosmos variant address', async () => {
+    const cosmosNetworkId = getNetworkIdsMap().cosmoshub;
+    const dbAccount = {
+      id: `${HD_WALLET_ID}--118--0`,
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+      name: 'Account #1',
+      impl: 'cosmos',
+      address: '',
+      addresses: {
+        [cosmosNetworkId]: 'cosmos1variantaddress',
+      },
+    } as IDBAccount;
+    const { service, selectedAccount } = buildAllNetworksService({
+      accounts: [dbAccount],
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(result.activeAccount.account).toBe(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+  });
+
+  it('preserves the all-networks mock account for a deprecated wallet', async () => {
+    const {
+      service,
+      selectedAccount,
+      getAccountsInSameIndexedAccountId,
+      getNetworkAccount,
+      getMockedAllNetworkAccount,
+    } = buildAllNetworksService({
+      accounts: [],
+      walletOverrides: { deprecated: true },
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(result.activeAccount.account).toBe(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(false);
+    expect(getNetworkAccount).toHaveBeenCalledTimes(1);
+    expect(getAccountsInSameIndexedAccountId).not.toHaveBeenCalled();
+    expect(getMockedAllNetworkAccount).not.toHaveBeenCalled();
+  });
+
   it('normalizes imported account network pairs when merging home data into swap map', async () => {
     const service = buildService({
       homeSelectedAccount: {

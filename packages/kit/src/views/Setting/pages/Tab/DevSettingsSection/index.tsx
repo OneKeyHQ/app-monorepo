@@ -2103,6 +2103,7 @@ const BaseDevSettingsSection = () => {
                         icon="LockOutline"
                         title="Clear Cached Password"
                         subtitle="清除缓存密码"
+                        testID="clear-cached-password"
                         onPress={async () => {
                           await backgroundApiProxy.servicePassword.clearCachedPassword();
                           Toast.success({
