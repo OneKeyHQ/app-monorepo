@@ -255,3 +255,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
 **Fix**: Only trust a nested management URL when the same row declares a non-Infini, non-redemption channel. Channel-less rows stay on the Infini probe / unsupported toast path.
 **Catchable by**: Section 4: Edge cases — a URL without a declared channel is not a management portal
+
+## Case: Settings dApp Connection opened a second Bottom Sheet
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: Tapping dApp 连接 from Settings stacked a second Bottom Sheet on top of the settings sheet (OK-61439).
+**Root Cause**: The settings entry used `pushModal(DAppConnectionModal)` instead of in-stack `push()` like sibling pages.
+**Fix**: Added `SettingDAppConnectionList` to the SettingModal stack and changed the entry to `navigation.push`.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (settings entries that open a page should use the same stack as siblings)
+
+## Case: Protection Prime badge misaligned on mobile
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: The Prime badge on 收款风险监控 sat between subtitle and switch, aligned with neither (OK-61456).
+**Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
+**Fix**: Render the badge in `ListItem.Text` primary via an `XStack` with the title.
+**Catchable by**: Section 3: UI changes verified on mobile — trailing children of a two-line ListItem do not vertically align with the title

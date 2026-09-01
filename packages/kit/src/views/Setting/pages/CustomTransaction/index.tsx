@@ -20,6 +20,8 @@ import {
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 function CustomTxDataLearnMoreButton({
   closeDialogAfterClick = true,
   openLinkInApp = true,
@@ -70,7 +72,7 @@ function CustomTransaction() {
           id: ETranslations.global_customize_transaction,
         })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <YStack gap="$6">
           <YStack>
             <ListItem
