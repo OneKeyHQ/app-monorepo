@@ -20,6 +20,8 @@ import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
 
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
+
 import { useGetSignatureSections } from './hooks';
 
 const getConnectedSiteTitle = (url: string) => {
@@ -31,7 +33,7 @@ const getConnectedSiteTitle = (url: string) => {
 };
 
 const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
-  <Stack px="$5" pb="$3">
+  <Stack px={SETTINGS_PAGE_CONTENT_PADDING_X} pb="$3">
     <YStack
       borderWidth={StyleSheet.hairlineWidth}
       borderRadius="$3"
@@ -117,6 +119,7 @@ export const ConnectedSites = () => {
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
         <SectionList.SectionHeader
+          px={SETTINGS_PAGE_CONTENT_PADDING_X}
           title={(section as ISectionListData).title}
         />
       )}
