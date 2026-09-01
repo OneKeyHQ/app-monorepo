@@ -7072,7 +7072,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           supportsSoftwarePin: profile.supportsSoftwarePin,
         })
       : {
-          inputPinOnSoftware: profile.supportsSoftwarePin,
+          // No stored PIN-entry preference at creation: the REQUEST_PIN
+          // gate defaults to on-device, and `true` is reserved for an
+          // explicit opt-in back to app entry (OK-61489).
           vendor: resolvedVendor,
         };
 
@@ -7234,9 +7236,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   supportsSoftwarePin: profile.supportsSoftwarePin,
                 });
               } else {
-                existingSettings.inputPinOnSoftware =
-                  existingSettings.inputPinOnSoftware ??
-                  profile.supportsSoftwarePin;
+                // Never backfill inputPinOnSoftware: unset means the
+                // on-device default, `true` is an explicit opt-in.
                 existingSettings.vendor = resolvedVendor;
               }
               item.settingsRaw = JSON.stringify(existingSettings);
