@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
@@ -21,6 +22,7 @@ export function useBorrowReserveDetailData({
   reserveAddress: string;
 }) {
   const normalizedAccountId = accountId?.trim() || undefined;
+  const currencyInfo = useCurrency();
   const {
     earnAccount,
     refreshAccount,
@@ -32,21 +34,34 @@ export function useBorrowReserveDetailData({
   });
 
   const {
-    result: details,
+    result: detailResult,
     isLoading: isDetailLoading,
     run,
   } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
+    async () => ({
+      details: await backgroundApiProxy.serviceStaking.getBorrowReserveDetails({
         networkId,
         provider,
         marketAddress,
         reserveAddress,
         ...(normalizedAccountId ? { accountId: normalizedAccountId } : {}),
       }),
-    [networkId, provider, marketAddress, reserveAddress, normalizedAccountId],
+      currencyId: currencyInfo.id,
+    }),
+    [
+      networkId,
+      provider,
+      marketAddress,
+      reserveAddress,
+      normalizedAccountId,
+      currencyInfo.id,
+    ],
     { watchLoading: true, revalidateOnFocus: true },
   );
+
+  const isCurrencyStale =
+    detailResult !== undefined && detailResult.currencyId !== currencyInfo.id;
+  const details = isCurrencyStale ? undefined : detailResult?.details;
 
   const userInfo = useMemo<IBorrowReserveDetail['userInfo'] | undefined>(
     () => details?.userInfo,
@@ -59,7 +74,8 @@ export function useBorrowReserveDetailData({
     userInfo,
     isLoading:
       (normalizedAccountId || indexedAccountId ? isAccountLoading : false) ||
-      isDetailLoading,
+      isDetailLoading ||
+      isCurrencyStale,
     refreshData: run,
     refreshAccount,
   };

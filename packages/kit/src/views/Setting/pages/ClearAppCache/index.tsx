@@ -18,6 +18,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 import { confirmClearOneKeyIdCache } from './confirmClearOneKeyIdCache';
 
 export default function ClearAppCache() {
@@ -51,8 +53,8 @@ export default function ClearAppCache() {
           id: ETranslations.settings_clear_cache_on_app,
         })}
       />
-      <Page.Body>
-        <Stack px="$6">
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
+        <Stack px="$5">
           <Form form={form}>
             <YStack>
               {platformEnv.isWebDappMode ? null : (

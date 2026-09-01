@@ -1,8 +1,20 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 export type ISettingsSectionPresentation = 'flat' | 'mobile' | 'tab';
 
 export const SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE = {
-  marginStart: 0,
+  marginStart: 4,
 } as const;
+
+export const SETTINGS_PAGE_CONTENT_PADDING_X = platformEnv.isNative
+  ? '$5'
+  : '$6';
+
+// Raw Settings lists already own a 20px row inset. Web renderers add the
+// remaining 4px at the page body; native keeps the platform-standard 20px.
+export const SETTINGS_PAGE_BODY_INSET_X = platformEnv.isNative
+  ? undefined
+  : '$1';
 
 export function resolveSettingsSectionPresentation({
   isMobileLayout,
