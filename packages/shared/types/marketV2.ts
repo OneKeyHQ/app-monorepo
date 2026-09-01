@@ -305,6 +305,7 @@ export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields 
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stockId?: string;
   stock?: IMarketStockInfo;
 }
 

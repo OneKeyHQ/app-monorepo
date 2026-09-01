@@ -116,7 +116,7 @@ describe('useToDetailPage', () => {
     });
   });
 
-  it('navigates stock items with stockId instead of chain identity', async () => {
+  it('navigates stock items by top-level stockId when stock metadata lacks a ticker', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -128,12 +128,12 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'aapl',
         disableTrade: true,
         showFavoriteButton: false,
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
-          underlyingAssetTicker: 'AAPL',
         },
       });
     });

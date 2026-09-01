@@ -297,6 +297,7 @@ export function transformApiItemToToken(
     sortIndex,
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
+    stockId: item.stockId,
     stock: item.stock,
     walletInfo: {
       buy: buyCount,
