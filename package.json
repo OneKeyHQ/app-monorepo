@@ -84,6 +84,8 @@
     "reinstall": "yarn clean && yarn install",
     "agent:check": "node development/scripts/agent-check.js",
     "agent:review-thread": "node development/scripts/agent-review-thread.js",
+    "check:third-party-async-storage": "yarn check:third-party-native-storage",
+    "check:third-party-native-storage": "node apps/mobile/scripts/check-third-party-async-storage.js",
     "_tsc": "node ./development/lint/ts",
     "_lint": "node ./development/lint/eslint",
     "_electron": "node ./development/lint/electron",

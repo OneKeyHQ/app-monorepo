@@ -29,6 +29,7 @@ export enum EAppEventBusNames {
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
+  NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',

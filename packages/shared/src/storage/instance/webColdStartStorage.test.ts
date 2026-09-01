@@ -113,7 +113,7 @@ describe('ISyncStorage facade coercion', () => {
     const s = mod.createWebColdStartStorage();
 
     // s.set('', ...) → safeSet stores '' via the empty-coalescing branch.
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, '');
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, '');
     expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       false,
     );
@@ -121,17 +121,17 @@ describe('ISyncStorage facade coercion', () => {
       s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker),
     ).toBeUndefined();
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, true);
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, true);
     expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       true,
     );
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, false);
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, false);
     expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       false,
     );
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 1);
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 1);
     expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       true,
     );
@@ -139,7 +139,7 @@ describe('ISyncStorage facade coercion', () => {
       1,
     );
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 0);
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 0);
     expect(s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       false,
     );
@@ -147,7 +147,7 @@ describe('ISyncStorage facade coercion', () => {
       0,
     );
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 42);
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 42);
     expect(s.getNumber(EAppSyncStorageKeys.onekey_debug_render_tracker)).toBe(
       42,
     );
@@ -156,7 +156,7 @@ describe('ISyncStorage facade coercion', () => {
       s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker),
     ).toBeUndefined();
 
-    s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 'banana');
+    void s.set(EAppSyncStorageKeys.onekey_debug_render_tracker, 'banana');
     expect(
       s.getBoolean(EAppSyncStorageKeys.onekey_debug_render_tracker),
     ).toBeUndefined();
@@ -613,7 +613,7 @@ describeIfIndexedDB('IDB-backed paths', () => {
       // These should all be dropped by the isClearing latch.
       mod.writeColdStartMeta('__meta:racy', 'should-be-rejected');
       const s = mod.createWebColdStartStorage();
-      s.set(
+      void s.set(
         EAppSyncStorageKeys.onekey_debug_render_tracker,
         'should-also-be-rejected',
       );

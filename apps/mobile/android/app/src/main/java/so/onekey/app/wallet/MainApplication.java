@@ -6,7 +6,6 @@ import android.app.Application;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
-import android.database.CursorWindow;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,6 +28,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
+import com.tencent.mmkv.MMKV;
 
 import cn.jiguang.plugins.push.JPushModule;
 import com.margelo.nitro.nativelogger.OneKeyLog;
@@ -43,13 +43,14 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.regex.Pattern;
 
 import org.json.JSONObject;
+
+import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 
 public class MainApplication extends Application implements ReactApplication {
 
@@ -458,7 +459,9 @@ public class MainApplication extends Application implements ReactApplication {
       }
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
-      manager.setReactPackages(new PackageList(this).getPackages());
+      List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
+      backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
+      manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();
       if (reactHost == null) {
@@ -607,6 +610,10 @@ public class MainApplication extends Application implements ReactApplication {
         return;
     }
 
+    // The migration bridge uses MMKV's Java wrapper, whose initialization
+    // state is separate from the Nitro C++ factory used by react-native-mmkv.
+    MMKV.initialize(this);
+
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");
@@ -623,14 +630,6 @@ public class MainApplication extends Application implements ReactApplication {
       }
     } catch (Exception ignored) {}
     OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
-
-    try {
-      Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
-      field.setAccessible(true);
-      field.set(null, 20 * 1024 * 1024);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
 
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
