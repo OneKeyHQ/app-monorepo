@@ -7,6 +7,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
+import { shouldEmitDeviceNotFoundDialogEvent } from '../../hardware/deviceStageOwnership';
 import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import {
@@ -775,8 +776,14 @@ export class DeviceNotFound extends OneKeyHardwareError {
       }),
     );
 
-    // Only trigger UI event if not in silent mode
-    if (!props?.silentMode) {
+    // Silent mode aside, the emit also stands down while a DeviceStage
+    // burst is active: the stage lands this failure itself (its
+    // deviceNotFound outcome), and an at-initiation failure fires here
+    // before the stage has painted — the UI-side gate alone would let the
+    // legacy dialog and the stage card double up (OK-59934).
+    if (
+      shouldEmitDeviceNotFoundDialogEvent({ silentMode: props?.silentMode })
+    ) {
       // Trigger global event to show hardware error dialog
       // This is a generic event that can be reused by other hardware errors
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
