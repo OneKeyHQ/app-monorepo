@@ -16,12 +16,15 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -102,6 +105,7 @@ function DeviceStageContainerCmp() {
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
+  const isVendorTrack = Boolean(stage?.vendor);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -130,7 +134,11 @@ function DeviceStageContainerCmp() {
     if (
       AUTH_STEPS.has(step) ||
       step === 'error' ||
-      step === 'passphraseIntro'
+      step === 'passphraseIntro' ||
+      // The OneKey Device-not-connected card is an outcome like `error`;
+      // the vendor variant is the adapter's live retry ask and keeps the
+      // ask timer.
+      (step === 'deviceNotFound' && !isVendorTrack)
     ) {
       setArmedBurstId(burstId);
       return undefined;
@@ -140,7 +148,7 @@ function DeviceStageContainerCmp() {
       WAIT_STEPS.has(step) ? CLOSE_ARM_WAIT_MS : CLOSE_ARM_ASK_MS,
     );
     return () => clearTimeout(timer);
-  }, [step, burstId, closable]);
+  }, [step, burstId, closable, isVendorTrack]);
 
   /** Third-party answer path: build the adapter UI response from the
    * original action the stage state carries. Best-effort — the demo
@@ -185,13 +193,15 @@ function DeviceStageContainerCmp() {
     }
     // On the error outcome the call is already over (the notice form's
     // self-exit also lands here); on the teach card nothing has started
-    // yet. Neither leaves anything on the device to cancel.
+    // yet; on the Device-not-connected card there is no device at all.
+    // None of them leaves anything on the device to cancel.
     void serviceHardwareUI.deviceStageUserClose({
       connectId: current?.connectId,
       skipDeviceCancel:
         Boolean(current?.vendor) ||
         current?.step === 'error' ||
-        current?.step === 'passphraseIntro',
+        current?.step === 'passphraseIntro' ||
+        current?.step === 'deviceNotFound',
     });
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
@@ -352,6 +362,16 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  // The OneKey-track Device-not-connected card mirrors the legacy dialog
+  // verbatim (doc §4.1): the same article, the same Intercom entry.
+  const handleDeviceNotFoundTroubleshoot = useCallback(() => {
+    openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
+  }, []);
+
+  const handleDeviceNotFoundSupport = useCallback(() => {
+    void showIntercom();
+  }, []);
+
   // Air-gap pair (doc §4.6): Next and the way back walk the two steps in
   // bg; the completed scan answers through ServiceQrWallet from inside
   // the viewfinder itself. The camera mounts only while the step is
@@ -481,7 +501,18 @@ function DeviceStageContainerCmp() {
       }
       onSwitchToDevice={handleSwitchToDevice}
       onPairingSubmit={handlePairingSubmit}
-      onDeviceNotFoundRetry={handleDeviceNotFoundRetry}
+      onDeviceNotFoundRetry={
+        // The vendor card is the adapter's live retry ask; the OneKey
+        // card is an outcome mirroring the legacy Device-not-connected
+        // dialog — two links, no retry (doc §4.1).
+        stage?.vendor ? handleDeviceNotFoundRetry : undefined
+      }
+      onDeviceNotFoundTroubleshoot={
+        stage?.vendor ? undefined : handleDeviceNotFoundTroubleshoot
+      }
+      onDeviceNotFoundSupport={
+        stage?.vendor ? undefined : handleDeviceNotFoundSupport
+      }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
       onInstallConfirm={handleInstallConfirm}
     />

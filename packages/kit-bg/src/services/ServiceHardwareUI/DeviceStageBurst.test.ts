@@ -5,6 +5,7 @@ import {
   pickErrorMessage,
   pickIdentityText,
   pickQrScoped,
+  resolveDeviceNotFoundLanding,
 } from './DeviceStageBurst';
 
 import type { IDeviceStageState } from '../../states/jotai/atoms';
@@ -97,6 +98,48 @@ describe('pickQrScoped', () => {
 
   it('never invents one outside the pair, explicit or not', () => {
     expect(pickQrScoped('connecting', ur, undefined)).toBeUndefined();
+  });
+});
+
+describe('resolveDeviceNotFoundLanding', () => {
+  it('lands the Device-not-connected card when the burst never heard from the device', () => {
+    // A call initiated with no device present fails the SDK's initial
+    // search — nothing has spoken, so this is mapping-A's deviceNotFound.
+    expect(
+      resolveDeviceNotFoundLanding({
+        wasVendorBurst: false,
+        sawDeviceEventThisBurst: false,
+      }),
+    ).toBe('deviceNotFound');
+  });
+
+  it('keeps the disconnect notice for a device the burst has heard from', () => {
+    // A later call in the same burst re-searches an unplugged device and
+    // throws the very same 105 — that is a mid-burst unplug, and the
+    // agreed split keeps it on the disconnect notice.
+    expect(
+      resolveDeviceNotFoundLanding({
+        wasVendorBurst: false,
+        sawDeviceEventThisBurst: true,
+      }),
+    ).toBe('disconnected');
+  });
+
+  it('never lands the outcome card on a vendor burst', () => {
+    // The vendor track's deviceNotFound is the adapter's live retry ask,
+    // not an ending — a 105 there keeps today's error path either way.
+    expect(
+      resolveDeviceNotFoundLanding({
+        wasVendorBurst: true,
+        sawDeviceEventThisBurst: false,
+      }),
+    ).toBe('disconnected');
+    expect(
+      resolveDeviceNotFoundLanding({
+        wasVendorBurst: true,
+        sawDeviceEventThisBurst: true,
+      }),
+    ).toBe('disconnected');
   });
 });
 
