@@ -74,6 +74,7 @@ const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 const WEB_KEEP_MOUNTED_TRANSITION =
   'opacity 150ms cubic-bezier(0.215, 0.61, 0.355, 1), transform 150ms cubic-bezier(0.215, 0.61, 0.355, 1)';
+const NATIVE_PORTAL_CLOSE_FALLBACK_DELAY = 1000;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   description?: string;
@@ -88,6 +89,11 @@ export interface IPopoverProps extends TMPopoverProps {
     | null;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
+  /**
+   * Mounts the native portal closed before opening and removes it after the
+   * close animation. This avoids preserving child state between openings.
+   */
+  mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.
    */
@@ -259,6 +265,7 @@ function RawPopover({
   usingSheet = true,
   allowFlip = true,
   showHeader = true,
+  mountNativePortalBeforeOpen,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -382,8 +389,16 @@ function RawPopover({
     </ModalPortalProvider>
   );
 
-  const isShowNativeKeepChildrenMountedBackdrop =
-    platformEnv.isNative && keepChildrenMounted;
+  const shouldUseTransientNativeBackdrop =
+    platformEnv.isNative && Boolean(mountNativePortalBeforeOpen);
+  const shouldUseExternalNativeBackdrop =
+    platformEnv.isNative &&
+    (keepChildrenMounted || shouldUseTransientNativeBackdrop);
+  const nativeBackdropBackgroundColor =
+    shouldUseTransientNativeBackdrop || isOpen ? '$bgBackdrop' : 'transparent';
+  const nativeBackdropOpacity = shouldUseTransientNativeBackdrop
+    ? Number(isOpen)
+    : undefined;
   const maxScrollViewHeight = getMaxScrollViewHeight();
   const transformOriginStyle = useMemo(
     () => ({ transformOrigin }),
@@ -476,12 +491,21 @@ function RawPopover({
         <>
           {/* TODO: Temporary solution for overlay backdrop.
                This should be deprecated in favor of Tamagui's overlay implementation */}
-          {isShowNativeKeepChildrenMountedBackdrop ? (
+          {shouldUseExternalNativeBackdrop ? (
             <Stack
               position="absolute"
               pointerEvents={isOpen ? 'auto' : 'none'}
               onPress={isOpen ? closePopover : undefined}
-              bg={isOpen ? '$bgBackdrop' : 'transparent'}
+              bg={nativeBackdropBackgroundColor}
+              opacity={nativeBackdropOpacity}
+              transition={
+                shouldUseTransientNativeBackdrop ? 'quick' : undefined
+              }
+              animateOnly={
+                shouldUseTransientNativeBackdrop
+                  ? ANIMATE_ONLY_OPACITY
+                  : undefined
+              }
               top={0}
               left={0}
               right={0}
@@ -497,7 +521,7 @@ function RawPopover({
               zIndex={zIndex}
               {...sheetProps}
             >
-              {isShowNativeKeepChildrenMountedBackdrop ? null : (
+              {shouldUseExternalNativeBackdrop ? null : (
                 <TMPopover.Sheet.Overlay
                   {...FIX_SHEET_PROPS}
                   zIndex={sheetProps?.zIndex || zIndex}
@@ -589,6 +613,7 @@ function BasicPopover({
   sheetProps,
   trackID,
   keepChildrenMounted,
+  mountNativePortalBeforeOpen,
   ...rest
 }: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
@@ -596,28 +621,136 @@ function BasicPopover({
     onOpenChangeFunc,
     trackID,
   );
+  const shouldUseNativePortalLifecycle =
+    platformEnv.isNative && Boolean(mountNativePortalBeforeOpen);
+  const [isNativePortalMounted, setIsNativePortalMounted] = useState(false);
+  const [isNativeSheetOpen, setIsNativeSheetOpen] = useState(false);
+  const desiredOpenRef = useRef(Boolean(isOpen));
+  const hasOpenedNativeSheetRef = useRef(false);
+  const nativePortalCloseFallbackTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  desiredOpenRef.current = Boolean(isOpen);
+
+  const clearNativePortalCloseFallbackTimer = useCallback(() => {
+    if (nativePortalCloseFallbackTimerRef.current) {
+      clearTimeout(nativePortalCloseFallbackTimerRef.current);
+      nativePortalCloseFallbackTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!shouldUseNativePortalLifecycle) {
+      return;
+    }
+    if (isOpen) {
+      clearNativePortalCloseFallbackTimer();
+      setIsNativePortalMounted(true);
+      return;
+    }
+
+    setIsNativeSheetOpen(false);
+    if (!hasOpenedNativeSheetRef.current) {
+      setIsNativePortalMounted(false);
+      return;
+    }
+
+    clearNativePortalCloseFallbackTimer();
+    nativePortalCloseFallbackTimerRef.current = setTimeout(() => {
+      nativePortalCloseFallbackTimerRef.current = null;
+      if (!desiredOpenRef.current) {
+        hasOpenedNativeSheetRef.current = false;
+        setIsNativePortalMounted(false);
+      }
+    }, NATIVE_PORTAL_CLOSE_FALLBACK_DELAY);
+  }, [
+    clearNativePortalCloseFallbackTimer,
+    isOpen,
+    shouldUseNativePortalLifecycle,
+  ]);
+
+  useEffect(() => {
+    if (!shouldUseNativePortalLifecycle || !isOpen || !isNativePortalMounted) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (desiredOpenRef.current) {
+        hasOpenedNativeSheetRef.current = true;
+        setIsNativeSheetOpen(true);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isNativePortalMounted, isOpen, shouldUseNativePortalLifecycle]);
+
+  useEffect(
+    () => () => {
+      clearNativePortalCloseFallbackTimer();
+    },
+    [clearNativePortalCloseFallbackTimer],
+  );
+
+  const handleNativeSheetAnimationComplete = useCallback(
+    (info: { open: boolean }) => {
+      sheetProps?.onAnimationComplete?.(info);
+      if (
+        !shouldUseNativePortalLifecycle ||
+        info.open ||
+        desiredOpenRef.current
+      ) {
+        return;
+      }
+      clearNativePortalCloseFallbackTimer();
+      hasOpenedNativeSheetRef.current = false;
+      setIsNativePortalMounted(false);
+    },
+    [
+      clearNativePortalCloseFallbackTimer,
+      sheetProps,
+      shouldUseNativePortalLifecycle,
+    ],
+  );
+
+  const nativeSheetProps = useMemo(
+    () =>
+      shouldUseNativePortalLifecycle
+        ? {
+            ...sheetProps,
+            onAnimationComplete: handleNativeSheetAnimationComplete,
+          }
+        : sheetProps,
+    [
+      handleNativeSheetAnimationComplete,
+      sheetProps,
+      shouldUseNativePortalLifecycle,
+    ],
+  );
+  const popoverOpen = shouldUseNativePortalLifecycle
+    ? isNativeSheetOpen
+    : isOpen;
   const { md } = useMedia();
   const memoPopover = useMemo(
     () => (
       <RawPopover
-        open={isOpen}
+        open={popoverOpen}
         onOpenChange={onOpenChange}
         openPopover={openPopover}
         closePopover={closePopover}
         renderTrigger={undefined}
         keepChildrenMounted={keepChildrenMounted}
+        mountNativePortalBeforeOpen={mountNativePortalBeforeOpen}
         {...rest}
-        sheetProps={sheetProps}
+        sheetProps={nativeSheetProps}
       />
     ),
     [
       closePopover,
-      isOpen,
       keepChildrenMounted,
+      mountNativePortalBeforeOpen,
+      nativeSheetProps,
       onOpenChange,
       openPopover,
+      popoverOpen,
       rest,
-      sheetProps,
     ],
   );
   const modalNavigatorContext = useModalNavigatorContext();
@@ -637,7 +770,8 @@ function BasicPopover({
             {renderTrigger}
           </Trigger>
         ) : null}
-        {isOpen || keepChildrenMounted ? (
+        {keepChildrenMounted ||
+        (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen) ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
             <ModalNavigatorContext.Provider value={modalNavigatorContext}>
               <PageContext.Provider value={pageContextValue}>

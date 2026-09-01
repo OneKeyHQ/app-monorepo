@@ -19,16 +19,18 @@ import type {
 
 export function useWalletActionConfig() {
   const {
-    activeAccount: { network },
+    activeAccount: { network, vaultSettings: cachedVaultSettings },
   } = useActiveAccount({ num: 0 });
 
-  const vaultSettings = usePromiseResult(async () => {
+  const fetchedVaultSettings = usePromiseResult(async () => {
     if (!network?.id) return null;
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
       networkId: network.id,
     });
     return settings;
-  }, [network?.id]);
+  }, [network?.id]).result;
+  const vaultSettings =
+    cachedVaultSettings ?? fetchedVaultSettings ?? undefined;
 
   const config = useMemo((): INetworkWalletActionsConfig => {
     if (!network?.id) return defaultWalletActionsConfig;
@@ -42,18 +44,16 @@ export function useWalletActionConfig() {
       ...userCustomConfig,
     };
 
-    if (vaultSettings.result) {
-      const { result: settings } = vaultSettings;
-
+    if (vaultSettings) {
       const filterDisabledActions = (
         actions: IWalletActionType[],
       ): IWalletActionType[] => {
         return actions.filter((action) => {
           switch (action) {
             case 'send':
-              return !settings.disabledSendAction;
+              return !vaultSettings.disabledSendAction;
             case 'swap':
-              return !settings.disabledSwapAction;
+              return !vaultSettings.disabledSwapAction;
             default:
               return true;
           }
@@ -107,6 +107,6 @@ export function useWalletActionConfig() {
     isActionEnabled,
     getActionCustomization,
     getMoreActionGroups,
-    vaultSettings: vaultSettings.result,
+    vaultSettings,
   };
 }

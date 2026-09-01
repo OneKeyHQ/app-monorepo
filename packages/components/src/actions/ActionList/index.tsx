@@ -61,6 +61,7 @@ export interface IActionListItemProps {
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
+const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 1000;
 const FALLBACK_MODAL_NAVIGATOR_CONTEXT = { portalId: '' };
 const FALLBACK_PAGE_CONTEXT = { footerRef: { current: null } as any };
 
@@ -260,6 +261,10 @@ export interface IActionListProps extends Omit<
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
+  /**
+   * Starts loading when the list opens. Native applies the resolved content
+   * after the entry animation so fit-mode height stays stable while sliding.
+   */
   renderItemsAsync?: (params: {
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
@@ -275,17 +280,16 @@ const useDefaultOpen = (defaultOpen: boolean) => {
   const [isOpen, setOpenStatus] = useState(
     platformEnv.isNativeAndroid ? false : defaultOpen,
   );
-  // Fix the crash on Android where the view node cannot be found.
   useEffect(() => {
-    if (platformEnv.isNativeAndroid) {
-      if (defaultOpen) {
-        setTimeout(() => {
-          setOpenStatus(defaultOpen);
-        }, 0);
-      }
+    if (!defaultOpen || !platformEnv.isNativeAndroid) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Android defers mounting to avoid missing view nodes.
+    const timer = setTimeout(() => {
+      setOpenStatus(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [defaultOpen]);
   return [isOpen, setOpenStatus] as [
     boolean,
     Dispatch<SetStateAction<boolean>>,
@@ -303,10 +307,64 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
+  sheetProps,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
-  const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+  const [asyncItems, setAsyncItems] = useState<
+    { requestId: number; items: ReactNode } | undefined
+  >();
+  const isOpenRef = useRef(isOpen);
+  const isOpenAnimationCompleteRef = useRef(!platformEnv.isNative);
+  const asyncItemsRequestIdRef = useRef(0);
+  const pendingAsyncItemsRef = useRef<
+    { requestId: number; items: ReactNode } | undefined
+  >(undefined);
+  const asyncItemsFallbackTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  isOpenRef.current = isOpen;
+
+  const clearAsyncItemsFallbackTimer = useCallback(() => {
+    if (asyncItemsFallbackTimerRef.current) {
+      clearTimeout(asyncItemsFallbackTimerRef.current);
+      asyncItemsFallbackTimerRef.current = null;
+    }
+  }, []);
+
+  const commitPendingAsyncItems = useCallback(() => {
+    const pendingItems = pendingAsyncItemsRef.current;
+    if (
+      !pendingItems ||
+      !isOpenRef.current ||
+      pendingItems.requestId !== asyncItemsRequestIdRef.current
+    ) {
+      return;
+    }
+    pendingAsyncItemsRef.current = undefined;
+    setAsyncItems(pendingItems);
+  }, []);
+
+  const handleSheetAnimationComplete = useCallback(
+    (info: { open: boolean }) => {
+      sheetProps?.onAnimationComplete?.(info);
+      if (!info.open || !isOpenRef.current) {
+        return;
+      }
+      isOpenAnimationCompleteRef.current = true;
+      clearAsyncItemsFallbackTimer();
+      commitPendingAsyncItems();
+    },
+    [clearAsyncItemsFallbackTimer, commitPendingAsyncItems, sheetProps],
+  );
+
+  const mergedSheetProps = useMemo(
+    () => ({
+      ...sheetProps,
+      onAnimationComplete: handleSheetAnimationComplete,
+    }),
+    [handleSheetAnimationComplete, sheetProps],
+  );
   const trackActionListToggle = useDebouncedCallback((openStatus: boolean) => {
     if (trackID) {
       if (openStatus) {
@@ -323,14 +381,25 @@ function BasicActionList({
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
+      isOpenRef.current = openStatus;
+      if (openStatus) {
+        isOpenAnimationCompleteRef.current = !platformEnv.isNative;
+      } else {
+        asyncItemsRequestIdRef.current += 1;
+        pendingAsyncItemsRef.current = undefined;
+        clearAsyncItemsFallbackTimer();
+        setAsyncItems(undefined);
+      }
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
-      if (!openStatus) {
-        setAsyncItems(null);
-      }
     },
-    [onOpenChange, setOpenStatus, trackActionListToggle],
+    [
+      clearAsyncItemsFallbackTimer,
+      onOpenChange,
+      setOpenStatus,
+      trackActionListToggle,
+    ],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
@@ -342,16 +411,68 @@ function BasicActionList({
   const { md } = useMedia();
   const intl = useIntl();
   useEffect(() => {
-    if (renderItemsAsync && isOpen) {
-      void (async () => {
-        const asyncItemsToRender = await renderItemsAsync({
-          handleActionListClose,
-          handleActionListOpen,
-        });
-        setAsyncItems(asyncItemsToRender);
-      })();
+    if (!renderItemsAsync || !isOpen) {
+      return;
     }
+
+    let isActive = true;
+    const requestId = asyncItemsRequestIdRef.current + 1;
+    asyncItemsRequestIdRef.current = requestId;
+    pendingAsyncItemsRef.current = undefined;
+    setAsyncItems(undefined);
+
+    if (platformEnv.isNative && !isOpenAnimationCompleteRef.current) {
+      clearAsyncItemsFallbackTimer();
+      asyncItemsFallbackTimerRef.current = setTimeout(() => {
+        asyncItemsFallbackTimerRef.current = null;
+        if (!isActive || !isOpenRef.current) {
+          return;
+        }
+        isOpenAnimationCompleteRef.current = true;
+        commitPendingAsyncItems();
+      }, ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY);
+    }
+
+    void renderItemsAsync({
+      handleActionListClose,
+      handleActionListOpen,
+    })
+      .then((asyncItemsToRender) => {
+        if (
+          !isActive ||
+          !isOpenRef.current ||
+          requestId !== asyncItemsRequestIdRef.current
+        ) {
+          return;
+        }
+        pendingAsyncItemsRef.current = {
+          requestId,
+          items: asyncItemsToRender,
+        };
+        if (isOpenAnimationCompleteRef.current) {
+          commitPendingAsyncItems();
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isActive || requestId !== asyncItemsRequestIdRef.current) {
+          return;
+        }
+        const message =
+          error instanceof Error ? error.message : String(error ?? 'unknown');
+        defaultLogger.app.error.log(
+          `[ActionList] renderItemsAsync failed: ${message}`,
+        );
+      });
+
+    return () => {
+      isActive = false;
+      if (requestId === asyncItemsRequestIdRef.current) {
+        clearAsyncItemsFallbackTimer();
+      }
+    };
   }, [
+    clearAsyncItemsFallbackTimer,
+    commitPendingAsyncItems,
     handleActionListClose,
     handleActionListOpen,
     isOpen,
@@ -386,8 +507,32 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
-  const renderContentMemo = useMemo(
-    () => (
+  const renderContentMemo = useMemo(() => {
+    let customItems: ReactNode;
+    if (renderItemsAsync) {
+      if (asyncItems) {
+        customItems = asyncItems.items;
+      } else if (renderItems) {
+        customItems = renderItems({
+          handleActionListClose,
+          handleActionListOpen,
+        });
+      } else {
+        customItems = (
+          <>
+            <ActionListSkeletonItem />
+            <ActionListSkeletonItem />
+          </>
+        );
+      }
+    } else {
+      customItems = renderItems?.({
+        handleActionListClose,
+        handleActionListOpen,
+      });
+    }
+
+    return (
       <YStack {...ACTION_LIST_CONTENT_STYLE}>
         {items?.map(renderActionListItem)}
         {sections?.map((section, sectionIdx) => (
@@ -411,33 +556,19 @@ function BasicActionList({
         ))}
 
         {/* custom render items */}
-        {renderItems?.({
-          handleActionListClose,
-          handleActionListOpen,
-        })}
-
-        {/* custom async render items - show skeleton while loading */}
-        {renderItemsAsync && !asyncItems ? (
-          <>
-            <ActionListSkeletonItem />
-            <ActionListSkeletonItem />
-          </>
-        ) : (
-          asyncItems
-        )}
+        {customItems}
       </YStack>
-    ),
-    [
-      items,
-      sections,
-      renderActionListItem,
-      renderItems,
-      renderItemsAsync,
-      asyncItems,
-      handleActionListClose,
-      handleActionListOpen,
-    ],
-  );
+    );
+  }, [
+    items,
+    sections,
+    renderActionListItem,
+    renderItems,
+    renderItemsAsync,
+    asyncItems,
+    handleActionListClose,
+    handleActionListOpen,
+  ]);
 
   return (
     <LazyPopover
@@ -447,7 +578,9 @@ function BasicActionList({
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
+      mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
+      sheetProps={mergedSheetProps}
     />
   );
 }
