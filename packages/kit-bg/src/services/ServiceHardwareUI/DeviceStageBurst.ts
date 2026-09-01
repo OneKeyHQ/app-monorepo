@@ -47,6 +47,17 @@ import type {
  * creation) morphs in place instead of exiting and re-entering. */
 const OFF_GRACE_MS = 600;
 
+/**
+ * Product call (2026-09): every confirm plays bare — address verify,
+ * transactions, messages alike — keeping the surface clean; the device
+ * screen is the one read of what is being confirmed. The whole confirm
+ * channel stays wired (business registrations, the builders, the atom
+ * fields, the component's card and its stories), so flipping this single
+ * gate re-lights the card unchanged; the gate only keeps the payload out
+ * of the atom, at the one point every content path converges.
+ */
+const CONFIRM_PAYLOAD_HIDDEN = true;
+
 /** Error codes that mean the user themselves ended the flow — the stage
  * simply leaves, no error outcome card. */
 const SILENT_CANCEL_CODES = [
@@ -1205,7 +1216,7 @@ export class DeviceStageBurstScope {
         fromRegistration: T | undefined,
         carried: T | undefined,
       ): T | undefined => {
-        if (step !== 'confirm') {
+        if (CONFIRM_PAYLOAD_HIDDEN || step !== 'confirm') {
           return undefined;
         }
         if (hasExplicitConfirm) {
@@ -1287,7 +1298,7 @@ export class DeviceStageBurstScope {
         ),
         confirmCount:
           // eslint-disable-next-line no-nested-ternary
-          step !== 'confirm'
+          CONFIRM_PAYLOAD_HIDDEN || step !== 'confirm'
             ? undefined
             : registered
               ? registered.count
