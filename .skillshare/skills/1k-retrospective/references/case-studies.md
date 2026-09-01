@@ -269,3 +269,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
 **Fix**: Render the badge in `ListItem.Text` primary via an `XStack` with the title.
 **Catchable by**: Section 3: UI changes verified on mobile — trailing children of a two-line ListItem do not vertically align with the title
+
+## Case: Desktop More menu always scrolled
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Default zh/en More popover needed vertical scroll even though content almost fit (OK-61457).
+**Root Cause**: Popover used a fixed `height: 600`. Content was slightly over 600, so it always scrolled.
+**Fix**: Use `maxHeight: 680` and hug content. Desktop skips the inner flex `ScrollView` (it collapsed height); outer `overflow: scroll` scrolls only when over the cap.
+**Catchable by**: Section 1: a fixed height that almost matches content will always overflow; express as maxHeight so short locales hug.
+
+## Case: Desktop More menu dark tiles used `$theme-dark` which never matched
+**Date**: 2026-09-01 | **Platforms**: desktop, web
+**Symptom**: Grid icon tiles and Prime badges looked like the popover background in dark mode. Pink debug color also did not show.
+**Root Cause**: Tamagui 2.7 compiles `$theme-dark` to `:root.t_dark` (`<html>`), but `t_dark` is stamped on `<body>`. Pinning the class to html re-enabled overrides app-wide and washed out Home.
+**Fix**: Set rest/hover/press colors from `useThemeVariant()` instead of `$theme-dark`. Do not change `addThemeClassName`.
+**Catchable by**: NEW — web `$theme-*` CSS must match where Tamagui puts the theme class; a global class move is not a local widget fix.
+
+## Case: Notifications row leaked into More → Preferences
+**Date**: 2026-09-01 | **Platforms**: desktop
+**Symptom**: Opening Preferences from the More menu showed a Notifications row even though Notifications is its own settings tab.
+**Root Cause**: Promoted `desktopTab` items were hidden only when `insideTabNavigator` was true. `SettingListSubModal` has no sidebar, so the source item stayed visible.
+**Fix**: Hide any item with `desktopTab` on every category host. Mobile home still shows it via `mobileHome`.
+**Catchable by**: Section 4: a hide rule gated on "has sidebar" will re-show the item on standalone hosts.

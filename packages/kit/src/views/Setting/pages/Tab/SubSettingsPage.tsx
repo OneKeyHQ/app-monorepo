@@ -35,9 +35,6 @@ export function SubSettingsPage({
   title?: string;
   settingsConfig?: ISettingsConfig;
 } & { route?: RouteProp<any, any> }) {
-  // `insideTabNavigator` comes from the tab navigator's provider: pane hosts
-  // hide items promoted to sidebar tabs, while standalone hosts (pushed
-  // SettingListSubModal pages, no sidebar) keep them visible.
   const { settingsConfig: contextSettingsConfig, insideTabNavigator } =
     useConfigContext();
   const name = (route?.name as string) || nameFromProps;
@@ -58,27 +55,12 @@ export function SubSettingsPage({
   const config = useMemo(() => {
     return settingsConfig.find((item) => item?.name === name);
   }, [name, settingsConfig]);
-  const registeredTabNames = useMemo(
-    () =>
-      new Set(settingsConfig.filter(Boolean).map((category) => category.name)),
-    [settingsConfig],
-  );
   const configList = useMemo(() => {
     return (
       config?.configs
         .map((items) =>
-          // The type guard lets the render below skip re-checking for null
-          // items and empty sections.
           items.filter((item): item is ISubSettingConfig => {
-            if (!item) {
-              return false;
-            }
-            if (
-              insideTabNavigator &&
-              item.desktopTab &&
-              registeredTabNames.has(item.desktopTab)
-            ) {
-              // The item is promoted to its own sidebar tab in this host.
+            if (!item || item.desktopTab) {
               return false;
             }
             if (!isMobileLayout) {
@@ -89,7 +71,7 @@ export function SubSettingsPage({
         )
         .filter((items) => items.length > 0) || []
     );
-  }, [config?.configs, insideTabNavigator, isMobileLayout, registeredTabNames]);
+  }, [config?.configs, isMobileLayout]);
   const isMobileAboutPage =
     isMobileLayout && config?.name === ESettingsTabNames.About;
 
