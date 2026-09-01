@@ -304,3 +304,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: `desktopTab` means "also a sidebar tab", but the sidebar only exists when `useIsTabNavigator()` is true. Always hiding the source row deleted the only entry on extension popup and narrow web.
 **Fix**: Hide `desktopTab` items only on tab-navigator hosts. Phone still hides them via `mobileHome`.
 **Catchable by**: Section 4: a hide rule must keep the host that still needs the list entry; Section 6: layout-visibility helpers need a host-matrix test
+
+## Case: More menu source growth failed web startup graph budget
+**Date**: 2026-09-01 | **Platforms**: web (startup graph)
+**Symptom**: CI `Web startup graph budget` failed: `sourceSizeBytes` 13173627 / 13172736 (+891 B).
+**Root Cause**: `HeaderRight`, `MDHeader`, and `BottomMenu` statically imported `MoreActionButton/index.tsx` (~56 KiB). Layout and theme work in that file entered the first-visit graph.
+**Fix**: Load the trigger through `LazyMoreActionButton` so the popover module is a separate chunk. Desktop body uses `overflow-y: auto`.
+**Catchable by**: Section 3: header-mounted widgets that grow must stay behind a lazy import; NEW â€” do not add first-screen source to a file already in the web startup graph

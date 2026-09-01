@@ -157,6 +157,9 @@ const MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE = {
   flexBasis: 'auto',
   minHeight: 0,
 } as const;
+const MORE_ACTION_DESKTOP_BODY_OVERFLOW_STYLE = {
+  overflowY: 'auto',
+} as const;
 
 function pickDesktopThemeStyle<TDark, TLight>(
   isDesktopMode: boolean,
@@ -1604,7 +1607,11 @@ function BaseMoreActionContent({ fixedFooter }: { fixedFooter: boolean }) {
       $theme-dark={isDesktopMode ? undefined : MORE_ACTION_CANVAS_DARK_STYLE}
     >
       {isDesktopMode ? (
-        <YStack overflow="scroll" {...MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE}>
+        <YStack
+          overflow="hidden"
+          style={MORE_ACTION_DESKTOP_BODY_OVERFLOW_STYLE}
+          {...MORE_ACTION_DESKTOP_HUG_SCROLL_STYLE}
+        >
           {body}
         </YStack>
       ) : (
