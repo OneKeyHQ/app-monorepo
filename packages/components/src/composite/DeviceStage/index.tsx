@@ -460,6 +460,8 @@ export function DeviceStage({
   confirmDescriptionDanger,
   confirmCount,
   qrValue,
+  qrValueUr,
+  qrScannerView,
   onQrNext,
   onQrBack,
   errorReason,
@@ -1483,11 +1485,18 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.showQr.tail}>
-          <QrPresent value={qrValue} onNext={onQrNext} />
+          <QrPresent value={qrValue} valueUr={qrValueUr} onNext={onQrNext} />
         </View>
       </YStack>
     ),
-    [appStepSub.showQr, intl, onQrNext, panelMeasureHandlers, qrValue],
+    [
+      appStepSub.showQr,
+      intl,
+      onQrNext,
+      panelMeasureHandlers,
+      qrValue,
+      qrValueUr,
+    ],
   );
   const scanQrPanel = useMemo(
     () => (
@@ -1500,11 +1509,11 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.scanQr.tail}>
-          <QrScanFrame onBack={onQrBack} />
+          <QrScanFrame onBack={onQrBack} scannerView={qrScannerView} />
         </View>
       </YStack>
     ),
-    [appStepSub.scanQr, intl, onQrBack, panelMeasureHandlers],
+    [appStepSub.scanQr, intl, onQrBack, panelMeasureHandlers, qrScannerView],
   );
   const authFailurePanel = useMemo(
     () => (

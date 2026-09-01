@@ -1,3 +1,7 @@
+import type { ReactNode } from 'react';
+
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+
 import type { IHardwareDeviceType } from '../../content/HardwareDevice';
 
 /**
@@ -285,6 +289,21 @@ export interface IDeviceStageProps {
    * layer, inside the same step.
    */
   qrValue?: string;
+  /**
+   * The animated multi-part shape of the same payload — an air-gap UR.
+   * Given, it outranks `qrValue`: the panel's QRCode rotates the parts
+   * itself (and draws the line style device cameras can lock on), so the
+   * integration layer hands over the UR json and owns nothing else.
+   */
+  qrValueUr?: IAirGapUrJson;
+  /**
+   * The live camera preview for scanQr's viewfinder window — the stage
+   * fixes where the window sits and how it is framed, the integration
+   * layer supplies what looks out of it (a components package cannot
+   * reach the app's camera). Absent, the window keeps its placeholder
+   * face; the scan progress badge is the view's own concern.
+   */
+  qrScannerView?: ReactNode;
   /**
    * Advances showQr toward scanning the device's answer — the manual
    * handoff an air-gapped flow cannot make on its own: nothing tells the
