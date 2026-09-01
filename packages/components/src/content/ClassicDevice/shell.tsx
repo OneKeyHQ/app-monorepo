@@ -22,7 +22,7 @@ import type { SharedValue } from 'react-native-reanimated';
  * OneKey Classic device, 1:1 against Figma node 20249:27326 (327x539
  * @1x, the 2026-07-30 "After" revision). The chrome — body, noise
  * grain, ambient top light, screen bevels, USB cutout and bottom fade —
- * ships as a pre-baked bitmap (shell@2x/@3x, exported straight from the
+ * ships as a pre-baked bitmap (shell-classic@2x/@3x, exported straight from the
  * Figma frame at 280pt, the stage's largest rendering). Two things stay
  * code, because they move:
  *
@@ -65,7 +65,9 @@ export const SCREEN_SLOT_LEFT = 4;
 export const SCREEN_SLOT_TOP = 12;
 
 const NOISE_TILE_SOURCE = require('./noise-tile.png');
-const SHELL_SOURCE = require('./shell.png');
+// The model suffix keeps the filename unique: webpack/rspack dev emits
+// assets as bare [name].[ext], where same-named files overwrite each other.
+const SHELL_SOURCE = require('./shell-classic.png');
 const NOISE_TILE_SIZE = 128;
 
 // Tiled through an SVG <Pattern> rather than an Image: RN core's
