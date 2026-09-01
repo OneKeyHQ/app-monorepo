@@ -58,12 +58,33 @@ import type {
  * param shape) must fail the flow here — before any signing starts — instead
  * of midway through, where the payment would be stranded partially completed.
  */
+// Which CAIP-2 namespace each action method belongs to. Chain and method are
+// each valid on their own terms, so without this pairing a mismatched action
+// (a Solana chain carrying eth_sendTransaction, say) passes validation and
+// only fails inside the executor — midway through a sequence whose earlier
+// actions may already have broadcast, exactly the stranding this validator
+// exists to prevent. An unknown method is absent here and still falls to the
+// switch's default throw below.
+const WC_PAY_METHOD_NAMESPACES: Partial<Record<EWcPayActionMethod, string>> = {
+  [EWcPayActionMethod.EthSendTransaction]: 'eip155',
+  [EWcPayActionMethod.EthSignTypedDataV4]: 'eip155',
+  [EWcPayActionMethod.PersonalSign]: 'eip155',
+  [EWcPayActionMethod.SolanaSignTransaction]: 'solana',
+};
+
 export function validateWcPayActions(actions: IWcPayAction[]) {
   for (const action of actions) {
     const { chainId, method, params } = action.walletRpc;
     const targetNetworkId = wcPayChainIdToNetworkId(chainId);
     if (!targetNetworkId) {
       throw new OneKeyError(`Unsupported WalletConnect Pay chain: ${chainId}`);
+    }
+    const expectedNamespace =
+      WC_PAY_METHOD_NAMESPACES[method as EWcPayActionMethod];
+    if (expectedNamespace && !chainId.startsWith(`${expectedNamespace}:`)) {
+      throw new OneKeyError(
+        `WalletConnect Pay method ${method} does not match chain ${chainId}`,
+      );
     }
     let parsed: unknown;
     try {

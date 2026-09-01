@@ -348,6 +348,78 @@ describe('validateWcPayActions solana', () => {
   });
 });
 
+describe('validateWcPayActions method/chain pairing', () => {
+  const SOLANA_CHAIN_ID = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+  const EVM_CHAIN_ID = 'eip155:8453';
+
+  function buildAction({
+    chainId,
+    method,
+    params,
+  }: {
+    chainId: string;
+    method: EWcPayActionMethod;
+    params: unknown;
+  }) {
+    return {
+      walletRpc: { chainId, method, params: JSON.stringify(params) },
+    };
+  }
+
+  it('rejects an EVM method on a Solana chain', () => {
+    expect(() =>
+      validateWcPayActions([
+        buildAction({
+          chainId: SOLANA_CHAIN_ID,
+          method: EWcPayActionMethod.EthSendTransaction,
+          params: [{ from: '0x1', to: '0x2', value: '0x0' }],
+        }),
+      ]),
+    ).toThrow('does not match chain');
+  });
+
+  it('rejects the Solana method on an EVM chain', () => {
+    expect(() =>
+      validateWcPayActions([
+        buildAction({
+          chainId: EVM_CHAIN_ID,
+          method: EWcPayActionMethod.SolanaSignTransaction,
+          params: [{ transaction: 'AQID' }],
+        }),
+      ]),
+    ).toThrow('does not match chain');
+  });
+
+  it('rejects personal_sign on a Solana chain', () => {
+    expect(() =>
+      validateWcPayActions([
+        buildAction({
+          chainId: SOLANA_CHAIN_ID,
+          method: EWcPayActionMethod.PersonalSign,
+          params: ['0xdeadbeef'],
+        }),
+      ]),
+    ).toThrow('does not match chain');
+  });
+
+  it('accepts correctly paired EVM and Solana actions', () => {
+    expect(() =>
+      validateWcPayActions([
+        buildAction({
+          chainId: EVM_CHAIN_ID,
+          method: EWcPayActionMethod.PersonalSign,
+          params: ['0xdeadbeef'],
+        }),
+        buildAction({
+          chainId: SOLANA_CHAIN_ID,
+          method: EWcPayActionMethod.SolanaSignTransaction,
+          params: [{ transaction: 'AQID' }],
+        }),
+      ]),
+    ).not.toThrow();
+  });
+});
+
 // These two wrappers exist so the UI runtime never has to import
 // @solana/web3.js (see their doc comment in the service); the checks
 // themselves are covered exhaustively in wcPaySolanaConsistency.test.ts, so
