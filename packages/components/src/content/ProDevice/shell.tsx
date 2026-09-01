@@ -15,7 +15,7 @@ import type { IProDeviceAnimation } from './animation';
  * 346-wide body plus the 4pt power tab on the right edge). The chrome —
  * the black slab, the glass plate's seam, the frame edge light, the top
  * lights, the bottom shadow, the wordmark and the power tab — ships as
- * a pre-baked bitmap (shell@2x/@3x, exported straight from the Figma
+ * a pre-baked bitmap (shell-pro@2x/@3x, exported straight from the Figma
  * frame at 280pt, the stage's largest rendering). Two things stay code:
  *
  * - The screen: dynamic content on the 288x484 canvas, clipped by its
@@ -50,7 +50,9 @@ export const PRO_SCREEN_H = 484;
  */
 export const PRO_SCREEN_BG = '#0D0D0D';
 
-const SHELL_SOURCE = require('./shell.png');
+// The model suffix keeps the filename unique: webpack/rspack dev emits
+// assets as bare [name].[ext], where same-named files overwrite each other.
+const SHELL_SOURCE = require('./shell-pro.png');
 
 const styles = StyleSheet.create({
   frame: {
