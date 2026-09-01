@@ -11,3 +11,14 @@ export class SettingScope extends BaseScope {
 
   page = this.createScene('page', PageScene);
 }
+
+export type {
+  ISettingCategoryOpenedParams,
+  ISettingCategoryOpenedSource,
+  ISettingItemClickedParams,
+  ISettingsAnalyticsLayout,
+  ISettingsEntrySurface,
+  ISettingsOpenedParams,
+  ISettingsSearchedParams,
+  ISettingValueChangedParams,
+} from './types';
