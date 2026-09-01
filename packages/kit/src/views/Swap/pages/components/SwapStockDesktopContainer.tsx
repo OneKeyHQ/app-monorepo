@@ -167,6 +167,7 @@ import {
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
+  shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -281,7 +282,12 @@ function useStockChartCoinGeckoId({
 }) {
   const tokenDetailCoinGeckoId =
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
-  const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
+  const tokenScope = networkId
+    ? `${networkId}:${tokenAddress?.trim().toLowerCase() || '__native__'}`
+    : '';
+  const swrKey = tokenScope
+    ? ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':')
+    : undefined;
   const { result } = usePromiseResult<
     IStockChartCoinGeckoIdLookupResult | undefined
   >(
@@ -301,16 +307,20 @@ function useStockChartCoinGeckoId({
           coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
         };
       } catch (_error) {
-        return {
-          tokenScope,
-          coinGeckoId: undefined,
-        };
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockChartCoinGeckoIdLookupResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenScope === tokenScope
+          ? cachedResult
+          : { cacheable: false, tokenScope };
       }
     },
-    [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
+    [networkId, swrKey, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
-      undefinedResultIfReRun: true,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value?.cacheable !== false && value?.tokenScope === tokenScope,
     },
   );
 
@@ -1090,9 +1100,11 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 function StockAmountInput({
   fetchLoading,
   amountInputState,
+  deferInitialContent,
   storeName,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
+  deferInitialContent: boolean;
 }) {
   const intl = useIntl();
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -1169,7 +1181,7 @@ function StockAmountInput({
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
 
-  if (shouldRenderSkeleton) {
+  if (shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
   }
 
@@ -1306,6 +1318,12 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
+  const deferInitialAmountContent = shouldDeferStockInitialContent({
+    channelStage: stockChannel.channelStage,
+    startedWithoutContent: startedWithoutAmountInputRef.current,
+  });
+  if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   // The desktop modal action renders through Page.Footer. Keep its portal
@@ -1354,6 +1372,7 @@ function StockTradeTicket({
         <StockAmountInput
           fetchLoading={fetchLoading}
           amountInputState={amountInputState}
+          deferInitialContent={deferInitialAmountContent}
           storeName={storeName}
         />
         <StockEstimatedReceive
@@ -1518,12 +1537,20 @@ function StockMarketTokenHeader({
     hasTokenData: Boolean(stock || tokenSubtitle),
   });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
+  const startedWithoutHeaderContentRef = useRef(!currentStockToken);
+  const deferInitialHeaderContent = shouldDeferStockInitialContent({
+    channelStage,
+    startedWithoutContent: startedWithoutHeaderContentRef.current,
+  });
+  if (!deferInitialHeaderContent)
+    startedWithoutHeaderContentRef.current = false;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
   if (
+    deferInitialHeaderContent ||
     shouldShowStockMarketHeaderSkeleton({
       channelStage,
       hasStockIdentity: Boolean(currentStockToken),
