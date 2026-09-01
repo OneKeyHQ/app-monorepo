@@ -1617,10 +1617,17 @@ const SwapMainLoad = ({
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
-  const { pageType, swapInitParams } = props;
+  const { pageType, singleSwapBridgeHeader, swapInitParams } = props;
+  const shouldSeedMarketEmbeddedPair = Boolean(
+    singleSwapBridgeHeader &&
+    swapInitParams?.swapSource === ESwapSource.MARKET &&
+    swapInitParams.importFromToken &&
+    swapInitParams.importToToken,
+  );
   const initialSelectedTokensOnInit =
-    swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
-    Boolean(swapInitParams?.importNetworkId)
+    (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+      Boolean(swapInitParams?.importNetworkId)) ||
+    shouldSeedMarketEmbeddedPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
