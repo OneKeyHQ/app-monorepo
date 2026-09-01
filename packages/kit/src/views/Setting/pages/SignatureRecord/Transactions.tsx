@@ -36,6 +36,8 @@ import type {
   ISwapTransactionData,
 } from '@onekeyhq/shared/types/signatureRecord';
 
+import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
+
 import { useGetSignatureSections } from './hooks';
 
 const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
@@ -273,7 +275,7 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
     }
   }, [item, network]);
   return (
-    <Stack px="$5" pb="$3">
+    <Stack px={SETTINGS_PAGE_CONTENT_PADDING_X} pb="$3">
       <YStack
         borderWidth={StyleSheet.hairlineWidth}
         borderRadius="$3"
@@ -366,6 +368,7 @@ export const Transactions = () => {
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
         <SectionList.SectionHeader
+          px={SETTINGS_PAGE_CONTENT_PADDING_X}
           title={(section as ISectionListData).title}
         />
       )}

@@ -67,23 +67,47 @@ describe('build-dev-vendor', () => {
       })
       .mockImplementationOnce(() => {});
     const build = jest.fn().mockResolvedValue(undefined);
+    const restore = jest.fn().mockRejectedValue(new Error('release missing'));
 
-    await expect(preparePlatform('android', { build, check })).resolves.toEqual(
-      { rebuilt: true },
-    );
+    await expect(
+      preparePlatform('android', { build, check, restore }),
+    ).resolves.toEqual({ rebuilt: true, restored: false });
     expect(build).toHaveBeenCalledTimes(1);
     expect(build).toHaveBeenCalledWith('android');
+    expect(restore).toHaveBeenCalledWith('android');
     expect(check).toHaveBeenCalledTimes(2);
   });
 
   it('skips a valid platform during prepare', async () => {
     const check = jest.fn();
     const build = jest.fn();
+    const restore = jest.fn();
 
-    await expect(preparePlatform('ios', { build, check })).resolves.toEqual({
-      rebuilt: false,
-    });
+    await expect(
+      preparePlatform('ios', { build, check, restore }),
+    ).resolves.toEqual({ rebuilt: false, restored: false });
     expect(check).toHaveBeenCalledTimes(1);
+    expect(build).not.toHaveBeenCalled();
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it('restores a compatible public release before rebuilding locally', async () => {
+    const check = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new TypeError('cache missing');
+      })
+      .mockImplementationOnce(() => {});
+    const build = jest.fn();
+    const restore = jest
+      .fn()
+      .mockResolvedValue({ tagName: 'metro-dev-prebundle-v1-test' });
+
+    await expect(
+      preparePlatform('ios', { build, check, restore }),
+    ).resolves.toEqual({ rebuilt: false, restored: true });
+    expect(restore).toHaveBeenCalledWith('ios');
+    expect(check).toHaveBeenCalledTimes(2);
     expect(build).not.toHaveBeenCalled();
   });
 
@@ -93,14 +117,15 @@ describe('build-dev-vendor', () => {
       throw error;
     });
     const build = jest.fn().mockRejectedValue(error);
+    const restore = jest.fn().mockRejectedValue(new Error('release missing'));
     const consoleError = jest
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
     try {
-      await expect(preparePlatform('ios', { build, check })).rejects.toBe(
-        error,
-      );
+      await expect(
+        preparePlatform('ios', { build, check, restore }),
+      ).rejects.toBe(error);
       expect(consoleError).toHaveBeenCalledWith(
         expect.stringContaining('yarn app:native-bundle:legacy'),
       );

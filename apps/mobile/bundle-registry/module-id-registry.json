@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "registryEpoch": 2,
+  "registryEpoch": 3,
   "allocationVersion": 1,
   "ranges": {
     "workspace": {
@@ -24,7 +24,7 @@
     "apps/mobile/background.ts": 3,
     "apps/mobile/index.ts": 4,
     "apps/mobile/jsReady.ts": 5,
-    "apps/mobile/node_modules/.cache/tpl/asyncRequire.js": 6,
+    "apps/mobile/node_modules/.cache/tpl/asyncRequire.js": 40491,
     "apps/mobile/plugins/asyncRequireCore.js": 7,
     "apps/mobile/plugins/chunkModuleIdToHashMap.js": 8,
     "apps/mobile/shims/revenueCatBrowserMappings.js": 9,
@@ -22541,6 +22541,7 @@
     "packages/kit/src/views/Setting/pages/Tab/index.tsx": 6557,
     "packages/kit/src/views/Setting/pages/Tab/navigateToSettingsTab.ts": 6558,
     "packages/kit/src/views/Setting/pages/Tab/officialChannels.ts": 6559,
+    "packages/kit/src/views/Setting/pages/Tab/settingsAnalytics.ts": 7929,
     "packages/kit/src/views/Setting/pages/Tab/settingsDisplay.ts": 6560,
     "packages/kit/src/views/Setting/pages/Tab/settingsRootLayout.ts": 6561,
     "packages/kit/src/views/Setting/pages/Tab/settingsSearchUtils.ts": 6562,
@@ -23386,6 +23387,7 @@
     "packages/shared/src/logger/scopes/setting/index.ts": 7402,
     "packages/shared/src/logger/scopes/setting/scenes/device.ts": 7403,
     "packages/shared/src/logger/scopes/setting/scenes/page.ts": 7404,
+    "packages/shared/src/logger/scopes/setting/types.ts": 7930,
     "packages/shared/src/logger/scopes/signatureRecord/index.ts": 7405,
     "packages/shared/src/logger/scopes/signatureRecord/scenes/normal.ts": 7406,
     "packages/shared/src/logger/scopes/staking/index.ts": 7407,

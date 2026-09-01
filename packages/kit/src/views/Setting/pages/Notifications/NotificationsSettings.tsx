@@ -40,6 +40,7 @@ import {
   NotificationHelperCtaButton,
   useNotificationHelperCta,
 } from '../../components/NotificationsTestButton';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 function NotificationsSettingsHelper() {
   const intl = useIntl();
@@ -184,7 +185,7 @@ export default function NotificationsSettings() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         {!settings ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
