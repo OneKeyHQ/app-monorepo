@@ -35,6 +35,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapLimitOrderExpiryStep,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -1111,6 +1112,50 @@ export function useSwapInit(params?: ISwapInitParams) {
           }
         }
         if (
+          params?.swapSource === ESwapSource.MARKET &&
+          params?.importToToken &&
+          !params.importFromToken &&
+          isImportToTokenSupported
+        ) {
+          const accountDefaultTokens =
+            swapDefaultSetTokens[swapAddressInfoRef.current?.networkId ?? ''];
+          const importNetworkDefaultTokens =
+            swapDefaultSetTokens[params.importToToken.networkId];
+          const importToFallbackToken = needChangeToken({
+            token: params.importToToken,
+            swapTypeSwitchValue: importTokenSupportCheckType,
+          });
+          const counterpartToken = [
+            fromTokenRef.current,
+            toTokenRef.current,
+            accountDefaultTokens?.fromToken,
+            accountDefaultTokens?.toToken,
+            importNetworkDefaultTokens?.fromToken,
+            importNetworkDefaultTokens?.toToken,
+            importToFallbackToken || undefined,
+          ].find(
+            (token) =>
+              token &&
+              !equalTokenNoCaseSensitive({
+                token1: token,
+                token2: params.importToToken,
+              }) &&
+              checkSupportTokenSwapType(token).includes(
+                importTokenSupportCheckType,
+              ) &&
+              !(
+                'balanceMultiplier' in token &&
+                tokenRebaseUtils.isScalingBalanceMultiplier(
+                  token.balanceMultiplier,
+                )
+              ),
+          );
+          if (counterpartToken) {
+            fromTokenRef.current = counterpartToken;
+            setSwapFromToken(counterpartToken);
+          }
+        }
+        if (
           params?.importFromToken &&
           !params?.importToToken &&
           didSetImportFromToken
@@ -1381,6 +1426,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
+    params?.swapSource,
     params?.swapTabSwitchType,
     normalizedSwapTabSwitchType,
     supportCheckSwapTabSwitchType,

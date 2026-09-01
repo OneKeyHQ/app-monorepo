@@ -444,7 +444,6 @@ export function DesktopLayout({
         <StockDesktopLayout
           marketTradingView={marketTradingView}
           swapToken={swapToken}
-          portfolioData={portfolioData}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
@@ -507,6 +506,7 @@ export function DesktopLayout({
         chartFullscreenZIndex={chartFullscreenZIndex}
         chartMode={isTradingViewNative ? 'native' : 'tradingView'}
         isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+        disableTrade={disableTrade}
         onChartSwitch={onChartSwitch}
         onEnterChartFullscreen={handleEnterChartFullscreen}
         InformationTabsComponent={LazyDesktopInformationTabs}

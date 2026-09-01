@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -135,6 +135,11 @@ function MarketDetail({
 
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
+  const isRouteFocused = useIsFocused();
+  // Desktop detail screens stay mounted in the navigation stack. Only the
+  // focused screen may own the shared Swap state and page footer.
+  const shouldDisableTrade =
+    disableTrade || (isDesktopLayout && !isRouteFocused);
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -179,7 +184,7 @@ function MarketDetail({
             marketTokenId={marketTokenId}
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
-            disableTrade={disableTrade}
+            disableTrade={shouldDisableTrade}
           />
         </Page.Body>
       </Page>
