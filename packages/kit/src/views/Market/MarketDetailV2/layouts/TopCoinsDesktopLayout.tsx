@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   EPageType,
+  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -39,10 +40,15 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { AprText } from '../../../Earn/components/AprText';
+import {
+  buildAprRangeText,
+  buildAprText,
+  formatRewardText,
+} from '../../../Earn/components/AprText.utils';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -60,6 +66,9 @@ const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
 const TOP_COINS_TRADE_COLUMN_WIDTH = 384;
 const TOP_COINS_COLUMN_GAP = 24;
 const TOP_COINS_CHART_HEIGHT = 360;
+// Figma 25703:19148: label (bodyMd, 20px line) + 6px gap + value (headingXl,
+// 28px line).
+const TOP_COINS_STAT_CELL_HEIGHT = 54;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',
@@ -96,12 +105,20 @@ function TopCoinsStatItem({
   rank?: number;
 }) {
   return (
-    <YStack flex={1} minWidth={0} gap="$1">
+    // Figma 25703:19148 lays the stats out as a 3-column grid of 54px rows,
+    // matching `StockOverviewGrid`. The column width is a fixed third rather
+    // than a flex share, so a wider cell can never push its row out of line.
+    <YStack
+      width="33.33%"
+      height={TOP_COINS_STAT_CELL_HEIGHT}
+      pr="$2.5"
+      gap="$1.5"
+    >
       <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
       <XStack alignItems="center" gap="$1.5">
-        <SizableText size="$headingLg" numberOfLines={1}>
+        <SizableText size="$headingXl" numberOfLines={1}>
           {value}
         </SizableText>
         {rank ? (
@@ -180,6 +197,8 @@ function getHistoricalPrice(currentPrice: string, percentage?: number) {
   return current.dividedBy(ratio).toFixed();
 }
 
+// Figma 25713:20533. The percentage and the historical price form one block,
+// so the item gap only separates the label from that pair.
 function TopCoinsPerformanceItem({
   label,
   percentage,
@@ -190,24 +209,33 @@ function TopCoinsPerformanceItem({
   referencePrice?: string;
 }) {
   return (
-    <YStack flex={1} minWidth={0} gap="$1.5">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <YStack
+      flex={1}
+      flexBasis={0}
+      minWidth={0}
+      py="$2"
+      justifyContent="center"
+      gap="$2.5"
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
         {label}
       </SizableText>
-      <PriceChangePercentage size="$bodyLgMedium">
-        {percentage ?? '--'}
-      </PriceChangePercentage>
-      {referencePrice ? (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="price"
-          formatterOptions={{ currency: '$' }}
-        >
-          {referencePrice}
-        </NumberSizeableText>
-      ) : (
-        <SizableText size="$bodyMd">--</SizableText>
-      )}
+      <YStack gap="$0.5">
+        <PriceChangePercentage size="$headingLg">
+          {percentage ?? '--'}
+        </PriceChangePercentage>
+        {referencePrice ? (
+          <NumberSizeableText
+            size="$bodyLg"
+            formatter="price"
+            formatterOptions={{ currency: '$' }}
+          >
+            {referencePrice}
+          </NumberSizeableText>
+        ) : (
+          <SizableText size="$bodyLg">--</SizableText>
+        )}
+      </YStack>
     </YStack>
   );
 }
@@ -237,7 +265,8 @@ function TopCoinsOverview({
         label: '30D',
         percentage: performance?.priceChangePercentage30d,
       },
-      { key: '3m', label: '3M', percentage: undefined },
+      // `/utility/v1/market/detail` only returns 1h/24h/7d/14d/30d/1y windows,
+      // so there is no 3M value and no substitute between 30D and 1Y.
       {
         key: '1y',
         label: '1Y',
@@ -263,62 +292,68 @@ function TopCoinsOverview({
   );
 
   return (
-    <YStack px="$5" pt="$10" pb="$12" gap="$12">
-      <XStack gap="$8">
-        <TopCoinsStatItem
-          label={intl.formatMessage({ id: ETranslations.global_market_cap })}
-          value={formatStatValueWithFormatter(
-            stats?.marketCap ?? tokenDetail?.marketCap,
-            USD_CURRENCY_FORMATTER,
-          )}
-          rank={stats?.marketCapRank}
-        />
-        <TopCoinsStatItem
-          label={intl.formatMessage({
-            id: ETranslations.dexmarket_stock_24h_volume,
-          })}
-          value={formatStatValueWithFormatter(
-            stats?.volume24h ?? tokenDetail?.volume24h,
-            USD_CURRENCY_FORMATTER,
-          )}
-        />
-        <TopCoinsStatItem
-          label={intl.formatMessage({
-            id: ETranslations.global_circulating_supply,
-          })}
-          value={formatStatValueWithFormatter(
-            stats?.circulatingSupply ?? tokenDetail?.circulatingSupply,
-            MARKET_CAP_FORMATTER,
-          )}
-        />
-      </XStack>
-      <XStack gap="$8">
-        <TopCoinsStatItem
-          label={intl.formatMessage({ id: ETranslations.global_fdv })}
-          value={formatStatValueWithFormatter(
-            stats?.fdv ?? tokenDetail?.fdv,
-            USD_CURRENCY_FORMATTER,
-          )}
-        />
-        <TopCoinsStatItem
-          label={intl.formatMessage({ id: ETranslations.global_total_supply })}
-          value={`${formatStatValueWithFormatter(
-            stats?.totalSupply,
-            MARKET_CAP_FORMATTER,
-          )}${symbol ? ` ${symbol}` : ''}`}
-        />
-        <TopCoinsStatItem
-          label={intl.formatMessage({ id: ETranslations.global_max_supply })}
-          value={formatStatValueWithFormatter(
-            stats?.maxSupply,
-            MARKET_CAP_FORMATTER,
-          )}
-        />
-      </XStack>
+    <YStack px="$5">
+      {/* Figma 25703:19145/19146: the stats grid sits in a `py $8` wrapper and
+          wraps into 54px rows separated by a 24px row gap. */}
+      <YStack py="$8">
+        <XStack flexWrap="wrap" rowGap="$6">
+          <TopCoinsStatItem
+            label={intl.formatMessage({ id: ETranslations.global_market_cap })}
+            value={formatStatValueWithFormatter(
+              stats?.marketCap ?? tokenDetail?.marketCap,
+              USD_CURRENCY_FORMATTER,
+            )}
+            rank={stats?.marketCapRank}
+          />
+          <TopCoinsStatItem
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_stock_24h_volume,
+            })}
+            value={formatStatValueWithFormatter(
+              stats?.volume24h ?? tokenDetail?.volume24h,
+              USD_CURRENCY_FORMATTER,
+            )}
+          />
+          <TopCoinsStatItem
+            label={intl.formatMessage({
+              id: ETranslations.global_circulating_supply,
+            })}
+            value={formatStatValueWithFormatter(
+              stats?.circulatingSupply ?? tokenDetail?.circulatingSupply,
+              MARKET_CAP_FORMATTER,
+            )}
+          />
+          <TopCoinsStatItem
+            label={intl.formatMessage({ id: ETranslations.global_fdv })}
+            value={formatStatValueWithFormatter(
+              stats?.fdv ?? tokenDetail?.fdv,
+              USD_CURRENCY_FORMATTER,
+            )}
+          />
+          <TopCoinsStatItem
+            label={intl.formatMessage({
+              id: ETranslations.global_total_supply,
+            })}
+            value={`${formatStatValueWithFormatter(
+              stats?.totalSupply,
+              MARKET_CAP_FORMATTER,
+            )}${symbol ? ` ${symbol}` : ''}`}
+          />
+          <TopCoinsStatItem
+            label={intl.formatMessage({ id: ETranslations.global_max_supply })}
+            value={formatStatValueWithFormatter(
+              stats?.maxSupply,
+              MARKET_CAP_FORMATTER,
+            )}
+          />
+        </XStack>
+      </YStack>
 
-      <YStack gap="$6">
-        <SizableText size="$headingLg">Performance</SizableText>
-        <XStack gap="$6">
+      {/* Each section carries its own `py $8` wrapper, so the gap between the
+          stats grid and this heading is the two paddings stacked. */}
+      <YStack py="$8" gap="$6">
+        <SizableText size="$headingXl">Performance</SizableText>
+        <XStack>
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
               key={item.key}
@@ -331,6 +366,142 @@ function TopCoinsOverview({
             />
           ))}
         </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
+// Figma 25713:20673. The 56px leading slot is an illustration that is not in
+// the asset library yet, so it renders as a reserved placeholder box.
+const TOP_COINS_EARN_ARTWORK_SIZE = 56;
+
+// The Earn surface renders APY as "value + one-step-smaller unit", but this row
+// is a single sentence set at one size, so the APY is resolved to plain text
+// here and rendered in one run. Priority mirrors `AprText`: range, then
+// highlight/normal/deprecated, then the raw APR.
+function resolveEarnAprText(earnAsset: IRecommendAsset) {
+  const rewardUnit = earnAsset.rewardUnit ?? 'APR';
+  const rangeText = buildAprRangeText({
+    minAprInfo: earnAsset.minAprInfo,
+    maxAprInfo: earnAsset.maxAprInfo,
+    rewardUnit,
+  });
+  if (rangeText) {
+    return rangeText;
+  }
+  const { aprInfo } = earnAsset;
+  const infoText =
+    aprInfo?.highlight?.text ??
+    aprInfo?.normal?.text ??
+    aprInfo?.deprecated?.text;
+  if (infoText) {
+    return formatRewardText({ text: infoText, rewardUnit, hideSuffix: false });
+  }
+  return buildAprText(earnAsset.aprWithoutFee, rewardUnit);
+}
+
+function TopCoinsEarnSection({
+  earnAsset,
+  symbol,
+  onPress,
+}: {
+  earnAsset: IRecommendAsset;
+  symbol: string;
+  onPress: () => void;
+}) {
+  const intl = useIntl();
+  const earnLabel = intl.formatMessage({ id: ETranslations.earn_title });
+  const aprText = resolveEarnAprText(earnAsset);
+
+  return (
+    <YStack px="$5">
+      <YStack py="$8" gap="$6">
+        <SizableText size="$headingXl">{`${earnLabel} ${symbol}`}</SizableText>
+        <XStack
+          testID="top-coins-earn-entry"
+          minHeight={48}
+          // Figma 25745:19636: the hover background bleeds 8px past the row on
+          // each side and is rounded to 12px. The negative margin is cancelled
+          // by a matching padding, so the row content itself never shifts.
+          mx={-8}
+          px={8}
+          py="$2"
+          gap="$4"
+          alignItems="center"
+          cursor="pointer"
+          borderRadius="$3"
+          borderCurve="continuous"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={onPress}
+        >
+          <Stack
+            width={TOP_COINS_EARN_ARTWORK_SIZE}
+            height={TOP_COINS_EARN_ARTWORK_SIZE}
+            borderRadius="$2"
+            borderCurve="continuous"
+            bg="$bgSubdued"
+          />
+          <SizableText
+            size="$headingLg"
+            flex={1}
+            flexBasis={0}
+            minWidth={0}
+            numberOfLines={2}
+          >
+            {`${earnLabel} ${aprText} on your ${symbol}`}
+          </SizableText>
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
+// react-native-web does not fire `onTextLayout` reliably, so the toggle is
+// gated on a character count that approximates three lines at this section
+// width instead of measuring the rendered text. Mirrors `StockAbout`.
+const TOP_COINS_ABOUT_COLLAPSED_LENGTH = 300;
+
+function TopCoinsAbout({ about, symbol }: { about: string; symbol: string }) {
+  const intl = useIntl();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const canExpand = about.length > TOP_COINS_ABOUT_COLLAPSED_LENGTH;
+
+  return (
+    <YStack px="$5">
+      <YStack py="$8" gap="$6">
+        <SizableText size="$headingXl">
+          {`${intl.formatMessage({
+            id: ETranslations.global_about,
+          })} ${symbol}`}
+        </SizableText>
+        <YStack gap="$2" alignItems="flex-start">
+          <SizableText
+            testID="top-coins-about-description"
+            size="$bodyMd"
+            color="$textSubdued"
+            maxWidth={792}
+            numberOfLines={isExpanded ? undefined : 3}
+          >
+            {about}
+          </SizableText>
+          {canExpand ? (
+            <Button
+              testID="top-coins-about-description-toggle"
+              size="small"
+              variant="tertiary"
+              alignSelf="flex-start"
+              onPress={() => setIsExpanded((value) => !value)}
+            >
+              {isExpanded ? 'Show Less' : 'Show More'}
+            </Button>
+          ) : null}
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -396,57 +567,18 @@ function TopCoinsInformation({
         />
 
         {earnAsset ? (
-          <YStack px="$5" pb="$12" gap="$5">
-            <SizableText size="$headingLg">
-              {`${intl.formatMessage({ id: ETranslations.global_earn })} ${
-                symbol
-              }`}
-            </SizableText>
-            <XStack
-              py="$3"
-              alignItems="center"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={handleEarnPress}
-            >
-              <SizableText size="$headingLg" mr="$2">
-                ↗
-              </SizableText>
-              <XStack alignItems="center" flex={1} gap="$1">
-                <SizableText size="$bodyLgMedium">
-                  {intl.formatMessage({ id: ETranslations.global_earn })}
-                </SizableText>
-                <AprText
-                  size="$bodyLgMedium"
-                  asset={{
-                    aprWithoutFee: earnAsset.aprWithoutFee,
-                    aprInfo: earnAsset.aprInfo,
-                    rewardUnit: earnAsset.rewardUnit,
-                    minAprInfo: earnAsset.minAprInfo,
-                    maxAprInfo: earnAsset.maxAprInfo,
-                  }}
-                />
-                <SizableText size="$bodyLgMedium">
-                  {`on your ${symbol}`}
-                </SizableText>
-              </XStack>
-              <SizableText color="$textSubdued">›</SizableText>
-            </XStack>
-          </YStack>
+          <TopCoinsEarnSection
+            earnAsset={earnAsset}
+            symbol={symbol}
+            onPress={handleEarnPress}
+          />
         ) : null}
 
         {legacyDetail?.about ? (
-          <YStack px="$5" pb="$12" gap="$5">
-            <SizableText size="$headingLg">
-              {`${intl.formatMessage({ id: ETranslations.global_about })} ${
-                symbol || legacyDetail.symbol.toUpperCase()
-              }`}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" maxWidth={792}>
-              {legacyDetail.about}
-            </SizableText>
-          </YStack>
+          <TopCoinsAbout
+            about={legacyDetail.about}
+            symbol={symbol || legacyDetail.symbol.toUpperCase()}
+          />
         ) : null}
       </>
     );
@@ -606,6 +738,10 @@ export function TopCoinsDesktopLayout({
         </YStack>
 
         <YStack width={TOP_COINS_TRADE_COLUMN_WIDTH} flexShrink={0}>
+          {/* Renders only when the token has a Hyperliquid counterpart, and
+              stays hidden once dismissed. Sits above the trade panel, where the
+              pre-redesign desktop layout carried it. */}
+          <PerpetualTradingBanner px="$5" py="$5" />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : (

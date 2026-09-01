@@ -456,6 +456,14 @@ function BaseMarketTokenSelector({
   let triggerTokenSize: ITokenSize = 'md';
   let triggerTextSize: ComponentProps<typeof SizableText>['size'] =
     '$heading2xl';
+  // Figma 25705:19982 — the name-carrying trigger is the same pill the stock
+  // detail header uses: token, stacked ticker/name, then the chevron closing
+  // the pill. The hover background reaches 8px past the content horizontally
+  // and 4px vertically, and every negative margin is cancelled by a matching
+  // padding so the row itself never moves.
+  const isLargeWithName = isLarge && showName;
+  let triggerMarginHorizontal: ComponentProps<typeof XStack>['mx'];
+  let triggerMarginVertical: ComponentProps<typeof XStack>['my'];
   if (isLarge) {
     triggerPaddingLeft = '$0';
     triggerPaddingRight = '$0';
@@ -463,6 +471,13 @@ function BaseMarketTokenSelector({
     triggerGap = 14;
     triggerTokenSize = 'xl';
     triggerTextSize = '$headingXl';
+    if (isLargeWithName) {
+      triggerMarginHorizontal = -8;
+      triggerMarginVertical = -4;
+      triggerPaddingLeft = 8;
+      triggerPaddingRight = 8;
+      triggerPaddingVertical = 4;
+    }
   } else if (isCompact) {
     triggerPaddingLeft = '$1';
     triggerPaddingRight = '$0';
@@ -510,11 +525,14 @@ function BaseMarketTokenSelector({
               alignItems="center"
               cursor="pointer"
               bg="$bgApp"
+              mx={triggerMarginHorizontal}
+              my={triggerMarginVertical}
               pl={triggerPaddingLeft}
               pr={triggerPaddingRight}
               py={triggerPaddingVertical}
               gap={triggerGap}
               borderRadius="$full"
+              borderCurve="continuous"
               hoverStyle={{ bg: '$bgHover' }}
               pressStyle={{ bg: '$bgActive' }}
             >
@@ -525,7 +543,37 @@ function BaseMarketTokenSelector({
                 networkImageUri={effectiveNetworkLogoUri}
                 fallbackIcon="CryptoCoinOutline"
               />
-              {showAddress || showName ? (
+              {isLargeWithName ? (
+                <>
+                  <YStack minWidth={0} flexShrink={1} justifyContent="center">
+                    <SizableText
+                      size="$headingXl"
+                      color="$text"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      maxWidth="$48"
+                      flexShrink={1}
+                    >
+                      {symbol}
+                    </SizableText>
+                    {name ? (
+                      <SizableText
+                        size="$bodyMdMedium"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                      >
+                        {name}
+                      </SizableText>
+                    ) : null}
+                  </YStack>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$5"
+                    color="$iconSubdued"
+                  />
+                </>
+              ) : null}
+              {!isLargeWithName && (showAddress || showName) ? (
                 <YStack minWidth={0} flexShrink={1}>
                   <XStack alignItems="center" gap="$1">
                     <SizableText
@@ -569,7 +617,8 @@ function BaseMarketTokenSelector({
                     </SizableText>
                   ) : null}
                 </YStack>
-              ) : (
+              ) : null}
+              {isLargeWithName || showAddress || showName ? null : (
                 <>
                   <SizableText
                     size={triggerTextSize}
@@ -600,6 +649,7 @@ function BaseMarketTokenSelector({
       intl,
       isOpen,
       isCompact,
+      isLargeWithName,
       logoUrl,
       renderTrigger,
       renderSelectorContent,
@@ -609,6 +659,8 @@ function BaseMarketTokenSelector({
       symbol,
       name,
       triggerGap,
+      triggerMarginHorizontal,
+      triggerMarginVertical,
       triggerPaddingLeft,
       triggerPaddingRight,
       triggerPaddingVertical,

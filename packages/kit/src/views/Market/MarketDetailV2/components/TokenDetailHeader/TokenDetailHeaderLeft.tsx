@@ -78,6 +78,8 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
+  const isTopCoins = desktopDetailVariant === 'topCoins';
+
   const marketStar =
     showFavoriteButton && networkId ? (
       <MarketStarV2
@@ -97,6 +99,10 @@ export function TokenDetailHeaderLeft({
       address={address}
       isNative={isNative}
       useIconButton
+      // `useIconButton` defaults to a medium IconButton, which sits a size above
+      // the small favorite button next to it. The stock detail header pins both
+      // to small, so the Top Coins header does the same.
+      size={isTopCoins ? 'small' : undefined}
     />
   ) : null;
 
@@ -151,7 +157,11 @@ export function TokenDetailHeaderLeft({
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
-                {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                {/* Top Coins are all major assets, so the community-recognized
+                    badge carries no signal there and the design omits it. */}
+                {!isTopCoins && communityRecognized ? (
+                  <CommunityRecognizedBadge />
+                ) : null}
                 {stock?.subtitle ? (
                   <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}

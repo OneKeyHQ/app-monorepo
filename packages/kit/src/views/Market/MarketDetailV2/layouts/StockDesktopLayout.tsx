@@ -68,6 +68,12 @@ import {
 } from '../utils/stockPublicDataUtils';
 
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
+import {
+  MARKET_CHART_TOOLBAR_VERTICAL_INSET,
+  MARKET_SIMPLE_CHART_RANGES,
+  MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH,
+  MARKET_SIMPLE_CHART_RANGE_WIDTHS,
+} from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
 import { StockNewsSection } from './components/StockNewsSection';
 import {
@@ -83,31 +89,6 @@ type IStockChartMode = 'simple' | 'pro';
 // Simple mode (Figma 25476:88857 / 25476:88858).
 const STOCK_CHART_HEIGHT = 360;
 const STOCK_CHART_TOOLBAR_HEIGHT = 40;
-// Pro drops the toolbar row and lays the Simple/Pro switch over the trailing
-// edge of the TradingView widget's own interval row instead. Both that row and
-// the Simple toolbar inset their contents by 4px from the top of the chart
-// block, so one offset puts the switch on the widget's line in Pro and leaves
-// it in exactly the same place when the mode is toggled.
-const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
-
-const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
-
-const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
-  {
-    '1H': 33,
-    '1D': 33,
-    '1W': 37,
-    '1M': 35,
-    '1Y': 32,
-    All: 34,
-  };
 
 function StockPageHeader({
   showFavoriteButton,
@@ -572,9 +553,13 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack width={214} alignItems="center" gap="$0.5">
-            {STOCK_SIMPLE_CHART_RANGES.map((item) => {
-              const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
+          <XStack
+            width={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
+            alignItems="center"
+            gap="$0.5"
+          >
+            {MARKET_SIMPLE_CHART_RANGES.map((item) => {
+              const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
                 <Stack
                   key={item}
@@ -623,7 +608,7 @@ function StockChart({
           {isChartFullscreen ? null : (
             <MarketDetailProChartControls
               testID="stock-chart-mode-control-pro"
-              top={STOCK_CHART_TOOLBAR_VERTICAL_INSET}
+              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
               fullscreenTestID="stock-chart-fullscreen-toggle"
               chartMode={chartMode}
               isChartSwitchDisabled={isChartSwitchDisabled}

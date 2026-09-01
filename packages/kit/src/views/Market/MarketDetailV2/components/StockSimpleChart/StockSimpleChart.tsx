@@ -151,9 +151,6 @@ export function StockSimpleChart({
         stockDetail?.marketStatus?.isOpen === true ||
         tokenDetail?.stock?.isOpen === true
       }
-      // The stock detail page redirects its own price header to the hovered
-      // point, so a price inside the crosshair label would repeat it.
-      hoverLabelShowsPrice={false}
       onHoverChange={onHoverChange}
     />
   );

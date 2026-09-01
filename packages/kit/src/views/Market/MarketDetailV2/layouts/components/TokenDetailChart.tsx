@@ -13,17 +13,14 @@ import {
 } from '../../components/StockSimpleChart';
 
 import { MarketDetailProChartControls } from './MarketDetailProChartControls';
+import {
+  MARKET_CHART_TOOLBAR_VERTICAL_INSET,
+  MARKET_SIMPLE_CHART_RANGES,
+  MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH,
+  MARKET_SIMPLE_CHART_RANGE_WIDTHS,
+} from './marketSimpleChartConstants';
 
 type ITokenChartMode = 'simple' | 'pro';
-
-const TOKEN_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
 
 function TokenChartModeControl({
   mode,
@@ -91,7 +88,16 @@ export function TokenDetailChart({
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
 
   return (
-    <YStack width="100%" height="100%" position="relative">
+    // Simple mode stacks a 40px toolbar, a 16px gap and the 304px chart into
+    // the 360px block, matching the stock detail chart. Without the gap the
+    // toolbar sits flush against the chart's top price label and the spare
+    // 16px collects at the bottom of the block instead.
+    <YStack
+      width="100%"
+      height="100%"
+      gap={isSimpleMode ? '$4' : '$0'}
+      position="relative"
+    >
       {isSimpleMode ? (
         <>
           <XStack
@@ -101,26 +107,41 @@ export function TokenDetailChart({
             alignItems="center"
             justifyContent="space-between"
           >
-            <XStack alignItems="center" gap="$0.5">
-              {TOKEN_SIMPLE_CHART_RANGES.map((item) => (
-                <Button
-                  key={item}
-                  testID={`market-token-chart-range-${item}`}
-                  minWidth={item === 'All' ? 46 : 40}
-                  height={32}
-                  m="$0"
-                  px="$2"
-                  borderWidth={0}
-                  size="small"
-                  variant={range === item ? 'secondary' : 'tertiary'}
-                  borderRadius="$full"
-                  onPress={() => setRange(item)}
-                >
-                  {item === 'All'
-                    ? intl.formatMessage({ id: ETranslations.global_all })
-                    : item}
-                </Button>
-              ))}
+            <XStack
+              width={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
+              alignItems="center"
+              gap="$0.5"
+            >
+              {MARKET_SIMPLE_CHART_RANGES.map((item) => {
+                const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
+                return (
+                  <Stack
+                    key={item}
+                    width={itemWidth}
+                    minWidth={itemWidth}
+                    height={32}
+                    flexShrink={0}
+                  >
+                    <Button
+                      testID={`market-token-chart-range-${item}`}
+                      width="100%"
+                      minWidth={itemWidth}
+                      height={32}
+                      m="$0"
+                      px="$2"
+                      borderWidth={0}
+                      size="small"
+                      variant={range === item ? 'secondary' : 'tertiary'}
+                      borderRadius="$full"
+                      onPress={() => setRange(item)}
+                    >
+                      {item === 'All'
+                        ? intl.formatMessage({ id: ETranslations.global_all })
+                        : item}
+                    </Button>
+                  </Stack>
+                );
+              })}
             </XStack>
             <TokenChartModeControl mode={mode} onChange={setMode} />
           </XStack>
@@ -138,7 +159,7 @@ export function TokenDetailChart({
           {isChartFullscreen ? null : (
             <MarketDetailProChartControls
               testID="market-token-chart-mode-control-pro"
-              top={3}
+              top={MARKET_CHART_TOOLBAR_VERTICAL_INSET}
               fullscreenTestID="trading-view-native-fullscreen-toggle"
               chartMode={chartMode}
               isChartSwitchDisabled={isChartSwitchDisabled}
