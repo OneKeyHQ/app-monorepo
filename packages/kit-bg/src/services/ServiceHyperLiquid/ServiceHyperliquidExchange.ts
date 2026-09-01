@@ -109,6 +109,11 @@ interface IOrderAssetPrecision {
   type: 'perp' | 'spot';
 }
 
+// Hyperliquid treats FrontendMarket as its own market-order TIF: it never rests,
+// so it survives the open-interest-cap guard that rejects orders priced beyond
+// the oracle band, and the fill is labelled Market instead of Limit IOC.
+const MARKET_ORDER_TIF = 'FrontendMarket' as const;
+
 function isUserLimitTif(value: unknown): value is ITIF {
   return value === 'Gtc' || value === 'Ioc' || value === 'Alo';
 }
@@ -888,7 +893,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
                 },
               }
             : {
-                limit: { tif: 'Ioc' },
+                limit: { tif: MARKET_ORDER_TIF },
               },
       };
 
@@ -1026,7 +1031,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         s: params.sz,
         r: false,
         t: isMarket
-          ? { limit: { tif: params.tif || 'Ioc' } }
+          ? { limit: { tif: params.tif || MARKET_ORDER_TIF } }
           : { limit: { tif: params.tif || 'Gtc' } },
       };
 
@@ -1077,7 +1082,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         t: isMarket
           ? {
               limit: {
-                tif: 'Ioc',
+                tif: MARKET_ORDER_TIF,
               },
             }
           : { limit: { tif: normalizeUserLimitTif(params.tif) } },
@@ -1240,10 +1245,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
       let price: string;
-      // Market close must not rest: when open interest is at cap, Hyperliquid
-      // rejects resting orders priced beyond the oracle band, so a Gtc order
-      // carrying the slippage price is refused while FrontendMarket is not.
-      let tif: 'Gtc' | 'FrontendMarket';
+      let tif: 'Gtc' | typeof MARKET_ORDER_TIF;
 
       if (param.limitPx) {
         price = param.limitPx;
@@ -1254,7 +1256,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           isBuy: !param.isBuy,
           slippage: param.slippage || this.slippage,
         });
-        tif = 'FrontendMarket';
+        tif = MARKET_ORDER_TIF;
       } else {
         throw new OneKeyLocalError(
           'Either limitPx or midPx must be provided for order close',
