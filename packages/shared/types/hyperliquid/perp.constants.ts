@@ -49,6 +49,12 @@ export const SUB_DEX_LIST = [
   { prefix: 'io', hlDexIndex: 10 },
 ] as const;
 
+// Sent with every server request whose payload can carry a sub-DEX coin, so the
+// backend can withhold a dex from builds that predate it. A client that omits it
+// is served the pre-`io` dataset, which is how the market list and the perps
+// config silently lost their `io` rows. Bump on every SUB_DEX_LIST addition.
+export const PERPS_ASSET_TYPE_VERSION = 3;
+
 export const DEX_SEPARATOR = ':';
 
 export const DEX_PREFIXES = SUB_DEX_LIST.map((item) => item.prefix);
