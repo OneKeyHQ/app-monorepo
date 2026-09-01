@@ -52,6 +52,10 @@ const settingPathConfig = [
     name: EModalSettingRoutes.SettingProtectModal,
     rewrite: '/protection',
   }),
+  route({
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    rewrite: '/dapp-connections',
+  }),
 ];
 
 const appUpdatePathConfig = [

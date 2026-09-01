@@ -14,6 +14,7 @@ export enum EAtomNames {
   cloudBackupStatusAtom = 'cloudBackupStatusAtom',
   cloudBackupExitPreventAtom = 'cloudBackupExitPreventAtom',
   passwordAtom = 'passwordAtom',
+  hyperLiquidAgentPasswordStatusAtom = 'hyperLiquidAgentPasswordStatusAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   passwordPersistManualLockStateAtom = 'passwordPersistManualLockStateAtom',
@@ -143,6 +144,7 @@ export enum EAtomNames {
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
+  marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)

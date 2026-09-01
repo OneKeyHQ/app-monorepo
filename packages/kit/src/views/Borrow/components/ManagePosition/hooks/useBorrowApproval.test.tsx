@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => {
   const actualReactIntl =
     jest.requireActual<typeof import('react-intl')>('react-intl');
@@ -20,6 +31,7 @@ jest.mock('@onekeyhq/components', () => ({
   },
   Toast: {
     error: jest.fn(),
+    success: jest.fn(),
     warning: jest.fn(),
   },
 }));
@@ -98,6 +110,11 @@ jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
+  __esModule: true,
+  waitForTxFinalStatus: jest.fn(),
+}));
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowManagePage: jest.fn(),
@@ -131,7 +148,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { Dialog, Toast } from '@onekeyhq/components';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { useBorrowApproval } from './useBorrowApproval';
@@ -166,6 +185,8 @@ const allowanceMock = (
     };
   }
 ).__borrowApprovalAllowanceMock;
+
+const waitForTxFinalStatusMock = jest.mocked(waitForTxFinalStatus);
 
 const delegationTarget = {
   accountId: 'account-id',
@@ -219,7 +240,10 @@ describe('useBorrowApproval', () => {
     });
     (Dialog.show as jest.Mock).mockReset();
     (Toast.error as jest.Mock).mockReset();
+    (Toast.success as jest.Mock).mockReset();
     (Toast.warning as jest.Mock).mockReset();
+    waitForTxFinalStatusMock.mockReset();
+    waitForTxFinalStatusMock.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     allowanceMock.allowance = undefined;
     allowanceMock.fetchAllowanceResponse.mockReset();
     allowanceMock.fetchAllowanceResponse.mockResolvedValue({
@@ -371,6 +395,34 @@ describe('useBorrowApproval', () => {
     expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it('resets approval progress when the request scope changes', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ amountValue }: { amountValue: string }) =>
+        useBorrowApproval({
+          action: 'repay',
+          amountValue,
+          approveType: EApproveType.Legacy,
+          approveTarget: tokenApproveTarget,
+          onApprovedSubmit,
+        }),
+      { initialProps: { amountValue: '5' } },
+    );
+
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    expect(result.current.approvalProgressStarted).toBe(true);
+
+    rerender({ amountValue: '6' });
+    expect(result.current.approvalProgressStarted).toBe(false);
+
+    rerender({ amountValue: '5' });
+    expect(result.current.approvalProgressStarted).toBe(false);
+  });
+
   it('opens approval from cached insufficient allowance when the fresh check fails', async () => {
     allowanceMock.fetchAllowanceResponse.mockRejectedValue(
       new Error('Allowance unavailable'),
@@ -447,17 +499,162 @@ describe('useBorrowApproval', () => {
     });
   });
 
-  it('warns and releases approving when allowance polling times out', async () => {
-    jest.useFakeTimers();
-    try {
-      allowanceMock.fetchAllowanceResponse
-        .mockResolvedValueOnce({ allowanceParsed: '0' })
-        .mockRejectedValue(new Error('Allowance unavailable'));
-      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
-        async () => undefined,
-      );
-      const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
-      const { result } = renderHook(() =>
+  it('keeps a poll-exhausted approval pending instead of reporting failure', async () => {
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '0',
+    });
+    waitForTxFinalStatusMock.mockResolvedValueOnce(undefined);
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+      ]);
+    });
+
+    await waitFor(() => expect(result.current.approving).toBe(false));
+
+    expect(waitForTxFinalStatusMock).toHaveBeenCalledWith({
+      accountId: tokenApproveTarget.accountId,
+      networkId: tokenApproveTarget.networkId,
+      txid: '0xApprove',
+      signal: expect.any(AbortSignal),
+    });
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    expect(Toast.success).toHaveBeenCalledWith({
+      title: ETranslations.feedback_transaction_submitted,
+    });
+    expect(Toast.warning).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('reports approval failure only for an explicit failed receipt', async () => {
+    waitForTxFinalStatusMock.mockResolvedValueOnce(
+      EOnChainHistoryTxStatus.Failed,
+    );
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xFailed' }, signedTx: { txid: '' } },
+      ]);
+    });
+
+    await waitFor(() => expect(result.current.approving).toBe(false));
+
+    expect(Toast.warning).toHaveBeenCalledWith({
+      title: ETranslations.swap_page_toast_approve_failed,
+      message: ETranslations.global_try_again,
+    });
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+  });
+
+  it('continues after a successful receipt when one-shot allowance reconciliation lags', async () => {
+    allowanceMock.fetchAllowanceResponse
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockRejectedValueOnce(new Error('Allowance indexing delayed'));
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        amountValue: '5',
+        approveType: EApproveType.Legacy,
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xSuccess' }, signedTx: { txid: '' } },
+      ]);
+    });
+
+    await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+
+    expect(waitForTxFinalStatusMock).toHaveBeenCalledTimes(1);
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(2);
+    expect(Toast.error).not.toHaveBeenCalled();
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(Toast.warning).not.toHaveBeenCalled();
+    expect(result.current.approving).toBe(false);
+  });
+
+  it('silently aborts receipt settlement when submit callback is replaced', async () => {
+    const settlementDeferred = createDeferred<
+      EOnChainHistoryTxStatus | undefined
+    >();
+    let settlementSignal: AbortSignal | undefined;
+    waitForTxFinalStatusMock.mockImplementationOnce(({ signal }) => {
+      settlementSignal = signal;
+      return settlementDeferred.promise;
+    });
+    allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+      allowanceParsed: '0',
+    });
+    signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+    const previousSubmit = jest.fn().mockResolvedValue(undefined);
+    const currentSubmit = jest.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ onApprovedSubmit }: { onApprovedSubmit: () => Promise<void> }) =>
         useBorrowApproval({
           action: 'repay',
           amountValue: '5',
@@ -465,102 +662,43 @@ describe('useBorrowApproval', () => {
           approveTarget: tokenApproveTarget,
           onApprovedSubmit,
         }),
-      );
+      { initialProps: { onApprovedSubmit: previousSubmit } },
+    );
 
-      await act(async () => {
-        await result.current.onApprove();
-      });
-      const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
-        .calls[0][0] as {
-        onSuccess: (
-          data: {
-            decodedTx: { txid: string };
-            signedTx: { txid: string };
-          }[],
-        ) => void;
-      };
-      await act(async () => {
-        confirmParams.onSuccess([
-          { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
-        ]);
-        await Promise.resolve();
-      });
+    await act(async () => {
+      await result.current.onApprove();
+    });
+    const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
+      .calls[0][0] as {
+      onSuccess: (
+        data: {
+          decodedTx: { txid: string };
+          signedTx: { txid: string };
+        }[],
+      ) => void;
+    };
+    act(() => {
+      confirmParams.onSuccess([
+        { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
+      ]);
+    });
 
-      expect(result.current.approving).toBe(true);
+    expect(settlementSignal?.aborted).toBe(false);
+    rerender({ onApprovedSubmit: currentSubmit });
+    expect(settlementSignal?.aborted).toBe(true);
+    expect(result.current.approving).toBe(false);
 
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(28_000);
-      });
+    await act(async () => {
+      settlementDeferred.resolve(EOnChainHistoryTxStatus.Success);
+      await settlementDeferred.promise;
+    });
 
-      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(16);
-      expect(Toast.warning).toHaveBeenCalledWith({
-        title: ETranslations.swap_page_toast_approve_failed,
-        message: ETranslations.global_try_again,
-      });
-      expect(onApprovedSubmit).not.toHaveBeenCalled();
-      expect(result.current.approving).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('silently aborts allowance polling when submit callback is replaced', async () => {
-    jest.useFakeTimers();
-    try {
-      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
-        allowanceParsed: '0',
-      });
-      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
-        async () => undefined,
-      );
-      const previousSubmit = jest.fn().mockResolvedValue(undefined);
-      const currentSubmit = jest.fn().mockResolvedValue(undefined);
-      const { result, rerender } = renderHook(
-        ({ onApprovedSubmit }: { onApprovedSubmit: () => Promise<void> }) =>
-          useBorrowApproval({
-            action: 'repay',
-            amountValue: '5',
-            approveType: EApproveType.Legacy,
-            approveTarget: tokenApproveTarget,
-            onApprovedSubmit,
-          }),
-        { initialProps: { onApprovedSubmit: previousSubmit } },
-      );
-
-      await act(async () => {
-        await result.current.onApprove();
-      });
-      const confirmParams = signatureConfirmMock.navigationToTxConfirm.mock
-        .calls[0][0] as {
-        onSuccess: (
-          data: {
-            decodedTx: { txid: string };
-            signedTx: { txid: string };
-          }[],
-        ) => void;
-      };
-      await act(async () => {
-        confirmParams.onSuccess([
-          { decodedTx: { txid: '0xApprove' }, signedTx: { txid: '' } },
-        ]);
-        await Promise.resolve();
-      });
-
-      expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(2);
-      rerender({ onApprovedSubmit: currentSubmit });
-      expect(result.current.approving).toBe(false);
-
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(2000);
-      });
-
-      expect(previousSubmit).not.toHaveBeenCalled();
-      expect(currentSubmit).not.toHaveBeenCalled();
-      expect(Toast.warning).not.toHaveBeenCalled();
-      expect(result.current.approving).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(1);
+    expect(previousSubmit).not.toHaveBeenCalled();
+    expect(currentSubmit).not.toHaveBeenCalled();
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(Toast.warning).not.toHaveBeenCalled();
+    expect(result.current.approving).toBe(false);
   });
 
   it('forces a max allowance for a full-close withdraw (gateway pulls the live aToken balance)', async () => {
@@ -1009,6 +1147,72 @@ describe('useBorrowApproval', () => {
     ]);
 
     await waitFor(() => expect(onApprovedSubmit).toHaveBeenCalledTimes(1));
+    expect(waitForTxFinalStatusMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ txid: '0xReset' }),
+    );
+    expect(waitForTxFinalStatusMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ txid: '0xMaxApprove' }),
+    );
+    expect(allowanceMock.fetchAllowanceResponse).toHaveBeenCalledTimes(3);
     expect(onBeforeNavigateConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useBorrowApproval risk disclaimer gate (OK-59196)', () => {
+  it('blocks the approve step when the disclaimer is declined', async () => {
+    const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+    backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({
+      borrowAllowance: '0',
+    });
+
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'borrow',
+        providerName: 'aave',
+        amountValue: '5',
+        borrowDelegationApproveTarget: delegationTarget,
+        onApprovedSubmit,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(mockEnsureRiskAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: delegationTarget.provider }),
+    );
+    // Bailed out before taking the approving lock, so the footer never sticks.
+    expect(result.current.approving).toBe(false);
+    expect(result.current.approvalProgressStarted).toBe(false);
+    expect(onApprovedSubmit).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.serviceStaking.getBorrowManagePage,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('falls back to providerName when there is no delegation target', async () => {
+    mockEnsureRiskAccepted.mockResolvedValue(false);
+
+    const { result } = renderHook(() =>
+      useBorrowApproval({
+        action: 'repay',
+        providerName: 'kamino',
+        amountValue: '5',
+        approveTarget: tokenApproveTarget,
+        onApprovedSubmit: jest.fn(),
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onApprove();
+    });
+
+    expect(mockEnsureRiskAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'kamino' }),
+    );
   });
 });

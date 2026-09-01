@@ -240,6 +240,11 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
   isStock?: boolean;
+  // Scaled-UI (rebase) token multiplier, copied from the wallet token
+  // snapshot at the wallet->swap boundary. Swap has no end-to-end
+  // scaled-UI support; gates use this to fail-close (see swap actions).
+  // /swap/v1 responses do not populate it today.
+  balanceMultiplier?: string;
 }
 
 export interface IFreeFeeTokenItem {
@@ -606,6 +611,11 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  // Raw megafuel eligibility kept for the external-wallet promo hint
+  // (OK-61254). The effective sponsor state above is stripped at the estimate
+  // source for external-wallet accounts — they always pay the real fee — but
+  // the review UI still advertises "zero network fee with OneKey wallet".
+  externalSponsorPromoEligible?: boolean;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -616,6 +626,7 @@ export interface ISwapPreSwapData {
   minToAmount?: string;
   needFetchGas?: boolean;
   swapBuildLoading?: boolean;
+  requiresSlippageRebuildOnConfirm?: boolean;
   estimateNetworkFeeLoading?: boolean;
   stepBeforeActionsLoading?: boolean;
   stepBeforeActionsError?: boolean;
@@ -631,6 +642,7 @@ export interface ISwapPreSwapData {
   swapBuildResultData?: {
     swapInfo?: ISwapTxInfo;
     orderId?: string;
+    slippagePercentage?: number;
     skipSendTransAction?: boolean;
     encodedTx?: IEncodedTx;
     transferInfo?: ITransferInfo;

@@ -24,14 +24,14 @@ import {
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
-import { resolveMarketTradeActionState } from './ActionButton.utils';
+import {
+  resolveMarketTradeActionState,
+  resolveMarketTradeFallbackSwapType,
+} from './ActionButton.utils';
 
 import type { IToken } from '../types';
 import type { GestureResponderEvent } from 'react-native';
@@ -146,9 +146,10 @@ export function ActionButton({
           tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
         importFromToken:
           tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
-        swapTabSwitchType: onlySupportCrossChain
-          ? ESwapTabSwitchType.BRIDGE
-          : ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: resolveMarketTradeFallbackSwapType({
+          isStock: actionToken?.isStock,
+          onlySupportCrossChain,
+        }),
         swapSource: ESwapSource.MARKET,
         marketPresetToken: actionToken
           ? {
@@ -249,6 +250,7 @@ export function ActionButton({
     isBalanceAvailable: balance !== undefined,
     isInsufficientBalance,
     isWrapped,
+    isRefreshQuote,
   });
   const quoteRefreshAvailable = Boolean(
     isRefreshQuote && hasAmount && !shouldDisable,
@@ -295,10 +297,12 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
-  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  // Use colored style only for normal trading states (has amount, not
+  // disabled, has account); the stale-quote refresh prompt stays neutral.
   let shouldUseColoredStyle =
     hasAmount &&
-    (quoteRefreshAvailable || !shouldDisable) &&
+    !shouldDisable &&
+    !quoteRefreshAvailable &&
     !noAccount &&
     !disabled;
 

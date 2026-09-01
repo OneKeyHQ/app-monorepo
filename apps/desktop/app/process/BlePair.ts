@@ -20,8 +20,15 @@ import { getAppStaticResourcesPath } from '../resoucePath';
 
 const RESOURCE = 'ble-pair';
 const PROCESS_NAME = 'onekey-ble-pair';
+// Matches the SDK's /connect cancelled/i -> BlePairingCancelled (10310).
+const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 // The user has up to the OS pairing window to confirm; keep some headroom.
 const PAIR_TIMEOUT_MS = 60_000;
+// After the deadline the helper still needs a moment to decline before it is killed.
+const PAIR_DECLINE_GRACE_MS = 5000;
+// Once confirmed the user is out of the loop, but PairAsync must not hang forever:
+// the helper's own deadline only covers waiting for a decision, not the ceremony.
+const PAIR_COMPLETION_TIMEOUT_MS = 30_000;
 
 export type IBlePairEvent =
   | { type: 'diag'; t_ms: number; msg: string }
@@ -76,13 +83,15 @@ export function isBlePairAvailable(): boolean {
 function runHelper(
   args: string[],
   onEvent?: (event: IBlePairEvent) => void,
+  registerDecide?: (decide: (decision: IPairDecision) => void) => void,
 ): Promise<IBlePairEvent[]> {
   return new Promise((resolve, reject) => {
     const helperPath = resolveHelperPath();
     logger.info(`[BlePair] spawning ${helperPath} ${args.join(' ')}`);
 
+    // stdin carries the pair decision (confirm/cancel).
     const child = spawn(helperPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     const spawnedAt = Date.now();
@@ -93,15 +102,62 @@ function runHelper(
     let settled = false;
     let lastError: string | undefined;
 
+    // Once we know why the attempt ends, the helper's own failure text must not
+    // replace it: the SDK maps our reason, not `pairing failed with status N`.
+    let reasonLocked = false;
+    const lockReason = (reason: string) => {
+      if (reasonLocked) return;
+      lastError = reason;
+      reasonLocked = true;
+    };
+
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let completionTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      lastError = `BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`;
-      child.kill();
+      lockReason(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`);
+      // Decline first, kill second: only a live helper can complete the WinRT
+      // deferral, and that is what makes Windows tell the device the pairing
+      // failed instead of leaving it to notice a dead peer.
+      child.stdin?.write('cancel\n', (error) => {
+        if (error) child.kill();
+      });
+      killTimer = setTimeout(() => child.kill(), PAIR_DECLINE_GRACE_MS);
     }, PAIR_TIMEOUT_MS);
+
+    // Cancel goes through stdin, not kill(): only a live helper can decline the
+    // request, which is what makes Windows send the device an SMP Pairing Failed.
+    registerDecide?.((decision) => {
+      if (settled) return;
+      if (decision === 'cancel') {
+        lockReason(PAIR_CANCELLED_REASON);
+      } else {
+        // The deadline covers the user, not WinRT: PairAsync can take a while after
+        // Accept, and killing it then would report a confirmed pairing as failed.
+        // It still needs an end though — the helper only bounds waiting for us.
+        clearTimeout(timer);
+        completionTimer = setTimeout(() => {
+          lockReason(
+            `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`,
+          );
+          child.kill();
+        }, PAIR_COMPLETION_TIMEOUT_MS);
+      }
+      child.stdin?.write(`${decision}\n`, (error) => {
+        if (!error) return;
+        logger.warn(
+          `[BlePair] failed to send '${decision}' to helper: ${error.message}`,
+        );
+        // Pipe is gone; no clean decline left.
+        if (decision === 'cancel') child.kill();
+      });
+    });
 
     const settle = (fn: () => void) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      if (completionTimer) clearTimeout(completionTimer);
       fn();
     };
 
@@ -132,7 +188,7 @@ function runHelper(
                 `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(logged)}`,
               );
             }
-            if (event.type === 'error') {
+            if (event.type === 'error' && !reasonLocked) {
               lastError = event.message;
             }
             onEvent?.(event);
@@ -170,6 +226,34 @@ function runHelper(
   });
 }
 
+/** The host's half of the BLE numeric comparison. */
+export type IPairDecision = 'confirm' | 'cancel';
+
+// Only `pair` registers here. The token identifies which ceremony a decision is
+// answering: a dialog left open by an earlier attempt must not answer a later one,
+// and an earlier attempt settling must not clear the callback of a later one.
+export type IPairCeremonyToken = number;
+let ceremonySeq = 0;
+let activeCeremony: {
+  token: IPairCeremonyToken;
+  decide: (decision: IPairDecision) => void;
+} | null = null;
+
+/**
+ * Answer the in-flight OS pairing ceremony. Returns false when none is waiting,
+ * or when `token` belongs to a ceremony that has already settled.
+ */
+export function decideActivePairing(
+  decision: IPairDecision,
+  token?: IPairCeremonyToken,
+): boolean {
+  const current = activeCeremony;
+  if (!current) return false;
+  if (token !== undefined && token !== current.token) return false;
+  current.decide(decision);
+  return true;
+}
+
 /**
  * Pair `address` (a colon/dash BLE MAC) at the OS level, streaming the
  * numeric-comparison pin to `onPin` so the UI can show it. Resolves once the
@@ -183,16 +267,32 @@ export async function ensureDevicePaired(
   address: string,
   onPin: (pin: string) => void,
   keepLink = false,
+  onCeremonyToken?: (token: IPairCeremonyToken) => void,
 ): Promise<'paired' | 'already-paired'> {
+  let ownToken: IPairCeremonyToken | undefined;
   const args = ['pair', '--address', address];
   if (keepLink) {
     // Leave the BLE link up after bonding instead of closing it — the other half
     // of the "who is holding the device" experiment.
     args.push('--keep-link');
   }
-  const events = await runHelper(args, (event) => {
-    if (event.type === 'pairing') {
-      onPin(event.pin);
+  const events = await runHelper(
+    args,
+    (event) => {
+      if (event.type === 'pairing') {
+        onPin(event.pin);
+      }
+    },
+    (decide) => {
+      ceremonySeq += 1;
+      const token = ceremonySeq;
+      ownToken = token;
+      activeCeremony = { token, decide };
+      onCeremonyToken?.(token);
+    },
+  ).finally(() => {
+    if (activeCeremony?.token === ownToken) {
+      activeCeremony = null;
     }
   });
   if (events.some((e) => e.type === 'paired')) {

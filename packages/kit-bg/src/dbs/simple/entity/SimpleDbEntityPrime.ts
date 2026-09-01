@@ -2,6 +2,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
@@ -9,15 +10,20 @@ import {
   isPrimeInfiniPaymentCacheKeyForContext,
   isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
+  isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
-  isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniNetworkAddress,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentCacheKey,
   isSamePrimeInfiniPaymentTransferSnapshot,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentValidationFailure,
+  toPrimeInfiniPaymentPersistenceError,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
@@ -25,6 +31,7 @@ import {
   type IPrimeInfiniPayment,
   type IPrimeInfiniPaymentCacheIdentity,
   type IPrimeInfiniPaymentCacheKey,
+  type IPrimeInfiniPaymentFlowContext,
   type IPrimeInfiniPaymentTransferClaim,
   type IPrimeInfiniPendingPaymentSession,
   type IPrimeInfiniPendingPaymentSessionInput,
@@ -56,6 +63,34 @@ const INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 const INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT = 20;
 const INFINI_SUPERSEDED_PAYMENT_SESSION_LIMIT = 10;
+
+// How often the analytics identity link may be re-reported per user from
+// this device. Keeps onekeyIdIdentityLinked volume bounded while still
+// re-asserting the link periodically (server-side $identify is idempotent).
+const IDENTITY_LINK_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const IDENTITY_LINK_REPORTED_USERS_LIMIT = 5;
+
+// Re-assert cadence for the membership user-profile attributes. Unchanged
+// values are re-sent after this TTL so a lost server-side property
+// self-heals; value changes always report immediately.
+const PRIME_PROFILE_REPORT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isAnalyticsReportDue({
+  reportedAt,
+  now,
+  ttlMs,
+}: {
+  reportedAt: number | undefined;
+  now: number;
+  ttlMs: number;
+}): boolean {
+  return (
+    !reportedAt ||
+    !Number.isFinite(reportedAt) ||
+    reportedAt > now ||
+    now - reportedAt >= ttlMs
+  );
+}
 
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
@@ -123,6 +158,12 @@ export interface ISimpleDBPrime {
     string,
     IPrimeInfiniSupersededPaymentSession[]
   >;
+  identityLinkReportedAtByUserId?: Record<string, number>;
+  analyticsPrimeProfileReport?: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    reportedAt: number;
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -288,8 +329,14 @@ function isValidInfiniPendingPaymentSession(
     !isNonEmptyString(session.paymentCacheKey?.payerAddress) ||
     !Number.isFinite(session.payment?.expiresAt) ||
     !Number.isFinite(session.updatedAt) ||
+    !isOptionalFiniteNumber(session.createdAt) ||
+    !isOptionalFiniteNumber(session.lastValidatedAt) ||
+    !isOptionalFiniteNumber(session.localRetentionDeadline) ||
     !isOptionalFiniteNumber(session.baseline.primeExpiresAt) ||
     !isOptionalFiniteNumber(session.baseline.infiniPeriodEnd) ||
+    (session.baseline.infiniSubscriptionId !== undefined &&
+      session.baseline.infiniSubscriptionId !== null &&
+      !isNonEmptyString(session.baseline.infiniSubscriptionId)) ||
     (session.plan !== 'monthly' && session.plan !== 'yearly') ||
     (session.selectedSubscriptionPeriod !== 'P1M' &&
       session.selectedSubscriptionPeriod !== 'P1Y') ||
@@ -330,16 +377,42 @@ function isValidInfiniPendingPaymentSession(
     return false;
   }
   const age = now - session.updatedAt;
+  const lifecycle = getInfiniPaymentSessionLifecycle(session);
+  if (
+    lifecycle.createdAt >
+      session.updatedAt + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
+    lifecycle.lastValidatedAt >
+      now + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
+    lifecycle.localRetentionDeadline < lifecycle.createdAt ||
+    lifecycle.localRetentionDeadline >
+      lifecycle.createdAt + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS
+  ) {
+    return false;
+  }
   // Sent sessions fence funds that may still be in flight, so they age out on
   // the long bound; only an unsent invoice may expire on the short one.
-  const maxAge =
+  const isTracking =
     session.sendStarted ||
-    hasPrimeInfiniPaymentProgressSnapshot(session.payment)
-      ? INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
-      : INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS;
+    hasPrimeInfiniPaymentProgressSnapshot(session.payment);
   return (
-    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS && age <= maxAge
+    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS &&
+    (isTracking
+      ? age <= INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
+      : now < lifecycle.localRetentionDeadline)
   );
+}
+
+function getInfiniPaymentSessionLifecycle(
+  session: IPrimeInfiniPendingPaymentSession,
+) {
+  const createdAt = session.createdAt ?? session.updatedAt;
+  return {
+    createdAt,
+    lastValidatedAt: session.lastValidatedAt ?? session.updatedAt,
+    localRetentionDeadline:
+      session.localRetentionDeadline ??
+      createdAt + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS,
+  };
 }
 
 export type IIdentityExitJournalEntry = {
@@ -647,6 +720,85 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
     }));
     return rawData.identityLifecycleRevision ?? 0;
+  }
+
+  async isIdentityLinkDue({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return isAnalyticsReportDue({
+      reportedAt: rawData?.identityLinkReportedAtByUserId?.[onekeyUserId],
+      now,
+      ttlMs: IDENTITY_LINK_REPORT_TTL_MS,
+    });
+  }
+
+  async recordIdentityLinkReported({
+    onekeyUserId,
+    now,
+  }: {
+    onekeyUserId: string;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => {
+      const reportedAtByUserId = {
+        ...data?.identityLinkReportedAtByUserId,
+        [onekeyUserId]: now,
+      };
+      const prunedEntries = Object.entries(reportedAtByUserId)
+        .toSorted(([, a], [, b]) => b - a)
+        .slice(0, IDENTITY_LINK_REPORTED_USERS_LIMIT);
+      return {
+        ...data,
+        identityLinkReportedAtByUserId: Object.fromEntries(prunedEntries),
+      };
+    });
+  }
+
+  async isPrimeProfileDue({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    const prev = rawData?.analyticsPrimeProfileReport;
+    return (
+      !prev ||
+      prev.isOneKeyIdLoggedIn !== isOneKeyIdLoggedIn ||
+      prev.isPrimeActive !== isPrimeActive ||
+      isAnalyticsReportDue({
+        reportedAt: prev.reportedAt,
+        now,
+        ttlMs: PRIME_PROFILE_REPORT_TTL_MS,
+      })
+    );
+  }
+
+  async recordPrimeProfileReported({
+    isOneKeyIdLoggedIn,
+    isPrimeActive,
+    now,
+  }: {
+    isOneKeyIdLoggedIn: boolean;
+    isPrimeActive: boolean;
+    now: number;
+  }): Promise<void> {
+    await this.setRawData((data) => ({
+      ...data,
+      analyticsPrimeProfileReport: {
+        isOneKeyIdLoggedIn,
+        isPrimeActive,
+        reportedAt: now,
+      },
+    }));
   }
 
   async getKeylessOAuthSessionPersistenceJournal(): Promise<
@@ -1345,8 +1497,10 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   @backgroundMethod()
   async getInfiniPendingPaymentSession({
     onekeyUserId,
+    flowContext,
   }: {
     onekeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
     if (!onekeyUserId) {
       return undefined;
@@ -1354,14 +1508,46 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     const rawData = await this.getRawData();
     const session =
       rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
-    if (
-      session &&
-      isValidInfiniPendingPaymentSession(session, {
-        onekeyUserId,
-        now: Date.now(),
-      })
-    ) {
-      return session;
+    const now = Date.now();
+    const isValidSession = isValidInfiniPendingPaymentSession(session, {
+      onekeyUserId,
+      now,
+    });
+    const validatedSession = isValidSession ? session : undefined;
+    const hasPaymentProgress = validatedSession
+      ? hasPrimeInfiniPaymentProgressSnapshot(validatedSession.payment)
+      : false;
+    if (flowContext) {
+      let status: 'restored' | 'succeeded' | 'blocked' = 'succeeded';
+      if (session) {
+        status = isValidSession ? 'restored' : 'blocked';
+      }
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...flowContext,
+        stage: 'sessionLoad',
+        paymentSource: 'localPendingSession',
+        status,
+        reason:
+          session && !isValidSession
+            ? 'invalidOrExpiredLocalSession'
+            : undefined,
+        paymentId: validatedSession?.payment.paymentId,
+        sessionAgeMs: validatedSession
+          ? now - (validatedSession.createdAt ?? validatedSession.updatedAt)
+          : undefined,
+        remainingMs: validatedSession
+          ? validatedSession.payment.expiresAt - now
+          : undefined,
+        sendStarted: validatedSession?.sendStarted,
+        hasPaymentProgress,
+        sessionMode:
+          validatedSession?.sendStarted || hasPaymentProgress
+            ? 'tracking'
+            : 'quote',
+      });
+    }
+    if (validatedSession) {
+      return validatedSession;
     }
     if (session) {
       await this.setRawData((latestRawData) => {
@@ -1393,6 +1579,50 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async recordInfiniPaymentValidation({
+    onekeyUserId,
+    payment,
+    flowId,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    flowId: string;
+  }): Promise<void> {
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      const now = Date.now();
+      if (
+        !current ||
+        !isValidInfiniPendingPaymentSession(current, { onekeyUserId, now }) ||
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: current.payment,
+          second: payment,
+          networkId: current.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({ payment, asset: current.asset })
+      ) {
+        return rawData ?? {};
+      }
+      return {
+        ...rawData,
+        infiniPendingPaymentSessionByUserId: {
+          ...rawData?.infiniPendingPaymentSessionByUserId,
+          [onekeyUserId]: {
+            ...current,
+            ...getInfiniPaymentSessionLifecycle(current),
+            lastValidatedAt: now,
+            flowId,
+          },
+        },
+      };
+    }).catch(() => {
+      this.clearRawDataCache();
+      throw createPrimeInfiniPaymentValidationError('localPersistenceFailed');
+    });
   }
 
   @backgroundMethod()
@@ -1451,6 +1681,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment asset identity changed',
+          data: { paymentValidationFailure: 'assetMismatch' },
           autoToast: false,
         });
       }
@@ -1478,6 +1709,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment transfer snapshot changed',
+          data: { paymentValidationFailure: 'transferSnapshotChanged' },
           autoToast: false,
         });
       }
@@ -1491,6 +1723,18 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const nextSession: IPrimeInfiniPendingPaymentSession = {
         ...session,
         schemaVersion: 2,
+        ...(currentSession?.payment?.paymentId === session.payment.paymentId
+          ? getInfiniPaymentSessionLifecycle(currentSession)
+          : {
+              createdAt: now,
+              localRetentionDeadline:
+                now + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS,
+            }),
+        lastValidatedAt: now,
+        flowId:
+          currentSession?.payment?.paymentId === session.payment.paymentId
+            ? (session.flowId ?? currentSession.flowId)
+            : session.flowId,
         payment: nextPayment,
         sendStarted: Boolean(
           session.sendStarted ||
@@ -1500,7 +1744,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
             (currentSession.sendStarted ||
               hasPrimeInfiniPaymentProgressSnapshot(currentSession.payment))),
         ),
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
       if (
         !isValidInfiniPendingPaymentSession(nextSession, {
@@ -1521,6 +1765,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           [onekeyUserId]: persistedSession,
         },
       };
+    }).catch((error: unknown) => {
+      this.clearRawDataCache();
+      throw toPrimeInfiniPaymentPersistenceError(error);
     });
     if (!persistedSession) {
       throw new OneKeyLocalError({
@@ -1603,6 +1850,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
       const nextSession: IPrimeInfiniPendingPaymentSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payerAccountId,
         payerAddress: paymentCacheKey.payerAddress,
         paymentCacheKey,
@@ -1764,10 +2013,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }: {
     onekeyUserId: string;
     expectedPaymentCacheIdentity?: IPrimeInfiniPaymentCacheKey;
-  }) {
+  }): Promise<boolean> {
     if (!onekeyUserId) {
-      return;
+      return false;
     }
+    let didClear = false;
     await this.setRawData((rawData) => {
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
@@ -1783,11 +2033,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           ),
         );
       let nextRawData = rawData ?? {};
-      if (currentSession && currentMatchesExpected) {
+      if (!currentSession) {
+        didClear = true;
+      } else if (currentMatchesExpected) {
         const nextSessions = {
           ...rawData?.infiniPendingPaymentSessionByUserId,
         };
         delete nextSessions[onekeyUserId];
+        didClear = true;
         nextRawData = {
           ...rawData,
           infiniPendingPaymentSessionByUserId: nextSessions,
@@ -1802,6 +2055,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           })
         : nextRawData;
     });
+    return didClear;
   }
 
   @backgroundMethod()
@@ -2032,6 +2286,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       }
       latchedSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payment: paymentWithDurableProgress,
         sendStarted,
         updatedAt: now,
@@ -2066,24 +2322,35 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const now = Date.now();
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
-      const paymentWithDurableProgress = currentSession
-        ? mergePrimeInfiniPaymentProgressSnapshot({
-            previous: currentSession.payment,
-            latest: latestPayment,
-          })
-        : latestPayment;
+      const isCurrentSessionValid = isValidInfiniPendingPaymentSession(
+        currentSession,
+        { onekeyUserId, now },
+      );
+      const validationFailure =
+        isCurrentSessionValid && currentSession
+          ? getPrimeInfiniPaymentValidationFailure({
+              payment: latestPayment,
+              previousPayment: currentSession.payment,
+              asset: currentSession.asset,
+              now,
+            })
+          : undefined;
+      const paymentWithDurableProgress =
+        isCurrentSessionValid && currentSession
+          ? mergePrimeInfiniPaymentProgressSnapshot({
+              previous: currentSession.payment,
+              latest: latestPayment,
+            })
+          : latestPayment;
       if (
         !currentSession ||
-        !isValidInfiniPendingPaymentSession(currentSession, {
-          onekeyUserId,
-          now,
-        }) ||
+        !isCurrentSessionValid ||
         !isSamePrimeInfiniPaymentCacheKey(
           paymentCacheKey,
           currentSession.paymentCacheKey,
         ) ||
         purchaseStatusSnapshot.onekeyUserId !== onekeyUserId ||
-        isPrimeInfiniPurchaseCompletedSnapshot({
+        isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
           baseline: currentSession.baseline,
           purchaseStatusSnapshot,
         }) ||
@@ -2110,11 +2377,16 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment session is unavailable before broadcast',
+          data: validationFailure
+            ? { paymentValidationFailure: validationFailure }
+            : undefined,
           autoToast: false,
         });
       }
       markedSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payment: paymentWithDurableProgress,
         sendStarted: true,
         updatedAt: now,
@@ -2126,6 +2398,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           [onekeyUserId]: markedSession,
         },
       };
+    }).catch((error: unknown) => {
+      this.clearRawDataCache();
+      if (!markedSession) {
+        throw error;
+      }
+      throw toPrimeInfiniPaymentPersistenceError(error);
     });
     if (!markedSession) {
       throw new OneKeyLocalError({

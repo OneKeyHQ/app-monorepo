@@ -292,7 +292,7 @@ export function OnboardingPage({
           ...(narrow && { py: '$10', maxWidth: 400 }),
         }}
         {...(shouldAnimate && {
-          animation: 'quick',
+          transition: 'quick',
           animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
           enterStyle: {
             opacity: 0,

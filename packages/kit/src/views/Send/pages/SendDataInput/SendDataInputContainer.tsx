@@ -29,6 +29,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -57,6 +58,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -183,6 +185,15 @@ function SendDataInputContainer() {
   } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
+  });
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    isNative: tokenInfo?.isNative,
+    tokenAddress: tokenInfo?.address,
+    nativeTokenAddress:
+      vaultSettings?.networkInfo[currentAccount.networkId]
+        ?.nativeTokenAddress ??
+      vaultSettings?.networkInfo.default.nativeTokenAddress,
   });
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
@@ -351,7 +362,6 @@ function SendDataInputContainer() {
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
   const toSimilarAddress = toValue?.similarAddress;
-
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       if (
@@ -432,6 +442,19 @@ function SendDataInputContainer() {
       const isValid = await form.trigger();
       if (!isValid) return;
 
+      const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      const { canProceed, hasAcknowledgedWarning } =
+        await confirmCexDepositIfUnsupported({
+          intl,
+          isNFT,
+          networkId: currentAccount.networkId,
+          tokenSymbol: tokenInfo?.symbol,
+          networkName: network?.name,
+          page: 'address',
+          cexSupportedInfo: toVal?.cexSupportedInfo,
+        });
+      if (!canProceed) return;
+
       defaultLogger.transaction.send.addressInput({
         addressInputMethod: addressInputChangeType.current,
       });
@@ -441,7 +464,6 @@ function SendDataInputContainer() {
       const nextNoteValue = form.getValues('note');
 
       // Reuse the matching amount-input route for the active modal stack.
-      const toVal = form.getValues('to') as IAddressInputValue | undefined;
 
       const isLightning = networkUtils.isLightningNetworkByNetworkId(
         currentAccount.networkId,
@@ -600,6 +622,7 @@ function SendDataInputContainer() {
         amount: invoiceAmount || scannedAmount || sendAmount || undefined,
         isInvoiceAmountLocked,
         isAllNetworks,
+        hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
         onSuccess,
         onFail,
         onCancel,
@@ -627,6 +650,8 @@ function SendDataInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    intl,
+    network?.name,
   ]);
 
   const validateMemoField = useValidateMemoField({
@@ -979,6 +1004,7 @@ function SendDataInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: true,
+            tokenAddress: badgeQueryTokenAddress,
           });
         if (queryResult.validStatus !== 'valid' || queryResult.similarAddress) {
           // Address invalid — fall back to input for feedback
@@ -994,6 +1020,18 @@ function SendDataInputContainer() {
           queryResult.resolveAddress ||
           queryResult.validAddress ||
           selectedAddress;
+
+        const { canProceed, hasAcknowledgedWarning } =
+          await confirmCexDepositIfUnsupported({
+            intl,
+            isNFT,
+            networkId: currentAccount.networkId,
+            tokenSymbol: tokenInfo?.symbol,
+            networkName: network?.name,
+            page: 'address',
+            cexSupportedInfo: queryResult.cexSupportedInfo,
+          });
+        if (!canProceed) return;
 
         defaultLogger.transaction.send.addressInput({
           addressInputMethod: addressInputChangeType.current,
@@ -1065,6 +1103,7 @@ function SendDataInputContainer() {
           recipientNote,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
+          hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
           onSuccess,
           onFail,
           onCancel,
@@ -1092,6 +1131,7 @@ function SendDataInputContainer() {
       enableAllowListValidation,
       isAllNetworks,
       isNFT,
+      badgeQueryTokenAddress,
       nfts,
       onCancel,
       onFail,
@@ -1101,6 +1141,8 @@ function SendDataInputContainer() {
       scannedAmount,
       sendAmount,
       tokenInfo,
+      intl,
+      network?.name,
     ],
   );
 
@@ -1316,6 +1358,7 @@ function SendDataInputContainer() {
               ignoreSimilarAddressInAddressBook
               enableCheckSimilarAddressInAddressBook
               hasQuickSelectMatches={hasQuickSelectMatches}
+              tokenAddress={badgeQueryTokenAddress}
             />
             {toSimilarAddress ? (
               <Alert

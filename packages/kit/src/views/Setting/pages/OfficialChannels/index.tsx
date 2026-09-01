@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Page, ScrollView, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
@@ -14,6 +15,7 @@ import {
 } from '../Tab/ListItem';
 import { useOfficialChannels } from '../Tab/officialChannels';
 import {
+  SETTINGS_PAGE_CONTENT_PADDING_X,
   SETTINGS_TAB_HEADER_TITLE_CONTAINER_STYLE,
   resolveSettingsSectionPresentation,
 } from '../Tab/settingsSurface';
@@ -55,8 +57,7 @@ export default function OfficialChannels() {
       <Page.Body>
         <ScrollView contentContainerStyle={{ pb: '$10' }}>
           <YStack
-            pl={sectionPresentation === 'tab' ? '$5' : '$4'}
-            pr={sectionPresentation === 'tab' ? '$6' : '$4'}
+            px={SETTINGS_PAGE_CONTENT_PADDING_X}
             pt={isTabNavigator ? undefined : '$3'}
           >
             <TabSettingsSection presentation={sectionPresentation}>
@@ -73,6 +74,8 @@ export default function OfficialChannels() {
                     }}
                     preferMobileNaming={isMobileLayout}
                     useMobilePresentation={isMobileLayout}
+                    analyticsSource="categoryPage"
+                    analyticsCategory={ESettingsTabNames.About}
                   />
                   {index !== channels.length - 1 ? (
                     <TabSettingsInsetDivider />

@@ -1876,9 +1876,17 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: params.userAddress,
+      agentName: params.agentName,
+    });
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (_error) {
+    } catch (error) {
+      const existingCredential = await localDb.getCredentialSafe(credentialId);
+      if (!existingCredential) {
+        throw error;
+      }
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1916,18 +1924,38 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async getHyperLiquidAgentCredential({
+  async getHyperLiquidAgentCredentialInfo({
     userAddress,
     agentName,
   }: {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
-  }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    return localDb.getHyperLiquidAgentCredential({
-      userAddress,
-      agentName,
-    });
+  }): Promise<Omit<ICoreHyperLiquidAgentCredential, 'privateKey'> | undefined> {
+    // Status checks treat a missing/unreadable credential as `undefined` so the
+    // caller can gracefully fall back to the re-approval flow. The signing path
+    // (WalletHyperliquidProxy -> localDb.getHyperLiquidAgentCredential) stays
+    // fail-closed and is intentionally NOT affected by this catch.
+    let credential: ICoreHyperLiquidAgentCredential | undefined;
+    try {
+      credential = await localDb.getHyperLiquidAgentCredential({
+        userAddress,
+        agentName,
+      });
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent credential info read failed',
+      );
+      return undefined;
+    }
+    if (!credential) {
+      return undefined;
+    }
+    return {
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+      agentAddress: credential.agentAddress,
+      validUntil: credential.validUntil,
+    };
   }
 
   private extractUserAddressFromCredentialId(credentialId: string): string {
@@ -1960,25 +1988,78 @@ class ServiceAccount extends ServiceBase {
       return false;
     }
 
-    // Check if the deleted wallet is in the address record's wallets
-    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
-      return true;
+    const addressOwners = Object.entries(addressRecord.wallets);
+    const isDeletedOwner = ([walletId, accountOrIndexedAccountId]: [
+      string,
+      string,
+    ]) =>
+      Boolean(
+        (deletedInfo.walletId && walletId === deletedInfo.walletId) ||
+        (deletedInfo.accountId &&
+          accountOrIndexedAccountId === deletedInfo.accountId) ||
+        (deletedInfo.indexedAccountId &&
+          accountOrIndexedAccountId === deletedInfo.indexedAccountId),
+      );
+
+    if (!addressOwners.some(isDeletedOwner)) {
+      return false;
     }
 
-    // Check if any of the wallet values match deleted account/indexedAccount IDs
-    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
-      const walletValues = Object.values(addressRecord.wallets);
+    for (const [walletId, accountOrIndexedAccountId] of addressOwners) {
+      if (isDeletedOwner([walletId, accountOrIndexedAccountId])) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
       if (
-        (deletedInfo.accountId &&
-          walletValues.includes(deletedInfo.accountId)) ||
-        (deletedInfo.indexedAccountId &&
-          walletValues.includes(deletedInfo.indexedAccountId))
+        !wallet ||
+        localDb.isTempWalletRemoved({ wallet }) ||
+        accountUtils.isWalletDeprecatedOrMocked(wallet)
       ) {
-        return true;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const [account, indexedAccount] = await Promise.all([
+        localDb.getAccountSafe({ accountId: accountOrIndexedAccountId }),
+        localDb.getIndexedAccountSafe({ id: accountOrIndexedAccountId }),
+      ]);
+      if (account || indexedAccount) {
+        return false;
       }
     }
 
-    return false;
+    return true;
+  }
+
+  @backgroundMethod()
+  async removeHyperLiquidAgentCredentialsByUserAddresses({
+    userAddresses,
+  }: {
+    userAddresses: string[];
+  }): Promise<number> {
+    const normalizedUserAddresses = new Set(
+      userAddresses
+        .map((address) => address.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (!normalizedUserAddresses.size) {
+      return 0;
+    }
+
+    const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+    const credentialsToDelete = allCredentials.filter((credential) => {
+      try {
+        return normalizedUserAddresses.has(
+          this.extractUserAddressFromCredentialId(credential.id).toLowerCase(),
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (credentialsToDelete.length) {
+      await localDb.removeCredentials({ credentials: credentialsToDelete });
+    }
+    return credentialsToDelete.length;
   }
 
   @backgroundMethod()
@@ -3545,16 +3626,14 @@ class ServiceAccount extends ServiceBase {
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
-      const protocol = dbDevice.connectProtocol ?? persistedState?.protocol;
-      // Pro 1 already opened the hidden-wallet session in the previous step.
-      // Reading live state without its passphrase context would restore the
-      // standard Protocol V1 session and prompt again while deriving the XFP.
+      // Hidden-wallet creation has already waited for the post-unlock
+      // DEVICE.STATE snapshot. Reuse it here so Protocol V1 keeps its active
+      // passphrase session and Protocol V2 avoids a duplicate status read.
       const state =
-        protocol === 'V1' && persistedState
-          ? persistedState
-          : await this.backgroundApi.serviceHardware.getDeviceState({
-              connectId: compatibleConnectId,
-            });
+        persistedState ||
+        (await this.backgroundApi.serviceHardware.getDeviceState({
+          connectId: compatibleConnectId,
+        }));
       features = projectLegacyDeviceFeaturesFromState(state);
     }
     if (features) {
@@ -3635,10 +3714,13 @@ class ServiceAccount extends ServiceBase {
         // standard session, so reading it after getPassphraseState would
         // clobber the hidden session and cost extra device round trips to
         // re-establish it (see getFeaturesForHwWalletCreate). Known-V2 devices
-        // are excluded — their flow always reads live state by design. An
-        // unknown-protocol device that turns out V2 pays one redundant read,
-        // but that class is practically empty: V2 device records have always
-        // stored connectProtocol since the protocol field was introduced.
+        // are excluded because openWalletSession reads authoritative live status
+        // and emits DEVICE.STATE. The flow below waits for that event to persist
+        // and reuses its post-unlock snapshot; createHWWalletBase falls back to a
+        // live state read only when no snapshot was persisted. An unknown-protocol
+        // device that turns out V2 pays one redundant read, but that class is
+        // practically empty: V2 device records have always stored connectProtocol
+        // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
         const hiddenWalletVendorProfile = getVendorProfile(
@@ -3771,13 +3853,9 @@ class ServiceAccount extends ServiceBase {
             await this.backgroundApi.serviceAccountProfile.isSoftwareWalletOnlyUser(),
         });
 
-        // resolvedFeatures already reflects the post-unlock snapshot refreshed
-        // above, but the XFP / address derivation calls inside
-        // createHWWalletBase may have emitted newer DEVICE.STATE events; drain
-        // the persistence queue once more and prefer the latest stored status.
+        // Derivation calls inside createHWWalletBase may emit a newer
+        // DEVICE.STATE event, so prefer the latest persisted attach-PIN state.
         let isAttachPinMode = resolvedFeatures.unlockedAttachPin;
-        // Same gate as the post-unlock refresh above: attach-PIN is
-        // OneKey-specific, and an empty connectId must not reach the lookup.
         if (connectId && !hiddenWalletVendorProfile.isThirdParty) {
           try {
             await this.backgroundApi.serviceHardware.waitForDeviceStateSync({
@@ -3798,7 +3876,7 @@ class ServiceAccount extends ServiceBase {
               isAttachPinMode = latestUnlockedAttachPin;
             }
           } catch {
-            // keep the resolved-features fallback
+            // Keep the resolved-features fallback.
           }
         }
 
@@ -3947,7 +4025,7 @@ class ServiceAccount extends ServiceBase {
       existingState: params.deviceState,
       preserveWalletSession:
         !vendorProfile?.isThirdParty &&
-        params.connectProtocol === 'V1' &&
+        (params.connectProtocol === 'V1' || params.connectProtocol === 'V2') &&
         Boolean(passphraseState),
       isThirdParty: Boolean(vendorProfile?.isThirdParty),
       isMocked: Boolean(isMockedStandardHwWallet),
@@ -4160,9 +4238,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4217,9 +4297,11 @@ class ServiceAccount extends ServiceBase {
       seed: revealableSeed.seed,
     });
 
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
       rs: revealableSeed,
       password,
+      ...kdfParams,
     });
 
     return this.createHDWalletWithRs({
@@ -4461,9 +4543,12 @@ class ServiceAccount extends ServiceBase {
           if (shouldRunPostCommitEffects) {
             // Derive and persist keyless cloud sync credential from wallet seed
             try {
+              // localDb.createHDWallet() has committed before this KDF starts.
+              const kdfParams = getPbkdf2KdfParamsForNonDbTx();
               const revealableSeed = await decryptRevealableSeed({
                 rs,
                 password,
+                ...kdfParams,
               });
               const seedBuffer = bufferUtils.toBuffer(
                 revealableSeed.seed,
@@ -6824,6 +6909,7 @@ class ServiceAccount extends ServiceBase {
     const walletsHashXfpMap: {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     for (const wallet of hdWallets) {
       const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
@@ -6850,6 +6936,7 @@ class ServiceAccount extends ServiceBase {
           const realMnemonic = await mnemonicFromEntropy(
             credentialInfo.credential,
             password,
+            kdfParams,
           );
           const walletHashXfp = await this.hdWalletHashAndXfpBuilder({
             realMnemonic,

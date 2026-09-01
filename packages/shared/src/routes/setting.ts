@@ -20,6 +20,7 @@ export enum EModalSettingRoutes {
   SettingProtectModal = 'SettingProtectModal',
   SettingReceiveRiskSupportedAssets = 'SettingReceiveRiskSupportedAssets',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
+  SettingDAppConnectionList = 'SettingDAppConnectionList',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevPro2FirmwareUpdateModal = 'SettingDevPro2FirmwareUpdateModal',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
@@ -27,6 +28,7 @@ export enum EModalSettingRoutes {
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
   SettingDevSesHardenRuntimeCheckModal = 'SettingDevSesHardenRuntimeCheckModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
+  SettingDevSniRequestQa = 'SettingDevSniRequestQa',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
@@ -108,6 +110,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingProtectModal]: undefined;
   [EModalSettingRoutes.SettingReceiveRiskSupportedAssets]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
+  [EModalSettingRoutes.SettingDAppConnectionList]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
@@ -115,6 +118,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
   [EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
+  [EModalSettingRoutes.SettingDevSniRequestQa]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;

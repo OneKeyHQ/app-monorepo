@@ -850,6 +850,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           tokenAddress: record.contractAddress,
           network: shortCode || record.chainId,
           isNative: record.isNative,
+          marketTokenCategory: selectedMarketCategoryId,
         });
         return;
       }
@@ -863,6 +864,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               tokenAddress: record.contractAddress,
               network: shortCode || record.chainId,
               isNative: record.isNative,
+              marketTokenCategory: selectedMarketCategoryId,
             },
           },
         });
@@ -888,6 +890,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       navigateToPerps,
       navigation,
       resolvedSelectedCategoryId,
+      selectedMarketCategoryId,
     ],
   );
 

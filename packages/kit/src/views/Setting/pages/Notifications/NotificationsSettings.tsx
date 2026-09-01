@@ -12,6 +12,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -35,7 +36,44 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
-import NotificationsTestButton from '../../components/NotificationsTestButton';
+import {
+  NotificationHelperCtaButton,
+  useNotificationHelperCta,
+} from '../../components/NotificationsTestButton';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
+function NotificationsSettingsHelper() {
+  const intl = useIntl();
+  const cta = useNotificationHelperCta();
+  let titleId = ETranslations.notifications_settings_helper_title;
+  if (!cta.isPending) {
+    titleId =
+      cta.action === 'none'
+        ? ETranslations.notification_preview__title
+        : ETranslations.notifications_intro_title;
+  }
+
+  return (
+    <ListItem flexDirection="column" alignItems="stretch" gap="$2">
+      <XStack alignItems="center" gap="$3">
+        <ListItem.Text
+          flex={1}
+          minWidth={0}
+          primary={intl.formatMessage({ id: titleId })}
+        />
+        <NotificationHelperCtaButton cta={cta} size="small" flexShrink={0} />
+      </XStack>
+      <Stack gap="$1.5">
+        <SizableText maxWidth="$96" size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.notifications_test_message_desc,
+          })}
+        </SizableText>
+        <NotificationsHelpCenterInstruction size="$bodySm" />
+      </Stack>
+    </ListItem>
+  );
+}
 
 export default function NotificationsSettings() {
   const intl = useIntl();
@@ -147,7 +185,7 @@ export default function NotificationsSettings() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         {!settings ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
@@ -349,30 +387,7 @@ export default function NotificationsSettings() {
                 />
 
                 {/* Push notifications helper */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    gap="$2"
-                    primary={intl.formatMessage({
-                      id: ETranslations.notifications_settings_helper_title,
-                    })}
-                    secondary={
-                      <>
-                        <SizableText
-                          maxWidth="$96"
-                          size="$bodyMd"
-                          color="$textSubdued"
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.notifications_settings_helper_desc,
-                          })}
-                        </SizableText>
-                        <NotificationsHelpCenterInstruction />
-                      </>
-                    }
-                  />
-                  <NotificationsTestButton />
-                </ListItem>
+                <NotificationsSettingsHelper />
               </>
             ) : null}
           </>

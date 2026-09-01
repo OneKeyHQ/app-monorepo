@@ -797,6 +797,7 @@ const SwapHeaderRightActionContainer = ({
   iconSize,
   iconColor,
   compact,
+  hideKLine,
   marketPresetSettings,
   routeSwapType,
 }: {
@@ -804,6 +805,7 @@ const SwapHeaderRightActionContainer = ({
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
   compact?: boolean;
+  hideKLine?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   routeSwapType?: ESwapTabSwitchType;
 }) => {
@@ -894,9 +896,10 @@ const SwapHeaderRightActionContainer = ({
   }, [historyProtocolType, navigation, swapStoreName]);
 
   const showKLineButton =
-    swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-    swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
+    !hideKLine &&
+    (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT);
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);

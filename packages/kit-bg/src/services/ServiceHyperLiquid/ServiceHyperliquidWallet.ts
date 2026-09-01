@@ -17,9 +17,15 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
+import localDb from '../../dbs/local/localDb';
 import ServiceBase from '../ServiceBase';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+type IHyperLiquidAgentCredentialInfo = Omit<
+  ICoreHyperLiquidAgentCredential,
+  'privateKey'
+>;
 
 interface IAbstractEthersV6Signer {
   signTypedData(
@@ -42,10 +48,23 @@ interface IAbstractEthersV6Signer {
 }
 
 export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
-  private wallet: ethers.Wallet;
+  private readonly agentAddress: string;
 
-  constructor(encryptedPrivateKey: string) {
-    this.wallet = new ethers.Wallet(encryptedPrivateKey);
+  private readonly agentName: ICoreHyperLiquidAgentCredential['agentName'];
+
+  private readonly userAddress: string;
+
+  constructor({
+    agentAddress,
+    agentName,
+    userAddress,
+  }: Pick<
+    IHyperLiquidAgentCredentialInfo,
+    'agentAddress' | 'agentName' | 'userAddress'
+  >) {
+    this.agentAddress = agentAddress;
+    this.agentName = agentName;
+    this.userAddress = userAddress;
   }
 
   async signTypedData(
@@ -63,11 +82,33 @@ export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
     },
     value: Record<string, unknown>,
   ): Promise<string> {
-    return this.wallet._signTypedData(domain, types, value);
+    const credential = await localDb.getHyperLiquidAgentCredential({
+      agentName: this.agentName,
+      userAddress: this.userAddress,
+    });
+    if (!credential?.privateKey) {
+      throw new OneKeyLocalError(
+        'HyperLiquid agent credential is unavailable; unlock the app again',
+      );
+    }
+    // Keep the raw private key and ethers wallet scoped to one signature. JS
+    // strings cannot be reliably overwritten, but neither value is retained by
+    // the long-lived Exchange Client after this method resolves.
+    const wallet = new ethers.Wallet(credential.privateKey);
+    // Fail closed if the fetched key does not derive the advertised agent
+    // address: a stale proxy after re-approval or an inconsistent record must
+    // never silently sign with a key that mismatches the agent identity this
+    // proxy advertises, which would desync the exchange client.
+    if (wallet.address.toLowerCase() !== this.agentAddress.toLowerCase()) {
+      throw new OneKeyLocalError(
+        'HyperLiquid agent credential does not match the active agent address; re-enable trading',
+      );
+    }
+    return wallet._signTypedData(domain, types, value);
   }
 
   async getAddress(): Promise<IHex> {
-    return this.wallet.address as IHex;
+    return this.agentAddress as IHex;
   }
 
   provider = null;
@@ -107,7 +148,7 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
     const primaryType = Object.keys(types)[0];
     const typedDataPayload = {
       types: {
-        'EIP712Domain': [
+        EIP712Domain: [
           { name: 'name', type: 'string' },
           { name: 'version', type: 'string' },
           { name: 'chainId', type: 'uint256' },
@@ -183,19 +224,21 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
 
   @backgroundMethod()
   async getProxyWallet(params: {
-    agentCredential?: ICoreHyperLiquidAgentCredential;
+    agentCredential?: IHyperLiquidAgentCredentialInfo;
   }): Promise<{
     address: IHex;
     wallet: WalletHyperliquidProxy;
   }> {
-    if (!params.agentCredential?.privateKey) {
+    if (!params.agentCredential) {
       throw new OneKeyLocalError({
-        message: `Failed to get private key for agent credential`,
+        message: `Failed to get agent credential`,
       });
     }
-    const wallet = new WalletHyperliquidProxy(
-      params.agentCredential?.privateKey,
-    );
+    const wallet = new WalletHyperliquidProxy({
+      agentAddress: params.agentCredential.agentAddress,
+      agentName: params.agentCredential.agentName,
+      userAddress: params.agentCredential.userAddress,
+    });
     const address = await wallet.getAddress();
     return {
       address,

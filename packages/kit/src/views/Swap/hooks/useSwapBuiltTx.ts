@@ -1501,6 +1501,26 @@ export function useSwapBuildTx({
         customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
         estimateFeeParams,
       });
+      // Sponsorship (megafuel / Gas Account) never applies to external-wallet
+      // accounts, but `serviceGas.estimateFee` does not distinguish them.
+      // Strip the sponsored state at the source — restore the real gas price
+      // (megafuel zeroes `gasPrice`, keeping it in `originalGasPrice`) and
+      // drop the sponsor flags — so the native-balance precheck, the fee
+      // display, and the tx handed to the external wallet all use the real fee.
+      if (accountUtils.isExternalAccount({ accountId: fromAccountId ?? '' })) {
+        return {
+          ...gasInfo,
+          gas: gasInfo.gas
+            ? {
+                ...gasInfo.gas,
+                gasPrice: gasInfo.gas.originalGasPrice ?? gasInfo.gas.gasPrice,
+              }
+            : undefined,
+          // Keep only the raw megafuel eligibility so the review UI can show
+          // the "zero network fee with OneKey wallet" promo hint (OK-61254).
+          externalSponsorPromoEligible: !!gasRes.megafuelEligible?.sponsorable,
+        };
+      }
       // Carry sponsorship result from estimate-fee so it flows into the preview
       // badge and, for Gas Account, the send path broadcast quoteId.
       return {
@@ -1513,6 +1533,7 @@ export function useSwapBuildTx({
       };
     },
     [
+      fromAccountId,
       swapNetWorkFeeLevel?.networkFeeLevel,
       swapNetWorkFeeLevel?.customPriorityFee,
     ],
@@ -2234,11 +2255,13 @@ export function useSwapBuildTx({
         useCustomSlippage = false,
         updateReviewState = true,
       } = options ?? {};
+      const reviewSlippagePercentage =
+        swapStepsRef.current.preSwapData.slippage ?? slippageItem.value;
       const effectiveSlippagePercentage =
         slippagePercentage ??
         (data?.protocol === EProtocolOfExchange.STOCK
-          ? (data.slippage ?? slippageItem.value)
-          : slippageItem.value);
+          ? (data.slippage ?? reviewSlippagePercentage)
+          : reviewSlippagePercentage);
       if (
         data?.fromTokenInfo &&
         data?.toTokenInfo &&
@@ -2261,11 +2284,14 @@ export function useSwapBuildTx({
         if (!checkRes) {
           throw new OneKeyAppError('checkOtherFee failed');
         }
+        const cachedBuildResult =
+          swapStepsRef.current.preSwapData.swapBuildResultData;
         if (
           !forceRebuild &&
-          swapStepsRef.current.preSwapData.swapBuildResultData
+          cachedBuildResult &&
+          cachedBuildResult.slippagePercentage === effectiveSlippagePercentage
         ) {
-          return swapStepsRef.current.preSwapData.swapBuildResultData;
+          return cachedBuildResult;
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
         try {
@@ -2278,9 +2304,15 @@ export function useSwapBuildTx({
               },
             }));
           }
+          const requestFromToken =
+            forceRebuild && currentFromToken
+              ? currentFromToken
+              : data.fromTokenInfo;
+          const requestToToken =
+            forceRebuild && currentToToken ? currentToToken : data.toTokenInfo;
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
-            fromToken: data.fromTokenInfo,
-            toToken: data.toTokenInfo,
+            fromToken: requestFromToken,
+            toToken: requestToToken,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
             slippagePercentage: effectiveSlippagePercentage,
@@ -2554,10 +2586,12 @@ export function useSwapBuildTx({
               preSwapData: {
                 ...prev.preSwapData,
                 swapBuildLoading: false,
+                requiresSlippageRebuildOnConfirm: false,
                 toTokenAmount: buildSwapRes.result.toAmount ?? data.toAmount,
                 swapBuildResultData: {
                   swapInfo,
                   orderId,
+                  slippagePercentage: effectiveSlippagePercentage,
                   skipSendTransAction,
                   encodedTx,
                   transferInfo,
@@ -2569,6 +2603,7 @@ export function useSwapBuildTx({
           return {
             swapInfo,
             orderId,
+            slippagePercentage: effectiveSlippagePercentage,
             skipSendTransAction,
             encodedTx,
             transferInfo,

@@ -734,6 +734,12 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async waitForLegacyHardwareCallBoundary(connectId: string) {
+    if ((await this.getKnownDeviceProtocol(connectId)) !== 'V2') {
+      await timerUtils.wait(600);
+    }
+  }
+
   handleHardwareLabelChanged = cacheUtils.memoizee(
     async ({
       walletId,
@@ -3251,11 +3257,17 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
+      const walletSessionParams = useEmptyPassphrase
+        ? { mode: 'standard' as const }
+        : { mode: 'select-hidden' as const };
       const walletSession = await convertDeviceResponse(() =>
-        useEmptyPassphrase
-          ? openWalletSession(connectId, { mode: 'standard' })
-          : openWalletSession(connectId, { mode: 'select-hidden' }),
+        openWalletSession(connectId, walletSessionParams),
       );
+      serviceHardwareUtils.hardwareLog('openWalletSession', {
+        protocol,
+        mode: walletSessionParams.mode,
+        resumed: walletSession.resumed,
+      });
       const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
       if (walletSession.walletType !== expectedWalletType) {
         throw new OneKeyLocalError(
@@ -3291,7 +3303,6 @@ class ServiceHardware extends ServiceBase {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         connectProtocol: protocol,
-        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
   }
@@ -3941,8 +3952,9 @@ class ServiceHardware extends ServiceBase {
         },
       );
     }
+    let compatibleConnectId = params.connectId;
     try {
-      const compatibleConnectId = await this.getCompatibleConnectId({
+      compatibleConnectId = await this.getCompatibleConnectId({
         connectId: params.connectId,
         featuresDeviceId: params.deviceId,
         hardwareCallContext: EHardwareCallContext.SILENT_CALL,
@@ -3950,7 +3962,7 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
       });
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
       const evmAddressResponse = await convertDeviceResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
@@ -3967,7 +3979,7 @@ class ServiceHardware extends ServiceBase {
       console.error('getEvmAddress error', error);
       return null;
     } finally {
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
     }
   }
 
@@ -4029,8 +4041,9 @@ class ServiceHardware extends ServiceBase {
         return undefined;
       }
     }
+    let compatibleConnectId = connectId;
     try {
-      const compatibleConnectId = await this.getCompatibleConnectId({
+      compatibleConnectId = await this.getCompatibleConnectId({
         connectId,
         featuresDeviceId: deviceId,
         hardwareCallContext: withUserInteraction
@@ -4040,7 +4053,7 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: compatibleConnectId,
       });
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
       const result = await convertDeviceResponse(() => {
         return hardwareSDK.btcGetPublicKey(
           compatibleConnectId,
@@ -4069,7 +4082,7 @@ class ServiceHardware extends ServiceBase {
       }
       console.error('getHwWalletXfp ERROR: ', error);
     } finally {
-      await timerUtils.wait(600);
+      await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
     }
   }
 

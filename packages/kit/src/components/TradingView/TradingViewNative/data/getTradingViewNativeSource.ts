@@ -32,6 +32,9 @@ export function getTradingViewNativeSourceKey(
   if (source.kind === 'hyperliquid') {
     return `hyperliquid:${source.environment}:${source.coin.trim()}`;
   }
+  if (source.kind === 'stock') {
+    return `stock:${source.stockId.trim().toUpperCase()}`;
+  }
   const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
   const hasTokenAddress = Boolean(
     normalizeMarketTokenAddress(source.tokenAddress),

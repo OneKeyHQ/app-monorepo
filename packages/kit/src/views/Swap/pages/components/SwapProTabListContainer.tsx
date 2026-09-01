@@ -90,10 +90,10 @@ const SwapProTabListContainer = memo(
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
 
     const {
-      cachedPositionTokenList,
-      hasCachedPositionSnapshot,
-      hasPositionOwner,
-      isLiveTokenListForCurrentOwner,
+      positionLoadError,
+      positionLoading,
+      positionTokenList,
+      swapProLoadSupportNetworksTokenListRun,
     } = useSwapProSupportNetworksTokenList(
       supportNetworksList,
       supportNetworksReady,
@@ -120,7 +120,12 @@ const SwapProTabListContainer = memo(
     ]);
     const shouldRenderListContent = shouldRenderLists;
     const shouldRenderPositionsContent =
-      shouldRenderListContent || hasCachedPositionSnapshot;
+      shouldRenderListContent || positionTokenList.length > 0;
+    const retryPositions = useCallback(() => {
+      void swapProLoadSupportNetworksTokenListRun(supportNetworksList, {
+        forceRefresh: true,
+      });
+    }, [supportNetworksList, swapProLoadSupportNetworksTokenListRun]);
 
     const handleTabPress = useCallback(
       (tab: ETabName) => {
@@ -172,7 +177,7 @@ const SwapProTabListContainer = memo(
       };
     }, [changeTabToLimitOrderList]);
 
-    // Delay rendering heavy list components after initial render
+    // Defer heavy list components only while initial position data is pending.
     useEffect(() => {
       const timer = setTimeout(() => {
         setShouldRenderLists(true);
@@ -226,10 +231,10 @@ const SwapProTabListContainer = memo(
                 onTokenPress={onTokenPress}
                 onSearchClick={onSearchClick}
                 filterToken={filterToken}
-                cachedTokenList={cachedPositionTokenList}
-                hasPositionOwner={hasPositionOwner}
-                hasCachedTokenSnapshot={hasCachedPositionSnapshot}
-                isLiveTokenListForCurrentOwner={isLiveTokenListForCurrentOwner}
+                positionTokenList={positionTokenList}
+                positionLoadError={positionLoadError}
+                positionLoading={positionLoading}
+                onRetry={retryPositions}
               />
             ) : (
               <SwapProTabListSkeleton />

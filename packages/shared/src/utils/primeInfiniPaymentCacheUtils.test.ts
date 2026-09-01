@@ -3,6 +3,7 @@ import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
   isPrimeInfiniPaymentFullyConfirmedSnapshot,
+  isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from './primeInfiniPaymentCacheUtils';
@@ -74,6 +75,33 @@ function buildTransferClaim(session: IPrimeInfiniPendingPaymentSession) {
     amount: session.payment.amountDue,
   };
 }
+
+describe('Infini broadcast quote safety window', () => {
+  test.each([-1, 0, 1, 29_999, 30_000, 30_001])(
+    'requires more than 30 seconds remaining (%i ms)',
+    (remainingMs) => {
+      const session = buildSession({
+        asset: {
+          chain: 'ETHEREUM',
+          token: 'USDT',
+          networkId: 'evm--1',
+          contractAddress: '0xabcd',
+        },
+        payerAddress: '0x1234',
+        recipientAddress: '0x9876',
+      });
+      const now = Date.now();
+      expect(
+        isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
+          payment: { ...session.payment, expiresAt: now + remainingMs },
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim: buildTransferClaim(session),
+          now,
+        }),
+      ).toBe(remainingMs > 30_000);
+    },
+  );
+});
 
 describe('isPrimeInfiniPaymentTransferClaimForSession', () => {
   test('accepts EVM address casing and equivalent decimal formatting', () => {

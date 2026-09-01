@@ -594,11 +594,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       payload: {
         num: number;
         selectedAccount: IAccountSelectorSelectedAccount;
+        forceReload?: boolean;
       },
     ): Promise<IAccountSelectorActiveAccountInfo> =>
       this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount } = payload;
+        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
@@ -611,6 +612,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
         };
         if (
+          !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
             storageInitDone: get(accountSelectorStorageInitDoneAtom()),
             selectedAccount,
@@ -650,11 +652,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return currentActiveAccount;
         }
-        const newActiveAccounts = {
+        set(activeAccountsAtom(), {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
-        };
-        set(activeAccountsAtom(), newActiveAccounts);
+        });
         markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
@@ -671,19 +672,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, focusedWallet } = payload;
-      const focusedWalletFixed = focusedWallet;
-      if (
-        focusedWalletFixed &&
-        accountUtils.isOthersWallet({ walletId: focusedWalletFixed })
-      ) {
-        // **** focus to grouped Others Tab
-        // focusedWalletFixed = '$$others';
-      }
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          focusedWallet: focusedWalletFixed,
+          focusedWallet,
         }),
       });
     },
@@ -1194,22 +1187,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount,
         });
 
-        if (
-          oldSelectedAccount.walletId &&
-          oldSelectedAccount.indexedAccountId &&
-          !newSelectedAccount.walletId &&
-          !newSelectedAccount.indexedAccountId
-        ) {
-          // debugger;
-        }
-
-        if (
-          sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
-          oldSelectedAccount?.walletId?.startsWith('watching') &&
-          newSelectedAccount?.walletId?.startsWith('hw-')
-        ) {
-          // debugger;
-        }
         // if (
         //   sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
         //   sceneInfo?.sceneUrl?.startsWith('https://app.pendle.finance') &&
@@ -1945,12 +1922,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 deriveType: failedAccount.deriveType,
               });
             if (
-              accountUtils.isQrWallet({
+              !accountUtils.isQrWallet({
                 walletId: wallet.id,
               })
             ) {
-              // mute error toast for qr wallet
-            } else {
               Toast.error({
                 // eslint-disable-next-line onekey/no-app-locale-main-thread
                 title: appLocale.intl.formatMessage(
@@ -2565,6 +2540,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await this.autoSelectNextAccount.call(set, {
           num,
           triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+          removedWalletId: walletId,
         });
       } finally {
         set(accountSelectorSyncLoadingAtom(), {
@@ -3012,9 +2988,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
         if (isEqual(selectedAccount, defaultSelectedAccount())) {
-          console.error(
-            'AccountSelector.saveToStorage skip, selectedAccount is default',
-          );
           return;
         }
         // Identity-less selections (e.g. network-only cold-start snapshots)
@@ -3124,19 +3097,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // **** emit event
         if (!eventEmitDisabled) {
-          if (
-            networkUtils.isAllNetwork({
-              networkId: payload.selectedAccount?.networkId,
-            })
-          ) {
-            // debugger;
-          }
-          if (sceneName === EAccountSelectorSceneName.discover) {
-            if (payload?.selectedAccount?.indexedAccountId === 'hd-1--0') {
-              // alert('AccountSelectorSelectedAccountUpdate');
-              // debugger;
-            }
-          }
           appEventBus.emit(
             EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
             fixedPayload,
@@ -3492,10 +3452,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   autoSelectNextAccountMutex = new Semaphore(1);
 
-  // Public barrier for components that want to write to selectedAccount only
-  // AFTER autoSelectNextAccount has completed. syncFromScene uses the same
-  // mutex internally; external writers (e.g. keyless preselect) previously
-  // had to guess a timeout, which raced AutoSelect on slow paths.
+  // Wait until the current auto-select pass completes.
   waitForAutoSelectUnlock = contextAtomMethod(async (_get, _set) => {
     await this.autoSelectNextAccountMutex.waitForUnlock();
   });
@@ -3509,11 +3466,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl,
         num,
         triggerBy,
+        removedWalletId,
       }: {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
         triggerBy?: EAccountSelectorAutoSelectTriggerBy;
+        removedWalletId?: string;
       },
     ) => {
       // console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -3529,10 +3488,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
 
       await this.autoSelectNextAccountMutex.runExclusive(async () => {
-        // wait activeAccount build done — must be INSIDE runExclusive so
-        // waitForAutoSelectUnlock callers actually block until the full
-        // auto-select pass completes (acquiring mutex AFTER the wait would
-        // let external writers slip through during the 300ms window).
+        // Keep the readiness wait inside the auto-select mutex.
         await timerUtils.wait(300);
         const storageReady = get(accountSelectorStorageReadyAtom());
         const activeAccount = this.getActiveAccount.call(set, { num });
@@ -3552,13 +3508,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           activeAccount;
         const selectedAccount = this.getSelectedAccount.call(set, { num });
         const isAccountExist = Boolean(indexedAccount || account || dbAccount);
-        // Mocked wallets need replacement. Deprecated wallets remain readable.
+        let isSelectedWalletRemoved = Boolean(
+          removedWalletId && selectedAccount?.walletId === removedWalletId,
+        );
+        if (
+          removedWalletId &&
+          selectedAccount?.walletId &&
+          !isSelectedWalletRemoved
+        ) {
+          const selectedWalletInDb = await serviceAccount.getWalletSafe({
+            walletId: selectedAccount.walletId,
+          });
+          isSelectedWalletRemoved = !selectedWalletInDb;
+        }
         const shouldAutoSelectNextAccount =
           !selectedAccount?.focusedWallet ||
           !network ||
           !wallet ||
           wallet.isMocked ||
-          !isAccountExist;
+          !isAccountExist ||
+          isSelectedWalletRemoved;
 
         if (shouldAutoSelectNextAccount) {
           defaultLogger.accountSelector.autoSelect.startAutoSelect({
@@ -3579,8 +3548,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount: selectedAccountNew,
           });
 
-          let selectedWalletId = wallet?.id || selectedAccount?.walletId;
-          let selectedWallet = wallet;
+          let selectedWalletId = isSelectedWalletRemoved
+            ? undefined
+            : wallet?.id || selectedAccount?.walletId;
+          let selectedWallet = isSelectedWalletRemoved ? undefined : wallet;
           if (!selectedWallet && selectedWalletId) {
             selectedWallet = await serviceAccount.getWalletSafe({
               walletId: selectedWalletId,
@@ -3595,8 +3566,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               selectedWallet = undefined;
             }
           }
-          let selectedIndexedAccountId =
-            indexedAccount?.id || selectedAccount?.indexedAccountId;
+          let selectedIndexedAccountId = isSelectedWalletRemoved
+            ? undefined
+            : indexedAccount?.id || selectedAccount?.indexedAccountId;
           // accountUtils.isHwWallet
           const hasIndexedAccounts =
             selectedWalletId &&
@@ -3853,6 +3825,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
 
           if (
+            isSelectedWalletRemoved &&
+            isSelectedAccountIdentityIncomplete(selectedAccountNew)
+          ) {
+            // A network-only selection is the final empty state after removing
+            // the last wallet, so it must replace the stale active account.
+            await this.reloadActiveAccountInfo.call(set, {
+              num,
+              selectedAccount: selectedAccountNew,
+              forceReload: true,
+            });
+          }
+
+          if (
             selectedAccount.walletId !== selectedAccountNew.walletId &&
             triggerBy !==
               EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount &&
@@ -3862,18 +3847,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         }
 
-        const isTriggerByRemoveWalletOrLastOthersAccount =
-          triggerBy &&
-          [
-            EAccountSelectorAutoSelectTriggerBy.removeWallet,
-            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount,
-          ].includes(triggerBy);
-        // (else if) when auto select logic not trigger, should fix focusedWallet only
-        // focused A wallet, but remove B wallet, should focus back to A wallet
-        if (
-          !shouldAutoSelectNextAccount &&
-          isTriggerByRemoveWalletOrLastOthersAccount
-        ) {
+        const shouldRepairFocusedWallet =
+          triggerBy ===
+            EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount ||
+          (triggerBy === EAccountSelectorAutoSelectTriggerBy.removeWallet &&
+            (!removedWalletId ||
+              selectedAccount.focusedWallet === removedWalletId));
+        // Repair focus without replacing an otherwise valid selection.
+        if (!shouldAutoSelectNextAccount && shouldRepairFocusedWallet) {
           const selectedAccountNew = await this.cloneSelectedAccountNew.call(
             set,
             {

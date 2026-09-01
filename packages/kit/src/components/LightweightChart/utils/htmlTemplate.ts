@@ -247,16 +247,17 @@ function getChartInitScript(): string {
       function getDottedAreaSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
+        var patternColor = nextConfig.patternColor || nextConfig.theme.lineColor;
         return {
           color: nextConfig.theme.lineColor,
           lineColor: nextConfig.theme.lineColor,
           lineWidth: getNormalizedLineWidth(nextConfig.lineWidth, 3),
-          patternColor: nextConfig.theme.lineColor,
+          patternColor: patternColor,
           patternOpacity: 0.28,
           patternRadius: 0.9,
           patternSpacing: 10,
           showLastPointMarker: nextConfig.showLastPointMarker !== false,
-          lastPointMarkerColor: nextConfig.theme.lineColor,
+          lastPointMarkerColor: patternColor,
           lastPointMarkerRadius: 5.5,
           priceScaleId: getPriceScalePosition(nextConfig),
           lastValueVisible: showLast,
@@ -432,9 +433,9 @@ function getChartInitScript(): string {
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: {
-            color: 'rgba(150, 150, 150, 0.4)',
+            color: config.crosshairVertLineColor || 'rgba(150, 150, 150, 0.4)',
             width: 1,
-            style: 3,
+            style: config.crosshairVertLineStyle ?? 3,
             labelVisible: false,
           },
           horzLine: {

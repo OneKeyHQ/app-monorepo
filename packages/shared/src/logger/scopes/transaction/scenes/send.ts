@@ -7,6 +7,8 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 import type {
   IGasAccountActionParams,
   IGasAccountAnalyticsContext,
+  ISendCexDepositWarningActionParams,
+  ISendCexDepositWarningContext,
 } from '../types';
 
 type ISendMode = 'public' | 'private';
@@ -335,6 +337,24 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  public sendCexDepositWarningShow(params: ISendCexDepositWarningContext) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningAction(
+    params: ISendCexDepositWarningActionParams,
+  ) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
   public sendPrivateCreateOrder(params: ISendPrivateCreateOrderParams) {
     return params;
   }
@@ -438,6 +458,25 @@ export class SendScene extends BaseScene {
     return {
       network,
       error,
+    };
+  }
+
+  // Logged when a refTx field arrives empty and is read as 0 — the only trace
+  // if that substitution was actually wrong.
+  @LogToLocal()
+  public refTxFieldDefaulted({
+    network,
+    txId,
+    field,
+  }: {
+    network: string | undefined;
+    txId: string;
+    field: string;
+  }) {
+    return {
+      network,
+      txId,
+      field,
     };
   }
 }

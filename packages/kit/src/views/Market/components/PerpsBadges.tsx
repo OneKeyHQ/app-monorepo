@@ -60,10 +60,12 @@ const PerpDexBadge = memo(
   ({
     compact,
     dexLabel,
+    height,
     testID,
   }: {
     compact?: boolean;
     dexLabel?: string;
+    height?: number;
     testID?: string;
   }) => {
     const intl = useIntl();
@@ -87,6 +89,7 @@ const PerpDexBadge = memo(
         justifyContent="center"
         alignItems="center"
         px={compact ? '$1' : '$1.5'}
+        height={height}
         testID={testID}
       >
         {badgeText}
@@ -279,7 +282,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   },
   [EUSMarketStatusVariant.Open]: {
     icon: 'SunOutline',
-    titleId: ETranslations.market_status_open,
+    // Named after the trading session rather than a bare "Open", matching the
+    // wording the trading-hours panel uses for the same row.
+    titleId: ETranslations.trading_hours_regular_market,
     bg: '$bgSuccess',
     color: '$textSuccess',
   },
@@ -335,9 +340,11 @@ const StockIsOpenBadge = memo(
   ({
     stock,
     disableTooltip,
+    variant: displayVariant = 'badge',
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
+    variant?: 'badge' | 'inline';
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
@@ -366,23 +373,33 @@ const StockIsOpenBadge = memo(
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
 
-    const badge = (
-      <XStack
-        borderRadius="$1"
-        bg={chip.bg}
-        justifyContent="center"
-        alignItems="center"
-        gap={3}
-        px="$1"
-      >
-        <Icon name={chip.icon} size="$3" color={chip.color} />
-        <SizableText fontSize={10} color={chip.color} lineHeight={16}>
-          {chip.titleId !== undefined
-            ? intl.formatMessage({ id: chip.titleId })
-            : chip.title}
-        </SizableText>
-      </XStack>
-    );
+    const badge =
+      displayVariant === 'inline' ? (
+        <XStack alignItems="center" gap="$1">
+          <Icon name={chip.icon} size="$4" color={chip.color} />
+          <SizableText size="$bodyMd" color={chip.color}>
+            {chip.titleId !== undefined
+              ? intl.formatMessage({ id: chip.titleId })
+              : chip.title}
+          </SizableText>
+        </XStack>
+      ) : (
+        <XStack
+          borderRadius="$1"
+          bg={chip.bg}
+          justifyContent="center"
+          alignItems="center"
+          gap={3}
+          px="$1"
+        >
+          <Icon name={chip.icon} size="$3" color={chip.color} />
+          <SizableText fontSize={10} color={chip.color} lineHeight={16}>
+            {chip.titleId !== undefined
+              ? intl.formatMessage({ id: chip.titleId })
+              : chip.title}
+          </SizableText>
+        </XStack>
+      );
 
     if (disableTooltip || !description || platformEnv.isNative) {
       return badge;
@@ -407,14 +424,22 @@ StockIsOpenBadge.displayName = 'StockIsOpenBadge';
  * non-Ondo issuers render no chip (see StockIsOpenBadge).
  */
 const StockMarketStatusBadge = memo(
-  ({ stock }: { stock?: IMarketStockInfo }) => {
+  ({
+    stock,
+    variant,
+  }: {
+    stock?: IMarketStockInfo;
+    variant?: 'badge' | 'inline';
+  }) => {
     if (!stock) {
       return null;
     }
     return (
       <TradingHoursTrigger
         stock={stock}
-        renderTrigger={<StockIsOpenBadge stock={stock} disableTooltip />}
+        renderTrigger={
+          <StockIsOpenBadge stock={stock} disableTooltip variant={variant} />
+        }
       />
     );
   },

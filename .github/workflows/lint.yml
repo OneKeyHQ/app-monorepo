@@ -74,6 +74,7 @@ jobs:
         run: >-
           node --test
           development/scripts/command-batches.node-test.js
+          development/lint/background-api-contract.node-test.js
           apps/cli/esbuild.config.node-test.js
 
       - name: Build CLI

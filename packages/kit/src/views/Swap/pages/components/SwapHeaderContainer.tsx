@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapProTokenCarryOptions } from '../../hooks/useSwapProTokenCarry';
 import { SwapTestIDs } from '../../testIDs';
 import {
   getSwapAnalyticsCategoryFromSwapType,
@@ -126,6 +127,7 @@ interface ISwapHeaderContainerProps {
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
+  singleSwapBridgeTab?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   enterFrom?: ESwapSource;
 }
@@ -138,6 +140,7 @@ const SwapHeaderContainer = ({
   defaultSwapType,
   showSwapPro,
   hideRightActions,
+  singleSwapBridgeTab,
   marketPresetSettings,
   enterFrom,
 }: ISwapHeaderContainerProps) => {
@@ -151,6 +154,9 @@ const SwapHeaderContainer = ({
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapProTokenCarryOptions = useSwapProTokenCarryOptions({
+    enabled: Boolean(platformEnv.isNative && showSwapPro),
+  });
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -276,6 +282,7 @@ const SwapHeaderContainer = ({
         syncRouteTabParam(newType);
         await swapTypeSwitchAction(newType, networkId, {
           carryTargetToken: true,
+          ...swapProTokenCarryOptions,
         });
         return;
       }
@@ -288,6 +295,7 @@ const SwapHeaderContainer = ({
       ) {
         void swapTypeSwitchAction(newType, networkId, {
           carryTargetToken: true,
+          ...swapProTokenCarryOptions,
         });
       } else {
         const settledFromToken = await swapTypeSwitchAction(
@@ -295,12 +303,13 @@ const SwapHeaderContainer = ({
           fromToken?.networkId || networkId,
           {
             carryTargetToken: true,
+            ...swapProTokenCarryOptions,
           },
         );
         // Leave the Pro owner before awaiting account synchronization so its
         // network effect cannot switch the account back while this is in flight.
-        // Use the settled source token: carry can remap From/To when the Pro
-        // target matches the restored FromToken (e.g. BNB→UNI becomes UNI→BNB).
+        // Cross-network carry can replace From with the target network's
+        // native token, so synchronize from the settled pair.
         const settledFromNetworkId = settledFromToken?.networkId;
         if (settledFromNetworkId && settledFromNetworkId !== networkId) {
           await updateSelectedAccountNetworkAction(settledFromNetworkId);
@@ -316,6 +325,7 @@ const SwapHeaderContainer = ({
       updateSelectedAccountNetworkAction,
       enterFrom,
       isSwapProCategory,
+      swapProTokenCarryOptions,
     ],
   );
 
@@ -443,6 +453,25 @@ const SwapHeaderContainer = ({
       </CustomTabItem>
     </>
   );
+
+  if (singleSwapBridgeTab) {
+    return (
+      <XStack alignItems="center" gap="$2" px="$5" py="$1">
+        <SizableText size="$headingMd" flex={1}>
+          {swapBridgeLabel}
+        </SizableText>
+        {!hideRightActions ? (
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            routeSwapType={defaultSwapType}
+            compact
+            hideKLine
+          />
+        ) : null}
+      </XStack>
+    );
+  }
 
   return (
     <XStack

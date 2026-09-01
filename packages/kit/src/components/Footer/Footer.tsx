@@ -37,6 +37,14 @@ const LazyPerpFooterTicker = lazy(async () => {
   };
 });
 
+const LazyPerpFooterNetworkStatus = lazy(async () => {
+  const { PerpFooterNetworkStatusLazyImpl } =
+    await import('./PerpFooterLazyContent');
+  return {
+    default: PerpFooterNetworkStatusLazyImpl,
+  };
+});
+
 const getLinks = () => [
   {
     id: 'about',
@@ -182,7 +190,13 @@ export function Footer() {
       justifyContent="space-between"
     >
       <XStack gap="$2" alignItems="center" flexShrink={0}>
-        <NetworkStatus />
+        {isInPerpRoute ? (
+          <Suspense fallback={null}>
+            <LazyPerpFooterNetworkStatus />
+          </Suspense>
+        ) : (
+          <NetworkStatus />
+        )}
         {isInPerpRoute ? (
           <Suspense fallback={null}>
             <LazyPerpFooterRefreshButton />

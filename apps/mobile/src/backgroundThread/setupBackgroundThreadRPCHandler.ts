@@ -1,4 +1,5 @@
 import {
+  type ISharedRPC,
   getSharedRPC,
   getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
@@ -24,6 +25,7 @@ import {
   type IBackgroundThreadJotaiStateBroadcastBatchPayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
+  type IBackgroundThreadResponsePayload,
   type IBackgroundThreadServiceCallRequest,
   WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   buildBackgroundThreadAppEventKey,
@@ -130,6 +132,84 @@ function logBgRpcTrace(message: string, level: 'info' | 'error' = 'info') {
   }
 }
 
+function getBackgroundThreadErrorMessage(error: unknown) {
+  try {
+    return (error as Error)?.message || 'unknown';
+  } catch {
+    return 'unreadable error';
+  }
+}
+
+const SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK =
+  serializeBackgroundThreadResponse({
+    ok: false,
+    error: {
+      name: 'BackgroundThreadResponseError',
+      message: 'Background response failed',
+    },
+  });
+
+function writeBackgroundThreadResponse({
+  sharedRPC,
+  responseKey,
+  buildResponse,
+  callId,
+  requestLabel,
+}: {
+  sharedRPC: ISharedRPC;
+  responseKey: string;
+  buildResponse: () => IBackgroundThreadResponsePayload;
+  callId: string;
+  requestLabel: string;
+}) {
+  let serializedResponse = SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK;
+  let isFallbackResponse = false;
+  try {
+    serializedResponse = serializeBackgroundThreadResponse(buildResponse());
+  } catch (serializationError) {
+    isFallbackResponse = true;
+    logBgRpcTrace(
+      `serialize-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+        serializationError,
+      )}`,
+      'error',
+    );
+  }
+
+  try {
+    sharedRPC.write(responseKey, serializedResponse);
+    return !isFallbackResponse;
+  } catch (writeError) {
+    logBgRpcTrace(
+      `write-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+        writeError,
+      )}`,
+      'error',
+    );
+  }
+
+  if (!isFallbackResponse) {
+    try {
+      sharedRPC.write(
+        responseKey,
+        SERIALIZED_BACKGROUND_THREAD_RESPONSE_FALLBACK,
+      );
+      logBgRpcTrace(
+        `fallback-write-ok callId=${callId}, request=${requestLabel}`,
+      );
+    } catch (fallbackWriteError) {
+      logBgRpcTrace(
+        `fallback-write-fail callId=${callId}, request=${requestLabel}, error=${getBackgroundThreadErrorMessage(
+          fallbackWriteError,
+        )}`,
+        'error',
+      );
+    }
+  }
+
+  return false;
+}
+
 const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
@@ -147,7 +227,6 @@ function buildErrorPayload(error: unknown) {
     key?: unknown;
     requestId?: unknown;
     httpStatusCode?: unknown;
-    constructorName?: unknown;
     data?: unknown;
     payload?: unknown;
   };
@@ -162,7 +241,6 @@ function buildErrorPayload(error: unknown) {
     key?: string;
     requestId?: string;
     httpStatusCode?: number;
-    constructorName?: string;
     data?: unknown;
     payload?: unknown;
   } = {
@@ -195,9 +273,6 @@ function buildErrorPayload(error: unknown) {
   }
   if (typeof runtimeError?.httpStatusCode === 'number') {
     errorPayload.httpStatusCode = runtimeError.httpStatusCode;
-  }
-  if (typeof runtimeError?.constructorName === 'string') {
-    errorPayload.constructorName = runtimeError.constructorName;
   }
   const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
   if (safeData) {
@@ -482,22 +557,18 @@ async function handleRequest(callId: string, value: string | number | boolean) {
         Date.now() - requestStartedAt
       }`,
     );
-    try {
-      sharedRPC.write(
-        responseKey,
-        serializeBackgroundThreadResponse({
-          ok: true,
-          result,
-        }),
-      );
+    const isOriginalResponseWritten = writeBackgroundThreadResponse({
+      sharedRPC,
+      responseKey,
+      buildResponse: () => ({
+        ok: true,
+        result,
+      }),
+      callId,
+      requestLabel,
+    });
+    if (isOriginalResponseWritten) {
       logBgRpcTrace(`write-ok callId=${callId}, request=${requestLabel}`);
-    } catch (writeError) {
-      logBgRpcTrace(
-        `write-fail callId=${callId}, request=${requestLabel}, error=${
-          (writeError as Error)?.message || 'unknown'
-        }`,
-        'error',
-      );
     }
     if (shouldTracePendingInstallTask) {
       logBgRpcTrace(
@@ -510,22 +581,16 @@ async function handleRequest(callId: string, value: string | number | boolean) {
     logBgRpcTrace(
       `error callId=${callId}, request=${requestLabel}, elapsedMs=${
         Date.now() - requestStartedAt
-      }, message=${(error as Error)?.message || 'unknown'}`,
+      }, message=${getBackgroundThreadErrorMessage(error)}`,
       'error',
     );
-    try {
-      sharedRPC.write(
-        responseKey,
-        serializeBackgroundThreadResponse(buildErrorPayload(error)),
-      );
-    } catch (writeError) {
-      logBgRpcTrace(
-        `error-write-fail callId=${callId}, error=${
-          (writeError as Error)?.message || 'unknown'
-        }`,
-        'error',
-      );
-    }
+    writeBackgroundThreadResponse({
+      sharedRPC,
+      responseKey,
+      buildResponse: () => buildErrorPayload(error),
+      callId,
+      requestLabel,
+    });
   } finally {
     if (traceHeartbeatTimer) {
       clearInterval(traceHeartbeatTimer);

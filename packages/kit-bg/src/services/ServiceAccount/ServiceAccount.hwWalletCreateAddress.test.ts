@@ -190,8 +190,8 @@ describe('ServiceAccount hardware wallet creation address', () => {
     expect(getDeviceState).not.toHaveBeenCalled();
   });
 
-  it('创建 Pro2 隐藏钱包时仍读取实时设备状态', async () => {
-    const liveState = {
+  it('创建 Pro2 隐藏钱包时复用已同步的 post-unlock 状态', async () => {
+    const postUnlockState = {
       schemaVersion: 1,
       revision: 2,
       updatedAt: 2,
@@ -210,7 +210,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
         firmware: '1.0.0',
       },
     };
-    const getDeviceState = jest.fn().mockResolvedValue(liveState);
+    const getDeviceState = jest.fn();
     const service = new ServiceAccount({
       backgroundApi: {
         serviceHardware: {
@@ -224,14 +224,7 @@ describe('ServiceAccount hardware wallet creation address', () => {
         dbDevice: {
           vendor: EHardwareVendor.onekey,
           connectProtocol: 'V2',
-          deviceStateInfo: {
-            ...liveState,
-            revision: 1,
-            identity: {
-              ...liveState.identity,
-              deviceId: 'STALE_DEVICE_ID',
-            },
-          },
+          deviceStateInfo: postUnlockState,
         },
         compatibleConnectId: 'PRO2_USB',
       }),
@@ -240,9 +233,66 @@ describe('ServiceAccount hardware wallet creation address', () => {
       deviceId: 'PRO2_DEVICE_ID',
     });
 
-    expect(getDeviceState).toHaveBeenCalledWith({
-      connectId: 'PRO2_USB',
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('创建 Pro2 隐藏钱包记录时不重复读取设备状态', async () => {
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-hidden-wallet-1', name: 'Hidden Wallet' },
+    } as never);
+    const getDeviceState = jest.fn();
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('PRO2_USB'),
+          getDeviceState,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-hidden-wallet-1',
+      name: 'Hidden Wallet',
     });
+    const postUnlockState = {
+      schemaVersion: 1,
+      revision: 2,
+      updatedAt: 2,
+      protocol: 'V2',
+      identity: {
+        deviceId: 'PRO2_DEVICE_ID',
+        serialNo: 'PRO2_SERIAL',
+      },
+      status: {
+        mode: 'normal',
+        unlocked: true,
+        unlockedAttachPin: false,
+        passphraseProtection: true,
+      },
+      settings: {},
+      versions: { firmware: '1.0.0' },
+    };
+
+    await service.createHWWalletBase({
+      device: {
+        connectId: 'PRO2_USB',
+        deviceId: 'PRO2_DEVICE_ID',
+        vendor: EHardwareVendor.onekey,
+      },
+      features: { deviceId: 'PRO2_DEVICE_ID' },
+      connectProtocol: 'V2',
+      deviceState: postUnlockState,
+      passphraseState: 'PRO2_HIDDEN_STATE',
+      fillingXfpByCallingSdk: false,
+      vendor: EHardwareVendor.onekey,
+    });
+
+    expect(getDeviceState).not.toHaveBeenCalled();
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceState: postUnlockState,
+        passphraseState: 'PRO2_HIDDEN_STATE',
+      }),
+    );
   });
 
   it('derives a OneKey hidden wallet address from its passphrase state', async () => {
