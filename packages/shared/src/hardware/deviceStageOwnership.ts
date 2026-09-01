@@ -41,6 +41,37 @@ export function isDeviceStageOwnedHardwareUiAction({
 }
 
 /**
+ * Whether a DeviceStage burst currently owns the hardware flow. Set by the
+ * burst scope in kit-bg; read where kit-bg cannot be imported — the
+ * DeviceNotFound error emits its legacy dialog event from its own
+ * constructor, before the failed call ever returns to the burst wrapper.
+ * Module state is per-runtime, which is exactly right: the burst scope and
+ * every DeviceNotFound construction live in the background runtime.
+ */
+let deviceStageBurstActive = false;
+
+export function setDeviceStageBurstActive(active: boolean): void {
+  deviceStageBurstActive = active;
+}
+
+/**
+ * Whether the DeviceNotFound constructor should emit the legacy
+ * "Device not connected" dialog event. While a burst is active the stage
+ * lands the failure itself (the deviceNotFound outcome), and the UI-side
+ * `stageIsShowing` gate cannot cover that case — an at-initiation failure
+ * outruns the stage's deferred opening beat, so the event has to stand
+ * down at the source. With no burst the legacy dialog remains the only
+ * surface (bare calls, the firmware workflow) and the emit proceeds.
+ */
+export function shouldEmitDeviceNotFoundDialogEvent({
+  silentMode,
+}: {
+  silentMode?: boolean;
+}): boolean {
+  return !silentMode && !deviceStageBurstActive;
+}
+
+/**
  * Whether the legacy container should still raise its hardware-error
  * dialog. One failure, one surface: when the stage is on it lands the
  * failure itself as its error outcome, but plenty of hardware work never
