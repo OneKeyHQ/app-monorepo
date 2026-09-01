@@ -23,7 +23,10 @@ import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerp
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
-import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import type {
+  IMarketCategoryItem,
+  IMarketTimeRangeValue,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
   isMarketStockCategory,
@@ -227,6 +230,11 @@ function BaseMarketTokenSelectorContent({
     [topCoins],
   );
 
+  // Trending reads the 1h metrics the v2 list can request server-side; top
+  // coins and favorites are 24h data sets fetched through their own paths.
+  const selectorTimeRange: IMarketTimeRangeValue =
+    startListSelect || isTopCoinsSelection ? '24h' : '1h';
+
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
@@ -383,7 +391,7 @@ function BaseMarketTokenSelectorContent({
           <MarketTokenSelectorList
             networkId={allNetworkId}
             selectedCategory={selectedCategory}
-            timeRange="1h"
+            timeRange={selectorTimeRange}
             onItemPress={handleSelectToken}
             pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}

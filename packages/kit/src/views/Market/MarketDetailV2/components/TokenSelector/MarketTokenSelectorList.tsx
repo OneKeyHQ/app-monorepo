@@ -20,18 +20,22 @@ import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/Ma
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
 import {
-  COLUMN_WIDTH_CHANGE,
-  COLUMN_WIDTH_LIQUIDITY,
-  COLUMN_WIDTH_MARKET_CAP,
-  COLUMN_WIDTH_NAME,
-  COLUMN_WIDTH_PRICE,
-  COLUMN_WIDTH_TURNOVER,
+  TOKEN_SELECTOR_COLUMN_PADDING,
+  TOKEN_SELECTOR_HEADER_HEIGHT,
+  TOKEN_SELECTOR_METRIC_COLUMNS,
+  TOKEN_SELECTOR_NAME_GAP,
   TOKEN_SELECTOR_POLLING_INTERVAL,
   TOKEN_SELECTOR_ROW_HEIGHT,
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
   convertSearchTokenToMarketToken,
+  getTokenSelectorColumnWidths,
 } from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 
+import type {
+  IMarketTokenSelectorColumns,
+  IMarketTokenSelectorMetricColumn,
+} from './constants';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
 
@@ -62,6 +66,7 @@ function TokenSelectorListView({
   onItemPress,
   emptyMessage,
   showAddress = true,
+  columns,
 }: {
   data: IMarketTokenSelectorItem[];
   isLoading?: boolean;
@@ -69,6 +74,7 @@ function TokenSelectorListView({
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   emptyMessage?: string;
   showAddress?: boolean;
+  columns: IMarketTokenSelectorColumns;
 }) {
   if (isLoading && data.length === 0) {
     return (
@@ -97,6 +103,7 @@ function TokenSelectorListView({
           networkId={networkId}
           onPress={onItemPress}
           showAddress={showAddress}
+          columns={columns}
         />
       )}
       contentContainerStyle={{ paddingBottom: 10 }}
@@ -109,10 +116,12 @@ const WatchlistTokenSelectorList = memo(
     networkId,
     onItemPress,
     pollingInterval,
+    columns,
   }: {
     networkId: string;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
+    columns: IMarketTokenSelectorColumns;
   }) => {
     const intl = useIntl();
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
@@ -136,6 +145,7 @@ const WatchlistTokenSelectorList = memo(
         emptyMessage={intl.formatMessage({
           id: ETranslations.market_favorites_empty,
         })}
+        columns={columns}
       />
     );
   },
@@ -150,12 +160,14 @@ const CategoryTokenSelectorList = memo(
     timeRange,
     onItemPress,
     pollingInterval,
+    columns,
   }: {
     networkId: string;
     selectedCategory?: string;
     timeRange?: IMarketTimeRangeValue;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
+    columns: IMarketTokenSelectorColumns;
   }) => {
     const { data, isLoading } = useMarketTokenList({
       networkId,
@@ -170,6 +182,7 @@ const CategoryTokenSelectorList = memo(
         isLoading={isLoading}
         networkId={networkId}
         onItemPress={onItemPress}
+        columns={columns}
       />
     );
   },
@@ -183,11 +196,13 @@ const SearchTokenSelectorList = memo(
     searchLoading,
     onItemPress,
     networkId,
+    columns,
   }: {
     searchResults: (IMarketSearchV2Token & { networkLogoURI: string })[];
     searchLoading?: boolean;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     networkId: string;
+    columns: IMarketTokenSelectorColumns;
   }) => {
     const intl = useIntl();
     const data = useMemo(
@@ -208,6 +223,7 @@ const SearchTokenSelectorList = memo(
         emptyMessage={intl.formatMessage({
           id: ETranslations.global_no_results,
         })}
+        columns={columns}
       />
     );
   },
@@ -227,7 +243,8 @@ function ListContent({
   timeRange,
   dataOverride,
   dataOverrideLoading,
-}: IMarketTokenSelectorListProps) {
+  columns,
+}: IMarketTokenSelectorListProps & { columns: IMarketTokenSelectorColumns }) {
   if (searchQuery) {
     return (
       <SearchTokenSelectorList
@@ -235,6 +252,7 @@ function ListContent({
         searchLoading={searchLoading}
         onItemPress={onItemPress}
         networkId={networkId}
+        columns={columns}
       />
     );
   }
@@ -244,6 +262,7 @@ function ListContent({
         networkId={networkId}
         onItemPress={onItemPress}
         pollingInterval={pollingInterval}
+        columns={columns}
       />
     );
   }
@@ -255,6 +274,7 @@ function ListContent({
         networkId={networkId}
         onItemPress={onItemPress}
         showAddress={false}
+        columns={columns}
       />
     );
   }
@@ -265,6 +285,7 @@ function ListContent({
       timeRange={timeRange}
       onItemPress={onItemPress}
       pollingInterval={pollingInterval}
+      columns={columns}
     />
   );
 }
@@ -285,59 +306,83 @@ const MarketTokenSelectorList = memo(
   }: IMarketTokenSelectorListProps) => {
     const intl = useIntl();
 
+    // Only the v2 category list honours the requested time frame; the
+    // watchlist, top coins and search payloads always carry 24h metrics.
+    const isCategoryList = !searchQuery && !isWatchlistMode && !dataOverride;
+    const metricsTimeRange: IMarketTimeRangeValue = isCategoryList
+      ? (timeRange ?? '24h')
+      : '24h';
+
+    const columns = useMemo<IMarketTokenSelectorColumns>(() => {
+      const metrics =
+        TOKEN_SELECTOR_METRIC_COLUMNS[isCategoryList ? 'trending' : 'coins'];
+      return {
+        ...getTokenSelectorColumnWidths(metrics.length),
+        metrics,
+      };
+    }, [isCategoryList]);
+
+    const metricTitles = useMemo<
+      Record<IMarketTokenSelectorMetricColumn, string>
+    >(
+      () => ({
+        price: intl.formatMessage({ id: ETranslations.global_price }),
+        // Time-scoped labels follow the MarketHomeV2 trending table: the range
+        // is prefixed to the translated metric word.
+        change: `${metricsTimeRange} ${intl.formatMessage({
+          id: ETranslations.dexmarket_token_change,
+        })}`,
+        marketCap: intl.formatMessage({ id: ETranslations.global_market_cap }),
+        liquidity: intl.formatMessage({ id: ETranslations.global_liquidity }),
+        turnover: `${metricsTimeRange} ${intl.formatMessage({
+          id: ETranslations.perp_token_selector_volume,
+        })}`,
+      }),
+      [intl, metricsTimeRange],
+    );
+
     return (
       <YStack flex={1}>
         {/* Fixed header */}
         <XStack
-          px="$4"
-          py="$3"
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
+          width="100%"
+          height={TOKEN_SELECTOR_HEADER_HEIGHT}
+          alignItems="center"
         >
-          <SizableText
-            width={COLUMN_WIDTH_NAME}
-            size="$bodySm"
-            color="$textSubdued"
+          <XStack
+            width={columns.nameColumnWidth}
+            px={TOKEN_SELECTOR_COLUMN_PADDING}
+            alignItems="center"
+            gap={TOKEN_SELECTOR_NAME_GAP}
           >
-            {intl.formatMessage({ id: ETranslations.global_name })}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_PRICE}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({ id: ETranslations.global_price })}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_CHANGE}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {`${intl.formatMessage({
-              id: ETranslations.dexmarket_token_change,
-            })}(%)`}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_MARKET_CAP}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({ id: ETranslations.global_market_cap })}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_LIQUIDITY}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({ id: ETranslations.global_liquidity })}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_TURNOVER}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({ id: ETranslations.dexmarket_turnover })}
-          </SizableText>
+            <SizableText
+              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+              textAlign="center"
+              size="$bodySmMedium"
+              color="$textSubdued"
+            >
+              #
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_name })}
+            </SizableText>
+          </XStack>
+          {columns.metrics.map((metric) => (
+            <XStack
+              key={metric}
+              width={columns.metricColumnWidth}
+              px={TOKEN_SELECTOR_COLUMN_PADDING}
+              alignItems="center"
+            >
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {metricTitles[metric]}
+              </SizableText>
+            </XStack>
+          ))}
         </XStack>
 
         {/* Scrollable list */}
@@ -354,6 +399,7 @@ const MarketTokenSelectorList = memo(
             timeRange={timeRange}
             dataOverride={dataOverride}
             dataOverrideLoading={dataOverrideLoading}
+            columns={columns}
           />
         </YStack>
       </YStack>
