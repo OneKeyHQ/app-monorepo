@@ -21,6 +21,43 @@ function toFiniteNumber(value: string) {
   return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
+export async function resolveMarketTopCoinNavigationTarget(
+  item: IMarketAssetListItem,
+) {
+  const detail =
+    await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+      assetId: item.assetId,
+      currency: 'usd',
+    });
+  const { asset, market, selectedVariant } = detail;
+  const networkInfo = selectedVariant?.networkId
+    ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)
+    : undefined;
+  const hasTokenIdentity = Boolean(
+    selectedVariant?.isNative || selectedVariant?.tokenAddress,
+  );
+  if (!networkInfo || !hasTokenIdentity) {
+    throw new OneKeyLocalError('Invalid market asset variant');
+  }
+  const decimals = selectedVariant.isNative ? networkInfo.decimals : undefined;
+
+  return {
+    address: selectedVariant.tokenAddress,
+    change24h: toFiniteNumber(market.priceChange24hPercent),
+    ...(typeof decimals === 'number' ? { decimals } : undefined),
+    isNative: selectedVariant.isNative,
+    marketCap: toFiniteNumber(market.marketCap),
+    marketTokenId: asset.assetId,
+    name: asset.name,
+    networkId: selectedVariant.networkId,
+    price: toFiniteNumber(market.price),
+    symbol: asset.symbol.toUpperCase(),
+    tokenAddress: selectedVariant.tokenAddress,
+    tokenImageUri: asset.logoUrl,
+    turnover: toFiniteNumber(market.volume24h),
+  };
+}
+
 export function useMarketTopCoins() {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
@@ -52,39 +89,9 @@ export function useMarketTopCoins() {
       }
       isNavigatingRef.current = true;
       try {
-        const detail =
-          await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-            assetId: item.assetId,
-            currency: 'usd',
-          });
-        const { asset, market, selectedVariant } = detail;
-        const networkInfo = selectedVariant?.networkId
-          ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)
-          : undefined;
-        const hasTokenIdentity = Boolean(
-          selectedVariant?.isNative || selectedVariant?.tokenAddress,
+        await toMarketDetailPage(
+          await resolveMarketTopCoinNavigationTarget(item),
         );
-        if (!networkInfo || !hasTokenIdentity) {
-          throw new OneKeyLocalError('Invalid market asset variant');
-        }
-        const decimals = selectedVariant.isNative
-          ? networkInfo.decimals
-          : undefined;
-        await toMarketDetailPage({
-          address: selectedVariant.tokenAddress,
-          change24h: toFiniteNumber(market.priceChange24hPercent),
-          ...(typeof decimals === 'number' ? { decimals } : undefined),
-          isNative: selectedVariant.isNative,
-          marketCap: toFiniteNumber(market.marketCap),
-          marketTokenId: asset.assetId,
-          name: asset.name,
-          networkId: selectedVariant.networkId,
-          price: toFiniteNumber(market.price),
-          symbol: asset.symbol.toUpperCase(),
-          tokenAddress: selectedVariant.tokenAddress,
-          tokenImageUri: asset.logoUrl,
-          turnover: toFiniteNumber(market.volume24h),
-        });
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({

@@ -2,7 +2,6 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 
 import type { ITableColumn } from '@onekeyhq/components';
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -25,6 +24,7 @@ import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderCon
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
+import { MarketTopCoinStar } from './MarketTopCoinStar';
 
 type IMarketTopCoinsListProps = {
   tabIntegrated?: boolean;
@@ -110,8 +110,8 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         dataIndex: 'star',
         columnWidth: 48,
         columnProps: { flexShrink: 0, px: '$2' },
-        render: () => (
-          <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+        render: (_: unknown, record: IMarketAssetListItem) => (
+          <MarketTopCoinStar token={record} />
         ),
         renderSkeleton: () => (
           <Skeleton width={24} height={24} borderRadius="$full" />
