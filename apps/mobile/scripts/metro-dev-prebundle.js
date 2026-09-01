@@ -836,6 +836,8 @@ function createOciClient({
     const tokenUrl = new URL(challenge.realm);
     if (
       tokenUrl.protocol !== 'https:' ||
+      tokenUrl.username ||
+      tokenUrl.password ||
       tokenUrl.origin !== new URL(baseUrl).origin
     ) {
       throw new Error(

@@ -254,6 +254,7 @@
     "react-native-web": "0.21.2",
     "react-native-worklets": "0.10.1",
     "react-virtualized": "^9.22.6",
+    "retry": "0.13.1",
     "rlp": "^3.0.0",
     "set-interval-async": "^3.0.3",
     "shamir-secret-sharing": "^0.0.4",

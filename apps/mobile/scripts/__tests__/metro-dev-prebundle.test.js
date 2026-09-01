@@ -27,6 +27,7 @@ const {
   getTagCacheLockDirectory,
   packagePrebundleRelease,
   parseArgs,
+  resolveOciArtifact,
   restorePlatformFromRelease,
   runGhCommand,
   touchAndPruneSharedCache,
@@ -666,6 +667,28 @@ describe('metro-dev-prebundle release transport', () => {
     } finally {
       await fs.remove(fixture.repoRoot);
     }
+  });
+
+  it('rejects OCI bearer token realms containing credentials', async () => {
+    const registryBaseUrl = 'https://example.invalid';
+    const fetchImpl = jest.fn(
+      async () =>
+        new Response('authentication required', {
+          headers: {
+            'www-authenticate': `Bearer realm="https://user@example.invalid/token",service="ghcr.io",scope="repository:${devVendorConfig.OCI_REPOSITORY}:pull"`,
+          },
+          status: 401,
+        }),
+    );
+
+    await expect(
+      resolveOciArtifact({
+        fetchImpl,
+        registryBaseUrl,
+        tagName: `${devVendorConfig.releaseTagPrefix}-${'a'.repeat(64)}`,
+      }),
+    ).rejects.toThrow('untrusted authentication realm');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('keeps cache locks outside evictable tag directories', () => {

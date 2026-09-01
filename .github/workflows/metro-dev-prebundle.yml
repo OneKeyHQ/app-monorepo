@@ -51,6 +51,22 @@ jobs:
           node-version: 24.x
           check-latest: true
 
+      - name: Verify OCI configuration
+        run: |
+          node <<'NODE'
+          const config = require('./apps/mobile/dev-vendor.config');
+          const expected = {
+            OCI_ARTIFACT_TYPE: config.OCI_ARTIFACT_TYPE,
+            OCI_REGISTRY: config.OCI_REGISTRY,
+            OCI_REPOSITORY: config.OCI_REPOSITORY,
+          };
+          for (const [name, value] of Object.entries(expected)) {
+            if (process.env[name] !== value) {
+              throw new Error(`${name} does not match dev-vendor.config.js.`);
+            }
+          }
+          NODE
+
       - name: Install ORAS
         uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
         with:
