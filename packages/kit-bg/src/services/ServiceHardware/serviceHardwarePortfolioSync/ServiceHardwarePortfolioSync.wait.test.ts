@@ -447,7 +447,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   function prepareHardwareSync({
     busyResults,
     cooldownRemainingMs = 0,
-    hardwareTransportType = EHardwareTransportType.BLE,
+    hardwareTransportType = EHardwareTransportType.WEBUSB,
     isConnected = true,
     selectedIndexedAccountId = 'indexed-account-1',
     selectedWalletId = 'hw-1',
@@ -476,6 +476,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       status: { unlocked: true },
     });
     const getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(hardwareTransportType);
+    const prepareHardwareTransport = jest
       .fn()
       .mockResolvedValue(hardwareTransportType);
     const isHardwareDeviceConnected = jest.fn().mockResolvedValue(isConnected);
@@ -526,18 +529,24 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         }
       },
     );
+    const withHardwareProcessing = jest.fn(
+      async (operation: (lease: object) => Promise<unknown>) =>
+        operation({ deviceKey: 'db-device-1', owner: Symbol('interactive') }),
+    );
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
         serviceHardware: {
           getDeviceState,
           getCurrentTransportType,
           isHardwareDeviceConnected,
+          prepareHardwareTransport,
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
           isHardwareChannelBusy,
           runExclusiveOneKeyOperation,
           tryRunExclusiveOneKeyOperation,
+          withHardwareProcessing,
         },
         simpleDb: {
           accountSelector: {
@@ -586,12 +595,14 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       getCurrentTransportType,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
+      prepareHardwareTransport,
       runExclusiveOneKeyOperation,
       service,
       serviceInternals,
       tryRunExclusiveOneKeyOperation,
       updateTargetState,
       uploadPortfolioPackage,
+      withHardwareProcessing,
     };
   }
 
@@ -705,7 +716,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
-  test('skips silent desktop BLE upload when the device is locked', async () => {
+  test('keeps desktop BLE pending without probing the locked device', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -733,9 +744,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await jest.advanceTimersByTimeAsync(30_000);
 
       expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(getDeviceState).not.toHaveBeenCalled();
       expect(
         (service as unknown as { lastResult: unknown }).lastResult,
-      ).toEqual(expect.objectContaining({ status: 'device-locked' }));
+      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
@@ -853,6 +865,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(getDeviceState).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
       params: { scope: 'firmware' },
       silentMode: true,
     });
@@ -975,7 +988,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       service,
       serviceInternals,
       uploadPortfolioPackage,
-    } = prepareHardwareSync({ busyResults: [false, false] });
+    } = prepareHardwareSync({
+      busyResults: [false, false],
+      hardwareTransportType: EHardwareTransportType.Bridge,
+    });
 
     await serviceInternals.syncSettledPortfolio({
       ...buildHardwarePayload(),
@@ -1082,67 +1098,72 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
   });
 
-  test('suspends mobile BLE sync after link disabled and resumes after an interactive success', async () => {
-    jest.useFakeTimers();
-    const {
-      service,
-      serviceInternals,
-      updateTargetState,
-      uploadPortfolioPackage,
-    } = prepareHardwareSync({ busyResults: [false] });
-    uploadPortfolioPackage.mockRejectedValueOnce(
-      new BluetoothUnavailableWhileUsbConnectedError(),
-    );
-
-    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
-
-    expect(updateTargetState).toHaveBeenCalledWith(
-      'db-device-1',
-      expect.objectContaining({
-        bleSilentSyncDisabled: true,
-        bleSilentSyncDisabledReason: 'link-disabled',
-      }),
-    );
-    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
-      expect.objectContaining({ status: 'ble-suspended' }),
-    );
-
+  test('keeps only the latest mobile BLE snapshot pending without communication', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
     const latestPayload = {
       ...buildHardwarePayload(),
       totalFiat: '2',
     };
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
     await serviceInternals.syncSettledPortfolio(latestPayload);
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(
+      (
+        service as unknown as {
+          pendingMobileBlePayloadByTargetKey: Map<
+            string,
+            IPortfolioSyncSettledPayload
+          >;
+        }
+      ).pendingMobileBlePayloadByTargetKey.get('db-device-1')?.totalFiat,
+    ).toBe('2');
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'ble-suspended' }),
+    );
+  });
+
+  test('uses the standard interactive hardware flow for an explicit BLE sync', async () => {
+    const {
+      isHardwareChannelBusy,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+
+    await service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+
+    expect(withHardwareProcessing).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        debugMethodName: 'portfolio.syncPortfolio',
+        deviceParams: {
+          dbDevice: expect.objectContaining({ id: 'db-device-1' }),
+        },
+      }),
+    );
+    expect(isHardwareChannelBusy).not.toHaveBeenCalled();
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
-    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
-
-    const resumedPayloadHandler = jest.fn();
-    (
-      service as unknown as {
-        handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
-      }
-    ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
-    await expect(
-      service.notifyInteractiveHardwareOperationSucceeded({
-        connectId: 'PRO2_CONNECT_ID',
-        deviceDbId: 'db-device-1',
-      }),
-    ).resolves.toBe(true);
-    expect(updateTargetState).toHaveBeenCalledWith(
-      'db-device-1',
-      expect.objectContaining({ bleSilentSyncDisabled: false }),
-    );
-
-    await jest.advanceTimersByTimeAsync(5000);
-    expect(resumedPayloadHandler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        deviceDbId: 'db-device-1',
-        totalFiat: '2',
-        walletId: 'hw-1',
-      }),
-    );
-    jest.useRealTimers();
+    expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      hardwareTransportType: EHardwareTransportType.BLE,
+      packageBase64: 'AQID',
+      uiMode: 'progress',
+    });
   });
 
   test('skips desktop BLE sync without waiting for a later USB connection', async () => {
@@ -1258,9 +1279,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         busyResults: [false],
         hardwareTransportType: EHardwareTransportType.WEBUSB,
       });
-      getCurrentTransportType
-        .mockResolvedValueOnce(EHardwareTransportType.WEBUSB)
-        .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
+      getCurrentTransportType.mockResolvedValue(
+        EHardwareTransportType.DesktopWebBle,
+      );
 
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
@@ -1281,7 +1302,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('silently uploads through the still-connected desktop BLE link after the idle delay', async () => {
+  test('does not silently upload desktop BLE after an interactive operation', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -1310,28 +1331,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await jest.advanceTimersByTimeAsync(1);
 
       expect(runExclusiveOneKeyOperation).not.toHaveBeenCalled();
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
-      expect(getDeviceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          connectId: 'PRO2_BLE_ID',
-          desktopBleReuseConnectedOnly: true,
-          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        }),
-      );
-      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
-        connectId: 'PRO2_BLE_ID',
-        desktopBleReuseConnectedOnly: true,
-        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        packageBase64: 'AQID',
-      });
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(getDeviceState).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
       expect(
         (
           service as unknown as {
             pendingDesktopBlePayloadByTargetKey: Map<string, unknown>;
           }
         ).pendingDesktopBlePayloadByTargetKey.has('db-device-1'),
-      ).toBe(false);
+      ).toBe(true);
     } finally {
       jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
@@ -1342,7 +1351,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('keeps the desktop BLE snapshot pending when the non-queued lock is busy', async () => {
+  test('does not schedule desktop BLE retries for a pending snapshot', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -1365,7 +1374,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await armDesktopBleIdleLease(service);
       await jest.advanceTimersByTimeAsync(30_000);
 
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
       expect(uploadPortfolioPackage).not.toHaveBeenCalled();
       expect(
         (
@@ -1376,8 +1385,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       ).toBe(true);
 
       await jest.advanceTimersByTimeAsync(1000);
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(2);
-      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
@@ -1714,6 +1723,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({
         busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
         targetState: { bleSilentSyncDisabled: true },
       });
 
@@ -1927,8 +1937,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
           }),
           getCurrentTransportType: jest
             .fn()
-            .mockResolvedValue(EHardwareTransportType.BLE),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
           isHardwareDeviceConnected: jest.fn().mockResolvedValue(true),
+          prepareHardwareTransport: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
@@ -1995,6 +2008,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
       packageBase64: 'AQID',
     });
     expect(updateTargetState).toHaveBeenCalled();

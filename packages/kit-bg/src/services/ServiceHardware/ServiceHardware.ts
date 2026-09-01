@@ -213,6 +213,16 @@ type IProtocolV2NftCoreApi = CoreApi & {
   ) => ReturnType<CoreApi['deviceUploadResource']>;
 };
 
+type IProtocolV2PortfolioCoreApi = Omit<CoreApi, 'uploadPortfolio'> & {
+  uploadPortfolio: (
+    connectId: string,
+    params: {
+      packageBase64: string;
+      uiMode?: 'silent' | 'progress';
+    },
+  ) => ReturnType<CoreApi['uploadPortfolio']>;
+};
+
 type IGetSDKInstanceOptions = {
   connectId: string | undefined;
   connectProtocol?: HardwareConnectProtocol;
@@ -3578,11 +3588,13 @@ class ServiceHardware extends ServiceBase {
     desktopBleReuseConnectedOnly,
     hardwareTransportType,
     packageBase64,
+    uiMode = 'silent',
   }: {
     connectId: string;
     desktopBleReuseConnectedOnly?: boolean;
     hardwareTransportType?: EHardwareTransportType;
     packageBase64: string;
+    uiMode?: 'silent' | 'progress';
   }) {
     if (
       desktopBleReuseConnectedOnly &&
@@ -3592,26 +3604,32 @@ class ServiceHardware extends ServiceBase {
         'Desktop BLE connected-only reuse requires a pinned BLE transport',
       );
     }
+    const hardwareCallContext =
+      uiMode === 'progress'
+        ? EHardwareCallContext.USER_INTERACTION
+        : EHardwareCallContext.BACKGROUND_NON_INTERACTIVE;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareCallContext,
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareCallContext,
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
+    const protocolV2PortfolioSDK = hardwareSDK as IProtocolV2PortfolioCoreApi;
     return this.runInDesktopBleConnectedOnlyScope({
       connectId: compatibleConnectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
           () =>
-            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+            protocolV2PortfolioSDK.uploadPortfolio(compatibleConnectId, {
               packageBase64,
+              ...(uiMode === 'progress' ? { uiMode } : {}),
             }),
-          { silentMode: true },
+          uiMode === 'silent' ? { silentMode: true } : undefined,
         ),
     });
   }

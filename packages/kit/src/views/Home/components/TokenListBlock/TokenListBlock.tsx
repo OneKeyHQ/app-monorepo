@@ -259,6 +259,7 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
   // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
@@ -371,6 +372,7 @@ function TokenListBlock({
     tokenSelectorFilterMode,
   };
   const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
+  const interactivePortfolioSyncRequestedRef = useRef(false);
   const syncTokenFilterToOverview = true;
 
   const accountTokensValue = useMemo(
@@ -499,6 +501,9 @@ function TokenListBlock({
 
   const { run } = usePromiseResult(
     async () => {
+      const shouldSyncPortfolioInteractively =
+        interactivePortfolioSyncRequestedRef.current;
+      interactivePortfolioSyncRequestedRef.current = false;
       let accountId = account?.id ?? '';
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
@@ -665,6 +670,53 @@ function TokenListBlock({
           }
         }
 
+        if (
+          shouldSyncPortfolioInteractively &&
+          currencyInfo?.id &&
+          isProtocolV2ProductType(device?.deviceType) &&
+          wallet &&
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isQrWallet({ walletId: wallet.id })
+        ) {
+          const portfolioTokenMap = {
+            ...r.tokens.map,
+            ...r.smallBalanceTokens.map,
+            ...r.riskTokens.map,
+          };
+          const portfolioTokens = selectHardwarePortfolioTokens({
+            tokenMap: portfolioTokenMap,
+            tokens: [...r.tokens.data, ...r.smallBalanceTokens.data],
+            ...cellsIngestInputsRef.current.nonZeroInputs,
+            keepDefault:
+              cellsIngestInputsRef.current.nonZeroInputs.keepDefault ?? true,
+          });
+          await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({
+            eventPayload: {
+              accountAddress: account?.address,
+              accountId: account?.id,
+              accountName,
+              aggregateTokenMap: {},
+              deviceConnectId:
+                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+              indexedAccountId: indexedAccount?.id,
+              indexedAccountIndex: indexedAccount?.index,
+              indexedAccountName: indexedAccount?.name,
+              networkId: network.id,
+              ownerAccountId: account?.id,
+              ownerNetworkId: network.id,
+              totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
+              totalFiatCurrency: currencyInfo.id,
+              totalTokenCount: portfolioTokens.length,
+              tokenMap: portfolioTokenMap,
+              tokens: portfolioTokens,
+              walletId: wallet.id,
+              walletType: wallet.type,
+            },
+            syncMode: 'interactive',
+          });
+        }
+
         // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
         // SAME settled slices this single-network round just wrote to the atoms
         // over to the BG view-model so it can build + push the BG frames the UI
@@ -739,15 +791,23 @@ function TokenListBlock({
     },
     [
       account,
+      accountName,
+      currencyInfo?.id,
+      device?.connectId,
+      device?.deviceType,
+      device?.id,
       network,
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
       indexedAccount?.id,
+      indexedAccount?.index,
+      indexedAccount?.name,
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
       walletTokenFilterParams,
+      wallet,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -930,7 +990,6 @@ function TokenListBlock({
   const cellsOwnerKey = useHomeTokenListOwnerKey();
   // Current settings currency id — the slim cold-start bundle stores fiat in
   // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
-  const [{ currencyInfo }] = useSettingsPersistAtom();
   const cellsCurrencyId = currencyInfo?.id ?? '';
   // T0 cold-start fan-out hydrate (spec §7). Runs eagerly, once per owner,
   // before the async fetch — paints rows + price + name/icon at cold start via
@@ -1698,6 +1757,9 @@ function TokenListBlock({
     if (!snapshot || isStaleOwnerRequest()) {
       return;
     }
+    const shouldSyncPortfolioInteractively =
+      interactivePortfolioSyncRequestedRef.current;
+    interactivePortfolioSyncRequestedRef.current = false;
 
     const assetStatusAggregationComplete =
       isWalletAssetStatusAggregationComplete({
@@ -1880,34 +1942,48 @@ function TokenListBlock({
             totalTokenCount: fundedTokenCount,
           })
         ) {
-          void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
-            {
-              accountAddress: account?.address,
-              accountId: account?.id,
-              accountName,
-              aggregateTokenMap: flattenedAggregateTokenMap,
-              deviceConnectId:
-                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
-              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
-              indexedAccountId: indexedAccount?.id,
-              indexedAccountIndex: indexedAccount?.index,
-              indexedAccountName: indexedAccount?.name,
-              networkId: network?.id,
-              ownerAccountId: allNetworksResult[0].ownerAccountId,
-              ownerNetworkId: allNetworksResult[0].ownerNetworkId,
-              totalFiat: snapshot.createAtNetworkWorth,
-              totalFiatCurrency: assetStatusCurrency,
-              totalTokenCount: portfolioTokens.length,
-              tokenMap: {
-                ...snapshot.mergeTokenListMap,
-                ...snapshot.riskyTokenListMap,
-                ...flattenedAggregateTokenMap,
-              },
-              tokens: portfolioTokens,
-              walletId: wallet.id,
-              walletType: wallet.type,
+          const portfolioSyncPayload = {
+            accountAddress: account?.address,
+            accountId: account?.id,
+            accountName,
+            aggregateTokenMap: flattenedAggregateTokenMap,
+            deviceConnectId:
+              device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+            deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+            indexedAccountId: indexedAccount?.id,
+            indexedAccountIndex: indexedAccount?.index,
+            indexedAccountName: indexedAccount?.name,
+            networkId: network?.id,
+            ownerAccountId: allNetworksResult[0].ownerAccountId,
+            ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+            totalFiat: snapshot.createAtNetworkWorth,
+            totalFiatCurrency: assetStatusCurrency,
+            totalTokenCount: portfolioTokens.length,
+            tokenMap: {
+              ...snapshot.mergeTokenListMap,
+              ...snapshot.riskyTokenListMap,
+              ...flattenedAggregateTokenMap,
             },
-          );
+            tokens: portfolioTokens,
+            walletId: wallet.id,
+            walletType: wallet.type,
+          };
+          if (shouldSyncPortfolioInteractively) {
+            try {
+              await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                {
+                  eventPayload: portfolioSyncPayload,
+                  syncMode: 'interactive',
+                },
+              );
+            } catch {
+              // Hardware processing owns interactive error feedback.
+            }
+          } else {
+            void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+              portfolioSyncPayload,
+            );
+          }
         }
       }
     }
@@ -2436,6 +2512,11 @@ function TokenListBlock({
     void run({ alwaysSetState: true });
   };
 
+  const handleSyncPortfolio = useCallback(() => {
+    interactivePortfolioSyncRequestedRef.current = true;
+    refreshWalletTokenListRef.current?.();
+  }, []);
+
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
     const now = Date.now();
@@ -2745,6 +2826,41 @@ function TokenListBlock({
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
+  const showPortfolioSyncButton = Boolean(
+    isProtocolV2ProductType(device?.deviceType) &&
+    wallet &&
+    accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isQrWallet({ walletId: wallet.id }),
+  );
+
+  const renderPortfolioSyncButton = useCallback(() => {
+    if (!showPortfolioSyncButton) {
+      return null;
+    }
+    return (
+      <IconButton
+        testID="home-sync-portfolio"
+        title={`${intl.formatMessage({
+          id: ETranslations.global_refresh,
+        })} ${intl.formatMessage({
+          id: ETranslations.global_portfolio,
+        })}`}
+        variant="tertiary"
+        icon="RefreshCwOutline"
+        onPress={handleSyncPortfolio}
+        disabled={showLpTokensOnly}
+        loading={tokenListState.isRefreshing}
+        size="small"
+      />
+    );
+  }, [
+    handleSyncPortfolio,
+    intl,
+    showLpTokensOnly,
+    showPortfolioSyncButton,
+    tokenListState.isRefreshing,
+  ]);
+
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
       if (!tokenListState.initialized && tokenListState.isRefreshing) {
@@ -2752,15 +2868,18 @@ function TokenListBlock({
       }
 
       return (
-        <Currency
-          hideValue
-          size="$headingXl"
-          color="$textSubdued"
-          formatter="value"
-          sourceCurrency={accountTokensWorth.currency}
-        >
-          {accountTokensValue}
-        </Currency>
+        <XStack alignItems="center" gap="$2">
+          <Currency
+            hideValue
+            size="$headingXl"
+            color="$textSubdued"
+            formatter="value"
+            sourceCurrency={accountTokensWorth.currency}
+          >
+            {accountTokensValue}
+          </Currency>
+          {renderPortfolioSyncButton()}
+        </XStack>
       );
     }
 
@@ -2769,11 +2888,15 @@ function TokenListBlock({
     tableLayout,
     accountTokensWorth.currency,
     accountTokensValue,
+    renderPortfolioSyncButton,
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);
 
   const renderHeaderActions = useCallback(() => {
+    const portfolioSyncButton = tableLayout
+      ? null
+      : renderPortfolioSyncButton();
     const filterSwitch = showLpTokenFilterSwitch ? (
       <TokenSelectorLpTokenSwitch
         value={showLpTokensOnly}
@@ -2801,6 +2924,15 @@ function TokenListBlock({
       );
     }
 
+    if (portfolioSyncButton) {
+      return (
+        <XStack alignItems="center" gap="$2">
+          {portfolioSyncButton}
+          {filterSwitch}
+        </XStack>
+      );
+    }
+
     return filterSwitch;
   }, [
     tableLayout,
@@ -2811,6 +2943,7 @@ function TokenListBlock({
     showLpTokenFilterSwitch,
     handleLpTokenFilterChange,
     isLpTokenSwitchLoading,
+    renderPortfolioSyncButton,
   ]);
 
   const renderContent = useCallback(() => {

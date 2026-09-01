@@ -41,5 +41,21 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).not.toContain(
       'appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled',
     );
+    expect(source).toContain(
+      'const interactivePortfolioSyncRequestedRef = useRef(false)',
+    );
+    expect(source).toContain(
+      'interactivePortfolioSyncRequestedRef.current = true',
+    );
+    expect(source).toContain(
+      'backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio',
+    );
+    expect(source).toContain('const portfolioSyncPayload = {');
+    expect(source).toContain('eventPayload: portfolioSyncPayload');
+    expect(source).toContain("syncMode: 'interactive'");
+    expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
+    expect(source).toContain('testID="home-sync-portfolio"');
+    expect(source).toContain('icon="RefreshCwOutline"');
+    expect(source).toContain('pollingInterval: POLLING_INTERVAL_FOR_TOKEN');
   });
 });

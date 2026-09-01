@@ -2419,6 +2419,43 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('uploads an interactive portfolio package with progress UI', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    const uploadPortfolio = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { portfolioUpdated: true },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      uploadPortfolio,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    service.getCompatibleConnectId = getCompatibleConnectId;
+    service.getSDKInstance = getSDKInstance;
+
+    await expect(
+      service.uploadPortfolioPackage({
+        connectId: 'ONEKEY_USB',
+        packageBase64: 'AQID',
+        uiMode: 'progress',
+      }),
+    ).resolves.toEqual({ portfolioUpdated: true });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
+      packageBase64: 'AQID',
+      uiMode: 'progress',
+    });
+  });
+
   it('pins desktop BLE portfolio upload to connected-only reuse', async () => {
     const originalDesktopApi = globalThis.desktopApi;
     const beginConnectedOnlyScope = jest.fn().mockReturnValue(1);
