@@ -81,6 +81,12 @@ export function DeviceStageQrScanner({
   return (
     <ScanQrCode
       handleBarCodeScanned={handleBarCodeScanned}
+      // The scene's blur is a privacy layer, not decoration: it keeps the
+      // device's answer code out of screenshots and screen recordings —
+      // decoding reads raw camera frames, so the scan works through it.
+      // Same coverage as the legacy full-screen page (native Android
+      // excepted, as there).
+      qrWalletScene
       disableNavigationGuard
     />
   );
