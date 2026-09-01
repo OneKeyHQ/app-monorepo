@@ -12,8 +12,6 @@ Var OneKeyModernResult
 Var OneKeyModernIsInner
 
 !ifndef BUILD_UNINSTALLER
-  !include "StrContains.nsh"
-
   Var OneKeyModernInstallScope
   Var OneKeyModernWasInstalled
   Var OneKeyModernHadPerUser
@@ -23,8 +21,6 @@ Var OneKeyModernIsInner
   Var OneKeyModernIsAdmin
   Var OneKeyModernPerUserDirectory
   Var OneKeyModernPerMachineDirectory
-  Var OneKeyModernPerUserChosenDirectory
-  Var OneKeyModernPerMachineChosenDirectory
   Var OneKeyModernChosenDirectory
   Var OneKeyModernAccepted
   Var OneKeyModernStartAppArgs
@@ -43,8 +39,6 @@ Var OneKeyModernIsInner
   StrCpy $OneKeyModernIsInner "0"
   StrCpy $OneKeyModernAccepted "0"
   StrCpy $OneKeyModernChosenDirectory ""
-  StrCpy $OneKeyModernPerUserChosenDirectory ""
-  StrCpy $OneKeyModernPerMachineChosenDirectory ""
   StrCpy $OneKeyModernPerUserDirectory ""
   StrCpy $OneKeyModernPerMachineDirectory ""
   ReadRegStr $OneKeyModernPerUserDirectory HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
@@ -85,9 +79,9 @@ Var OneKeyModernIsInner
     StrCpy $OneKeyModernExplicitScope "current"
   ${EndIf}
 
-  # Fresh-install preview paths are display-only until the hidden install-mode
-  # page authoritatively resolves the selected scope. Only an explicitly
-  # browsed directory is written back after that page.
+  # Keep fresh-install previews aligned with the hidden install-mode defaults.
+  # The selected scope's resolved path is written back after that page so a
+  # stale registry entry cannot override a fresh choice.
   ${If} $OneKeyModernPerUserDirectory == ""
     StrCpy $0 "$LocalAppData\Programs"
     Push $1
@@ -119,6 +113,13 @@ Var OneKeyModernIsInner
 
   ${If} $OneKeyModernExplicitScope != ""
     StrCpy $OneKeyModernAccepted "1"
+    ${If} $OneKeyModernWasInstalled == "0"
+      ${If} $OneKeyModernExplicitScope == "all"
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerMachineDirectory"
+      ${Else}
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerUserDirectory"
+      ${EndIf}
+    ${EndIf}
   ${EndIf}
 !macroend
 
@@ -143,15 +144,15 @@ FunctionEnd
 # elevation, registry scope, and the default directory. The modern scope page
 # only supplies a choice when the registry/command line did not already do so.
 !macro customInstallMode
-  ${If} $hasPerMachineInstallation == "1"
+  ${If} $OneKeyModernInstallScope == "all"
+    StrCpy $isForceMachineInstall "1"
+  ${ElseIf} $OneKeyModernInstallScope == "current"
+    StrCpy $isForceCurrentInstall "1"
+  ${ElseIf} $hasPerMachineInstallation == "1"
   ${AndIf} $hasPerUserInstallation == "0"
     StrCpy $isForceMachineInstall "1"
   ${ElseIf} $hasPerUserInstallation == "1"
   ${AndIf} $hasPerMachineInstallation == "0"
-    StrCpy $isForceCurrentInstall "1"
-  ${ElseIf} $OneKeyModernInstallScope == "all"
-    StrCpy $isForceMachineInstall "1"
-  ${ElseIf} $OneKeyModernInstallScope == "current"
     StrCpy $isForceCurrentInstall "1"
   ${EndIf}
 !macroend
@@ -220,7 +221,6 @@ FunctionEnd
 !ifdef BUILD_UNINSTALLER
 
   Var OneKeyModernUninstallAccepted
-  !define removeDefaultUninstallWelcomePage
   !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
   Function un.OneKeyModernOnGuiInit
     ${IfNot} ${Silent}
@@ -228,6 +228,17 @@ FunctionEnd
       ShowWindow $HWNDPARENT ${SW_HIDE}
     ${EndIf}
   FunctionEnd
+
+  Function un.OneKeyModernUninstallWelcomePre
+    ${If} $OneKeyModernUninstallAccepted == "1"
+      Abort
+    ${EndIf}
+  FunctionEnd
+
+  !macro customUnWelcomePage
+    !define MUI_PAGE_CUSTOMFUNCTION_PRE un.OneKeyModernUninstallWelcomePre
+    !insertmacro MUI_UNPAGE_WELCOME
+  !macroend
 
   Function un.OneKeyModernUninstallInstFilesPre
     ${If} $OneKeyModernUiActive == "1"
@@ -538,12 +549,25 @@ FunctionEnd
       ${IfNot} ${Errors}
       ${AndIf} $0 != ""
       ${AndIf} $0 != "error"
-        ${StrContains} $1 "${APP_FILENAME}" $0
-        ${If} $1 == ""
-          StrCpy $0 "$0\${APP_FILENAME}"
+        StrCpy $2 "$0" 1 -1
+        ${If} $2 == "\"
+          StrLen $1 "$0"
+          ${If} $1 > 3
+            StrCpy $0 "$0" -1
+          ${EndIf}
+        ${EndIf}
+        StrLen $1 "${APP_FILENAME}"
+        IntOp $1 $1 + 1
+        StrCpy $2 "$0" $1 -$1
+        ${If} $2 != "\${APP_FILENAME}"
+          StrCpy $2 "$0" 1 -1
+          ${If} $2 == "\"
+            StrCpy $0 "$0${APP_FILENAME}"
+          ${Else}
+            StrCpy $0 "$0\${APP_FILENAME}"
+          ${EndIf}
         ${EndIf}
         StrCpy $OneKeyModernPerUserDirectory "$0"
-        StrCpy $OneKeyModernPerUserChosenDirectory "$0"
         nsis-duilib-ui::SetPerUserInstallDirectory "$0"
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
@@ -567,12 +591,25 @@ FunctionEnd
       ${IfNot} ${Errors}
       ${AndIf} $0 != ""
       ${AndIf} $0 != "error"
-        ${StrContains} $1 "${APP_FILENAME}" $0
-        ${If} $1 == ""
-          StrCpy $0 "$0\${APP_FILENAME}"
+        StrCpy $2 "$0" 1 -1
+        ${If} $2 == "\"
+          StrLen $1 "$0"
+          ${If} $1 > 3
+            StrCpy $0 "$0" -1
+          ${EndIf}
+        ${EndIf}
+        StrLen $1 "${APP_FILENAME}"
+        IntOp $1 $1 + 1
+        StrCpy $2 "$0" $1 -$1
+        ${If} $2 != "\${APP_FILENAME}"
+          StrCpy $2 "$0" 1 -1
+          ${If} $2 == "\"
+            StrCpy $0 "$0${APP_FILENAME}"
+          ${Else}
+            StrCpy $0 "$0\${APP_FILENAME}"
+          ${EndIf}
         ${EndIf}
         StrCpy $OneKeyModernPerMachineDirectory "$0"
-        StrCpy $OneKeyModernPerMachineChosenDirectory "$0"
         nsis-duilib-ui::SetPerMachineInstallDirectory "$0"
         Pop $OneKeyModernResult
         ${If} $OneKeyModernResult != "ok"
@@ -591,7 +628,7 @@ FunctionEnd
       StrCpy $OneKeyModernInstallScope "current"
       ${If} $OneKeyModernWasInstalled == "0"
         StrCpy $OneKeyModernAccepted "1"
-        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerUserChosenDirectory"
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerUserDirectory"
       ${EndIf}
       Goto OneKeyModernWelcomeProceed
     ${ElseIf} $OneKeyModernResult == "primary-all"
@@ -599,7 +636,7 @@ FunctionEnd
       StrCpy $OneKeyModernInstallScope "all"
       ${If} $OneKeyModernWasInstalled == "0"
         StrCpy $OneKeyModernAccepted "1"
-        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerMachineChosenDirectory"
+        StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerMachineDirectory"
       ${EndIf}
 
       ${If} $OneKeyModernIsAdmin != "1"
@@ -695,9 +732,9 @@ FunctionEnd
     !insertmacro MUI_PAGE_FINISH
   !macroend
 
-  # This page runs after the hidden install-mode page. Its default path and
-  # scope remain authoritative; only a non-empty directory explicitly chosen
-  # on the modern welcome page is written back here.
+  # This page runs after the hidden install-mode page. The selected fresh-install
+  # path is written back here so stale registry values cannot override the
+  # scope and location already shown to the user.
   Function OneKeyModernInstallStart
     ${If} ${Silent}
     ${OrIf} $OneKeyModernDisabled == "1"
