@@ -387,14 +387,6 @@ const styles = StyleSheet.create({
     height: GRABBER.height,
     borderRadius: GRABBER.height / 2,
   },
-  cardBadge: {
-    position: 'absolute',
-    top: CLOSE.inset,
-    left: CLOSE.inset,
-    height: CLOSE.size,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
   cardClose: {
     position: 'absolute',
     top: CLOSE.inset,
@@ -745,11 +737,6 @@ export interface IMorphOverlayProps<T> {
    * — the capsule itself never moves. */
   capsuleKey: string;
   capsule: ReactNode;
-  /** The card's other corner seat: a small badge absolute at the top
-   * left, the close button's mirror (the stage names the device there).
-   * Rides the toolbar band, so it fades with the card window. Null
-   * renders nothing. */
-  cornerBadge?: ReactNode;
   /** Optional layer between the face and the card seats — content that
    * must composite under the seats but over the face (DeviceStage's
    * standing replica). */
@@ -772,7 +759,6 @@ export function MorphOverlay<T>({
   scrim = false,
   capsuleKey,
   capsule,
-  cornerBadge,
   stageLayer,
   seats,
 }: IMorphOverlayProps<T>) {
@@ -1238,14 +1224,6 @@ export function MorphOverlay<T>({
                       the way desktop prompt cards do. */}
                   {phonePosture ? (
                     <Stack style={styles.grabber} bg="$neutral6" />
-                  ) : null}
-                  {cornerBadge ? (
-                    <Animated.View
-                      style={styles.cardBadge}
-                      entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
-                    >
-                      {cornerBadge}
-                    </Animated.View>
                   ) : null}
                   {dismissible ? (
                     <Animated.View
