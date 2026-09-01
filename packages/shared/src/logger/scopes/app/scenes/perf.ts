@@ -82,6 +82,7 @@ export class AppPerfScene extends BaseScene {
       | 'bootstrapSizeLimit'
       | 'entryCountLimit'
       | 'entryLimit'
+      | 'keyLimit'
       | 'totalSizeLimit';
     retainedEntryCount: number;
     retainedSerializedChars: number;

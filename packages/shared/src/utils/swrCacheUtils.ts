@@ -5,7 +5,10 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 import {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_KEY_CHARS,
+  SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
+  isValidSWRCacheKey,
 } from './swrCacheLimits';
 
 import type * as HL from '../../types/hyperliquid/sdk';
@@ -16,7 +19,10 @@ import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 export {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_KEY_CHARS,
+  SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
+  isValidSWRCacheKey,
 };
 
 // SWR cache uses the dedicated cold-start cache MMKV instance,
@@ -38,6 +44,7 @@ export type ISWRCacheCapacityLimitReason =
   | 'bootstrapSizeLimit'
   | 'entryCountLimit'
   | 'entryLimit'
+  | 'keyLimit'
   | 'totalSizeLimit';
 
 export type ISWRCacheCapacityDrop = {
@@ -122,6 +129,11 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
   const candidates: ISerializedSWRCacheEntry<T>[] = [];
 
   Object.entries(store).forEach(([key, entry], index) => {
+    if (!isValidSWRCacheKey(key)) {
+      removedKeys.push(key);
+      capacityDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
     const serializedEntry = serializeSWRCacheEntry(key, entry);
     if (!serializedEntry) {
       removedKeys.push(key);
@@ -418,7 +430,9 @@ function adoptPrunedStore(store: ISWRStore): ISWRStore {
     const removedAt = Date.now();
     result.removedKeys.forEach((key) => {
       _updatedKeys.delete(key);
-      _removedKeysAt.set(key, removedAt);
+      if (isValidSWRCacheKey(key)) {
+        _removedKeysAt.set(key, removedAt);
+      }
     });
     _dirty = true;
   }
@@ -505,7 +519,18 @@ function scheduleFlush() {
 
 // --- Public API ---
 
+function reportInvalidSWRCacheKey(key: string) {
+  reportSWRCacheCapacityDrops([{ key, reason: 'keyLimit' }], {
+    maxEntries: SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: _cacheEntrySerializedChars.size,
+    retainedSerializedChars: _cacheSerializedChars,
+  });
+}
+
 function get<T>(key: string): T | undefined {
+  if (!isValidSWRCacheKey(key)) return undefined;
   const entry = loadStore()[key] as ISWREntry<T> | undefined;
   return entry?.d;
 }
@@ -513,12 +538,17 @@ function get<T>(key: string): T | undefined {
 function getWithTimestamp<T>(
   key: string,
 ): { data: T; updatedAt: number } | undefined {
+  if (!isValidSWRCacheKey(key)) return undefined;
   const entry = loadStore()[key] as ISWREntry<T> | undefined;
   if (!entry) return undefined;
   return { data: entry.d, updatedAt: entry.t };
 }
 
 function set<T>(key: string, data: T): void {
+  if (!isValidSWRCacheKey(key)) {
+    reportInvalidSWRCacheKey(key);
+    return;
+  }
   const store = loadStore();
   const now = Date.now();
   const entry = { d: data, t: now };
@@ -560,12 +590,17 @@ function set<T>(key: string, data: T): void {
 }
 
 function isFresh(key: string, maxAge: number): boolean {
+  if (!isValidSWRCacheKey(key)) return false;
   const entry = loadStore()[key];
   if (!entry) return false;
   return Date.now() - entry.t < maxAge;
 }
 
 function remove(key: string): void {
+  if (!isValidSWRCacheKey(key)) {
+    reportInvalidSWRCacheKey(key);
+    return;
+  }
   const store = loadStore();
   removeCachedEntry(store, key);
   _updatedKeys.delete(key);
@@ -581,6 +616,10 @@ function remove(key: string): void {
 // mutation whose payload doesn't identify which specific slot is dirty.
 function removeByPrefix(prefix: string): void {
   if (!prefix) return;
+  if (!isValidSWRCacheKey(prefix)) {
+    reportInvalidSWRCacheKey(prefix);
+    return;
+  }
   const store = loadStore();
   for (const key of Object.keys(store)) {
     if (key.startsWith(prefix)) {

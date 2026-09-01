@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
-import { SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS } from '../utils/swrCacheUtils';
+import {
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_KEY_CHARS,
+  SWR_CACHE_MAX_KEY_UTF8_BYTES,
+} from '../utils/swrCacheUtils';
 
 const mockSyncMMKV = jest.fn(async () => undefined);
 const mockSWRCacheCapacityLimit = jest.fn();
@@ -100,6 +104,31 @@ describe('nativeSWRCachePersistence', () => {
     );
     expect(JSON.stringify(mockSWRCacheCapacityLimit.mock.calls)).not.toContain(
       'account-1',
+    );
+  });
+
+  it('removes an overlong key while migrating the legacy blob', async () => {
+    const mmkv = new FakeMMKV();
+    const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
+    mmkv.set(
+      'onekey_swr_cache',
+      JSON.stringify({
+        [invalidKey]: { d: 'discarded', t: 1 },
+        valid: { d: 'kept', t: 2 },
+      }),
+    );
+    const persistence = loadPersistence(mmkv);
+
+    await persistence.ensureMigrated();
+
+    expect(JSON.parse(persistence.readSerialized())).toEqual({
+      valid: { d: 'kept', t: 2 },
+    });
+    expect(mmkv.getAllKeys().some((key) => key.includes(invalidKey))).toBe(
+      false,
+    );
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'keyLimit' }),
     );
   });
 
@@ -210,17 +239,48 @@ describe('nativeSWRCachePersistence', () => {
     });
   });
 
-  it('rejects a logical key whose UTF-8 bytes exceed the MMKV key budget', async () => {
+  it('drops a logical key whose UTF-8 bytes exceed the MMKV key budget', async () => {
     const mmkv = new FakeMMKV();
     const persistence = loadPersistence(mmkv);
     await persistence.ensureMigrated();
+    const invalidKey = '界'.repeat(
+      Math.floor(SWR_CACHE_MAX_KEY_UTF8_BYTES / 3) + 1,
+    );
 
-    expect(() =>
+    expect(
       persistence.applyPatch({
         removePrefixes: [],
         removals: [],
-        updates: [['界'.repeat(19_990), JSON.stringify({ d: 'value', t: 1 })]],
+        updates: [[invalidKey, JSON.stringify({ d: 'value', t: 1 })]],
       }),
-    ).toThrow('Native SWR cache patch is invalid');
+    ).toEqual([]);
+    expect(JSON.parse(persistence.readSerialized())).toEqual({});
+  });
+
+  it('removes an invalid physical key while reading a subset', () => {
+    const mmkv = new FakeMMKV();
+    const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
+    const invalidPhysicalKey = `__onekey_internal_swr_cache_v2_entry__:${invalidKey}`;
+    mmkv.set('__onekey_internal_swr_cache_v2_migrated__', '1');
+    mmkv.set(invalidPhysicalKey, JSON.stringify({ d: 'discarded', t: 1 }));
+    mmkv.set(
+      '__onekey_internal_swr_cache_v2_entry__:valid',
+      JSON.stringify({ d: 'kept', t: 2 }),
+    );
+    const persistence = loadPersistence(mmkv);
+
+    expect(
+      JSON.parse(
+        persistence.readSerializedSubset({
+          keyPrefixes: ['valid'],
+          maxEntries: 10,
+          maxSerializedChars: 1024,
+        }),
+      ),
+    ).toEqual({ valid: { d: 'kept', t: 2 } });
+    expect(mmkv.getString(invalidPhysicalKey)).toBeUndefined();
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'keyLimit' }),
+    );
   });
 });

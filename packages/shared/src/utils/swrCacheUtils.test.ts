@@ -1,6 +1,8 @@
 import {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  SWR_CACHE_MAX_KEY_CHARS,
+  SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
   getPerpsL2BookSnapshotCacheKeys,
   pruneSWRCacheStore,
@@ -584,6 +586,8 @@ describe('SWR cache cross-runtime flush merge', () => {
   it('uses the configured count and total cache budgets', () => {
     expect(SWR_CACHE_MAX_ENTRIES).toBe(1000);
     expect(SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS).toBe(5 * 1024 * 1024);
+    expect(SWR_CACHE_MAX_KEY_CHARS).toBe(20_000);
+    expect(SWR_CACHE_MAX_KEY_UTF8_BYTES).toBe(59_000);
     expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
   });
 
@@ -773,6 +777,7 @@ describe('SWR cache native incremental persistence', () => {
     fakeDiskGlobal.__swrFakeDisk = {};
     fakeDiskGlobal.__swrPatches = [];
     fakeDiskGlobal.__swrUsePatch = true;
+    mockSWRCacheCapacityLimit.mockReset();
   });
 
   afterEach(() => {
@@ -805,5 +810,30 @@ describe('SWR cache native incremental persistence', () => {
       changed: { d: 'small', t: 2 },
     });
     jest.restoreAllMocks();
+  });
+
+  it('drops invalid mutation keys without blocking a later flush', () => {
+    const swr = loadFreshRuntime();
+    const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
+
+    swr.set(invalidKey, 'poison');
+    swr.remove(invalidKey);
+    swr.removeByPrefix(invalidKey);
+    swr.set('valid', 'persisted');
+    swr.flushNow();
+
+    const patches = fakeDiskGlobal.__swrPatches as Array<{
+      removePrefixes: Array<{ at: number; prefix: string }>;
+      removals: Array<readonly [string, number]>;
+      updates: Array<readonly [string, string]>;
+    }>;
+    expect(patches).toHaveLength(1);
+    expect(patches[0].removePrefixes).toEqual([]);
+    expect(patches[0].removals).toEqual([]);
+    expect(patches[0].updates.map(([key]) => key)).toEqual(['valid']);
+    expect(readDiskStore().valid?.d).toBe('persisted');
+    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'keyLimit' }),
+    );
   });
 });

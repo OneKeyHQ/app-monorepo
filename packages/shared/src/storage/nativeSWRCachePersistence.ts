@@ -2,6 +2,7 @@
 import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
+import { isValidSWRCacheKey } from '../utils/swrCacheLimits';
 import {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
@@ -174,6 +175,10 @@ function persistStoreEntry(
   entry: SWRCacheEntry | undefined,
 ) {
   const physicalKey = getPhysicalEntryKey(key);
+  if (!isValidSWRCacheKey(key)) {
+    mmkv.remove(physicalKey);
+    return;
+  }
   if (entry) {
     mmkv.set(physicalKey, JSON.stringify(entry));
   } else {
@@ -209,12 +214,18 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
 
   const store: SWRCacheStore = {};
   const entryLimitDrops: ISWRCacheCapacityDrop[] = [];
+  const keyLimitDrops: ISWRCacheCapacityDrop[] = [];
   const invalidPhysicalKeys: string[] = [];
   mmkv.getAllKeys().forEach((physicalKey) => {
     if (!physicalKey.startsWith(SWR_CACHE_ENTRY_PREFIX)) {
       return;
     }
     const key = physicalKey.slice(SWR_CACHE_ENTRY_PREFIX.length);
+    if (!isValidSWRCacheKey(key)) {
+      invalidPhysicalKeys.push(physicalKey);
+      keyLimitDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
     const serialized = mmkv.getString(physicalKey);
     if (
       serialized &&
@@ -239,7 +250,7 @@ function loadPhysicalStore(mmkv: MMKVStorageInstance) {
     delete store[key];
     mmkv.remove(getPhysicalEntryKey(key));
   });
-  reportSWRCacheCapacityDrops(entryLimitDrops, {
+  reportSWRCacheCapacityDrops([...entryLimitDrops, ...keyLimitDrops], {
     maxEntries: SWR_CACHE_MAX_ENTRIES,
     maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
     maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
@@ -266,6 +277,7 @@ function readSerializedSubset(
 
   const candidates: ISerializedSubsetCandidate[] = [];
   const entryLimitDrops: ISWRCacheCapacityDrop[] = [];
+  const keyLimitDrops: ISWRCacheCapacityDrop[] = [];
   const bootstrapSizeDrops: ISWRCacheCapacityDrop[] = [];
   const invalidPhysicalKeys: string[] = [];
   mmkv.getAllKeys().forEach((physicalKey, index) => {
@@ -273,6 +285,11 @@ function readSerializedSubset(
       return;
     }
     const key = physicalKey.slice(SWR_CACHE_ENTRY_PREFIX.length);
+    if (!isValidSWRCacheKey(key)) {
+      invalidPhysicalKeys.push(physicalKey);
+      keyLimitDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
     if (!keyPrefixes.some((prefix) => key.startsWith(prefix))) {
       return;
     }
@@ -324,7 +341,7 @@ function readSerializedSubset(
       candidate.serializedChars,
     2,
   );
-  reportSWRCacheCapacityDrops(entryLimitDrops, {
+  reportSWRCacheCapacityDrops([...entryLimitDrops, ...keyLimitDrops], {
     maxEntries: SWR_CACHE_MAX_ENTRIES,
     maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
     maxSerializedChars: SWR_CACHE_MAX_SERIALIZED_CHARS,
@@ -468,6 +485,9 @@ export function applyNativeSWRCacheCanonicalEntries(
 ) {
   const store = parseStore(serializedStore);
   entries.forEach(([key, serializedEntry]) => {
+    if (!isValidSWRCacheKey(key)) {
+      return;
+    }
     if (serializedEntry === null) {
       delete store[key];
       return;

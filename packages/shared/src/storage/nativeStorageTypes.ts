@@ -1,4 +1,7 @@
-import { SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS } from '../utils/swrCacheLimits';
+import {
+  SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  isValidSWRCacheKey,
+} from '../utils/swrCacheLimits';
 
 export type INativeStorageScalar = string | number | boolean;
 
@@ -187,34 +190,6 @@ export type INativeStorageCall = (
 export const NATIVE_SYNC_STORAGE_MUTATION_EVENT =
   'onekey:native-sync-storage-mutation';
 
-const NATIVE_SWR_PATCH_MAX_KEY_CHARS = 20_000;
-const NATIVE_SWR_PATCH_MAX_KEY_BYTES = 59_000;
-
-function getUtf8ByteLength(value: string) {
-  let byteLength = 0;
-  for (const character of value) {
-    const codePoint = character.codePointAt(0) ?? 0;
-    if (codePoint <= 0x7f) {
-      byteLength += 1;
-    } else if (codePoint <= 0x7_ff) {
-      byteLength += 2;
-    } else if (codePoint <= 0xff_ff) {
-      byteLength += 3;
-    } else {
-      byteLength += 4;
-    }
-  }
-  return byteLength;
-}
-
-function isValidSWRKey(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    value.length <= NATIVE_SWR_PATCH_MAX_KEY_CHARS &&
-    getUtf8ByteLength(value) <= NATIVE_SWR_PATCH_MAX_KEY_BYTES
-  );
-}
-
 function isValidSWRTimestamp(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0;
 }
@@ -235,34 +210,44 @@ export function parseNativeSWRCachePatchIntent(
   ) {
     return undefined;
   }
+  const removePrefixes = patch.removePrefixes.filter(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      isValidSWRCacheKey(item.prefix) &&
+      item.prefix.length > 0 &&
+      isValidSWRTimestamp(item.at),
+  );
+  const removals = patch.removals.filter(
+    (item) =>
+      Array.isArray(item) &&
+      item.length === 2 &&
+      isValidSWRCacheKey(item[0]) &&
+      isValidSWRTimestamp(item[1]),
+  );
+  const updates = patch.updates.filter(
+    (item) =>
+      Array.isArray(item) &&
+      item.length === 2 &&
+      isValidSWRCacheKey(item[0]) &&
+      typeof item[1] === 'string' &&
+      item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+  );
   if (
-    !patch.removePrefixes.every(
-      (item) =>
-        item &&
-        typeof item === 'object' &&
-        isValidSWRKey(item.prefix) &&
-        item.prefix.length > 0 &&
-        isValidSWRTimestamp(item.at),
-    ) ||
-    !patch.removals.every(
-      (item) =>
-        Array.isArray(item) &&
-        item.length === 2 &&
-        isValidSWRKey(item[0]) &&
-        isValidSWRTimestamp(item[1]),
-    ) ||
-    !patch.updates.every(
-      (item) =>
-        Array.isArray(item) &&
-        item.length === 2 &&
-        isValidSWRKey(item[0]) &&
-        typeof item[1] === 'string' &&
-        item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
-    )
+    removePrefixes.length === patch.removePrefixes.length &&
+    removals.length === patch.removals.length &&
+    updates.length === patch.updates.length
   ) {
-    return undefined;
+    return patch as INativeSWRCachePatchIntent;
   }
-  return patch as INativeSWRCachePatchIntent;
+  return {
+    ...(patch.clearBefore === undefined
+      ? {}
+      : { clearBefore: patch.clearBefore }),
+    removePrefixes,
+    removals,
+    updates,
+  } as INativeSWRCachePatchIntent;
 }
 
 export function parseNativeSyncStorageMutation(
@@ -303,21 +288,21 @@ export function parseNativeSyncStorageMutation(
   if (
     candidate.operation === 'patchSWR' &&
     candidate.store === 'coldStart' &&
-    Array.isArray(candidate.entries) &&
-    candidate.entries.every(
+    Array.isArray(candidate.entries)
+  ) {
+    const entries = candidate.entries.filter(
       (item) =>
         Array.isArray(item) &&
         item.length === 2 &&
-        isValidSWRKey(item[0]) &&
+        isValidSWRCacheKey(item[0]) &&
         (item[1] === null ||
           (typeof item[1] === 'string' &&
             item[1].length <= SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS)),
-    )
-  ) {
+    ) as INativeSWRCacheCanonicalEntry[];
     return {
       store: 'coldStart',
       operation: 'patchSWR',
-      entries: candidate.entries as INativeSWRCacheCanonicalEntry[],
+      entries,
       ...source,
     };
   }

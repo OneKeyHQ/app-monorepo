@@ -385,13 +385,13 @@ async function migrateAppStorageFromLegacy() {
   if (targetMarkerComplete) {
     await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
     await recoverInterruptedAppStorageBatch(mmkv);
-    await ensureLegacyAppStorageCleanupComplete(mmkv);
     if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
       await setNativeStorageMigrationLedgerComplete(
         APP_STORAGE_MIGRATION_LEDGER_KEY,
       );
       logMigration('backfilled independent app-storage migration ledger');
     }
+    await tryEnsureLegacyAppStorageCleanupComplete(mmkv);
     return;
   }
   if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
@@ -418,6 +418,8 @@ async function migrateAppStorageFromLegacy() {
   clearAppStorageUserKeys(mmkv);
   mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
 
+  let copiedKeyCount = 0;
+  let skippedUnreadableKeyCount = 0;
   for (
     let offset = 0;
     offset < legacyKeys.length;
@@ -436,21 +438,28 @@ async function migrateAppStorageFromLegacy() {
         );
       }
       const value = valuesByKey.get(key);
-      if (typeof value !== 'string') {
-        throw new OneKeyLocalError(
-          `AsyncStorage migration returned a missing value at index=${
-            offset + index
-          }`,
-        );
-      }
-      const targetKey = encodeAppStorageKey(key);
-      mmkv.set(targetKey, value);
-      if (mmkv.getString(targetKey) !== value) {
-        throw new OneKeyLocalError(
-          `AsyncStorage migration verification failed at index=${
-            offset + index
-          }`,
-        );
+      if (value === null) {
+        // AsyncStorage already exposed an unreadable legacy entry as absent.
+        // Preserve that behavior instead of trapping every later startup.
+        skippedUnreadableKeyCount += 1;
+      } else {
+        if (typeof value !== 'string') {
+          throw new OneKeyLocalError(
+            `AsyncStorage migration returned an invalid value at index=${
+              offset + index
+            }`,
+          );
+        }
+        const targetKey = encodeAppStorageKey(key);
+        mmkv.set(targetKey, value);
+        if (mmkv.getString(targetKey) !== value) {
+          throw new OneKeyLocalError(
+            `AsyncStorage migration verification failed at index=${
+              offset + index
+            }`,
+          );
+        }
+        copiedKeyCount += 1;
       }
     }
   }
@@ -462,15 +471,15 @@ async function migrateAppStorageFromLegacy() {
     );
   }
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-  await ensureLegacyAppStorageCleanupComplete(mmkv);
   await setNativeStorageMigrationLedgerComplete(
     APP_STORAGE_MIGRATION_LEDGER_KEY,
   );
   logMigration(
-    `complete keyCount=${legacyKeys.length} durationMs=${
+    `complete sourceKeyCount=${legacyKeys.length} copiedKeyCount=${copiedKeyCount} skippedUnreadableKeyCount=${skippedUnreadableKeyCount} durationMs=${
       Date.now() - startedAt
     }`,
   );
+  await tryEnsureLegacyAppStorageCleanupComplete(mmkv);
 }
 
 async function processRecoveryAction() {
@@ -688,6 +697,20 @@ async function ensureLegacyAppStorageCleanupComplete(mmkv: IMMKVInstance) {
     );
   }
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+}
+
+async function tryEnsureLegacyAppStorageCleanupComplete(mmkv: IMMKVInstance) {
+  try {
+    await ensureLegacyAppStorageCleanupComplete(mmkv);
+  } catch (error) {
+    // The verified MMKV copy is already authoritative. Cleanup is retried on
+    // the next startup and must not keep the app behind the bootstrap gate.
+    logMigration(
+      `legacy app-storage cleanup deferred error=${
+        (error as Error)?.message || 'unknown'
+      }`,
+    );
+  }
 }
 
 async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
