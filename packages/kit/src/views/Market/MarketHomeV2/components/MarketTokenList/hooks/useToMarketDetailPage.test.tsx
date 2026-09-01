@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -9,6 +10,7 @@ import { useToDetailPage } from './useToMarketDetailPage';
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
+let mockSplitViewType = 'UNKNOWN';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -47,7 +49,7 @@ jest.mock('@onekeyhq/components', () => ({
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
-  useSplitViewType: jest.fn(() => 'UNKNOWN'),
+  useSplitViewType: jest.fn(() => mockSplitViewType),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -94,6 +96,12 @@ describe('useToDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockSplitViewType = 'UNKNOWN';
+    (
+      platformEnv as typeof platformEnv & {
+        isExtensionUiPopup: boolean;
+      }
+    ).isExtensionUiPopup = true;
     openExtensionMarketTokenDetailMock = jest.spyOn(
       backgroundApiProxy.serviceApp,
       'openExtensionMarketTokenDetail',
@@ -183,6 +191,72 @@ describe('useToDetailPage', () => {
     });
     expect(mockNavigationPush).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('replaces the current V2 detail route for a top coin selected from detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        marketTokenCategory: 'top_coins',
+        replaceCurrentDetail: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+        marketTokenId: 'ethereum',
+      });
+    });
+
+    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'ethereum',
+      marketTokenCategory: 'top_coins',
+    });
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+  });
+
+  it('keeps the current split-view detail route before replacing it', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    mockSplitViewType = 'SUB';
+    const appEventBusEmitSpy = jest.spyOn(appEventBus, 'emit');
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        marketTokenCategory: 'top_coins',
+        replaceCurrentDetail: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      });
+    });
+
+    expect(appEventBusEmitSpy).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenCategory: 'top_coins',
+    });
   });
 
   it('preserves the originating market category for normal token detail', async () => {
