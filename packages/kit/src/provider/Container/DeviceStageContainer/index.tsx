@@ -90,7 +90,7 @@ function DeviceStageContainerCmp() {
     serviceHardware,
     serviceSetting,
   } = backgroundApiProxy;
-  const [, setSettings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
   const burstId = stage?.burstId ?? 0;
@@ -387,6 +387,12 @@ function DeviceStageContainerCmp() {
       onPinSubmit={handlePinSubmit}
       onPassphraseSubmit={handlePassphraseSubmit}
       onPassphraseIntroContinue={handlePassphraseIntroContinue}
+      passphraseIntroKeepShortcut={
+        // The remembered wallet-list preference; the legacy dialog read
+        // it live, and the card must too — a hardcoded ON would hand
+        // Continue an ON to commit over a stored OFF.
+        settings.showAddHiddenInWalletSidebar ?? true
+      }
       onPassphraseAttachPin={
         // Only when the device actually has an attach-PIN binding — the
         // SDK refuses the mode outright otherwise.
