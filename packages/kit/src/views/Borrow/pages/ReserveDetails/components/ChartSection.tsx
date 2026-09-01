@@ -71,7 +71,7 @@ export function ChartSection({
         showDivider={gtMd}
       >
         <ApyChartSection
-          apyValue={supplyData.latestApy}
+          apyValue={details?.supply.apyDetail.apy ?? '0'}
           apyLabel={supplyApyLabel}
           history={supplyData.history}
           isLoading={supplyData.isLoading ?? false}
@@ -106,7 +106,7 @@ export function ChartSection({
         showDivider={gtMd}
       >
         <ApyChartSection
-          apyValue={borrowData.latestApy}
+          apyValue={details?.borrow.apyDetail.apy ?? '0'}
           apyLabel={borrowApyLabel}
           history={borrowData.history}
           isLoading={borrowData.isLoading ?? false}
