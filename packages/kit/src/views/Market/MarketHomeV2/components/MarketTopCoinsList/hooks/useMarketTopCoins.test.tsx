@@ -10,6 +10,9 @@ import type { IMarketToken } from '@onekeyhq/shared/types/market';
 import { useMarketTopCoins } from './useMarketTopCoins';
 
 const mockToMarketDetailPage = jest.fn();
+const mockUseToDetailPage = jest.fn(
+  (_options?: unknown) => mockToMarketDetailPage,
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -40,7 +43,7 @@ jest.mock('@onekeyhq/kit/src/views/Market/utils/legacyMarketNetwork', () => ({
 }));
 
 jest.mock('../../MarketTokenList/hooks/useToMarketDetailPage', () => ({
-  useToDetailPage: () => mockToMarketDetailPage,
+  useToDetailPage: (options: unknown) => mockUseToDetailPage(options),
 }));
 
 const bitcoin: IMarketToken = {
@@ -102,6 +105,15 @@ describe('useMarketTopCoins', () => {
       turnover: 1_000_000,
     });
     expect(Toast.error).not.toHaveBeenCalled();
+  });
+
+  it('forwards detail replacement mode to the detail navigation owner', () => {
+    renderHook(() => useMarketTopCoins({ replaceCurrentDetail: true }));
+
+    expect(mockUseToDetailPage).toHaveBeenCalledWith({
+      marketTokenCategory: 'top_coins',
+      replaceCurrentDetail: true,
+    });
   });
 
   it('reports a navigation failure and releases the navigation guard', async () => {

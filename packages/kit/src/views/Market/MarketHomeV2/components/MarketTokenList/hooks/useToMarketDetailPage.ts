@@ -59,6 +59,11 @@ interface IUseToDetailPageOptions {
    * matching information architecture (for example Top Coins vs Trending).
    */
   marketTokenCategory?: string;
+  /**
+   * Replace the current detail route instead of stacking another detail page.
+   * This is used when switching assets from inside Market detail.
+   */
+  replaceCurrentDetail?: boolean;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
@@ -245,7 +250,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           await marketDetailShellPreloadPromise;
         }
         if (stockId) {
-          navigation.push(ETabMarketRoutes.MarketStockDetail, params);
+          if (options?.replaceCurrentDetail) {
+            navigation.replace(ETabMarketRoutes.MarketStockDetail, params);
+          } else {
+            navigation.push(ETabMarketRoutes.MarketStockDetail, params);
+          }
+        } else if (options?.replaceCurrentDetail) {
+          navigation.replace(ETabMarketRoutes.MarketDetailV2, params);
         } else {
           navigation.push(ETabMarketRoutes.MarketDetailV2, params);
         }
@@ -257,6 +268,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.switchToMarketTabFirst,
       options?.from,
       options?.marketTokenCategory,
+      options?.replaceCurrentDetail,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,

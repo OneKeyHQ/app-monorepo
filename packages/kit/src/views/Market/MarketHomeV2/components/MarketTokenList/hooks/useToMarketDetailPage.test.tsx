@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useToDetailPage } from './useToMarketDetailPage';
 
 const mockNavigationPush = jest.fn();
+const mockNavigationReplace = jest.fn();
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -53,6 +54,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     push: mockNavigationPush,
+    replace: mockNavigationReplace,
     switchTab: jest.fn(),
   })),
 }));
@@ -147,6 +149,39 @@ describe('useToDetailPage', () => {
       disableTrade: true,
       showFavoriteButton: false,
     });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('replaces the current detail route for a stock selected from detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      });
+    });
+
+    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+    });
+    expect(mockNavigationPush).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 

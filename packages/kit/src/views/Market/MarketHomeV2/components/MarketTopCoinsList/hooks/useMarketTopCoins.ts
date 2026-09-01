@@ -16,10 +16,13 @@ import type { IMarketToken } from '@onekeyhq/shared/types/market';
 
 import { useToDetailPage } from '../../MarketTokenList/hooks/useToMarketDetailPage';
 
-export function useMarketTopCoins() {
+export function useMarketTopCoins({
+  replaceCurrentDetail = false,
+}: { replaceCurrentDetail?: boolean } = {}) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+    replaceCurrentDetail,
   });
   const isNavigatingRef = useRef(false);
 
