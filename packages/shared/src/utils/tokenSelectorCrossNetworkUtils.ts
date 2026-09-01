@@ -142,7 +142,7 @@ export function extractCrossNetworkSearchQuery({
           ...(aliasMap[network.id] ?? []),
         ]
           .filter(Boolean)
-          .map((value) => normalizePhrase(value as string)),
+          .map((value) => normalizePhrase(value)),
       ),
     }));
 
