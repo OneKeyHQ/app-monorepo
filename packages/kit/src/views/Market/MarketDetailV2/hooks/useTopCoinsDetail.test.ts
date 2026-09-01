@@ -1,6 +1,6 @@
 import {
   findTopCoinsEarnAsset,
-  findTopCoinsMarketTokenCandidate,
+  getTopCoinsAssetIdCandidates,
 } from './useTopCoinsDetail';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -16,38 +16,23 @@ jest.mock('./useMarketDetailDisplayData', () => ({
   useMarketDetailDisplayData: jest.fn(),
 }));
 
-describe('findTopCoinsMarketTokenCandidate', () => {
-  const candidates = [
-    {
-      coingeckoId: 'ethereum-classic',
-      name: 'Ethereum Classic',
-      symbol: 'eth',
-    },
-    {
-      coingeckoId: 'ethereum',
-      name: 'Ethereum',
-      symbol: 'ETH',
-    },
-  ] as never;
-
-  it('prefers an exact name and symbol match', () => {
+describe('getTopCoinsAssetIdCandidates', () => {
+  it('prefers the route Asset id and keeps the symbol as a legacy fallback', () => {
     expect(
-      findTopCoinsMarketTokenCandidate({
-        candidates,
-        name: 'Ethereum',
+      getTopCoinsAssetIdCandidates({
+        marketTokenId: 'ethereum',
         symbol: 'ETH',
-      })?.coingeckoId,
-    ).toBe('ethereum');
+      }),
+    ).toEqual(['ethereum', 'eth']);
   });
 
-  it('falls back to a symbol match when the names differ', () => {
+  it('deduplicates a current Asset id from the normalized symbol', () => {
     expect(
-      findTopCoinsMarketTokenCandidate({
-        candidates,
-        name: 'Ether',
+      getTopCoinsAssetIdCandidates({
+        marketTokenId: 'eth',
         symbol: 'ETH',
-      })?.coingeckoId,
-    ).toBe('ethereum-classic');
+      }),
+    ).toEqual(['eth']);
   });
 });
 

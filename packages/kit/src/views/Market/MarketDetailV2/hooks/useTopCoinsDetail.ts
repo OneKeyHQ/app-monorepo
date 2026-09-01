@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type {
-  IMarketToken,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { useMarketDetailDisplayData } from './useMarketDetailDisplayData';
@@ -14,27 +11,19 @@ function normalizeIdentity(value?: string) {
   return value?.trim().toLowerCase() ?? '';
 }
 
-export function findTopCoinsMarketTokenCandidate({
-  candidates,
-  name,
+export function getTopCoinsAssetIdCandidates({
+  marketTokenId,
   symbol,
 }: {
-  candidates: IMarketToken[];
-  name?: string;
+  marketTokenId?: string;
   symbol?: string;
 }) {
-  const normalizedName = normalizeIdentity(name);
-  const normalizedSymbol = normalizeIdentity(symbol);
-
-  return (
-    candidates.find(
-      (candidate) =>
-        normalizeIdentity(candidate.symbol) === normalizedSymbol &&
-        normalizeIdentity(candidate.name) === normalizedName,
-    ) ??
-    candidates.find(
-      (candidate) => normalizeIdentity(candidate.symbol) === normalizedSymbol,
-    )
+  return Array.from(
+    new Set(
+      [marketTokenId, normalizeIdentity(symbol)].filter(
+        (assetId): assetId is string => Boolean(assetId),
+      ),
+    ),
   );
 }
 
@@ -61,34 +50,35 @@ export function findTopCoinsEarnAsset({
 export function useTopCoinsDetail(marketTokenId?: string) {
   const { tokenDetail } = useMarketDetailDisplayData();
   const symbol = tokenDetail?.symbol;
-  const name = tokenDetail?.name;
 
-  const { result: legacyDetail, isLoading: isLegacyDetailLoading } =
-    usePromiseResult<IMarketTokenDetail | undefined>(
+  const { result: assetDetail, isLoading: isAssetDetailLoading } =
+    usePromiseResult<IMarketAssetDetailData | undefined>(
       async () => {
-        if (marketTokenId) {
-          return backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
-            marketTokenId,
-          );
-        }
-        if (!symbol) {
-          return undefined;
-        }
-        const candidates =
-          await backgroundApiProxy.serviceMarket.searchToken(symbol);
-        const candidate = findTopCoinsMarketTokenCandidate({
-          candidates,
-          name,
+        const assetIds = getTopCoinsAssetIdCandidates({
+          marketTokenId,
           symbol,
         });
-        if (!candidate) {
+        if (!assetIds.length) {
           return undefined;
         }
-        return backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
-          candidate.coingeckoId,
-        );
+        let lastError: unknown;
+        for (const assetId of assetIds) {
+          try {
+            return await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail(
+              {
+                assetId,
+                currency: 'usd',
+              },
+            );
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError instanceof Error
+          ? lastError
+          : new Error('Failed to fetch the market asset detail');
       },
-      [marketTokenId, name, symbol],
+      [marketTokenId, symbol],
       {
         checkIsFocused: false,
         watchLoading: true,
@@ -111,14 +101,15 @@ export function useTopCoinsDetail(marketTokenId?: string) {
     },
   );
 
+  const assetSymbol = assetDetail?.asset.symbol ?? symbol;
   const earnAsset = useMemo(
-    () => findTopCoinsEarnAsset({ assets: earnAssets, symbol }),
-    [earnAssets, symbol],
+    () => findTopCoinsEarnAsset({ assets: earnAssets, symbol: assetSymbol }),
+    [assetSymbol, earnAssets],
   );
 
   return {
+    assetDetail,
     earnAsset,
-    isLegacyDetailLoading,
-    legacyDetail,
+    isAssetDetailLoading,
   };
 }
