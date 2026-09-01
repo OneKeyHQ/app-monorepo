@@ -3,10 +3,8 @@
 // environment doesn't support.
 import {
   atkinsonDither,
-  isAboveThresholdBrighter,
   otsuFromHistogram,
   pickThresholdAxis,
-  robustSpread,
   shouldInvertForMajorityWhite,
   toGrayScale,
 } from './imageUtils';
@@ -117,27 +115,6 @@ const CYAN: IRgb = [0, 255, 255];
 const WHITE: IRgb = [255, 255, 255];
 const BLACK: IRgb = [0, 0, 0];
 
-describe('robustSpread', () => {
-  it('ignores the outliers that max-min was decided by', () => {
-    const histogram = new Array<number>(256).fill(0);
-    histogram[128] = 1000;
-    histogram[255] = 1; // one blown-out pixel
-    histogram[0] = 1; // one dead pixel
-    expect(robustSpread(histogram, 1002)).toBe(0);
-  });
-
-  it('reports a real spread between two populated clusters', () => {
-    const histogram = new Array<number>(256).fill(0);
-    histogram[30] = 500;
-    histogram[220] = 500;
-    expect(robustSpread(histogram, 1000)).toBe(190);
-  });
-
-  it('returns 0 for an empty image', () => {
-    expect(robustSpread(new Array<number>(256).fill(0), 0)).toBe(0);
-  });
-});
-
 describe('pickThresholdAxis', () => {
   it('keeps the luminance axis whenever brightness already separates the image', () => {
     // Every pair here differs by more than the minimum spread in luminance, so the
@@ -149,7 +126,8 @@ describe('pickThresholdAxis', () => {
       [RED, BLACK],
     ] as Array<[IRgb, IRgb]>) {
       const result = pickThresholdAxis(stripedImage(foreground, background));
-      expect(result.axis).toBe('luminance');
+      // Cut on the luminance values themselves, not on a color projection of them.
+      expect(result.values).toBe(result.luminance);
       expect(result.canSplit).toBe(true);
     }
   });
@@ -186,7 +164,7 @@ describe('pickThresholdAxis', () => {
     const GREEN_76: IRgb = [0, 129, 0];
     expect(toGrayScale(...RED_76)).toBe(toGrayScale(...GREEN_76));
     const result = pickThresholdAxis(stripedImage(RED_76, GREEN_76));
-    expect(result.axis).not.toBe('luminance');
+    expect(result.values).not.toBe(result.luminance);
     expect(result.canSplit).toBe(true);
   });
 
@@ -241,28 +219,29 @@ describe('atkinsonDither', () => {
   });
 });
 
-describe('isAboveThresholdBrighter', () => {
-  it('reports the polarity of a luminance-like axis unchanged', () => {
-    const values = new Uint8ClampedArray([10, 20, 200, 210]);
-    expect(
-      isAboveThresholdBrighter({ values, luminance: values, threshold: 100 }),
-    ).toBe(true);
+describe('polarity reported by pickThresholdAxis', () => {
+  it('leaves the luminance axis pointing the way it already runs', () => {
+    // Higher luminance is brighter by definition, so above-threshold is the white side.
+    const result = pickThresholdAxis(stripedImage(WHITE, BLACK));
+    expect(result.aboveIsBrighter).toBe(true);
   });
 
-  it('flips when the axis runs opposite to brightness', () => {
-    // Blue channel high where the image is dark: above-threshold is the darker cluster.
-    const values = new Uint8ClampedArray([255, 255, 0, 0]);
-    const luminance = new Uint8ClampedArray([29, 29, 226, 226]);
-    expect(
-      isAboveThresholdBrighter({ values, luminance, threshold: 128 }),
-    ).toBe(false);
-  });
+  it('flips for a color axis running opposite to brightness', () => {
+    // Overlapping luminance noise makes brightness a single smear, while red still
+    // separates the stripes. The high-red stripe is slightly darker on average.
+    const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+    for (let p = 0; p < WIDTH * HEIGHT; p += 1) {
+      const noise = (p % 5) - 2;
+      const highRed = Math.floor((p % WIDTH) / 8) % 2 === 0;
+      const color: IRgb = highRed ? [200, 67 + noise, 0] : [0, 172 + noise, 0];
+      const i = p * 4;
+      [data[i], data[i + 1], data[i + 2], data[i + 3]] = [...color, 255];
+    }
 
-  it('does not divide by zero when every pixel lands on one side', () => {
-    const values = new Uint8ClampedArray([10, 10, 10]);
-    expect(
-      isAboveThresholdBrighter({ values, luminance: values, threshold: 200 }),
-    ).toBe(true);
+    const result = pickThresholdAxis(data);
+    expect(result.canSplit).toBe(true);
+    expect(result.values).not.toBe(result.luminance);
+    expect(result.aboveIsBrighter).toBe(false);
   });
 });
 

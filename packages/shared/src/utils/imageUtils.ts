@@ -50,9 +50,11 @@ export const toGrayScale = (red: number, green: number, blue: number): number =>
 // field carrying compression noise — peaks around 0.65 and gets dithered instead.
 const MIN_SEPARABILITY = 0.85;
 
-// Below this the luminance histogram is a single spike, which is the one case worth
-// looking at color for: two hues of equal brightness are invisible to luminance.
-const FLAT_LUMINANCE_SPREAD = 8;
+// The color axes are only worth reaching for when luminance is a single spike: two
+// hues of equal brightness. Kept this tight on purpose — give a field carrying any
+// noise at all a color axis and a handful of blown-out pixels form their own
+// "perfect" cluster, which scores 1 and blanks the picture behind them.
+const FLAT_LUMINANCE_VARIANCE = 4;
 
 type IProjection = (red: number, green: number, blue: number) => number;
 
@@ -75,27 +77,8 @@ function projectPixels(data: Uint8ClampedArray, project: IProjection) {
   return { values, histogram, pixelCount };
 }
 
-// Between the 2nd and 98th percentile, not between min and max: one specular
-// highlight or dead pixel must not describe the whole image.
-export function robustSpread(histogram: number[], pixelCount: number): number {
-  if (pixelCount <= 0) {
-    return 0;
-  }
-  const quantile = (q: number) => {
-    const target = pixelCount * q;
-    let seen = 0;
-    for (let t = 0; t < 256; t += 1) {
-      seen += histogram[t];
-      if (seen >= target) {
-        return t;
-      }
-    }
-    return 255;
-  };
-  return quantile(0.98) - quantile(0.02);
-}
-
-// Picks the axis to cut on, its threshold, and whether anything is separable at all.
+// Picks the values to cut, the threshold, and which side of it becomes white.
+// canSplit false means no cut is honest and the caller should dither instead.
 export function pickThresholdAxis(data: Uint8ClampedArray) {
   const {
     values: luminance,
@@ -103,42 +86,37 @@ export function pickThresholdAxis(data: Uint8ClampedArray) {
     pixelCount,
   } = projectPixels(data, toGrayScale);
   const brightness = otsuFromHistogram(histogram, pixelCount);
+  const cut = (values: Uint8ClampedArray, threshold: number) => ({
+    values,
+    luminance,
+    threshold,
+    canSplit: true,
+    aboveIsBrighter: isAboveThresholdBrighter(values, luminance, threshold),
+  });
 
   if (brightness.separability >= MIN_SEPARABILITY) {
-    return {
-      axis: 'luminance',
-      values: luminance,
-      luminance,
-      threshold: brightness.threshold,
-      canSplit: true,
-    };
+    return cut(luminance, brightness.threshold);
   }
 
   // A flat luminance histogram is the one case a color axis can rescue. Anything
-  // else that fails here is a photo or a noisy field, which dithers better than it
+  // else failing here is a photo or a noisy field, which dithers better than it
   // cuts, so there is nothing to gain from searching further.
-  if (robustSpread(histogram, pixelCount) < FLAT_LUMINANCE_SPREAD) {
+  if (brightness.variance < FLAT_LUMINANCE_VARIANCE) {
     for (const project of CHROMA_AXES) {
       const projected = projectPixels(data, project);
       const chroma = otsuFromHistogram(projected.histogram, pixelCount);
       if (chroma.separability >= MIN_SEPARABILITY) {
-        return {
-          axis: 'chroma',
-          values: projected.values,
-          luminance,
-          threshold: chroma.threshold,
-          canSplit: true,
-        };
+        return cut(projected.values, chroma.threshold);
       }
     }
   }
 
   return {
-    axis: 'luminance',
     values: luminance,
     luminance,
     threshold: 128,
     canSplit: false,
+    aboveIsBrighter: true,
   };
 }
 
@@ -184,17 +162,13 @@ export function atkinsonDither(
   return out;
 }
 
-// The chosen axis need not run dark-to-bright, so which side becomes white is
-// decided from the two clusters' luminance rather than from the axis direction.
-export function isAboveThresholdBrighter({
-  values,
-  luminance,
-  threshold,
-}: {
-  values: Uint8ClampedArray;
-  luminance: Uint8ClampedArray;
-  threshold: number;
-}): boolean {
+// A color axis need not run dark-to-bright, so which side becomes white comes from
+// the two clusters' luminance rather than from the axis direction.
+function isAboveThresholdBrighter(
+  values: Uint8ClampedArray,
+  luminance: Uint8ClampedArray,
+  threshold: number,
+): boolean {
   let sumAbove = 0;
   let sumBelow = 0;
   let countAbove = 0;
@@ -259,6 +233,7 @@ export function otsuFromHistogram(histogram: number[], total: number) {
   return {
     threshold,
     separability: totalVariance === 0 ? 0 : maxVariance / totalVariance,
+    variance: totalVariance,
   };
 }
 
@@ -338,7 +313,7 @@ function convertToBlackAndWhiteImageBase64(
       // Perceptual luminance where the image separates on brightness, a color
       // axis where it does not, and nothing to cut when neither separates. The
       // threshold is Otsu's on the chosen axis, never a fixed 128.
-      const { values, luminance, threshold, canSplit } =
+      const { values, luminance, threshold, canSplit, aboveIsBrighter } =
         pickThresholdAxis(data);
 
       // No threshold separates this image, so render its tones as a dither
@@ -354,12 +329,6 @@ function convertToBlackAndWhiteImageBase64(
         resolve(canvas.toDataURL(mime || 'image/jpeg'));
         return;
       }
-
-      const aboveIsBrighter = isAboveThresholdBrighter({
-        values,
-        luminance,
-        threshold,
-      });
 
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
