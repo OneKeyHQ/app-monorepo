@@ -8,9 +8,15 @@ on:
   schedule:
     - cron: '0 18 * * 0'
   workflow_dispatch:
+    inputs:
+      publish_test:
+        description: Publish and verify an isolated ci-* GHCR tag
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: metro-dev-prebundle-x
+  group: metro-dev-prebundle-${{ github.ref }}
   cancel-in-progress: true
 
 permissions: {}
@@ -93,7 +99,9 @@ jobs:
   build:
     name: Build public prebundle
     needs: resolve
-    if: needs.resolve.outputs.exists != 'true'
+    if: >-
+      needs.resolve.outputs.exists != 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_test)
     permissions:
       contents: read
       packages: read
@@ -145,9 +153,9 @@ jobs:
       - resolve
       - build
     if: >-
-      needs.resolve.outputs.exists != 'true' &&
       needs.build.result == 'success' &&
-      github.ref == 'refs/heads/x'
+      ((github.ref == 'refs/heads/x' && needs.resolve.outputs.exists != 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_test))
     permissions:
       actions: read
       attestations: write
@@ -198,17 +206,22 @@ jobs:
       - name: Verify generated provenance offline
         env:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          PUBLISH_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_test }}
         run: |
           set -euo pipefail
           release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
           trusted_root="apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl"
+          source_ref="refs/heads/x"
+          if [[ "$PUBLISH_TEST" == "true" ]]; then
+            source_ref="$GITHUB_REF"
+          fi
           for asset in "$release_dir"/*; do
             gh attestation verify "$asset" \
               --repo "$GITHUB_REPOSITORY" \
               --bundle "$ATTESTATION_BUNDLE" \
               --custom-trusted-root "$trusted_root" \
               --signer-workflow "OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml" \
-              --source-ref "refs/heads/x" \
+              --source-ref "$source_ref" \
               --source-digest "$GITHUB_SHA" \
               --deny-self-hosted-runners
           done
@@ -228,11 +241,16 @@ jobs:
       - name: Publish OCI artifact
         id: publish
         env:
+          PUBLISH_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_test }}
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
           release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
-          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG"
+          publish_tag="$RELEASE_TAG"
+          if [[ "$PUBLISH_TEST" == "true" ]]; then
+            publish_tag="ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          fi
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$publish_tag"
           if oras manifest fetch --descriptor "$reference" > /tmp/metro-prebundle-descriptor.json 2>/dev/null; then
             echo "Prebundle OCI artifact was published by another run: $reference"
           else
@@ -243,7 +261,7 @@ jobs:
                 --annotation "org.opencontainers.image.description=Public Metro development prebundle for compatible iOS and Android builds" \
                 --annotation "org.opencontainers.image.revision=$GITHUB_SHA" \
                 --annotation "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-                --annotation "org.opencontainers.image.version=$RELEASE_TAG" \
+                --annotation "org.opencontainers.image.version=$publish_tag" \
                 "$reference" \
                 "THIRD_PARTY_NOTICES.txt:text/plain" \
                 "metro-dev-prebundle-packages.json:application/vnd.onekey.metro-dev-prebundle.metadata.v2+json" \
@@ -259,14 +277,55 @@ jobs:
             oras manifest fetch --descriptor "$reference" > /tmp/metro-prebundle-descriptor.json
           fi
           digest="$(jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))' /tmp/metro-prebundle-descriptor.json)"
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+          {
+            echo "digest=$digest"
+            echo "reference=$reference"
+            echo "tag=$publish_tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify published OCI artifact
+        env:
+          OCI_REFERENCE: ${{ steps.publish.outputs.reference }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          manifest_path="$RUNNER_TEMP/metro-prebundle-oci-manifest.json"
+          verify_dir="$RUNNER_TEMP/metro-prebundle-oci-pull"
+          oras manifest fetch "$OCI_REFERENCE" > "$manifest_path"
+          jq -e \
+            --arg artifact_type "$OCI_ARTIFACT_TYPE" \
+            --arg revision "$GITHUB_SHA" \
+            --arg source "https://github.com/$GITHUB_REPOSITORY" \
+            '
+              .schemaVersion == 2 and
+              .mediaType == "application/vnd.oci.image.manifest.v1+json" and
+              .artifactType == $artifact_type and
+              .annotations["org.opencontainers.image.revision"] == $revision and
+              .annotations["org.opencontainers.image.source"] == $source and
+              ([.layers[].annotations["org.opencontainers.image.title"]] | sort) ==
+                ([
+                  "THIRD_PARTY_NOTICES.txt",
+                  "metro-dev-prebundle-packages.json",
+                  "metro-dev-prebundle-release.json",
+                  "metro-dev-prebundle-attestations.jsonl",
+                  "metro-dev-prebundle-ios-common.js.gz",
+                  "metro-dev-prebundle-ios-common.hbc.gz",
+                  "metro-dev-prebundle-ios-manifest.json",
+                  "metro-dev-prebundle-android-common.js.gz",
+                  "metro-dev-prebundle-android-common.hbc.gz",
+                  "metro-dev-prebundle-android-manifest.json"
+                ] | sort)
+            ' "$manifest_path"
+          oras pull --output "$verify_dir" "$OCI_REFERENCE"
+          for asset in "$release_dir"/*; do
+            cmp "$asset" "$verify_dir/$(basename "$asset")"
+          done
 
       - name: Write publish summary
         env:
           OCI_DIGEST: ${{ steps.publish.outputs.digest }}
           OCI_REFERENCE: ${{ steps.publish.outputs.reference }}
-          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_TAG: ${{ steps.publish.outputs.tag }}
         run: |
           {
             echo "### Metro dev prebundle"
