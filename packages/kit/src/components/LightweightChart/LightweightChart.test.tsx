@@ -54,15 +54,22 @@ jest.mock('./hooks/useChartConfig', () => {
       seriesType?: 'area' | 'baseline' | 'dotted-area';
       lineType?: 'simple' | 'steps';
       priceScalePosition?: 'left' | 'right';
-    }) =>
-      React.useMemo(
+    }) => {
+      // Mirrors the real hook: each source array is mapped on its own, so
+      // replacing only the overlay leaves the primary data referentially stable.
+      const chartData = React.useMemo(
+        () => data.map(([time, value]) => ({ time, value })),
+        [data],
+      );
+      const chartSecondaryLineData = React.useMemo(
+        () => secondaryLineData?.map(([time, value]) => ({ time, value })),
+        [secondaryLineData],
+      );
+      return React.useMemo(
         () => ({
           theme,
-          data: data.map(([time, value]) => ({ time, value })),
-          secondaryLineData: secondaryLineData?.map(([time, value]) => ({
-            time,
-            value,
-          })),
+          data: chartData,
+          secondaryLineData: chartSecondaryLineData,
           lineWidth: 2,
           showPriceScale: true,
           showHorzGridLines: false,
@@ -72,8 +79,15 @@ jest.mock('./hooks/useChartConfig', () => {
           baselineOptions,
           showTimeScale: true,
         }),
-        [data, lineType, priceScalePosition, secondaryLineData, seriesType],
-      ),
+        [
+          chartData,
+          chartSecondaryLineData,
+          lineType,
+          priceScalePosition,
+          seriesType,
+        ],
+      );
+    },
   };
 });
 
@@ -258,5 +272,98 @@ describe('LightweightChart', () => {
     expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-y')).toBe(
       '50',
     );
+  });
+
+  it('replaces the overlay data without re-fitting the chart', async () => {
+    let visibleTimeRangeListener: (() => void) | undefined;
+    const timeToCoordinate = jest.fn(() => 100);
+    const priceToCoordinate = jest.fn(() => 50);
+    const primarySeries = {
+      setData: jest.fn(),
+      priceToCoordinate,
+    };
+    const secondarySeries = {
+      setData: jest.fn(),
+      priceToCoordinate,
+    };
+    const timeScale = {
+      fitContent: jest.fn(() => visibleTimeRangeListener?.()),
+      subscribeVisibleTimeRangeChange: jest.fn((listener: () => void) => {
+        visibleTimeRangeListener = listener;
+      }),
+      timeToCoordinate,
+    };
+    const addSeries = jest
+      .fn()
+      .mockReturnValueOnce(primarySeries)
+      .mockReturnValue(secondarySeries);
+    const chart = {
+      addSeries,
+      addCustomSeries: jest.fn(() => primarySeries),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      subscribeCrosshairMove: jest.fn(),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+
+    const data = [
+      [1, 10],
+      [2, 20],
+      [3, 30],
+    ] as IMarketTokenChart;
+    const fullOverlay = data;
+    // What a chart scrubbing its crosshair hands back: the same range, cut at
+    // the hovered point.
+    const cutOverlay = [
+      [1, 10],
+      [2, 20],
+    ] as IMarketTokenChart;
+
+    const { rerender } = render(
+      <LightweightChart
+        data={data}
+        height={240}
+        secondaryLineData={fullOverlay}
+        preserveChartInstanceOnDataChange
+        pulseLastPoint
+      />,
+    );
+
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    act(() => {
+      flushAnimationFrames();
+    });
+    expect(screen.getByTestId('chart-pulse-dot')).not.toBeNull();
+    const fitContentCallsBeforeScrub = timeScale.fitContent.mock.calls.length;
+    const primarySetDataCallsBeforeScrub =
+      primarySeries.setData.mock.calls.length;
+
+    rerender(
+      <LightweightChart
+        data={data}
+        height={240}
+        secondaryLineData={cutOverlay}
+        preserveChartInstanceOnDataChange
+        pulseLastPoint
+      />,
+    );
+
+    expect(createChart).toHaveBeenCalledTimes(1);
+    expect(secondarySeries.setData).toHaveBeenLastCalledWith([
+      { time: 1, value: 10 },
+      { time: 2, value: 20 },
+    ]);
+    // The main series and the time scale are left alone, so the pulse dot keeps
+    // its anchor instead of blinking on every crosshair step.
+    expect(primarySeries.setData).toHaveBeenCalledTimes(
+      primarySetDataCallsBeforeScrub,
+    );
+    expect(timeScale.fitContent).toHaveBeenCalledTimes(
+      fitContentCallsBeforeScrub,
+    );
+    expect(screen.getByTestId('chart-pulse-dot')).not.toBeNull();
   });
 });

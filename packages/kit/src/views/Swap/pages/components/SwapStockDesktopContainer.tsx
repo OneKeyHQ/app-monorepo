@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTheme } from '@tamagui/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -37,7 +36,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -86,7 +85,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -169,6 +167,7 @@ import {
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   isStockMarketPanelLoadingStage,
+  shouldDeferStockInitialContent,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
@@ -221,9 +220,6 @@ type IStockMarketDataRow = {
 };
 
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
-const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-const STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH = 64;
-const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
 const STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT = 20;
 const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
@@ -232,13 +228,6 @@ const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
-
-type IStockChartHoverData = {
-  time: number;
-  price: number;
-  x: number;
-  y: number;
-};
 
 type IStockChartState = {
   assetScope: string;
@@ -293,7 +282,12 @@ function useStockChartCoinGeckoId({
 }) {
   const tokenDetailCoinGeckoId =
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
-  const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
+  const tokenScope = networkId
+    ? `${networkId}:${tokenAddress?.trim().toLowerCase() || '__native__'}`
+    : '';
+  const swrKey = tokenScope
+    ? ['swapStockChartCoinGeckoId', 'v1', tokenScope].join(':')
+    : undefined;
   const { result } = usePromiseResult<
     IStockChartCoinGeckoIdLookupResult | undefined
   >(
@@ -313,16 +307,20 @@ function useStockChartCoinGeckoId({
           coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
         };
       } catch (_error) {
-        return {
-          tokenScope,
-          coinGeckoId: undefined,
-        };
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockChartCoinGeckoIdLookupResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenScope === tokenScope
+          ? cachedResult
+          : { cacheable: false, tokenScope };
       }
     },
-    [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
+    [networkId, swrKey, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
-      undefinedResultIfReRun: true,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value?.cacheable !== false && value?.tokenScope === tokenScope,
     },
   );
 
@@ -1102,9 +1100,11 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 function StockAmountInput({
   fetchLoading,
   amountInputState,
+  deferInitialContent,
   storeName,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
+  deferInitialContent: boolean;
 }) {
   const intl = useIntl();
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -1181,7 +1181,7 @@ function StockAmountInput({
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
 
-  if (shouldRenderSkeleton) {
+  if (shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
   }
 
@@ -1318,6 +1318,12 @@ function StockTradeTicket({
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
+  const deferInitialAmountContent = shouldDeferStockInitialContent({
+    channelStage: stockChannel.channelStage,
+    startedWithoutContent: startedWithoutAmountInputRef.current,
+  });
+  if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
   // The desktop modal action renders through Page.Footer. Keep its portal
@@ -1366,6 +1372,7 @@ function StockTradeTicket({
         <StockAmountInput
           fetchLoading={fetchLoading}
           amountInputState={amountInputState}
+          deferInitialContent={deferInitialAmountContent}
           storeName={storeName}
         />
         <StockEstimatedReceive
@@ -1530,12 +1537,20 @@ function StockMarketTokenHeader({
     hasTokenData: Boolean(stock || tokenSubtitle),
   });
   const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
+  const startedWithoutHeaderContentRef = useRef(!currentStockToken);
+  const deferInitialHeaderContent = shouldDeferStockInitialContent({
+    channelStage,
+    startedWithoutContent: startedWithoutHeaderContentRef.current,
+  });
+  if (!deferInitialHeaderContent)
+    startedWithoutHeaderContentRef.current = false;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
   if (
+    deferInitialHeaderContent ||
     shouldShowStockMarketHeaderSkeleton({
       channelStage,
       hasStockIdentity: Boolean(currentStockToken),
@@ -1696,11 +1711,7 @@ function StockPriceChart({
   tokenAddress?: string;
 }) {
   const intl = useIntl();
-  const theme = useTheme();
-  const [hoverData, setHoverData] = useState<IStockChartHoverData | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
   const normalizedCoinGeckoId = coinGeckoId?.trim();
-  const chartLineColor = theme.textSuccess.val;
   const rangeOptions = useMemo(
     () =>
       STOCK_CHART_RANGE_ITEMS.map((item) => ({
@@ -1713,7 +1724,6 @@ function StockPriceChart({
   const handleRangeChange = useCallback(
     (value: string | number) => {
       onRangeChange(value as IStockChartRange);
-      setHoverData(null);
     },
     [onRangeChange],
   );
@@ -1744,9 +1754,6 @@ function StockPriceChart({
     scope: '',
     status: 'pending',
   });
-  useEffect(() => {
-    setHoverData(null);
-  }, [chartScope]);
   const {
     result: chartState,
     isLoading,
@@ -1892,75 +1899,6 @@ function StockPriceChart({
       chartRetryPendingRef.current = false;
     });
   }, [retryChart]);
-  const priceFormatter = useCallback(
-    (price: number) =>
-      numberFormat(String(price), {
-        formatter: 'price',
-        formatterOptions: { currency: '$' },
-      }),
-    [],
-  );
-  const handleChartHover = useCallback(
-    ({
-      time,
-      price,
-      x,
-      y,
-    }: {
-      time?: number;
-      price?: number;
-      x?: number;
-      y?: number;
-    }) => {
-      if (
-        time !== undefined &&
-        price !== undefined &&
-        x !== undefined &&
-        y !== undefined
-      ) {
-        setHoverData({ time, price, x, y });
-      } else {
-        setHoverData(null);
-      }
-    },
-    [],
-  );
-  const tooltipPosition = useMemo(() => {
-    if (!hoverData || !chartWidth) {
-      return null;
-    }
-
-    const offset = 10;
-    const edge = 8;
-    const isLeftHalf = hoverData.x < chartWidth / 2;
-    const translateX = isLeftHalf ? 0 : -STOCK_CHART_HOVER_TOOLTIP_WIDTH;
-    const desiredLeft = isLeftHalf
-      ? hoverData.x + offset
-      : hoverData.x - offset;
-    const clampedLeft = Math.min(
-      Math.max(desiredLeft + translateX, edge),
-      chartWidth - STOCK_CHART_HOVER_TOOLTIP_WIDTH - edge,
-    );
-
-    return {
-      left: clampedLeft - translateX,
-      top: Math.max(8, hoverData.y - 56),
-      translateX,
-    };
-  }, [chartWidth, hoverData]);
-  const hoverTimeText = useMemo(() => {
-    if (!hoverData) {
-      return '';
-    }
-    return intl.formatDate(new Date(hoverData.time * 1000), {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  }, [hoverData, intl]);
-
   let chartContent: ReactNode = (
     <YStack
       testID={SwapTestIDs.stockChartEmpty}
@@ -2024,66 +1962,12 @@ function StockPriceChart({
     );
   } else if (chartData.length > 0) {
     chartContent = (
-      <YStack
+      <StockPriceLineChart
         testID={SwapTestIDs.stockChartContent}
-        position="relative"
-        h={STOCK_CHART_VISIBLE_HEIGHT}
-        onLayout={(event) => {
-          const width = event.nativeEvent.layout.width;
-          if (width !== chartWidth) {
-            setChartWidth(width);
-          }
-        }}
-      >
-        {hoverData && tooltipPosition ? (
-          <YStack
-            position="absolute"
-            top={tooltipPosition.top}
-            left={tooltipPosition.left}
-            transform={[{ translateX: tooltipPosition.translateX }]}
-            bg="$bg"
-            borderRadius="$2"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            px="$2"
-            py="$1.5"
-            zIndex={100}
-            pointerEvents="none"
-            width={STOCK_CHART_HOVER_TOOLTIP_WIDTH}
-          >
-            <SizableText size="$bodyXs" color="$textDisabled">
-              {hoverTimeText}
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
-              {priceFormatter(hoverData.price)}
-            </SizableText>
-          </YStack>
-        ) : null}
-        <LightweightChart
-          data={chartData}
-          height={STOCK_CHART_VISIBLE_HEIGHT}
-          lineColor={chartLineColor}
-          lineWidth={1}
-          secondaryLineData={chartData}
-          secondaryLineColor={chartLineColor}
-          secondaryLineWidth={2}
-          seriesType="dotted-area"
-          showPriceScale
-          showLastPointMarker={false}
-          preserveChartInstanceOnDataChange
-          // Pulse the chart tail only while the market is open (live updating);
-          // it stops when the market is closed.
-          pulseLastPoint={pulseLastPoint}
-          showTimeScale
-          priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
-          priceScaleEntireTextOnly
-          priceScaleMinimumWidth={STOCK_CHART_PRICE_SCALE_MINIMUM_WIDTH}
-          priceFormatter={priceFormatter}
-          fontSize={11}
-          useTimeScaleTickMarkWithoutUnit
-          onHover={handleChartHover}
-        />
-      </YStack>
+        data={chartData}
+        height={STOCK_CHART_VISIBLE_HEIGHT}
+        pulseLastPoint={pulseLastPoint}
+      />
     );
   }
 

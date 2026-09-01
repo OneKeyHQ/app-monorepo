@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
@@ -207,6 +208,7 @@ export function useMarketTokenList({
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
+  const locale = useLocaleVariant();
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
   // Get minLiquidity from market config
@@ -255,6 +257,7 @@ export function useMarketTokenList({
         category,
         timeFrame,
         networkId,
+        locale,
       }),
     [
       apiNetworkId,
@@ -266,6 +269,7 @@ export function useMarketTokenList({
       category,
       timeFrame,
       networkId,
+      locale,
     ],
   );
   const currentQueryKeyRef = useRef(currentQueryKey);
@@ -273,11 +277,12 @@ export function useMarketTokenList({
   const bypassWebSeedOnceRef = useRef(false);
   const forcedRemoteProvisionalQueryKeysRef = useRef<Set<string>>(new Set());
   const marketTokenListSwrKey = useMemo(() => {
-    if (!platformEnv.isWeb || !hasNetworkId) {
+    if (!hasNetworkId) {
       return undefined;
     }
     return swrKeys.marketHomeTokenList({
       networkId: apiNetworkId,
+      locale,
       sortBy,
       sortType,
       pageSize,
@@ -289,6 +294,7 @@ export function useMarketTokenList({
   }, [
     apiNetworkId,
     hasNetworkId,
+    locale,
     minLiquidity,
     pageSize,
     sortBy,
@@ -371,7 +377,7 @@ export function useMarketTokenList({
       if (!hasNetworkId) {
         return undefined;
       }
-      const requestQueryKey = currentQueryKeyRef.current;
+      const requestQueryKey = currentQueryKey;
       const shouldAllowColdCacheFallback =
         remoteFirstPageLoadedQueryKeyRef.current !== requestQueryKey;
       pendingRemoteFirstPageLoadedQueryKeyRef.current = undefined;
@@ -456,6 +462,7 @@ export function useMarketTokenList({
       minLiquidity,
       type,
       category,
+      currentQueryKey,
       timeFrame,
     ],
     {
@@ -479,14 +486,27 @@ export function useMarketTokenList({
   // Seed and SWR values are available synchronously during render. Initialize
   // the table rows from that value so remounting Market never starts from an
   // empty list while the same cached response waits for an effect.
-  const [transformedData, setTransformedData] = useState<IMarketToken[]>(() =>
-    transformMarketTokenListResponse({
+  const [transformedDataState, setTransformedDataState] = useState<{
+    data: IMarketToken[];
+    queryKey: string;
+  }>(() => ({
+    data: transformMarketTokenListResponse({
       response: apiResult,
       networkId,
       networkLogoUri,
       timeRange: timeRangeRef.current,
     }),
-  );
+    queryKey: currentQueryKey,
+  }));
+  const transformedData =
+    transformedDataState.queryKey === currentQueryKey
+      ? transformedDataState.data
+      : transformMarketTokenListResponse({
+          response: cachedMarketTokenListEntry?.data,
+          networkId,
+          networkLogoUri,
+          timeRange: timeRangeRef.current,
+        });
 
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
   const isSeedResult = Boolean(apiResult?.__fromSeed);
@@ -601,9 +621,13 @@ export function useMarketTokenList({
 
     // Update only rows whose visible fields changed so Table row memoization can
     // survive seed -> remote refresh and polling updates.
-    setTransformedData((prev) =>
-      reuseStableMarketTokenRows({ prev, next: transformed }),
-    );
+    setTransformedDataState((prev) => ({
+      data: reuseStableMarketTokenRows({
+        prev: prev.queryKey === currentQueryKey ? prev.data : [],
+        next: transformed,
+      }),
+      queryKey: currentQueryKey,
+    }));
     setCurrentPage(1);
     setHasReachedEnd(false);
 
@@ -614,6 +638,7 @@ export function useMarketTokenList({
     setIsNetworkSwitching(false);
   }, [
     apiResult,
+    currentQueryKey,
     hasNetworkId,
     networkId,
     networkLogoUri,
@@ -719,7 +744,13 @@ export function useMarketTokenList({
         trackNetworkLoading(networkId, response.list.length);
 
         // Append new data to existing data
-        setTransformedData((prev) => [...prev, ...newTransformed]);
+        setTransformedDataState((prev) => ({
+          data:
+            prev.queryKey === requestQueryKey
+              ? [...prev.data, ...newTransformed]
+              : newTransformed,
+          queryKey: requestQueryKey,
+        }));
         setCurrentPage(nextPage);
       } else {
         // Empty response - stop loading immediately
@@ -766,7 +797,7 @@ export function useMarketTokenList({
     data: transformedData,
     isLoading: effectiveIsLoading,
     isLoadingMore,
-    isNetworkSwitching,
+    isNetworkSwitching: isNetworkSwitching && transformedData.length === 0,
     isProvisionalFirstPageResult,
     initialSortBy,
     initialSortType,

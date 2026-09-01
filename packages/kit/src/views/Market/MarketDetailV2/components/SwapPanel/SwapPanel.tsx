@@ -97,11 +97,13 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   onShowSwapDialog,
+  stockDetailDesktopLayout,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  stockDetailDesktopLayout?: boolean;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -268,7 +270,7 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        {media.lg ? (
+        {media.lg && !stockDetailDesktopLayout ? (
           <LgTradeButton
             swapToken={swapToken}
             onShowSwapDialog={onShowSwapDialog}
@@ -277,7 +279,10 @@ export function SwapPanel({
           <MarketWatchListProviderMirrorV2
             storeName={EJotaiContextStoreNames.marketWatchListV2}
           >
-            <SwapPanelWrap />
+            <SwapPanelWrap
+              stockDetailDesktopLayout={stockDetailDesktopLayout}
+              portfolioData={portfolioData}
+            />
           </MarketWatchListProviderMirrorV2>
         )}
       </AccountSelectorProviderMirror>

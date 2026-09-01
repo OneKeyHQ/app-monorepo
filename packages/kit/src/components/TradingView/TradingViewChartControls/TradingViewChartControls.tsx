@@ -37,7 +37,88 @@ import type {
 
 type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
-type ITradingViewChartMode = 'native' | 'tradingView';
+export type ITradingViewChartMode = 'native' | 'tradingView';
+
+export function TradingViewChartModeSelect({
+  chartMode,
+  isDisabled = false,
+  onChartSwitch,
+  onControlInteraction,
+}: {
+  chartMode: ITradingViewChartMode;
+  isDisabled?: boolean;
+  onChartSwitch: () => void;
+  onControlInteraction?: () => void;
+}) {
+  const intl = useIntl();
+  const chartModeItems = [
+    {
+      label: 'Original',
+      value: 'native' as const,
+    },
+    {
+      label: 'TradingView',
+      value: 'tradingView' as const,
+    },
+  ];
+  const selectedChartModeLabel = chartModeItems.find(
+    (item) => item.value === chartMode,
+  )?.label;
+
+  return (
+    <Select
+      testID="trading-view-chart-switch"
+      title={intl.formatMessage({ id: ETranslations.market_chart })}
+      items={chartModeItems}
+      value={chartMode}
+      disabled={isDisabled}
+      onChange={(nextChartMode) => {
+        if (
+          !isDisabled &&
+          (nextChartMode === 'native' || nextChartMode === 'tradingView') &&
+          nextChartMode !== chartMode
+        ) {
+          onChartSwitch();
+        }
+      }}
+      placement="bottom-end"
+      floatingPanelProps={{ width: 180 }}
+      renderTrigger={({ onPress, disabled }) => (
+        <XStack
+          testID="trading-view-chart-switch-trigger"
+          h={30}
+          px="$3"
+          gap="$1.5"
+          alignItems="center"
+          borderRadius="$full"
+          borderCurve="continuous"
+          bg="$transparent"
+          opacity={disabled ? 0.5 : 1}
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          cursor={disabled ? 'not-allowed' : 'pointer'}
+          userSelect="none"
+          onPress={(event) => {
+            if (disabled) {
+              return;
+            }
+            onControlInteraction?.();
+            onPress?.(event);
+          }}
+        >
+          <SizableText
+            size="$bodyMdMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {selectedChartModeLabel}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
+      )}
+    />
+  );
+}
 
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
@@ -65,6 +146,10 @@ export interface ITradingViewChartControlsProps {
   isControlsReady: boolean;
   intervalControlMode: ITradingViewNativeIntervalControlMode;
   layoutMode: ITradingViewNativeControlsLayoutMode;
+  // Drops the desktop row's own horizontal inset so its first control lines up
+  // with the plot's leading edge. Only assemblies that lay the row directly on
+  // the chart want this; the standalone chart keeps the inset.
+  flushDesktopControls?: boolean;
   chartTimezone: string;
   calendarAvailableTimeRange?: ICalendarPanelAvailableTimeRange;
   isFullscreen: boolean;
@@ -140,6 +225,7 @@ export const TradingViewChartControls = memo(
     isControlsReady,
     intervalControlMode,
     layoutMode,
+    flushDesktopControls,
     chartTimezone,
     calendarAvailableTimeRange,
     isFullscreen,
@@ -173,6 +259,12 @@ export const TradingViewChartControls = memo(
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const desktopFullscreenHeader =
       isDesktopLayout && isFullscreen ? fullscreenHeader : null;
+    let desktopControlsPaddingX = '$4';
+    if (desktopFullscreenHeader) {
+      desktopControlsPaddingX = '$2';
+    } else if (flushDesktopControls) {
+      desktopControlsPaddingX = '$0';
+    }
 
     const chartTypeControl = useMemo(() => {
       if (showChartTypeSelect) {
@@ -301,75 +393,13 @@ export const TradingViewChartControls = memo(
       />
     ) : null;
 
-    const chartModeItems = [
-      {
-        label: 'Original',
-        value: 'native' as const,
-      },
-      {
-        label: 'TradingView',
-        value: 'tradingView' as const,
-      },
-    ];
-    const selectedChartModeLabel = chartModeItems.find(
-      (item) => item.value === chartMode,
-    )?.label;
     const chartSwitchControl =
       chartMode && onChartSwitch ? (
-        <Select
-          testID="trading-view-chart-switch"
-          title={intl.formatMessage({ id: ETranslations.market_chart })}
-          items={chartModeItems}
-          value={chartMode}
-          disabled={isChartSwitchDisabled}
-          onChange={(nextChartMode) => {
-            if (
-              !isChartSwitchDisabled &&
-              (nextChartMode === 'native' || nextChartMode === 'tradingView') &&
-              nextChartMode !== chartMode
-            ) {
-              onChartSwitch();
-            }
-          }}
-          placement="bottom-end"
-          floatingPanelProps={{ width: 180 }}
-          renderTrigger={({ onPress, disabled }) => (
-            <XStack
-              testID="trading-view-chart-switch-trigger"
-              h={30}
-              px="$3"
-              gap="$1.5"
-              alignItems="center"
-              borderRadius="$full"
-              borderCurve="continuous"
-              bg="$transparent"
-              opacity={disabled ? 0.5 : 1}
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              cursor={disabled ? 'not-allowed' : 'pointer'}
-              userSelect="none"
-              onPress={(event) => {
-                if (disabled) {
-                  return;
-                }
-                onControlInteraction?.();
-                onPress?.(event);
-              }}
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {selectedChartModeLabel}
-              </SizableText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-            </XStack>
-          )}
+        <TradingViewChartModeSelect
+          chartMode={chartMode}
+          isDisabled={isChartSwitchDisabled}
+          onChartSwitch={onChartSwitch}
+          onControlInteraction={onControlInteraction}
         />
       ) : null;
 
@@ -471,7 +501,7 @@ export const TradingViewChartControls = memo(
       return (
         <Stack
           bg={backgroundColor}
-          px={desktopFullscreenHeader ? '$2' : '$4'}
+          px={desktopControlsPaddingX}
           py="$1"
           h={
             desktopFullscreenHeader
