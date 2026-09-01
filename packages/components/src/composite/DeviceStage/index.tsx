@@ -205,6 +205,15 @@ const CAPSULE_SEAT_FADE_MS = 200;
 const CONFIRM_DANGER_BG = 'rgba(255,80,70,0.13)';
 const CONFIRM_DANGER_INK = '#FF8D84';
 
+/** The PIN-entry switch line (OK-61489): a text line's 20pt row plus
+ * this slop reaches the 44pt touch floor. */
+const PIN_SWITCH_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+const PIN_SWITCH_PRESS = { opacity: 0.5 };
+const PIN_SWITCH_HOVER = { color: '$textInteractiveHover' } as const;
+/** The title row's device pill is capped so a long Bluetooth name
+ * truncates in the pill instead of squeezing the title. */
+const DEVICE_BADGE_MAX_WIDTH = 132;
+
 /**
  * The scenes the one standing device can play, every one parked built on
  * its single glass (the troupe grant — see useSceneTroupe). Building a
@@ -475,6 +484,7 @@ export function DeviceStage({
   onAuthContinueAnyway,
   onErrorAction,
   onPinSubmit,
+  onSwitchPinInputToApp,
   onSelectWalletType,
   onPassphraseIntroContinue,
   passphraseIntroKeepShortcut,
@@ -1121,6 +1131,57 @@ export function DeviceStage({
     }),
     [intl],
   );
+
+  // enterPin's switch back to app entry (OK-61489). Confirmed is
+  // per-mount on purpose: the preference is persisted through the
+  // handler, so within this surface's life the entry must not re-offer
+  // itself — and the next request mounts a fresh stage anyway.
+  const [pinSwitchDone, setPinSwitchDone] = useState(false);
+  const pinSwitchBusyRef = useRef(false);
+  const handleSwitchPinToApp = useCallback(async () => {
+    if (pinSwitchBusyRef.current) {
+      return;
+    }
+    pinSwitchBusyRef.current = true;
+    try {
+      await onSwitchPinInputToApp?.();
+      setPinSwitchDone(true);
+    } catch {
+      // The write failed; the entry line stays for another try.
+    } finally {
+      pinSwitchBusyRef.current = false;
+    }
+  }, [onSwitchPinInputToApp]);
+  const pinSwitchOffered =
+    stageWordsStep === 'enterPin' &&
+    Boolean(onSwitchPinInputToApp) &&
+    !pinSwitchDone;
+  const pinSwitchSlot = useMemo(
+    () =>
+      pinSwitchOffered ? (
+        <Stack
+          alignSelf="flex-start"
+          cursor="default"
+          onPress={handleSwitchPinToApp}
+          pressStyle={PIN_SWITCH_PRESS}
+          hitSlop={PIN_SWITCH_HIT_SLOP}
+          testID="device-stage-pin-switch-entry"
+        >
+          <SizableText
+            size="$bodyMd"
+            color="$textInteractive"
+            cursor="default"
+            hoverStyle={PIN_SWITCH_HOVER}
+          >
+            {intl.formatMessage({
+              id: ETranslations.device_stage_prefer_pin_in_app__action,
+            })}
+          </SizableText>
+        </Stack>
+      ) : null,
+    [handleSwitchPinToApp, intl, pinSwitchOffered],
+  );
+  const pinSwitchBannerShown = stageWordsStep === 'enterPin' && pinSwitchDone;
   // The third-party cards' runtime words: brand, app name, path.
   const deviceNotFoundText = useMemo(
     () => resolveDeviceNotFoundText(intl, vendor),
@@ -1241,38 +1302,62 @@ export function DeviceStage({
   /* The parked columns, one per arrangement — each element memoized on
    * its own inputs, so a step change re-renders only the seats it
    * touched and every other parked column bails by identity. */
-  const stagePanel = useMemo(
-    () => (
+  // The title row's furniture, trailing the words by the row's own
+  // 8pt gap (the ratified seat — never the card's far edge): the
+  // device pill the device-side steps wear, and, on the payload
+  // card's beat, the count pill.
+  const titleFurniture = useMemo(
+    () =>
+      (deviceName && DEVICE_BADGE_STEPS.has(stageWordsStep)) ||
+      (confirmCount && confirmCardShown) ? (
+        <XStack gap="$2" ai="center" mt="$1">
+          {deviceName && DEVICE_BADGE_STEPS.has(stageWordsStep) ? (
+            <Stack
+              borderRadius="$full"
+              bg="$neutral4"
+              px="$2"
+              py="$1"
+              maxWidth={DEVICE_BADGE_MAX_WIDTH}
+            >
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {deviceName}
+              </SizableText>
+            </Stack>
+          ) : null}
+          {confirmCount && confirmCardShown ? (
+            <Stack
+              borderRadius="$full"
+              borderWidth={1}
+              borderColor="rgba(255,255,255,0.18)"
+              px="$2.5"
+              py="$0.5"
+            >
+              <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
+                {`${confirmCount.current} / ${confirmCount.total}`}
+              </SizableText>
+            </Stack>
+          ) : null}
+        </XStack>
+      ) : null,
+    [confirmCardShown, confirmCount, deviceName, stageWordsStep],
+  );
+  const stagePanel = useMemo(() => {
+    return (
       <YStack>
         <Animated.View style={spacerFlowStyle} />
         <Animated.View style={wordsStyle}>
           <View onLayout={panelMeasureHandlers.stage.words}>
-            <XStack ai="flex-start" jc="space-between" gap="$3">
-              <Stack flexShrink={1}>
-                <StepText
-                  title={stageText.title}
-                  sub={stageText.sub}
-                  animated={stageAnimated}
-                />
-              </Stack>
-              {/* The count pill — this burst's place in a run — rides
-                  the payload card's beat, so the title and its
-                  furniture land together. */}
-              {confirmCount && confirmCardShown ? (
-                <Stack
-                  borderRadius="$full"
-                  borderWidth={1}
-                  borderColor="rgba(255,255,255,0.18)"
-                  px="$2.5"
-                  py="$0.5"
-                  mt="$1"
-                >
-                  <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
-                    {`${confirmCount.current} / ${confirmCount.total}`}
-                  </SizableText>
-                </Stack>
-              ) : null}
-            </XStack>
+            <StepText
+              title={stageText.title}
+              sub={stageText.sub}
+              animated={stageAnimated}
+              subSlot={pinSwitchSlot}
+              titleSlot={titleFurniture}
+            />
           </View>
         </Animated.View>
         {/* Keyed by the drop epoch: exactly the stale-measure drops
@@ -1332,26 +1417,65 @@ export function DeviceStage({
               ) : null}
             </YStack>
           ) : null}
+          {/* The set-to-app banner (OK-61489): the entry line's landing
+              state, in the tail the way confirm's payload card rides —
+              the switch is written, this request still ends on the
+              device. */}
+          {pinSwitchBannerShown ? (
+            <XStack
+              borderRadius="$6"
+              borderCurve="continuous"
+              bg="$neutral2"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$neutral4"
+              px="$4"
+              py="$3"
+              gap="$2"
+              ai="flex-start"
+            >
+              <Stack mt="$0.5">
+                <Icon
+                  name="Checkmark2Solid"
+                  size="$4"
+                  color="$textInteractive"
+                />
+              </Stack>
+              <YStack flex={1} gap="$1">
+                <SizableText size="$bodyMd" color="$textInteractive">
+                  {intl.formatMessage({
+                    id: ETranslations.device_stage_pin_set_to_app__title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.device_stage_pin_set_to_app__desc,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+          ) : null}
         </View>
       </YStack>
-    ),
-    [
-      authChecklist,
-      confirmCardShown,
-      confirmCount,
-      confirmDescription,
-      confirmDescriptionDanger,
-      confirmDetails,
-      confirmMessage,
-      panelMeasureHandlers,
-      spacerFlowStyle,
-      stageAnimated,
-      stageChecklistShown,
-      stageTailEpoch,
-      stageText,
-      wordsStyle,
-    ],
-  );
+    );
+  }, [
+    authChecklist,
+    confirmCardShown,
+    confirmDescription,
+    confirmDescriptionDanger,
+    confirmDetails,
+    confirmMessage,
+    intl,
+    panelMeasureHandlers,
+    pinSwitchBannerShown,
+    pinSwitchSlot,
+    spacerFlowStyle,
+    stageAnimated,
+    stageChecklistShown,
+    stageTailEpoch,
+    stageText,
+    titleFurniture,
+    wordsStyle,
+  ]);
   const pinPanel = useMemo(
     () => (
       <YStack>
@@ -1942,22 +2066,6 @@ export function DeviceStage({
     [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
-  // The card's corner badge: the device's name at the top left, the
-  // close button's mirror — worn only by the device-side steps, where
-  // the person must reach for the physical device the badge names.
-  const cornerBadge = useMemo(() => {
-    if (!deviceName || !DEVICE_BADGE_STEPS.has(shownStep)) {
-      return null;
-    }
-    return (
-      <Stack borderRadius="$full" bg="$neutral4" px="$2.5" py="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {deviceName}
-        </SizableText>
-      </Stack>
-    );
-  }, [deviceName, shownStep]);
-
   return (
     <MorphOverlay
       morph={morph}
@@ -1970,7 +2078,6 @@ export function DeviceStage({
       modal
       capsuleKey={capsuleText.title}
       capsule={capsule}
-      cornerBadge={cornerBadge}
       stageLayer={stageLayer}
       seats={seats}
     />

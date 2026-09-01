@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
-import { SizableText } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 import { SWAP_IN_MS, SWAP_OUT_MS } from '../MorphOverlay';
 
 /**
@@ -50,6 +50,8 @@ export function StepText({
   sub,
   animated,
   subColor = '$textSubdued',
+  subSlot,
+  titleSlot,
 }: {
   title: string;
   sub: string;
@@ -57,6 +59,15 @@ export function StepText({
   /** The sub line's color — subdued by default; the NOTE beat wears
    * critical on the same metrics. */
   subColor?: ComponentProps<typeof SizableText>['color'];
+  /** Interactive content in the sub line's seat (same 4pt gap under the
+   * title). Rendered live, outside the swap's shown-text cache: a slot
+   * change never replays the title, it just appears in place. */
+  subSlot?: ReactNode;
+  /** Furniture riding the title's own row, 8pt after the words (the
+   * device pill, the count pill) — the ratified seat trails the title,
+   * it does not sit at the card's far edge. Live like subSlot; the
+   * title shrinks first, the slot never squeezes. */
+  titleSlot?: ReactNode;
 }) {
   const [shown, setShown] = useState({ title, sub });
   const targetRef = useRef({ title, sub });
@@ -103,12 +114,22 @@ export function StepText({
   const style = useMemo(() => [styles.textBlock, motionStyle], [motionStyle]);
   return (
     <Animated.View style={style}>
-      <SizableText size="$heading2xl">{shown.title}</SizableText>
+      {titleSlot ? (
+        <XStack ai="flex-start" gap="$2">
+          <SizableText size="$heading2xl" flexShrink={1}>
+            {shown.title}
+          </SizableText>
+          {titleSlot}
+        </XStack>
+      ) : (
+        <SizableText size="$heading2xl">{shown.title}</SizableText>
+      )}
       {shown.sub ? (
         <SizableText size="$bodyMd" color={subColor}>
           {shown.sub}
         </SizableText>
       ) : null}
+      {subSlot}
     </Animated.View>
   );
 }
