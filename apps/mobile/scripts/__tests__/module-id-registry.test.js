@@ -218,6 +218,27 @@ describe('module ID registry CLI helpers', () => {
     expect(result.reassigned).toBe(1);
   });
 
+  it('reassigns new IDs outside their module domains', () => {
+    const base = createRegistry({
+      modules: { 'packages/a.ts': 1 },
+    });
+    const current = createRegistry({
+      modules: {
+        'node_modules/react/index.js': 2,
+        'packages/a.ts': 1,
+        'packages/b.ts': MODULE_ID_RANGES.nodeModules.start,
+      },
+    });
+    const result = reconcileRegistries(base, current);
+
+    expect(result.registry.modules).toEqual({
+      'node_modules/react/index.js': MODULE_ID_RANGES.nodeModules.start,
+      'packages/a.ts': 1,
+      'packages/b.ts': 2,
+    });
+    expect(result.reassigned).toBe(2);
+  });
+
   it('rejects changes to IDs and states inherited from the base registry', () => {
     const base = createRegistry({
       modules: { 'packages/a.ts': 1 },

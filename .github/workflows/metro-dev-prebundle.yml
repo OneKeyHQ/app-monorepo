@@ -1,0 +1,235 @@
+# cspell:words prebundle
+name: Metro Dev Prebundle
+
+on:
+  push:
+    branches:
+      - x
+  schedule:
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: metro-dev-prebundle-x
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  resolve:
+    name: Resolve public prebundle
+    if: github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      exists: ${{ steps.release.outputs.exists }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          check-latest: true
+
+      - name: Resolve immutable release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$(node apps/mobile/scripts/metro-dev-prebundle.js tag)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          release_is_draft="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .draft")"
+          if [[ "$release_is_draft" == "false" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Prebundle release already exists: $tag"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            if [[ "$release_is_draft" == "true" ]]; then
+              echo "A draft prebundle release will be resumed: $tag"
+            fi
+          fi
+
+      - name: Write resolve summary
+        env:
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          {
+            echo "### Metro dev prebundle"
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Already existed: \`$RELEASE_EXISTS\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build public prebundle
+    needs: resolve
+    if: needs.resolve.outputs.exists != 'true'
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          check-latest: true
+          scope: '@onekeyhq'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn install --immutable
+
+      - name: Build iOS and Android prebundles
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: yarn workspace @onekeyhq/mobile dev-vendor:build --platform all
+
+      - name: Package release assets and notices
+        run: >-
+          yarn workspace @onekeyhq/mobile metro-dev-prebundle:package
+          --source-commit "$GITHUB_SHA"
+
+      - name: Upload prebundle release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: metro-dev-prebundle-release
+          path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Publish public prebundle
+    needs:
+      - resolve
+      - build
+    if: needs.resolve.outputs.exists != 'true' && needs.build.result == 'success'
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout trust policy
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Download prebundle release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: metro-dev-prebundle-release
+          path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release
+
+      - name: Verify downloaded release asset set
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          for asset in \
+            THIRD_PARTY_NOTICES.txt \
+            metro-dev-prebundle-packages.json \
+            metro-dev-prebundle-release.json \
+            metro-dev-prebundle-ios-common.js.gz \
+            metro-dev-prebundle-ios-common.hbc.gz \
+            metro-dev-prebundle-ios-manifest.json \
+            metro-dev-prebundle-android-common.js.gz \
+            metro-dev-prebundle-android-common.hbc.gz \
+            metro-dev-prebundle-android-manifest.json; do
+            test -s "$release_dir/$asset"
+          done
+
+      - name: Generate build provenance attestations
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: apps/mobile/out-dir-bundle/metro-dev-prebundle-release/*
+
+      - name: Verify generated provenance offline
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          trusted_root="apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl"
+          for asset in "$release_dir"/*; do
+            gh attestation verify "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --bundle "$ATTESTATION_BUNDLE" \
+              --custom-trusted-root "$trusted_root" \
+              --signer-workflow "OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml" \
+              --source-ref "refs/heads/x" \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners
+          done
+          cp "$ATTESTATION_BUNDLE" \
+            "$release_dir/metro-dev-prebundle-attestations.jsonl"
+          test -s "$release_dir/metro-dev-prebundle-attestations.jsonl"
+
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_dir="apps/mobile/out-dir-bundle/metro-dev-prebundle-release"
+          release_title="Metro dev prebundle ${RELEASE_TAG##*-}"
+          release_notes="Public development prebundle for compatible iOS and Android Metro builds. Assets include generated third-party notices and GitHub build provenance attestations."
+          release_is_draft="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .draft")"
+          if [[ "$release_is_draft" == "false" ]]; then
+            echo "Prebundle release was published by another run: $RELEASE_TAG"
+          else
+            if [[ "$release_is_draft" != "true" ]]; then
+              gh release create "$RELEASE_TAG" \
+                --draft \
+                --target "$GITHUB_SHA" \
+                --title "$release_title" \
+                --notes "$release_notes" \
+                --prerelease \
+                --latest=false
+            fi
+            gh release upload "$RELEASE_TAG" "$release_dir"/* --clobber
+            gh release edit "$RELEASE_TAG" \
+              --draft=false \
+              --latest=false \
+              --notes "$release_notes" \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "$release_title"
+          fi
+
+      - name: Write publish summary
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          {
+            echo "### Metro dev prebundle"
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Published: \`true\`"
+          } >> "$GITHUB_STEP_SUMMARY"
