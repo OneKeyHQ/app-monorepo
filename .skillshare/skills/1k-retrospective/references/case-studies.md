@@ -311,3 +311,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `HeaderRight`, `MDHeader`, and `BottomMenu` statically imported `MoreActionButton/index.tsx` (~56 KiB). Layout and theme work in that file entered the first-visit graph.
 **Fix**: Load the trigger through `LazyMoreActionButton` so the popover module is a separate chunk. Desktop body uses `overflow-y: auto`.
 **Catchable by**: Section 3: header-mounted widgets that grow must stay behind a lazy import; NEW — do not add first-screen source to a file already in the web startup graph
+
+## Case: New lazy native module missing module-id registry
+**Date**: 2026-09-01 | **Platforms**: iOS/Android (native union build)
+**Symptom**: Native startup graph CI failed: `LazyMoreActionButton.tsx` is not registered in `module-id-registry.json`.
+**Root Cause**: Native three-bundle allocation requires every module path in the graph to have a stable ID. Adding a new file under `packages/kit` without `module-id:update` breaks unionBuild.
+**Fix**: Run `yarn workspace @onekeyhq/mobile module-id:update --map` for the new path and commit the registry row (`7931`).
+**Catchable by**: NEW — new files that enter the native graph must be added to `apps/mobile/bundle-registry/module-id-registry.json` before push
