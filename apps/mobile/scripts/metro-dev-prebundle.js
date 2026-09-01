@@ -44,9 +44,16 @@ const CACHE_LOCK_HEARTBEAT_INTERVAL_MS = 30_000;
 const GH_COMMAND_TIMEOUT_MS = 2 * 60_000;
 const SUPPORTED_PLATFORMS = ['ios', 'android'];
 const MAX_RELEASE_MANIFEST_BYTES = 2 * 1024 * 1024;
+const MAX_OCI_MANIFEST_BYTES = 2 * 1024 * 1024;
+const MAX_OCI_TOKEN_BYTES = 64 * 1024;
 const MAX_ASSET_BYTES = 512 * 1024 * 1024;
 const MAX_ATTESTATION_BYTES = 8 * 1024 * 1024;
 const MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+const OCI_IMAGE_MANIFEST_MEDIA_TYPE =
+  'application/vnd.oci.image.manifest.v1+json';
+const OCI_LAYER_TITLE_ANNOTATION = 'org.opencontainers.image.title';
+const OCI_SOURCE_ANNOTATION = 'org.opencontainers.image.source';
+const OCI_REVISION_ANNOTATION = 'org.opencontainers.image.revision';
 const PUBLIC_RELEASE_LICENSE_OVERRIDES = {
   '@aptos-labs/siwa@0.4.0': {
     license: 'Apache-2.0',
@@ -652,7 +659,8 @@ async function packagePrebundleRelease({
         strategyVersion: devVendorConfig.STRATEGY_VERSION,
       },
       platforms,
-      repository: devVendorConfig.RELEASE_REPOSITORY,
+      artifactRepository: `${devVendorConfig.OCI_REGISTRY}/${devVendorConfig.OCI_REPOSITORY}`,
+      repository: devVendorConfig.SOURCE_REPOSITORY,
       schemaVersion: devVendorConfig.RELEASE_SCHEMA_VERSION,
       sourceCommit,
       tagName,
@@ -697,7 +705,9 @@ function verifyReleaseManifest({ manifest, platform, repoRoot = REPO_ROOT }) {
   const tagName = `${devVendorConfig.releaseTagPrefix}-${compatibilityKey}`;
   if (
     manifest?.schemaVersion !== devVendorConfig.RELEASE_SCHEMA_VERSION ||
-    manifest.repository !== devVendorConfig.RELEASE_REPOSITORY ||
+    manifest.artifactRepository !==
+      `${devVendorConfig.OCI_REGISTRY}/${devVendorConfig.OCI_REPOSITORY}` ||
+    manifest.repository !== devVendorConfig.SOURCE_REPOSITORY ||
     manifest.compatibilityKey !== compatibilityKey ||
     manifest.tagName !== tagName ||
     !/^[0-9a-f]{40}$/.test(manifest.sourceCommit || '')
@@ -730,41 +740,7 @@ function verifyReleaseManifest({ manifest, platform, repoRoot = REPO_ROOT }) {
   return { compatibilityKey, platformAssets, tagName };
 }
 
-function getReleaseAssetUrl(tagName, fileName, releaseBaseUrl) {
-  const baseUrl =
-    releaseBaseUrl ||
-    `https://github.com/${devVendorConfig.RELEASE_REPOSITORY}/releases/download/${encodeURIComponent(
-      tagName,
-    )}`;
-  return `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(
-    assertSafeFileName(fileName),
-  )}`;
-}
-
-async function downloadReleaseAsset({
-  fetchImpl = globalThis.fetch,
-  fileName,
-  maxBytes = MAX_ASSET_BYTES,
-  releaseBaseUrl,
-  tagName,
-  timeoutMs = 120_000,
-}) {
-  if (typeof fetchImpl !== 'function') {
-    throw new Error('[metroDevPrebundle] This Node.js runtime has no fetch.');
-  }
-  const response = await fetchImpl(
-    getReleaseAssetUrl(tagName, fileName, releaseBaseUrl),
-    {
-      headers: { 'User-Agent': 'OneKey-Metro-Dev-Prebundle' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(
-      `[metroDevPrebundle] Download failed for ${fileName}: HTTP ${response.status}.`,
-    );
-  }
+async function readResponseBody({ response, fileName, maxBytes }) {
   const declaredBytes = Number(response.headers.get('content-length'));
   if (Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
     throw new Error(
@@ -789,6 +765,297 @@ async function downloadReleaseAsset({
     chunks.push(bytes);
   }
   return Buffer.concat(chunks, receivedBytes);
+}
+
+function parseBearerChallenge(challengeHeader) {
+  const schemeMatch = challengeHeader?.match(/^Bearer\s+(.+)$/i);
+  if (!schemeMatch) {
+    throw new Error(
+      '[metroDevPrebundle] OCI registry returned an unsupported authentication challenge.',
+    );
+  }
+  const parameters = {};
+  const parameterPattern = /(?:^|,)\s*([a-z][a-z0-9_-]*)="([^"]*)"/gi;
+  for (const match of schemeMatch[1].matchAll(parameterPattern)) {
+    parameters[match[1].toLowerCase()] = match[2];
+  }
+  if (!parameters.realm) {
+    throw new Error(
+      '[metroDevPrebundle] OCI registry authentication challenge has no realm.',
+    );
+  }
+  return parameters;
+}
+
+function getOciRegistryBaseUrl(registryBaseUrl) {
+  const url = new URL(
+    registryBaseUrl || `https://${devVendorConfig.OCI_REGISTRY}`,
+  );
+  if (url.protocol !== 'https:' || url.username || url.password) {
+    throw new Error('[metroDevPrebundle] OCI registry URL must use HTTPS.');
+  }
+  url.pathname = url.pathname.replace(/\/+$/, '');
+  url.search = '';
+  url.hash = '';
+  return url.toString().replace(/\/$/, '');
+}
+
+function createOciClient({
+  fetchImpl = globalThis.fetch,
+  registryBaseUrl,
+} = {}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('[metroDevPrebundle] This Node.js runtime has no fetch.');
+  }
+  const baseUrl = getOciRegistryBaseUrl(registryBaseUrl);
+  const repositoryScope = `repository:${devVendorConfig.OCI_REPOSITORY}:pull`;
+  let authorization;
+
+  async function fetchRegistry(url, { accept, timeoutMs }) {
+    const request = () =>
+      fetchImpl(url, {
+        headers: {
+          Accept: accept,
+          ...(authorization ? { Authorization: authorization } : {}),
+          'User-Agent': 'OneKey-Metro-Dev-Prebundle',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    let response = await request();
+    if (response.status !== 401) return response;
+
+    const challenge = parseBearerChallenge(
+      response.headers.get('www-authenticate'),
+    );
+    if (challenge.scope && challenge.scope !== repositoryScope) {
+      throw new Error(
+        '[metroDevPrebundle] OCI registry requested an unexpected authentication scope.',
+      );
+    }
+    const tokenUrl = new URL(challenge.realm);
+    if (
+      tokenUrl.protocol !== 'https:' ||
+      tokenUrl.username ||
+      tokenUrl.password ||
+      tokenUrl.origin !== new URL(baseUrl).origin
+    ) {
+      throw new Error(
+        '[metroDevPrebundle] OCI registry returned an untrusted authentication realm.',
+      );
+    }
+    if (challenge.service)
+      tokenUrl.searchParams.set('service', challenge.service);
+    tokenUrl.searchParams.set('scope', challenge.scope || repositoryScope);
+    const tokenResponse = await fetchImpl(tokenUrl, {
+      headers: { 'User-Agent': 'OneKey-Metro-Dev-Prebundle' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!tokenResponse.ok) {
+      throw new Error(
+        `[metroDevPrebundle] OCI registry token request failed: HTTP ${tokenResponse.status}.`,
+      );
+    }
+    const tokenBytes = await readResponseBody({
+      fileName: 'OCI registry token',
+      maxBytes: MAX_OCI_TOKEN_BYTES,
+      response: tokenResponse,
+    });
+    let tokenPayload;
+    try {
+      tokenPayload = JSON.parse(tokenBytes.toString('utf8'));
+    } catch (error) {
+      throw new Error(
+        '[metroDevPrebundle] OCI registry token response is not valid JSON.',
+        { cause: error },
+      );
+    }
+    const token = tokenPayload.token || tokenPayload.access_token;
+    if (
+      typeof token !== 'string' ||
+      token.length === 0 ||
+      token.length > 16_384
+    ) {
+      throw new Error(
+        '[metroDevPrebundle] OCI registry returned an invalid access token.',
+      );
+    }
+    authorization = `Bearer ${token}`;
+    response = await request();
+    return response;
+  }
+
+  const repositoryUrl = `${baseUrl}/v2/${devVendorConfig.OCI_REPOSITORY}`;
+  return {
+    fetchBlob(digest, timeoutMs = 120_000) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
+        throw new Error('[metroDevPrebundle] Invalid OCI blob digest.');
+      }
+      return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
+        accept: 'application/octet-stream',
+        timeoutMs,
+      });
+    },
+    fetchManifest(tagName) {
+      return fetchRegistry(
+        `${repositoryUrl}/manifests/${encodeURIComponent(
+          assertReleaseTag(tagName),
+        )}`,
+        {
+          accept: OCI_IMAGE_MANIFEST_MEDIA_TYPE,
+          timeoutMs: 15_000,
+        },
+      );
+    },
+  };
+}
+
+function getExpectedOciAssetNames() {
+  return [
+    THIRD_PARTY_NOTICES_NAME,
+    PACKAGE_INVENTORY_NAME,
+    RELEASE_MANIFEST_NAME,
+    devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME,
+    ...SUPPORTED_PLATFORMS.flatMap((platform) =>
+      Object.values(getPlatformAssetNames(platform)),
+    ),
+  ];
+}
+
+function verifyOciManifest(manifest) {
+  if (
+    manifest?.schemaVersion !== 2 ||
+    manifest.mediaType !== OCI_IMAGE_MANIFEST_MEDIA_TYPE ||
+    manifest.artifactType !== devVendorConfig.OCI_ARTIFACT_TYPE ||
+    !manifest.config ||
+    !Array.isArray(manifest.layers) ||
+    manifest.annotations?.[OCI_SOURCE_ANNOTATION] !==
+      `https://github.com/${devVendorConfig.SOURCE_REPOSITORY}`
+  ) {
+    throw new Error('[metroDevPrebundle] Invalid OCI artifact manifest.');
+  }
+  for (const descriptor of [manifest.config, ...manifest.layers]) {
+    if (
+      typeof descriptor.mediaType !== 'string' ||
+      descriptor.mediaType.length === 0 ||
+      !Number.isSafeInteger(descriptor.size) ||
+      descriptor.size <= 0 ||
+      !/^sha256:[0-9a-f]{64}$/.test(descriptor.digest || '')
+    ) {
+      throw new Error('[metroDevPrebundle] Invalid OCI descriptor.');
+    }
+  }
+  const expectedNames = getExpectedOciAssetNames();
+  if (manifest.layers.length !== expectedNames.length) {
+    throw new Error(
+      '[metroDevPrebundle] OCI artifact layer set is incomplete.',
+    );
+  }
+  const layersByFileName = new Map();
+  for (const descriptor of manifest.layers) {
+    const fileName = assertSafeFileName(
+      descriptor.annotations?.[OCI_LAYER_TITLE_ANNOTATION],
+    );
+    if (!expectedNames.includes(fileName) || layersByFileName.has(fileName)) {
+      throw new Error(
+        `[metroDevPrebundle] Invalid OCI artifact layer: ${fileName}.`,
+      );
+    }
+    layersByFileName.set(fileName, descriptor);
+  }
+  if (expectedNames.some((fileName) => !layersByFileName.has(fileName))) {
+    throw new Error(
+      '[metroDevPrebundle] OCI artifact layer set is incomplete.',
+    );
+  }
+  return layersByFileName;
+}
+
+async function resolveOciArtifact({ fetchImpl, registryBaseUrl, tagName }) {
+  const client = createOciClient({ fetchImpl, registryBaseUrl });
+  const response = await client.fetchManifest(tagName);
+  if (!response.ok) {
+    throw new Error(
+      `[metroDevPrebundle] OCI manifest download failed: HTTP ${response.status}.`,
+    );
+  }
+  const contentType = response.headers.get('content-type')?.split(';')[0];
+  if (contentType !== OCI_IMAGE_MANIFEST_MEDIA_TYPE) {
+    throw new Error(
+      `[metroDevPrebundle] OCI registry returned an unexpected manifest type: ${contentType || 'missing'}.`,
+    );
+  }
+  const manifestBytes = await readResponseBody({
+    fileName: 'OCI artifact manifest',
+    maxBytes: MAX_OCI_MANIFEST_BYTES,
+    response,
+  });
+  const manifestDigest = response.headers.get('docker-content-digest');
+  if (
+    !/^sha256:[0-9a-f]{64}$/.test(manifestDigest || '') ||
+    manifestDigest !== `sha256:${sha256(manifestBytes)}`
+  ) {
+    throw new Error('[metroDevPrebundle] OCI manifest digest mismatch.');
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestBytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(
+      '[metroDevPrebundle] OCI artifact manifest is not valid JSON.',
+      { cause: error },
+    );
+  }
+  return {
+    client,
+    layersByFileName: verifyOciManifest(manifest),
+    manifest,
+    manifestDigest,
+  };
+}
+
+async function downloadOciAsset({
+  fileName,
+  maxBytes = MAX_ASSET_BYTES,
+  ociArtifact,
+  timeoutMs = 120_000,
+}) {
+  const safeFileName = assertSafeFileName(fileName);
+  const descriptor = ociArtifact.layersByFileName.get(safeFileName);
+  if (!descriptor) {
+    throw new Error(
+      `[metroDevPrebundle] OCI artifact has no layer for ${safeFileName}.`,
+    );
+  }
+  if (descriptor.size > maxBytes) {
+    throw new Error(
+      `[metroDevPrebundle] Downloaded asset is too large: ${safeFileName}.`,
+    );
+  }
+  const response = await ociArtifact.client.fetchBlob(
+    descriptor.digest,
+    timeoutMs,
+  );
+  if (!response.ok) {
+    throw new Error(
+      `[metroDevPrebundle] OCI blob download failed for ${safeFileName}: HTTP ${response.status}.`,
+    );
+  }
+  const content = await readResponseBody({
+    fileName: safeFileName,
+    maxBytes,
+    response,
+  });
+  if (
+    content.length !== descriptor.size ||
+    `sha256:${sha256(content)}` !== descriptor.digest
+  ) {
+    throw new Error(
+      `[metroDevPrebundle] OCI blob integrity mismatch: ${safeFileName}.`,
+    );
+  }
+  return content;
 }
 
 function assertDownloadedAsset(content, metadata) {
@@ -818,18 +1085,11 @@ function getAttestationBundlePath(cacheDirectory) {
   );
 }
 
-async function downloadReleaseAttestationBundle({
-  bundlePath,
-  fetchImpl,
-  releaseBaseUrl,
-  tagName,
-}) {
-  const bundle = await downloadReleaseAsset({
-    fetchImpl,
+async function downloadReleaseAttestationBundle({ bundlePath, ociArtifact }) {
+  const bundle = await downloadOciAsset({
     fileName: devVendorConfig.RELEASE_ATTESTATION_BUNDLE_NAME,
     maxBytes: MAX_ATTESTATION_BYTES,
-    releaseBaseUrl,
-    tagName,
+    ociArtifact,
     timeoutMs: 15_000,
   });
   await fs.promises.writeFile(bundlePath, bundle, { mode: 0o600 });
@@ -850,7 +1110,7 @@ async function verifyArtifactAttestation({
     'verify',
     artifactPath,
     '--repo',
-    devVendorConfig.RELEASE_REPOSITORY,
+    devVendorConfig.SOURCE_REPOSITORY,
     '--bundle',
     bundlePath,
     '--custom-trusted-root',
@@ -910,7 +1170,7 @@ async function downloadReleaseIntoCache({
   cacheDirectory,
   fetchImpl,
   platform,
-  releaseBaseUrl,
+  registryBaseUrl,
   repoRoot,
   tagName,
 }) {
@@ -918,12 +1178,15 @@ async function downloadReleaseIntoCache({
   await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
   await fs.promises.mkdir(temporaryDirectory, { mode: 0o700, recursive: true });
   try {
-    const releaseManifestBytes = await downloadReleaseAsset({
+    const ociArtifact = await resolveOciArtifact({
       fetchImpl,
+      registryBaseUrl,
+      tagName,
+    });
+    const releaseManifestBytes = await downloadOciAsset({
       fileName: RELEASE_MANIFEST_NAME,
       maxBytes: MAX_RELEASE_MANIFEST_BYTES,
-      releaseBaseUrl,
-      tagName,
+      ociArtifact,
       timeoutMs: 15_000,
     });
     let releaseManifest;
@@ -936,6 +1199,14 @@ async function downloadReleaseIntoCache({
       );
     }
     const sourceCommit = assertSourceCommit(releaseManifest.sourceCommit);
+    if (
+      ociArtifact.manifest.annotations?.[OCI_REVISION_ANNOTATION] !==
+      sourceCommit
+    ) {
+      throw new Error(
+        '[metroDevPrebundle] OCI artifact revision does not match its release manifest.',
+      );
+    }
     const releaseManifestPath = path.join(
       temporaryDirectory,
       RELEASE_MANIFEST_NAME,
@@ -947,9 +1218,7 @@ async function downloadReleaseIntoCache({
       getAttestationBundlePath(temporaryDirectory);
     await attestationDownloader({
       bundlePath: releaseManifestBundlePath,
-      fetchImpl,
-      releaseBaseUrl,
-      tagName,
+      ociArtifact,
     });
     await attestationVerifier({
       artifactPath: releaseManifestPath,
@@ -964,11 +1233,9 @@ async function downloadReleaseIntoCache({
     });
 
     for (const metadata of Object.values(platformAssets)) {
-      const content = await downloadReleaseAsset({
-        fetchImpl,
+      const content = await downloadOciAsset({
         fileName: metadata.file,
-        releaseBaseUrl,
-        tagName,
+        ociArtifact,
       });
       assertDownloadedAsset(content, metadata);
       const artifactPath = path.join(temporaryDirectory, metadata.file);
@@ -1268,7 +1535,7 @@ async function restorePlatformFromRelease({
   fetchImpl,
   platform,
   projectRoot = MOBILE_DIR,
-  releaseBaseUrl,
+  registryBaseUrl,
   repoRoot = REPO_ROOT,
 }) {
   const tagName = getReleaseTag(repoRoot, process.env);
@@ -1317,7 +1584,7 @@ async function restorePlatformFromRelease({
         cacheDirectory,
         fetchImpl,
         platform,
-        releaseBaseUrl,
+        registryBaseUrl,
         repoRoot,
         tagName,
       });
@@ -1397,9 +1664,9 @@ module.exports = {
   assertPublicRedistributionPolicy,
   assertSafeOutputDirectory,
   collectPackageInventory,
-  downloadReleaseAttestationBundle,
   createThirdPartyNotices,
-  downloadReleaseAsset,
+  downloadOciAsset,
+  downloadReleaseAttestationBundle,
   getPlatformCacheDirectory,
   getPlatformAssetNames,
   getReleaseOutputDirectory,
@@ -1408,12 +1675,14 @@ module.exports = {
   packagePrebundleRelease,
   parseArgs,
   replaceDirectoryAtomically,
+  resolveOciArtifact,
   restorePlatformFromRelease,
   runGhCommand,
   touchAndPruneSharedCache,
   verifyArtifactAttestation,
   verifyAndReplaceDirectory,
   verifyCachedReleaseAssets,
+  verifyOciManifest,
   verifyReleaseManifest,
   withCacheLock,
 };
