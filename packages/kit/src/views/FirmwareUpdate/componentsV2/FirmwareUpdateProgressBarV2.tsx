@@ -204,7 +204,6 @@ export function FirmwareUpdateProgressBarView({
   title,
   progress,
   desc,
-  transferMetricsText,
   estimatedTimeText,
   isDone,
   isVerified,
@@ -213,7 +212,6 @@ export function FirmwareUpdateProgressBarView({
   title: string;
   progress: number | null | undefined;
   desc: string;
-  transferMetricsText?: string;
   estimatedTimeText?: string;
   isDone?: boolean;
   isVerified?: boolean;
@@ -278,11 +276,6 @@ export function FirmwareUpdateProgressBarView({
             </SizableText>
           ) : null}
         </XStack>
-        {transferMetricsText ? (
-          <SizableText size="$bodyMd" color="$textSubdued" mt="$1">
-            {transferMetricsText}
-          </SizableText>
-        ) : null}
       </Stack>
     </>
   );
@@ -335,26 +328,20 @@ export function FirmwareUpdateProgressBarV2({
     completedState?.payload?.firmwareTransferMetrics;
   const firmwareTipMessage = state?.payload?.firmwareTipData?.message;
 
-  const transferDisplayText = useMemo<{
-    transferMetricsText?: string;
-    estimatedTimeText?: string;
-  }>(() => {
+  const estimatedTimeText = useMemo<string | undefined>(() => {
     if (firmwareProgressType !== 'transferData') {
-      return {};
+      return undefined;
     }
     const displayMetrics = getFirmwareTransferDisplayMetrics(
       firmwareTransferMetrics,
     );
     if (!displayMetrics) {
-      return {};
+      return undefined;
     }
-    return {
-      transferMetricsText: `${displayMetrics.transferredText} / ${displayMetrics.totalText} · ${displayMetrics.speedText}`,
-      estimatedTimeText: intl.formatMessage(
-        { id: ETranslations.firmware_update_estimated_time__desc },
-        { time: displayMetrics.estimatedRemainingText ?? '- s' },
-      ),
-    };
+    return intl.formatMessage(
+      { id: ETranslations.firmware_update_estimated_time__desc },
+      { time: displayMetrics.estimatedRemainingText ?? '- s' },
+    );
   }, [firmwareProgressType, firmwareTransferMetrics, intl]);
 
   const firmwareProgressRef = useRef(firmwareProgress);
@@ -782,8 +769,7 @@ export function FirmwareUpdateProgressBarV2({
         }
         progress={progress}
         desc={desc}
-        transferMetricsText={transferDisplayText.transferMetricsText}
-        estimatedTimeText={transferDisplayText.estimatedTimeText}
+        estimatedTimeText={estimatedTimeText}
         isDone={isDoneInternal}
         isVerified={isVerified}
       />
