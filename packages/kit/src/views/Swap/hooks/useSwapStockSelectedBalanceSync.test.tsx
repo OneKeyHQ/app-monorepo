@@ -13,6 +13,33 @@ import {
 import { useSwapStockSelectedBalanceSync } from './useSwapStockSelectedBalanceSync';
 
 describe('useSwapStockSelectedBalanceSync', () => {
+  it('does not loop when retained Stock and current token screens share a store', () => {
+    const store = createStore();
+    const Wrapper = ({ children }: { children?: ReactNode }) => (
+      <ProviderJotaiContextSwap store={store}>
+        {children}
+      </ProviderJotaiContextSwap>
+    );
+
+    renderHook(
+      () => {
+        useSwapStockSelectedBalanceSync({
+          balance: '5',
+          enabled: true,
+          ownerScope: 'stock-screen',
+        });
+        useSwapStockSelectedBalanceSync({
+          balance: undefined,
+          enabled: false,
+          ownerScope: 'token-screen',
+        });
+      },
+      { wrapper: Wrapper },
+    );
+
+    expect(store.get(swapStockSelectedFromTokenBalanceAtom())).toBe('');
+  });
+
   it('clears the previous owner balance before publishing the next live balance', () => {
     const store = createStore();
     store.set(swapStockSelectedFromTokenBalanceAtom(), '999');

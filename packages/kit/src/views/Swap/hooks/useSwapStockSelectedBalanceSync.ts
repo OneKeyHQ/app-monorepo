@@ -11,13 +11,12 @@ export function useSwapStockSelectedBalanceSync({
   enabled: boolean;
   ownerScope: string;
 }) {
-  const [storedBalance, setStoredBalance] =
-    useSwapStockSelectedFromTokenBalanceAtom();
+  const [, setStoredBalance] = useSwapStockSelectedFromTokenBalanceAtom();
 
   useLayoutEffect(() => {
     const nextBalance = enabled ? (balance ?? '') : '';
-    if (storedBalance !== nextBalance) {
-      setStoredBalance(nextBalance);
-    }
-  }, [balance, enabled, ownerScope, setStoredBalance, storedBalance]);
+    setStoredBalance((storedBalance) =>
+      storedBalance === nextBalance ? storedBalance : nextBalance,
+    );
+  }, [balance, enabled, ownerScope, setStoredBalance]);
 }
