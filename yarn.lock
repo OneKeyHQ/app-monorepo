@@ -10102,6 +10102,7 @@ __metadata:
     react-refresh: "npm:^0.14.0"
     react-test-renderer: "npm:19.2.3"
     react-virtualized: "npm:^9.22.6"
+    retry: "npm:0.13.1"
     rimraf: "npm:3.0.2"
     rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
