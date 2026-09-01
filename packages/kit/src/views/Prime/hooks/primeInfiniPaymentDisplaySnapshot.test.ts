@@ -2,6 +2,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniAccountSelectionPress,
   resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
@@ -110,6 +111,35 @@ describe('isPrimeInfiniPaymentAccountSyncReady', () => {
         selectedNetworkId: 'evm--56',
       }),
     ).toBe(true);
+  });
+});
+
+describe('resolvePrimeInfiniAccountSelectionPress', () => {
+  it('opens onboarding when account sync has established that no wallet exists', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: true,
+        hasWallet: false,
+      }),
+    ).toBe('onboarding');
+  });
+
+  it('keeps the account selector for an existing wallet', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: true,
+        hasWallet: true,
+      }),
+    ).toBe('accountSelector');
+  });
+
+  it('does nothing while account selection is locked', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: false,
+        hasWallet: false,
+      }),
+    ).toBe('disabled');
   });
 });
 

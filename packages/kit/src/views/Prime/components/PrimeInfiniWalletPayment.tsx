@@ -26,7 +26,10 @@ import {
   Toast,
   XStack,
   YStack,
+  closeAllDialogInstances,
   getFontVariantStyle,
+  popToMainRoute,
+  resetToRoute,
   usePreventRemove,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -60,6 +63,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
@@ -98,12 +104,14 @@ import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniAccountSelectionPress,
   resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
   shouldShowPrimeInfiniExternalCheckoutLink,
   shouldShowPrimeInfiniPaymentButtonSkeleton,
 } from '../hooks/primeInfiniPaymentDisplaySnapshot';
+import { closePrimeInfiniPaymentOverlaysAndNavigate } from '../hooks/primeInfiniPaymentNavigation';
 import {
   type IPrimeInfiniPaymentReloadRequest,
   resolvePrimeInfiniPaymentReloadCommit,
@@ -1020,6 +1028,7 @@ function PrimeInfiniWalletPaymentContent({
   const accountSyncGenerationRef = useRef(0);
   const accountSelectorOpenRef = useRef(false);
   const accountSelectorInitialIdentityRef = useRef('');
+  const onboardingNavigationInFlightRef = useRef(false);
   const replacementTargetAssetKeyRef = useRef('');
   const balanceErrorToastSelectionRef = useRef('');
   const replacementSourceAssetRef = useRef<
@@ -2387,8 +2396,35 @@ function PrimeInfiniWalletPaymentContent({
     }
   }, [canChangeAccountSelection]);
 
-  const handleShowAccountSelector = useCallback(() => {
-    if (!canChangeAccountSelection) {
+  const handleShowAccountSelector = useCallback(async () => {
+    const action = resolvePrimeInfiniAccountSelectionPress({
+      canChangeAccountSelection,
+      hasWallet: Boolean(activeAccount.wallet),
+    });
+    if (action === 'disabled') {
+      return;
+    }
+    if (action === 'onboarding') {
+      if (onboardingNavigationInFlightRef.current) {
+        return;
+      }
+      onboardingNavigationInFlightRef.current = true;
+      try {
+        await closePrimeInfiniPaymentOverlaysAndNavigate({
+          closeDialogs: closeAllDialogInstances,
+          closeModals: popToMainRoute,
+          navigate: () => {
+            resetToRoute(ERootRoutes.Onboarding, {
+              screen: EOnboardingV2Routes.OnboardingV2,
+              params: {
+                screen: EOnboardingPagesV2.GetStarted,
+              },
+            });
+          },
+        });
+      } finally {
+        onboardingNavigationInFlightRef.current = false;
+      }
       return;
     }
     accountSelectorOpenRef.current = true;
@@ -2397,7 +2433,12 @@ function PrimeInfiniWalletPaymentContent({
         actions.current.getSelectedAccount({ num: 0 }),
       );
     showAccountSelector();
-  }, [actions, canChangeAccountSelection, showAccountSelector]);
+  }, [
+    actions,
+    activeAccount.wallet,
+    canChangeAccountSelection,
+    showAccountSelector,
+  ]);
 
   const preparePaymentForSelection = useCallback(async () => {
     const expectedOneKeyUserId = baseline.onekeyUserId;

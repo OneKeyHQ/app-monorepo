@@ -46,6 +46,19 @@ export function isPrimeInfiniPaymentAccountSyncReady({
   );
 }
 
+export function resolvePrimeInfiniAccountSelectionPress({
+  canChangeAccountSelection,
+  hasWallet,
+}: {
+  canChangeAccountSelection: boolean;
+  hasWallet: boolean;
+}): 'disabled' | 'onboarding' | 'accountSelector' {
+  if (!canChangeAccountSelection) {
+    return 'disabled';
+  }
+  return hasWallet ? 'accountSelector' : 'onboarding';
+}
+
 export function resolvePrimeInfiniPaymentDisplaySnapshot<
   TSelectionSnapshot,
   TPayment,
