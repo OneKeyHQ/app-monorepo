@@ -115,7 +115,11 @@ setup_permissions([
 ])
 
 target 'OneKeyWallet' do
-  use_expo_modules!(mac_catalyst_enabled ? { exclude: ['expo-camera'] } : {})
+  if mac_catalyst_enabled
+    use_expo_modules!({ exclude: ['expo-camera'] })
+  else
+    use_expo_modules!
+  end
   config = use_native_modules!
 
   # use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -173,13 +177,69 @@ target 'OneKeyWallet' do
     end
     user_project.save
     puts "[Fonts] Added fonts to Xcode project Resources"
-    react_native_post_install(
-      installer,
-      config[:reactNativePath],
-      :mac_catalyst_enabled => mac_catalyst_enabled
-    )
+    if mac_catalyst_enabled
+      react_native_post_install(
+        installer,
+        config[:reactNativePath],
+        :mac_catalyst_enabled => true
+      )
+    else
+      react_native_post_install(installer, config[:reactNativePath])
+    end
 
     if mac_catalyst_enabled
+      react_native_dependencies_framework = Dir.glob(
+        File.join(
+          installer.sandbox.root.to_s,
+          'ReactNativeDependencies',
+          '**',
+          'ReactNativeDependencies.xcframework',
+          'ios-arm64_x86_64-maccatalyst',
+          'ReactNativeDependencies.framework'
+        )
+      ).first
+      if react_native_dependencies_framework
+        framework_binary = File.join(react_native_dependencies_framework, 'ReactNativeDependencies')
+        framework_resources = File.join(react_native_dependencies_framework, 'Resources')
+        framework_current_version = File.join(react_native_dependencies_framework, 'Versions', 'Current')
+
+        unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version)
+          binary_source = [
+            framework_binary,
+            File.join(react_native_dependencies_framework, 'Versions', 'A', 'ReactNativeDependencies')
+          ].find { |path| File.file?(path) }
+          info_plist_source = [
+            File.join(react_native_dependencies_framework, 'Info.plist'),
+            File.join(framework_resources, 'Info.plist'),
+            File.join(react_native_dependencies_framework, 'Versions', 'A', 'Resources', 'Info.plist')
+          ].find { |path| File.file?(path) }
+
+          if binary_source && info_plist_source
+            repaired_framework = "#{react_native_dependencies_framework}.repaired"
+            repaired_resources = File.join(repaired_framework, 'Versions', 'A', 'Resources')
+            FileUtils.rm_rf(repaired_framework)
+            FileUtils.mkdir_p(repaired_resources)
+            FileUtils.cp(binary_source, File.join(repaired_framework, 'Versions', 'A', 'ReactNativeDependencies'))
+            FileUtils.cp(info_plist_source, File.join(repaired_resources, 'Info.plist'))
+            Dir.glob(File.join(react_native_dependencies_framework, '*.bundle')).each do |bundle|
+              FileUtils.cp_r(bundle, repaired_resources)
+            end
+            FileUtils.ln_s('A', File.join(repaired_framework, 'Versions', 'Current'))
+            FileUtils.ln_s('Versions/Current/ReactNativeDependencies', File.join(repaired_framework, 'ReactNativeDependencies'))
+            FileUtils.ln_s('Versions/Current/Resources', File.join(repaired_framework, 'Resources'))
+            FileUtils.rm_rf(react_native_dependencies_framework)
+            FileUtils.mv(repaired_framework, react_native_dependencies_framework)
+            puts '[Mac Catalyst] Repaired ReactNativeDependencies framework layout'
+          end
+        end
+      end
+
+      installer.pods_project.targets.each do |target|
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['SUPPORTS_MACCATALYST'] = 'YES'
+        end
+      end
+
       installer.aggregate_targets.each do |aggregate_target|
         aggregate_target.user_project.native_targets.each do |target|
           target.build_configurations.each do |build_config|

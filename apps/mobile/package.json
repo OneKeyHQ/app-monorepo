@@ -13,6 +13,7 @@
     "ios:device": "ENABLE_NATIVE_BACKGROUND_THREAD=true SENTRY_DISABLE_AUTO_UPLOAD=true expo run:ios --device",
     "ios:build": "cd ios && xcodebuild -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Release -archivePath ./build/OneKeyWallet.xcarchive",
     "ios:pod-install": "cd ios && pod install && cd ..",
+    "mac_catalyst": "/bin/sh -c \"cd ios && trap 'env -u ONEKEY_MAC_CATALYST pod install' EXIT && pod install && xcodebuild -quiet -workspace OneKeyWallet.xcworkspace -scheme Pods-OneKeyWallet -configuration Debug -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath build/maccatalyst SUPPORTS_MACCATALYST=YES ARCHS=arm64 ONLY_ACTIVE_ARCH=YES && xcodebuild -quiet -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Debug -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath build/maccatalyst SUPPORTS_MACCATALYST=YES ARCHS=arm64 ONLY_ACTIVE_ARCH=YES && open build/maccatalyst/Build/Products/Debug-maccatalyst/OneKeyWallet.app\"",
     "native-bundle": "ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start",
     "native-bundle:bg": "ENABLE_NATIVE_BACKGROUND_THREAD=true NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start --port 8082",
     "storybook": "NODE_OPTIONS='--max_old_space_size=8192' STORYBOOK_ENABLED=true expo start",
