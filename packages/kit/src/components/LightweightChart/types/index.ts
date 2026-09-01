@@ -37,6 +37,10 @@ export interface ILightweightChartConfig {
   priceScaleEntireTextOnly?: boolean;
   horzLineColor?: string;
   horzLineStyle?: number;
+  crosshairVertLineColor?: string;
+  crosshairVertLineStyle?: number;
+  patternColor?: string;
+  pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
   priceFormatterType?: ILightweightChartPriceFormatterType;
   priceFormatterPrecision?: number;
@@ -73,6 +77,19 @@ export interface ILightweightChartProps {
   // Web/desktop only. Reserve the axis before labels are measured so the plot
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
+  // Crosshair vertical line overrides. Left unset the chart keeps its default
+  // faint large-dashed line, so charts that do not opt in are unaffected.
+  crosshairVertLineColor?: string;
+  // lightweight-charts `LineStyle`: 0 Solid, 1 Dotted, 2 Dashed,
+  // 3 LargeDashed (default), 4 SparseDotted.
+  crosshairVertLineStyle?: number;
+  // `dotted-area` series only. Keeps the dot pattern on its own color when the
+  // line itself is tinted differently (e.g. a dimmed tail). Defaults to
+  // `lineColor`.
+  patternColor?: string;
+  // Color of the `pulseLastPoint` overlay. Defaults to `lineColor`; set it when
+  // the line is dimmed but the live marker should stay at full strength.
+  pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
