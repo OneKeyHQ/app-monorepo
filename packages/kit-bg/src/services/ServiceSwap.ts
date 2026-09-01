@@ -3583,7 +3583,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSpeedSwapConfig(params: { networkId: string }) {
-    const defaultConfig = {
+    const defaultConfig: ISpeedSwapConfig = {
       provider: '',
       speedConfig: {
         slippage: 0.5,
@@ -3596,6 +3596,7 @@ export default class ServiceSwap extends ServiceBase {
       onlySupportCrossChain: false,
       onlySupportSingleChain: false,
       speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+      unavailable: true,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
