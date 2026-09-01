@@ -14,7 +14,39 @@ export const HYPERLIQUID_DEPOSIT_ADDRESS =
   '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7' as IHex;
 
 export const MIN_DEPOSIT_AMOUNT = 5;
+// Legacy Arbitrum bridge (`withdraw3`) fee. Kept for the `bridge` route.
 export const WITHDRAW_FEE = 1;
+
+// HyperCore system address that receives Core -> HyperEVM sends. A `send` delta
+// with this destination is USDC leaving HyperCore, whether it is a CCTP
+// withdrawal or a plain transfer to HyperEVM.
+export const HYPEREVM_SYSTEM_ADDRESS =
+  '0x2000000000000000000000000000000000000000' as IHex;
+
+// Circle CCTP domain ids (NOT EVM chain ids). Arbitrum is the only destination
+// we withdraw to today.
+export const CCTP_DOMAIN_ARBITRUM = 3;
+export const CCTP_WITHDRAW_GAS_LIMIT = 200_000;
+// Empty hook data makes CoreDepositWallet attach the default forwarding hook, so
+// Circle delivers to the recipient instead of leaving them to claim it.
+export const CCTP_WITHDRAW_HOOK_DATA = '0x';
+
+// Circle's forwarding fee, deducted from the withdrawn amount. Source of truth is
+// `calculateCrossChainWithdrawalFee(true, domain)` on CoreDepositWallet
+// (HyperEVM 0x6B9E773128f453f5c2C60935Ee2DE2CBc5390A24). Mirrored as constants
+// because we only withdraw to Arbitrum, where the value has held since launch;
+// read it live once multiple destinations are selectable.
+const CCTP_WITHDRAW_FEE_DEFAULT = 0.2;
+const CCTP_WITHDRAW_FEE_BY_DOMAIN: Record<number, number> = {
+  0: 1.2, // Ethereum
+  5: 0.5, // Solana
+};
+
+export function getCctpWithdrawFee(destinationDomain: number): number {
+  return (
+    CCTP_WITHDRAW_FEE_BY_DOMAIN[destinationDomain] ?? CCTP_WITHDRAW_FEE_DEFAULT
+  );
+}
 
 export const USDC_TOKEN_INFO = {
   address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as IHex,

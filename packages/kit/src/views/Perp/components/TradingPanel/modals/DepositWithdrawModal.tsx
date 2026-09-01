@@ -69,11 +69,13 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
+  CCTP_DOMAIN_ARBITRUM,
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
+  getCctpWithdrawFee,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapNativeTokenConfig } from '@onekeyhq/shared/types/swap/types';
@@ -1957,6 +1959,46 @@ function DepositWithdrawContent({
     return buttonText;
   }, [buttonText, intl, shouldShowBuyButton]);
 
+  // Hyperliquid serves the active withdrawal rail, and the two rails charge very
+  // different fees, so resolve it before quoting one. Display only: the amount
+  // validation uses MIN_WITHDRAW_AMOUNT, which covers both rails.
+  const [withdrawRoute, setWithdrawRoute] = useState<
+    'bridge' | 'cctp' | undefined
+  >(undefined);
+  useEffect(() => {
+    if (selectedAction !== 'withdraw') {
+      return;
+    }
+    let cancelled = false;
+    void backgroundApiProxy.serviceHyperliquidExchange
+      .getUsdcWithdrawRoute()
+      .then((route) => {
+        if (!cancelled) {
+          setWithdrawRoute(route);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[DepositWithdrawModal] Failed to resolve withdraw route:',
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAction]);
+
+  const withdrawFeeText = useMemo(() => {
+    if (!withdrawRoute) {
+      return '--';
+    }
+    const fee =
+      withdrawRoute === 'cctp'
+        ? getCctpWithdrawFee(CCTP_DOMAIN_ARBITRUM)
+        : WITHDRAW_FEE;
+    return `$${fee.toFixed(2)}`;
+  }, [withdrawRoute]);
+
   const withdrawFeeHintTrigger = useMemo(
     () => (
       <DashText
@@ -2205,7 +2247,7 @@ function DepositWithdrawContent({
               numberOfLines={1}
               flexShrink={1}
             >
-              ${WITHDRAW_FEE}
+              {withdrawFeeText}
             </SizableText>
           </XStack>
         </YStack>

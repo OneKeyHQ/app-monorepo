@@ -31,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
+import { isUnifiedPortfolioMode } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
@@ -46,7 +47,12 @@ import {
   mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { SPOT_ASSET_ID_OFFSET } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  CCTP_DOMAIN_ARBITRUM,
+  CCTP_WITHDRAW_GAS_LIMIT,
+  CCTP_WITHDRAW_HOOK_DATA,
+  SPOT_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IApiErrorResponse,
   IApiRequestResult,
@@ -85,11 +91,14 @@ import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliqui
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import {
+  perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import { getUsdcWithdrawRoute } from './usdcWithdrawRoute';
+import type { IUsdcWithdrawRoute } from './usdcWithdrawRoute';
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 
 import type {
@@ -1734,6 +1743,32 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     );
   }
 
+  // The withdraw form needs the rail to show the right fee; the result is cached
+  // in the route module, so repeat opens do not re-request it.
+  @backgroundMethod()
+  async getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
+    return getUsdcWithdrawRoute();
+  }
+
+  // `sendToEvmWithData` requires an explicit source balance, where `withdraw3`
+  // let Hyperliquid pick one. Mirror perpsComputedAccountValueAtom: unified and
+  // portfolio-margin accounts report the spot-side USDC balance as withdrawable,
+  // every other mode reports the perp clearinghouse. Sourcing from a balance the
+  // withdraw form never validated against would let the action exceed what the
+  // user was shown as available.
+  private async _resolveWithdrawSourceDex(
+    userAddress: string | undefined,
+  ): Promise<'' | 'spot'> {
+    const modeData = await perpsAbstractionModeAtom.get();
+    const isModeForThisAccount =
+      Boolean(userAddress) &&
+      modeData?.accountAddress?.toLowerCase() === userAddress?.toLowerCase();
+    if (!isModeForThisAccount) {
+      return '';
+    }
+    return isUnifiedPortfolioMode(modeData?.mode) ? 'spot' : '';
+  }
+
   @backgroundMethod()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
@@ -1749,17 +1784,46 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       }),
     );
     const context = await this._buildLogContext();
+    // Resolved inside the try so a failure here is reported like any other
+    // withdrawal failure instead of escaping without a log.
+    let route: IUsdcWithdrawRoute | undefined;
+    // Which balance the action drew from is the field most worth having when a
+    // withdrawal misbehaves, and the one a signature prompt may not surface.
+    let sourceDex: '' | 'spot' | undefined;
     try {
-      await convertHyperLiquidResponse(() => exchangeClient.withdraw3(params));
+      const [resolvedRoute, userAddress] = await Promise.all([
+        getUsdcWithdrawRoute(),
+        wallet.getAddress(),
+      ]);
+      route = resolvedRoute;
+      await convertHyperLiquidResponse(async () => {
+        if (route === 'cctp') {
+          sourceDex = await this._resolveWithdrawSourceDex(userAddress);
+          return exchangeClient.sendToEvmWithData({
+            token: 'USDC',
+            amount: params.amount,
+            sourceDex,
+            destinationRecipient: params.destination,
+            addressEncoding: 'hex',
+            destinationChainId: CCTP_DOMAIN_ARBITRUM,
+            gasLimit: CCTP_WITHDRAW_GAS_LIMIT,
+            data: CCTP_WITHDRAW_HOOK_DATA,
+          });
+        }
+        return exchangeClient.withdraw3({
+          amount: params.amount,
+          destination: params.destination,
+        });
+      });
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
-        request: params,
+        request: { ...params, route, sourceDex },
         response: { success: true },
       });
     } catch (error) {
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
-        request: params,
+        request: { ...params, route, sourceDex },
         response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
         error: serializeHyperLiquidError(error),
       });

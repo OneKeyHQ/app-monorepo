@@ -262,7 +262,10 @@ export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public withdraw(
     params: IHyperLiquidLogParams<
-      IWithdrawParams,
+      // `route` tells apart the CCTP rail from the legacy Arbitrum bridge, which
+      // fail in different ways and carry different fees; `sourceDex` records
+      // which balance the CCTP rail drew from.
+      IWithdrawParams & { route?: string; sourceDex?: string },
       { success: true } | IApiErrorResponse
     >,
   ) {

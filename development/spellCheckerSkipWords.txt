@@ -1565,3 +1565,6 @@ navigations
 
 # OpenType tabular-figures feature tag
 tnum
+# Circle Cross-Chain Transfer Protocol, and Hyperliquid's L1
+cctp
+hypercore
