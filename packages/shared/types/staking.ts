@@ -2379,9 +2379,16 @@ export type IStakeBlockRegionResponse =
       countryCode: string;
     };
 
+/** Second chart line colour: a protocol-owned reward is blue, anything that
+ * includes a platform campaign is orange. Resolved by the server. */
+export type IExtraApyKind = 'campaign' | 'reward';
+
 export interface IApyHistoryItem {
   apy: string;
   timestamp: number;
+  /** campaign boost + protocol reward APYs, summed; absent when there is none */
+  extraApy?: string;
+  extraApyKind?: IExtraApyKind;
 }
 
 export type IBorrowApyHistoryItem = IApyHistoryItem;

@@ -383,13 +383,45 @@ function ChartSection({
         vault,
       });
 
+    // Second line = campaign boost + protocol reward APYs, summed by the
+    // server. Only points that actually carry one are kept, so a history that
+    // predates the campaign simply starts the line later instead of dropping
+    // to zero.
+    const extraApyHistory = impliedApyHistory
+      .filter((item) => item.extraApy !== undefined)
+      .map((item) => ({
+        timestamp: item.timestamp,
+        apy: item.extraApy as string,
+      }));
+    const extraApyKind = impliedApyHistory.find(
+      (item) => item.extraApyKind,
+    )?.extraApyKind;
+
     return {
       impliedApyHistory,
+      extraApyHistory,
+      extraApyKind,
     };
   }, [networkId, symbol, provider, vault, isPendleProvider]);
 
-  const { impliedApyHistory, underlyingApyHistory, hasNonZeroUnderlyingApy } =
-    chartData ?? {};
+  const {
+    impliedApyHistory,
+    underlyingApyHistory,
+    hasNonZeroUnderlyingApy,
+    extraApyHistory,
+    extraApyKind,
+  } = chartData ?? {};
+
+  // Pendle keeps its own toggled underlying-APY line; every other provider
+  // draws the campaign / reward line the server computed.
+  const secondaryHistory = isPendleProvider
+    ? underlyingApyHistory
+    : extraApyHistory;
+  const secondaryLineColor = isPendleProvider
+    ? undefined
+    : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
+      // segment colours. TODO(design): confirm the exact orange against Figma.
+      (extraApyKind === 'reward' && '#0177E5') || '#DD7B22';
 
   // Calculate high and low APY
   const { high, low } = useMemo(() => {
@@ -436,7 +468,8 @@ function ChartSection({
       {/* Chart component */}
       <ApyChart
         apyHistory={impliedApyHistory}
-        underlyingApyHistory={underlyingApyHistory}
+        underlyingApyHistory={secondaryHistory}
+        secondaryLineColor={secondaryLineColor}
         showChartControls={isPendleProvider || Boolean(showTimeRangeControls)}
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={

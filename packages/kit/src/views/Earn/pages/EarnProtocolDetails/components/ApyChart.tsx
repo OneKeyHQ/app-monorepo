@@ -37,6 +37,10 @@ interface IApyChartProps {
   showUnderlyingApyToggle?: boolean;
   primaryApyLabel?: string;
   secondaryApyLabel?: string;
+  /** Hex for the second line. Pendle's underlying APY keeps the default blue;
+   * the campaign line is orange. Literal hex because the chart library takes
+   * colours, not theme tokens — same as the two lines already here. */
+  secondaryLineColor?: string;
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -143,6 +147,7 @@ const ApyChartComponent = ({
   showUnderlyingApyToggle,
   primaryApyLabel,
   secondaryApyLabel,
+  secondaryLineColor = '#0177E5',
 }: IApyChartProps) => {
   const intl = useIntl();
 
@@ -278,6 +283,14 @@ const ApyChartComponent = ({
       secondaryLineData,
     };
   }, [filteredApyHistory, filteredUnderlyingApyHistory]);
+
+  // Pendle puts the second line behind a checkbox; every other provider draws
+  // it whenever the server sent one, so the campaign / reward line needs no
+  // extra interaction.
+  const hasSecondaryData = Boolean(chartData?.secondaryLineData.length);
+  const isSecondaryVisible = showUnderlyingApyToggle
+    ? showUnderlyingApy && hasSecondaryData
+    : hasSecondaryData;
 
   const isLoading = apyHistory === undefined;
 
@@ -423,7 +436,7 @@ const ApyChartComponent = ({
                     {hoverData.apy.toFixed(2)}%
                   </SizableText>
                 </XStack>
-                {showUnderlyingApy && hoverData.secondaryApy !== undefined ? (
+                {isSecondaryVisible && hoverData.secondaryApy !== undefined ? (
                   <XStack jc="space-between" ai="center" width="100%">
                     <SizableText size="$bodySmMedium" color="$textSubdued">
                       {resolvedSecondaryLabel}
@@ -440,11 +453,9 @@ const ApyChartComponent = ({
           <LightweightChart
             data={chartData.marketChartData}
             secondaryLineData={
-              showUnderlyingApy && showUnderlyingApyToggle
-                ? chartData.secondaryLineData
-                : undefined
+              isSecondaryVisible ? chartData.secondaryLineData : undefined
             }
-            secondaryLineColor="#0177E5"
+            secondaryLineColor={secondaryLineColor}
             secondaryLineWidth={2}
             height={200}
             onHover={handleHover}
