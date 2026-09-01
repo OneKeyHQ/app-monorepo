@@ -13,6 +13,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -195,6 +196,25 @@ function DeviceStageContainerCmp() {
     },
     [sendVendorUiResponse, serviceHardwareUI],
   );
+
+  /** The enterPin card's switch back to app entry (OK-61489): persist
+   * the preference for the NEXT request — the in-flight one still ends
+   * on the device, so nothing is answered here and no input-submitted
+   * note is due. A rejection must reach the component: it keeps the
+   * entry line up for another try instead of showing the set-to-app
+   * banner. */
+  const handleSwitchPinInputToApp = useCallback(async () => {
+    const connectId = stageRef.current?.connectId;
+    if (!connectId) {
+      throw new OneKeyLocalError(
+        'PIN input switch without a device identity on stage',
+      );
+    }
+    await serviceHardware.setInputPinOnSoftwareByConnectId({
+      connectId,
+      inputPinOnSoftware: true,
+    });
+  }, [serviceHardware]);
 
   /** The hidden wallet's "keep after the app closes" choice — every exit
    * of the create-mode form carries it, and verify mode never writes it
@@ -417,6 +437,15 @@ function DeviceStageContainerCmp() {
       onQrBack={handleQrBack}
       onClose={closable ? handleClose : undefined}
       onPinSubmit={handlePinSubmit}
+      onSwitchPinInputToApp={
+        // Eligibility is stamped bg-side on the on-device route only
+        // (stored record + button device + firmware support + plain
+        // PIN, per design hard rule #13); the app-pad hop reuses the
+        // REQUEST_PIN payload and so never carries the flag.
+        stage?.payload?.pinSwitchToAppAvailable && !stage?.vendor
+          ? handleSwitchPinInputToApp
+          : undefined
+      }
       onPassphraseSubmit={handlePassphraseSubmit}
       onPassphraseIntroContinue={handlePassphraseIntroContinue}
       passphraseIntroKeepShortcut={
