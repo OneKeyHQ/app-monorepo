@@ -1,4 +1,4 @@
-name: release-android-debug
+name: Mobile Dev Shell Android
 
 on:
   workflow_dispatch:
@@ -15,7 +15,13 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
-  release-android-debug:
+  build-android-dev-shell:
+    name: Build Android arm64 dev shell
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -81,25 +87,59 @@ jobs:
         run: |
           yarn install --immutable
 
-      - name: Build APK
+      - name: Restore web-embed prebundle
+        uses: ./.github/actions/restore-web-embed
+
+      - name: Build arm64 APK
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
         run: |
-          yarn app:web-embed:build
-          cd apps/mobile/android
-          ./gradlew assembleProdDebug
+          node apps/mobile/scripts/build-mobile-dev-shell.js build \
+            --platform android
+
+      - name: Create arm64 APK manifest
+        id: artifact
+        run: |
+          set -euo pipefail
+          artifact="apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk"
+          manifest="apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json"
+          shell_artifact_key="$(node apps/mobile/scripts/native-dev-shell.js artifact-manifest \
+            --platform android \
+            --artifact "$artifact" \
+            --web-embed-receipt apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json \
+            --output "$manifest")"
+          shell_compatibility_key="$(jq -er '.shellCompatibilityKey' "$manifest")"
+          {
+            echo "artifact_tag=mobile-dev-shell-artifact-v2-android-arm64-v8a-$shell_artifact_key"
+            echo "compatibility_key=$shell_compatibility_key"
+            echo "compatibility_tag=mobile-dev-shell-compat-v2-android-arm64-v8a-$shell_compatibility_key"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish Android dev shell to GHCR
+        uses: ./.github/actions/publish-mobile-dev-shell
+        with:
+          architecture: arm64-v8a
+          artifact: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk
+          artifact_tag: ${{ steps.artifact.outputs.artifact_tag }}
+          compatibility_key: ${{ steps.artifact.outputs.compatibility_key }}
+          compatibility_tag: ${{ steps.artifact.outputs.compatibility_tag }}
+          manifest: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
+          platform: android
+          signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml
 
       # https://github.com/orgs/community/discussions/25678
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
 
-      - name: Upload Main Debug APK
+      - name: Upload Android dev shell
         uses: actions/upload-artifact@v4
         with:
-          name: release-prod-debug-${{ github.sha }}
+          name: mobile-dev-shell-android-arm64-${{ github.sha }}
           path: |
-            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.apk
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
+            apps/mobile/out-dir-bundle/dev-shell/mobile-dev-shell-attestations.jsonl
+          if-no-files-found: error
 
 
       - name: Free Disk Space

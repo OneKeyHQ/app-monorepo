@@ -9,6 +9,8 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeNativeContractKey,
+  getNativeContractInputPaths,
   getPlatformOutputDirectory,
   sha256,
 } = require('../../plugins/devVendor');
@@ -43,6 +45,9 @@ function createTemporaryRepo() {
   );
   const fixtureFiles = new Set([
     ...devVendorConfig.fingerprintFiles,
+    ...['android', 'ios'].flatMap((platform) =>
+      getNativeContractInputPaths(platform, REPO_ROOT),
+    ),
     ...devVendorConfig.releaseFingerprintFiles,
   ]);
   for (const relativePath of fixtureFiles) {
@@ -109,6 +114,7 @@ function createTemporaryRepo() {
       configInputsDigest: computeConfigInputsDigest(repoRoot),
       modules,
       modulesDigest: computeModulesDigest(modules, repoRoot),
+      nativeContractKey: computeNativeContractKey(platform, repoRoot),
       platform,
       prependModules,
       registryEpoch: loadRegistry().registryEpoch,

@@ -1,0 +1,633 @@
+#!/usr/bin/env node
+/* eslint-disable onekey/no-raw-error */
+/* cspell:words SIMCTL */
+
+const { spawnSync } = require('child_process');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const { withCacheLock } = require('./metro-dev-prebundle');
+
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+const OCI_REGISTRY = 'ghcr.io';
+const OCI_REPOSITORY = 'onekeyhq/mobile-dev-shell';
+const OCI_ARTIFACT_TYPE = 'application/vnd.onekey.mobile-dev-shell.v1';
+const OCI_MANIFEST_MEDIA_TYPE = 'application/vnd.oci.image.manifest.v1+json';
+const SOURCE_REPOSITORY = 'OneKeyHQ/app-monorepo';
+const SOURCE_ANNOTATION = 'org.opencontainers.image.source';
+const REVISION_ANNOTATION = 'org.opencontainers.image.revision';
+const LAYER_TITLE_ANNOTATION = 'org.opencontainers.image.title';
+const ATTESTATION_FILE = 'mobile-dev-shell-attestations.jsonl';
+const RECEIPT_FILE = 'mobile-dev-shell-oci-receipt.json';
+const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
+const MAX_ATTESTATION_BYTES = 32 * 1024 * 1024;
+const MAX_ARTIFACT_BYTES = 1536 * 1024 * 1024;
+
+function compareStrings(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function hashValues(namespace, values) {
+  const hash = crypto.createHash('sha256');
+  hash.update(namespace);
+  hash.update('\0');
+  for (const value of values) {
+    hash.update(String(value));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+function getSidecarFile(artifactFile) {
+  return artifactFile.replace(/\.(apk|zip)$/u, '.json');
+}
+
+function getCacheRoot(env = process.env) {
+  const baseDirectory = env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+  return path.join(baseDirectory, 'onekey/mobile-dev-shell/v2');
+}
+
+function assertCompatibility(compatibility) {
+  if (
+    !['android', 'ios'].includes(compatibility?.platform) ||
+    !['android', 'ios-simulator'].includes(compatibility?.resourcePlatform) ||
+    !['arm64-v8a', 'arm64'].includes(compatibility?.architecture) ||
+    !/^[0-9a-f]{64}$/.test(compatibility?.nativeContractKey || '') ||
+    !/^[0-9a-f]{64}$/.test(compatibility?.shellCompatibilityKey || '') ||
+    !/^[0-9a-f]{64}$/.test(compatibility?.webEmbedInputKey || '') ||
+    !/^mobile-dev-shell-compat-v2-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
+      compatibility?.tag || '',
+    ) ||
+    !/^OneKeyWallet-DevShell-[A-Za-z0-9.-]+\.(apk|zip)$/.test(
+      compatibility?.artifactFile || '',
+    )
+  ) {
+    throw new Error('[mobileDevShellResource] Invalid shell compatibility.');
+  }
+  return compatibility;
+}
+
+async function readResponseBody({ fileName, maxBytes, response }) {
+  const declaredBytes = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
+    throw new Error(
+      `[mobileDevShellResource] Download exceeds size limit: ${fileName}.`,
+    );
+  }
+  const chunks = [];
+  let receivedBytes = 0;
+  for await (const chunk of response.body) {
+    const bytes = Buffer.from(chunk);
+    receivedBytes += bytes.length;
+    if (receivedBytes > maxBytes) {
+      throw new Error(
+        `[mobileDevShellResource] Download exceeds size limit: ${fileName}.`,
+      );
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks, receivedBytes);
+}
+
+function parseBearerChallenge(value) {
+  const scheme = value?.match(/^Bearer\s+(.+)$/iu);
+  if (!scheme) {
+    throw new Error(
+      '[mobileDevShellResource] OCI registry returned an unsupported authentication challenge.',
+    );
+  }
+  const parameters = {};
+  const pattern = /(?:^|,)\s*([a-z][a-z0-9_-]*)="([^"]*)"/giu;
+  for (const match of scheme[1].matchAll(pattern)) {
+    parameters[match[1].toLowerCase()] = match[2];
+  }
+  if (!parameters.realm) {
+    throw new Error(
+      '[mobileDevShellResource] OCI authentication challenge has no realm.',
+    );
+  }
+  return parameters;
+}
+
+function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error(
+      '[mobileDevShellResource] This Node.js runtime has no fetch.',
+    );
+  }
+  const baseUrl = `https://${OCI_REGISTRY}`;
+  const repositoryScope = `repository:${OCI_REPOSITORY}:pull`;
+  const repositoryUrl = `${baseUrl}/v2/${OCI_REPOSITORY}`;
+  let authorization;
+
+  async function fetchRegistry(url, { accept, timeoutMs }) {
+    const request = () =>
+      fetchImpl(url, {
+        headers: {
+          Accept: accept,
+          ...(authorization ? { Authorization: authorization } : {}),
+          'User-Agent': 'OneKey-Mobile-Dev-Shell',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    let response = await request();
+    if (response.status !== 401) return response;
+
+    const challenge = parseBearerChallenge(
+      response.headers.get('www-authenticate'),
+    );
+    if (challenge.scope && challenge.scope !== repositoryScope) {
+      throw new Error(
+        '[mobileDevShellResource] OCI registry requested an unexpected scope.',
+      );
+    }
+    const tokenUrl = new URL(challenge.realm);
+    if (
+      tokenUrl.protocol !== 'https:' ||
+      tokenUrl.username ||
+      tokenUrl.password ||
+      tokenUrl.origin !== baseUrl
+    ) {
+      throw new Error(
+        '[mobileDevShellResource] OCI registry returned an untrusted token realm.',
+      );
+    }
+    if (challenge.service) {
+      tokenUrl.searchParams.set('service', challenge.service);
+    }
+    tokenUrl.searchParams.set('scope', challenge.scope || repositoryScope);
+    const tokenResponse = await fetchImpl(tokenUrl, {
+      headers: { 'User-Agent': 'OneKey-Mobile-Dev-Shell' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!tokenResponse.ok) {
+      throw new Error(
+        `[mobileDevShellResource] OCI token request failed: HTTP ${tokenResponse.status}.`,
+      );
+    }
+    const tokenBytes = await readResponseBody({
+      fileName: 'OCI token',
+      maxBytes: 32 * 1024,
+      response: tokenResponse,
+    });
+    const tokenPayload = JSON.parse(tokenBytes.toString('utf8'));
+    const token = tokenPayload.token || tokenPayload.access_token;
+    if (
+      typeof token !== 'string' ||
+      token.length === 0 ||
+      token.length > 16_384
+    ) {
+      throw new Error(
+        '[mobileDevShellResource] OCI registry returned an invalid token.',
+      );
+    }
+    authorization = `Bearer ${token}`;
+    response = await request();
+    return response;
+  }
+
+  return {
+    fetchBlob(digest, timeoutMs = 180_000) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
+        throw new Error('[mobileDevShellResource] Invalid OCI blob digest.');
+      }
+      return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
+        accept: 'application/octet-stream',
+        timeoutMs,
+      });
+    },
+    fetchManifest(tag) {
+      return fetchRegistry(
+        `${repositoryUrl}/manifests/${encodeURIComponent(tag)}`,
+        { accept: OCI_MANIFEST_MEDIA_TYPE, timeoutMs: 15_000 },
+      );
+    },
+  };
+}
+
+function verifyOciManifest({ compatibility, manifest }) {
+  const sidecarFile = getSidecarFile(compatibility.artifactFile);
+  const expectedFiles = [
+    ATTESTATION_FILE,
+    compatibility.artifactFile,
+    sidecarFile,
+  ].toSorted(compareStrings);
+  const actualFiles = manifest?.layers
+    ?.map((layer) => layer.annotations?.[LAYER_TITLE_ANNOTATION])
+    .toSorted(compareStrings);
+  if (
+    manifest?.schemaVersion !== 2 ||
+    manifest.mediaType !== OCI_MANIFEST_MEDIA_TYPE ||
+    manifest.artifactType !== OCI_ARTIFACT_TYPE ||
+    manifest.annotations?.[SOURCE_ANNOTATION] !==
+      `https://github.com/${SOURCE_REPOSITORY}` ||
+    manifest.annotations?.['com.onekey.mobile.architecture'] !==
+      compatibility.architecture ||
+    manifest.annotations?.['com.onekey.mobile.platform'] !==
+      compatibility.resourcePlatform ||
+    manifest.annotations?.['com.onekey.mobile.shell-compatibility-key'] !==
+      compatibility.shellCompatibilityKey ||
+    JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)
+  ) {
+    throw new Error('[mobileDevShellResource] Invalid OCI shell manifest.');
+  }
+  if (
+    typeof manifest.config?.mediaType !== 'string' ||
+    !Number.isSafeInteger(manifest.config?.size) ||
+    manifest.config.size <= 0 ||
+    !/^sha256:[0-9a-f]{64}$/.test(manifest.config?.digest || '')
+  ) {
+    throw new Error('[mobileDevShellResource] Invalid OCI shell config.');
+  }
+  const layers = new Map();
+  for (const descriptor of manifest.layers) {
+    const title = descriptor.annotations?.[LAYER_TITLE_ANNOTATION];
+    if (
+      !expectedFiles.includes(title) ||
+      layers.has(title) ||
+      !Number.isSafeInteger(descriptor.size) ||
+      descriptor.size <= 0 ||
+      !/^sha256:[0-9a-f]{64}$/.test(descriptor.digest || '')
+    ) {
+      throw new Error('[mobileDevShellResource] Invalid OCI shell layer.');
+    }
+    layers.set(title, descriptor);
+  }
+  return layers;
+}
+
+async function resolveOciShell({ compatibility, fetchImpl }) {
+  const client = createOciClient({ fetchImpl });
+  const response = await client.fetchManifest(compatibility.tag);
+  if (!response.ok) {
+    throw new Error(
+      `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
+    );
+  }
+  const manifestBytes = await readResponseBody({
+    fileName: 'OCI shell manifest',
+    maxBytes: MAX_MANIFEST_BYTES,
+    response,
+  });
+  const ociDigest = response.headers.get('docker-content-digest');
+  const actualDigest = `sha256:${crypto.createHash('sha256').update(manifestBytes).digest('hex')}`;
+  if (
+    !/^sha256:[0-9a-f]{64}$/.test(ociDigest || '') ||
+    ociDigest !== actualDigest
+  ) {
+    throw new Error(
+      '[mobileDevShellResource] OCI shell manifest digest mismatch.',
+    );
+  }
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  const sourceCommit = manifest.annotations?.[REVISION_ANNOTATION];
+  if (!/^[0-9a-f]{40}$/.test(sourceCommit || '')) {
+    throw new Error('[mobileDevShellResource] OCI shell revision is invalid.');
+  }
+  return {
+    client,
+    layers: verifyOciManifest({ compatibility, manifest }),
+    ociDigest,
+    sourceCommit,
+  };
+}
+
+async function downloadLayerToFile({ client, descriptor, filePath, maxBytes }) {
+  if (descriptor.size > maxBytes) {
+    throw new Error(
+      `[mobileDevShellResource] Shell layer exceeds size limit: ${path.basename(filePath)}.`,
+    );
+  }
+  const response = await client.fetchBlob(descriptor.digest);
+  if (!response.ok) {
+    throw new Error(
+      `[mobileDevShellResource] Shell layer download failed: HTTP ${response.status}.`,
+    );
+  }
+  const file = await fs.promises.open(filePath, 'wx', 0o600);
+  const hash = crypto.createHash('sha256');
+  let receivedBytes = 0;
+  try {
+    for await (const chunk of response.body) {
+      const bytes = Buffer.from(chunk);
+      receivedBytes += bytes.length;
+      if (receivedBytes > maxBytes || receivedBytes > descriptor.size) {
+        throw new Error(
+          `[mobileDevShellResource] Shell layer exceeds size limit: ${path.basename(filePath)}.`,
+        );
+      }
+      hash.update(bytes);
+      await file.write(bytes);
+    }
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  if (
+    receivedBytes !== descriptor.size ||
+    `sha256:${hash.digest('hex')}` !== descriptor.digest
+  ) {
+    throw new Error(
+      `[mobileDevShellResource] Shell layer integrity mismatch: ${path.basename(filePath)}.`,
+    );
+  }
+}
+
+async function sha256File(filePath) {
+  const hash = crypto.createHash('sha256');
+  const input = fs.createReadStream(filePath);
+  for await (const chunk of input) hash.update(chunk);
+  return hash.digest('hex');
+}
+
+async function readJsonFile(filePath, maxBytes = MAX_MANIFEST_BYTES) {
+  const stat = await fs.promises.lstat(filePath);
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    stat.size <= 0 ||
+    stat.size > maxBytes
+  ) {
+    throw new Error(
+      `[mobileDevShellResource] Invalid cached file: ${path.basename(filePath)}.`,
+    );
+  }
+  return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+}
+
+async function verifyArtifactManifest({
+  artifactPath,
+  compatibility,
+  manifest,
+}) {
+  const stat = await fs.promises.lstat(artifactPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(
+      '[mobileDevShellResource] Cached shell is not a regular file.',
+    );
+  }
+  const artifactSha256 = await sha256File(artifactPath);
+  const expectedArtifactKey = hashValues(
+    'onekey-mobile-dev-shell-artifact-v2',
+    [compatibility.shellCompatibilityKey, artifactSha256, stat.size],
+  );
+  if (
+    manifest?.schemaVersion !== 2 ||
+    manifest.platform !== compatibility.platform ||
+    manifest.architecture !== compatibility.architecture ||
+    manifest.nativeContractKey !== compatibility.nativeContractKey ||
+    manifest.shellCompatibilityKey !== compatibility.shellCompatibilityKey ||
+    manifest.shellArtifactKey !== expectedArtifactKey ||
+    manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
+    !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
+    !/^sha256:[0-9a-f]{64}$/.test(manifest.webEmbed?.ociDigest || '') ||
+    manifest.artifact?.file !== compatibility.artifactFile ||
+    manifest.artifact?.bytes !== stat.size ||
+    manifest.artifact?.sha256 !== artifactSha256
+  ) {
+    throw new Error(
+      '[mobileDevShellResource] Shell artifact does not match this checkout.',
+    );
+  }
+  return manifest;
+}
+
+async function runGhAttestationVerify({
+  artifactPath,
+  bundlePath,
+  compatibility,
+  sourceCommit,
+}) {
+  const signerWorkflow =
+    compatibility.platform === 'android'
+      ? 'OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml'
+      : 'OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-ios-simulator.yml';
+  const result = spawnSync(
+    'gh',
+    [
+      'attestation',
+      'verify',
+      artifactPath,
+      '--repo',
+      SOURCE_REPOSITORY,
+      '--bundle',
+      bundlePath,
+      '--custom-trusted-root',
+      path.join(
+        REPO_ROOT,
+        'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
+      ),
+      '--signer-workflow',
+      signerWorkflow,
+      '--source-digest',
+      sourceCommit,
+      '--deny-self-hosted-runners',
+    ],
+    { encoding: 'utf8', timeout: 30_000 },
+  );
+  if (result.status !== 0 || result.error) {
+    throw new Error(
+      `[mobileDevShellResource] GitHub attestation verification failed: ${result.stderr || result.error?.message || 'unknown error'}`,
+    );
+  }
+}
+
+async function verifyCache({
+  attestationVerifier = runGhAttestationVerify,
+  cacheDirectory,
+  compatibility,
+}) {
+  const artifactPath = path.join(cacheDirectory, compatibility.artifactFile);
+  const sidecarPath = path.join(
+    cacheDirectory,
+    getSidecarFile(compatibility.artifactFile),
+  );
+  const bundlePath = path.join(cacheDirectory, ATTESTATION_FILE);
+  const receipt = await readJsonFile(path.join(cacheDirectory, RECEIPT_FILE));
+  if (
+    receipt.tag !== compatibility.tag ||
+    !/^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '') ||
+    !/^[0-9a-f]{40}$/.test(receipt.sourceCommit || '')
+  ) {
+    throw new Error('[mobileDevShellResource] Invalid cached OCI receipt.');
+  }
+  const manifest = await readJsonFile(sidecarPath);
+  await verifyArtifactManifest({ artifactPath, compatibility, manifest });
+  const bundleStat = await fs.promises.lstat(bundlePath);
+  if (
+    !bundleStat.isFile() ||
+    bundleStat.isSymbolicLink() ||
+    bundleStat.size <= 0 ||
+    bundleStat.size > MAX_ATTESTATION_BYTES
+  ) {
+    throw new Error(
+      '[mobileDevShellResource] Invalid cached attestation bundle.',
+    );
+  }
+  for (const targetPath of [artifactPath, sidecarPath]) {
+    await attestationVerifier({
+      artifactPath: targetPath,
+      bundlePath,
+      compatibility,
+      sourceCommit: receipt.sourceCommit,
+    });
+  }
+  return { artifactPath, manifest, ...receipt };
+}
+
+async function restoreMobileDevShell({
+  attestationVerifier,
+  cacheRoot = getCacheRoot(),
+  compatibility: inputCompatibility,
+  fetchImpl,
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  const cacheDirectory = path.join(cacheRoot, compatibility.tag);
+  const lockDirectory = path.join(
+    cacheRoot,
+    '.locks',
+    `${compatibility.tag}.lock`,
+  );
+  return withCacheLock(lockDirectory, async () => {
+    await fs.promises.mkdir(cacheRoot, { mode: 0o700, recursive: true });
+    try {
+      const restored = await verifyCache({
+        attestationVerifier,
+        cacheDirectory,
+        compatibility,
+      });
+      return { ...restored, cacheHit: true, source: 'remote-cache' };
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
+      }
+    }
+
+    const temporaryDirectory = await fs.promises.mkdtemp(
+      path.join(cacheRoot, `${compatibility.tag}.download-`),
+    );
+    try {
+      const resolved = await resolveOciShell({ compatibility, fetchImpl });
+      const files = [
+        [compatibility.artifactFile, MAX_ARTIFACT_BYTES],
+        [getSidecarFile(compatibility.artifactFile), MAX_MANIFEST_BYTES],
+        [ATTESTATION_FILE, MAX_ATTESTATION_BYTES],
+      ];
+      for (const [fileName, maxBytes] of files) {
+        await downloadLayerToFile({
+          client: resolved.client,
+          descriptor: resolved.layers.get(fileName),
+          filePath: path.join(temporaryDirectory, fileName),
+          maxBytes,
+        });
+      }
+      await fs.promises.writeFile(
+        path.join(temporaryDirectory, RECEIPT_FILE),
+        `${JSON.stringify(
+          {
+            ociDigest: resolved.ociDigest,
+            sourceCommit: resolved.sourceCommit,
+            tag: compatibility.tag,
+          },
+          null,
+          2,
+        )}\n`,
+        { mode: 0o600 },
+      );
+      const restored = await verifyCache({
+        attestationVerifier,
+        cacheDirectory: temporaryDirectory,
+        compatibility,
+      });
+      await fs.promises.rename(temporaryDirectory, cacheDirectory);
+      return { ...restored, cacheHit: false, source: 'remote' };
+    } catch (error) {
+      await fs.promises.rm(temporaryDirectory, {
+        force: true,
+        recursive: true,
+      });
+      throw error;
+    }
+  });
+}
+
+function runChecked(command, args, options = {}) {
+  const result = spawnSync(command, args, { stdio: 'inherit', ...options });
+  if (result.status !== 0 || result.error) {
+    throw new Error(
+      `[mobileDevShellResource] Command failed: ${command} ${args[0] || ''}`,
+      { cause: result.error },
+    );
+  }
+}
+
+async function installMobileDevShell({ artifactPath, platform }) {
+  if (platform === 'android') {
+    runChecked('adb', ['install', '-r', artifactPath]);
+    return;
+  }
+  const temporaryDirectory = await fs.promises.mkdtemp(
+    path.join(os.tmpdir(), 'onekey-ios-dev-shell-'),
+  );
+  try {
+    runChecked('ditto', ['-x', '-k', artifactPath, temporaryDirectory]);
+    const appDirectories = (
+      await fs.promises.readdir(temporaryDirectory, {
+        withFileTypes: true,
+      })
+    )
+      .filter((entry) => entry.isDirectory() && entry.name.endsWith('.app'))
+      .map((entry) => path.join(temporaryDirectory, entry.name));
+    if (appDirectories.length !== 1) {
+      throw new Error(
+        '[mobileDevShellResource] iOS Simulator archive must contain one app.',
+      );
+    }
+    runChecked('xcrun', ['simctl', 'install', 'booted', appDirectories[0]]);
+  } finally {
+    await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+  }
+}
+
+async function main() {
+  const platformIndex = process.argv.indexOf('--platform');
+  const platform = process.argv[platformIndex + 1];
+  if (process.argv[2] !== 'restore' || !['android', 'ios'].includes(platform)) {
+    throw new Error(
+      'Usage: mobile-dev-shell-resource.js restore --platform <android|ios> [--install]',
+    );
+  }
+  const { getShellCompatibility } = require('./native-dev-shell');
+  const compatibility = getShellCompatibility({ platform });
+  const result = await restoreMobileDevShell({ compatibility });
+  if (process.argv.includes('--install')) {
+    await installMobileDevShell({
+      artifactPath: result.artifactPath,
+      platform,
+    });
+  }
+  console.log(result.artifactPath);
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  ATTESTATION_FILE,
+  getCacheRoot,
+  getSidecarFile,
+  installMobileDevShell,
+  restoreMobileDevShell,
+  verifyArtifactManifest,
+  verifyOciManifest,
+};

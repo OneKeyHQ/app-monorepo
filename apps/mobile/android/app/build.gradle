@@ -9,10 +9,9 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
-def useDevVendor = System.getenv('ONEKEY_DEV_VENDOR') == 'true'
-def useDevBackgroundHmr = useDevVendor && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
-def devVendorAndroidOutputDir = file("${projectRoot}/out-dir-bundle/dev-vendor/android")
-def generatedDevVendorAssetsDir = file("${buildDir}/generated/assets/onekeyDevVendor/debug")
+def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
+def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
+def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
@@ -194,7 +193,7 @@ android {
     }
     buildTypes {
         debug {
-            buildConfigField("boolean", "ONEKEY_DEV_VENDOR", useDevVendor.toString())
+            buildConfigField("boolean", "ONEKEY_DEV_SHELL", useDevShell.toString())
             buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", useDevBackgroundHmr.toString())
             resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
@@ -243,7 +242,7 @@ android {
     }
 
     sourceSets {
-        debug.assets.srcDir(generatedDevVendorAssetsDir)
+        debug.assets.srcDir(generatedDevShellAssetsDir)
     }
 
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
@@ -259,37 +258,28 @@ android {
     }
 }
 
-def prepareDevVendorDebugAssets = tasks.register("prepareDevVendorDebugAssets") {
-    inputs.property("onekeyDevVendorEnabled", useDevVendor)
-    if (useDevVendor) {
-        inputs.files(
-            file("${devVendorAndroidOutputDir}/common.hbc"),
-            file("${devVendorAndroidOutputDir}/manifest.json"),
-        )
-    }
-    outputs.dir(generatedDevVendorAssetsDir)
+def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
+    inputs.property("onekeyDevShellEnabled", useDevShell)
+    outputs.dir(generatedDevShellAssetsDir)
+    outputs.upToDateWhen { false }
 
     doLast {
-        delete(generatedDevVendorAssetsDir)
-        if (!useDevVendor) {
+        delete(generatedDevShellAssetsDir)
+        if (!useDevShell) {
             return
         }
-
+        mkdir(generatedDevShellAssetsDir)
         exec {
             workingDir projectRoot
             commandLine(
                 "node",
-                "scripts/build-dev-vendor.js",
-                "--check",
+                "scripts/native-dev-shell.js",
+                "contract",
                 "--platform",
                 "android",
+                "--output",
+                file("${generatedDevShellAssetsDir}/onekey-dev-shell-contract.json"),
             )
-        }
-        copy {
-            from(devVendorAndroidOutputDir) {
-                include("common.hbc", "manifest.json")
-            }
-            into(file("${generatedDevVendorAssetsDir}/onekey-dev-vendor"))
         }
     }
 }
@@ -298,7 +288,7 @@ android.applicationVariants.configureEach { variant ->
     if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
         def targetName = capitalizeVariantName(variant.name)
         tasks.named("merge${targetName}Assets").configure {
-            dependsOn(prepareDevVendorDebugAssets)
+            dependsOn(prepareDevShellDebugAssets)
         }
     }
 }

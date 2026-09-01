@@ -1,4 +1,4 @@
-name: release-ios-debug
+name: Mobile Dev Shell iOS Simulator
 
 on:
   workflow_dispatch:
@@ -15,7 +15,13 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
-  release-ios-debug:
+  build-ios-simulator-dev-shell:
+    name: Build iOS Simulator arm64 dev shell
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
     runs-on: macos-26
     strategy:
       matrix:
@@ -87,26 +93,54 @@ jobs:
         run: |
           cd apps/mobile/ios
           gem install cocoapods -v 1.16.2
-          pod install
+          pod install --deployment
 
-      - name: Build App File
+      - name: Restore web-embed prebundle
+        uses: ./.github/actions/restore-web-embed
+
+      - name: Build arm64 Simulator app
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
         run: |
-          yarn app:web-embed:build
-          cd apps/mobile/ios
-          xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator -derivedDataPath ./outputs
+          node apps/mobile/scripts/build-mobile-dev-shell.js build \
+            --platform ios \
+            --skip-pods
 
-      - name: Zip artifact
+      - name: Create arm64 Simulator app manifest
+        id: artifact
         run: |
-          cd apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator
-          zip OneKeyWallet-Debug.zip OneKeyWallet.app/* -r
+          set -euo pipefail
+          shell_artifact_key="$(node apps/mobile/scripts/native-dev-shell.js artifact-manifest \
+            --platform ios \
+            --artifact apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.zip \
+            --web-embed-receipt apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json \
+            --output apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json)"
+          manifest="apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json"
+          shell_compatibility_key="$(jq -er '.shellCompatibilityKey' "$manifest")"
+          {
+            echo "artifact_tag=mobile-dev-shell-artifact-v2-ios-simulator-arm64-$shell_artifact_key"
+            echo "compatibility_key=$shell_compatibility_key"
+            echo "compatibility_tag=mobile-dev-shell-compat-v2-ios-simulator-arm64-$shell_compatibility_key"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Upload App File
+      - name: Publish iOS Simulator dev shell to GHCR
+        uses: ./.github/actions/publish-mobile-dev-shell
+        with:
+          architecture: arm64
+          artifact: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.zip
+          artifact_tag: ${{ steps.artifact.outputs.artifact_tag }}
+          compatibility_key: ${{ steps.artifact.outputs.compatibility_key }}
+          compatibility_tag: ${{ steps.artifact.outputs.compatibility_tag }}
+          manifest: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json
+          platform: ios-simulator
+          signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-ios-simulator.yml
+
+      - name: Upload iOS Simulator dev shell
         uses: actions/upload-artifact@v4
         with:
-          name: release-ios-debug-${{ github.sha }}
+          name: mobile-dev-shell-ios-simulator-arm64-${{ github.sha }}
           path: |
-            ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.zip
+            apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-ios-simulator-arm64.json
+            apps/mobile/out-dir-bundle/dev-shell/mobile-dev-shell-attestations.jsonl
           if-no-files-found: error

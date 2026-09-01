@@ -1,7 +1,8 @@
 const path = require('path');
 
-const SCHEMA_VERSION = 3;
-const STRATEGY_VERSION = 4;
+const SCHEMA_VERSION = 4;
+const STRATEGY_VERSION = 5;
+const NATIVE_CONTRACT_VERSION = 2;
 const RELEASE_SCHEMA_VERSION = 2;
 const RELEASE_ASSET_PREFIX = 'metro-dev-prebundle';
 const RELEASE_ATTESTATION_BUNDLE_NAME = `${RELEASE_ASSET_PREFIX}-attestations.jsonl`;
@@ -39,6 +40,7 @@ const fingerprintFiles = [
   'apps/mobile/metro.config.js',
   'apps/mobile/package.json',
   'apps/mobile/plugins/devVendor.js',
+  'apps/mobile/scripts/native-dev-shell.js',
   'apps/mobile/plugins/index.js',
   'apps/mobile/plugins/map.js',
   'apps/mobile/plugins/moduleIdRegistry.js',
@@ -58,6 +60,26 @@ const fingerprintFiles = [
   'packages/shared/src/buildTimeEnv.js',
   'yarn.lock',
 ];
+
+const nativeContractFiles = {
+  android: [
+    'apps/mobile/android/app/build.gradle',
+    'apps/mobile/android/build.gradle',
+    'apps/mobile/android/gradle.properties',
+    'apps/mobile/android/gradle/wrapper/gradle-wrapper.properties',
+    'apps/mobile/android/settings.gradle',
+  ],
+  ios: [
+    'apps/mobile/ios/AppDelegate.swift',
+    'apps/mobile/ios/OneKeyWallet/Info.plist',
+    'apps/mobile/ios/OneKeyWallet/OneKeyWallet-Bridging-Header.h',
+    'apps/mobile/ios/OneKeyWallet.xcodeproj/project.pbxproj',
+    'apps/mobile/ios/Podfile',
+    'apps/mobile/ios/Podfile.lock',
+    'apps/mobile/ios/Podfile.properties.json',
+  ],
+  shared: ['apps/mobile/package.json', 'apps/mobile/react-native.config.js'],
+};
 
 function applyTransformationEnvironment(env) {
   for (const [key, value] of Object.entries(transformationEnvironment)) {
@@ -82,6 +104,7 @@ module.exports = {
   OCI_ARTIFACT_TYPE,
   OCI_REGISTRY,
   OCI_REPOSITORY,
+  NATIVE_CONTRACT_VERSION,
   RELEASE_ASSET_PREFIX,
   RELEASE_ATTESTATION_BUNDLE_NAME,
   RELEASE_SCHEMA_VERSION,
@@ -94,6 +117,12 @@ module.exports = {
   fingerprintDirectories: ['packages/components/colors', 'patches'],
   fingerprintFiles,
   fingerprintOptionalFiles: [],
+  nativeContractDirectories: {
+    android: ['apps/mobile/android/app/src/main/java'],
+    ios: [],
+    shared: [],
+  },
+  nativeContractFiles,
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
     return moduleKey.startsWith('node_modules/');

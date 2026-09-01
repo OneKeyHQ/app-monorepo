@@ -15,6 +15,7 @@ const zlib = require('zlib');
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeConfigInputsDigest,
+  computeNativeContractKey,
   computeReleaseCompatibilityKey,
   getPlatformOutputDirectory,
   getReleaseTag,
@@ -654,6 +655,12 @@ async function packagePrebundleRelease({
           process.env,
           registry,
         ),
+        nativeContractKeys: Object.fromEntries(
+          SUPPORTED_PLATFORMS.map((platform) => [
+            platform,
+            computeNativeContractKey(platform, repoRoot),
+          ]),
+        ),
         registryEpoch: registry.registryEpoch,
         schemaVersion: devVendorConfig.SCHEMA_VERSION,
         strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -719,6 +726,8 @@ function verifyReleaseManifest({ manifest, platform, repoRoot = REPO_ROOT }) {
   if (
     manifest.devVendor?.schemaVersion !== devVendorConfig.SCHEMA_VERSION ||
     manifest.devVendor?.strategyVersion !== devVendorConfig.STRATEGY_VERSION ||
+    manifest.devVendor?.nativeContractKeys?.[platform] !==
+      computeNativeContractKey(platform, repoRoot) ||
     manifest.devVendor?.registryEpoch !== registry.registryEpoch ||
     manifest.devVendor?.configInputsDigest !==
       computeConfigInputsDigest(repoRoot, process.env, registry)

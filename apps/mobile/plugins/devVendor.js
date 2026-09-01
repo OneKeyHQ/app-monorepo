@@ -60,6 +60,51 @@ function getFingerprintInputPaths(repoRoot = REPO_ROOT) {
   ].toSorted();
 }
 
+function getNativePatchInputPaths(platform, repoRoot = REPO_ROOT) {
+  const platformPathPattern =
+    platform === 'android'
+      ? /(?:^|\/)android(?:\/|$)|\.(?:gradle|java|kt|kts)$/iu
+      : /(?:^|\/)(?:apple|ios)(?:\/|$)|\.(?:m|mm|podspec|swift)$/iu;
+  const sharedNativePathPattern =
+    /(?:^|\/)(?:common\/cpp|cpp)(?:\/|$)|\.(?:c|cc|cpp|h|hpp)$/iu;
+  return listDirectoryFiles(repoRoot, 'patches').filter((relativePath) => {
+    if (!relativePath.endsWith('.patch')) return false;
+    const source = fs.readFileSync(
+      path.resolve(repoRoot, relativePath),
+      'utf8',
+    );
+    return source.split('\n').some((line) => {
+      const match = line.match(/^diff --git a\/(.+) b\/(.+)$/u);
+      return match
+        ? [match[1], match[2]].some(
+            (patchPath) =>
+              platformPathPattern.test(patchPath) ||
+              sharedNativePathPattern.test(patchPath),
+          )
+        : false;
+    });
+  });
+}
+
+function getNativeContractInputPaths(platform, repoRoot = REPO_ROOT) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  return [
+    ...new Set([
+      ...devVendorConfig.nativeContractFiles.shared,
+      ...devVendorConfig.nativeContractFiles[platform],
+      ...getNativePatchInputPaths(platform, repoRoot),
+      ...[
+        ...devVendorConfig.nativeContractDirectories.shared,
+        ...devVendorConfig.nativeContractDirectories[platform],
+      ].flatMap((relativeDirectory) =>
+        listDirectoryFiles(repoRoot, relativeDirectory),
+      ),
+    ]),
+  ].toSorted();
+}
+
 function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
   const hash = crypto.createHash('sha256');
   for (const relativePath of relativePaths) {
@@ -119,6 +164,21 @@ function computeConfigInputsDigest(
   );
 }
 
+function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  return sha256(
+    [
+      `onekey-native-dev-shell-contract-v${devVendorConfig.NATIVE_CONTRACT_VERSION}`,
+      `platform=${platform}`,
+      `vendor-schema=${devVendorConfig.SCHEMA_VERSION}`,
+      `vendor-strategy=${devVendorConfig.STRATEGY_VERSION}`,
+      hashRepoFiles(getNativeContractInputPaths(platform, repoRoot), repoRoot),
+    ].join('\0'),
+  );
+}
+
 function computeReleaseCompatibilityKey(
   repoRoot = REPO_ROOT,
   env = process.env,
@@ -127,6 +187,14 @@ function computeReleaseCompatibilityKey(
   return sha256(
     JSON.stringify({
       configInputsDigest: computeConfigInputsDigest(repoRoot, env, registry),
+      nativeContractKeys: Object.fromEntries(
+        [...SUPPORTED_PLATFORMS]
+          .toSorted()
+          .map((platform) => [
+            platform,
+            computeNativeContractKey(platform, repoRoot),
+          ]),
+      ),
       releaseInputsDigest: hashRepoFiles(
         devVendorConfig.releaseFingerprintFiles,
         repoRoot,
@@ -173,6 +241,7 @@ function computeFingerprint(manifestFields) {
       platform: manifestFields.platform,
       registryEpoch: manifestFields.registryEpoch,
       configInputsDigest: manifestFields.configInputsDigest,
+      nativeContractKey: manifestFields.nativeContractKey,
       modulesDigest: manifestFields.modulesDigest,
       modules: manifestFields.modules.map(({ id, path: modulePath }) => ({
         id,
@@ -336,6 +405,12 @@ function verifyManifest({
   if (manifest.configInputsDigest !== configInputsDigest) {
     throw new Error(
       `[devVendor] Build configuration changed for ${platform}. Run the dev-vendor build again.`,
+    );
+  }
+  const nativeContractKey = computeNativeContractKey(platform, repoRoot);
+  if (manifest.nativeContractKey !== nativeContractKey) {
+    throw new Error(
+      `[devVendor] Native contract changed for ${platform}. Rebuild the dev vendor cache.`,
     );
   }
   const modulesDigest = computeModulesDigest(manifest.modules, repoRoot);
@@ -741,6 +816,7 @@ module.exports = {
   assertNativeDevVendorResolverContract,
   assertSortedUniqueModules,
   computeConfigInputsDigest,
+  computeNativeContractKey,
   computeFingerprint,
   computeModulesDigest,
   computeRegistryInputsDigest,
@@ -748,6 +824,7 @@ module.exports = {
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
+  getNativeContractInputPaths,
   getManifestPath,
   getPlatformOutputDirectory,
   getReleaseTag,

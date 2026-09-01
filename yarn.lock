@@ -10524,6 +10524,7 @@ __metadata:
     "@onekeyhq/shared": "npm:*"
     cross-env: "npm:7.0.3"
     rimraf: "npm:3.0.2"
+    tar: "npm:6.2.1"
   languageName: unknown
   linkType: soft
 
@@ -47030,7 +47031,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tar@npm:^6.0.2, tar@npm:^6.0.5, tar@npm:^6.1.11, tar@npm:^6.1.12, tar@npm:^6.1.2":
+"tar@npm:6.2.1, tar@npm:^6.0.2, tar@npm:^6.0.5, tar@npm:^6.1.11, tar@npm:^6.1.12, tar@npm:^6.1.2":
   version: 6.2.1
   resolution: "tar@npm:6.2.1"
   dependencies:

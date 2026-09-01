@@ -75,6 +75,9 @@ Never violate this dependency order:
 
 ## Debugging And Verification
 
+- If a command emits `ONEKEY_USER_NOTICE`, or its run receipt has
+  `userNoticeRequired: true`, report every notice explicitly to the user even
+  when the fallback succeeds. Never describe that run as a clean cache hit.
 - If a fix fails, re-analyze the root cause instead of retrying small variations.
 - For visual bugs, establish platform and expected vs actual behavior first.
 - For Electron, DApp, UI, startup, and interaction fixes, state the repro,

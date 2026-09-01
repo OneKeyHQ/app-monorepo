@@ -37,10 +37,12 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeNativeContractKey,
   computeRegistryInputsDigest,
   computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
+  getNativeContractInputPaths,
   getPlatformOutputDirectory,
   hashRepoFiles,
   isDevVendorEnabled,
@@ -192,6 +194,9 @@ function createTemporaryRuntimeFixture() {
   );
   const fixtureFiles = new Set([
     ...devVendorConfig.fingerprintFiles,
+    ...['android', 'ios'].flatMap((platform) =>
+      getNativeContractInputPaths(platform, repoRoot),
+    ),
     ...devVendorConfig.releaseFingerprintFiles,
   ]);
   for (const relativePath of fixtureFiles) {
@@ -228,6 +233,7 @@ function createTemporaryRuntimeFixture() {
       registryEpoch: loadRegistry().registryEpoch,
       configInputsDigest: computeConfigInputsDigest(temporaryRepoRoot),
       modulesDigest: computeModulesDigest(modules, temporaryRepoRoot),
+      nativeContractKey: computeNativeContractKey('ios', temporaryRepoRoot),
       modules,
       prependModules: [],
     };
@@ -273,7 +279,7 @@ describe('devVendor', () => {
     expect(isDevVendorEnabled({})).toBe(false);
   });
 
-  it('keeps native manifest version checks aligned with the JS contract', () => {
+  it('keeps native manifest checks bound to the embedded shell contract', () => {
     const iosSource = fs.readFileSync(
       path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
       'utf8',
@@ -287,17 +293,23 @@ describe('devVendor', () => {
     );
 
     expect(iosSource).toContain(
-      `(manifest["schemaVersion"] as? NSNumber)?.intValue == ${devVendorConfig.SCHEMA_VERSION},`,
+      'manifest["nativeContractKey"] as? String == nativeContractKey',
+    );
+    expect(iosSource).toContain('contractVendorSchema.intValue');
+    expect(iosSource).toContain('contractVendorStrategy.intValue');
+    expect(iosSource).toContain(
+      `private let devVendorSchemaVersion = ${devVendorConfig.SCHEMA_VERSION}`,
     );
     expect(iosSource).toContain(
-      `(manifest["strategyVersion"] as? NSNumber)?.intValue == ${devVendorConfig.STRATEGY_VERSION},`,
+      `private let devVendorStrategyVersion = ${devVendorConfig.STRATEGY_VERSION}`,
     );
     expect(androidSource).toContain(
-      `manifest.optInt("schemaVersion", -1) != ${devVendorConfig.SCHEMA_VERSION}`,
+      'contract.optInt("vendorSchemaVersion", -2)',
     );
     expect(androidSource).toContain(
-      `manifest.optInt("strategyVersion", -1) != ${devVendorConfig.STRATEGY_VERSION}`,
+      'contract.optInt("vendorStrategyVersion", -2)',
     );
+    expect(androidSource).toContain('manifest.optString("nativeContractKey")');
   });
 
   it('maps generated stubs back to their stable module ID', () => {
@@ -473,6 +485,62 @@ describe('devVendor', () => {
     }
   });
 
+  it('limits the native shell contract to native build and runtime inputs', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const iosInputs = getNativeContractInputPaths('ios', fixture.repoRoot);
+      const androidInputs = getNativeContractInputPaths(
+        'android',
+        fixture.repoRoot,
+      );
+      expect(iosInputs).toContain('apps/mobile/ios/AppDelegate.swift');
+      expect(androidInputs).toContain(
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      );
+      expect(iosInputs).not.toContain(
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      );
+      expect(androidInputs).not.toContain('apps/mobile/ios/AppDelegate.swift');
+      for (const inputs of [iosInputs, androidInputs]) {
+        expect(inputs).toContain('patches/react-native+0.86.2.patch');
+        expect(inputs).not.toContain('apps/mobile/scripts/native-dev-shell.js');
+        expect(inputs).not.toContain('apps/mobile/metro.config.js');
+        expect(inputs).not.toContain('package.json');
+        expect(inputs).not.toContain('yarn.lock');
+        expect(inputs).not.toContain('patches/electron-updater+6.8.9.patch');
+      }
+
+      const iosBaseline = computeNativeContractKey('ios', fixture.repoRoot);
+      const androidBaseline = computeNativeContractKey(
+        'android',
+        fixture.repoRoot,
+      );
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, 'apps/mobile/scripts/native-dev-shell.js'),
+        '\n// changed host orchestration\n',
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
+        '\n// changed native runtime\n',
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('isolates release compatibility from workspace-only registry growth', () => {
     const registry = loadRegistry();
     const workspaceOnlyChange = {
@@ -550,6 +618,7 @@ describe('devVendor', () => {
       registryEpoch: loadRegistry().registryEpoch,
       configInputsDigest: computeConfigInputsDigest(),
       modulesDigest: computeModulesDigest(modules),
+      nativeContractKey: computeNativeContractKey('ios'),
       modules,
       prependModules,
     };
