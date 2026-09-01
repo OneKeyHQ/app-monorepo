@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SCHEMA_VERSION = 2;
-const REGISTRY_EPOCH = 2;
+const REGISTRY_EPOCH = 3;
 const ALLOCATION_VERSION = 1;
 const MODULE_ID_RANGES = Object.freeze({
   workspace: Object.freeze({ start: 0x00_01, end: 0x5f_ff }),

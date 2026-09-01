@@ -229,6 +229,7 @@ function createTemporaryRuntimeFixture() {
       configInputsDigest: computeConfigInputsDigest(temporaryRepoRoot),
       modulesDigest: computeModulesDigest(modules, temporaryRepoRoot),
       modules,
+      prependModules: [],
     };
     const manifest = {
       ...fingerprintFields,
@@ -390,12 +391,16 @@ describe('devVendor', () => {
         { id: 1, path: 'node_modules/a.js', ignored: 'value' },
         { id: 2, path: 'node_modules/b.js' },
       ],
+      prependModules: [{ id: 3, path: 'node_modules/prelude.js' }],
     };
 
     expect(computeFingerprint(fields)).toBe(computeFingerprint(fields));
     expect(
       computeFingerprint({ ...fields, modulesDigest: 'changed' }),
     ).not.toBe(computeFingerprint(fields));
+    expect(computeFingerprint({ ...fields, prependModules: [] })).not.toBe(
+      computeFingerprint(fields),
+    );
   });
 
   it('invalidates config digests for transitive transformer and environment changes', () => {
@@ -504,6 +509,9 @@ describe('devVendor', () => {
     const source = Buffer.from('common source');
     const bytecode = Buffer.from('common bytecode');
     const modules = [{ id: 4, path: 'apps/mobile/index.ts' }];
+    const prependModules = [
+      { id: loadRegistry().modules.__prelude__, path: '__prelude__' },
+    ];
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
     fs.mkdirSync(path.join(artifactDirectory, 'stubs'));
@@ -516,6 +524,7 @@ describe('devVendor', () => {
       configInputsDigest: computeConfigInputsDigest(),
       modulesDigest: computeModulesDigest(modules),
       modules,
+      prependModules,
     };
     const manifest = {
       ...fingerprintFields,
@@ -543,6 +552,17 @@ describe('devVendor', () => {
           projectRoot: '/unused',
         }),
       ).toBe(manifest);
+      expect(() =>
+        verifyManifest({
+          artifactDirectory,
+          manifest: {
+            ...manifest,
+            prependModules: [{ id: 1, path: '__prelude__' }],
+          },
+          platform: 'ios',
+          projectRoot: '/unused',
+        }),
+      ).toThrow('Stable module ID mismatch for __prelude__');
       fs.rmSync(path.join(artifactDirectory, 'stubs/4.js'));
       expect(() =>
         verifyManifest({

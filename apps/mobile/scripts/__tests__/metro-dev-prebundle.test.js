@@ -67,8 +67,31 @@ function createTemporaryRepo() {
   fs.writeFileSync(path.join(packageRoot, 'LICENSE'), 'Test MIT license.\n');
   fs.writeFileSync(path.join(repoRoot, modulePath), 'module.exports = {};\n');
 
+  const prependModulePath =
+    'node_modules/metro-runtime/src/polyfills/require.js';
+  const prependModuleId = loadRegistry().modules[prependModulePath];
+  if (!prependModuleId) {
+    throw new TypeError(`Missing test registry module: ${prependModulePath}`);
+  }
+  const prependPackageRoot = path.join(repoRoot, 'node_modules/metro-runtime');
+  fs.ensureDirSync(path.dirname(path.join(repoRoot, prependModulePath)));
+  fs.writeJsonSync(path.join(prependPackageRoot, 'package.json'), {
+    license: 'MIT',
+    name: 'metro-runtime',
+    version: 'test',
+  });
+  fs.writeFileSync(
+    path.join(prependPackageRoot, 'LICENSE'),
+    'Test Metro MIT license.\n',
+  );
+  fs.writeFileSync(
+    path.join(repoRoot, prependModulePath),
+    'module.exports = {};\n',
+  );
+
   const projectRoot = path.join(repoRoot, 'apps/mobile');
   const modules = [{ id: moduleId, path: modulePath }];
+  const prependModules = [{ id: prependModuleId, path: prependModulePath }];
   for (const platform of ['ios', 'android']) {
     const artifactDirectory = getPlatformOutputDirectory(projectRoot, platform);
     fs.ensureDirSync(path.join(artifactDirectory, 'stubs'));
@@ -85,6 +108,7 @@ function createTemporaryRepo() {
       modules,
       modulesDigest: computeModulesDigest(modules, repoRoot),
       platform,
+      prependModules,
       registryEpoch: loadRegistry().registryEpoch,
       schemaVersion: devVendorConfig.SCHEMA_VERSION,
       strategyVersion: devVendorConfig.STRATEGY_VERSION,
@@ -440,6 +464,10 @@ describe('metro-dev-prebundle release transport', () => {
       ).toEqual(
         expect.objectContaining({
           packages: [
+            expect.objectContaining({
+              license: 'MIT',
+              name: 'metro-runtime',
+            }),
             expect.objectContaining({ license: 'MIT', name: 'react' }),
           ],
         }),

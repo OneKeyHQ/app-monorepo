@@ -178,6 +178,12 @@ function computeFingerprint(manifestFields) {
         id,
         path: modulePath,
       })),
+      prependModules: manifestFields.prependModules.map(
+        ({ id, path: modulePath }) => ({
+          id,
+          path: modulePath,
+        }),
+      ),
     }),
   );
 }
@@ -304,6 +310,10 @@ function verifyManifest({
     throw new Error('[devVendor] Manifest modules must be an array.');
   }
   assertSortedUniqueModules(manifest.modules);
+  if (!Array.isArray(manifest.prependModules)) {
+    throw new Error('[devVendor] Manifest prependModules must be an array.');
+  }
+  assertSortedUniqueModules(manifest.prependModules);
 
   const registry = loadRegistry();
   if (manifest.registryEpoch !== registry.registryEpoch) {
@@ -311,7 +321,10 @@ function verifyManifest({
       `[devVendor] Registry epoch mismatch for ${platform}. Rebuild the dev vendor cache.`,
     );
   }
-  for (const moduleRecord of manifest.modules) {
+  for (const moduleRecord of [
+    ...manifest.modules,
+    ...manifest.prependModules,
+  ]) {
     if (registry.modules[moduleRecord.path] !== moduleRecord.id) {
       throw new Error(
         `[devVendor] Stable module ID mismatch for ${moduleRecord.path}. Rebuild the dev vendor cache.`,

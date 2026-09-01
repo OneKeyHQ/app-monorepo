@@ -320,6 +320,10 @@ async function writePlatformOutput({
 }) {
   const registry = loadRegistry();
   const moduleRecords = createModuleRecords(selectedModules, registry);
+  const prependModules = createModuleRecords(
+    new Set(prepend.map((moduleData) => moduleData.path)),
+    registry,
+  );
   const configInputsDigest = computeConfigInputsDigest();
   const modulesDigest = computeModulesDigest(moduleRecords);
   const fingerprintFields = {
@@ -330,6 +334,7 @@ async function writePlatformOutput({
     configInputsDigest,
     modulesDigest,
     modules: moduleRecords,
+    prependModules,
   };
   const fingerprint = computeFingerprint(fingerprintFields);
   const outputDirectory = getPlatformOutputDirectory(mobileDirPath, platform);
@@ -389,7 +394,7 @@ async function writePlatformOutput({
     fingerprint,
     common: {
       moduleCount: moduleRecords.length,
-      prependModuleCount: prepend.length,
+      prependModuleCount: prependModules.length,
       source: {
         file: devVendorConfig.commonSourceName,
         bytes: sourceBytes.length,

@@ -396,7 +396,13 @@ function readPackageLicenseFiles(packageRoot) {
 function collectPackageInventory(platformManifests, repoRoot = REPO_ROOT) {
   const packages = new Map();
   for (const [platform, manifest] of Object.entries(platformManifests)) {
-    for (const moduleRecord of manifest.modules) {
+    const packageModules = [
+      ...manifest.modules,
+      ...(manifest.prependModules || []),
+    ].filter((moduleRecord) =>
+      moduleRecord.path.split('/').includes('node_modules'),
+    );
+    for (const moduleRecord of packageModules) {
       const packageRoot = findPackageRoot(moduleRecord.path, repoRoot);
       const relativeRoot = path
         .relative(repoRoot, packageRoot)
