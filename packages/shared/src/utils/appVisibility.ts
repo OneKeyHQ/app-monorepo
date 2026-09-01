@@ -7,7 +7,7 @@ import platformEnv from '../platformEnv';
 //   onVisibilityStateChange(cb) — subscribe to transitions
 //
 // Platform signals:
-//   Web / desktop renderer → document.visibilitychange + window focus/blur
+//   Web / desktop renderer → document.visibilitychange
 //   Desktop (Electron)     → desktopApi.onAppState (main-process focus)
 //   Mobile (RN)            → AppState 'change' event
 //   Extension service worker / unknown → defaults to visible (no signal)
@@ -80,27 +80,17 @@ export function onVisibilityStateChange(
     const handleVisibilityStateChange = () => {
       callback(document.visibilityState === 'visible');
     };
-    const windowFocus = () => callback(true);
-    const windowBlur = () => callback(false);
     document.addEventListener(
       'visibilitychange',
       handleVisibilityStateChange,
       false,
     );
-    if (typeof globalThis.window !== 'undefined') {
-      globalThis.window.addEventListener('focus', windowFocus);
-      globalThis.window.addEventListener('blur', windowBlur);
-    }
     return () => {
       document.removeEventListener(
         'visibilitychange',
         handleVisibilityStateChange,
         false,
       );
-      if (typeof globalThis.window !== 'undefined') {
-        globalThis.window.removeEventListener('focus', windowFocus);
-        globalThis.window.removeEventListener('blur', windowBlur);
-      }
     };
   }
   return () => {};
