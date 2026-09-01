@@ -48,6 +48,7 @@ import {
   runPopoverCloseSideEffects,
   runPopoverOpenSideEffects,
 } from './popoverSideEffects';
+import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
@@ -74,7 +75,6 @@ const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 const WEB_KEEP_MOUNTED_TRANSITION =
   'opacity 150ms cubic-bezier(0.215, 0.61, 0.355, 1), transform 150ms cubic-bezier(0.215, 0.61, 0.355, 1)';
-const NATIVE_PORTAL_CLOSE_FALLBACK_DELAY = 1000;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   description?: string;
@@ -621,112 +621,16 @@ function BasicPopover({
     onOpenChangeFunc,
     trackID,
   );
-  const shouldUseNativePortalLifecycle =
-    platformEnv.isNative && Boolean(mountNativePortalBeforeOpen);
-  const [isNativePortalMounted, setIsNativePortalMounted] = useState(false);
-  const [isNativeSheetOpen, setIsNativeSheetOpen] = useState(false);
-  const desiredOpenRef = useRef(Boolean(isOpen));
-  const hasOpenedNativeSheetRef = useRef(false);
-  const nativePortalCloseFallbackTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  desiredOpenRef.current = Boolean(isOpen);
-
-  const clearNativePortalCloseFallbackTimer = useCallback(() => {
-    if (nativePortalCloseFallbackTimerRef.current) {
-      clearTimeout(nativePortalCloseFallbackTimerRef.current);
-      nativePortalCloseFallbackTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!shouldUseNativePortalLifecycle) {
-      return;
-    }
-    if (isOpen) {
-      clearNativePortalCloseFallbackTimer();
-      setIsNativePortalMounted(true);
-      return;
-    }
-
-    setIsNativeSheetOpen(false);
-    if (!hasOpenedNativeSheetRef.current) {
-      setIsNativePortalMounted(false);
-      return;
-    }
-
-    clearNativePortalCloseFallbackTimer();
-    nativePortalCloseFallbackTimerRef.current = setTimeout(() => {
-      nativePortalCloseFallbackTimerRef.current = null;
-      if (!desiredOpenRef.current) {
-        hasOpenedNativeSheetRef.current = false;
-        setIsNativePortalMounted(false);
-      }
-    }, NATIVE_PORTAL_CLOSE_FALLBACK_DELAY);
-  }, [
-    clearNativePortalCloseFallbackTimer,
-    isOpen,
+  const {
     shouldUseNativePortalLifecycle,
-  ]);
-
-  useEffect(() => {
-    if (!shouldUseNativePortalLifecycle || !isOpen || !isNativePortalMounted) {
-      return;
-    }
-    const frame = requestAnimationFrame(() => {
-      if (desiredOpenRef.current) {
-        hasOpenedNativeSheetRef.current = true;
-        setIsNativeSheetOpen(true);
-      }
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [isNativePortalMounted, isOpen, shouldUseNativePortalLifecycle]);
-
-  useEffect(
-    () => () => {
-      clearNativePortalCloseFallbackTimer();
-    },
-    [clearNativePortalCloseFallbackTimer],
-  );
-
-  const handleNativeSheetAnimationComplete = useCallback(
-    (info: { open: boolean }) => {
-      sheetProps?.onAnimationComplete?.(info);
-      if (
-        !shouldUseNativePortalLifecycle ||
-        info.open ||
-        desiredOpenRef.current
-      ) {
-        return;
-      }
-      clearNativePortalCloseFallbackTimer();
-      hasOpenedNativeSheetRef.current = false;
-      setIsNativePortalMounted(false);
-    },
-    [
-      clearNativePortalCloseFallbackTimer,
-      sheetProps,
-      shouldUseNativePortalLifecycle,
-    ],
-  );
-
-  const nativeSheetProps = useMemo(
-    () =>
-      shouldUseNativePortalLifecycle
-        ? {
-            ...sheetProps,
-            onAnimationComplete: handleNativeSheetAnimationComplete,
-          }
-        : sheetProps,
-    [
-      handleNativeSheetAnimationComplete,
-      sheetProps,
-      shouldUseNativePortalLifecycle,
-    ],
-  );
-  const popoverOpen = shouldUseNativePortalLifecycle
-    ? isNativeSheetOpen
-    : isOpen;
+    isNativePortalMounted,
+    popoverOpen,
+    resolvedSheetProps,
+  } = useNativePortalLifecycle({
+    isOpen,
+    sheetProps,
+    mountNativePortalBeforeOpen,
+  });
   const { md } = useMedia();
   const memoPopover = useMemo(
     () => (
@@ -739,17 +643,17 @@ function BasicPopover({
         keepChildrenMounted={keepChildrenMounted}
         mountNativePortalBeforeOpen={mountNativePortalBeforeOpen}
         {...rest}
-        sheetProps={nativeSheetProps}
+        sheetProps={resolvedSheetProps}
       />
     ),
     [
       closePopover,
       keepChildrenMounted,
       mountNativePortalBeforeOpen,
-      nativeSheetProps,
       onOpenChange,
       openPopover,
       popoverOpen,
+      resolvedSheetProps,
       rest,
     ],
   );

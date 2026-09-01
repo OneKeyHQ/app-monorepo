@@ -36,6 +36,9 @@ import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
+import { useAsyncItemsLifecycle } from './useAsyncItemsLifecycle';
+
+import type { IActionListRenderItemsAsync } from './asyncItemsLifecycleTypes';
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../LazyPopover';
 
@@ -61,7 +64,6 @@ export interface IActionListItemProps {
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
-const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 1000;
 const FALLBACK_MODAL_NAVIGATOR_CONTEXT = { portalId: '' };
 const FALLBACK_PAGE_CONTEXT = { footerRef: { current: null } as any };
 
@@ -265,11 +267,7 @@ export interface IActionListProps extends Omit<
    * Starts loading when the list opens. Native applies the resolved content
    * after the entry animation so fit-mode height stays stable while sliding.
    */
-  renderItemsAsync?: (params: {
-    // TODO use cloneElement to override onClose props
-    handleActionListClose: () => void;
-    handleActionListOpen: () => void;
-  }) => Promise<React.ReactNode>;
+  renderItemsAsync?: IActionListRenderItemsAsync;
   /**
    * Unique identifier for tracking/analytics purposes.
    */
@@ -311,74 +309,16 @@ function BasicActionList({
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
-  const [asyncItems, setAsyncItems] = useState<
-    { requestId: number; items: ReactNode } | undefined
-  >();
-  const isOpenRef = useRef(isOpen);
-  const isOpenAnimationCompleteRef = useRef(!platformEnv.isNative);
-  const asyncItemsRequestIdRef = useRef(0);
-  const pendingAsyncItemsRef = useRef<
-    { requestId: number; items: ReactNode } | undefined
-  >(undefined);
-  const renderItemsAsyncRef = useRef(renderItemsAsync);
-  const asyncItemsFallbackTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  isOpenRef.current = isOpen;
-  renderItemsAsyncRef.current = renderItemsAsync;
-
-  const clearAsyncItemsFallbackTimer = useCallback(() => {
-    if (asyncItemsFallbackTimerRef.current) {
-      clearTimeout(asyncItemsFallbackTimerRef.current);
-      asyncItemsFallbackTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(
-    () => () => clearAsyncItemsFallbackTimer(),
-    [clearAsyncItemsFallbackTimer],
-  );
-
-  const commitPendingAsyncItems = useCallback(() => {
-    const pendingItems = pendingAsyncItemsRef.current;
-    if (
-      !pendingItems ||
-      !isOpenRef.current ||
-      pendingItems.requestId !== asyncItemsRequestIdRef.current
-    ) {
-      return;
-    }
-    pendingAsyncItemsRef.current = undefined;
-    setAsyncItems(pendingItems);
-  }, []);
-
-  const handleSheetAnimationComplete = useCallback(
-    (info: { open: boolean }) => {
-      sheetProps?.onAnimationComplete?.(info);
-      if (!info.open) {
-        clearAsyncItemsFallbackTimer();
-        if (!isOpenRef.current) {
-          setAsyncItems(undefined);
-        }
-        return;
-      }
-      if (!isOpenRef.current) {
-        return;
-      }
-      isOpenAnimationCompleteRef.current = true;
-      clearAsyncItemsFallbackTimer();
-      commitPendingAsyncItems();
-    },
-    [clearAsyncItemsFallbackTimer, commitPendingAsyncItems, sheetProps],
-  );
-
-  const mergedSheetProps = useMemo(
-    () => ({
-      ...sheetProps,
-      onAnimationComplete: handleSheetAnimationComplete,
-    }),
-    [handleSheetAnimationComplete, sheetProps],
-  );
+  const handleActionListOpenRef = useRef<() => void>(() => undefined);
+  const handleActionListCloseRef = useRef<() => void>(() => undefined);
+  const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
+    useAsyncItemsLifecycle({
+      isOpen,
+      renderItemsAsync,
+      handleActionListCloseRef,
+      handleActionListOpenRef,
+      sheetProps,
+    });
   const trackActionListToggle = useDebouncedCallback((openStatus: boolean) => {
     if (trackID) {
       if (openStatus) {
@@ -395,31 +335,13 @@ function BasicActionList({
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
-      isOpenRef.current = openStatus;
-      if (openStatus) {
-        clearAsyncItemsFallbackTimer();
-        isOpenAnimationCompleteRef.current = !platformEnv.isNative;
-      } else {
-        asyncItemsRequestIdRef.current += 1;
-        pendingAsyncItemsRef.current = undefined;
-        clearAsyncItemsFallbackTimer();
-        if (platformEnv.isNative) {
-          asyncItemsFallbackTimerRef.current = setTimeout(() => {
-            asyncItemsFallbackTimerRef.current = null;
-            if (!isOpenRef.current) {
-              setAsyncItems(undefined);
-            }
-          }, ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY);
-        } else {
-          setAsyncItems(undefined);
-        }
-      }
+      handleAsyncItemsOpenChange(openStatus);
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
     },
     [
-      clearAsyncItemsFallbackTimer,
+      handleAsyncItemsOpenChange,
       onOpenChange,
       setOpenStatus,
       trackActionListToggle,
@@ -431,79 +353,10 @@ function BasicActionList({
   const handleActionListClose = useCallback(() => {
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
-  const handleActionListOpenRef = useRef(handleActionListOpen);
-  const handleActionListCloseRef = useRef(handleActionListClose);
   handleActionListOpenRef.current = handleActionListOpen;
   handleActionListCloseRef.current = handleActionListClose;
 
-  const hasRenderItemsAsync = Boolean(renderItemsAsync);
   const intl = useIntl();
-  useEffect(() => {
-    const currentRenderItemsAsync = renderItemsAsyncRef.current;
-    if (!currentRenderItemsAsync || !isOpen) {
-      return;
-    }
-
-    let isActive = true;
-    const requestId = asyncItemsRequestIdRef.current + 1;
-    asyncItemsRequestIdRef.current = requestId;
-    pendingAsyncItemsRef.current = undefined;
-
-    if (platformEnv.isNative && !isOpenAnimationCompleteRef.current) {
-      clearAsyncItemsFallbackTimer();
-      asyncItemsFallbackTimerRef.current = setTimeout(() => {
-        asyncItemsFallbackTimerRef.current = null;
-        if (!isActive || !isOpenRef.current) {
-          return;
-        }
-        isOpenAnimationCompleteRef.current = true;
-        commitPendingAsyncItems();
-      }, ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY);
-    }
-
-    void currentRenderItemsAsync({
-      handleActionListClose: handleActionListCloseRef.current,
-      handleActionListOpen: handleActionListOpenRef.current,
-    })
-      .then((asyncItemsToRender) => {
-        if (
-          !isActive ||
-          !isOpenRef.current ||
-          requestId !== asyncItemsRequestIdRef.current
-        ) {
-          return;
-        }
-        pendingAsyncItemsRef.current = {
-          requestId,
-          items: asyncItemsToRender,
-        };
-        if (isOpenAnimationCompleteRef.current) {
-          commitPendingAsyncItems();
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isActive || requestId !== asyncItemsRequestIdRef.current) {
-          return;
-        }
-        const message =
-          error instanceof Error ? error.message : String(error ?? 'unknown');
-        defaultLogger.app.error.log(
-          `[ActionList] renderItemsAsync failed: ${message}`,
-        );
-      });
-
-    return () => {
-      isActive = false;
-      if (requestId === asyncItemsRequestIdRef.current) {
-        clearAsyncItemsFallbackTimer();
-      }
-    };
-  }, [
-    clearAsyncItemsFallbackTimer,
-    commitPendingAsyncItems,
-    hasRenderItemsAsync,
-    isOpen,
-  ]);
 
   const renderActionListItem = useCallback(
     (item: IActionListItemProps) => (
@@ -605,7 +458,7 @@ function BasicActionList({
       {...props}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
-      sheetProps={mergedSheetProps}
+      sheetProps={resolvedSheetProps}
     />
   );
 }
