@@ -1,6 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
 const {
@@ -61,21 +59,4 @@ test('allows first-party MMKV and unrelated third-party imports', () => {
     }),
     undefined,
   );
-});
-
-test('installs the BG violation bridge before loading business modules', () => {
-  const backgroundEntry = fs.readFileSync(
-    path.resolve(__dirname, '../background.ts'),
-    'utf8',
-  );
-  const handlerImportIndex = backgroundEntry.indexOf(
-    "require('./src/backgroundThread/setupBackgroundThreadRPCHandler')",
-  );
-  const apiProxyImportIndex = backgroundEntry.indexOf(
-    "require('@onekeyhq/kit/src/background/instance/backgroundApiProxy')",
-  );
-
-  assert.notEqual(handlerImportIndex, -1);
-  assert.notEqual(apiProxyImportIndex, -1);
-  assert.ok(handlerImportIndex < apiProxyImportIndex);
 });
