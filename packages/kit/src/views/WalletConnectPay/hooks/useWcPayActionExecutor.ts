@@ -13,6 +13,7 @@ import {
   extractWcPaySolanaTransaction,
   wcPaySolanaTxToEncodedTx,
 } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/solPayUtils';
+import { isWcPayEmptyCalldata } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnectPay/wcPayOrderConsistency';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
@@ -684,6 +685,61 @@ export function useWcPayActionExecutor() {
                   mode: 'fallback',
                   reason: WC_PAY_INLINE_APPROVE_BUDGET_REASON,
                 };
+              }
+              if (plan.mode === 'inline' && plan.kind === 'transfer') {
+                // What the sheet shows for this leg is the option's display
+                // line, so the asset that display names must be the asset the
+                // tx actually moves. The pure validator cannot see this (the
+                // option carries no token contract): prove it here through
+                // the wallet registry for the ERC20 shape — the same rule the
+                // approve/permit/Solana legs apply — and through the wallet's
+                // own network config for the native shape. Either mismatch
+                // only demotes to the confirm page, never refuses the payment.
+                const transferTokenAddress = isWcPayEmptyCalldata(
+                  (encodedTx as { data?: string }).data,
+                )
+                  ? undefined
+                  : (encodedTx as { to?: string }).to;
+                if (transferTokenAddress) {
+                  const resolvedToken = await resolveWcPayToken({
+                    networkId,
+                    accountId: account.id,
+                    address: transferTokenAddress,
+                  });
+                  if (
+                    !resolvedToken ||
+                    // the registry must be answering about the very contract
+                    // that was asked (parity with the approve leg below)
+                    resolvedToken.address.toLowerCase() !==
+                      transferTokenAddress.toLowerCase() ||
+                    resolvedToken.symbol !==
+                      option.amount?.display?.assetSymbol ||
+                    resolvedToken.decimals !== option.amount?.display?.decimals
+                  ) {
+                    plan = {
+                      mode: 'fallback',
+                      reason: 'transfer token mismatch',
+                    };
+                  }
+                } else {
+                  // Native transfer: no contract to resolve; the network's
+                  // own native asset is the ground truth the display must
+                  // match. A symbol rename shipped server-side first lands on
+                  // the confirm page rather than blocking the payment.
+                  const network =
+                    await backgroundApiProxy.serviceNetwork.getNetwork({
+                      networkId,
+                    });
+                  if (
+                    network.decimals !== option.amount?.display?.decimals ||
+                    network.symbol !== option.amount?.display?.assetSymbol
+                  ) {
+                    plan = {
+                      mode: 'fallback',
+                      reason: 'native asset mismatch',
+                    };
+                  }
+                }
               }
               if (plan.mode === 'inline' && plan.kind === 'approve') {
                 // The calldata `to` is the token contract; prove its identity

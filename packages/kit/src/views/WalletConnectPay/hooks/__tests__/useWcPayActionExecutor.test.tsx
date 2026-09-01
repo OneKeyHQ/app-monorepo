@@ -37,6 +37,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const services = {
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
+      // The suites' native-transfer fixtures display USDC with 6 decimals, so
+      // the mock network's native asset agrees — the transfer gate's happy
+      // path. The gate's own suite overrides this per test.
+      getNetwork: jest
+        .fn()
+        .mockResolvedValue({ id: 'evm--8453', symbol: 'USDC', decimals: 6 }),
     },
     serviceAccount: {
       getNetworkAccount: jest.fn().mockResolvedValue({
@@ -2172,5 +2178,172 @@ describe('useWcPayActionExecutor approve budget', () => {
       WC_PAY_INLINE_APPROVE_BUDGET_REASON,
     );
     errorSpy.mockRestore();
+  });
+});
+
+describe('useWcPayActionExecutor transfer asset binding', () => {
+  const SENDER = '0x1111111111111111111111111111111111111111';
+  const TOKEN = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+  const option: IWcPayOption = {
+    id: 'opt-1',
+    account: `eip155:8453:${SENDER}`,
+    amount: {
+      unit: 'usdc',
+      value: '1000000',
+      display: { assetSymbol: 'USDC', assetName: 'USD Coin', decimals: 6 },
+    },
+    etaS: 10,
+    actions: [],
+  };
+  // transfer(address,uint256) moving exactly the order amount
+  const transferData = `0xa9059cbb${SENDER.slice(2).padStart(
+    64,
+    '0',
+  )}${(1_000_000).toString(16).padStart(64, '0')}`;
+  const buildErc20TransferAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [{ from: SENDER, to: TOKEN, value: '0x0', data: transferData }],
+      chainId: 'eip155:8453',
+    });
+  const buildNativeTransferAction = () =>
+    buildAction({
+      method: EWcPayActionMethod.EthSendTransaction,
+      params: [{ from: SENDER, to: SENDER, value: '0xf4240' }],
+      chainId: 'eip155:8453',
+    });
+
+  const services = jest.requireMock<{
+    default: {
+      serviceNetwork: { getNetwork: jest.Mock };
+      serviceToken: { fetchTokensDetails: jest.Mock };
+      serviceWalletConnectPay: {
+        waitForTxMined: jest.Mock;
+        isTxNeverBroadcast: jest.Mock;
+      };
+    };
+  }>('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+  const { wcPayInlineSendTx } = jest.requireMock<{
+    wcPayInlineSendTx: jest.Mock;
+  }>('../wcPayInlineSendTx');
+
+  beforeEach(() => {
+    pushModalMock.mockReset();
+    pushModalMock.mockImplementation((_route, { params }) => {
+      params.onSuccess([{ signedTx: { txid: '0xtxid-confirm' } }]);
+    });
+    wcPayInlineSendTx.mockReset();
+    wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
+    services.serviceToken.fetchTokensDetails.mockReset();
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([]);
+    services.serviceNetwork.getNetwork.mockReset();
+    services.serviceNetwork.getNetwork.mockResolvedValue({
+      id: 'evm--8453',
+      symbol: 'USDC',
+      decimals: 6,
+    });
+    services.serviceWalletConnectPay.waitForTxMined.mockReset();
+    services.serviceWalletConnectPay.waitForTxMined.mockResolvedValue({
+      isReverted: false,
+    });
+    services.serviceWalletConnectPay.isTxNeverBroadcast.mockReset();
+    services.serviceWalletConnectPay.isTxNeverBroadcast.mockResolvedValue(
+      false,
+    );
+  });
+
+  it('inlines an ERC20 transfer once the registry proves the token', async () => {
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([
+      { info: { address: TOKEN, symbol: 'USDC', decimals: 6 } },
+    ]);
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildErc20TransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(wcPayInlineSendTx.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ intent: 'transfer' }),
+    );
+    expect(pushModalMock).not.toHaveBeenCalled();
+    expect(signatures).toEqual(['0xinline']);
+    expect(services.serviceToken.fetchTokensDetails).toHaveBeenCalledWith(
+      expect.objectContaining({ contractList: [TOKEN] }),
+    );
+  });
+
+  it('falls back when the transfer token cannot be proven', async () => {
+    // default fetchTokensDetails mock resolves [] — unknown token
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildErc20TransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xtxid-confirm']);
+  });
+
+  it('falls back when the resolved transfer token disagrees with the order asset', async () => {
+    services.serviceToken.fetchTokensDetails.mockResolvedValue([
+      { info: { address: TOKEN, symbol: 'SCAM', decimals: 6 } },
+    ]);
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [buildErc20TransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('inlines a native transfer when the network native asset matches the display', async () => {
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [buildNativeTransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
+    expect(wcPayInlineSendTx.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ intent: 'transfer' }),
+    );
+    expect(signatures).toEqual(['0xinline']);
+  });
+
+  it('falls back when the display disagrees with the network native asset', async () => {
+    // the display claims USDC/6 while the chain's native asset is ETH/18 —
+    // exactly the substitution the gate exists to catch
+    services.serviceNetwork.getNetwork.mockResolvedValue({
+      id: 'evm--8453',
+      symbol: 'ETH',
+      decimals: 18,
+    });
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await result.current.executeActions({
+      actions: [buildNativeTransferAction()],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSendTx).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
   });
 });
