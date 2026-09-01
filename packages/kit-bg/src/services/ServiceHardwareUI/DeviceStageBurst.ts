@@ -1,5 +1,6 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -136,6 +137,32 @@ const OUTCOME_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'error',
   'done',
 ]);
+
+/** The air-gap pair (doc §4.6). The request UR lives exactly as long as
+ * the stage is inside it — the way back from scanQr re-presents the same
+ * code, so the payload must survive the crossing in both directions. */
+const QR_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
+  'showQr',
+  'scanQr',
+]);
+
+/**
+ * The air-gap fields' carry rule (the request UR and the session tag
+ * alike): alive only inside the QR pair, where an explicit hand-over
+ * wins and the crossing keeps what the step already showed; dead
+ * everywhere else — no other step may re-present a stale code, and no
+ * stale tag may authorize a submit (OK-59934 §4.6).
+ */
+export function pickQrScoped<T>(
+  step: IDeviceStageStepValue,
+  next: T | undefined,
+  prev: T | undefined,
+): T | undefined {
+  if (!QR_STEPS.has(step)) {
+    return undefined;
+  }
+  return next ?? prev;
+}
 
 /** The steps that ask something of the person. Only an ask outranks an
  * outcome already on stage — the device is waiting on them, so the notice
@@ -624,6 +651,15 @@ export class DeviceStageBurstScope {
     }
     const current = await deviceStageAtom.get();
     const outcomeOnStage = Boolean(current && OUTCOME_STEPS.has(current.step));
+    // The air-gap pair owns the stage while it stands (doc §4.6). No
+    // hd-core traffic belongs to it — an air-gapped flow never touches
+    // the SDK — so every event here is a bystander's: background
+    // housekeeping (an XFP backfill, a features poll) whose call-end
+    // close would stomp the code card into a wait with no way back
+    // (qrShowCode plays once per session), stranding the pending scan.
+    if (current && QR_STEPS.has(current.step)) {
+      return;
+    }
     const isCloseEvent =
       shouldClearUiState ||
       action === EHardwareUiStateAction.CLOSE_UI_WINDOW ||
@@ -930,6 +966,73 @@ export class DeviceStageBurstScope {
     await this.setStep(this.authoredAuthStep ?? 'processing', {});
   }
 
+  /**
+   * The air-gap track's beats (doc §4.6), fed by ServiceQrWallet — the
+   * one bg exit every two-way scan goes through. Unlike the SDK tracks
+   * there is no event stream to translate: the flow is promise-driven,
+   * the request UR is born in bg, and the person's Next/Back on the card
+   * walk the pair by these methods.
+   *
+   * Deliberately NOT gated on isEnabled(): a QR session only starts
+   * through a bracket that checked the gate (ServiceQrWallet falls back
+   * to the legacy toast when the stage is silenced), and gating the
+   * beats individually would strand a session mid-flight if the firmware
+   * flag flipped under it.
+   *
+   * No deviceName ever rides in — an offline device has no connection to
+   * name, and the QR steps must not wear a badge (doc hard rule).
+   */
+  async qrShowCode({
+    valueUr,
+    sessionId,
+  }: {
+    valueUr: IAirGapUrJson;
+    /** The session's tag, echoed back by the viewfinder's submit — a
+     * stale frame must never answer a newer request (see ServiceQrWallet
+     * stageAirGapSession). */
+    sessionId: number;
+  }) {
+    this.clearOffTimer();
+    await this.setStep('showQr', {
+      qrValueUr: valueUr,
+      qrSessionId: sessionId,
+    });
+  }
+
+  /** The person watched the device show its answer code and pressed
+   * Next: on to the camera. A stale press (the stage already left the
+   * pair) moves nothing. */
+  async qrProceedToScan() {
+    const prev = await deviceStageAtom.get();
+    if (prev?.step !== 'showQr') {
+      return;
+    }
+    this.clearOffTimer();
+    await this.setStep('scanQr', {});
+  }
+
+  /** The escape hatch for a premature handoff: back to presenting the
+   * code — the carried UR re-presents itself. Never a reject (the legacy
+   * container's skipReject, in stage form). */
+  async qrBackToShow() {
+    const prev = await deviceStageAtom.get();
+    if (prev?.step !== 'scanQr') {
+      return;
+    }
+    this.clearOffTimer();
+    await this.setStep('showQr', {});
+  }
+
+  /** The scan is in: the bg flow decodes and carries on, so the stage
+   * settles into the wait — the burst's own end lands the exit. */
+  async qrNoteScanCompleted() {
+    const prev = await deviceStageAtom.get();
+    if (!prev || prev.step === 'off') {
+      return;
+    }
+    await this.setStep('processing', {});
+  }
+
   /** User dismissed the stage: the exit is already under way — drop burst
    * bookkeeping and settle at off. Cancel semantics live in the caller. */
   async userClose() {
@@ -1061,6 +1164,8 @@ export class DeviceStageBurstScope {
       installActiveIndex?: number;
       btcHighIndexPath?: string;
       btcHighIndexAccountIndex?: number;
+      qrValueUr?: IDeviceStageState['qrValueUr'];
+      qrSessionId?: number;
       resetOutcome?: boolean;
     },
   ) {
@@ -1152,6 +1257,12 @@ export class DeviceStageBurstScope {
           step === 'authFailure' ? mergedExtras.authFailureCode : undefined,
         errorReason: step === 'error' ? mergedExtras.errorReason : undefined,
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
+        qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
+        qrSessionId: pickQrScoped(
+          step,
+          mergedExtras.qrSessionId,
+          base?.qrSessionId,
+        ),
         inputError: mergedExtras.inputError,
         passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,
         confirmDetails: pickConfirm(
