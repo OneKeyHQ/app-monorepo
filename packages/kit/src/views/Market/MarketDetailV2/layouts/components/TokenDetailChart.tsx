@@ -106,7 +106,7 @@ export function TokenDetailChart({
             justifyContent="space-between"
           >
             <XStack
-              width={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
+              minWidth={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
               alignItems="center"
               gap="$0.5"
             >
@@ -115,14 +115,12 @@ export function TokenDetailChart({
                 return (
                   <Stack
                     key={item}
-                    width={itemWidth}
                     minWidth={itemWidth}
                     height={32}
                     flexShrink={0}
                   >
                     <Button
                       testID={`market-token-chart-range-${item}`}
-                      width="100%"
                       minWidth={itemWidth}
                       height={32}
                       m="$0"

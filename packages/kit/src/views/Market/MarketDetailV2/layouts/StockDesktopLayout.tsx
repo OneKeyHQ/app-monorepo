@@ -462,7 +462,6 @@ function StockChartModeControl({
     <XStack height={32} alignItems="center" gap="$0.5">
       <Button
         testID="stock-chart-mode-simple"
-        width={62}
         minWidth={62}
         height={32}
         m="$0"
@@ -477,7 +476,6 @@ function StockChartModeControl({
       </Button>
       <Button
         testID="stock-chart-mode-pro"
-        width={40}
         minWidth={40}
         height={32}
         m="$0"
@@ -554,7 +552,7 @@ function StockChart({
           justifyContent="space-between"
         >
           <XStack
-            width={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
+            minWidth={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
             alignItems="center"
             gap="$0.5"
           >
@@ -563,14 +561,12 @@ function StockChart({
               return (
                 <Stack
                   key={item}
-                  width={itemWidth}
                   minWidth={itemWidth}
                   height={32}
                   flexShrink={0}
                 >
                   <Button
                     testID={`stock-chart-range-${item}`}
-                    width="100%"
                     minWidth={itemWidth}
                     height={32}
                     m="$0"
@@ -930,7 +926,10 @@ function StockAnalystRatings() {
 
 // react-native-web does not fire `onTextLayout` reliably, so the toggle is
 // gated on a character count that approximates two lines at this section width
-// instead of measuring the rendered text.
+// instead of measuring the rendered text. Wider glyphs (CJK) can exceed the
+// approximation, so the clamp is only applied when the toggle is offered —
+// short-but-wide text renders unclamped rather than being cut with no way to
+// expand it.
 const STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH = 200;
 
 function StockAbout() {
@@ -1005,7 +1004,9 @@ function StockAbout() {
             testID="stock-about-description"
             size="$bodyMd"
             color="$textSubdued"
-            numberOfLines={isDescriptionExpanded ? undefined : 2}
+            numberOfLines={
+              canExpandDescription && !isDescriptionExpanded ? 2 : undefined
+            }
           >
             {description}
           </SizableText>
@@ -1017,7 +1018,11 @@ function StockAbout() {
               alignSelf="flex-start"
               onPress={() => setIsDescriptionExpanded((value) => !value)}
             >
-              {isDescriptionExpanded ? 'Show Less' : 'Show More'}
+              {intl.formatMessage({
+                id: isDescriptionExpanded
+                  ? ETranslations.global_show_less
+                  : ETranslations.global_show_more,
+              })}
             </Button>
           ) : null}
         </YStack>

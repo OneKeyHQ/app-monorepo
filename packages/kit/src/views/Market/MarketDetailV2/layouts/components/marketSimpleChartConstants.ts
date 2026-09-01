@@ -20,8 +20,9 @@ export const MARKET_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
   'All',
 ];
 
-// Each range button is pinned to its design width rather than sized by its
-// label, so the row keeps a stable rhythm across locales.
+// Minimum widths sized for the Latin labels (Figma design grid); CJK locales
+// render wider labels ("全部"), so buttons grow beyond these instead of
+// wrapping the text.
 export const MARKET_SIMPLE_CHART_RANGE_WIDTHS: Record<
   IStockSimpleChartRange,
   number
@@ -34,4 +35,5 @@ export const MARKET_SIMPLE_CHART_RANGE_WIDTHS: Record<
   All: 34,
 };
 
+// Minimum, for the same reason as the per-button widths above.
 export const MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH = 214;

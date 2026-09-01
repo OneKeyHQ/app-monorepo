@@ -365,8 +365,10 @@ const TOP_COINS_EARN_ARTWORK_SIZE = 56;
 
 // The Earn surface renders APY as "value + one-step-smaller unit", but this row
 // is a single sentence set at one size, so the APY is resolved to plain text
-// here and rendered in one run. Priority mirrors `AprText`: range, then
-// highlight/normal/deprecated, then the raw APR.
+// here and rendered in one run. Priority mirrors `AprText` — range, then
+// highlight/normal, then the raw APR — except `aprInfo.deprecated`: AprText
+// renders that struck through as an expired rate, which a plain sentence
+// cannot convey, so it falls through to the raw current APR instead.
 function resolveEarnAprText(earnAsset: IRecommendAsset) {
   const rewardUnit = earnAsset.rewardUnit ?? 'APR';
   const rangeText = buildAprRangeText({
@@ -378,10 +380,7 @@ function resolveEarnAprText(earnAsset: IRecommendAsset) {
     return rangeText;
   }
   const { aprInfo } = earnAsset;
-  const infoText =
-    aprInfo?.highlight?.text ??
-    aprInfo?.normal?.text ??
-    aprInfo?.deprecated?.text;
+  const infoText = aprInfo?.highlight?.text ?? aprInfo?.normal?.text;
   if (infoText) {
     return formatRewardText({ text: infoText, rewardUnit, hideSuffix: false });
   }
