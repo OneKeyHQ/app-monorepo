@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -30,7 +30,7 @@ export function useWalletActionConfig() {
     return settings;
   }, [network?.id]).result;
   const vaultSettings =
-    cachedVaultSettings ?? fetchedVaultSettings ?? undefined;
+    fetchedVaultSettings ?? cachedVaultSettings ?? undefined;
 
   const config = useMemo((): INetworkWalletActionsConfig => {
     if (!network?.id) return defaultWalletActionsConfig;
@@ -71,17 +71,23 @@ export function useWalletActionConfig() {
     return mergedConfig;
   }, [network?.id, vaultSettings]);
 
-  const isActionEnabled = (actionType: IWalletActionType): boolean => {
-    return [...config.mainActions, ...config.moreActions].includes(actionType);
-  };
+  const isActionEnabled = useCallback(
+    (actionType: IWalletActionType): boolean => {
+      return [...config.mainActions, ...config.moreActions].includes(
+        actionType,
+      );
+    },
+    [config.mainActions, config.moreActions],
+  );
 
-  const getActionCustomization = (
-    actionType: IWalletActionType,
-  ): IActionCustomization | undefined => {
-    return config.actionCustomization?.[actionType];
-  };
+  const getActionCustomization = useCallback(
+    (actionType: IWalletActionType): IActionCustomization | undefined => {
+      return config.actionCustomization?.[actionType];
+    },
+    [config.actionCustomization],
+  );
 
-  const getMoreActionGroups = (): IMoreActionGroup[] => {
+  const getMoreActionGroups = useCallback((): IMoreActionGroup[] => {
     const groups = config.moreActionGroups || [];
 
     const allGroups: IMoreActionGroup[] = [...groups];
@@ -100,7 +106,7 @@ export function useWalletActionConfig() {
     }
 
     return allGroups.toSorted((a, b) => a.order - b.order);
-  };
+  }, [config.moreActionGroups, config.moreActions]);
 
   return {
     config,

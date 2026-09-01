@@ -74,10 +74,14 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     ],
   );
 
-  const rewardCenterConfig = getRewardCenterConfig({
-    accountId: account?.id ?? '',
-    networkId: network?.id ?? '',
-  });
+  const rewardCenterConfig = useMemo(
+    () =>
+      getRewardCenterConfig({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+      }),
+    [account?.id, network?.id],
+  );
 
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {

@@ -320,10 +320,12 @@ function BasicActionList({
   const pendingAsyncItemsRef = useRef<
     { requestId: number; items: ReactNode } | undefined
   >(undefined);
+  const renderItemsAsyncRef = useRef(renderItemsAsync);
   const asyncItemsFallbackTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
   isOpenRef.current = isOpen;
+  renderItemsAsyncRef.current = renderItemsAsync;
 
   const clearAsyncItemsFallbackTimer = useCallback(() => {
     if (asyncItemsFallbackTimerRef.current) {
@@ -348,7 +350,14 @@ function BasicActionList({
   const handleSheetAnimationComplete = useCallback(
     (info: { open: boolean }) => {
       sheetProps?.onAnimationComplete?.(info);
-      if (!info.open || !isOpenRef.current) {
+      if (!info.open) {
+        clearAsyncItemsFallbackTimer();
+        if (!isOpenRef.current) {
+          setAsyncItems(undefined);
+        }
+        return;
+      }
+      if (!isOpenRef.current) {
         return;
       }
       isOpenAnimationCompleteRef.current = true;
@@ -383,12 +392,22 @@ function BasicActionList({
     (openStatus: boolean) => {
       isOpenRef.current = openStatus;
       if (openStatus) {
+        clearAsyncItemsFallbackTimer();
         isOpenAnimationCompleteRef.current = !platformEnv.isNative;
       } else {
         asyncItemsRequestIdRef.current += 1;
         pendingAsyncItemsRef.current = undefined;
         clearAsyncItemsFallbackTimer();
-        setAsyncItems(undefined);
+        if (platformEnv.isNative) {
+          asyncItemsFallbackTimerRef.current = setTimeout(() => {
+            asyncItemsFallbackTimerRef.current = null;
+            if (!isOpenRef.current) {
+              setAsyncItems(undefined);
+            }
+          }, ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY);
+        } else {
+          setAsyncItems(undefined);
+        }
       }
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
@@ -407,11 +426,16 @@ function BasicActionList({
   const handleActionListClose = useCallback(() => {
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
+  const handleActionListOpenRef = useRef(handleActionListOpen);
+  const handleActionListCloseRef = useRef(handleActionListClose);
+  handleActionListOpenRef.current = handleActionListOpen;
+  handleActionListCloseRef.current = handleActionListClose;
 
-  const { md } = useMedia();
+  const hasRenderItemsAsync = Boolean(renderItemsAsync);
   const intl = useIntl();
   useEffect(() => {
-    if (!renderItemsAsync || !isOpen) {
+    const currentRenderItemsAsync = renderItemsAsyncRef.current;
+    if (!currentRenderItemsAsync || !isOpen) {
       return;
     }
 
@@ -419,7 +443,6 @@ function BasicActionList({
     const requestId = asyncItemsRequestIdRef.current + 1;
     asyncItemsRequestIdRef.current = requestId;
     pendingAsyncItemsRef.current = undefined;
-    setAsyncItems(undefined);
 
     if (platformEnv.isNative && !isOpenAnimationCompleteRef.current) {
       clearAsyncItemsFallbackTimer();
@@ -433,9 +456,9 @@ function BasicActionList({
       }, ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY);
     }
 
-    void renderItemsAsync({
-      handleActionListClose,
-      handleActionListOpen,
+    void currentRenderItemsAsync({
+      handleActionListClose: handleActionListCloseRef.current,
+      handleActionListOpen: handleActionListOpenRef.current,
     })
       .then((asyncItemsToRender) => {
         if (
@@ -473,11 +496,8 @@ function BasicActionList({
   }, [
     clearAsyncItemsFallbackTimer,
     commitPendingAsyncItems,
-    handleActionListClose,
-    handleActionListOpen,
+    hasRenderItemsAsync,
     isOpen,
-    md,
-    renderItemsAsync,
   ]);
 
   const renderActionListItem = useCallback(
