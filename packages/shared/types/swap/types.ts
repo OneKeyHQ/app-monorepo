@@ -1245,6 +1245,7 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
+  unavailable?: boolean;
 }
 
 export interface IFetchUSMarketStatusResult {
