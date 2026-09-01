@@ -273,6 +273,33 @@ describe('devVendor', () => {
     expect(isDevVendorEnabled({})).toBe(false);
   });
 
+  it('keeps native manifest version checks aligned with the JS contract', () => {
+    const iosSource = fs.readFileSync(
+      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
+      'utf8',
+    );
+    const androidSource = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      ),
+      'utf8',
+    );
+
+    expect(iosSource).toContain(
+      `(manifest["schemaVersion"] as? NSNumber)?.intValue == ${devVendorConfig.SCHEMA_VERSION},`,
+    );
+    expect(iosSource).toContain(
+      `(manifest["strategyVersion"] as? NSNumber)?.intValue == ${devVendorConfig.STRATEGY_VERSION},`,
+    );
+    expect(androidSource).toContain(
+      `manifest.optInt("schemaVersion", -1) != ${devVendorConfig.SCHEMA_VERSION}`,
+    );
+    expect(androidSource).toContain(
+      `manifest.optInt("strategyVersion", -1) != ${devVendorConfig.STRATEGY_VERSION}`,
+    );
+  });
+
   it('maps generated stubs back to their stable module ID', () => {
     const projectRoot = path.resolve('/tmp/onekey/apps/mobile');
     const stubPath = path.join(
