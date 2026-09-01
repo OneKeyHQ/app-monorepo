@@ -3706,16 +3706,11 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipDeviceCancel,
     hideCheckingDeviceLoading,
-    stagePassphraseIntro,
   }: {
     walletId: string;
     skipDeviceCancel?: boolean;
     hideCheckingDeviceLoading?: boolean;
     isAttachPinMode?: boolean;
-    /** Play the stage's passphrase teach card before the entry — the
-     * account selector's deliberate add asks; onboarding's fork never
-     * does (v6.5.2's split, declared by the caller). */
-    stagePassphraseIntro?: boolean;
   }) {
     const wallet = await this.getWallet({ walletId });
     if (wallet.deprecated) {
@@ -3922,7 +3917,6 @@ class ServiceAccount extends ServiceBase {
         },
         skipDeviceCancel,
         hideCheckingDeviceLoading,
-        stagePassphraseIntro,
         debugMethodName: 'createHWHiddenWallet.getPassphraseState',
       },
     );

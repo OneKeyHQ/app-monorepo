@@ -24,6 +24,10 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -184,14 +188,73 @@ export function useAddHiddenWallet() {
     async ({ wallet }: { wallet?: IDBWallet }) => {
       try {
         setIsLoading(true);
+        // Teach BEFORE the hardware is touched (v6.5.2's order): the
+        // stage opens straight onto the teach card — no connecting beat,
+        // no device contact — and only the card's Continue starts the
+        // hardware flow.
+        //
+        // The hold is FUNCTION-scoped (the depth join, not the hook's
+        // token API): the menu item that starts this flow unmounts the
+        // moment it is tapped, and a component-held burst dies with it —
+        // the teach card left the stage 600ms after arriving. This
+        // async run is the flow's real lifetime, so it holds the burst
+        // in its own try/finally, the authenticity runner's pattern.
+        const device =
+          await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
+            walletId: wallet?.id || '',
+          });
+        await backgroundApiProxy.serviceHardwareUI.deviceStageJoinBurst({
+          connectId: device?.connectId,
+          deviceType: device?.deviceType,
+          deviceName: device?.name,
+        });
+        await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
+          {
+            connectId: device?.connectId,
+            deviceType: device?.deviceType,
+            deviceName: device?.name,
+          },
+        );
+        const intro = await new Promise<'continue' | 'closed'>((resolve) => {
+          // Reassigned once both handlers exist — each exit releases BOTH.
+          let cleanup = () => {};
+          const onContinue = () => {
+            cleanup();
+            resolve('continue');
+          };
+          // The person dismissing the stage ends the run just as well.
+          const onStageClosed = () => {
+            cleanup();
+            resolve('closed');
+          };
+          cleanup = () => {
+            appEventBus.off(
+              EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+              onContinue,
+            );
+            appEventBus.off(
+              EAppEventBusNames.CloseHardwareUiStateDialogManually,
+              onStageClosed,
+            );
+          };
+          appEventBus.on(
+            EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+            onContinue,
+          );
+          appEventBus.on(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            onStageClosed,
+          );
+        });
+        if (intro === 'closed') {
+          // Dismissed at the teaching: nothing was started, nothing to
+          // land — the stage's own close already dropped the hold, so
+          // the leave below is a no-op.
+          return;
+        }
         await actions.current.createHWHiddenWallet(
           {
             walletId: wallet?.id || '',
-            // The deliberate add teaches first, on the stage: the teach
-            // card carries the education and the wallet-list shortcut
-            // switch (onboarding's fork never asks for it — v6.5.2's
-            // split, declared here rather than inferred by the driver).
-            stagePassphraseIntro: true,
           },
           {
             addDefaultNetworkAccounts: true,
@@ -203,7 +266,16 @@ export function useAddHiddenWallet() {
             id: ETranslations.global_success,
           }),
         });
+      } catch (error) {
+        // This hold is the outer burst layer, so the wrapper's own end
+        // could not land the failure — hand it over so the stage speaks
+        // the error, disconnect probe included, before leaving.
+        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst({
+          error,
+        });
+        throw error;
       } finally {
+        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst();
         setIsLoading(false);
         const device =
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
@@ -288,12 +360,12 @@ export function useAddHiddenWallet() {
 
   const createHiddenWalletWithDialogConfirm = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
-      // Hardware wallets are taught on the stage: the deliberate add
-      // requests the teach card (stagePassphraseIntro above), which
-      // carries the education and the wallet-list shortcut switch in the
-      // unified stage UI. This legacy dialog stays only for QR wallets —
-      // they never open a stage — until it is retired with the rest of
-      // the legacy surfaces.
+      // Hardware wallets are taught on the stage: createHwHiddenWallet
+      // primes the teach card BEFORE the device is touched — education
+      // and the wallet-list shortcut switch in the unified stage UI,
+      // v6.5.2's teach-then-connect order. This legacy dialog stays only
+      // for QR wallets — they never open a stage — until it is retired
+      // with the rest of the legacy surfaces.
       if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
         await createHiddenWallet({ wallet });
         return;

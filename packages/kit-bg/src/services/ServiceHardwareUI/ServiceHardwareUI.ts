@@ -64,6 +64,7 @@ import { buildPassphraseUiResponsePayload } from './passphraseUiResponseUtils';
 import type { IDeviceStageBurstBeginParams } from './DeviceStageBurst';
 import type { IDBDevice } from '../../dbs/local/types';
 import type {
+  IDeviceStageState,
   IHardwareUiPayload,
   IHardwareUiResponseCorrelation,
   IThirdPartyHardwareUiState,
@@ -87,9 +88,6 @@ export type IWithHardwareProcessingOptions = {
   /** DeviceStage confirm channel (OK-59934): what the confirm card shows
    * when this operation asks for a device confirmation. */
   stageConfirmContent?: IDeviceStageConfirmContent;
-  /** Play the passphrase teach card before the entry (the account
-   * selector's deliberate Add-hidden-wallet; onboarding never asks). */
-  stagePassphraseIntro?: boolean;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -595,6 +593,27 @@ class ServiceHardwareUI extends ServiceBase {
   @backgroundMethod()
   async deviceStagePassphraseIntroContinue() {
     await this.deviceStageBurst.notePassphraseIntroDone();
+  }
+
+  /**
+   * Puts the passphrase teach card on stage BEFORE the device flow
+   * starts (v6.5.2's order: teach, then touch the hardware). The caller
+   * holds a UI burst around it, waits for the card's Continue, and only
+   * then begins the hardware call — the account selector's deliberate
+   * Add-hidden-wallet is the one place that teaches.
+   */
+  @backgroundMethod()
+  async deviceStageShowPassphraseIntro(params: {
+    connectId?: string;
+    deviceType?: IDeviceStageState['deviceType'];
+    deviceName?: string;
+  }) {
+    await this.deviceStageBurst.noteStep('passphraseIntro', {
+      connectId: params.connectId,
+      deviceType: params.deviceType,
+      deviceName: params.deviceName,
+      passphraseMode: 'create',
+    });
   }
 
   /**
@@ -1258,7 +1277,6 @@ class ServiceHardwareUI extends ServiceBase {
             ? device?.settings?.vendorModelName
             : undefined,
           confirmContent: params.stageConfirmContent,
-          passphraseIntro: params.stagePassphraseIntro,
         });
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
