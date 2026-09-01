@@ -12,6 +12,12 @@ import type {
 const CHART_FONT_FAMILY =
   'Roobert, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+// Shared crosshair defaults. Every chart that does not opt into an override
+// keeps exactly these values.
+const DEFAULT_CROSSHAIR_VERT_LINE_COLOR = 'rgba(150, 150, 150, 0.4)';
+// lightweight-charts `LineStyle.LargeDashed`.
+const DEFAULT_CROSSHAIR_VERT_LINE_STYLE = 3;
+
 const CHART_TICK_MARK_TYPE = {
   Year: 0,
   Month: 1,
@@ -196,6 +202,9 @@ export function createChartOptions(
   priceScalePosition: ILightweightChartPriceScalePosition = 'right',
   timeZone?: string,
   locale?: string,
+  // Opt-in crosshair overrides. Charts that pass nothing keep the faint default
+  // line below.
+  crosshairVertLine?: { color?: string; style?: number },
 ): DeepPartial<ChartOptions> {
   const priceScaleOptions = {
     visible: showPriceScale,
@@ -230,9 +239,9 @@ export function createChartOptions(
     crosshair: {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
-        color: 'rgba(150, 150, 150, 0.4)',
+        color: crosshairVertLine?.color ?? DEFAULT_CROSSHAIR_VERT_LINE_COLOR,
         width: 1,
-        style: 3,
+        style: crosshairVertLine?.style ?? DEFAULT_CROSSHAIR_VERT_LINE_STYLE,
         labelVisible: false,
       },
       horzLine: {

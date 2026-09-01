@@ -10,6 +10,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
+import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 
 export function navigateToMarketTokenDetail(
   token: { address: string; networkId: string; isNative?: boolean },
@@ -17,6 +18,7 @@ export function navigateToMarketTokenDetail(
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
     beforeNavigate?: () => void;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -26,31 +28,51 @@ export function navigateToMarketTokenDetail(
     networkId: token.networkId,
   });
 
-  void opts.tokenDetailActions.current.changeActiveToken({
-    tokenAddress: token.address,
-    networkId: token.networkId,
-    isNative: token.isNative ?? false,
-    tokenDetailPreview: opts.tokenDetailPreview,
+  const stockId = resolveMarketStockId({
+    stock: opts.tokenDetailPreview?.stock,
   });
+
+  if (stockId) {
+    opts.tokenDetailActions.current.clearTokenDetail();
+  } else {
+    void opts.tokenDetailActions.current.changeActiveToken({
+      tokenAddress: token.address,
+      networkId: token.networkId,
+      isNative: token.isNative ?? false,
+      tokenDetailPreview: opts.tokenDetailPreview,
+    });
+  }
 
   opts.beforeNavigate?.();
 
   const targetTab = platformEnv.isNative
     ? ETabRoutes.Discovery
     : ETabRoutes.Market;
-  const params = {
+  const tokenParams = {
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(opts.marketTokenCategory
+      ? { marketTokenCategory: opts.marketTokenCategory }
+      : undefined),
     ...(typeof opts.showFavoriteButton === 'boolean'
       ? { showFavoriteButton: opts.showFavoriteButton }
       : undefined),
   };
+  const params = stockId
+    ? {
+        stockId,
+        ...tokenParams,
+      }
+    : tokenParams;
+  const routeName = stockId
+    ? ETabMarketRoutes.MarketStockDetail
+    : ETabMarketRoutes.MarketDetailV2;
   setTimeout(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: targetTab,
       params: {
-        screen: ETabMarketRoutes.MarketDetailV2,
+        screen: routeName,
         params,
       },
     });

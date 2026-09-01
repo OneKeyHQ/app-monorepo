@@ -403,12 +403,25 @@ class ServiceApp extends ServiceBase {
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;
+    marketTokenId?: string;
+    skipMarketDataFetch?: boolean;
+    disableTrade?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
   }) {
-    const { tokenAddress, network, isNative, from, showFavoriteButton } =
-      params;
+    const {
+      tokenAddress,
+      network,
+      marketTokenId,
+      skipMarketDataFetch,
+      disableTrade,
+      isNative,
+      from,
+      showFavoriteButton,
+      marketTokenCategory,
+    } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
     if (typeof isNative === 'boolean') {
@@ -420,9 +433,67 @@ class ServiceApp extends ServiceBase {
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;
     }
+    if (marketTokenCategory) {
+      routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenId) {
+      routeParams.marketTokenId = marketTokenId;
+    }
+    if (skipMarketDataFetch) {
+      routeParams.skipMarketDataFetch = true;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
 
     return extUtils.openExpandTab({
       path: `/market/token/${network}/${tokenAddress}`,
+      params: routeParams,
+    });
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketStockDetail(params: {
+    stockId: string;
+    tokenAddress?: string;
+    network?: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
+    showFavoriteButton?: boolean;
+  }) {
+    const {
+      stockId,
+      tokenAddress,
+      network,
+      isNative,
+      from,
+      disableTrade,
+      showFavoriteButton,
+    } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (tokenAddress) {
+      routeParams.tokenAddress = tokenAddress;
+    }
+    if (network) {
+      routeParams.network = network;
+    }
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/stock/${encodeURIComponent(stockId)}`,
       params: routeParams,
     });
   }
