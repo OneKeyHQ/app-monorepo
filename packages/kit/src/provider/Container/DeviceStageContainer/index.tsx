@@ -226,7 +226,9 @@ function DeviceStageContainerCmp() {
   );
 
   /** The teach card's single exit; its switch rides the wallet list's
-   * Add-hidden-wallet shortcut preference out, like the legacy dialog. */
+   * Add-hidden-wallet shortcut preference out, like the legacy dialog.
+   * The event hands control back to the flow that primed the card — it
+   * starts the hardware call only after the teaching is read. */
   const handlePassphraseIntroContinue = useCallback(
     (options: { keepShortcut: boolean }) => {
       setSettings((prev) => ({
@@ -234,6 +236,10 @@ function DeviceStageContainerCmp() {
         showAddHiddenInWalletSidebar: options.keepShortcut,
       }));
       void serviceHardwareUI.deviceStagePassphraseIntroContinue();
+      appEventBus.emit(
+        EAppEventBusNames.DeviceStagePassphraseIntroContinue,
+        undefined,
+      );
     },
     [serviceHardwareUI, setSettings],
   );
