@@ -370,6 +370,17 @@ export interface IDeviceStageProps {
   /** The pinOnApp entry, confirmed. The driver decides what follows. */
   onPinSubmit?: (pin: string) => void;
   /**
+   * enterPin's in-place switch back to app entry (OK-61489): providing
+   * this renders the "Prefer to enter PIN in app?" line in the
+   * description seat, so the wiring side owns eligibility — button
+   * device, on-device entry stored as the default, not a mid-request
+   * hop from the app pad, not attach-PIN. It should persist the
+   * preference (effective next request; the current one still finishes
+   * on the device). Resolving flips the line into the set-to-app
+   * banner; a rejection keeps the entry line for another try.
+   */
+  onSwitchPinInputToApp?: () => void | Promise<void>;
+  /**
    * The selectWalletType choice, made — the fork's only exit (stepping
    * away is the surface's own dismissal). The driver decides what
    * follows: the live flow heads into creating the standard wallet, or
