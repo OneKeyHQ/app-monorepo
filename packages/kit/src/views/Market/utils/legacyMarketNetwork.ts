@@ -1,5 +1,4 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -105,7 +104,6 @@ export function getLegacyMarketDetailV2RouteParams({
       tokenImageUri: token.image,
       selectedAt: Date.now(),
     },
-    marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
     marketTokenId,
     network,
     showFavoriteButton: !usesSyntheticIdentity,

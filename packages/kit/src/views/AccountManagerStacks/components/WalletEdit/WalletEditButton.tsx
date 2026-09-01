@@ -212,11 +212,7 @@ function WalletEditButtonView({
   );
 
   const renderItems = useCallback(
-    async ({
-      handleActionListClose,
-    }: {
-      handleActionListClose: () => void;
-    }) => {
+    ({ handleActionListClose }: { handleActionListClose: () => void }) => {
       if (!config) {
         return null;
       }
@@ -388,7 +384,7 @@ function WalletEditButtonView({
           icon="DotHorOutline"
         />
       }
-      renderItemsAsync={renderItems}
+      renderItems={renderItems}
       floatingPanelProps={{
         width: '$72',
       }}

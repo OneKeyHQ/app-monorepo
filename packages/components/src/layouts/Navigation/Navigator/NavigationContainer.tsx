@@ -27,7 +27,6 @@ import {
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
@@ -90,16 +89,10 @@ const useNativeDevTools =
         const {
           useNetworkActivityDevTools,
         } = require('@rozenite/network-activity-plugin');
-        const { useMMKVDevTools } = require('@rozenite/mmkv-plugin');
-
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useReactNavigationDevTools({ ref });
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         useNetworkActivityDevTools();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        useMMKVDevTools({
-          storages: [mmkvStorageInstance],
-        });
       }
     : () => {};
 

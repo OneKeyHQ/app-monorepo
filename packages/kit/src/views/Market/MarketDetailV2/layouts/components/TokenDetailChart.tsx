@@ -69,7 +69,6 @@ function TokenChartModeControl({
 }
 
 export function TokenDetailChart({
-  fallbackCoinGeckoId,
   marketTradingView,
   isChartFullscreen,
   chartMode,
@@ -77,7 +76,6 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
-  fallbackCoinGeckoId?: string;
   marketTradingView: ReactNode;
   isChartFullscreen: boolean;
   chartMode: ITradingViewChartMode;
@@ -124,11 +122,7 @@ export function TokenDetailChart({
             </XStack>
             <TokenChartModeControl mode={mode} onChange={setMode} />
           </XStack>
-          <StockSimpleChart
-            coinGeckoId={fallbackCoinGeckoId}
-            range={range}
-            priceMode="token"
-          />
+          <StockSimpleChart range={range} priceMode="token" />
         </>
       ) : (
         <>
