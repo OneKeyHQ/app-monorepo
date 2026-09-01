@@ -1587,7 +1587,7 @@ describe('useAccountSelectorActions', () => {
       1: selectedAccount,
     });
 
-    getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+    await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
       sceneName: EAccountSelectorSceneName.swap,
       selectedAccountsMap: {
         0: selectedAccount,
