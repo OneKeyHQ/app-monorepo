@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
@@ -74,7 +75,8 @@ export function WalletBackupActions({
           onClose,
         },
         !hideLiteCard &&
-          platformEnv.isNative && {
+          platformEnv.isNative &&
+          !(Platform.OS === 'ios' && Platform.isMacCatalyst) && {
             label: intl.formatMessage({
               id: ETranslations.global_onekey_lite,
             }),

@@ -1,6 +1,7 @@
 const isMacCatalystBuild = process.env.ONEKEY_MAC_CATALYST === '1';
 
 const macCatalystExcludedDependencies = [
+  '@onekeyfe/react-native-cloud-kit-module',
   '@onekeyfe/react-native-lite-card',
   '@phantom/react-native-juicebox-sdk',
   '@shopify/react-native-skia',

@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { Keyboard, Platform } from 'react-native';
 
 import type {
   IIconProps,
@@ -253,7 +253,8 @@ export function ImportWalletOptions() {
             },
             testID: 'import-recovery-phrase',
           },
-          ...(platformEnv.isNative
+          ...(platformEnv.isNative &&
+          !(Platform.OS === 'ios' && Platform.isMacCatalyst)
             ? [
                 {
                   title: intl.formatMessage({

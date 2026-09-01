@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -219,7 +220,7 @@ function CreateOrImportWallet() {
             isLoading: cloudBackupCheckLoading,
           }
         : null,
-      platformEnv.isNative
+      platformEnv.isNative && !(Platform.OS === 'ios' && Platform.isMacCatalyst)
         ? {
             key: 'lite',
             icon: 'OnekeyLiteOutline',

@@ -13,6 +13,7 @@ import {
   scheduleNotificationAsync,
   setNotificationHandler,
 } from 'expo-notifications';
+import { Platform } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { setBadgeCountAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
@@ -56,7 +57,10 @@ export default class NotificationProvider extends NotificationProviderBase {
   jpushProvider: PushProviderJPush | undefined;
 
   initJPushProvider() {
-    if (this.options.disabledJPush) {
+    if (
+      this.options.disabledJPush ||
+      (Platform.OS === 'ios' && Platform.isMacCatalyst)
+    ) {
       return;
     }
     this.jpushProvider = new PushProviderJPush({
