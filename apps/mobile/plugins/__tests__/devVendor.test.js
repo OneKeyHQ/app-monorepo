@@ -37,9 +37,12 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeRegistryInputsDigest,
+  computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getPlatformOutputDirectory,
+  hashRepoFiles,
   isDevVendorEnabled,
   isDevVendorRequest,
   inspectDevVendorGraph,
@@ -187,7 +190,11 @@ function createTemporaryRuntimeFixture() {
   const temporaryRepoRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'onekey-dev-vendor-runtime-'),
   );
-  for (const relativePath of devVendorConfig.fingerprintFiles) {
+  const fixtureFiles = new Set([
+    ...devVendorConfig.fingerprintFiles,
+    ...devVendorConfig.releaseFingerprintFiles,
+  ]);
+  for (const relativePath of fixtureFiles) {
     const destination = path.join(temporaryRepoRoot, relativePath);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, relativePath), destination);
@@ -222,6 +229,7 @@ function createTemporaryRuntimeFixture() {
       configInputsDigest: computeConfigInputsDigest(temporaryRepoRoot),
       modulesDigest: computeModulesDigest(modules, temporaryRepoRoot),
       modules,
+      prependModules: [],
     };
     const manifest = {
       ...fingerprintFields,
@@ -263,6 +271,33 @@ describe('devVendor', () => {
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'true' })).toBe(true);
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'false' })).toBe(false);
     expect(isDevVendorEnabled({})).toBe(false);
+  });
+
+  it('keeps native manifest version checks aligned with the JS contract', () => {
+    const iosSource = fs.readFileSync(
+      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
+      'utf8',
+    );
+    const androidSource = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      ),
+      'utf8',
+    );
+
+    expect(iosSource).toContain(
+      `(manifest["schemaVersion"] as? NSNumber)?.intValue == ${devVendorConfig.SCHEMA_VERSION},`,
+    );
+    expect(iosSource).toContain(
+      `(manifest["strategyVersion"] as? NSNumber)?.intValue == ${devVendorConfig.STRATEGY_VERSION},`,
+    );
+    expect(androidSource).toContain(
+      `manifest.optInt("schemaVersion", -1) != ${devVendorConfig.SCHEMA_VERSION}`,
+    );
+    expect(androidSource).toContain(
+      `manifest.optInt("strategyVersion", -1) != ${devVendorConfig.STRATEGY_VERSION}`,
+    );
   });
 
   it('maps generated stubs back to their stable module ID', () => {
@@ -383,12 +418,16 @@ describe('devVendor', () => {
         { id: 1, path: 'node_modules/a.js', ignored: 'value' },
         { id: 2, path: 'node_modules/b.js' },
       ],
+      prependModules: [{ id: 3, path: 'node_modules/prelude.js' }],
     };
 
     expect(computeFingerprint(fields)).toBe(computeFingerprint(fields));
     expect(
       computeFingerprint({ ...fields, modulesDigest: 'changed' }),
     ).not.toBe(computeFingerprint(fields));
+    expect(computeFingerprint({ ...fields, prependModules: [] })).not.toBe(
+      computeFingerprint(fields),
+    );
   });
 
   it('invalidates config digests for transitive transformer and environment changes', () => {
@@ -418,6 +457,63 @@ describe('devVendor', () => {
     }
   });
 
+  it('canonicalizes line endings in repository fingerprints', () => {
+    const fingerprintRepoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-dev-vendor-line-endings-'),
+    );
+    const relativePath = 'fingerprint.txt';
+    const filePath = path.join(fingerprintRepoRoot, relativePath);
+    try {
+      fs.writeFileSync(filePath, 'first\nsecond\n');
+      const lfDigest = hashRepoFiles([relativePath], fingerprintRepoRoot);
+      fs.writeFileSync(filePath, 'first\r\nsecond\r\n');
+      expect(hashRepoFiles([relativePath], fingerprintRepoRoot)).toBe(lfDigest);
+    } finally {
+      fs.rmSync(fingerprintRepoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('isolates release compatibility from workspace-only registry growth', () => {
+    const registry = loadRegistry();
+    const workspaceOnlyChange = {
+      ...registry,
+      modules: {
+        ...registry.modules,
+        'packages/example/new.ts': 8000,
+      },
+    };
+    const vendorChange = {
+      ...registry,
+      modules: {
+        ...registry.modules,
+        'node_modules/example/index.js': 50_000,
+      },
+    };
+
+    expect(computeRegistryInputsDigest(workspaceOnlyChange)).toBe(
+      computeRegistryInputsDigest(registry),
+    );
+    expect(computeRegistryInputsDigest(vendorChange)).not.toBe(
+      computeRegistryInputsDigest(registry),
+    );
+  });
+
+  it('invalidates release compatibility when the transport changes', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const baseline = computeReleaseCompatibilityKey(fixture.repoRoot);
+      fs.appendFileSync(
+        path.join(fixture.repoRoot, devVendorConfig.releaseFingerprintFiles[0]),
+        '\n// changed release transport\n',
+      );
+      expect(computeReleaseCompatibilityKey(fixture.repoRoot)).not.toBe(
+        baseline,
+      );
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('uses code-point ordering for manifest module paths', () => {
     expect(() =>
       assertSortedUniqueModules([
@@ -440,6 +536,9 @@ describe('devVendor', () => {
     const source = Buffer.from('common source');
     const bytecode = Buffer.from('common bytecode');
     const modules = [{ id: 4, path: 'apps/mobile/index.ts' }];
+    const prependModules = [
+      { id: loadRegistry().modules.__prelude__, path: '__prelude__' },
+    ];
     fs.writeFileSync(path.join(artifactDirectory, 'common.js'), source);
     fs.writeFileSync(path.join(artifactDirectory, 'common.hbc'), bytecode);
     fs.mkdirSync(path.join(artifactDirectory, 'stubs'));
@@ -452,6 +551,7 @@ describe('devVendor', () => {
       configInputsDigest: computeConfigInputsDigest(),
       modulesDigest: computeModulesDigest(modules),
       modules,
+      prependModules,
     };
     const manifest = {
       ...fingerprintFields,
@@ -479,6 +579,17 @@ describe('devVendor', () => {
           projectRoot: '/unused',
         }),
       ).toBe(manifest);
+      expect(() =>
+        verifyManifest({
+          artifactDirectory,
+          manifest: {
+            ...manifest,
+            prependModules: [{ id: 1, path: '__prelude__' }],
+          },
+          platform: 'ios',
+          projectRoot: '/unused',
+        }),
+      ).toThrow('Stable module ID mismatch for __prelude__');
       fs.rmSync(path.join(artifactDirectory, 'stubs/4.js'));
       expect(() =>
         verifyManifest({

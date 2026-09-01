@@ -38,6 +38,8 @@
     "dev-vendor:check": "node scripts/build-dev-vendor.js --check",
     "dev-vendor:prepare": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js --prepare --platform all",
     "dev-vendor:registry:update": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js --update-registry --platform all",
+    "metro-dev-prebundle:tag": "node scripts/metro-dev-prebundle.js tag",
+    "metro-dev-prebundle:package": "node scripts/metro-dev-prebundle.js package",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache && yarn android:clean",
     "android:clean": "./android/gradlew clean -p ./android",
