@@ -2,8 +2,6 @@ import { useMemo } from 'react';
 
 import { useTheme } from '@tamagui/core';
 
-import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
 import {
   resolveSerializablePriceFormatterTickStep,
@@ -12,52 +10,9 @@ import {
 
 import type {
   ILightweightChartConfig,
-  ILightweightChartHistogramOptions,
-  ILightweightChartLineType,
-  ILightweightChartPriceScalePosition,
-  ILightweightChartReferenceLine,
-  ILightweightChartSeriesType,
+  ILightweightChartProps,
   ILightweightChartTime,
 } from '../types';
-import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
-
-interface IUseChartConfigProps {
-  data: IMarketTokenChart;
-  lineColor?: string;
-  topColor?: string;
-  bottomColor?: string;
-  textSubduedColor?: string;
-  secondaryLineData?: IMarketTokenChart;
-  secondaryLineColor?: string;
-  secondaryLineWidth?: number;
-  lineWidth?: number;
-  showPriceScale?: boolean;
-  showHorzGridLines?: boolean;
-  horzLineColor?: string;
-  horzLineStyle?: number;
-  priceScalePosition?: ILightweightChartPriceScalePosition;
-  priceScaleMargins?: { top: number; bottom: number };
-  priceScaleEntireTextOnly?: boolean;
-  crosshairVertLineColor?: string;
-  crosshairVertLineStyle?: number;
-  patternColor?: string;
-  pulseLastPointColor?: string;
-  priceFormatter?: (price: number) => string;
-  priceFormatterPrecision?: number;
-  priceFormatterTickStep?: number;
-  fontSize?: number;
-  seriesType?: ILightweightChartSeriesType;
-  lineType?: ILightweightChartLineType;
-  baselineOptions?: BaselineSeriesPartialOptions;
-  histogramOptions?: ILightweightChartHistogramOptions;
-  referenceLine?: ILightweightChartReferenceLine;
-  showLastValue?: boolean;
-  showLastPointMarker?: boolean;
-  showTimeScale?: boolean;
-  useTimeScaleTickMarkWithoutUnit?: boolean;
-  timeZone?: string;
-  locale?: string;
-}
 
 export function useChartConfig({
   data,
@@ -95,7 +50,7 @@ export function useChartConfig({
   useTimeScaleTickMarkWithoutUnit,
   timeZone,
   locale,
-}: IUseChartConfigProps): ILightweightChartConfig {
+}: ILightweightChartProps): ILightweightChartConfig {
   const theme = useTheme();
   const resolvedSeriesType = seriesType ?? 'area';
   const priceFormatterType = resolveSerializablePriceFormatterType({

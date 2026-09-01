@@ -53,11 +53,6 @@ export function getFundingHistoryPaymentPresentation(payment: string) {
       };
 }
 
-export function getFundingHistoryMarketLabel(coin: string): string {
-  const { displayName, dexLabel } = parseDexCoin(coin);
-  return dexLabel ? `${displayName} (${dexLabel})` : displayName;
-}
-
 export function getFundingHistoryMarketOptions(
   records: IUserFunding[],
 ): IFundingHistoryMarketOption[] {
@@ -65,9 +60,10 @@ export function getFundingHistoryMarketOptions(
   records.forEach((record) => {
     const { coin } = record.delta;
     if (!markets.has(coin)) {
+      const { displayName, dexLabel } = parseDexCoin(coin);
       markets.set(coin, {
         coin,
-        label: getFundingHistoryMarketLabel(coin),
+        label: dexLabel ? `${displayName} (${dexLabel})` : displayName,
       });
     }
   });

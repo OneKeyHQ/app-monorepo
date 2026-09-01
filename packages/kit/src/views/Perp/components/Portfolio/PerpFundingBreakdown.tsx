@@ -32,7 +32,6 @@ import type {
   View as RNView,
 } from 'react-native';
 
-const FUNDING_DISTRIBUTION_BASE_MARKET_LIMIT = 5;
 const MOBILE_FUNDING_DISTRIBUTION_CARD_HEIGHT = 220;
 const DONUT_SIZE = 112;
 const DONUT_STROKE_WIDTH = 7;
@@ -40,10 +39,9 @@ const DONUT_ACTIVE_STROKE_WIDTH = 10;
 const DONUT_HIT_STROKE_WIDTH = 24;
 const DONUT_VISUAL_GAP = 4;
 const DONUT_MIN_VISIBLE_SLICE_LENGTH = DONUT_ACTIVE_STROKE_WIDTH;
-
-function formatMarketName(coin: string) {
-  return parseDexCoin(coin).displayName;
-}
+const DONUT_RADIUS = (DONUT_SIZE - DONUT_ACTIVE_STROKE_WIDTH) / 2;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
+const DONUT_CENTER = DONUT_SIZE / 2;
 
 function FundingDistributionCardSkeleton({ isMobile }: { isMobile: boolean }) {
   return (
@@ -71,14 +69,8 @@ function FundingDistributionCardSkeleton({ isMobile }: { isMobile: boolean }) {
   );
 }
 
-function formatDistributionPercentage(amount: number, total: number) {
-  if (total <= 0) return '0.00%';
-  return `${((amount / total) * 100).toFixed(2)}%`;
-}
-
 type IFundingDonutSlice = IFundingDistributionRow & {
   color: string;
-  indicatorColor: string;
   dashOffset: number;
   percentage: string;
   arcLength: number;
@@ -94,31 +86,25 @@ function ensureMinimumVisibleSliceLengths(rawLengths: number[]) {
     return rawLengths;
   }
 
-  const missingLength = rawLengths.reduce(
+  const shortfall = rawLengths.reduce(
     (sum, length) => sum + Math.max(minimumArcLength - length, 0),
     0,
   );
-  if (missingLength === 0) {
-    return rawLengths;
-  }
-
-  const availableLength = rawLengths.reduce(
+  const donorLength = rawLengths.reduce(
     (sum, length) => sum + Math.max(length - minimumArcLength, 0),
     0,
   );
-  if (availableLength === 0) {
+  if (shortfall === 0 || donorLength === 0) {
     return rawLengths;
   }
 
   // Preserve a short, full-width rounded arc for tiny non-zero slices while
   // borrowing the required circumference proportionally from larger slices.
-  return rawLengths.map((length) => {
-    if (length < minimumArcLength) {
-      return minimumArcLength;
-    }
-    const availableShare = (length - minimumArcLength) / availableLength;
-    return length - missingLength * availableShare;
-  });
+  return rawLengths.map((length) =>
+    length < minimumArcLength
+      ? minimumArcLength
+      : length - shortfall * ((length - minimumArcLength) / donorLength),
+  );
 }
 
 type ISvgWebHoverProps = {
@@ -129,33 +115,21 @@ type ISvgWebHoverProps = {
 
 function FundingDonutSegment({
   slice,
-  radius,
-  circumference,
-  center,
   isActive,
   hasActiveSlice,
-  onHoveredCoinChange,
+  onHover,
 }: {
   slice: IFundingDonutSlice;
-  radius: number;
-  circumference: number;
-  center: number;
   isActive: boolean;
   hasActiveSlice: boolean;
-  onHoveredCoinChange: (coin: string | null) => void;
+  onHover: (coin: string | null) => void;
 }) {
-  const handleHoverStart = useCallback(() => {
-    onHoveredCoinChange(slice.coin);
-  }, [onHoveredCoinChange, slice.coin]);
-  const handleHoverEnd = useCallback(() => {
-    onHoveredCoinChange(null);
-  }, [onHoveredCoinChange]);
   const webHoverProps: ISvgWebHoverProps = platformEnv.isNative
     ? {}
     : {
         cursor: 'pointer',
-        onMouseEnter: handleHoverStart,
-        onMouseLeave: handleHoverEnd,
+        onMouseEnter: () => onHover(slice.coin),
+        onMouseLeave: () => onHover(null),
       };
   const strokeWidth = isActive ? DONUT_ACTIVE_STROKE_WIDTH : DONUT_STROKE_WIDTH;
   const visibleLength = Math.max(
@@ -167,34 +141,33 @@ function FundingDonutSegment({
     <>
       <Circle
         {...webHoverProps}
-        cx={center}
-        cy={center}
-        r={radius}
+        cx={DONUT_CENTER}
+        cy={DONUT_CENTER}
+        r={DONUT_RADIUS}
         stroke="#000"
         strokeWidth={DONUT_HIT_STROKE_WIDTH}
         strokeOpacity={0.001}
         fill="none"
-        strokeDasharray={`${slice.arcLength} ${circumference - slice.arcLength}`}
+        strokeDasharray={`${slice.arcLength} ${DONUT_CIRCUMFERENCE - slice.arcLength}`}
         strokeDashoffset={slice.dashOffset}
         rotation={-90}
-        origin={`${center}, ${center}`}
+        origin={`${DONUT_CENTER}, ${DONUT_CENTER}`}
         pointerEvents={platformEnv.isNative ? 'none' : 'auto'}
-        onPressIn={platformEnv.isNative ? undefined : handleHoverStart}
       />
       <Circle
         pointerEvents="none"
-        cx={center}
-        cy={center}
-        r={radius}
+        cx={DONUT_CENTER}
+        cy={DONUT_CENTER}
+        r={DONUT_RADIUS}
         stroke={slice.color}
         strokeWidth={strokeWidth}
         strokeOpacity={hasActiveSlice && !isActive ? 0.28 : 1}
         fill="none"
-        strokeDasharray={`${visibleLength} ${circumference - visibleLength}`}
+        strokeDasharray={`${visibleLength} ${DONUT_CIRCUMFERENCE - visibleLength}`}
         strokeDashoffset={slice.dashOffset}
         strokeLinecap="round"
         rotation={-90}
-        origin={`${center}, ${center}`}
+        origin={`${DONUT_CENTER}, ${DONUT_CENTER}`}
       />
     </>
   );
@@ -204,28 +177,28 @@ function FundingDistributionLegendRow({
   slice,
   isActive,
   hasActiveSlice,
-  onHoveredCoinChange,
-  onSelectedCoinChange,
+  onHover,
+  onSelect,
 }: {
   slice: IFundingDonutSlice;
   isActive: boolean;
   hasActiveSlice: boolean;
-  onHoveredCoinChange: (coin: string | null) => void;
-  onSelectedCoinChange: (coin: string) => void;
+  onHover: (coin: string | null) => void;
+  onSelect: (coin: string) => void;
 }) {
   const intl = useIntl();
   const handleHoverStart = useCallback(() => {
-    onHoveredCoinChange(slice.coin);
-  }, [onHoveredCoinChange, slice.coin]);
+    onHover(slice.coin);
+  }, [onHover, slice.coin]);
   const handleHoverEnd = useCallback(() => {
-    onHoveredCoinChange(null);
-  }, [onHoveredCoinChange]);
+    onHover(null);
+  }, [onHover]);
   const handleNativePress = useCallback(
     (event: GestureResponderEvent) => {
       event.stopPropagation();
-      onSelectedCoinChange(slice.coin);
+      onSelect(slice.coin);
     },
-    [onSelectedCoinChange, slice.coin],
+    [onSelect, slice.coin],
   );
 
   return (
@@ -234,9 +207,8 @@ function FundingDistributionLegendRow({
       alignItems="center"
       gap="$1.5"
       opacity={hasActiveSlice && !isActive ? 0.42 : 1}
-      onHoverIn={platformEnv.isNative ? undefined : handleHoverStart}
-      onHoverOut={platformEnv.isNative ? undefined : handleHoverEnd}
-      onPressIn={platformEnv.isNative ? handleNativePress : handleHoverStart}
+      onPointerEnter={platformEnv.isNative ? undefined : handleHoverStart}
+      onPointerLeave={platformEnv.isNative ? undefined : handleHoverEnd}
       onPress={platformEnv.isNative ? handleNativePress : undefined}
       $platform-web={{
         cursor: 'pointer',
@@ -247,7 +219,7 @@ function FundingDistributionLegendRow({
         width="$1.5"
         height="$1.5"
         borderRadius="$full"
-        bg={slice.indicatorColor}
+        bg={slice.color}
         flexShrink={0}
       />
       <SizableText
@@ -260,7 +232,7 @@ function FundingDistributionLegendRow({
       >
         {slice.coin === 'Other'
           ? intl.formatMessage({ id: ETranslations.global_others })
-          : formatMarketName(slice.coin)}{' '}
+          : parseDexCoin(slice.coin).displayName}{' '}
         {slice.percentage}
       </SizableText>
       <SizableText
@@ -295,80 +267,49 @@ function FundingDistributionCard({
   const donutContainerRef = useRef<RNView>(null);
   const donutOriginRef = useRef<{ x: number; y: number } | null>(null);
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
-  const radius = (DONUT_SIZE - DONUT_ACTIVE_STROKE_WIDTH) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const center = DONUT_SIZE / 2;
-  const slices = useMemo(() => {
-    let cumulativeLength = 0;
-    const colorValues =
-      direction === 'received'
-        ? [
-            theme.green9?.val ?? '#30A46C',
-            theme.blue9?.val ?? '#0090FF',
-            theme.purple9?.val ?? '#8E4EC6',
-            theme.orange9?.val ?? '#F76B15',
-            theme.teal9?.val ?? '#12A594',
-          ]
-        : [
-            theme.red9?.val ?? '#E5484D',
-            theme.pink9?.val ?? '#D6409F',
-            theme.orange9?.val ?? '#F76B15',
-            theme.purple9?.val ?? '#8E4EC6',
-            theme.blue9?.val ?? '#0090FF',
-          ];
-    const rawLengths = rows.map((row) =>
-      Math.max((row.amount / total) * circumference, 0),
-    );
-    const arcLengths = ensureMinimumVisibleSliceLengths(rawLengths);
-    return rows.map((row, index): IFundingDonutSlice => {
-      const arcLength = arcLengths[index] ?? rawLengths[index] ?? 0;
-      const isOther = row.coin === 'Other';
-      const color = colorValues[index] ?? theme.neutral6.val;
-      const slice = {
-        ...row,
-        color: isOther ? theme.neutral6.val : color,
-        indicatorColor: isOther ? theme.neutral6.val : color,
-        dashOffset: -cumulativeLength,
-        percentage: formatDistributionPercentage(row.amount, total),
-        arcLength,
-      };
-      cumulativeLength += arcLength;
-      return slice;
-    });
-  }, [
-    circumference,
-    direction,
-    rows,
-    theme.blue9?.val,
-    theme.green9?.val,
-    theme.neutral6.val,
-    theme.orange9?.val,
-    theme.pink9?.val,
-    theme.purple9?.val,
-    theme.red9?.val,
-    theme.teal9?.val,
-    total,
-  ]);
+  const formattedTotal = formatPerpsUsd(total);
+  const colors =
+    direction === 'received'
+      ? [theme.green9, theme.blue9, theme.purple9, theme.orange9, theme.teal9]
+      : [theme.red9, theme.pink9, theme.orange9, theme.purple9, theme.blue9];
+  const rawLengths = rows.map(
+    (row) => (row.amount / total) * DONUT_CIRCUMFERENCE,
+  );
+  const arcLengths = ensureMinimumVisibleSliceLengths(rawLengths);
+  let cumulativeLength = 0;
+  const slices = rows.map((row, index): IFundingDonutSlice => {
+    const arcLength = arcLengths[index] ?? 0;
+    const color =
+      row.coin === 'Other'
+        ? theme.neutral6.val
+        : (colors[index]?.val ?? theme.neutral6.val);
+    const slice = {
+      ...row,
+      color,
+      dashOffset: -cumulativeLength,
+      percentage: `${((row.amount / total) * 100).toFixed(2)}%`,
+      arcLength,
+    };
+    cumulativeLength += arcLength;
+    return slice;
+  });
   const activeCoinCandidate = hoveredCoin ?? selectedCoin;
   const activeCoin = slices.some((slice) => slice.coin === activeCoinCandidate)
     ? activeCoinCandidate
     : null;
-  const handleHoveredCoinChange = useCallback((coin: string | null) => {
-    setHoveredCoin(coin);
-  }, []);
-  const handleSelectedCoinChange = useCallback((coin: string) => {
-    setSelectedCoin(coin);
-  }, []);
   const handleCardPress = useCallback(() => {
     setHoveredCoin(null);
     setSelectedCoin(null);
   }, []);
   const getDonutCoinAtPoint = useCallback(
     (x: number, y: number) => {
-      const deltaX = x - center;
-      const deltaY = y - center;
+      const deltaX = x - DONUT_CENTER;
+      const deltaY = y - DONUT_CENTER;
       const distanceFromCenter = Math.hypot(deltaX, deltaY);
-      if (Math.abs(distanceFromCenter - radius) > DONUT_HIT_STROKE_WIDTH / 2) {
+      if (
+        Math.abs(distanceFromCenter - DONUT_RADIUS) >
+        DONUT_HIT_STROKE_WIDTH / 2
+      ) {
         return null;
       }
 
@@ -376,19 +317,20 @@ function FundingDistributionCard({
       const angleFromTop =
         (Math.atan2(deltaY, deltaX) + Math.PI / 2 + fullCircleRadians) %
         fullCircleRadians;
-      const lengthAtPoint = (angleFromTop / fullCircleRadians) * circumference;
-      let cumulativeLength = 0;
+      const lengthAtPoint =
+        (angleFromTop / fullCircleRadians) * DONUT_CIRCUMFERENCE;
+      let traversedLength = 0;
 
       for (const slice of slices) {
-        cumulativeLength += slice.arcLength;
-        if (lengthAtPoint < cumulativeLength) {
+        traversedLength += slice.arcLength;
+        if (lengthAtPoint < traversedLength) {
           return slice.coin;
         }
       }
 
       return slices.at(-1)?.coin ?? null;
     },
-    [center, circumference, radius, slices],
+    [slices],
   );
   const handleDonutNativePress = useCallback(
     (event: GestureResponderEvent) => {
@@ -405,36 +347,26 @@ function FundingDistributionCard({
     },
     [getDonutCoinAtPoint, handleCardPress],
   );
-  const handleDonutNativePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (event.nativeEvent.pointerType === 'touch') {
-        return;
-      }
-      const origin = donutOriginRef.current;
-      if (!origin) {
-        return;
-      }
-      setHoveredCoin(
-        getDonutCoinAtPoint(
-          event.nativeEvent.pageX - origin.x,
-          event.nativeEvent.pageY - origin.y,
-        ),
-      );
-    },
-    [getDonutCoinAtPoint],
-  );
-  const handleDonutNativePointerEnter = useCallback(
-    (event: NativePointerEvent) => {
+  const handleDonutNativePointer = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement> | NativePointerEvent) => {
       if (event.nativeEvent.pointerType === 'touch') {
         return;
       }
       const { pageX, pageY } = event.nativeEvent;
+      const origin = donutOriginRef.current;
+      if (origin) {
+        setHoveredCoin(getDonutCoinAtPoint(pageX - origin.x, pageY - origin.y));
+        return;
+      }
       donutContainerRef.current?.measure(
         (_x, _y, _width, _height, measuredPageX, measuredPageY) => {
-          const origin = { x: measuredPageX, y: measuredPageY };
-          donutOriginRef.current = origin;
+          const measuredOrigin = { x: measuredPageX, y: measuredPageY };
+          donutOriginRef.current = measuredOrigin;
           setHoveredCoin(
-            getDonutCoinAtPoint(pageX - origin.x, pageY - origin.y),
+            getDonutCoinAtPoint(
+              pageX - measuredOrigin.x,
+              pageY - measuredOrigin.y,
+            ),
           );
         },
       );
@@ -476,7 +408,7 @@ function FundingDistributionCard({
           minimumFontScale={0.7}
           fontVariant={['tabular-nums']}
         >
-          {formatPerpsUsd(total)}
+          {formattedTotal}
         </SizableText>
       </XStack>
       {rows.length > 0 ? (
@@ -488,16 +420,13 @@ function FundingDistributionCard({
             height={DONUT_SIZE}
             flexShrink={0}
             accessibilityRole="image"
-            accessibilityLabel={`${title}: ${formatPerpsUsd(total)}`}
-            onPressIn={
-              platformEnv.isNative ? handleDonutNativePress : undefined
-            }
+            accessibilityLabel={`${title}: ${formattedTotal}`}
             onPress={platformEnv.isNative ? handleDonutNativePress : undefined}
             onPointerEnter={
-              platformEnv.isNative ? handleDonutNativePointerEnter : undefined
+              platformEnv.isNative ? handleDonutNativePointer : undefined
             }
             onPointerMove={
-              platformEnv.isNative ? handleDonutNativePointerMove : undefined
+              platformEnv.isNative ? handleDonutNativePointer : undefined
             }
             onPointerLeave={
               platformEnv.isNative ? handleDonutNativePointerLeave : undefined
@@ -509,9 +438,9 @@ function FundingDistributionCard({
               pointerEvents={platformEnv.isNative ? 'none' : 'auto'}
             >
               <Circle
-                cx={center}
-                cy={center}
-                r={radius}
+                cx={DONUT_CENTER}
+                cy={DONUT_CENTER}
+                r={DONUT_RADIUS}
                 stroke={theme.bgSubdued.val}
                 strokeWidth={DONUT_STROKE_WIDTH}
                 fill="none"
@@ -520,12 +449,9 @@ function FundingDistributionCard({
                 <FundingDonutSegment
                   key={slice.coin}
                   slice={slice}
-                  radius={radius}
-                  circumference={circumference}
-                  center={center}
                   isActive={activeCoin === slice.coin}
                   hasActiveSlice={activeCoin !== null}
-                  onHoveredCoinChange={handleHoveredCoinChange}
+                  onHover={setHoveredCoin}
                 />
               ))}
             </Svg>
@@ -537,8 +463,8 @@ function FundingDistributionCard({
                 slice={slice}
                 isActive={activeCoin === slice.coin}
                 hasActiveSlice={activeCoin !== null}
-                onHoveredCoinChange={handleHoveredCoinChange}
-                onSelectedCoinChange={handleSelectedCoinChange}
+                onHover={setHoveredCoin}
+                onSelect={setSelectedCoin}
               />
             ))}
           </YStack>
@@ -553,9 +479,9 @@ function FundingDistributionCard({
           >
             <Svg width={DONUT_SIZE} height={DONUT_SIZE}>
               <Circle
-                cx={center}
-                cy={center}
-                r={radius}
+                cx={DONUT_CENTER}
+                cy={DONUT_CENTER}
+                r={DONUT_RADIUS}
                 stroke={theme.neutral5.val}
                 strokeWidth={DONUT_STROKE_WIDTH}
                 fill="none"
@@ -595,7 +521,6 @@ export function PerpFundingBreakdown({
       buildFundingDirectionDistribution({
         records,
         timePeriod,
-        maxBaseMarkets: FUNDING_DISTRIBUTION_BASE_MARKET_LIMIT,
       }),
     [records, timePeriod],
   );

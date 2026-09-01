@@ -1,3 +1,4 @@
+import type { ILightweightChartConfig } from '../types';
 import type { UTCTimestamp } from 'lightweight-charts';
 
 jest.mock('./lightweightChartsStandalone.text-js', () => {
@@ -19,6 +20,18 @@ const { resolveSerializablePriceFormatterType } = jest.requireActual<
 const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
   typeof import('./priceFormatterType')
 >('./priceFormatterType');
+
+const BASE_CHART_CONFIG = {
+  data: [{ time: 1 as UTCTimestamp, value: 1 }],
+  lineWidth: 2,
+  theme: {
+    bgColor: '#000000',
+    textSubduedColor: '#999999',
+    lineColor: '#8D8FE8',
+    topColor: 'transparent',
+    bottomColor: 'transparent',
+  },
+} satisfies ILightweightChartConfig;
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('loads the standalone runtime only when building the script tag', () => {
@@ -56,17 +69,7 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
   });
 
   it('uses the inline runtime in the LightweightChart native HTML template', () => {
-    const html = generateChartHTML({
-      data: [{ time: 1 as UTCTimestamp, value: 1 }],
-      lineWidth: 2,
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
-    });
+    const html = generateChartHTML(BASE_CHART_CONFIG);
 
     expect(html).toContain('LightweightCharts');
     expect(html).toContain('LightweightCharts.LineType.WithSteps');
@@ -77,17 +80,9 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
 
   it('serializes the configured time zone into the native chart template', () => {
     const html = generateChartHTML({
-      data: [{ time: 1 as UTCTimestamp, value: 1 }],
-      lineWidth: 2,
+      ...BASE_CHART_CONFIG,
       locale: 'zh-CN',
       timeZone: 'Asia/Shanghai',
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
     });
 
     expect(html).toContain('"locale":"zh-CN"');
@@ -97,21 +92,13 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
 
   it('creates a dashed reference line in the native chart template', () => {
     const html = generateChartHTML({
-      data: [{ time: 1 as UTCTimestamp, value: 1 }],
-      lineWidth: 2,
+      ...BASE_CHART_CONFIG,
       referenceLine: {
         price: 0,
         color: '#555555',
         lineWidth: 1,
         lineStyle: 'dashed',
         axisLabelVisible: false,
-      },
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
       },
     });
 
@@ -122,11 +109,11 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
 
   it('creates a signed histogram series in the native chart template', () => {
     const html = generateChartHTML({
+      ...BASE_CHART_CONFIG,
       data: [
         { time: 1 as UTCTimestamp, value: 2, color: '#00aa00' },
         { time: 2 as UTCTimestamp, value: -3, color: '#ee0000' },
       ],
-      lineWidth: 2,
       seriesType: 'histogram',
       histogramOptions: {
         positiveColor: '#00aa00',
@@ -135,13 +122,7 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
         barWidthRatio: 0.5,
         maxBarWidth: 24,
       },
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#00aa00',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
+      theme: { ...BASE_CHART_CONFIG.theme, lineColor: '#00aa00' },
     });
 
     expect(html).toContain('"seriesType":"histogram"');
@@ -155,17 +136,7 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
   });
 
   it('preserves native adaptive tick labels when no time zone is provided', () => {
-    const html = generateChartHTML({
-      data: [{ time: 1 as UTCTimestamp, value: 1 }],
-      lineWidth: 2,
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
-    });
+    const html = generateChartHTML(BASE_CHART_CONFIG);
 
     expect(html).toContain('if (nextConfig.timeZone)');
     expect(html).toContain('options.tickMarkFormatter =');
@@ -173,20 +144,9 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
   });
 
   it('hides the native crosshair price label only when requested', () => {
-    const config = {
-      data: [{ time: 1 as UTCTimestamp, value: 1 }],
-      lineWidth: 2,
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
-    };
-    const defaultHtml = generateChartHTML(config);
+    const defaultHtml = generateChartHTML(BASE_CHART_CONFIG);
     const requestedHtml = generateChartHTML({
-      ...config,
+      ...BASE_CHART_CONFIG,
       hideCrosshairPriceLabel: true,
     });
 
@@ -199,17 +159,10 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
 
   it('serializes caller-provided percent precision for native charts', () => {
     const html = generateChartHTML({
+      ...BASE_CHART_CONFIG,
       data: [{ time: 1 as UTCTimestamp, value: 0.001 }],
-      lineWidth: 2,
       priceFormatterType: 'percent',
       priceFormatterPrecision: 4,
-      theme: {
-        bgColor: '#000000',
-        textSubduedColor: '#999999',
-        lineColor: '#8D8FE8',
-        topColor: 'transparent',
-        bottomColor: 'transparent',
-      },
     });
 
     expect(html).toContain('"priceFormatterPrecision":4');
@@ -237,12 +190,6 @@ describe('resolveSerializablePriceFormatterType', () => {
     expect(
       resolveSerializablePriceFormatterType({
         seriesType: 'area',
-        priceFormatter: (value) => `$${value.toFixed(2)}`,
-      }),
-    ).toBe('usd');
-    expect(
-      resolveSerializablePriceFormatterType({
-        seriesType: 'histogram',
         priceFormatter: (value) => `$${value.toFixed(2)}`,
       }),
     ).toBe('usd');

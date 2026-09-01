@@ -7,9 +7,7 @@ import {
   buildCumulativeFundingChartData,
   buildFundingDirectionDistribution,
   buildFundingHistogramChartData,
-  buildFundingMarketBreakdown,
-  buildFundingPaymentSummary,
-  buildFundingPeriodNetSummary,
+  buildFundingNetSummary,
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
   resolveFundingHistogramStyle,
@@ -104,7 +102,6 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(stats.avgLoss).toBe(-5);
     expect(stats.profitFactor).toBe(4);
     expect(stats.realizedPnl).toBe(15);
-    expect(stats.spotRealizedPnl).toBe(-5);
     expect(stats.feesPaid).toBe(1.5);
     expect(stats.volumeUsd).toBe(5130);
   });
@@ -184,13 +181,11 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(perpsStats.totalTrades).toBe(1);
     expect(perpsStats.volumeUsd).toBe(5000);
     expect(perpsStats.realizedPnl).toBe(20);
-    expect(perpsStats.spotRealizedPnl).toBe(0);
     expect(perpsStats.mostTraded).toBe('BTC');
 
     expect(spotStats.totalTrades).toBe(2);
     expect(spotStats.volumeUsd).toBe(130);
     expect(spotStats.realizedPnl).toBe(-5);
-    expect(spotStats.spotRealizedPnl).toBe(-5);
     expect(spotStats.mostTraded).toBe('@142');
   });
 });
@@ -271,8 +266,7 @@ describe('buildCumulativeFundingChartData', () => {
       ],
     });
 
-    expect(result.total).toBe(0.2);
-    expect(result.chartData).toEqual([
+    expect(result).toEqual([
       [Math.floor((NOW - day) / 1000), 0],
       [Math.floor((NOW - 2 * hour) / 1000), -0.3],
       [Math.floor((NOW - hour) / 1000), 0.2],
@@ -289,14 +283,11 @@ describe('buildCumulativeFundingChartData', () => {
       records: [createFunding(fundingTime, '-1.25')],
     });
 
-    expect(result).toEqual({
-      total: -1.25,
-      chartData: [
-        [fundingTimeInSeconds - 1, 0],
-        [fundingTimeInSeconds, -1.25],
-        [Math.floor(NOW / 1000), -1.25],
-      ],
-    });
+    expect(result).toEqual([
+      [fundingTimeInSeconds - 1, 0],
+      [fundingTimeInSeconds, -1.25],
+      [Math.floor(NOW / 1000), -1.25],
+    ]);
   });
 
   it('returns an empty series when the selected range has no funding payments', () => {
@@ -306,7 +297,7 @@ describe('buildCumulativeFundingChartData', () => {
       records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
     });
 
-    expect(result).toEqual({ chartData: [], total: 0 });
+    expect(result).toEqual([]);
   });
 });
 
@@ -327,8 +318,7 @@ describe('buildFundingHistogramChartData', () => {
       ],
     });
 
-    expect(result.total).toBe(1.2);
-    expect(result.chartData).toEqual(
+    expect(result).toEqual(
       [-0.3, 0, 0, 0, 1.5, 0, 0].map((value, index) => [
         Math.floor((rangeStart + index * day) / 1000),
         value,
@@ -343,10 +333,7 @@ describe('buildFundingHistogramChartData', () => {
       records: [createFunding(NOW, '-1.25')],
     });
 
-    expect(result).toEqual({
-      total: -1.25,
-      chartData: [[Math.floor(NOW / 1000), -1.25]],
-    });
+    expect(result).toEqual([[Math.floor(NOW / 1000), -1.25]]);
   });
 
   it('returns an empty series when the selected range has no valid payments', () => {
@@ -356,7 +343,7 @@ describe('buildFundingHistogramChartData', () => {
       records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
     });
 
-    expect(result).toEqual({ chartData: [], total: 0 });
+    expect(result).toEqual([]);
   });
 });
 
@@ -412,28 +399,14 @@ describe('resolveFundingHistogramStyle', () => {
   );
 });
 
-describe('buildFundingPaymentSummary', () => {
-  it('separates paid and received funding and calculates the all-time net', () => {
-    const summary = buildFundingPaymentSummary([
-      createFunding(NOW, '-4.9'),
-      createFunding(NOW, '1.63', 'ETH'),
-      createFunding(NOW, 'invalid', 'SOL'),
-    ]);
-
-    expect(summary).toEqual({
-      netFunding: -3.27,
-      totalPaid: 4.9,
-      totalReceived: 1.63,
-    });
-  });
-});
-
-describe('buildFundingPeriodNetSummary', () => {
-  it('calculates 24-hour and 7-day net funding from the same history', () => {
+describe('buildFundingNetSummary', () => {
+  it('calculates all-time, 24-hour, and 7-day net funding in one pass', () => {
     const hour = 60 * 60 * 1000;
     const day = 24 * hour;
-    const summary = buildFundingPeriodNetSummary({
+    const summary = buildFundingNetSummary({
       records: [
+        createFunding(NOW - 10 * day, '-4.9'),
+        createFunding(NOW - 9 * day, '1.63', 'ETH'),
         createFunding(NOW - 23 * hour, '-1'),
         createFunding(NOW - 3 * day, '2', 'ETH'),
         createFunding(NOW - 8 * day, '99', 'SOL'),
@@ -444,97 +417,10 @@ describe('buildFundingPeriodNetSummary', () => {
     });
 
     expect(summary).toEqual({
+      netAllTime: 195.73,
       net24h: -1,
       net7d: 1,
     });
-  });
-});
-
-describe('buildFundingMarketBreakdown', () => {
-  it('aggregates funding by market and time bucket for the selected period', () => {
-    const hour = 60 * 60 * 1000;
-    const result = buildFundingMarketBreakdown({
-      records: [
-        createFunding(NOW - 23 * hour, '-1'),
-        createFunding(NOW - 22 * hour, '0.25'),
-        createFunding(NOW - 8 * hour, '2', 'ETH'),
-        createFunding(NOW - 25 * hour, '99', 'SOL'),
-        createFunding(NOW - hour, 'invalid', 'DOGE'),
-      ],
-      timePeriod: 'day',
-      bucketCount: 4,
-      now: NOW,
-    });
-
-    expect(result.rows).toEqual([
-      {
-        coin: 'ETH',
-        total: 2,
-        activity: 2,
-        bucketValues: [0, 0, 2, 0],
-      },
-      {
-        coin: 'BTC',
-        total: -0.75,
-        activity: 1.25,
-        bucketValues: [-0.75, 0, 0, 0],
-      },
-    ]);
-    expect(result.maxAbsBucketValue).toBe(2);
-    expect(result.maxAbsTotal).toBe(2);
-    expect(result.bucketStarts).toHaveLength(4);
-  });
-
-  it('keeps dex markets distinct and groups only markets beyond the display limit', () => {
-    const result = buildFundingMarketBreakdown({
-      records: [
-        createFunding(NOW, '-4', 'BTC'),
-        createFunding(NOW, '3', 'xyz:BTC'),
-        createFunding(NOW, '-2', 'ETH'),
-        createFunding(NOW, '1', 'SOL'),
-      ],
-      timePeriod: 'allTime',
-      bucketCount: 1,
-      maxMarkets: 3,
-      now: NOW,
-    });
-
-    expect(result.rows).toEqual([
-      {
-        coin: 'BTC',
-        total: -4,
-        activity: 4,
-        bucketValues: [-4],
-      },
-      {
-        coin: 'xyz:BTC',
-        total: 3,
-        activity: 3,
-        bucketValues: [3],
-      },
-      {
-        coin: 'Other',
-        total: -1,
-        activity: 3,
-        bucketValues: [-1],
-      },
-    ]);
-  });
-
-  it('sorts by funding activity even when payments cancel out', () => {
-    const result = buildFundingMarketBreakdown({
-      records: [
-        createFunding(NOW - 1, '-5', 'BTC'),
-        createFunding(NOW, '5', 'BTC'),
-        createFunding(NOW, '-3', 'ETH'),
-      ],
-      timePeriod: 'allTime',
-      bucketCount: 2,
-      now: NOW,
-    });
-
-    expect(result.rows.map(({ coin }) => coin)).toEqual(['BTC', 'ETH']);
-    expect(result.rows[0]).toMatchObject({ total: 0, activity: 10 });
   });
 });
 

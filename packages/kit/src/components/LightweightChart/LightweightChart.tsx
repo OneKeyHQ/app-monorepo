@@ -69,46 +69,15 @@ function getSeriesValue(seriesData: unknown): number | undefined {
   return undefined;
 }
 
-export function LightweightChart({
-  data,
-  height,
-  lineColor,
-  topColor,
-  bottomColor,
-  textSubduedColor,
-  secondaryLineData,
-  secondaryLineColor,
-  secondaryLineWidth,
-  lineWidth,
-  showPriceScale,
-  showHorzGridLines,
-  horzLineColor,
-  horzLineStyle,
-  priceScalePosition,
-  priceScaleMargins,
-  priceScaleEntireTextOnly,
-  priceScaleMinimumWidth,
-  crosshairVertLineColor,
-  crosshairVertLineStyle,
-  patternColor,
-  pulseLastPointColor,
-  priceFormatter,
-  fontSize,
-  seriesType,
-  lineType,
-  baselineOptions,
-  histogramOptions,
-  referenceLine,
-  showLastValue,
-  showLastPointMarker,
-  showTimeScale,
-  useTimeScaleTickMarkWithoutUnit,
-  timeZone,
-  locale,
-  pulseLastPoint,
-  preserveChartInstanceOnDataChange,
-  onHover,
-}: ILightweightChartProps) {
+export function LightweightChart(props: ILightweightChartProps) {
+  const {
+    height,
+    showLastValue,
+    priceScaleMinimumWidth,
+    pulseLastPoint,
+    preserveChartInstanceOnDataChange,
+    onHover,
+  } = props;
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
@@ -122,41 +91,7 @@ export function LightweightChart({
     y: number;
   } | null>(null);
 
-  const chartConfig = useChartConfig({
-    data,
-    lineColor,
-    topColor,
-    bottomColor,
-    textSubduedColor,
-    secondaryLineData,
-    secondaryLineColor,
-    secondaryLineWidth,
-    lineWidth,
-    showPriceScale,
-    showHorzGridLines,
-    horzLineColor,
-    horzLineStyle,
-    priceScalePosition,
-    priceScaleMargins,
-    priceScaleEntireTextOnly,
-    crosshairVertLineColor,
-    crosshairVertLineStyle,
-    patternColor,
-    pulseLastPointColor,
-    priceFormatter,
-    fontSize,
-    seriesType,
-    lineType,
-    baselineOptions,
-    histogramOptions,
-    referenceLine,
-    showLastValue,
-    showLastPointMarker,
-    showTimeScale,
-    useTimeScaleTickMarkWithoutUnit,
-    timeZone,
-    locale,
-  });
+  const chartConfig = useChartConfig(props);
   const chartConfigRef = useRef(chartConfig);
   chartConfigRef.current = chartConfig;
   const lastPointPositionUpdaterRef = useRef<(() => void) | undefined>(

@@ -52,8 +52,7 @@ import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
   buildFundingHistogramChartData,
-  buildFundingPaymentSummary,
-  buildFundingPeriodNetSummary,
+  buildFundingNetSummary,
   resolveFundingHistogramStyle,
 } from './portfolioStats';
 import {
@@ -78,8 +77,28 @@ const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
 };
 
 const MOBILE_TIME_PERIOD_ITEM_MIN_WIDTH = 30;
-
-// Time period and chart type options are built inside the component using intl
+const TIME_PERIOD_OPTION_IDS: ReadonlyArray<
+  readonly [IPortfolioTimePeriod, ETranslations]
+> = [
+  ['day', ETranslations.perp_portfolio_period_1d],
+  ['week', ETranslations.perp_portfolio_period_1w],
+  ['month', ETranslations.perp_portfolio_period_1m],
+  ['allTime', ETranslations.perp_portfolio_period_all],
+];
+const CHART_TYPE_OPTION_IDS: ReadonlyArray<
+  readonly [IPortfolioChartType, ETranslations]
+> = [
+  ['accountValue', ETranslations.perp_portfolio_chart_type_value],
+  ['pnl', ETranslations.perp_portfolio_chart_type_pnl],
+  ['funding', ETranslations.perp_portfolio_chart_type_funding],
+];
+const PNL_TYPE_OPTION_IDS: ReadonlyArray<
+  readonly [IPortfolioPnlType, ETranslations]
+> = [
+  ['all', ETranslations.global_all],
+  ['perps', ETranslations.global_perp],
+  ['spot', ETranslations.dexmarket_spot],
+];
 
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return '--';
@@ -110,6 +129,44 @@ function SectionLabel({ children }: { children: string }) {
     >
       {children}
     </SizableText>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  color,
+  alignItems = 'flex-start',
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  color: string;
+  alignItems?: 'flex-start' | 'center' | 'flex-end';
+}) {
+  let textAlign: 'left' | 'center' | 'right' = 'left';
+  if (alignItems === 'center') textAlign = 'center';
+  if (alignItems === 'flex-end') textAlign = 'right';
+
+  return (
+    <YStack flex={1} minWidth={0} gap="$0.5" alignItems={alignItems}>
+      {typeof label === 'string' ? (
+        <SizableText size="$bodyXs" color="$textDisabled">
+          {label}
+        </SizableText>
+      ) : (
+        label
+      )}
+      <SizableText
+        size="$headingSm"
+        color={color}
+        numberOfLines={1}
+        minWidth={0}
+        maxWidth="100%"
+        textAlign={textAlign}
+      >
+        {value}
+      </SizableText>
+    </YStack>
   );
 }
 
@@ -294,82 +351,29 @@ function PerpPortfolioContentComponent({
   );
 
   const timePeriodOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_period_1d,
-        }),
-        value: 'day' as IPortfolioTimePeriod,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_period_1w,
-        }),
-        value: 'week' as IPortfolioTimePeriod,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_period_1m,
-        }),
-        value: 'month' as IPortfolioTimePeriod,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_period_all,
-        }),
-        value: 'allTime' as IPortfolioTimePeriod,
-      },
-    ],
+    () =>
+      TIME_PERIOD_OPTION_IDS.map(([value, id]) => ({
+        label: intl.formatMessage({ id }),
+        value,
+      })),
     [intl],
   );
   const chartTypeOptions = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_chart_type_value,
-        }),
-        value: 'accountValue' as IPortfolioChartType,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_chart_type_pnl,
-        }),
-        value: 'pnl' as IPortfolioChartType,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perp_portfolio_chart_type_funding,
-        }),
-        value: 'funding' as IPortfolioChartType,
-      },
-    ],
+    () =>
+      CHART_TYPE_OPTION_IDS.map(([value, id]) => ({
+        label: intl.formatMessage({ id }),
+        value,
+      })),
     [intl],
   );
-  const pnlTypeOptions = useMemo(() => {
-    const allLabel = intl.formatMessage({
-      id: ETranslations.global_all,
-    });
-    const perpsLabel = intl.formatMessage({
-      id: ETranslations.global_perp,
-    });
-    const spotLabel = intl.formatMessage({
-      id: ETranslations.dexmarket_spot,
-    });
-    return [
-      {
-        label: allLabel,
-        value: 'all' as IPortfolioPnlType,
-      },
-      {
-        label: perpsLabel,
-        value: 'perps' as IPortfolioPnlType,
-      },
-      {
-        label: spotLabel,
-        value: 'spot' as IPortfolioPnlType,
-      },
-    ];
-  }, [intl]);
+  const pnlTypeOptions = useMemo(
+    () =>
+      PNL_TYPE_OPTION_IDS.map(([value, id]) => ({
+        label: intl.formatMessage({ id }),
+        value,
+      })),
+    [intl],
+  );
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [mmrData] = usePerpsActiveAccountMmrAtom();
   const positionsLength = usePerpsActivePositionsByAddress(
@@ -475,7 +479,7 @@ function PerpPortfolioContentComponent({
     fillsStats,
     netDeposits,
     accountSummary,
-    pnlTotals,
+    selectedPnlTotal,
     isLoading: isPortfolioLoading,
   } = usePerpPortfolioData(timePeriod, activityType);
   const { records: fundingHistory, isLoading: isFundingHistoryLoading } =
@@ -488,12 +492,8 @@ function PerpPortfolioContentComponent({
       }),
     [fundingHistory, timePeriod],
   );
-  const fundingPaymentSummary = useMemo(
-    () => buildFundingPaymentSummary(fundingHistory),
-    [fundingHistory],
-  );
-  const fundingPeriodNetSummary = useMemo(
-    () => buildFundingPeriodNetSummary({ records: fundingHistory }),
+  const fundingNetSummary = useMemo(
+    () => buildFundingNetSummary({ records: fundingHistory }),
     [fundingHistory],
   );
   const isChartLoading = isFunding
@@ -503,13 +503,13 @@ function PerpPortfolioContentComponent({
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
-    if (isFunding) return fundingHistogram.chartData;
+    if (isFunding) return fundingHistogram;
     if (!chartData) return [];
     if (chartType === 'accountValue') return chartData.accountValueHistory;
     if (pnlType === 'perps') return chartData.perpsPnlHistory;
     if (pnlType === 'spot') return chartData.nonPerpsPnlHistory;
     return chartData.pnlHistory;
-  }, [chartData, chartType, fundingHistogram.chartData, isFunding, pnlType]);
+  }, [chartData, chartType, fundingHistogram, isFunding, pnlType]);
   const showFundingEmptyState =
     !isChartLoading && isFunding && chartSeriesData.length === 0;
 
@@ -526,33 +526,88 @@ function PerpPortfolioContentComponent({
   const unrealizedPnl = formatPerpsUsd(unrealizedPnlRaw, true);
   const unrealizedColor = getPerpsValueColor(unrealizedPnlRaw);
 
-  let fallbackPnlVal = fillsStats.realizedPnl;
-  if (chartType === 'pnl') {
-    if (pnlType === 'perps') {
-      fallbackPnlVal = fillsStats.realizedPnl - fillsStats.spotRealizedPnl;
-    } else if (pnlType === 'spot') {
-      fallbackPnlVal = fillsStats.spotRealizedPnl;
-    }
-  }
-  const selectedPnlVal =
-    chartType === 'pnl' ? pnlTotals[pnlType] : pnlTotals.all;
-  const totalPnlVal = selectedPnlVal ?? fallbackPnlVal;
+  const totalPnlVal = selectedPnlTotal ?? fillsStats.realizedPnl;
   const realizedPnl = formatPerpsUsd(totalPnlVal, true);
   const realizedColor = getPerpsValueColor(totalPnlVal);
-  const allTimeNetFunding = formatPerpsUsd(
-    fundingPaymentSummary.netFunding,
-    true,
-  );
+  const allTimeNetFunding = formatPerpsUsd(fundingNetSummary.netAllTime, true);
   const allTimeNetFundingColor = getPerpsValueColor(
-    fundingPaymentSummary.netFunding,
+    fundingNetSummary.netAllTime,
   );
-  const netFunding24h = formatPerpsUsd(fundingPeriodNetSummary.net24h, true);
-  const netFunding24hColor = getPerpsValueColor(fundingPeriodNetSummary.net24h);
-  const netFunding7d = formatPerpsUsd(fundingPeriodNetSummary.net7d, true);
-  const netFunding7dColor = getPerpsValueColor(fundingPeriodNetSummary.net7d);
+  const netFunding24h = formatPerpsUsd(fundingNetSummary.net24h, true);
+  const netFunding24hColor = getPerpsValueColor(fundingNetSummary.net24h);
+  const netFunding7d = formatPerpsUsd(fundingNetSummary.net7d, true);
+  const netFunding7dColor = getPerpsValueColor(fundingNetSummary.net7d);
   const totalPnlTooltip = intl.formatMessage({
     id: ETranslations.perp_portfolio_total_pnl_tooltip__desc,
   });
+  const summaryMetrics = isFunding
+    ? [
+        {
+          key: 'funding-24h',
+          label: intl.formatMessage({
+            id: ETranslations.perp_portfolio_funding_net_24h__label,
+          }),
+          value: netFunding24h,
+          color: netFunding24hColor,
+          alignItems: 'flex-start' as const,
+        },
+        {
+          key: 'funding-7d',
+          label: intl.formatMessage({
+            id: ETranslations.perp_portfolio_funding_net_7d__label,
+          }),
+          value: netFunding7d,
+          color: netFunding7dColor,
+          alignItems: 'center' as const,
+        },
+        {
+          key: 'funding-all',
+          label: intl.formatMessage({
+            id: ETranslations.perp_portfolio_funding_net_all_time__label,
+          }),
+          value: allTimeNetFunding,
+          color: allTimeNetFundingColor,
+          alignItems: 'flex-end' as const,
+        },
+      ]
+    : [
+        {
+          key: 'unrealized-pnl',
+          label: intl.formatMessage({
+            id: ETranslations.perp_portfolio_unrealized_pnl,
+          }),
+          value: unrealizedPnl,
+          color: unrealizedColor,
+          alignItems: 'flex-start' as const,
+        },
+        {
+          key: 'total-pnl',
+          label: (
+            <DashText
+              size="$bodyXs"
+              color="$textDisabled"
+              dashThickness={0.5}
+              tooltip={totalPnlTooltip}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_total_pnl,
+              })}
+            </DashText>
+          ),
+          value: realizedPnl,
+          color: realizedColor,
+          alignItems: 'center' as const,
+        },
+        {
+          key: 'open-positions',
+          label: intl.formatMessage({
+            id: ETranslations.perp_portfolio_open_positions,
+          }),
+          value: positionsLength ?? 0,
+          color: '$text',
+          alignItems: 'flex-end' as const,
+        },
+      ];
   const winRateTooltip = intl.formatMessage({
     id: WIN_RATE_TOOLTIP_MAP[timePeriod],
   });
@@ -1037,107 +1092,13 @@ function PerpPortfolioContentComponent({
         />
       ) : null}
 
-      {/* Selected chart summary */}
-      {isFunding ? (
-        <SectionBlock>
-          <XStack alignItems="center">
-            <YStack flex={1} minWidth={0} gap="$0.5">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_funding_net_24h__label,
-                })}
-              </SizableText>
-              <SizableText
-                size="$headingSm"
-                color={netFunding24hColor}
-                numberOfLines={1}
-              >
-                {netFunding24h}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_funding_net_7d__label,
-                })}
-              </SizableText>
-              <SizableText
-                size="$headingSm"
-                color={netFunding7dColor}
-                numberOfLines={1}
-              >
-                {netFunding7d}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_funding_net_all_time__label,
-                })}
-              </SizableText>
-              <SizableText
-                size="$headingSm"
-                color={allTimeNetFundingColor}
-                numberOfLines={1}
-              >
-                {allTimeNetFunding}
-              </SizableText>
-            </YStack>
-          </XStack>
-        </SectionBlock>
-      ) : (
-        <SectionBlock>
-          <XStack alignItems="center">
-            <YStack flex={1} minWidth={0} gap="$0.5">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_unrealized_pnl,
-                })}
-              </SizableText>
-              <SizableText
-                size="$headingSm"
-                color={unrealizedColor}
-                numberOfLines={1}
-                minWidth={0}
-              >
-                {unrealizedPnl}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="center">
-              <DashText
-                size="$bodyXs"
-                color="$textDisabled"
-                dashThickness={0.5}
-                tooltip={totalPnlTooltip}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_total_pnl,
-                })}
-              </DashText>
-              <SizableText
-                size="$headingSm"
-                color={realizedColor}
-                numberOfLines={1}
-                minWidth={0}
-                maxWidth="100%"
-                textAlign="center"
-              >
-                {realizedPnl}
-              </SizableText>
-            </YStack>
-            <YStack flex={1} minWidth={0} gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
-                {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_open_positions,
-                })}
-              </SizableText>
-              <SizableText size="$headingSm" color="$text">
-                {positionsLength ?? 0}
-              </SizableText>
-            </YStack>
-          </XStack>
-        </SectionBlock>
-      )}
+      <SectionBlock>
+        <XStack alignItems="center">
+          {summaryMetrics.map(({ key, ...metric }) => (
+            <SummaryMetric key={key} {...metric} />
+          ))}
+        </XStack>
+      </SectionBlock>
     </YStack>
   );
 

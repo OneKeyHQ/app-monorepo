@@ -250,7 +250,6 @@ describe('buildPositionCumulativeFundingChartData', () => {
       now: NOW,
     });
 
-    expect(result.total).toBe(-1);
-    expect(result.chartData.at(-1)).toEqual([Math.floor(NOW / 1000), -1]);
+    expect(result.at(-1)).toEqual([Math.floor(NOW / 1000), -1]);
   });
 });

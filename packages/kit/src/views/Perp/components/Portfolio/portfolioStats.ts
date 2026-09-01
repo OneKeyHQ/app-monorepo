@@ -23,20 +23,6 @@ export type IPortfolioChartData = {
   vlm: string;
 };
 
-export type IFundingMarketBreakdownRow = {
-  coin: string;
-  total: number;
-  activity: number;
-  bucketValues: number[];
-};
-
-export type IFundingMarketBreakdown = {
-  rows: IFundingMarketBreakdownRow[];
-  bucketStarts: number[];
-  maxAbsBucketValue: number;
-  maxAbsTotal: number;
-};
-
 export type IFundingDistributionRow = {
   coin: string;
   amount: number;
@@ -47,7 +33,8 @@ export type IFundingDirectionDistribution = {
   received: IFundingDistributionRow[];
 };
 
-export type IFundingPeriodNetSummary = {
+export type IFundingNetSummary = {
+  netAllTime: number;
   net24h: number;
   net7d: number;
 };
@@ -66,7 +53,6 @@ export type IPerpPortfolioFillsStats = {
   mostTraded: string | null;
   profitFactor: number | null;
   realizedPnl: number;
-  spotRealizedPnl: number;
   totalTrades: number;
 };
 
@@ -82,13 +68,6 @@ const FUNDING_HISTOGRAM_BUCKET_COUNT_MAP: Record<IPortfolioTimePeriod, number> =
     month: 30,
     allTime: 30,
   };
-
-const COMBINED_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
-  day: 'day',
-  week: 'week',
-  month: 'month',
-  allTime: 'allTime',
-};
 
 const PERP_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
   day: 'perpDay',
@@ -139,6 +118,11 @@ function subtractHistory(
   return history.map(([ts, val]) => [ts, val - (subtrahendMap.get(ts) ?? 0)]);
 }
 
+function getFundingPayment(record: IUserFunding) {
+  const payment = new BigNumber(record.delta.usdc);
+  return payment.isFinite() ? payment : null;
+}
+
 export function buildPortfolioChartData({
   portfolioData,
   timePeriod,
@@ -146,10 +130,7 @@ export function buildPortfolioChartData({
   portfolioData: IPortfolioData;
   timePeriod: IPortfolioTimePeriod;
 }): IPortfolioChartData | null {
-  const combinedMetrics = getPortfolioMetrics(
-    portfolioData,
-    COMBINED_PERIOD_KEY_MAP[timePeriod],
-  );
+  const combinedMetrics = getPortfolioMetrics(portfolioData, timePeriod);
   if (!combinedMetrics) return null;
 
   const perpsMetrics = getPortfolioMetrics(
@@ -179,18 +160,15 @@ export function buildCumulativeFundingChartData({
   records: IUserFunding[];
   timePeriod: IPortfolioTimePeriod;
   now?: number;
-}): {
-  chartData: [number, number][];
-  total: number;
-} {
+}): [number, number][] {
   const startTime = getStartTimeForPeriod(timePeriod, now);
   const fundingBySecond = new Map<number, BigNumber>();
 
   records.forEach((record) => {
     if (record.time < startTime || record.time > now) return;
 
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite()) return;
+    const payment = getFundingPayment(record);
+    if (!payment) return;
 
     const time = Math.floor(record.time / 1000);
     fundingBySecond.set(
@@ -204,10 +182,7 @@ export function buildCumulativeFundingChartData({
   );
   const firstFundingTime = fundingPoints[0]?.[0];
   if (firstFundingTime === undefined) {
-    return {
-      chartData: [],
-      total: 0,
-    };
+    return [];
   }
 
   const periodStartTime = Math.floor(startTime / 1000);
@@ -228,10 +203,7 @@ export function buildCumulativeFundingChartData({
     chartData.push([nowInSeconds, cumulativeFunding.toNumber()]);
   }
 
-  return {
-    chartData,
-    total: cumulativeFunding.toNumber(),
-  };
+  return chartData;
 }
 
 export function buildFundingHistogramChartData({
@@ -242,17 +214,14 @@ export function buildFundingHistogramChartData({
   records: IUserFunding[];
   timePeriod: IPortfolioTimePeriod;
   now?: number;
-}): {
-  chartData: [number, number][];
-  total: number;
-} {
+}): [number, number][] {
   const validRecords = records.flatMap((record) => {
     if (!Number.isFinite(record.time) || record.time > now) {
       return [];
     }
 
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite()) return [];
+    const payment = getFundingPayment(record);
+    if (!payment) return [];
 
     return [{ record, payment }];
   });
@@ -265,7 +234,7 @@ export function buildFundingHistogramChartData({
   );
 
   if (periodRecords.length === 0 || !Number.isFinite(rangeStart)) {
-    return { chartData: [], total: 0 };
+    return [];
   }
 
   const rangeDuration = Math.max(1, now - rangeStart);
@@ -287,17 +256,12 @@ export function buildFundingHistogramChartData({
     bucketValues[bucketIndex] = bucketValues[bucketIndex].plus(payment);
   });
 
-  return {
-    chartData: bucketValues.map((value, bucketIndex) => [
-      Math.floor(
-        (rangeStart + (rangeDuration * bucketIndex) / bucketCount) / 1000,
-      ),
-      value.toNumber(),
-    ]),
-    total: bucketValues
-      .reduce((sum, value) => sum.plus(value), new BigNumber(0))
-      .toNumber(),
-  };
+  return bucketValues.map((value, bucketIndex) => [
+    Math.floor(
+      (rangeStart + (rangeDuration * bucketIndex) / bucketCount) / 1000,
+    ),
+    value.toNumber(),
+  ]);
 }
 
 export function resolveFundingHistogramStyle({
@@ -333,50 +297,25 @@ export function resolveFundingHistogramStyle({
   };
 }
 
-export function buildFundingPaymentSummary(records: IUserFunding[]): {
-  netFunding: number;
-  totalPaid: number;
-  totalReceived: number;
-} {
-  let totalPaid = new BigNumber(0);
-  let totalReceived = new BigNumber(0);
-
-  records.forEach((record) => {
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite()) return;
-
-    if (payment.isPositive()) {
-      totalReceived = totalReceived.plus(payment);
-    } else if (payment.isNegative()) {
-      totalPaid = totalPaid.plus(payment.abs());
-    }
-  });
-
-  return {
-    netFunding: totalReceived.minus(totalPaid).toNumber(),
-    totalPaid: totalPaid.toNumber(),
-    totalReceived: totalReceived.toNumber(),
-  };
-}
-
-export function buildFundingPeriodNetSummary({
+export function buildFundingNetSummary({
   records,
   now = Date.now(),
 }: {
   records: IUserFunding[];
   now?: number;
-}): IFundingPeriodNetSummary {
+}): IFundingNetSummary {
   const dayStart = getStartTimeForPeriod('day', now);
   const weekStart = getStartTimeForPeriod('week', now);
+  let netAllTime = new BigNumber(0);
   let net24h = new BigNumber(0);
   let net7d = new BigNumber(0);
 
   records.forEach((record) => {
+    const payment = getFundingPayment(record);
+    if (!payment) return;
+
+    netAllTime = netAllTime.plus(payment);
     if (record.time < weekStart || record.time > now) return;
-
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite()) return;
-
     net7d = net7d.plus(payment);
     if (record.time >= dayStart) {
       net24h = net24h.plus(payment);
@@ -384,131 +323,9 @@ export function buildFundingPeriodNetSummary({
   });
 
   return {
+    netAllTime: netAllTime.toNumber(),
     net24h: net24h.toNumber(),
     net7d: net7d.toNumber(),
-  };
-}
-
-export function buildFundingMarketBreakdown({
-  records,
-  timePeriod,
-  now = Date.now(),
-  bucketCount = 12,
-  maxMarkets = 9,
-}: {
-  records: IUserFunding[];
-  timePeriod: IPortfolioTimePeriod;
-  now?: number;
-  bucketCount?: number;
-  maxMarkets?: number;
-}): IFundingMarketBreakdown {
-  const safeBucketCount = Math.max(1, Math.floor(bucketCount));
-  const safeMaxMarkets = Math.max(1, Math.floor(maxMarkets));
-  const validRecords = records.flatMap((record) => {
-    if (record.time > now) return [];
-
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite()) return [];
-
-    return [{ record, payment }];
-  });
-  const rangeStart =
-    timePeriod === 'allTime'
-      ? Math.min(...validRecords.map(({ record }) => record.time))
-      : getStartTimeForPeriod(timePeriod, now);
-  const periodRecords = validRecords.filter(
-    ({ record }) => record.time >= rangeStart,
-  );
-
-  if (periodRecords.length === 0 || !Number.isFinite(rangeStart)) {
-    return {
-      rows: [],
-      bucketStarts: [],
-      maxAbsBucketValue: 0,
-      maxAbsTotal: 0,
-    };
-  }
-
-  const rangeDuration = Math.max(1, now - rangeStart);
-  const bucketStarts = Array.from({ length: safeBucketCount }, (_, index) =>
-    Math.floor(rangeStart + (rangeDuration * index) / safeBucketCount),
-  );
-  const marketMap = new Map<
-    string,
-    {
-      total: BigNumber;
-      activity: BigNumber;
-      bucketValues: BigNumber[];
-    }
-  >();
-
-  periodRecords.forEach(({ record, payment }) => {
-    const market = marketMap.get(record.delta.coin) ?? {
-      total: new BigNumber(0),
-      activity: new BigNumber(0),
-      bucketValues: Array.from(
-        { length: safeBucketCount },
-        () => new BigNumber(0),
-      ),
-    };
-    const bucketIndex = Math.min(
-      safeBucketCount - 1,
-      Math.floor(
-        ((record.time - rangeStart) / rangeDuration) * safeBucketCount,
-      ),
-    );
-
-    market.total = market.total.plus(payment);
-    market.activity = market.activity.plus(payment.abs());
-    market.bucketValues[bucketIndex] =
-      market.bucketValues[bucketIndex].plus(payment);
-    marketMap.set(record.delta.coin, market);
-  });
-
-  const marketRows = Array.from(marketMap.entries())
-    .map(([coin, market]) => ({
-      coin,
-      total: market.total.toNumber(),
-      activity: market.activity.toNumber(),
-      bucketValues: market.bucketValues.map((value) => value.toNumber()),
-    }))
-    .toSorted(
-      (rowA, rowB) =>
-        rowB.activity - rowA.activity || rowA.coin.localeCompare(rowB.coin),
-    );
-
-  let rows = marketRows.slice(0, safeMaxMarkets);
-  if (marketRows.length > safeMaxMarkets) {
-    const visibleRows = marketRows.slice(0, safeMaxMarkets - 1);
-    const otherRows = marketRows.slice(safeMaxMarkets - 1);
-    rows = [
-      ...visibleRows,
-      {
-        coin: 'Other',
-        total: otherRows.reduce((sum, row) => sum + row.total, 0),
-        activity: otherRows.reduce((sum, row) => sum + row.activity, 0),
-        bucketValues: Array.from(
-          { length: safeBucketCount },
-          (_, bucketIndex) =>
-            otherRows.reduce(
-              (sum, row) => sum + row.bucketValues[bucketIndex],
-              0,
-            ),
-        ),
-      },
-    ];
-  }
-
-  return {
-    rows,
-    bucketStarts,
-    maxAbsBucketValue: Math.max(
-      0,
-      ...rows.flatMap((row) =>
-        row.bucketValues.map((value) => Math.abs(value)),
-      ),
-    ),
-    maxAbsTotal: Math.max(0, ...rows.map((row) => Math.abs(row.total))),
   };
 }
 
@@ -516,23 +333,21 @@ export function buildFundingDirectionDistribution({
   records,
   timePeriod,
   now = Date.now(),
-  maxBaseMarkets = 5,
 }: {
   records: IUserFunding[];
   timePeriod: IPortfolioTimePeriod;
   now?: number;
-  maxBaseMarkets?: number;
 }): IFundingDirectionDistribution {
   const startTime = getStartTimeForPeriod(timePeriod, now);
-  const safeMaxBaseMarkets = Math.max(1, Math.floor(maxBaseMarkets));
+  const maxBaseMarkets = 5;
   const paidByMarket = new Map<string, BigNumber>();
   const receivedByMarket = new Map<string, BigNumber>();
 
   records.forEach((record) => {
     if (record.time < startTime || record.time > now) return;
 
-    const payment = new BigNumber(record.delta.usdc);
-    if (!payment.isFinite() || payment.isZero()) return;
+    const payment = getFundingPayment(record);
+    if (!payment || payment.isZero()) return;
 
     const targetMap = payment.isPositive() ? receivedByMarket : paidByMarket;
     const amount = payment.abs();
@@ -552,10 +367,10 @@ export function buildFundingDirectionDistribution({
           rowB.amount - rowA.amount || rowA.coin.localeCompare(rowB.coin),
       );
 
-    if (marketRows.length <= safeMaxBaseMarkets) return marketRows;
+    if (marketRows.length <= maxBaseMarkets) return marketRows;
 
-    const visibleRows = marketRows.slice(0, safeMaxBaseMarkets);
-    const otherRows = marketRows.slice(safeMaxBaseMarkets);
+    const visibleRows = marketRows.slice(0, maxBaseMarkets);
+    const otherRows = marketRows.slice(maxBaseMarkets);
     return [
       ...visibleRows,
       {
@@ -583,114 +398,79 @@ export function buildPerpPortfolioFillsStats({
   now?: number;
 }): IPerpPortfolioFillsStats {
   const startMs = getStartTimeForPeriod(timePeriod, now);
+  let totalTrades = 0;
+  let winCount = 0;
+  let lossCount = 0;
+  let totalGain = new BigNumber(0);
+  let totalLoss = new BigNumber(0);
+  let feesPaid = new BigNumber(0);
+  let volumeUsd = new BigNumber(0);
+  const coinCounts = new Map<string, number>();
 
-  const filteredFills = fills.filter((fill) => {
+  fills.forEach((fill) => {
     const isSpotFill = isSpotInstrument(fill.coin);
-    if (pnlType === 'perps' && isSpotFill) return false;
-    if (pnlType === 'spot' && !isSpotFill) return false;
-    if (timePeriod !== 'allTime' && fill.time < startMs) return false;
-    return new BigNumber(fill.closedPnl).isFinite();
+    if (
+      (pnlType === 'perps' && isSpotFill) ||
+      (pnlType === 'spot' && !isSpotFill) ||
+      (timePeriod !== 'allTime' && fill.time < startMs)
+    ) {
+      return;
+    }
+
+    const closedPnl = new BigNumber(fill.closedPnl);
+    if (!closedPnl.isFinite()) return;
+
+    totalTrades += 1;
+    const count = (coinCounts.get(fill.coin) ?? 0) + 1;
+    coinCounts.set(fill.coin, count);
+
+    const price = new BigNumber(fill.px);
+    const size = new BigNumber(fill.sz);
+    if (price.isFinite() && size.isFinite()) {
+      volumeUsd = volumeUsd.plus(size.abs().multipliedBy(price));
+    }
+
+    if (isUsdcDenominatedFee(fill.feeToken)) {
+      feesPaid = feesPaid.plus(fill.fee);
+    } else {
+      const fee = new BigNumber(fill.fee);
+      if (price.isFinite() && price.gt(0) && fee.isFinite()) {
+        feesPaid = feesPaid.plus(fee.multipliedBy(price));
+      }
+    }
+
+    if (closedPnl.gt(0)) {
+      winCount += 1;
+      totalGain = totalGain.plus(closedPnl);
+    } else if (closedPnl.lt(0)) {
+      lossCount += 1;
+      totalLoss = totalLoss.plus(closedPnl.abs());
+    }
   });
 
-  const closedFills = filteredFills.filter((fill) =>
-    new BigNumber(fill.closedPnl).abs().gt(0),
-  );
-
-  const winFills = closedFills.filter((fill) =>
-    new BigNumber(fill.closedPnl).gt(0),
-  );
-  const lossFills = closedFills.filter((fill) =>
-    new BigNumber(fill.closedPnl).lt(0),
-  );
-
-  const winRate =
-    closedFills.length > 0
-      ? (winFills.length / closedFills.length) * 100
-      : null;
-
-  const avgWin =
-    winFills.length > 0
-      ? winFills
-          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-          .div(winFills.length)
-          .toNumber()
-      : null;
-
-  const avgLoss =
-    lossFills.length > 0
-      ? lossFills
-          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-          .div(lossFills.length)
-          .toNumber()
-      : null;
-
-  // Base-token fees (spot buys) are token units, not USD; convert them at the
-  // fill's own price (the same px volumeUsd trusts). A fill without a usable
-  // price is dropped rather than counted as raw token units.
-  const feesPaid = filteredFills
-    .reduce((sum, f) => {
-      if (isUsdcDenominatedFee(f.feeToken)) {
-        return sum.plus(f.fee);
-      }
-      const px = new BigNumber(f.px);
-      const fee = new BigNumber(f.fee);
-      return px.isFinite() && px.gt(0) && fee.isFinite()
-        ? sum.plus(fee.multipliedBy(px))
-        : sum;
-    }, new BigNumber(0))
-    .toNumber();
-
-  const volumeUsd = filteredFills
-    .reduce((sum, f) => {
-      const size = new BigNumber(f.sz);
-      const price = new BigNumber(f.px);
-      if (!size.isFinite() || !price.isFinite()) {
-        return sum;
-      }
-      return sum.plus(size.abs().multipliedBy(price));
-    }, new BigNumber(0))
-    .toNumber();
-
-  const coinCounts: Record<string, number> = {};
-  filteredFills.forEach((fill) => {
-    coinCounts[fill.coin] = (coinCounts[fill.coin] ?? 0) + 1;
-  });
+  const closedTradeCount = winCount + lossCount;
   let mostTraded: string | null = null;
   let maxCount = 0;
-  Object.entries(coinCounts).forEach(([coin, count]) => {
+  coinCounts.forEach((count, coin) => {
     if (count > maxCount) {
       maxCount = count;
       mostTraded = coin;
     }
   });
-
-  const totalGain = winFills.reduce(
-    (sum, f) => sum.plus(f.closedPnl),
-    new BigNumber(0),
-  );
-  const totalLoss = lossFills
-    .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
-    .abs();
   const profitFactor = totalLoss.gt(0)
     ? totalGain.div(totalLoss).toNumber()
     : null;
 
-  const realizedPnl = totalGain.minus(totalLoss).toNumber();
-  const spotRealizedPnl = closedFills
-    .filter((fill) => isSpotInstrument(fill.coin))
-    .reduce((sum, fill) => sum.plus(fill.closedPnl), new BigNumber(0))
-    .toNumber();
-
   return {
-    winRate,
-    avgWin,
-    avgLoss,
-    feesPaid,
-    volumeUsd,
+    winRate: closedTradeCount > 0 ? (winCount / closedTradeCount) * 100 : null,
+    avgWin: winCount > 0 ? totalGain.div(winCount).toNumber() : null,
+    avgLoss:
+      lossCount > 0 ? totalLoss.negated().div(lossCount).toNumber() : null,
+    feesPaid: feesPaid.toNumber(),
+    volumeUsd: volumeUsd.toNumber(),
     mostTraded,
     profitFactor,
-    realizedPnl,
-    spotRealizedPnl,
-    totalTrades: filteredFills.length,
+    realizedPnl: totalGain.minus(totalLoss).toNumber(),
+    totalTrades,
   };
 }

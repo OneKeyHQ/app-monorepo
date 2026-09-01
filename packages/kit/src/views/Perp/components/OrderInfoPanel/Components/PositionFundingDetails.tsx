@@ -7,6 +7,7 @@ import {
   Dialog,
   Divider,
   ScrollView,
+  SegmentControl,
   SizableText,
   Skeleton,
   XStack,
@@ -84,19 +85,10 @@ function formatPayment(payment: string | undefined) {
     : '--';
 }
 
-function getPaymentColor(payment: string | undefined) {
-  if (payment === undefined) return '$text' as const;
-  const paymentBN = new BigNumber(payment);
-  return paymentBN.isFinite()
-    ? getPerpsValueColor(paymentBN.toNumber())
-    : ('$text' as const);
-}
-
-function getRateColor(rate: string | undefined) {
-  if (rate === undefined) return '$text' as const;
-  const rateBN = new BigNumber(rate);
-  return rateBN.isFinite()
-    ? getPerpsValueColor(rateBN.toNumber())
+function getProjectionValueColor(value: string | undefined) {
+  const number = new BigNumber(value ?? '');
+  return number.isFinite()
+    ? getPerpsValueColor(number.toNumber())
     : ('$text' as const);
 }
 
@@ -111,28 +103,43 @@ function FundingProjectionRow({
   payment?: string;
   isMobile: boolean;
 }) {
+  const minHeight = isMobile ? 28 : 20;
+  const rateColumnWidth = isMobile ? 88 : 76;
+  const paymentColumnWidth = isMobile ? 104 : 88;
   return (
-    <XStack alignItems="center" minHeight={isMobile ? 24 : 20} gap="$2">
-      <SizableText flex={1} size="$bodySm" color="$text">
+    <XStack alignItems="center" minHeight={minHeight} gap="$2">
+      <SizableText
+        flex={1}
+        size={isMobile ? '$bodyMd' : '$bodySm'}
+        color="$text"
+      >
         {label}
       </SizableText>
       <XStack
-        width={76}
-        minHeight={isMobile ? 24 : 20}
+        width={rateColumnWidth}
+        minHeight={minHeight}
         alignItems="center"
         justifyContent="flex-end"
       >
-        <SizableText size="$bodySmMedium" color={getRateColor(rate)}>
+        <SizableText
+          size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
+          color={getProjectionValueColor(rate)}
+          fontVariant={['tabular-nums']}
+        >
           {formatRate(rate)}
         </SizableText>
       </XStack>
       <XStack
-        width={88}
-        minHeight={isMobile ? 24 : 20}
+        width={paymentColumnWidth}
+        minHeight={minHeight}
         alignItems="center"
         justifyContent="flex-end"
       >
-        <SizableText size="$bodySmMedium" color={getPaymentColor(payment)}>
+        <SizableText
+          size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
+          color={getProjectionValueColor(payment)}
+          fontVariant={['tabular-nums']}
+        >
           {formatPayment(payment)}
         </SizableText>
       </XStack>
@@ -153,8 +160,6 @@ export function PositionFundingDetails({
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
-  const [hoveredPeriod, setHoveredPeriod] =
-    useState<IPortfolioTimePeriod | null>(null);
   const [hoverData, setHoverData] = useState<{
     time: number;
     price: number;
@@ -211,7 +216,7 @@ export function PositionFundingDetails({
     isAssetCtxLoading,
     signedSize,
   ]);
-  const cumulativeFunding = useMemo(
+  const chartData = useMemo(
     () =>
       buildPositionCumulativeFundingChartData({
         records: resolvedFundingHistory,
@@ -220,7 +225,6 @@ export function PositionFundingDetails({
       }),
     [coin, resolvedFundingHistory, timePeriod],
   );
-  const chartData = cumulativeFunding.chartData;
   const latestPoint = chartData.at(-1);
   const displayPoint = hoverData
     ? ([hoverData.time, hoverData.price] as const)
@@ -260,6 +264,30 @@ export function PositionFundingDetails({
     },
     [],
   );
+  const sectionHeaderTextSize = isMobile ? '$bodyMdMedium' : '$bodySm';
+  const rateColumnWidth = isMobile ? 88 : 76;
+  const paymentColumnWidth = isMobile ? 104 : 88;
+  const periodOptions = useMemo(
+    () =>
+      FUNDING_PERIODS.map((period) => ({
+        label: (
+          <SizableText
+            size={isMobile ? '$bodyMdMedium' : '$bodyXsMedium'}
+            color={timePeriod === period.value ? '$text' : '$textSubdued'}
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {intl.formatMessage({ id: period.labelId })}
+          </SizableText>
+        ),
+        value: period.value,
+      })),
+    [intl, isMobile, timePeriod],
+  );
+  const handleTimePeriodChange = useCallback((value: string | number) => {
+    setTimePeriod(value as IPortfolioTimePeriod);
+    setHoverData(null);
+  }, []);
 
   return (
     <YStack
@@ -267,19 +295,23 @@ export function PositionFundingDetails({
       maxWidth="100%"
       px={isMobile ? 0 : '$3'}
       pt={isMobile ? 0 : '$3'}
-      pb={isMobile ? '$4' : '$3'}
+      pb={isMobile ? 0 : '$3'}
       gap={isMobile ? '$3' : '$2'}
     >
-      <YStack gap={isMobile ? '$3' : '$2'}>
+      <YStack gap="$3">
         <XStack gap="$2" alignItems="center">
-          <SizableText flex={1} size="$bodySmMedium" color="$textSubdued">
+          <SizableText
+            flex={1}
+            size={sectionHeaderTextSize}
+            color="$textSubdued"
+          >
             {intl.formatMessage({
               id: ETranslations.perps_fee_rate_projection,
             })}
           </SizableText>
           <SizableText
-            width={76}
-            size={isMobile ? '$bodySmMedium' : '$bodySm'}
+            width={rateColumnWidth}
+            size={sectionHeaderTextSize}
             color="$textSubdued"
             textAlign="right"
           >
@@ -288,8 +320,8 @@ export function PositionFundingDetails({
             })}
           </SizableText>
           <SizableText
-            width={88}
-            size={isMobile ? '$bodySmMedium' : '$bodySm'}
+            width={paymentColumnWidth}
+            size={sectionHeaderTextSize}
             color="$textSubdued"
             textAlign="right"
           >
@@ -298,7 +330,7 @@ export function PositionFundingDetails({
             })}
           </SizableText>
         </XStack>
-        <YStack gap={isMobile ? '$3' : '$2'}>
+        <YStack gap="$3">
           <FundingProjectionRow
             label={intl.formatMessage(
               {
@@ -337,62 +369,34 @@ export function PositionFundingDetails({
         </SizableText>
       </YStack>
 
-      <Divider my="$1" />
+      <Divider
+        my="$1"
+        borderColor="$borderSubdued"
+        borderBottomWidth={isMobile ? 0.5 : undefined}
+      />
 
-      <YStack gap="$2">
-        <XStack alignItems="center" justifyContent="space-between" gap="$2">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_funding_cumulative__title,
-            })}
-          </SizableText>
-          <XStack gap="$0.5">
-            {FUNDING_PERIODS.map((period) => {
-              const isSelected = period.value === timePeriod;
-              return (
-                <XStack
-                  key={period.value}
-                  h={isMobile ? 28 : 24}
-                  minWidth={isMobile ? 30 : 28}
-                  px={isMobile ? '$1.5' : '$1'}
-                  py={0}
-                  borderRadius="$full"
-                  borderCurve="continuous"
-                  alignItems="center"
-                  justifyContent="center"
-                  cursor="pointer"
-                  onHoverIn={() => setHoveredPeriod(period.value)}
-                  onHoverOut={() => setHoveredPeriod(null)}
-                  onPress={() => {
-                    setTimePeriod(period.value);
-                    setHoverData(null);
-                  }}
-                >
-                  <SizableText
-                    size="$bodySmMedium"
-                    color={
-                      isSelected || hoveredPeriod === period.value
-                        ? '$text'
-                        : '$textSubdued'
-                    }
-                  >
-                    {intl.formatMessage({ id: period.labelId })}
-                  </SizableText>
-                </XStack>
-              );
-            })}
-          </XStack>
-        </XStack>
+      <YStack gap="$3">
+        <SizableText
+          minWidth={0}
+          size={sectionHeaderTextSize}
+          color="$textSubdued"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_cumulative__title,
+          })}
+        </SizableText>
         {displayPoint ? (
           <XStack justifyContent="flex-start" gap="$1.5">
-            <SizableText size={isMobile ? '$bodySm' : '$bodyXs'} color="$text">
+            <SizableText size={isMobile ? '$bodyMd' : '$bodyXs'} color="$text">
               {formatPositionFundingDateTime({
                 timestampSeconds: displayPoint[0],
                 timeZone,
               })}
             </SizableText>
             <SizableText
-              size={isMobile ? '$bodySmMedium' : '$bodyXsMedium'}
+              size={isMobile ? '$bodyMdMedium' : '$bodyXsMedium'}
               color={getPerpsValueColor(displayPoint[1])}
             >
               {formatPerpsUsd(displayPoint[1], true)}
@@ -434,6 +438,27 @@ export function PositionFundingDetails({
             locale={intl.locale}
           />
         ) : null}
+        <SegmentControl
+          fullWidth
+          h={isMobile ? 28 : 24}
+          value={timePeriod}
+          onChange={handleTimePeriodChange}
+          options={periodOptions}
+          slotBackgroundColor="$transparent"
+          activeBackgroundColor="$bgActive"
+          activeTextColor="$text"
+          inactiveTextColor="$textSubdued"
+          segmentControlItemStyleProps={{
+            h: isMobile ? 28 : 24,
+            minWidth: isMobile ? 30 : 28,
+            px: isMobile ? '$1.5' : '$1',
+            py: '$0',
+            borderRadius: '$full',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        />
       </YStack>
     </YStack>
   );

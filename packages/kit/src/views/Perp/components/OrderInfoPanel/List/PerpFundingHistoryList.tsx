@@ -104,56 +104,40 @@ function FundingHistoryRow({
 }) {
   const intl = useIntl();
   const { delta } = record;
-  const dateInfo = useMemo(() => {
-    const date = new Date(record.time);
-    return {
-      date: formatTime(date, { formatTemplate: 'yyyy-LL-dd' }),
-      time: formatTime(date, { formatTemplate: 'HH:mm:ss' }),
+  const date = new Date(record.time);
+  const dateInfo = {
+    date: formatTime(date, { formatTemplate: 'yyyy-LL-dd' }),
+    time: formatTime(date, { formatTemplate: 'HH:mm:ss' }),
+  };
+  const market = parseDexCoin(delta.coin).displayName;
+  const side = getFundingHistorySide(delta.szi);
+  let sideInfo: {
+    color: '$green11' | '$red11' | '$textSubdued';
+    text: string;
+  } = { color: '$textSubdued', text: '--' };
+  if (side === 'long') {
+    sideInfo = {
+      color: '$green11',
+      text: intl.formatMessage({ id: ETranslations.perp_long }),
     };
-  }, [record.time]);
-  const market = useMemo(
-    () => parseDexCoin(delta.coin).displayName,
-    [delta.coin],
-  );
-  const side = useMemo(() => getFundingHistorySide(delta.szi), [delta.szi]);
-  const sideInfo = useMemo(() => {
-    if (side === 'long') {
-      return {
-        color: '$green11' as const,
-        text: intl.formatMessage({ id: ETranslations.perp_long }),
-      };
-    }
-    if (side === 'short') {
-      return {
-        color: '$red11' as const,
-        text: intl.formatMessage({ id: ETranslations.perp_short }),
-      };
-    }
-    return {
-      color: '$textSubdued' as const,
-      text: '--',
+  } else if (side === 'short') {
+    sideInfo = {
+      color: '$red11',
+      text: intl.formatMessage({ id: ETranslations.perp_short }),
     };
-  }, [intl, side]);
-  const size = useMemo(() => {
-    const absoluteSize = new BigNumber(delta.szi).abs();
-    const formattedSize = absoluteSize.isFinite()
-      ? numberFormat(absoluteSize.toFixed(), balanceFormatter)
-      : '--';
-    return formattedSize === '--'
-      ? formattedSize
-      : `${formattedSize} ${market}`;
-  }, [delta.szi, market]);
-  const payment = useMemo(() => {
-    const presentation = getFundingHistoryPaymentPresentation(delta.usdc);
-    return {
-      ...presentation,
-      formatted: numberFormat(presentation.absoluteAmount, valueFormatter),
-    };
-  }, [delta.usdc]);
-  const fundingRate = useMemo(
-    () => formatFundingHistoryRate(delta.fundingRate),
-    [delta.fundingRate],
-  );
+  }
+  const absoluteSize = new BigNumber(delta.szi).abs();
+  const formattedSize = absoluteSize.isFinite()
+    ? numberFormat(absoluteSize.toFixed(), balanceFormatter)
+    : '--';
+  const size =
+    formattedSize === '--' ? formattedSize : `${formattedSize} ${market}`;
+  const paymentPresentation = getFundingHistoryPaymentPresentation(delta.usdc);
+  const payment = {
+    ...paymentPresentation,
+    formatted: numberFormat(paymentPresentation.absoluteAmount, valueFormatter),
+  };
+  const fundingRate = formatFundingHistoryRate(delta.fundingRate);
 
   if (isMobile) {
     return (
@@ -208,6 +192,42 @@ function FundingHistoryRow({
   } else if (index % 2 === 1) {
     backgroundColor = '$bgSubdued';
   }
+  const cells = [
+    <YStack key="time">
+      <SizableText numberOfLines={1} size="$bodySm">
+        {dateInfo.date}
+      </SizableText>
+      <SizableText numberOfLines={1} size="$bodySm" color="$textSubdued">
+        {dateInfo.time}
+      </SizableText>
+    </YStack>,
+    <SizableText key="market" numberOfLines={1} size="$bodySmMedium">
+      {market}
+    </SizableText>,
+    <SizableText key="size" numberOfLines={1} size="$bodySm">
+      {size}
+    </SizableText>,
+    <SizableText
+      key="side"
+      numberOfLines={1}
+      size="$bodySm"
+      color={sideInfo.color}
+    >
+      {sideInfo.text}
+    </SizableText>,
+    <SizableText
+      key="payment"
+      numberOfLines={1}
+      size="$bodySm"
+      color={payment.color}
+    >
+      {payment.sign}
+      {payment.formatted}
+    </SizableText>,
+    <SizableText key="rate" numberOfLines={1} size="$bodySm">
+      {fundingRate}
+    </SizableText>,
+  ];
 
   return (
     <XStack
@@ -222,59 +242,16 @@ function FundingHistoryRow({
       onHoverIn={() => onHoverChange?.(index)}
       onHoverOut={() => onHoverChange?.(null)}
     >
-      <YStack
-        {...getColumnStyle(columnConfigs[0])}
-        justifyContent="center"
-        alignItems={calcCellAlign(columnConfigs[0].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySm">
-          {dateInfo.date}
-        </SizableText>
-        <SizableText numberOfLines={1} size="$bodySm" color="$textSubdued">
-          {dateInfo.time}
-        </SizableText>
-      </YStack>
-      <XStack
-        {...getColumnStyle(columnConfigs[1])}
-        justifyContent={calcCellAlign(columnConfigs[1].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySmMedium">
-          {market}
-        </SizableText>
-      </XStack>
-      <XStack
-        {...getColumnStyle(columnConfigs[2])}
-        justifyContent={calcCellAlign(columnConfigs[2].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySm">
-          {size}
-        </SizableText>
-      </XStack>
-      <XStack
-        {...getColumnStyle(columnConfigs[3])}
-        justifyContent={calcCellAlign(columnConfigs[3].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySm" color={sideInfo.color}>
-          {sideInfo.text}
-        </SizableText>
-      </XStack>
-      <XStack
-        {...getColumnStyle(columnConfigs[4])}
-        justifyContent={calcCellAlign(columnConfigs[4].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySm" color={payment.color}>
-          {payment.sign}
-          {payment.formatted}
-        </SizableText>
-      </XStack>
-      <XStack
-        {...getColumnStyle(columnConfigs[5])}
-        justifyContent={calcCellAlign(columnConfigs[5].align)}
-      >
-        <SizableText numberOfLines={1} size="$bodySm">
-          {fundingRate}
-        </SizableText>
-      </XStack>
+      {cells.map((content, columnIndex) => (
+        <XStack
+          key={columnConfigs[columnIndex].key}
+          {...getColumnStyle(columnConfigs[columnIndex])}
+          alignItems="center"
+          justifyContent={calcCellAlign(columnConfigs[columnIndex].align)}
+        >
+          {content}
+        </XStack>
+      ))}
     </XStack>
   );
 }
