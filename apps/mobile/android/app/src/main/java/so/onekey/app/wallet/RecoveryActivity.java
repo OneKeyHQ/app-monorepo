@@ -13,17 +13,19 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
-import com.tencent.mmkv.MMKV;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class RecoveryActivity extends AppCompatActivity {
+
+    private final ExecutorService recoveryExecutor = Executors.newSingleThreadExecutor();
 
     // i18n locale strings
     private String sTitle, sSubtitle, sExportLogs, sTryAgain, sAutoRepair;
@@ -224,58 +226,60 @@ public class RecoveryActivity extends AppCompatActivity {
     }
 
     private void tryAgain() {
-        try {
-            SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
-            prefs.edit()
-                .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
-                .putString(BootRecoveryKeys.RECOVERY_ACTION, "try_again")
-                .commit();
-            restartApp();
-        } catch (Exception e) {
-            showError(sError + ": " + e.getMessage());
-        }
+        setRecoveryButtonsEnabled(false);
+        recoveryExecutor.execute(() -> {
+            try {
+                SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
+                boolean committed = prefs.edit()
+                    .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+                    .putString(BootRecoveryKeys.RECOVERY_ACTION, "try_again")
+                    .commit();
+                if (!committed) {
+                    throw new IllegalStateException("Recovery action commit failed");
+                }
+                runOnUiThread(this::restartApp);
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    setRecoveryButtonsEnabled(true);
+                    showError(sError + ": " + e.getMessage());
+                });
+            }
+        });
     }
 
     private void autoRepair() {
-        try {
-            Context context = getApplicationContext();
+        setRecoveryButtonsEnabled(false);
+        recoveryExecutor.execute(() -> {
+            try {
+                Context context = getApplicationContext();
+                BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(context);
+                deleteRecursive(new File(getFilesDir(), "onekey-bundle"));
+                deleteRecursive(new File(getFilesDir(), "onekey-bundle-download"));
+                clearAppCache();
 
-            // Clear bundle update data
-            BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(context);
+                // Bg consumes this intent before reading or publishing MMKV data.
+                SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
+                boolean committed = prefs.edit()
+                    .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+                    .putString(BootRecoveryKeys.RECOVERY_ACTION, "auto_repair")
+                    .commit();
+                if (!committed) {
+                    throw new IllegalStateException("Recovery action commit failed");
+                }
 
-            // Delete onekey-bundle directory
-            File bundleDir = new File(getFilesDir(), "onekey-bundle");
-            deleteRecursive(bundleDir);
-
-            // Delete onekey-bundle-download directory
-            File bundleDownloadDir = new File(getFilesDir(), "onekey-bundle-download");
-            deleteRecursive(bundleDownloadDir);
-
-            // Clear recovery-related keys from MMKV
-            clearMmkvRecoveryKeys();
-
-            // Clear app cache
-            clearAppCache();
-
-            // Reset counter and set recovery action (single atomic write).
-            // Timestamps are invalidated implicitly via the freshness signal
-            // (integer == 0), so no explicit clear is needed.
-            SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
-            prefs.edit()
-                .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
-                .putString(BootRecoveryKeys.RECOVERY_ACTION, "auto_repair")
-                .commit();
-
-            // Show success dialog, restart on confirm
-            new AlertDialog.Builder(this)
-                .setTitle(sRepairComplete)
-                .setMessage(null)
-                .setCancelable(false)
-                .setPositiveButton(sOk, (dialog, which) -> restartApp())
-                .show();
-        } catch (Exception e) {
-            showError(sRepairError + ": " + e.getMessage());
-        }
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setTitle(sRepairComplete)
+                    .setMessage(null)
+                    .setCancelable(false)
+                    .setPositiveButton(sOk, (dialog, which) -> restartApp())
+                    .show());
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    setRecoveryButtonsEnabled(true);
+                    showError(sRepairError + ": " + e.getMessage());
+                });
+            }
+        });
     }
 
     private void deleteRecursive(File fileOrDirectory) {
@@ -293,19 +297,9 @@ public class RecoveryActivity extends AppCompatActivity {
         fileOrDirectory.delete();
     }
 
-    private void clearMmkvRecoveryKeys() {
-        try {
-            MMKV.initialize(this);
-            MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
-            if (mmkv != null) {
-                mmkv.removeValueForKey("onekey_pending_install_task");
-                mmkv.removeValueForKey("onekey_whats_new_shown");
-                mmkv.removeValueForKey("last_valid_server_time");
-                mmkv.removeValueForKey("last_valid_local_time");
-            }
-        } catch (Exception e) {
-            // Ignore — MMKV may not be available in recovery mode
-        }
+    private void setRecoveryButtonsEnabled(boolean enabled) {
+        findViewById(R.id.btn_try_again).setEnabled(enabled);
+        findViewById(R.id.btn_auto_repair).setEnabled(enabled);
     }
 
     private void clearAppCache() {
@@ -338,5 +332,11 @@ public class RecoveryActivity extends AppCompatActivity {
                 .setMessage(message)
                 .setPositiveButton(sOk, null)
                 .show();
+    }
+
+    @Override
+    protected void onDestroy() {
+        recoveryExecutor.shutdown();
+        super.onDestroy();
     }
 }

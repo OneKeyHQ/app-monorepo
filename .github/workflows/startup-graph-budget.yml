@@ -70,9 +70,11 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: main
-          # main entry currently: ~2594 modules / ~13.08 MB
+          # main entry currently: ~2605 modules / ~13.23 MB
+          # (AsyncStorage->MMKV migration adds the main-runtime bootstrap gate
+          # and runtime-owned MMKV instance/guard modules to the eager graph)
           STARTUP_MODULE_BUDGET: '3000'
-          STARTUP_SIZE_BUDGET_MB: '13.2'
+          STARTUP_SIZE_BUDGET_MB: '13.3'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
