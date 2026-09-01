@@ -255,3 +255,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
 **Fix**: Only trust a nested management URL when the same row declares a non-Infini, non-redemption channel. Channel-less rows stay on the Infini probe / unsupported toast path.
 **Catchable by**: Section 4: Edge cases — a URL without a declared channel is not a management portal
+
+## Case: Hook barrel export casing broke Linux desktop/web
+**Date**: 2026-08-31 | **Platforms**: Desktop (Linux), Web
+**Symptom**: Rspack/TypeScript on case-sensitive filesystems could not resolve `./modifierHintRevealContext` because the file is `ModifierHintRevealContext.tsx`. Web `index.web-only.tsx` also omitted the new hook/provider exports while `DesktopLeftSideBar` still imported them.
+**Root Cause**: macOS is case-insensitive so the mismatch was invisible locally; web-only barrels are a separate export surface from `index.tsx`.
+**Fix**: Export `./ModifierHintRevealContext` from both barrels; stub `DesktopModifierHintRevealProvider` for non-desktop.
+**Catchable by**: Section 3: Identified which platforms consume modified code; Section 7: `forceConsistentCasingInFileNames` / Linux compile
+
+## Case: Sidebar shortcut hints skipped My OneKey and reserved overflow space
+**Date**: 2026-08-31 | **Platforms**: Desktop
+**Symptom**: Holding Ctrl/⌘ showed badges on visible tabs but not on the bottom My OneKey (Ctrl+8) item. Overflow “More” labels stayed indented because hidden `Shortcut` pills used `opacity: 0`.
+**Root Cause**: DeviceManagement is extracted out of `visibleRoutes` into `SidebarBottomItem` without the badge. Hidden hints stayed mounted.
+**Fix**: Overlay the badge on `SidebarBottomItem`. Unmount the badge when not visible.
+**Catchable by**: Section 4: Shared component modified → checked all consumers of the same tab list; Section 8: overflow/empty layout

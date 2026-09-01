@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -6,6 +7,7 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
@@ -17,6 +19,7 @@ import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
+import { DesktopModifierHintRevealProvider } from './DesktopModifierHintRevealProvider';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -97,6 +100,17 @@ function MainRouter() {
 const splitMainViewContext = { viewType: ESplitViewType.MAIN };
 const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
+function AppShell({ children }: { children: ReactNode }) {
+  if (platformEnv.isDesktop) {
+    return (
+      <DesktopModifierHintRevealProvider>
+        {children}
+      </DesktopModifierHintRevealProvider>
+    );
+  }
+  return children;
+}
+
 export function Container() {
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('Container render');
@@ -113,34 +127,38 @@ export function Container() {
 
   if (shouldUseSplitView) {
     return (
+      <AppShell>
+        <RootSiblingParent>
+          <AppStateLockContainer>
+            {/* Page.Every must register before routers render their active page. */}
+            <GlobalWalletConnectModalContainer />
+            <TableSplitViewContainer
+              mainRouter={
+                <SplitViewContext.Provider value={splitMainViewContext}>
+                  <MainRouter />
+                </SplitViewContext.Provider>
+              }
+              detailRouter={
+                <SplitViewContext.Provider value={splitSubViewContext}>
+                  <DetailRouter />
+                </SplitViewContext.Provider>
+              }
+            />
+            <SplitViewPerpTabSync />
+          </AppStateLockContainer>
+        </RootSiblingParent>
+      </AppShell>
+    );
+  }
+  return (
+    <AppShell>
       <RootSiblingParent>
         <AppStateLockContainer>
           {/* Page.Every must register before routers render their active page. */}
           <GlobalWalletConnectModalContainer />
-          <TableSplitViewContainer
-            mainRouter={
-              <SplitViewContext.Provider value={splitMainViewContext}>
-                <MainRouter />
-              </SplitViewContext.Provider>
-            }
-            detailRouter={
-              <SplitViewContext.Provider value={splitSubViewContext}>
-                <DetailRouter />
-              </SplitViewContext.Provider>
-            }
-          />
-          <SplitViewPerpTabSync />
+          <DetailRouter />
         </AppStateLockContainer>
       </RootSiblingParent>
-    );
-  }
-  return (
-    <RootSiblingParent>
-      <AppStateLockContainer>
-        {/* Page.Every must register before routers render their active page. */}
-        <GlobalWalletConnectModalContainer />
-        <DetailRouter />
-      </AppStateLockContainer>
-    </RootSiblingParent>
+    </AppShell>
   );
 }
