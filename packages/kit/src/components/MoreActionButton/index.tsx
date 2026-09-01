@@ -145,7 +145,9 @@ const MORE_ACTION_DESKTOP_ICON_DARK_PRESS_STYLE = {
   bg: '$gray6',
   scale: 0.96,
 } as const;
+const MORE_ACTION_DESKTOP_BADGE_HOVER_STYLE = { bg: '$gray4' } as const;
 const MORE_ACTION_DESKTOP_BADGE_DARK_HOVER_STYLE = { bg: '$gray6' } as const;
+const MORE_ACTION_DESKTOP_BADGE_PRESS_STYLE = { bg: '$gray5' } as const;
 const MORE_ACTION_DESKTOP_BADGE_DARK_PRESS_STYLE = { bg: '$gray7' } as const;
 const MORE_ACTION_DESKTOP_TEXT_ACTIVE_STYLE = { color: '$text' } as const;
 const MORE_ACTION_DESKTOP_ROW_HOVER_STYLE = { bg: '$bgHover' } as const;
@@ -513,7 +515,6 @@ function MoreActionContentGridItem({
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
-  const isDesktopDark = isDesktopMode && isDarkTheme;
   const desktopIconHoverStyle = pickDesktopThemeStyle(
     isDesktopMode,
     isDarkTheme,
@@ -526,19 +527,30 @@ function MoreActionContentGridItem({
     MORE_ACTION_DESKTOP_ICON_DARK_PRESS_STYLE,
     MORE_ACTION_DESKTOP_ICON_PRESS_STYLE,
   );
+  const desktopBadgeHoverStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_BADGE_DARK_HOVER_STYLE,
+    MORE_ACTION_DESKTOP_BADGE_HOVER_STYLE,
+  );
+  const desktopBadgePressStyle = pickDesktopThemeStyle(
+    isDesktopMode,
+    isDarkTheme,
+    MORE_ACTION_DESKTOP_BADGE_DARK_PRESS_STYLE,
+    MORE_ACTION_DESKTOP_BADGE_PRESS_STYLE,
+  );
   // `$theme-dark` does not match on desktop/web (class is on <body>,
   // selector is `:root.t_dark`). Do not change the global class.
   let iconBg: '$bgSubdued' | '$gray3' | '$bg' = '$bgSubdued';
   if (isDarkTheme) {
     iconBg = isDesktopMode ? '$gray3' : '$bg';
   }
-  const primeBadgeBg = isDarkTheme ? '$gray4' : '$bg';
-  const desktopBadgeHoverStyle = isDesktopDark
-    ? MORE_ACTION_DESKTOP_BADGE_DARK_HOVER_STYLE
-    : undefined;
-  const desktopBadgePressStyle = isDesktopDark
-    ? MORE_ACTION_DESKTOP_BADGE_DARK_PRESS_STYLE
-    : undefined;
+  let primeBadgeBg: '$bg' | '$gray3' | '$gray4' = '$bg';
+  if (isDarkTheme) {
+    primeBadgeBg = '$gray4';
+  } else if (isDesktopMode) {
+    primeBadgeBg = '$gray3';
+  }
 
   return (
     <YStack
