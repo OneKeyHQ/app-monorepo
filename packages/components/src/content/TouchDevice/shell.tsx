@@ -17,7 +17,7 @@ import type { IDeviceScreenAnimation } from '../deviceSceneHost';
  * canvas: a 1038-wide body plus the power tab on the right edge). The
  * chrome — the metal frame and its side sheens, the plate/ring/face
  * stack, the wordmark and chin shadow, and the power tab — ships as a
- * pre-baked bitmap (shell@2x/@3x, exported straight from the Figma
+ * pre-baked bitmap (shell-touch@2x/@3x, exported straight from the Figma
  * frame at 280pt, the stage's largest rendering). Only the screen
  * window stays code: it has no fill of its own (off, it is
  * indistinguishable from the baked face around it) and only clips the
@@ -69,7 +69,9 @@ export const TOUCH_DEVICE_SCREEN_ON: ITouchDeviceAnimation = {
   screenContent: VALUE_ON,
 };
 
-const SHELL_SOURCE = require('./shell.png');
+// The model suffix keeps the filename unique: webpack/rspack dev emits
+// assets as bare [name].[ext], where same-named files overwrite each other.
+const SHELL_SOURCE = require('./shell-touch.png');
 
 const styles = StyleSheet.create({
   frame: {
