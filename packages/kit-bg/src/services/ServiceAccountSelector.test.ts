@@ -1,5 +1,8 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_IMPORTED,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceAccountSelector from './ServiceAccountSelector';
@@ -86,6 +89,73 @@ const evmNetworkAccount = {
   address: '0x9403a0ec47a062f82d2ac402394eecb61a030d57',
 } as INetworkAccount;
 
+const HD_WALLET_ID = 'hd-1';
+const HD_INDEXED_ACCOUNT_ID = `${HD_WALLET_ID}--0`;
+const allNetworksMockAccount = {
+  id: `${HD_WALLET_ID}--0000/0`,
+  indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+  name: 'Account #1',
+  impl: 'all',
+  address: 'all-network-mock-address',
+} as INetworkAccount;
+
+function buildAllNetworksService({ accounts }: { accounts: IDBAccount[] }) {
+  const allNetworkId = getNetworkIdsMap().onekeyall;
+  const getAccountsInSameIndexedAccountId = jest.fn(async () => ({
+    accounts,
+    allDbAccounts: accounts,
+  }));
+  const service = new ServiceAccountSelector({
+    backgroundApi: {
+      serviceAccount: {
+        getWallet: jest.fn(
+          async () =>
+            ({
+              id: HD_WALLET_ID,
+              name: 'HD Wallet',
+              type: WALLET_TYPE_HD,
+            }) as IDBWallet,
+        ),
+        getIndexedAccount: jest.fn(async () => ({
+          id: HD_INDEXED_ACCOUNT_ID,
+          name: 'Account #1',
+          index: 0,
+        })),
+        getDbAccountIdFromIndexedAccountId: jest.fn(
+          async () => allNetworksMockAccount.id,
+        ),
+        getNetworkAccount: jest.fn(async () => allNetworksMockAccount),
+        getMockedAllNetworkAccount: jest.fn(async () => allNetworksMockAccount),
+        getAccountsInSameIndexedAccountId,
+        isTempWalletRemoved: jest.fn(async () => false),
+      },
+      serviceNetwork: {
+        getNetwork: jest.fn(async () => ({
+          id: allNetworkId,
+          name: 'All networks',
+          isAllNetworks: true,
+        })),
+        getDeriveInfoOfNetwork: jest.fn(async () => ({
+          label: 'Default',
+          value: 'default',
+        })),
+        getDeriveInfoItemsOfNetwork: jest.fn(async () => []),
+      },
+    },
+  });
+
+  const selectedAccount: IAccountSelectorSelectedAccount = {
+    walletId: HD_WALLET_ID,
+    focusedWallet: HD_WALLET_ID,
+    networkId: allNetworkId,
+    indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+    deriveType: 'default',
+    othersWalletAccountId: undefined,
+  };
+
+  return { service, selectedAccount, getAccountsInSameIndexedAccountId };
+}
+
 function buildService({
   homeSelectedAccount,
 }: {
@@ -115,6 +185,41 @@ function buildService({
 }
 
 describe('ServiceAccountSelector', () => {
+  it('does not expose an all-networks mock account when the indexed account has no chain addresses', async () => {
+    const { service, selectedAccount, getAccountsInSameIndexedAccountId } =
+      buildAllNetworksService({ accounts: [] });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(getAccountsInSameIndexedAccountId).toHaveBeenCalledWith({
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+    });
+    expect(result.activeAccount.account).toBeUndefined();
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+  });
+
+  it('keeps the all-networks mock account when at least one chain address exists', async () => {
+    const dbAccount = {
+      id: `${HD_WALLET_ID}--60--0`,
+      indexedAccountId: HD_INDEXED_ACCOUNT_ID,
+      name: 'Account #1',
+      impl: 'evm',
+      address: '0x1234',
+    } as IDBAccount;
+    const { service, selectedAccount } = buildAllNetworksService({
+      accounts: [dbAccount],
+    });
+
+    const result = await service.buildActiveAccountInfoFromSelectedAccount({
+      selectedAccount,
+    });
+
+    expect(result.activeAccount.account).toBe(allNetworksMockAccount);
+    expect(result.activeAccount.canCreateAddress).toBe(true);
+  });
+
   it('normalizes imported account network pairs when merging home data into swap map', async () => {
     const service = buildService({
       homeSelectedAccount: {

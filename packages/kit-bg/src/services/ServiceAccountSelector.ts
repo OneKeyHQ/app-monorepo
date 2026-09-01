@@ -325,13 +325,22 @@ class ServiceAccountSelector extends ServiceBase {
     const isWalletUnusable = accountUtils.isWalletDeprecatedOrMocked(wallet);
     let canCreateAddress = false;
     if (isAllNetwork && networkId) {
-      // build mocked networkAccount of all network
+      // Only expose the aggregate mock account after a real chain address exists.
       if (!isOthersWallet && indexedAccountId && !isWalletUnusable) {
         try {
-          account =
-            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
-            });
+          const { accounts } =
+            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+              {
+                indexedAccountId,
+              },
+            );
+          account = accounts.some((item) => Boolean(item.address))
+            ? await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              )
+            : undefined;
           canCreateAddress = true;
         } catch (error) {
           account = undefined;
