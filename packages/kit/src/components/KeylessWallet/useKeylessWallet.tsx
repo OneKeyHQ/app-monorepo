@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -78,7 +79,7 @@ import {
 import type { IKeylessSameEmailAccountStatus } from './sameEmailAccountStatusUtils';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
-  return true;
+  return !(Platform.OS === 'ios' && Platform.isMacCatalyst);
 }
 
 export function useKeylessWalletExistsLocal(): boolean {

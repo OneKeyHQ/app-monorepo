@@ -1,5 +1,6 @@
 import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
+import { Platform } from 'react-native';
 
 import {
   decryptRevealableSeed,
@@ -322,6 +323,11 @@ class ServiceKeylessWallet extends ServiceBase {
     token: string,
     operation: IKeylessRealmOperation,
   ): Promise<JuiceboxClient> {
+    if (Platform.OS === 'ios' && Platform.isMacCatalyst) {
+      throw new OneKeyLocalError(
+        'Keyless wallets are unavailable on Mac Catalyst',
+      );
+    }
     const diagnosticContext =
       await this.buildKeylessRealmTokenDiagnosticContext({
         operation,
