@@ -98,14 +98,20 @@ function DeviceStageContainerCmp() {
   // Close grant: armed per burst, sticky until the burst leaves. The
   // authenticity flow arms at once; so does the error outcome — its
   // notice form leaves by itself THROUGH onClose after a readable hold,
-  // so the grant must already be there when the step lands.
+  // so the grant must already be there when the step lands. The teach
+  // card arms at once too: it plays BEFORE any device contact, so its
+  // close cancels nothing — it is the dialog dismiss it replaced.
   const [armedBurstId, setArmedBurstId] = useState(0);
   const closable = step !== 'off' && armedBurstId === burstId;
   useEffect(() => {
     if (step === 'off' || closable) {
       return undefined;
     }
-    if (AUTH_STEPS.has(step) || step === 'error') {
+    if (
+      AUTH_STEPS.has(step) ||
+      step === 'error' ||
+      step === 'passphraseIntro'
+    ) {
       setArmedBurstId(burstId);
       return undefined;
     }
@@ -158,10 +164,14 @@ function DeviceStageContainerCmp() {
       sendVendorUiResponse(false);
     }
     // On the error outcome the call is already over (the notice form's
-    // self-exit also lands here) — nothing on the device left to cancel.
+    // self-exit also lands here); on the teach card nothing has started
+    // yet. Neither leaves anything on the device to cancel.
     void serviceHardwareUI.deviceStageUserClose({
       connectId: current?.connectId,
-      skipDeviceCancel: Boolean(current?.vendor) || current?.step === 'error',
+      skipDeviceCancel:
+        Boolean(current?.vendor) ||
+        current?.step === 'error' ||
+        current?.step === 'passphraseIntro',
     });
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
