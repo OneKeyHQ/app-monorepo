@@ -18,6 +18,7 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -55,6 +56,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { shouldUseHyperLiquidAgentPasswordEncryption } from '../../dbs/local/hyperLiquidAgentSecret';
 import localDb from '../../dbs/local/localDb';
 import {
   firmwareUpdateWorkflowRunningAtom,
@@ -63,6 +65,8 @@ import {
   v4migrationAtom,
 } from '../../states/jotai/atoms';
 import {
+  type IHyperLiquidAgentPasswordStatusAtom,
+  hyperLiquidAgentPasswordStatusAtom,
   passwordAtom,
   passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
@@ -74,6 +78,13 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
+
+type IPasswordKdfParams = IPbkdf2KdfParams & {
+  debugCryptoProbeId?: string;
+};
+
+// Keep LocalDB password existence and its persisted Jotai mirror in sync.
+const passwordExistenceMutex = new Semaphore(1);
 
 function unrefTimeout(
   timeout: ReturnType<typeof setTimeout> | null | undefined,
@@ -134,8 +145,20 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async encodeSensitiveText({ text }: { text: string }): Promise<string> {
-    return Promise.resolve(encodeSensitiveTextAsync({ text }));
+  async encodeSensitiveText({
+    text,
+    kdfBackend,
+    enablePbkdf2Cache,
+  }: {
+    text: string;
+  } & IPbkdf2KdfParams): Promise<string> {
+    return Promise.resolve(
+      encodeSensitiveTextAsync({
+        text,
+        kdfBackend,
+        enablePbkdf2Cache,
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -234,6 +257,7 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
     await this.clearCachedPrfMasterKey();
+    await this.refreshHyperLiquidAgentPasswordStatus();
   }
 
   // PRF master key cache (stored in background memory, auto-cleared by timer)
@@ -275,6 +299,12 @@ export default class ServicePassword extends ServiceBase {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
+    void hyperLiquidAgentPasswordStatusAtom
+      .set((value) => ({
+        ...value,
+        requiresPasswordSetupOrVerify: false,
+      }))
+      .catch(() => undefined);
     void clearPbkdf2CacheAsync();
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
@@ -436,14 +466,20 @@ export default class ServicePassword extends ServiceBase {
     password,
     passwordMode,
     skipLengthCheck,
+    kdfBackend,
+    enablePbkdf2Cache,
+    debugCryptoProbeId,
   }: {
     passwordMode: EPasswordMode;
     password: string;
     skipLengthCheck?: boolean;
-  }): Promise<{ shouldFixPasscodeMode?: boolean }> {
+  } & IPasswordKdfParams): Promise<{ shouldFixPasscodeMode?: boolean }> {
     ensureSensitiveTextEncoded(password);
     const realPassword = await decodePasswordAsync({
       password,
+      kdfBackend,
+      enablePbkdf2Cache,
+      debugCryptoProbeId,
     });
     // **** length matched
     if (
@@ -510,12 +546,15 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     newPassword,
     skipDBVerify,
+    kdfBackend,
+    enablePbkdf2Cache,
+    debugCryptoProbeId,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
-  }): Promise<void> {
+  } & IPasswordKdfParams): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
@@ -530,6 +569,9 @@ export default class ServicePassword extends ServiceBase {
         password,
         passwordMode,
         skipLengthCheck: true,
+        kdfBackend,
+        enablePbkdf2Cache,
+        debugCryptoProbeId,
       });
     } else {
       await this.validatePasswordValidRules({
@@ -571,9 +613,105 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async checkPasswordSet(): Promise<boolean> {
-    const checkPasswordSet = await localDb.isPasswordSet();
-    await this.setPasswordSetStatus(checkPasswordSet);
-    return checkPasswordSet;
+    return passwordExistenceMutex.runExclusive(async () => {
+      const checkPasswordSet = await localDb.isPasswordSet();
+      await this.setPasswordSetStatus(checkPasswordSet);
+      return checkPasswordSet;
+    });
+  }
+
+  private async buildHyperLiquidAgentPasswordStatus(): Promise<IHyperLiquidAgentPasswordStatusAtom> {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
+      return {
+        isPasswordSet: false,
+        requiresPasswordSetupOrVerify: false,
+      };
+    }
+
+    let isPasswordSet = (await passwordPersistAtom.get()).isPasswordSet;
+    try {
+      isPasswordSet = await localDb.isPasswordSet();
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent password status read failed',
+      );
+    }
+
+    if (!localDb.isHyperLiquidAgentSecretSessionReady()) {
+      try {
+        await localDb.restoreHyperLiquidAgentSecretSession();
+      } catch {
+        defaultLogger.app.error.log(
+          'HyperLiquid agent secret session restore failed',
+        );
+      }
+    }
+
+    return {
+      isPasswordSet,
+      requiresPasswordSetupOrVerify:
+        !localDb.isHyperLiquidAgentSecretSessionReady() && !this.cachedPassword,
+    };
+  }
+
+  @backgroundMethod()
+  async refreshHyperLiquidAgentPasswordStatus(): Promise<IHyperLiquidAgentPasswordStatusAtom> {
+    const status = await this.buildHyperLiquidAgentPasswordStatus();
+    await hyperLiquidAgentPasswordStatusAtom.set(status);
+    return status;
+  }
+
+  @backgroundMethod()
+  async ensureHyperLiquidAgentPasswordSessionReady(): Promise<void> {
+    if (!shouldUseHyperLiquidAgentPasswordEncryption()) {
+      return;
+    }
+
+    await this.refreshHyperLiquidAgentPasswordStatus();
+    if (!localDb.isHyperLiquidAgentSecretSessionReady()) {
+      const password = this.cachedPassword;
+      if (!password) {
+        throw new OneKeyErrors.OneKeyLocalError(
+          'HyperLiquid agent password verification is required',
+        );
+      }
+      await localDb.unlockHyperLiquidAgentSecretSession({
+        password,
+        skipWhenNoCredentials: false,
+      });
+    }
+    await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
+    const status = await this.refreshHyperLiquidAgentPasswordStatus();
+    if (status.requiresPasswordSetupOrVerify) {
+      throw new OneKeyErrors.OneKeyLocalError(
+        'HyperLiquid agent password verification is required',
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async promptHyperLiquidAgentPasswordSetupOrVerify(): Promise<IHyperLiquidAgentPasswordStatusAtom> {
+    let status = await this.refreshHyperLiquidAgentPasswordStatus();
+    if (!status.requiresPasswordSetupOrVerify) {
+      return status;
+    }
+
+    const { password } = await this.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
+    await localDb.unlockHyperLiquidAgentSecretSession({
+      migrateCredentials: false,
+      password,
+      skipWhenNoCredentials: false,
+    });
+    await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
+    status = await this.refreshHyperLiquidAgentPasswordStatus();
+    if (status.requiresPasswordSetupOrVerify) {
+      throw new OneKeyErrors.OneKeyLocalError(
+        'HyperLiquid agent password verification is required',
+      );
+    }
+    return status;
   }
 
   async clearWebAuthCredentialId(): Promise<void> {
@@ -602,17 +740,27 @@ export default class ServicePassword extends ServiceBase {
   ): Promise<string> {
     ensureSensitiveTextEncoded(password);
     await this.validatePassword({ password, passwordMode, skipDBVerify: true });
-    try {
-      await this.unLockApp();
-      await this.saveBiologyAuthPassword(password);
-      await this.setCachedPassword({ password });
-      await this.setPasswordSetStatus(true, passwordMode);
-      await localDb.setPassword({ password });
-      return password;
-    } catch (e) {
-      await this.rollbackPassword();
-      throw e;
-    }
+    return passwordExistenceMutex.runExclusive(async () => {
+      try {
+        await this.saveBiologyAuthPassword(password);
+        await this.setCachedPassword({ password });
+        // Browser-class targets treat Never as session-only. Publish the
+        // in-memory unlock state before isPasswordSet becomes observable so
+        // initial setup cannot transiently mount the lock screen.
+        await this.setAppUnlockStateAtoms();
+        await localDb.setPassword({ password });
+        await this.setPasswordSetStatus(true, passwordMode);
+        await this.prepareHyperLiquidAgentSecretSession({
+          password,
+          replaceSessionKey: true,
+        });
+        await this.unLockApp();
+        return password;
+      } catch (e) {
+        await this.rollbackPassword();
+        throw e;
+      }
+    });
   }
 
   @backgroundMethod()
@@ -637,6 +785,9 @@ export default class ServicePassword extends ServiceBase {
       newPassword,
       passwordMode,
     });
+    await this.prepareHyperLiquidAgentSecretSession({
+      password: oldPassword,
+    });
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
     try {
@@ -657,6 +808,11 @@ export default class ServicePassword extends ServiceBase {
           },
         ));
       await localDb.updatePassword({ oldPassword, newPassword });
+      await this.prepareHyperLiquidAgentSecretSession({
+        migrateCredentials: false,
+        password: newPassword,
+        replaceSessionKey: true,
+      });
       // Cache the new passcode only after every passcode-encrypted store
       // (master password, keyless blobs, local DB) has been re-encrypted:
       // setCachedPassword fires the passive keyless migration, which decrypts
@@ -668,6 +824,7 @@ export default class ServicePassword extends ServiceBase {
         oldPassword,
         newPassword,
       });
+      await this.refreshHyperLiquidAgentPasswordStatus();
       await timerUtils.wait(2000);
       return newPassword;
     } catch (e) {
@@ -702,12 +859,14 @@ export default class ServicePassword extends ServiceBase {
     passwordMode,
     isBiologyAuth,
     skipPostVerifyBackgroundTasks,
+    kdfBackend,
+    enablePbkdf2Cache,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
-  }): Promise<string> {
+  } & IPbkdf2KdfParams): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
@@ -716,10 +875,16 @@ export default class ServicePassword extends ServiceBase {
     await this.validatePassword({
       password: verifyingPassword,
       passwordMode,
+      kdfBackend,
+      enablePbkdf2Cache,
+    });
+    await this.prepareHyperLiquidAgentSecretSession({
+      password: verifyingPassword,
     });
     await this.setCachedPassword({
       password: verifyingPassword,
     });
+    await this.refreshHyperLiquidAgentPasswordStatus();
     if (verifyingPassword) {
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
     }
@@ -729,6 +894,37 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     return verifyingPassword;
+  }
+
+  private async prepareHyperLiquidAgentSecretSession({
+    migrateCredentials = true,
+    password,
+    replaceSessionKey = false,
+  }: {
+    migrateCredentials?: boolean;
+    password: string;
+    replaceSessionKey?: boolean;
+  }): Promise<void> {
+    if (platformEnv.isNative) {
+      return;
+    }
+    try {
+      await localDb.unlockHyperLiquidAgentSecretSession({
+        migrateCredentials,
+        password,
+        replaceSessionKey,
+        // Lazy initialization: skip the expensive session key derivation on
+        // unlock for users without any HyperLiquid agent credentials; the
+        // session is established on demand when the first credential is added.
+        skipWhenNoCredentials: true,
+      });
+    } catch {
+      // Wallet unlock must remain available if the Perps-only session cannot
+      // be initialized. HL signing stays fail-closed until the next unlock.
+      defaultLogger.app.error.log(
+        'HyperLiquid agent secret session initialization failed',
+      );
+    }
   }
 
   async runPostPasswordVerifyBackgroundTasks({
@@ -797,6 +993,7 @@ export default class ServicePassword extends ServiceBase {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
     skipPostVerifyBackgroundTasks?: boolean;
+    kdfParams?: IPbkdf2KdfParams;
   }): Promise<IPasswordRes> {
     // console.log('promptPasswordVerify call');
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
@@ -853,6 +1050,7 @@ export default class ServicePassword extends ServiceBase {
             dialogProps: options?.dialogProps,
             skipPostVerifyBackgroundTasks:
               options?.skipPostVerifyBackgroundTasks,
+            kdfParams: options?.kdfParams,
           });
         });
         const result = await (res as Promise<IPasswordRes>);
@@ -872,10 +1070,12 @@ export default class ServicePassword extends ServiceBase {
     walletId,
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
     hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
+    kdfParams,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
     hardwareCallContext?: EHardwareCallContext;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -908,7 +1108,7 @@ export default class ServicePassword extends ServiceBase {
       // || isPasswordSet // Do not prompt password for external,watching account action
     ) {
       defaultLogger.account.accountCreatePerf.ignoreDurationBegin();
-      ({ password } = await this.promptPasswordVerify({ reason }));
+      ({ password } = await this.promptPasswordVerify({ reason, kdfParams }));
       defaultLogger.account.accountCreatePerf.ignoreDurationEnd();
     }
     return {
@@ -923,12 +1123,14 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerifyByAccount({
     accountId,
     reason,
+    kdfParams,
   }: {
     accountId: string;
     reason?: EReasonForNeedPassword;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    return this.promptPasswordVerifyByWallet({ walletId, reason });
+    return this.promptPasswordVerifyByWallet({ walletId, reason, kdfParams });
   }
 
   @backgroundMethod()
@@ -944,6 +1146,7 @@ export default class ServicePassword extends ServiceBase {
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
     skipPostVerifyBackgroundTasks?: boolean;
+    kdfParams?: IPbkdf2KdfParams;
   }) {
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
@@ -1004,8 +1207,7 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // lock ---------------------------
-  @backgroundMethod()
-  async unLockApp() {
+  private async setAppUnlockStateAtoms() {
     const { manualLocking: isManualLocking } =
       await passwordPersistManualLockStateAtom.get();
     if (isManualLocking) {
@@ -1017,6 +1219,33 @@ export default class ServicePassword extends ServiceBase {
       ...v,
       unLock: true,
     }));
+  }
+
+  private async setDesktopAppSessionUnlocked(unlocked: boolean): Promise<void> {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    try {
+      await globalThis.desktopApiProxy.security.setAppSessionUnlocked(unlocked);
+    } catch {
+      defaultLogger.app.error.log(
+        'Desktop app session unlock marker update failed',
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async unLockApp() {
+    await this.setAppUnlockStateAtoms();
+    await this.setDesktopAppSessionUnlocked(true);
+    try {
+      await localDb.setHyperLiquidAgentSecretSessionUnlocked(true);
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent session unlock marker update failed',
+      );
+    }
+    await this.refreshHyperLiquidAgentPasswordStatus();
     await this.backgroundApi.serviceApp.dispatchUnlockJob();
   }
 
@@ -1039,7 +1268,23 @@ export default class ServicePassword extends ServiceBase {
     if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
       return;
     }
+    await this.setDesktopAppSessionUnlocked(false);
     await this.clearCachedPassword();
+    try {
+      await localDb.setHyperLiquidAgentSecretSessionUnlocked(false);
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent session lock marker update failed',
+      );
+    }
+    try {
+      await localDb.clearHyperLiquidAgentSecretSession();
+    } catch {
+      defaultLogger.app.error.log(
+        'HyperLiquid agent secret session clear failed',
+      );
+    }
+    await this.refreshHyperLiquidAgentPasswordStatus();
     if (manual) {
       await passwordPersistManualLockStateAtom.set(() => ({
         manualLocking: true,

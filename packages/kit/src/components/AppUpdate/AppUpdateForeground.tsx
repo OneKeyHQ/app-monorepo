@@ -25,6 +25,7 @@ import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { sidePanelUiState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -45,12 +46,34 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
-// Silent-ready dialog should fire at most once per app session even if
+// Auto-ready install handling should fire at most once per app session even if
 // the persist atom hydrates after the first-launch dispatch useEffect has
 // already consumed didRunFirstLaunchDispatch. Tracked separately so the
 // watcher effect below can react to a late hydration / in-session status
 // transition without re-running the full first-launch dispatch.
-let silentReadyDialogShown = false;
+let autoReadyInstallHandled = false;
+
+/**
+ * OK-58962: on the extension every UI surface is its own page load, so a window
+ * opened purely to host a DApp approval boots the same first-launch dispatch as
+ * the wallet and pops the post-update changelog over the signing screen.
+ * ServiceDApp is the standalone window's sole opener, so it stands down
+ * unconditionally; the side panel is a normal wallet surface, so it stands down
+ * only while it is actually hosting an approval.
+ */
+async function shouldDeferPostUpdateUi(): Promise<boolean> {
+  if (platformEnv.isExtensionUiStandaloneWindow) return true;
+  if (platformEnv.isExtensionUiSidePanel) {
+    // Checked first: it is local, synchronous, and the only signal covering the
+    // Keyless / OneKey-ID hand-off, which page-loads a panel purely to host its
+    // approval without ever reaching ServiceDApp.openModal. Safe to read as a
+    // latch here because this gate runs once, before the page can have handled
+    // anything the user did themselves.
+    if (sidePanelUiState.hasReceivedPushedModal) return true;
+    return backgroundApiProxy.serviceDApp.hasPendingDappRequest();
+  }
+  return false;
+}
 
 /**
  * Mount-once foreground container for app-update side effects.
@@ -106,7 +129,28 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     verifyASC,
     downloadASC,
     installPackage,
+    showUpdateInCompleteDialog,
   } = useDownloadPackage();
+  const processRehydratedAppInstall = useCallback(() => {
+    if (autoReadyInstallHandled) return;
+    autoReadyInstallHandled = true;
+    void backgroundApiProxy.serviceAppUpdate
+      .processPendingInstallTask()
+      .then((installStarted) => {
+        if (!installStarted) {
+          autoReadyInstallHandled = false;
+        }
+      })
+      .catch(() => {
+        autoReadyInstallHandled = false;
+      });
+  }, []);
+  const showUpdateInCompleteDialogWhenUnlocked = useCallback(() => {
+    void (async () => {
+      await whenAppUnlocked();
+      showUpdateInCompleteDialog({});
+    })();
+  }, [showUpdateInCompleteDialog]);
 
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) return;
@@ -328,10 +372,16 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // guard prevents any retry — so the dialog ends up surfacing on the
     // following cold launch instead of the one right after the install.
     void (async () => {
-      const info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const info =
+        await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
 
       if (isFirstLaunchAfterUpdated(info)) {
+        // Defer, don't skip: everything below is one-shot (analytics event,
+        // whatsNew marker, refreshUpdateStatus reset), so returning before any
+        // of it leaves this version's changelog intact for the next surface the
+        // user opens themselves.
+        if ((await shouldDeferPostUpdateUi()) || cancelled) return;
         // After the update has completed, current == target, so
         // getUpdateFileType always returns appShell. Derive the actual type
         // from the persisted info so bundle (hot-update) successes aren't
@@ -373,6 +423,17 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
+      const isDesktopAppShellRecovery =
+        platformEnv.isDesktop &&
+        getUpdateFileType(info) === EUpdateFileType.appShell;
+      if (
+        info.status === EAppUpdateStatus.updateIncomplete &&
+        !forceUpdate &&
+        isDesktopAppShellRecovery
+      ) {
+        showUpdateInCompleteDialogWhenUnlocked();
+        return;
+      }
       if (info.status !== EAppUpdateStatus.done && forceUpdate) {
         isShowForceUpdatePreviewPage = true;
         // Pass the force semantics derived from the authoritative `info` so
@@ -384,9 +445,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         toUpdatePreviewPage(true, { ...info, isForceUpdate: forceUpdate });
       }
 
-      if (info.status === EAppUpdateStatus.updateIncomplete) {
-        // do nothing
-      } else if (info.status === EAppUpdateStatus.downloadPackage) {
+      if (info.status === EAppUpdateStatus.downloadPackage) {
         void downloadPackage();
       } else if (info.status === EAppUpdateStatus.downloadASC) {
         void downloadASC();
@@ -411,6 +470,11 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               );
               void backgroundApiProxy.serviceAppUpdate.reset();
             }
+          } else if (
+            platformEnv.isDesktopMac &&
+            info.downloadedEvent?.isUpdaterRehydrated
+          ) {
+            processRehydratedAppInstall();
           } else {
             void installPackage(
               () => undefined,
@@ -424,13 +488,19 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           // already queued a pending install task (silent is allowed past the
           // strategy gate), applied on the next restart; the update button
           // offers an immediate restart-install. Keep the guard set so the
-          // (now no-op) silent-ready watcher below stays consistent.
-          silentReadyDialogShown = true;
+          // silent-ready watcher below cannot process the same state twice.
+          const shouldProcessRehydratedPackage =
+            !autoReadyInstallHandled &&
+            platformEnv.isDesktopMac &&
+            info.downloadedEvent?.isUpdaterRehydrated;
+          if (shouldProcessRehydratedPackage) {
+            processRehydratedAppInstall();
+          }
           // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
         }
-      } else {
+      } else if (info.status !== EAppUpdateStatus.updateIncomplete) {
         scheduleFetchUpdateInfo();
       }
     })();
@@ -463,29 +533,39 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Silent-ready watcher — independent of didRunFirstLaunchDispatch.
+  // Auto-ready watcher — independent of didRunFirstLaunchDispatch.
   // The first-launch dispatch effect above runs exactly once with an
   // empty dep list, so it cannot react to status changes that arrive
-  // after the first run (e.g. a silent download completes in-session, or
+  // after the first run (e.g. an auto-download completes in-session, or
   // the persist atom hydrates after the initial render on restart). This
-  // dedicated effect covers both cases. silentReadyDialogShown (module-
+  // dedicated effect covers both cases. autoReadyInstallHandled (module-
   // level) ensures only one dispatch per app session even when the hook
   // is mounted twice (StrictMode / the legacy useAppUpdateInfo opt-in).
   useEffect(() => {
     if (!enabled) return;
-    if (silentReadyDialogShown) return;
-    if (appUpdateInfo.updateStrategy !== EUpdateStrategy.silent) return;
+    if (autoReadyInstallHandled) return;
+    if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) return;
     if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
-    silentReadyDialogShown = true;
-    // OK-55397: silent-ready dialog removed — apply-on-restart is handled by
-    // the pending install task queued in readyToInstall. Nothing to show here.
+    if (!platformEnv.isDesktopMac) return;
+    if (!appUpdateInfo.downloadedEvent?.isUpdaterRehydrated) return;
+    processRehydratedAppInstall();
+    // OK-55397: regular silent packages remain queued for the next restart.
+    // A rehydrated macOS package must run now because MacUpdater preparation
+    // belongs to this process and is lost on another restart.
     // showSilentUpdateDialog();
     // deps: only re-run on status / strategy transitions.
     // appUpdateInfo is omitted intentionally — including the object ref
     // would re-fire on every unrelated field mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
+  }, [
+    enabled,
+    appUpdateInfo.status,
+    appUpdateInfo.updateStrategy,
+    appUpdateInfo.downloadedEvent?.downloadedFile,
+    appUpdateInfo.downloadedEvent?.isUpdaterRehydrated,
+    processRehydratedAppInstall,
+  ]);
 
   // Mid-session auto-download bridge.
   //
@@ -523,6 +603,17 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
     };
   }, [downloadPackage, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = () => {
+      showUpdateInCompleteDialogWhenUnlocked();
+    };
+    appEventBus.on(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    };
+  }, [enabled, showUpdateInCompleteDialogWhenUnlocked]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-
@@ -564,5 +655,5 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
-  silentReadyDialogShown = false;
+  autoReadyInstallHandled = false;
 }

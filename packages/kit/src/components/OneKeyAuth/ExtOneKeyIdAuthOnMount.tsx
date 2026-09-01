@@ -1,5 +1,9 @@
 import { memo, useEffect } from 'react';
 
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,13 +66,21 @@ function ExtOneKeyIdAuthOnMountCmp() {
             // on platforms that never run this flow.
             const { showOneKeyIdLegacyOAuthBindDialog } =
               await import('../../views/Prime/components/OneKeyIdLegacyOAuthBind/OneKeyIdLegacyOAuthBind');
-            await showOneKeyIdLegacyOAuthBindDialog();
+            await showOneKeyIdLegacyOAuthBindDialog({
+              type: 'check-required',
+              provider: flowInfo.provider,
+            });
           }
         } catch (error) {
           if (error instanceof PrimeLoginDialogCancelError) {
             return;
           }
-          console.error('ExtOneKeyIdAuthOnMount: auth flow failed:', error);
+          logOneKeyIdLoginFailureReason(
+            `ExtOneKeyIdAuthOnMount auth flow failed: ${getSanitizedAuthErrorText(
+              error,
+            )}`,
+            error,
+          );
         } finally {
           isFlowRunning = false;
         }

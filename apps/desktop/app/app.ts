@@ -9,7 +9,7 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
 import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
@@ -57,6 +57,11 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  DESKTOP_API_ALLOWED_MODULES,
+  isDesktopApiMethodAllowed,
+} from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -73,6 +78,8 @@ import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelect
 import './logger';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
+import { logTrezorBleFlags } from './process/trezorBleFlags';
+import { createTrezorBlePairingIpcMain } from './process/trezorBlePairing';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
@@ -596,17 +603,9 @@ function handleDeepLinkUrl(
   isColdStartup?: boolean,
 ) {
   // Validate deep link scheme before forwarding to renderer
-  if (url) {
-    const allowedSchemes = [
-      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
-      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
-      'ethereum:',
-    ];
-    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
-    if (!isAllowed) {
-      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
-      return;
-    }
+  if (url && !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+    return;
   }
 
   const eventData: IDesktopOpenUrlEventData = {
@@ -913,9 +912,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
   if ((isWin || isMac) && !isSoftRestart) {
-    // Keep only command line / deep linked arguments
-    const deeplinkingUrl = process.argv[1];
-    handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
+    if (deeplinkingUrl) {
+      handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
+    }
   }
 
   browserWindow.webContents.on('unresponsive', () => {
@@ -1132,23 +1132,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
-  const allowedModules = new Set([
-    'system',
-    'security',
-    'storage',
-    'webview',
-    'notification',
-    'dev',
-    'inAppPurchase',
-    'bluetooth',
-    'appUpdate',
-    'bundleUpdate',
-    'cloudKit',
-    'keychain',
-    'sniRequest',
-    'oauthLocalServer',
-    'appleAuth',
-  ]);
+  const allowedModules = new Set<string>(DESKTOP_API_ALLOWED_MODULES);
   ipcMain.handle(
     'DESKTOP_API_CALL',
     async (
@@ -1176,14 +1160,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           `DESKTOP_API_CALL: unknown module "${module}"`,
         );
       }
-      // Block inherited prototype methods and private methods
-      if (
-        typeof method !== 'string' ||
-        method.startsWith('_') ||
-        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
-          method,
-        )
-      ) {
+      if (!isDesktopApiMethodAllowed(module, method)) {
         throw new OneKeyLocalError(
           `DESKTOP_API_CALL: disallowed method "${method}"`,
         );
@@ -1640,6 +1617,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
     EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
     EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_RELEASE,
     EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
     EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
     EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
@@ -1682,8 +1660,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
+  logTrezorBleFlags();
   initTrezorBleSupport(browserWindow.webContents, {
-    ipcMain: trezorBleSenderGatedIpcMain,
+    // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
+    // caches scan address, runs the WinRT pairing helper before noble connects.
+    // No-op on non-Windows / builds without the bundled helper.
+    ipcMain: createTrezorBlePairingIpcMain(
+      trezorBleSenderGatedIpcMain,
+      browserWindow,
+    ),
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       // THP debug payloads can carry handshake packets / pairing credentials /
@@ -1730,7 +1715,7 @@ if (!singleInstance && !process.mas) {
 
       // Handle deep link arguments for all platforms
       // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = argv[1];
+      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance

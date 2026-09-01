@@ -76,15 +76,19 @@ function dispatchFeatureCta(activeFeature: IFeaturedItem | undefined) {
   // carrier for the URL/JSON; fall back to href so backends that only set
   // href still work for the URL-opening modes.
   if (activeFeature.mode !== undefined) {
-    parseNotificationPayload(
+    // Returning here unconditionally made the CTA dead whenever the payload
+    // never dispatched.
+    const dispatched = parseNotificationPayload(
       activeFeature.mode,
       activeFeature.payload ?? activeFeature.href,
-      () => {
-        if (isAllowedFeaturedHref(activeFeature.href)) {
-          handleDeepLinkUrl({ url: activeFeature.href });
-        }
-      },
+      () => {},
     );
+    if (dispatched) {
+      return;
+    }
+    if (isAllowedFeaturedHref(activeFeature.href)) {
+      handleDeepLinkUrl({ url: activeFeature.href });
+    }
     return;
   }
   if (!isAllowedFeaturedHref(activeFeature.href)) return;
@@ -300,7 +304,7 @@ function FeaturedChangelogContent({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={!isLocked && !isPreview}
+        showFullChangelog={Boolean(!isLocked && !isPreview)}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}

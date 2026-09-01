@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
@@ -79,7 +80,14 @@ export interface IDevSettings {
   showPerformanceMonitorV2?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // show the TradingViewNative event log panel
+  showTradingViewNativeDebugPanel?: boolean;
   showPerpsRenderStats?: boolean;
+  // Route Unifold deposits to the Arbitrum USDC destination instead of
+  // HyperCore, so the whole deposit pipeline can be exercised for source-chain
+  // gas only (funds settle back into the user's own wallet). Dev builds only —
+  // production always uses the HyperCore destination.
+  unifoldUseTestDestination?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
   // Show Market Home websocket subscription debug overlay and row highlight.
@@ -93,6 +101,8 @@ export interface IDevSettings {
   // Force IP Table strict mode: always use IP even if runtime.selections is empty
   // Fallback to first available IP from config when no selection exists
   forceIpTableStrict?: boolean;
+  // Kill switch for fast failover under extreme network conditions.
+  disableIpTableFailover?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
@@ -117,6 +127,8 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Slow 4G throttling on platforms with a supported backend.
   networkThrottleEnabled?: boolean;
+  // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
+  mockKaspaRefTxFetchFailed?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -163,6 +175,7 @@ export const {
         selectedTab: ETabRoutes.Home,
       },
       useLocalTradingViewUrl: false,
+      showTradingViewNativeDebugPanel: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
@@ -172,6 +185,7 @@ export const {
       usbCommunicationMode: 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      disableIpTableFailover: false, // Fast failover enabled by default
       useFastPbkdf2NativeBackend: false,
     },
   },
@@ -195,6 +209,8 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
+  pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -221,8 +237,23 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    pro2ForceUpdateTargets: [],
+    pro2ForceUpdateOnceTargets: [],
   },
 });
+
+// Firmware update dev settings only take effect while global developer mode is
+// enabled; callers outside ServiceDevSetting must go through this gate too.
+export async function getGatedFirmwareUpdateDevSetting<
+  T extends IFirmwareUpdateDevSettingsKeys,
+>(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
+  const dev = await devSettingsPersistAtom.get();
+  if (!dev.enabled) {
+    return undefined;
+  }
+  const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
+  return fwDev[key];
+}
 
 export type INotificationsDevSettings = {
   showMessagePushSource?: boolean;

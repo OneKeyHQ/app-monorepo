@@ -18,14 +18,9 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  formatLocalizedNumberString,
-  numberFormat,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getSpotTokenDisplayName,
-  getValidPriceDecimals,
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -36,17 +31,19 @@ import {
   getColumnStyle,
   getFillDirectionDisplayInfo,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
+import {
+  getTradeFillClosePnlBN,
+  getTradeFillDisplayInfo,
+} from './tradeFillDisplay';
 import { TradesHistoryShareAction } from './TradesHistoryShareAction';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
-const formatter: INumberFormatProps = {
-  formatter: 'value',
-  formatterOptions: {
-    currency: '$',
-  },
-};
 export type ITradesHistoryRowProps = {
   fill: IFill;
   cellMinWidth: number;
@@ -135,25 +132,32 @@ const TradesHistoryRow = memo(
     }, [fill, intl]);
 
     const tradeBaseInfo = useMemo(() => {
-      const price = fill.px;
-      const size = fill.sz;
-      const fee = fill.fee;
-      const decimals = getValidPriceDecimals(price);
-      const priceBN = new BigNumber(price);
-      const sizeBN = new BigNumber(size);
-      const priceFormatted = formatLocalizedNumberString(
-        priceBN.toFixed(decimals),
-      );
-      const feeFormatted = numberFormat(fee, formatter);
-
-      const tradeValue = priceBN.times(sizeBN).toFixed();
-      const tradeValueFormatted = numberFormat(tradeValue, formatter);
-      return { priceFormatted, size, feeFormatted, tradeValueFormatted };
-    }, [fill.fee, fill.px, fill.sz]);
+      const {
+        priceFormatted,
+        sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      } = getTradeFillDisplayInfo({
+        coin: fill.coin,
+        px: fill.px,
+        sz: fill.sz,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
+      return {
+        priceFormatted,
+        size: sizeFormatted,
+        feeFormatted,
+        tradeValueFormatted,
+      };
+    }, [fill.coin, fill.fee, fill.feeToken, fill.px, fill.sz]);
 
     const closePnlInfo = useMemo(() => {
-      const closePnl = fill.closedPnl;
-      const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
+      const closePnlBN = getTradeFillClosePnlBN({
+        closedPnl: fill.closedPnl,
+        fee: fill.fee,
+        feeToken: fill.feeToken,
+      });
       let closePnlPlusOrMinus = '';
       let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
@@ -168,7 +172,7 @@ const TradesHistoryRow = memo(
         },
       });
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
-    }, [fill.closedPnl, fill.fee]);
+    }, [fill.closedPnl, fill.fee, fill.feeToken]);
 
     const feeTooltipContent = useMemo(() => {
       const feeRatePercentage =
@@ -345,8 +349,8 @@ const TradesHistoryRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}

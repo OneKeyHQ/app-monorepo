@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -79,6 +80,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import {
   calculateFeeForSend,
@@ -109,6 +111,10 @@ import {
   EGasAccountErrorStrategy,
   getGasAccountErrorEntry,
 } from '../../constants/gasAccountErrorCodes';
+import {
+  isGasAccountQuoteEligible,
+  resolveSponsorPayerState,
+} from '../../utils/gasAccountPayerSelection';
 
 import { buildPresetMultiTxsFee } from './presetFeeInfoUtils';
 import { TxFeeEditor } from './TxFeeEditor';
@@ -220,16 +226,39 @@ function TxFeeInfo(props: IProps) {
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
+  // External-wallet accounts sign and broadcast through the connected wallet,
+  // which estimates and charges its own network fee, so OneKey sponsorship
+  // never actually applies. The estimate handler strips the sponsor state at
+  // the source for them (payer forced to 'user', eligibility reset, zeroed
+  // megafuel gas price restored from `originalGasPrice`), so every downstream
+  // consumer — fee display, balance precheck, confirm button, history flags —
+  // behaves like a regular user-paid tx; the component-level `!isExternalAccount`
+  // gates below are defense-in-depth for transient pre-estimate state
+  // (OK-61254).
+  const isExternalAccount = useMemo(
+    () => accountUtils.isExternalAccount({ accountId }),
+    [accountId],
+  );
   const gasAccountQuote = gasAccountUiState.gasAccountQuote;
   const gasAccountMaxFee = gasAccountQuote?.maxFee ?? '0';
   const isGasAccountEligible =
     gasAccountUiState.gasAccountEligible && !!gasAccountQuote?.quoteId;
   const isGasAccountSelected =
-    isGasAccountEligible && gasAccountUiState.selectedPayer === 'gasAccount';
+    !isExternalAccount &&
+    isGasAccountEligible &&
+    gasAccountUiState.selectedPayer === 'gasAccount';
   const isMegafuelSponsored =
-    effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable;
-  const isGasAccountSponsored = effectiveFeePayer === 'gasAccount';
+    !isExternalAccount &&
+    (effectiveFeePayer === 'megafuel' || megafuelEligible.sponsorable);
+  const isGasAccountSponsored =
+    !isExternalAccount && effectiveFeePayer === 'gasAccount';
   const isPayerManagedByService = isMegafuelSponsored || isGasAccountSponsored;
+  // The sponsor atoms are reset for external accounts, so remember the raw
+  // server eligibility separately to drive the promo hint next to the fee.
+  const [externalSponsorPromoEligible, setExternalSponsorPromoEligible] =
+    useState(false);
+  const showExternalSponsorPromoHint =
+    isExternalAccount && externalSponsorPromoEligible;
   const isDarkMode = /dark/.test(themeName);
   const gasSponsoredAccentColor = theme.bgAccent.val;
   const sponsoredCouponBgColor = theme.brand3.val;
@@ -504,9 +533,7 @@ function TxFeeInfo(props: IProps) {
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled:
-            !gasAccountDisabledByScenario &&
-            !isPrivateSendTransfer &&
-            !gasAccountTemporarilyDisabled,
+            !gasAccountDisabledByScenario && !gasAccountTemporarilyDisabled,
           scenario: gasAccountDisabledByScenario
             ? undefined
             : gasAccountScenario,
@@ -551,28 +578,53 @@ function TxFeeInfo(props: IProps) {
         // `gasAccountUiState` for any batch (a quote is bound to one user tx
         // via payloadHash + locked nonce). Surfacing sponsor UI here would
         // show "0 network fee" / sponsor badge while the actual broadcast
-        // falls back to user-paid. Private Send is also user-paid by contract.
+        // falls back to user-paid.
         const sponsorDisabledForBatch = isMultiTxs;
-        const sponsorDisabledForPrivateSend = isPrivateSendTransfer;
+        // Private Send supports Gas Account sponsorship (OK-59993, admitted
+        // by the backend via scenario='privateSend'), but megafuel stays
+        // disabled for it: megafuel is an independent BNB-chain sponsor with
+        // no Private Send contract on the backend side.
+        const megafuelDisabledForPrivateSend = isPrivateSendTransfer;
         // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'`, even when a
         // frontend scenario disables Gas Account.
+        //
+        // Display payer and submit wiring are derived together from the
+        // post-filtered sponsor state so they cannot drift: when megafuel is
+        // suppressed for Private Send, a server `payer='megafuel'` preference
+        // falls through to an eligible gas account quote instead of silently
+        // degrading to user-paid.
         const serverPayer: IGasPayer = r.payer ?? 'user';
-        const nextEffectiveFeePayer: IGasPayer =
-          isCustomRpcEnabled ||
-          sponsorDisabledForBatch ||
-          sponsorDisabledForPrivateSend ||
-          (gasAccountDisabledByScenario && serverPayer === 'gasAccount') ||
-          (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
-            ? 'user'
-            : serverPayer;
+        const {
+          effectiveFeePayer: nextEffectiveFeePayer,
+          selectedPayer: nextSelectedPayer,
+        } = resolveSponsorPayerState({
+          serverPayer,
+          megafuelSponsorable: !!r.megafuelEligible?.sponsorable,
+          gasAccountQuoteEligible: isGasAccountQuoteEligible({
+            gasAccountEligible: r.gasAccountEligible,
+            gasAccountQuote: r.gasAccountQuote,
+          }),
+          isCustomRpcEnabled,
+          sponsorDisabledForBatch,
+          sponsorDisabledForExternalAccount: isExternalAccount,
+          megafuelDisabledForPrivateSend,
+          gasAccountDisabledByScenario,
+          gasAccountTemporarilyDisabled,
+        });
         updateEffectiveFeePayer(nextEffectiveFeePayer);
 
+        // The sponsor state below is stripped for external accounts, so keep
+        // the raw eligibility around for the promo hint before it is cleared.
+        setExternalSponsorPromoEligible(
+          isExternalAccount && !!r.megafuelEligible?.sponsorable,
+        );
         if (
           r.megafuelEligible &&
           !sponsorDisabledForBatch &&
-          !sponsorDisabledForPrivateSend
+          !megafuelDisabledForPrivateSend &&
+          !isExternalAccount
         ) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
@@ -589,7 +641,14 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (sponsorDisabledForBatch || sponsorDisabledForPrivateSend) {
+          if (
+            sponsorDisabledForBatch ||
+            megafuelDisabledForPrivateSend ||
+            isExternalAccount
+          ) {
+            // Megafuel zeroes `gasPrice` in the estimate (real price kept in
+            // `originalGasPrice`); restore it so the regular fee UI and the
+            // native-balance precheck operate on the real fee.
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -603,14 +662,19 @@ function TxFeeInfo(props: IProps) {
           isCustomRpcEnabled ||
           gasAccountTemporarilyDisabled ||
           sponsorDisabledForBatch ||
-          sponsorDisabledForPrivateSend ||
+          isExternalAccount ||
           gasAccountDisabledByScenario
         ) {
           resetGasAccountUiState();
-          if (
+          if (isCustomRpcEnabled) {
+            updateGasAccountUiState({
+              payer: 'user',
+              sponsorDisabledByCustomRpc: true,
+            });
+          } else if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
-            sponsorDisabledForPrivateSend ||
+            isExternalAccount ||
             gasAccountDisabledByScenario
           ) {
             // The default state already flags `selectedPayer='user'`,
@@ -621,11 +685,6 @@ function TxFeeInfo(props: IProps) {
           }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
           resetGasAccountTemporarilyDisabled();
-          const nextSelectedPayer =
-            r.megafuelEligible?.sponsorable || r.payer !== 'gasAccount'
-              ? 'user'
-              : 'gasAccount';
-
           updateGasAccountUiState({
             payer: r.payer,
             gasAccountEligible: true,
@@ -637,6 +696,7 @@ function TxFeeInfo(props: IProps) {
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
             gasAccountScenarioReason: r.gasAccountScenarioReason,
+            sponsorDisabledByCustomRpc: false,
           });
         } else {
           resetGasAccountUiState();
@@ -845,17 +905,19 @@ function TxFeeInfo(props: IProps) {
             (e as Error).message ??
             e,
         });
-        // The previous estimate may have populated sponsor state (badge, quote).
-        // Clear it together with the payer so a stale "free" UI never survives
-        // a failed re-estimate and misleads the user or leaks an expired quote
-        // into submit.
+        // The previous estimate may have populated sponsor state (badge, quote)
+        // or the external-account promo hint. Clear them together with the
+        // payer so a stale "free" UI never survives a failed re-estimate and
+        // misleads the user or leaks an expired quote into submit.
         updateEffectiveFeePayer('user');
         resetGasAccountUiState();
         resetMegafuelEligible();
+        setExternalSponsorPromoEligible(false);
       }
     },
     [
       accountId,
+      isExternalAccount,
       isLastSwapTxWithFeeInfo,
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
@@ -2613,6 +2675,13 @@ function TxFeeInfo(props: IProps) {
           </XStack>
           {renderOriginalFeeInfo()}
           {renderFeeSummary()}
+          {showExternalSponsorPromoHint ? (
+            <SizableText size="$bodyMd" color="$textInteractive" pt="$1">
+              {intl.formatMessage({
+                id: ETranslations.wallet_zero_network_fee_with_onekey_wallet__desc,
+              })}
+            </SizableText>
+          ) : null}
         </>
       )}
     </Stack>

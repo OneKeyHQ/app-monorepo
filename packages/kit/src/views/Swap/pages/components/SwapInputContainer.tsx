@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import {
@@ -19,12 +19,14 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
+  useSwapBalanceDisplayCacheAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedTokensColdStartContextAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -34,7 +36,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -48,9 +50,17 @@ import {
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { useSwapColdStartDisplayTokens } from '../../hooks/useSwapColdStartDisplayTokens';
+import {
+  getSwapBalanceDisplayEntryFromGlobalSnapshot,
+  useSwapColdStartDisplayTokens,
+} from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
+import {
+  resolveSwapBalanceDisplayAccountKey,
+  resolveSwapBalanceDisplayCacheEntry,
+  resolveSwapInputDisplayBalance,
+} from '../../utils/swapBalanceDisplayCacheUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -154,7 +164,7 @@ const SwapInputContainer = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [alerts] = useSwapAlertsAtom();
-  const { address, accountInfo } = useSwapAddressInfo(direction);
+  const { address, accountInfo, activeAccount } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
     return getSwapTokenDisplayFiatValue({
@@ -173,6 +183,8 @@ const SwapInputContainer = ({
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [initialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
+  const [selectedTokensColdStartContext] =
+    useSwapSelectedTokensColdStartContextAtom();
   const {
     displayFromToken,
     displayToToken,
@@ -185,38 +197,94 @@ const SwapInputContainer = ({
     toToken,
   });
   const tokenSelectorDisplayToken =
-    (token?.symbol ? token : undefined) ??
-    (direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken);
+    direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
+  const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
   const isInitialTokenSelectionPending =
     direction === ESwapDirectionType.FROM
       ? isInitialFromTokenSelectionPending
       : isInitialToTokenSelectionPending;
   const [, setInAppNotification] = useInAppNotificationAtom();
+  const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
+  const currentBalanceDisplayAccountKey =
+    buildSwapSelectedTokensColdStartAccountKey(activeAccount ?? accountInfo);
+  const balanceDisplayAccountKey = resolveSwapBalanceDisplayAccountKey({
+    currentAccountKey: currentBalanceDisplayAccountKey,
+    cachedAccountKey: selectedTokensColdStartContext?.accountKey,
+    cachedNetworkId: selectedTokensColdStartContext?.networkId,
+    tokenNetworkId: balanceDisplayToken?.networkId,
+  });
+  const coldStartBalanceDisplayEntry = useMemo(
+    () =>
+      getSwapBalanceDisplayEntryFromGlobalSnapshot({
+        accountAddress: address,
+        currentAccountKey: currentBalanceDisplayAccountKey,
+        token: balanceDisplayToken,
+      }),
+    [address, balanceDisplayToken, currentBalanceDisplayAccountKey],
+  );
   const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
     (selectTokenLoading || isInitialTokenSelectionPending);
+  const handleSelectToken = useCallback(() => {
+    onSelectToken(direction);
+  }, [direction, onSelectToken]);
+  const tokenSelectorTriggerProps = useMemo(
+    () => ({
+      testID:
+        direction === ESwapDirectionType.FROM
+          ? SwapTestIDs.fromTokenSelector
+          : SwapTestIDs.toTokenSelector,
+      minWidth: tokenSelectorMinWidth,
+      justifyContent: 'flex-end' as const,
+      loading: showTokenSelectorSkeleton,
+      selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+      selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
+      onPress: handleSelectToken,
+    }),
+    [
+      direction,
+      handleSelectToken,
+      showTokenSelectorSkeleton,
+      tokenSelectorDisplayToken?.logoURI,
+      tokenSelectorDisplayToken?.symbol,
+      tokenSelectorMinWidth,
+    ],
+  );
   const displayBalance = useMemo(() => {
-    if (balance) {
-      return balance;
-    }
-    if (
-      !token?.balanceParsed ||
-      !token.accountAddress ||
-      !address ||
-      !equalsIgnoreCase(token.accountAddress, address)
-    ) {
-      return '';
-    }
-    const cachedBalanceBN = new BigNumber(token.balanceParsed);
-    return cachedBalanceBN.isNaN() ? '' : cachedBalanceBN.toFixed();
-  }, [address, balance, token?.accountAddress, token?.balanceParsed]);
+    const cachedBalance =
+      resolveSwapBalanceDisplayCacheEntry({
+        accountAddress: address,
+        accountKey: balanceDisplayAccountKey,
+        cache: balanceDisplayCache,
+        token: balanceDisplayToken,
+      })?.balance ?? coldStartBalanceDisplayEntry?.balance;
+    return resolveSwapInputDisplayBalance({
+      accountAddress: address,
+      cachedBalance,
+      selectedBalance: balance,
+      tokenAccountAddress: token?.accountAddress,
+      tokenBalance: token?.balanceParsed,
+      tokenNetworkId: token?.networkId,
+    });
+  }, [
+    address,
+    balance,
+    balanceDisplayAccountKey,
+    balanceDisplayCache,
+    balanceDisplayToken,
+    coldStartBalanceDisplayEntry?.balance,
+    token,
+  ]);
   const showBalanceSkeleton = useMemo(
     () =>
       Boolean(
-        token && address && !displayBalance && (balanceLoading || !balance),
+        balanceDisplayToken &&
+        address &&
+        !displayBalance &&
+        (balanceLoading || !balance),
       ),
-    [address, balance, balanceLoading, displayBalance, token],
+    [address, balance, balanceDisplayToken, balanceLoading, displayBalance],
   );
 
   const fromInputHasError = useMemo(() => {
@@ -402,20 +470,7 @@ const SwapInputContainer = ({
               ? SwapTestIDs.fromAmountInput
               : SwapTestIDs.toAmountInput,
         }}
-        tokenSelectorTriggerProps={{
-          testID:
-            direction === ESwapDirectionType.FROM
-              ? SwapTestIDs.fromTokenSelector
-              : SwapTestIDs.toTokenSelector,
-          minWidth: tokenSelectorMinWidth,
-          justifyContent: 'flex-end',
-          loading: showTokenSelectorSkeleton,
-          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
-          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
-          onPress: () => {
-            onSelectToken(direction);
-          },
-        }}
+        tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
       {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (

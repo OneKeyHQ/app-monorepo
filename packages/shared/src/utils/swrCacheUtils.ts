@@ -1,6 +1,7 @@
 /* cspell:ignore ISWR IMMKV */
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
+import type * as HL from '../../types/hyperliquid/sdk';
 import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
@@ -22,6 +23,30 @@ let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
+// Keyed by target: a reload performed for one book must not suppress the first
+// read of another, which the other runtime may have persisted in between.
+const _lastReloadForTargetAt = new Map<string, number>();
+
+// Replaying the whole hydrated store instead would revive keys the other
+// runtime removed after this JS heap took its snapshot.
+const _updatedKeys = new Set<string>();
+
+// Without these, the copy still sitting on disk would revive a key deleted here.
+const _removedKeysAt = new Map<string, number>();
+let _removedPrefixesAt: Array<{ prefix: string; at: number }> = [];
+let _clearedAllAt = 0;
+
+function isDeletedLocally(key: string, diskTimestamp: number): boolean {
+  if (_clearedAllAt && diskTimestamp <= _clearedAllAt) return true;
+  const removedAt = _removedKeysAt.get(key);
+  if (removedAt !== undefined && diskTimestamp <= removedAt) return true;
+  for (const removed of _removedPrefixesAt) {
+    if (key.startsWith(removed.prefix) && diskTimestamp <= removed.at) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const FLUSH_DEBOUNCE_MS = 2000;
 
@@ -49,16 +74,124 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
+// getObject() reports an unparseable store and an absent one identically, and
+// treating corruption as absent would let flush() drop everything else.
+function readStoreFromDisk(): {
+  store: ISWRStore | undefined;
+  unreadable: boolean;
+} {
+  let raw: string | undefined;
+  try {
+    raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
+  } catch {
+    return { store: undefined, unreadable: true };
+  }
+  if (!raw) {
+    return { store: undefined, unreadable: false };
+  }
+  try {
+    return { store: JSON.parse(raw) as ISWRStore, unreadable: false };
+  } catch {
+    return { store: undefined, unreadable: true };
+  }
+}
+
 function reloadFromStorage(): void {
   flush();
-  _cache = undefined;
-  loadStore();
+  const { store, unreadable } = readStoreFromDisk();
+  if (unreadable && _cache && Object.keys(_cache).length > 0) {
+    // Repairing from an empty copy instead would leave a parseable empty
+    // store, costing the runtime holding a full copy its only chance.
+    //
+    // Every key is marked pending, not just the dirty ones: if the other
+    // runtime makes the file parseable again before this flush lands, the
+    // merge would otherwise carry nothing forward and the adoption would drop
+    // this copy from memory as well.
+    for (const key of Object.keys(_cache)) {
+      _updatedKeys.add(key);
+    }
+    _dirty = true;
+    scheduleFlush();
+  } else if (store) {
+    // Only when a store was actually read: on a backend that persists nothing
+    // this copy is the only one, and the perps first-frame path reloads every
+    // 30s, so clearing here would drop every namespace for the session.
+    _cache = store;
+  }
+}
+
+function shouldReloadForTarget(targetKey: string, intervalMs: number): boolean {
+  const lastAt = _lastReloadForTargetAt.get(targetKey);
+  const now = Date.now();
+  return lastAt === undefined || now < lastAt || now - lastAt >= intervalMs;
+}
+
+function markReloadForTarget(targetKey: string, intervalMs: number): void {
+  const now = Date.now();
+  // Entries this old can no longer suppress anything, so dropping them keeps
+  // switching across many books from growing the map without bound.
+  for (const [key, at] of _lastReloadForTargetAt) {
+    if (now - at >= intervalMs) {
+      _lastReloadForTargetAt.delete(key);
+    }
+  }
+  _lastReloadForTargetAt.set(targetKey, now);
+}
+
+function evictOldestOverCap(store: ISWRStore) {
+  const keys = Object.keys(store);
+  if (keys.length <= MAX_ENTRIES) return;
+  const sorted = keys.toSorted((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+  const removeCount = keys.length - MAX_ENTRIES;
+  for (let i = 0; i < removeCount; i += 1) {
+    delete store[sorted[i]];
+  }
 }
 
 function flush() {
   if (!_dirty || !_cache) return;
   try {
-    getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, _cache);
+    // Merged per key because main and bg each hold their own copy of this
+    // store over one shared MMKV file: a wholesale write from the runtime
+    // holding the older copy erased everything the other had persisted since.
+    const { store: disk, unreadable } = readStoreFromDisk();
+    const merged: ISWRStore = {};
+    if (unreadable) {
+      // Nothing on disk survives, so rebuild from this copy — a pending-keys
+      // only write would drop every entry it still holds.
+      Object.assign(merged, _cache);
+    } else if (disk) {
+      for (const [key, entry] of Object.entries(disk)) {
+        if (entry && !isDeletedLocally(key, entry.t ?? 0)) {
+          merged[key] = entry;
+        }
+      }
+    }
+    for (const key of _updatedKeys) {
+      const entry = _cache[key];
+      if (entry) {
+        const diskEntry = merged[key];
+        if (!diskEntry || (entry.t ?? 0) >= (diskEntry.t ?? 0)) {
+          merged[key] = entry;
+        }
+      }
+    }
+    evictOldestOverCap(merged);
+    // This merge prevents a stale runtime from blindly replacing newer entries,
+    // but MMKV does not make the JS read-merge-write sequence transactional.
+    getSyncStorage().setObject(EAppSyncStorageKeys.onekey_swr_cache, merged);
+    // Adopting the merged store also refreshes this runtime's copy, which
+    // otherwise only ages — reads pick up what the other runtime persisted.
+    // Skipped without a store to merge against: `merged` is then only the
+    // pending keys, and on a backend that persists nothing (both extension
+    // runtimes get the no-op stub) this copy is the only one.
+    if (disk) {
+      _cache = merged;
+    }
+    _updatedKeys.clear();
+    _removedKeysAt.clear();
+    _removedPrefixesAt = [];
+    _clearedAllAt = 0;
     _dirty = false;
   } catch {
     // MMKV write failure is non-fatal; cache is best-effort.
@@ -90,20 +223,9 @@ function getWithTimestamp<T>(
 function set<T>(key: string, data: T): void {
   const store = loadStore();
   store[key] = { d: data, t: Date.now() };
+  _updatedKeys.add(key);
   _dirty = true;
-
-  // Evict oldest entries when over limit.
-  const keys = Object.keys(store);
-  if (keys.length > MAX_ENTRIES) {
-    const sorted = keys.toSorted(
-      (a, b) => (store[a].t ?? 0) - (store[b].t ?? 0),
-    );
-    const removeCount = keys.length - MAX_ENTRIES;
-    for (let i = 0; i < removeCount; i += 1) {
-      delete store[sorted[i]];
-    }
-  }
-
+  evictOldestOverCap(store);
   scheduleFlush();
 }
 
@@ -115,11 +237,13 @@ function isFresh(key: string, maxAge: number): boolean {
 
 function remove(key: string): void {
   const store = loadStore();
-  if (store[key] !== undefined) {
-    delete store[key];
-    _dirty = true;
-    scheduleFlush();
-  }
+  delete store[key];
+  _updatedKeys.delete(key);
+  // Recorded even when the key is locally absent: the other runtime's copy
+  // may still hold it, and the merge must not bring it back.
+  _removedKeysAt.set(key, Date.now());
+  _dirty = true;
+  scheduleFlush();
 }
 
 // Drops every entry whose key starts with `prefix`. Used by bg services
@@ -128,21 +252,26 @@ function remove(key: string): void {
 function removeByPrefix(prefix: string): void {
   if (!prefix) return;
   const store = loadStore();
-  let touched = false;
   for (const key of Object.keys(store)) {
     if (key.startsWith(prefix)) {
       delete store[key];
-      touched = true;
     }
   }
-  if (touched) {
-    _dirty = true;
-    scheduleFlush();
+  for (const key of _updatedKeys) {
+    if (key.startsWith(prefix)) {
+      _updatedKeys.delete(key);
+    }
   }
+  // Recorded unconditionally for the same reason as remove().
+  _removedPrefixesAt.push({ prefix, at: Date.now() });
+  _dirty = true;
+  scheduleFlush();
 }
 
 function clearAll(): void {
   _cache = {};
+  _updatedKeys.clear();
+  _clearedAllAt = Date.now();
   _dirty = true;
   scheduleFlush();
 }
@@ -175,13 +304,48 @@ const NS = {
   historyTxDetail: 'historyTxDetail',
   marketHomeTokenList: 'marketHomeTokenList',
   tokenSelectorView: 'tokenSelectorView',
+  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
+  swapHistoryPreviewList: 'swapHistoryPreviewList',
+  swapStockChart: 'swapStockChart',
   swapStockTokenDetail: 'swapStockTokenDetail',
   swapStockSpeedConfig: 'swapStockSpeedConfig',
   swapStockPayTokenDetails: 'swapStockPayTokenDetails',
+  borrowMarkets: 'borrowMarkets',
+  borrowReserves: 'borrowReserves',
+  borrowHealthFactor: 'borrowHealthFactor',
+  borrowRewards: 'borrowRewards',
+  borrowEModeStatus: 'borrowEModeStatus',
+  earnAccount: 'earnAccount',
+  earnProtocolDetail: 'earnProtocolDetail',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
 export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+type IBorrowScopedSWRKeyParams = {
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  accountId?: string;
+};
+
+function buildBorrowScopedSWRKey(
+  namespace:
+    | typeof NS.borrowReserves
+    | typeof NS.borrowHealthFactor
+    | typeof NS.borrowRewards
+    | typeof NS.borrowEModeStatus,
+  { networkId, provider, marketAddress, accountId }: IBorrowScopedSWRKeyParams,
+) {
+  return [
+    namespace,
+    'v1',
+    networkId,
+    provider.toLowerCase(),
+    marketAddress,
+    accountId ?? 'public',
+  ].join(':');
+}
 
 // --- Centralized SWR key builders ---
 export const swrKeys = {
@@ -451,12 +615,112 @@ export const swrKeys = {
       isAllNetworks ? '1' : '0',
       mergeDeriveAddressData ? '1' : '0',
     ].join(':'),
+  specifiedTokenSelectorView: ({
+    accountId,
+    networkId,
+    indexedAccountId,
+    targetsKey,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    targetsKey: string;
+  }) =>
+    [
+      NS.specifiedTokenSelectorView,
+      'v1',
+      accountId,
+      networkId,
+      indexedAccountId ?? '',
+      targetsKey,
+    ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // Keep the existing unversioned key stable so users retain the history
+  // snapshot that already powers the ordinary Swap first frame.
+  swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
+  swapStockChart: ({
+    networkId,
+    tokenAddress,
+    isNative,
+    range,
+    requestCurrency,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    isNative?: boolean;
+    range: string;
+    requestCurrency: string;
+  }) =>
+    [
+      NS.swapStockChart,
+      'v1',
+      networkId,
+      tokenAddress,
+      isNative ? 'native' : 'token',
+      range,
+      requestCurrency,
+    ].join(':'),
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
     [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+  borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
+  borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowReserves, params),
+  borrowHealthFactor: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowHealthFactor, params),
+  borrowRewards: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowRewards, params),
+  borrowEModeStatus: (params: IBorrowScopedSWRKeyParams) =>
+    buildBorrowScopedSWRKey(NS.borrowEModeStatus, params),
+  earnAccount: ({
+    networkId,
+    accountId,
+    indexedAccountId,
+    deriveType,
+    btcOnlyTaproot,
+  }: {
+    networkId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    deriveType?: string;
+    btcOnlyTaproot: boolean;
+  }) =>
+    [
+      NS.earnAccount,
+      'v3',
+      networkId,
+      accountId ?? '',
+      indexedAccountId ?? '',
+      deriveType ?? '',
+      btcOnlyTaproot ? '1' : '0',
+    ].join(':'),
+  earnProtocolDetail: ({
+    networkId,
+    symbol,
+    provider,
+    vault,
+    locale,
+    currencyId,
+  }: {
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+    locale: string;
+    currencyId: string;
+  }) =>
+    [
+      NS.earnProtocolDetail,
+      'v2',
+      networkId,
+      provider.toLowerCase(),
+      symbol.toUpperCase(),
+      vault ?? '',
+      locale.toLowerCase(),
+      currencyId.toLowerCase(),
+    ].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {
@@ -484,9 +748,62 @@ export function getPerpsL2BookSnapshotCacheKeys({
   ]);
 }
 
+function getFreshPerpsL2BookSnapshot({
+  coin,
+  nSigFigs,
+  mantissa,
+  maxAgeMs,
+  reloadIfOlderThanMs,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+  maxAgeMs: number;
+  reloadIfOlderThanMs: number;
+}): { data: HL.IBook; updatedAt: number } | undefined {
+  const keys = getPerpsL2BookSnapshotCacheKeys({
+    coin,
+    nSigFigs,
+    mantissa,
+  });
+  const findEntry = () => {
+    for (const key of keys) {
+      const entry = getWithTimestamp<HL.IBook>(key);
+      const book = entry?.data;
+      if (
+        entry &&
+        book?.coin === coin &&
+        book.nSigFigs !== undefined &&
+        book.mantissa !== undefined &&
+        (book.nSigFigs ?? null) === (nSigFigs ?? null) &&
+        (book.mantissa ?? null) === (mantissa ?? null) &&
+        Date.now() - entry.updatedAt <= maxAgeMs
+      ) {
+        return entry;
+      }
+    }
+    return undefined;
+  };
+
+  let entry = findEntry();
+  const entryAgeMs = entry ? Date.now() - entry.updatedAt : undefined;
+  const [targetKey] = keys;
+  if (
+    (!entry || (entryAgeMs ?? 0) > reloadIfOlderThanMs) &&
+    shouldReloadForTarget(targetKey, reloadIfOlderThanMs)
+  ) {
+    reloadFromStorage();
+    markReloadForTarget(targetKey, reloadIfOlderThanMs);
+    const reloadedEntry = findEntry();
+    entry = reloadedEntry ?? entry;
+  }
+  return entry;
+}
+
 export const swrCacheUtils = {
   get,
   getWithTimestamp,
+  getFreshPerpsL2BookSnapshot,
   set,
   removeByPrefix,
   remove,

@@ -4,7 +4,14 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, useIsModalPage, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  useIsModalPage,
+  useMedia,
+  usePreventRemove,
+} from '@onekeyhq/components';
+import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -17,14 +24,21 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
-import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
+import {
+  BtcMetadataProvider,
+  StockDetailProvider,
+  useAutoRefreshTokenDetail,
+  useStockDetail,
+} from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
 
@@ -38,30 +52,68 @@ function normalizeRouteBooleanParam(
   return value ?? defaultValue;
 }
 
+function LegacyTokenPreviewInitializer({
+  preview,
+}: {
+  preview?: IMarketTokenDetailPreview;
+}) {
+  const tokenDetailActions = useTokenDetailActions();
+
+  useLayoutEffect(() => {
+    if (preview) {
+      tokenDetailActions.current.prepareTokenDetailPreview(preview);
+    }
+  }, [preview, tokenDetailActions]);
+
+  return null;
+}
+
 function MarketDetail({
   isChartFullscreen,
+  isTradingViewNative,
+  onChartSwitch,
   onChartFullscreenChange,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
-  ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+  | ETabMarketRoutes.MarketDetailV2
+  | ETabMarketRoutes.MarketStockDetail
+  | ETabMarketRoutes.MarketNativeDetail
 > & {
   isChartFullscreen: boolean;
+  isTradingViewNative: boolean;
+  onChartSwitch: () => void;
   onChartFullscreenChange: (isFullscreen: boolean) => void;
 }) {
   const params = route.params as
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
+    | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
 
-  const network = params.network;
-  const isNative = params.isNative;
+  const { selectedTokenVariant } = useStockDetail();
+  const network =
+    selectedTokenVariant?.networkId ??
+    ('network' in params ? params.network : '') ??
+    '';
+  const isNative = 'isNative' in params ? params.isNative : false;
   const disableTrade = params.disableTrade;
+  const marketTokenId =
+    'marketTokenId' in params ? params.marketTokenId : undefined;
+  const marketTokenCategory =
+    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const skipMarketDataFetch = normalizeRouteBooleanParam(
+    'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
+    false,
+  );
   const showFavoriteButton = normalizeRouteBooleanParam(
     params.showFavoriteButton,
     true,
   );
   // For MarketNativeDetail route, tokenAddress is undefined, use empty string
-  const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ??
+    ('tokenAddress' in params ? params.tokenAddress : '') ??
+    '';
 
   // Convert shortcode back to full networkId if needed
   // network is a shortcode like 'bsc', convert it to 'evm--56'
@@ -78,6 +130,7 @@ function MarketDetail({
     tokenAddress,
     networkId,
     isNative: isNativeBoolean,
+    skipMarketDataFetch,
   });
 
   const media = useMedia();
@@ -117,7 +170,14 @@ function MarketDetail({
           <MarketDetailResponsiveLayout
             isDesktopLayout={isDesktopLayout}
             isChartFullscreen={isChartFullscreen}
+            isTradingViewNative={isTradingViewNative}
+            onChartSwitch={onChartSwitch}
             onChartFullscreenChange={onChartFullscreenChange}
+            isNative={isNativeBoolean}
+            networkId={networkId}
+            tokenAddress={tokenAddress}
+            marketTokenId={marketTokenId}
+            marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={disableTrade}
           />
@@ -130,23 +190,67 @@ function MarketDetail({
 function MarketDetailV2(
   props: IPageScreenProps<
     ITabMarketParamList,
-    ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
+    | ETabMarketRoutes.MarketDetailV2
+    | ETabMarketRoutes.MarketStockDetail
+    | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
   const { navigation } = props;
+  const stockId =
+    'stockId' in props.route.params ? props.route.params.stockId : undefined;
+  const initialTokenAddress =
+    'tokenAddress' in props.route.params
+      ? props.route.params.tokenAddress
+      : undefined;
+  const initialNetwork =
+    'network' in props.route.params ? props.route.params.network : undefined;
+  const initialNetworkId = initialNetwork
+    ? networkUtils.getNetworkIdFromShortCode({ shortCode: initialNetwork }) ||
+      initialNetwork
+    : undefined;
+  const legacyTokenPreview =
+    'legacyTokenPreview' in props.route.params
+      ? props.route.params.legacyTokenPreview
+      : undefined;
   const media = useMedia();
+  const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
-  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
-  const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
-    setIsChartFullscreen(isFullscreen);
-  }, []);
+  const supportsChartFullscreen = Boolean(
+    isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),
+  );
+  const effectiveIsChartFullscreen =
+    supportsChartFullscreen && isChartFullscreen;
+  const handleChartFullscreenChange = useCallback(
+    (isFullscreen: boolean) => {
+      setIsChartFullscreen(isFullscreen);
+      setSplitViewDetailFullscreen(isFullscreen);
+    },
+    [setSplitViewDetailFullscreen],
+  );
+  const handleChartSwitch = useCallback(() => {
+    handleChartFullscreenChange(false);
+    setIsTradingViewNative((currentValue) => !currentValue);
+  }, [handleChartFullscreenChange]);
+  const handleFullscreenRemove = useCallback(() => {
+    handleChartFullscreenChange(false);
+  }, [handleChartFullscreenChange]);
+
+  usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
+
+  useLayoutEffect(() => {
+    setSplitViewDetailFullscreen(effectiveIsChartFullscreen);
+    return () => {
+      setSplitViewDetailFullscreen(false);
+    };
+  }, [effectiveIsChartFullscreen, setSplitViewDetailFullscreen]);
 
   useEffect(() => {
-    if (!isDesktopChartLayout && isChartFullscreen) {
-      setIsChartFullscreen(false);
+    if (!supportsChartFullscreen && isChartFullscreen) {
+      handleChartFullscreenChange(false);
     }
-  }, [isChartFullscreen, isDesktopChartLayout]);
+  }, [handleChartFullscreenChange, isChartFullscreen, supportsChartFullscreen]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -160,6 +264,14 @@ function MarketDetailV2(
       },
     });
   }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        handleChartFullscreenChange(false);
+      };
+    }, [handleChartFullscreenChange]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -181,23 +293,35 @@ function MarketDetailV2(
   );
 
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <>
+      <TradingViewEmbedGlobalPreload />
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
       >
-        <MarketDetail
-          {...props}
-          isChartFullscreen={effectiveIsChartFullscreen}
-          onChartFullscreenChange={handleChartFullscreenChange}
-        />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
+          <StockDetailProvider
+            stockId={stockId}
+            initialNetworkId={initialNetworkId}
+            initialTokenAddress={initialTokenAddress}
+          >
+            <MarketDetail
+              {...props}
+              isChartFullscreen={effectiveIsChartFullscreen}
+              isTradingViewNative={isTradingViewNative}
+              onChartSwitch={handleChartSwitch}
+              onChartFullscreenChange={handleChartFullscreenChange}
+            />
+          </StockDetailProvider>
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </>
   );
 }
 

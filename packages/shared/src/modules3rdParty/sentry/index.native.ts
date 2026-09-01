@@ -10,8 +10,9 @@ import {
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions } from './basicOptions';
+import { buildBasicOptions, sanitizeSentryEvent } from './basicOptions';
 
+import type { ISentrySanitizationErrorHandler } from './basicOptions';
 import type { FallbackRender } from '@sentry/react';
 
 // oxlint-disable-next-line import/export -- re-export from third-party module
@@ -32,19 +33,32 @@ export const initSentry = () => {
   // regardless of `enableAutoPerformanceTracing: false`. Removing the key makes
   // hasTracingEnabled=false so none of them are installed. profilesSampleRate is
   // likewise stripped to keep hermesProfilingIntegration off.
+  const onError: ISentrySanitizationErrorHandler = (
+    errorMessage,
+    stacktrace,
+  ) => {
+    appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
+  };
   const {
     tracesSampleRate: _tracesSampleRate,
     profilesSampleRate: _profilesSampleRate,
     ...basicOptions
   } = buildBasicOptions({
-    onError: (errorMessage, stacktrace) => {
-      appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
-    },
+    onError,
   });
+  type INativeSentryOptions = Parameters<typeof init>[0];
+  const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
+    event,
+  ) => sanitizeSentryEvent(event, onError);
+  const nativeBasicOptions = {
+    enabled: basicOptions.enabled,
+    maxBreadcrumbs: basicOptions.maxBreadcrumbs,
+    beforeSend: nativeBeforeSend,
+  };
 
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...basicOptions,
+    ...nativeBasicOptions,
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,

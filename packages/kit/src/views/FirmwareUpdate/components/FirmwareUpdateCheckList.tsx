@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmwareVersions';
@@ -22,6 +23,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { isBluetoothFirmwareUpdateTransport } from '../firmwareUpdateTransportUtils';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
@@ -35,6 +37,9 @@ export function FirmwareUpdateCheckList({
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const isMountedRef = useRef(true);
+  const isBluetoothTransport = isBluetoothFirmwareUpdateTransport({
+    isNative: platformEnv.isNative,
+  });
 
   useEffect(
     () => () => {
@@ -55,13 +60,13 @@ export function FirmwareUpdateCheckList({
       {
         id: 'connection',
         label: intl.formatMessage({
-          id: platformEnv.isNative
+          id: isBluetoothTransport
             ? ETranslations.update_device_connected_via_bluetooth
             : ETranslations.update_device_connected_via_usb,
         }),
-        emoji: platformEnv.isNative ? '📲' : '🔌',
+        emoji: isBluetoothTransport ? '📲' : '🔌',
       },
-      ...(platformEnv.isNative
+      ...(isBluetoothTransport
         ? []
         : [
             {
@@ -80,7 +85,7 @@ export function FirmwareUpdateCheckList({
             },
           ]),
     ],
-    [intl],
+    [intl, isBluetoothTransport],
   );
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const onCheckChanged = useCallback((id: string) => {
@@ -218,7 +223,9 @@ export function FirmwareUpdateCheckList({
                     },
                   });
                 } catch (error) {
-                  const err = toPlainErrorObject(error as any);
+                  const err = toUserFacingFirmwareUpdateError(
+                    toPlainErrorObject(error as any),
+                  );
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
                     payload: {
@@ -241,7 +248,8 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'failed',
-                    errorCode: err?.code,
+                    errorCode:
+                      err?.code === undefined ? undefined : String(err.code),
                     errorMessage: err?.message,
                     retryCount: trackingInfo.retryCount,
                     durationMs: trackingInfo.durationMs,

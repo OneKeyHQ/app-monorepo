@@ -36,6 +36,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
   IOneKeyDeviceFeatures,
@@ -81,6 +82,9 @@ export enum EFirmwareAuthenticationDialogContentType {
   unofficial_firmware_detected = 'unofficial_firmware_detected',
   defective_firmware_detected = 'defective_firmware_detected',
 }
+
+const FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG =
+  'firmwareVerifySkipDeviceCancel';
 
 function useFirmwareVerifyBase({
   device,
@@ -151,10 +155,12 @@ function useFirmwareVerifyBase({
       if (useNewProcess) {
         // verify firmware hash
         const latestFeatures =
-          await backgroundApiProxy.serviceHardware.getOneKeyFeatures({
-            connectId: device?.connectId ?? '',
-            deviceType: device.deviceType,
-          });
+          await backgroundApiProxy.serviceHardware.getFirmwareVerificationFeatures(
+            {
+              connectId: device?.connectId ?? '',
+              deviceType: device.deviceType,
+            },
+          );
         const verifyResult =
           await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
             deviceType: device.deviceType,
@@ -201,7 +207,14 @@ function useFirmwareVerifyBase({
         case HardwareErrorCode.ActionCancelled:
         case HardwareErrorCode.CallQueueActionCancelled:
         case HardwareErrorCode.NewFirmwareForceUpdate:
-          void dialogInstance.close();
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
+          break;
+        case HardwareErrorCode.BleUnavailableWhileUsbConnected:
+          void dialogInstance.close({
+            flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+          });
           break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
@@ -1033,6 +1046,8 @@ export function FirmwareAuthenticationDialogContent({
   );
 }
 
+export type IFirmwareVerifyDialogHost = Pick<typeof Dialog, 'show'>;
+
 export function useFirmwareVerifyDialog() {
   const [isLoading, setIsLoading] = useState(false);
   const showFirmwareVerifyDialog = useCallback(
@@ -1043,6 +1058,7 @@ export function useFirmwareVerifyDialog() {
       onContinue,
       onDevSkipVerificationPress,
       onClose,
+      dialogHost = Dialog,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
@@ -1050,15 +1066,33 @@ export function useFirmwareVerifyDialog() {
       onClose: () => Promise<void> | void;
       onVerified?: (params: { checked: boolean }) => Promise<void> | void;
       onDevSkipVerificationPress?: () => void;
+      // A page-owned dialog host (useInPageDialog) renders this dialog into the
+      // page's own portal instead of the global full-window overlay. On iOS the
+      // global overlay stacks children by render order only, so a retry loop
+      // that re-mounts this dialog while the hardware checking Sheet is still
+      // exiting can strand a backdrop above it that swallows every tap.
+      dialogHost?: IFirmwareVerifyDialogHost;
     }) => {
-      const onCloseFn = async () => {
+      if (!deviceUtils.isFirmwareVerifySupported(device.deviceType)) {
+        await onContinue({ checked: false });
+        return;
+      }
+
+      let hasHandledClose = false;
+      const onCloseFn = async (extra?: { flag?: string }) => {
+        if (hasHandledClose) {
+          return;
+        }
+        hasHandledClose = true;
         await onClose?.();
         setIsLoading(false);
         if (device.connectId) {
           await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
             {
               connectId: device.connectId,
-              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
+              skipDeviceCancel:
+                extra?.flag === FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+              deviceType: device.deviceType,
             },
           );
         }
@@ -1080,12 +1114,12 @@ export function useFirmwareVerifyDialog() {
           shouldUseNewAuthenticateVersion,
         );
       } catch (error) {
-        await onCloseFn();
+        await onCloseFn({ flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG });
         throw error;
       } finally {
         // await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      const firmwareAuthenticationDialog = Dialog.show({
+      const firmwareAuthenticationDialog = dialogHost.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
         title: ' ',
@@ -1098,14 +1132,15 @@ export function useFirmwareVerifyDialog() {
             device={device}
             onContinue={async ({ checked }) => {
               await onVerified?.({ checked });
-              await firmwareAuthenticationDialog.close();
+              await firmwareAuthenticationDialog.close({
+                flag: FIRMWARE_VERIFY_SKIP_DEVICE_CANCEL_FLAG,
+              });
               await onContinue({ checked });
             }}
             onDevSkipVerificationPress={onDevSkipVerificationPress || noop}
             useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),
-        onCancel: onCloseFn,
         onClose: onCloseFn,
       });
     },

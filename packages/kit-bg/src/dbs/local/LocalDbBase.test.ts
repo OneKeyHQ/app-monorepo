@@ -1,3 +1,4 @@
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import { IDBFactory } from 'fake-indexeddb';
 
 import {
@@ -6,6 +7,7 @@ import {
   decryptRevealableSeedWithMetadata,
   decryptVerifyStringWithMetadata,
   encodePasswordAsync,
+  encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptStringAsync,
@@ -20,6 +22,7 @@ import {
   DEFAULT_VERIFY_STRING,
   WALLET_TYPE_IMPORTED,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
@@ -28,9 +31,20 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
+import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
+import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
+
 import { EDBAccountType } from './consts';
+import {
+  decryptHyperLiquidAgentCredentialWithSessionKey,
+  deriveHyperLiquidAgentSecretKey,
+  encryptHyperLiquidAgentCredentialWithSessionKey,
+  hyperLiquidAgentSecretSession,
+} from './hyperLiquidAgentSecret';
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
@@ -38,6 +52,7 @@ import {
   isLocalSecretEnvelopeString,
   parseLocalSecretEnvelopeV1,
   readIndexedDbCryptoKeyForLocalSecretEnvelope,
+  unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
 
@@ -60,6 +75,7 @@ import type {
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
 
@@ -67,6 +83,8 @@ jest.setTimeout(120_000);
 
 function buildNoopSyncManager() {
   return {
+    buildSyncTargetByDBQuery: jest.fn(async () => ({})),
+    buildSyncKeyAndPayload: jest.fn(async () => undefined),
     buildExistingSyncItemsInfo: jest.fn(async () => ({
       existingSyncItems: {},
       newSyncItems: {},
@@ -101,12 +119,33 @@ class TestLocalDb extends LocalDbBase {
 
   credentials: IDBCredentialBase[] = [];
 
+  removedDeviceIds: string[] = [];
+
   addHDNextIndexedAccountCalls = 0;
+
+  removeBackupHyperLiquidAgentCredentials = jest.fn(async () => undefined);
+
+  getCachedPasswordMock = jest.fn(
+    async (): Promise<string | undefined> => undefined,
+  );
+
+  buildCreateResultCalls: {
+    walletId: string;
+    withoutRefillWallet?: boolean;
+  }[] = [];
 
   constructor() {
     super();
 
     this.setBackgroundApi({
+      serviceDBBackup: {
+        backupDatabaseDaily: jest.fn(async () => undefined),
+        removeBackupHyperLiquidAgentCredentials:
+          this.removeBackupHyperLiquidAgentCredentials,
+      },
+      servicePassword: {
+        getCachedPassword: this.getCachedPasswordMock,
+      },
       servicePrimeCloudSync: {
         syncManagers: {
           wallet: buildNoopSyncManager(),
@@ -243,6 +282,12 @@ class TestLocalDb extends LocalDbBase {
     return { ...wallet };
   }
 
+  override async getAllWallets(): Promise<{ wallets: IDBWallet[] }> {
+    return {
+      wallets: this.wallets.map((wallet) => ({ ...wallet })),
+    };
+  }
+
   override async getRecordsByIds<T extends ELocalDBStoreNames>({
     name,
     ids,
@@ -269,6 +314,16 @@ class TestLocalDb extends LocalDbBase {
   }: ILocalDBTxGetAllRecordsParams<T>): Promise<
     ILocalDBTxGetAllRecordsResult<T>
   > {
+    if (name === ELocalDBStoreNames.Wallet) {
+      const records = this.wallets.map((wallet) => ({ ...wallet }));
+      return {
+        records: records as ILocalDBTxGetAllRecordsResult<T>['records'],
+        recordPairs: records.map((record) => [
+          record,
+          null,
+        ]) as ILocalDBTxGetAllRecordsResult<T>['recordPairs'],
+      };
+    }
     if (name === ELocalDBStoreNames.Credential) {
       const records = this.credentials.map((credential) => ({
         ...credential,
@@ -335,11 +390,35 @@ class TestLocalDb extends LocalDbBase {
     return undefined;
   }
 
+  override async txRemoveRecords<T extends ELocalDBStoreNames>({
+    name,
+    ids = [],
+    recordPairs = [],
+  }: ILocalDBTxRemoveRecordsParams<T>): Promise<void> {
+    const targetIds = [...ids, ...recordPairs.map(([record]) => record.id)];
+    if (name === ELocalDBStoreNames.Wallet) {
+      this.wallets = this.wallets.filter(
+        (wallet) => !targetIds.includes(wallet.id),
+      );
+    }
+    if (name === ELocalDBStoreNames.Credential) {
+      this.credentials = this.credentials.filter(
+        (credential) => !targetIds.includes(credential.id),
+      );
+    }
+    if (name === ELocalDBStoreNames.Device) {
+      this.removedDeviceIds.push(...targetIds);
+    }
+  }
+
   override async buildCreateHDAndHWWalletResult({
     walletId,
+    withoutRefillWallet,
   }: {
     walletId: string;
+    withoutRefillWallet?: boolean;
   }) {
+    this.buildCreateResultCalls.push({ walletId, withoutRefillWallet });
     return {
       wallet: this.wallets.find((wallet) => wallet.id === walletId)!,
       indexedAccount: undefined,
@@ -416,13 +495,15 @@ function buildMockLocalSecretEnvelopeLayerAdapter({
   deleteLayerKey,
   failDecrypt,
   failEncrypt,
+  keyRef = 'indexeddb:test-device-key:v1',
+  kind = 'indexeddb-cryptokey',
 }: {
   deleteLayerKey?: ILocalSecretEnvelopeLayerAdapter['deleteLayerKey'];
   failDecrypt?: boolean;
   failEncrypt?: boolean;
+  keyRef?: string;
+  kind?: ILocalSecretEnvelopeLayerKind;
 } = {}): ILocalSecretEnvelopeLayerAdapter {
-  const kind = 'indexeddb-cryptokey';
-  const keyRef = 'indexeddb:test-device-key:v1';
   return {
     kind,
     prepareLayer: async () => ({
@@ -492,6 +573,47 @@ async function buildLegacyLocalSecretEnvelopeVerifyString({
   });
 }
 
+describe('LocalDbBase.removeWallet hardware device lifecycle', () => {
+  const buildHardwareWallet = (): IDBWallet => ({
+    id: 'hw-wallet-1',
+    name: 'OneKey Pro 2',
+    type: 'hw',
+    backuped: true,
+    accounts: [],
+    nextIds: {},
+    associatedDevice: 'device-1',
+    walletNo: 1,
+  });
+
+  it('retains a mocked standard wallet as the hidden-wallet device proxy', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [buildHardwareWallet()];
+
+    await db.removeWallet({
+      walletId: 'hw-wallet-1',
+      isRemoveToMocked: true,
+    });
+
+    expect(db.wallets).toEqual([
+      expect.objectContaining({
+        id: 'hw-wallet-1',
+        isMocked: true,
+      }),
+    ]);
+    expect(db.removedDeviceIds).toEqual([]);
+  });
+
+  it('deletes the wallet and device record when the device is removed', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [buildHardwareWallet()];
+
+    await db.removeWallet({ walletId: 'hw-wallet-1' });
+
+    expect(db.wallets).toEqual([]);
+    expect(db.removedDeviceIds).toEqual(['device-1']);
+  });
+});
+
 describe('LocalDbBase.createHDWallet', () => {
   it('keeps nextHD stable while preserving unique walletNo for override wallet ids', async () => {
     const db = new TestLocalDb();
@@ -538,7 +660,7 @@ describe('LocalDbBase.createHDWallet', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     const revealableSeed = {
       entropyWithLangPrefixed: 'english:00010203',
       seed: 'seed-hex',
@@ -577,7 +699,89 @@ describe('LocalDbBase.createHDWallet', () => {
   });
 });
 
+describe('LocalDbBase.createHwWallet', () => {
+  it('returns the persisted wallet before refill for label synchronization', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [
+      {
+        id: 'hw-device-db-1',
+        name: 'Previous device name',
+        type: 'hw',
+        backuped: true,
+        accounts: [],
+        nextIds: {},
+        associatedDevice: 'device-db-1',
+        walletNo: 1,
+      },
+    ];
+    jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+      dbDeviceId: 'device-db-1',
+      dbWalletId: 'hw-device-db-1',
+      deviceUUID: 'PRO2_SERIAL',
+      rawDeviceId: 'PRO2_DEVICE_ID',
+    });
+    jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+
+    const result = await db.createHwWallet({
+      device: {
+        connectId: 'PRO2_USB',
+        uuid: 'PRO2_SERIAL',
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        name: 'Pro2 6136',
+      },
+      features: {
+        label: 'Current device name',
+        bleName: 'Pro2 6136',
+        deviceType: EDeviceType.Pro2,
+        deviceId: 'PRO2_DEVICE_ID',
+        serialNo: 'PRO2_SERIAL',
+      } as never,
+      deviceState: {
+        schemaVersion: 1,
+        revision: 1,
+        updatedAt: 1,
+        protocol: 'V2',
+        identity: {
+          deviceType: EDeviceType.Pro2,
+          firmwareType: EFirmwareType.Universal,
+          model: 'pro2',
+          vendor: 'onekey.so',
+          deviceId: 'PRO2_DEVICE_ID',
+          serialNo: 'PRO2_SERIAL',
+          label: 'Current device name',
+          bleName: 'Pro2 6136',
+        },
+        status: { mode: 'normal' },
+        settings: {},
+        versions: {},
+        capabilities: [],
+      } as never,
+    });
+
+    expect(result.wallet.name).toBe('Previous device name');
+    expect(db.buildCreateResultCalls.at(-1)).toEqual({
+      walletId: 'hw-device-db-1',
+      withoutRefillWallet: true,
+    });
+  });
+});
+
 describe('LocalDbBase local secret envelope credentials', () => {
+  beforeAll(() => {
+    // These tests isolate the LSE boundary. Desktop password-session wrapping
+    // is outside this suite and is replaced with the native HLP serializer.
+    jest
+      .spyOn(hyperLiquidAgentSecretSession, 'encryptCredential')
+      .mockImplementation(async ({ credential }) =>
+        encryptHyperLiquidAgentCredential({ credential }),
+      );
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   it('starts post-password lazy upgrade after getContext verifies the password', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
@@ -697,6 +901,438 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(innerCredential.credential).toBe(importedCredential);
   });
 
+  it('always stores HyperLiquid agent credentials inside LSE', async () => {
+    const db = new TestLocalDb();
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+
+    const { credentialId } = await db.addHyperLiquidAgentCredential({
+      credential,
+    });
+    const storedCredential = await db.getCredentialRaw(credentialId);
+
+    expect(isLocalSecretEnvelopeString(storedCredential.credential)).toBe(true);
+    expect(storedCredential.credential).not.toContain(credential.privateKey);
+    expect(
+      parseLocalSecretEnvelopeV1(storedCredential.credential),
+    ).toMatchObject({
+      dataType: 'credential',
+      innerPrefix: '|HLP|',
+      recordId: credentialId,
+    });
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toEqual(credential);
+
+    await db.removeCredentials({ credentials: [storedCredential] });
+    expect(db.credentials).toEqual([]);
+    expect(db.removeBackupHyperLiquidAgentCredentials).toHaveBeenCalledWith({
+      credentialIds: [credentialId],
+    });
+    expect(deleteLayerKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to persist a HyperLiquid agent credential when LSE is unavailable', async () => {
+    const db = new TestLocalDb();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      db.addHyperLiquidAgentCredential({
+        credential: {
+          userAddress: '0x1111111111111111111111111111111111111111',
+          agentName: EHyperLiquidAgentName.OneKeyAgent1,
+          privateKey:
+            '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          agentAddress: '0x2222222222222222222222222222222222222222',
+          validUntil: 1_900_000_000_000,
+        },
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    expect(db.credentials).toEqual([]);
+  });
+
+  it('updates a HyperLiquid agent credential with the existing LSE key', async () => {
+    const db = new TestLocalDb();
+    const deleteLayerKey = jest.fn();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const { credentialId } = await db.addHyperLiquidAgentCredential({
+      credential,
+    });
+    const originalEnvelope = parseLocalSecretEnvelopeV1(
+      (await db.getCredentialRaw(credentialId)).credential,
+    );
+    const updatedCredential = {
+      ...credential,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x3333333333333333333333333333333333333333',
+      validUntil: 2_000_000_000_000,
+    };
+
+    await db.updateHyperLiquidAgentCredential({
+      credential: updatedCredential,
+    });
+
+    const nextStoredCredential = await db.getCredentialRaw(credentialId);
+    const nextEnvelope = parseLocalSecretEnvelopeV1(
+      nextStoredCredential.credential,
+    );
+    expect(nextEnvelope.wrappingLayers.map((layer) => layer.keyRef)).toEqual(
+      originalEnvelope.wrappingLayers.map((layer) => layer.keyRef),
+    );
+    expect(nextEnvelope.wrappingLayers.map((layer) => layer.iv)).not.toEqual(
+      originalEnvelope.wrappingLayers.map((layer) => layer.iv),
+    );
+    expect(nextStoredCredential.credential).not.toContain(
+      updatedCredential.privateKey,
+    );
+    expect(deleteLayerKey).not.toHaveBeenCalled();
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: updatedCredential.userAddress,
+        agentName: updatedCredential.agentName,
+      }),
+    ).resolves.toEqual(updatedCredential);
+  });
+
+  it('upgrades a single-layer HyperLiquid agent credential on its next write', async () => {
+    const db = new TestLocalDb();
+    const oldBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'indexeddb:old-hl-key:v1',
+    });
+    const deleteBaseLayerKey = jest.fn();
+    const nextBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey: deleteBaseLayerKey,
+      keyRef: 'indexeddb:next-hl-key:v1',
+    });
+    const enhancementAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'secure-storage-global-key:v1',
+      kind: 'secure-storage',
+    });
+    const originalCredential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: originalCredential.userAddress,
+      agentName: originalCredential.agentName,
+    });
+    const originalInnerCredential = encryptHyperLiquidAgentCredential({
+      credential: originalCredential,
+    });
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [oldBaseAdapter],
+      plaintext: originalInnerCredential,
+      recordId: credentialId,
+      strength: 'profile-bound',
+    });
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: originalEnvelope,
+      },
+    ];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [nextBaseAdapter, enhancementAdapter],
+        strength: 'secure-storage-bound',
+      });
+    const updatedCredential = {
+      ...originalCredential,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x3333333333333333333333333333333333333333',
+      validUntil: 2_000_000_000_000,
+    };
+
+    await db.updateHyperLiquidAgentCredential({
+      credential: updatedCredential,
+    });
+
+    const nextEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
+    expect(nextEnvelope.wrappingLayers.map((layer) => layer.kind)).toEqual([
+      'indexeddb-cryptokey',
+      'secure-storage',
+    ]);
+    expect(nextEnvelope.wrappingLayers[0].keyRef).toBe(
+      'indexeddb:old-hl-key:v1',
+    );
+    expect(deleteBaseLayerKey).not.toHaveBeenCalled();
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: originalEnvelope,
+        expectedDataType: 'credential',
+        expectedRecordId: credentialId,
+        resolveLayerAdapter: () => oldBaseAdapter,
+      }),
+    ).resolves.toBe(originalInnerCredential);
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: updatedCredential.userAddress,
+        agentName: updatedCredential.agentName,
+      }),
+    ).resolves.toEqual(updatedCredential);
+  });
+
+  it('keeps the existing single layer when a HyperLiquid topology upgrade fails', async () => {
+    const db = new TestLocalDb();
+    const oldBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'indexeddb:old-hl-key:v1',
+    });
+    const deleteExistingBaseLayerKey = jest.fn();
+    const nextBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey: deleteExistingBaseLayerKey,
+      keyRef: 'indexeddb:next-hl-key:v1',
+    });
+    const failingEnhancementAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      failEncrypt: true,
+      keyRef: 'secure-storage-global-key:v1',
+      kind: 'secure-storage',
+    });
+    const originalCredential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: originalCredential.userAddress,
+      agentName: originalCredential.agentName,
+    });
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: [oldBaseAdapter],
+          plaintext: encryptHyperLiquidAgentCredential({
+            credential: originalCredential,
+          }),
+          recordId: credentialId,
+          strength: 'profile-bound',
+        }),
+      },
+    ];
+    const originalEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [nextBaseAdapter, failingEnhancementAdapter],
+        strength: 'secure-storage-bound',
+      });
+    const updatedCredential = {
+      ...originalCredential,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+
+    await db.updateHyperLiquidAgentCredential({
+      credential: updatedCredential,
+    });
+
+    const nextEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
+    expect(nextEnvelope.wrappingLayers).toHaveLength(1);
+    expect(nextEnvelope.wrappingLayers[0].keyRef).toBe(
+      originalEnvelope.wrappingLayers[0].keyRef,
+    );
+    expect(nextEnvelope.wrappingLayers[0].iv).not.toBe(
+      originalEnvelope.wrappingLayers[0].iv,
+    );
+    expect(deleteExistingBaseLayerKey).not.toHaveBeenCalled();
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: updatedCredential.userAddress,
+        agentName: updatedCredential.agentName,
+      }),
+    ).resolves.toEqual(updatedCredential);
+  });
+
+  it('wraps a legacy plaintext HyperLiquid agent credential before returning it', async () => {
+    const db = new TestLocalDb();
+    const baseAdapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const enhancementAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'secure-storage-global-key:v1',
+      kind: 'secure-storage',
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [baseAdapter, enhancementAdapter],
+        strength: 'secure-storage-bound',
+      });
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: encryptHyperLiquidAgentCredential({ credential }),
+      },
+    ];
+
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toEqual(credential);
+    expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+      true,
+    );
+    expect(
+      parseLocalSecretEnvelopeV1(
+        db.credentials[0].credential,
+      ).wrappingLayers.map((layer) => layer.kind),
+    ).toEqual(['indexeddb-cryptokey', 'secure-storage']);
+  });
+
+  it('does not overwrite a concurrent HyperLiquid credential rotation during plaintext migration', async () => {
+    const db = new TestLocalDb();
+    const baseAdapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [baseAdapter],
+        strength: 'profile-bound',
+      });
+    const originalCredential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const rotatedCredential = {
+      ...originalCredential,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x3333333333333333333333333333333333333333',
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: originalCredential.userAddress,
+      agentName: originalCredential.agentName,
+    });
+    const originalRawCredential = encryptHyperLiquidAgentCredential({
+      credential: originalCredential,
+    });
+    const rotatedRawCredential = encryptHyperLiquidAgentCredential({
+      credential: rotatedCredential,
+    });
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: originalRawCredential,
+      },
+    ];
+    const getCredentialRaw = db.getCredentialRaw.bind(db);
+    let rawReadCount = 0;
+    jest.spyOn(db, 'getCredentialRaw').mockImplementation(async (id) => {
+      rawReadCount += 1;
+      if (rawReadCount === 2) {
+        db.credentials[0].credential = rotatedRawCredential;
+      }
+      return getCredentialRaw(id);
+    });
+
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: originalCredential.userAddress,
+        agentName: originalCredential.agentName,
+      }),
+    ).rejects.toThrow('HyperLiquid agent credential changed during update');
+    expect(db.credentials[0].credential).toBe(rotatedRawCredential);
+  });
+
+  it('fails closed when a legacy plaintext agent credential cannot be wrapped', async () => {
+    const db = new TestLocalDb();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const rawCredential = encryptHyperLiquidAgentCredential({ credential });
+    db.credentials = [{ id: credentialId, credential: rawCredential }];
+
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    expect(db.credentials[0].credential).toBe(rawCredential);
+  });
+
   it('stores restored imported account credentials as LSE after migration is complete', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
@@ -704,7 +1340,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     db.wallets = [
       db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
     ];
@@ -770,7 +1406,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     db.wallets = [
       db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
     ];
@@ -843,7 +1479,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     db.wallets = [
       db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
     ];
@@ -907,7 +1543,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     db.wallets = [
       db.buildSingletonWalletRecord({ walletId: WALLET_TYPE_IMPORTED }),
     ];
@@ -1006,7 +1642,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     db._localSecretEnvelopeCredentialMigrationExecuted = true;
     const importedCredential = await encryptImportedCredential({
       credential: { privateKey: 'private-key-hex' },
@@ -1036,7 +1672,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     // Nothing was persisted raw, so the completed marker stays intact.
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
-      1,
+      2,
     );
   });
 
@@ -1047,7 +1683,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     const importedCredential = await encryptImportedCredential({
       credential: { privateKey: 'private-key-hex' },
       password,
@@ -1076,6 +1712,57 @@ describe('LocalDbBase local secret envelope credentials', () => {
           LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
       },
     });
+  });
+
+  it('falls back to the healthy base layer when enhancement encryption fails after probing', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
+    const importedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'private-key-hex' },
+      password,
+    });
+    const baseAdapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const enhancementAdapter: ILocalSecretEnvelopeLayerAdapter = {
+      ...buildMockLocalSecretEnvelopeLayerAdapter({ failEncrypt: true }),
+      kind: 'secure-storage',
+      prepareLayer: async () => ({
+        alg: 'AES-256-GCM',
+        capabilities: {
+          extractable: 'unknown',
+          keyAccess: 'raw-key-readable',
+          sync: 'local-only',
+        },
+        iv: 'secure-storage-iv',
+        keyRef: 'secure-storage-test-key',
+        kind: 'secure-storage',
+      }),
+    };
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValueOnce({
+        layerAdapters: [baseAdapter, enhancementAdapter],
+        strength: 'secure-storage-bound',
+      })
+      .mockResolvedValue({
+        layerAdapters: [baseAdapter],
+        strength: 'profile-bound',
+      });
+
+    const wrapped = await db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+      credentialId: 'imported--60--public-key',
+      credential: importedCredential,
+    });
+
+    expect(
+      parseLocalSecretEnvelopeV1(wrapped).wrappingLayers.map(
+        (layer) => layer.kind,
+      ),
+    ).toEqual(['indexeddb-cryptokey']);
   });
 
   it('returns the raw credential when LSE is unavailable before migration completes', async () => {
@@ -1134,6 +1821,53 @@ describe('LocalDbBase local secret envelope credentials', () => {
       credentialId: 'hd-1',
     });
 
+    expect(innerCredential.credential).toBe(credential);
+  });
+
+  it('reads a historical secureStorage-only credential without the new mandatory base layer', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const credential = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:00010203',
+        seed: 'seed-hex',
+      },
+      password,
+    });
+    const secureStorageAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      kind: 'secure-storage',
+      keyRef: 'secure-storage-global-key:v1',
+    });
+    db.credentials = [
+      {
+        id: 'hd-1',
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: [secureStorageAdapter],
+          plaintext: credential,
+          recordId: 'hd-1',
+          strength: 'secure-storage-bound',
+        }),
+      },
+    ];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+    const requiredResolverSpy = jest
+      .spyOn(db, 'buildRequiredLocalSecretEnvelopeLayerAdapterResolver')
+      .mockResolvedValue((layer) =>
+        layer.kind === secureStorageAdapter.kind
+          ? secureStorageAdapter
+          : undefined,
+      );
+
+    const innerCredential = await db.getCredentialInner({
+      credentialId: 'hd-1',
+    });
+
+    expect(requiredResolverSpy).toHaveBeenCalledWith({
+      requiredLayerKinds: ['secure-storage'],
+    });
     expect(innerCredential.credential).toBe(credential);
   });
 
@@ -1260,7 +1994,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     const originalCredential = await encryptRevealableSeed({
       rs: {
         entropyWithLangPrefixed: 'english:00010203',
@@ -1385,6 +2119,71 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(db.credentials[0].credential).toBe(originalEnvelope);
   });
 
+  it('preserves an existing dual-layer envelope when the enhancement is temporarily unavailable', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
+    const originalCredential = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:00010203',
+        seed: 'seed-hex',
+      },
+      password,
+    });
+    const nextCredential = await encryptRevealableSeed({
+      rs: {
+        entropyWithLangPrefixed: 'english:04050607',
+        seed: 'seed-hex-2',
+      },
+      password,
+    });
+    const baseAdapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const enhancementAdapter: ILocalSecretEnvelopeLayerAdapter = {
+      ...buildMockLocalSecretEnvelopeLayerAdapter(),
+      kind: 'secure-storage',
+      prepareLayer: async () => ({
+        alg: 'AES-256-GCM',
+        capabilities: {
+          extractable: 'unknown',
+          keyAccess: 'raw-key-readable',
+          sync: 'local-only',
+        },
+        iv: 'secure-storage-iv',
+        keyRef: 'secure-storage-test-key',
+        kind: 'secure-storage',
+      }),
+    };
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [baseAdapter, enhancementAdapter],
+      plaintext: originalCredential,
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    db.credentials = [{ id: 'hd-1', credential: originalEnvelope }];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [baseAdapter],
+        strength: 'profile-bound',
+      });
+
+    await expect(
+      db.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
+        credentialId: 'hd-1',
+        credential: nextCredential,
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    expect(db.credentials[0].credential).toBe(originalEnvelope);
+    expect(
+      parseLocalSecretEnvelopeV1(db.credentials[0].credential).wrappingLayers,
+    ).toHaveLength(2);
+  });
+
   it('refreshes an existing TON mnemonic credential during restore', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
@@ -1392,7 +2191,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     const accountId = 'imported--607--public-key';
     const credentialId = accountUtils.buildTonMnemonicCredentialId({
       accountId,
@@ -1797,7 +2596,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     ).toBe('');
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
-      1,
+      2,
     );
   });
 
@@ -1866,8 +2665,98 @@ describe('LocalDbBase local secret envelope credentials', () => {
     ).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
     expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
-      1,
+      2,
     );
+  });
+
+  it('defers online HLP credentials to the browser-class HLE migration', async () => {
+    const db = new TestLocalDb();
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    db.context.localSecretEnvelopeCredentialMigrated = true;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 1_900_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const onlineCredential = encryptHyperLiquidAgentCredential({ credential });
+    db.credentials = [{ id: credentialId, credential: onlineCredential }];
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+    expect(db.credentials[0].credential).toBe(onlineCredential);
+    expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+      false,
+    );
+    expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
+    expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
+      2,
+    );
+  });
+
+  it('wraps online HLP credentials directly in LSE in Web DApp mode', async () => {
+    const originalIsWebDappMode = platformEnv.isWebDappMode;
+    platformEnv.isWebDappMode = true;
+    try {
+      const db = new TestLocalDb();
+      db.context.localPasswordKdfUpgraded = true;
+      db.context.localPasswordKdfUpgradedTargetIterations =
+        PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+      db.context.localSecretEnvelopeCredentialMigrated = true;
+      db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+      const credential = {
+        userAddress: '0x1111111111111111111111111111111111111111',
+        agentName: EHyperLiquidAgentName.OneKeyAgent1,
+        privateKey:
+          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        agentAddress: '0x2222222222222222222222222222222222222222',
+        validUntil: 1_900_000_000_000,
+      };
+      const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      });
+      db.credentials = [
+        {
+          id: credentialId,
+          credential: encryptHyperLiquidAgentCredential({ credential }),
+        },
+      ];
+      const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+      jest
+        .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+        .mockResolvedValue({
+          layerAdapters: [adapter],
+          strength: 'profile-bound',
+        });
+
+      await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+      expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(db.credentials[0].credential).innerPrefix,
+      ).toBe('|HLP|');
+    } finally {
+      platformEnv.isWebDappMode = originalIsWebDappMode;
+    }
   });
 
   it('does not scan LSE credentials after the persistent migration marker is set', async () => {
@@ -1876,13 +2765,216 @@ describe('LocalDbBase local secret envelope credentials', () => {
     db.context.localPasswordKdfUpgradedTargetIterations =
       PBKDF2_CURRENT_NUM_OF_ITERATIONS;
     db.context.localSecretEnvelopeCredentialMigrated = true;
-    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+    db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
     const getAllCredentialsSpy = jest.spyOn(db, 'getAllCredentials');
 
     await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
 
     expect(getAllCredentialsSpy).not.toHaveBeenCalled();
     expect(db._localSecretEnvelopeCredentialMigrationExecuted).toBe(true);
+  });
+});
+
+describe('LocalDbBase HyperLiquid agent password session', () => {
+  const originalIsWebDappMode = platformEnv.isWebDappMode;
+
+  afterEach(async () => {
+    platformEnv.isWebDappMode = originalIsWebDappMode;
+    await hyperLiquidAgentSecretSession.clear();
+  });
+
+  it('stores and reads Web DApp credentials as LSE(HLP) without a password session', async () => {
+    platformEnv.isWebDappMode = true;
+    const db = new TestLocalDb();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const sessionEncryptSpy = jest.spyOn(
+      hyperLiquidAgentSecretSession,
+      'encryptCredential',
+    );
+    const credential = {
+      userAddress: '0x3333333333333333333333333333333333333333',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x4444444444444444444444444444444444444444',
+      validUntil: 2_000_000_000_000,
+    };
+
+    try {
+      const { credentialId } = await db.addHyperLiquidAgentCredential({
+        credential,
+      });
+      const storedCredential = await db.getCredentialRaw(credentialId);
+      const updateSpy = jest.spyOn(db, 'updateHyperLiquidAgentCredential');
+
+      expect(isLocalSecretEnvelopeString(storedCredential.credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(storedCredential.credential).innerPrefix,
+      ).toBe('|HLP|');
+      expect(storedCredential.credential).not.toContain(credential.privateKey);
+      expect(sessionEncryptSpy).not.toHaveBeenCalled();
+      expect(db.getCachedPasswordMock).not.toHaveBeenCalled();
+      expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+      await expect(
+        db.getHyperLiquidAgentCredential({
+          userAddress: credential.userAddress,
+          agentName: credential.agentName,
+        }),
+      ).resolves.toEqual(credential);
+      expect(updateSpy).not.toHaveBeenCalled();
+    } finally {
+      sessionEncryptSpy.mockRestore();
+    }
+  });
+
+  it('migrates an online HLP credential directly to LSE(HLE) on unlock', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-unlock-migration-salt',
+    });
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 2_000_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: encryptHyperLiquidAgentCredential({ credential }),
+      },
+    ];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.unlockHyperLiquidAgentSecretSession({
+      password,
+    });
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
+
+    const storedCredential = db.credentials[0].credential;
+    expect(isLocalSecretEnvelopeString(storedCredential)).toBe(true);
+    expect(parseLocalSecretEnvelopeV1(storedCredential).innerPrefix).toBe(
+      '|HLE|',
+    );
+    expect(storedCredential).not.toContain(credential.privateKey);
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toEqual(credential);
+  });
+
+  it('skips session derivation on unlock when no agent credentials exist', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.credentials = [];
+
+    await db.unlockHyperLiquidAgentSecretSession({
+      password,
+      skipWhenNoCredentials: true,
+    });
+
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+  });
+
+  it('clears a stale session when replacing the password with no agent credentials', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-stale-session-salt',
+    });
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const otherPassword = await encodePasswordAsync({
+      password: 'new-password',
+    });
+    db.credentials = [];
+
+    await db.unlockHyperLiquidAgentSecretSession({ password });
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
+
+    await db.unlockHyperLiquidAgentSecretSession({
+      password: otherPassword,
+      replaceSessionKey: true,
+      skipWhenNoCredentials: true,
+    });
+
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+  });
+
+  it('establishes the session on demand when adding the first agent credential', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-on-demand-init-salt',
+    });
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.credentials = [];
+    db.getCachedPasswordMock.mockResolvedValue(password);
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const credential = {
+      userAddress: '0x3333333333333333333333333333333333333333',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x4444444444444444444444444444444444444444',
+      validUntil: 2_000_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+
+    await expect(
+      db.addHyperLiquidAgentCredential({ credential }),
+    ).resolves.toEqual({ credentialId });
+
+    expect(db.getCachedPasswordMock).toHaveBeenCalled();
+    expect(hyperLiquidAgentSecretSession.isReady()).toBe(true);
+    const storedCredential = db.credentials[0].credential;
+    expect(isLocalSecretEnvelopeString(storedCredential)).toBe(true);
+    expect(parseLocalSecretEnvelopeV1(storedCredential).innerPrefix).toBe(
+      '|HLE|',
+    );
+    expect(storedCredential).not.toContain(credential.privateKey);
+    await expect(
+      db.getHyperLiquidAgentCredential({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+    ).resolves.toEqual(credential);
   });
 });
 
@@ -2266,6 +3358,156 @@ describe('LocalDbBase.setPassword', () => {
 });
 
 describe('LocalDbBase.updatePassword', () => {
+  it('updates persisted HLE credentials in the password transaction', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      sensitiveEncodeKey: 'test-hle-password-update-salt',
+    });
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    db.context.verifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 2_000_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const oldDerivedKey = await deriveHyperLiquidAgentSecretKey({
+      password: oldPassword,
+    });
+    oldDerivedKey.rawKey.fill(0);
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    db.credentials = [
+      {
+        id: credentialId,
+        credential: await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: [adapter],
+          plaintext: await encryptHyperLiquidAgentCredentialWithSessionKey({
+            credential,
+            key: oldDerivedKey.key,
+            recordId: credentialId,
+          }),
+          recordId: credentialId,
+          strength: 'profile-bound',
+        }),
+      },
+    ];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.updatePassword({ oldPassword, newPassword });
+
+    const nextInnerCredential = await db.getCredentialInner({ credentialId });
+    const newDerivedKey = await deriveHyperLiquidAgentSecretKey({
+      password: newPassword,
+    });
+    newDerivedKey.rawKey.fill(0);
+    await expect(
+      decryptHyperLiquidAgentCredentialWithSessionKey({
+        credential: nextInnerCredential.credential,
+        key: newDerivedKey.key,
+        recordId: credentialId,
+      }),
+    ).resolves.toEqual(credential);
+    await expect(
+      decryptHyperLiquidAgentCredentialWithSessionKey({
+        credential: nextInnerCredential.credential,
+        key: oldDerivedKey.key,
+        recordId: credentialId,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('re-encrypts an HLE credential with the new password key', async () => {
+    const db = new TestLocalDb();
+    const credential = {
+      userAddress: '0x1111111111111111111111111111111111111111',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      agentAddress: '0x2222222222222222222222222222222222222222',
+      validUntil: 2_000_000_000_000,
+    };
+    const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+      userAddress: credential.userAddress,
+      agentName: credential.agentName,
+    });
+    const [oldKey, newKey] = await Promise.all([
+      crypto.subtle.generateKey({ length: 256, name: 'AES-GCM' }, false, [
+        'encrypt',
+        'decrypt',
+      ]),
+      crypto.subtle.generateKey({ length: 256, name: 'AES-GCM' }, false, [
+        'encrypt',
+        'decrypt',
+      ]),
+    ]);
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const originalInnerCredential =
+      await encryptHyperLiquidAgentCredentialWithSessionKey({
+        credential,
+        key: oldKey,
+        recordId: credentialId,
+      });
+    const originalCredential = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: originalInnerCredential,
+      recordId: credentialId,
+      strength: 'profile-bound',
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    const prepared = await db.buildCredentialPasswordUpdate({
+      credential: { id: credentialId, credential: originalCredential },
+      hyperLiquidAgentPasswordUpdateKeys: { newKey, oldKey },
+      kdfParams: {},
+      newPassword: 'unused',
+      oldPassword: 'unused',
+    });
+
+    const nextInnerCredential = await unwrapLocalSecretEnvelopeV1({
+      envelope: prepared.nextCredential,
+      expectedDataType: 'credential',
+      expectedRecordId: credentialId,
+      resolveLayerAdapter: () => adapter,
+    });
+    await expect(
+      decryptHyperLiquidAgentCredentialWithSessionKey({
+        credential: nextInnerCredential,
+        key: newKey,
+        recordId: credentialId,
+      }),
+    ).resolves.toEqual(credential);
+    await expect(
+      decryptHyperLiquidAgentCredentialWithSessionKey({
+        credential: nextInnerCredential,
+        key: oldKey,
+        recordId: credentialId,
+      }),
+    ).rejects.toThrow();
+  });
+
   it('precomputes credential encryption before transaction and updates records', async () => {
     const db = new TestLocalDb();
     const oldPassword = await encodePasswordAsync({ password: 'old-password' });
@@ -2475,6 +3717,84 @@ describe('LocalDbBase.updatePassword', () => {
       rs: innerCredential.credential,
     });
     expect(hdCredentialResult.plaintext).toEqual(revealableSeed);
+  });
+
+  it('upgrades a readable single-layer LSE credential on password change', async () => {
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    const revealableSeed = {
+      entropyWithLangPrefixed: 'english:00010203',
+      seed: 'seed-hex',
+    };
+    const oldBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'indexeddb:old-device-key:v1',
+    });
+    const deleteBaseLayerKey = jest.fn();
+    const nextBaseAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      deleteLayerKey: deleteBaseLayerKey,
+      keyRef: 'indexeddb:next-device-key:v1',
+    });
+    const enhancementAdapter = buildMockLocalSecretEnvelopeLayerAdapter({
+      keyRef: 'secure-storage-global-key:v1',
+      kind: 'secure-storage',
+    });
+    db.context.verifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    const innerCredential = await encryptRevealableSeed({
+      rs: revealableSeed,
+      password: oldPassword,
+    });
+    const originalEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [oldBaseAdapter],
+      plaintext: innerCredential,
+      recordId: 'hd-1',
+      strength: 'profile-bound',
+    });
+    db.credentials = [{ id: 'hd-1', credential: originalEnvelope }];
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [nextBaseAdapter, enhancementAdapter],
+        strength: 'secure-storage-bound',
+      });
+
+    await db.updatePassword({ oldPassword, newPassword });
+
+    const nextEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
+    expect(nextEnvelope.wrappingLayers.map((layer) => layer.kind)).toEqual([
+      'indexeddb-cryptokey',
+      'secure-storage',
+    ]);
+    expect(nextEnvelope.wrappingLayers[0].keyRef).toBe(
+      'indexeddb:old-device-key:v1',
+    );
+    expect(deleteBaseLayerKey).not.toHaveBeenCalled();
+
+    const backupInnerCredential = await unwrapLocalSecretEnvelopeV1({
+      envelope: originalEnvelope,
+      expectedDataType: 'credential',
+      expectedRecordId: 'hd-1',
+      resolveLayerAdapter: () => oldBaseAdapter,
+    });
+    const backupResult = await decryptRevealableSeedWithMetadata({
+      password: oldPassword,
+      rs: backupInnerCredential,
+    });
+    expect(backupResult.plaintext).toEqual(revealableSeed);
+
+    const nextInnerCredential = await db.getCredentialInner({
+      credentialId: 'hd-1',
+    });
+    const result = await decryptRevealableSeedWithMetadata({
+      password: newPassword,
+      rs: nextInnerCredential.credential,
+    });
+    expect(result.plaintext).toEqual(revealableSeed);
   });
 
   it('marks an LSE credential unwrap failure during password update for auto-toast and dialog', async () => {

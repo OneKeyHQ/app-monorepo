@@ -4,12 +4,14 @@ export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
   MobileTokenSelector = 'MobileTokenSelector',
+  MarketChartSettings = 'MarketChartSettings',
 }
 
 export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketDetailV2]: {
-    tokenAddress: string;
-    network: string;
+    tokenAddress?: string;
+    network?: string;
+    stockId?: string;
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
@@ -23,4 +25,5 @@ export type IModalMarketParamList = {
         showFavoriteButton?: boolean;
       }
     | undefined;
+  [EModalMarketRoutes.MarketChartSettings]: undefined;
 };

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject, Ref } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,7 +21,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ICheckedState } from '@onekeyhq/components';
+import type { ICheckedState, IInputRef } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -57,6 +58,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -96,12 +98,15 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
+import { resolveStandardReferencePriceBN } from '../../../utils/tradingReferencePrice';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import {
   type ISizeInputDisplayValueChangePayload,
+  type ISizeInputMinimumOrderAction,
   SizeInput,
 } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -118,6 +123,10 @@ interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
   reserveMobileEnableTradingLayout?: boolean;
+  sizeInputRef?: Ref<IInputRef>;
+  minimumOrderActionRef?: MutableRefObject<
+    ISizeInputMinimumOrderAction | undefined
+  >;
 }
 
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
@@ -461,6 +470,8 @@ function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
   reserveMobileEnableTradingLayout = false,
+  sizeInputRef,
+  minimumOrderActionRef,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsActiveAccount] = usePerpsActiveAccountAtom();
@@ -506,7 +517,7 @@ function PerpTradingForm({
     priceSource: tradingPriceSource,
   });
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('tradingPanel');
   const enableTrading = useEnableTradingWithDepositFallback();
   const { universeByBaseName } = useSpotMetaMaps();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -763,28 +774,6 @@ function PerpTradingForm({
       : formatPriceToSignificantDigits(latestMidPrice, sizeSzDecimals);
   }, [actions, activeTradeInstrument, isSpot, sizeSzDecimals]);
 
-  const handleUseMidPriceForExecutionPrice = useCallback(() => {
-    void (async () => {
-      const nextPrice = await getFormattedMidPrice();
-      if (nextPrice) {
-        updateForm({
-          executionPrice: nextPrice,
-        });
-      }
-    })();
-  }, [getFormattedMidPrice, updateForm]);
-
-  const handleUseMidPriceForPrice = useCallback(() => {
-    void (async () => {
-      const nextPrice = await getFormattedMidPrice();
-      if (nextPrice) {
-        updateForm({
-          price: nextPrice,
-        });
-      }
-    })();
-  }, [getFormattedMidPrice, updateForm]);
-
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
 
   useEffect(() => {
@@ -943,10 +932,14 @@ function PerpTradingForm({
         lowerPrice: formData.scaleLowerPrice,
         upperPrice: formData.scaleUpperPrice,
       });
-    } else if (formData.type === 'limit' && formData.price) {
-      price = new BigNumber(formData.price);
-    } else if (formData.type === 'market') {
-      price = midPriceBN;
+    } else {
+      price = resolveStandardReferencePriceBN({
+        type: formData.type,
+        bboPriceMode: formData.bboPriceMode,
+        orderPriceBN,
+        formPrice: formData.price,
+        midPriceBN,
+      });
     }
     return [
       price,
@@ -957,6 +950,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
+    formData.bboPriceMode,
     formData.orderMode,
     formData.triggerOrderType,
     formData.triggerPrice,
@@ -965,6 +959,7 @@ function PerpTradingForm({
     formData.scaleUpperPrice,
     isSpot,
     midPriceBN,
+    orderPriceBN,
     sizeSzDecimals,
   ]);
 
@@ -1510,16 +1505,31 @@ function PerpTradingForm({
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
-      updateForm({ hasTpsl: !!checked });
-
-      if (!checked) {
+      if (checked) {
         updateForm({
+          hasTpsl: true,
+          ...buildDefaultTpSlPercent({
+            tpType: formData.tpType,
+            tpValue: formData.tpValue,
+            slType: formData.slType,
+            slValue: formData.slValue,
+          }),
+        });
+      } else {
+        updateForm({
+          hasTpsl: false,
           tpTriggerPx: '',
           slTriggerPx: '',
         });
       }
     },
-    [updateForm],
+    [
+      formData.slType,
+      formData.slValue,
+      formData.tpType,
+      formData.tpValue,
+      updateForm,
+    ],
   );
 
   const handleTpValueChange = useCallback(
@@ -1555,7 +1565,7 @@ function PerpTradingForm({
       updateForm({ bboPriceMode: null });
     } else {
       updateForm({
-        bboPriceMode: { type: 'counterparty', level: 1 },
+        bboPriceMode: { type: 'counterparty', offsetTicks: 0 },
       });
     }
   }, [formData.bboPriceMode, updateForm]);
@@ -2112,7 +2122,6 @@ function PerpTradingForm({
           />
           {isTriggerLimitOrder ? (
             <PriceInput
-              onUseMidPrice={handleUseMidPriceForExecutionPrice}
               placeholder={intl.formatMessage({
                 id: ETranslations.perps_input_price_place_holder,
               })}
@@ -2146,7 +2155,6 @@ function PerpTradingForm({
           ) : (
             <YStack flex={1}>
               <PriceInput
-                onUseMidPrice={handleUseMidPriceForPrice}
                 value={
                   formData.type === 'limit'
                     ? formData.price
@@ -2391,6 +2399,15 @@ function PerpTradingForm({
           }}
           InputComponentStyle={{
             bg: 'transparent',
+            ...(isMobile
+              ? {
+                  fontFamily: platformEnv.isNative
+                    ? 'Roobert-Medium'
+                    : undefined,
+                  fontSize: 14,
+                  fontWeight: '500' as const,
+                }
+              : {}),
           }}
           addOnsContainerProps={{
             pr: '$0.5',
@@ -2483,6 +2500,7 @@ function PerpTradingForm({
   };
 
   const checkboxSizeVal = isMobile ? '$3.5' : '$4';
+  const primaryCheckboxSizeVal = isMobile ? 15 : checkboxSizeVal;
   const tpLabelKey = isMobile
     ? ETranslations.perp_tp
     : ETranslations.perp_trade_tp_price;
@@ -2517,9 +2535,9 @@ function PerpTradingForm({
           alignItems: 'center',
           cursor: isSubmitting ? 'default' : 'pointer',
         }}
-        width={checkboxSizeVal}
-        height={checkboxSizeVal}
-        {...(isMobile && { p: '$0' })}
+        width={primaryCheckboxSizeVal}
+        height={primaryCheckboxSizeVal}
+        {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
         size={isMobile ? '$bodySm' : '$bodyMdMedium'}
@@ -2566,7 +2584,7 @@ function PerpTradingForm({
                 }}
                 width={checkboxSizeVal}
                 height={checkboxSizeVal}
-                {...(isMobile && { p: '$0' })}
+                {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
               <Tooltip
                 placement="top"
@@ -2687,9 +2705,9 @@ function PerpTradingForm({
                   alignItems: 'center',
                   ...(!isMobile && { cursor: 'pointer' }),
                 }}
-                width={checkboxSizeVal}
-                height={checkboxSizeVal}
-                {...(isMobile && { p: '$0' })}
+                width={primaryCheckboxSizeVal}
+                height={primaryCheckboxSizeVal}
+                {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
 
               <XStack alignItems="center" pt="$0.5">
@@ -2864,16 +2882,16 @@ function PerpTradingForm({
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
             <XStack alignItems="center" gap="$2.5" width="100%">
-              <YStack flex={1.2} flexBasis={0} minWidth={0}>
+              <YStack flex={9} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
                 />
               </YStack>
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={7} flexBasis={0} minWidth={0}>
                 <LeverageAdjustModal isMobile={isMobile} />
               </YStack>
-              <YStack flex={1} flexBasis={0} minWidth={0}>
+              <YStack flex={9} flexBasis={0} minWidth={0}>
                 <AccountModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
@@ -2914,7 +2932,12 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+              <XStack
+                alignItems="center"
+                flex={platformEnv.isNative ? 1 : undefined}
+                gap="$3"
+                width="100%"
+              >
                 <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}
@@ -3143,6 +3166,8 @@ function PerpTradingForm({
       {isTwapMode ? null : renderPriceInputSection()}
 
       <SizeInput
+        inputRef={sizeInputRef}
+        minimumOrderActionRef={minimumOrderActionRef}
         referencePrice={referencePriceString}
         side={formData.side}
         activeAsset={selectedTradeAsset}

@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -11,6 +11,7 @@ import {
   Divider,
   Heading,
   Icon,
+  IconButton,
   Input,
   NumberSizeableText,
   ScrollView,
@@ -58,6 +59,7 @@ import {
   isInvalidMarketPresetDirectionSettings,
   isInvalidMarketPresetPriorityFeeSettings,
   isInvalidMarketPresetSlippageSettings,
+  isMarketPresetAutoSlippage,
   isMarketPresetConfirmDisabled,
   normalizeMarketPresetDirectionSettings,
   shouldShowMarketPresetPriorityFeeTooltip,
@@ -99,6 +101,7 @@ type IMarketPresetSelectorProps = {
   slippageIconName?: IIconProps['name'];
   showAutoSlippageLabel?: boolean;
   variant?: ITradingWidgetMainButtonVariant;
+  settingsButtonOnly?: boolean;
 };
 
 type IDraftPresetSettings = Partial<
@@ -155,7 +158,7 @@ function getMarketPresetLabel({
   return label ?? presetKey.toUpperCase();
 }
 
-function getPriorityFeeLabel({
+export function getPriorityFeeLabel({
   intl,
   settings,
   unit,
@@ -694,6 +697,38 @@ function MarketPresetTabBar({
       })}
     </XStack>
   );
+}
+
+// Single owner of the preset-settings dialog presentation, shared by the
+// Market panel selector and the Swap Pro preset row.
+export function showMarketPresetSettingsDialog({
+  intl,
+  antiMEV,
+  estimatePriorityFeeFiatValues,
+  presetSettings,
+}: {
+  intl: IntlShape;
+  antiMEV?: boolean;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
+  presetSettings: IMarketPresetSettingsState;
+}) {
+  const dialog = Dialog.show({
+    title: intl.formatMessage({
+      id: ETranslations.marketdex_edit_presets_title,
+    }),
+    renderContent: (
+      <MarketPresetSettingsDialog
+        close={() => {
+          void dialog.close();
+        }}
+        antiMEV={antiMEV}
+        estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
+        presetSettings={presetSettings}
+      />
+    ),
+    showFooter: false,
+  });
+  return dialog;
 }
 
 function MarketPresetSettingsDialog({
@@ -1513,8 +1548,9 @@ export function MarketPresetSelector({
   estimatePriorityFeeFiatValues,
   presetSettings,
   slippageIconName = 'SliderVerOutline',
-  showAutoSlippageLabel = false,
+  showAutoSlippageLabel = true,
   variant,
+  settingsButtonOnly,
 }: IMarketPresetSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -1544,21 +1580,11 @@ export function MarketPresetSelector({
   );
 
   const openPresetDialog = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.marketdex_edit_presets_title,
-      }),
-      renderContent: (
-        <MarketPresetSettingsDialog
-          close={() => {
-            void dialog.close();
-          }}
-          antiMEV={antiMEV}
-          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-          presetSettings={presetSettings}
-        />
-      ),
-      showFooter: false,
+    showMarketPresetSettingsDialog({
+      intl,
+      antiMEV,
+      estimatePriorityFeeFiatValues,
+      presetSettings,
     });
   }, [antiMEV, estimatePriorityFeeFiatValues, intl, presetSettings]);
 
@@ -1584,10 +1610,22 @@ export function MarketPresetSelector({
     return null;
   }
 
+  if (settingsButtonOnly) {
+    // Figma 25672:54914 - see SlippageSetting's header variant: icon-only
+    // action with a 20 glyph and a circular hover background.
+    return (
+      <IconButton
+        testID="market-stock-preset-settings"
+        size="small"
+        variant="tertiary"
+        icon="SliderHorOutline"
+        onPress={openPresetDialog}
+      />
+    );
+  }
+
   const slippageLabel =
-    resolvedVariant === 'compact' &&
-    showAutoSlippageLabel &&
-    selectedDirectionSettings.slippage.key === ESwapSlippageSegmentKey.AUTO
+    showAutoSlippageLabel && isMarketPresetAutoSlippage(selectedPresetKey)
       ? intl.formatMessage({ id: ETranslations.global_auto })
       : `${selectedSlippageValue}%`;
   const priorityFeeLabel = getPriorityFeeLabel({

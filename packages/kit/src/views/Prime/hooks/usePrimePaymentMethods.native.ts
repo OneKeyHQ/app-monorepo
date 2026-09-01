@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import PurchasesReactNative, {
+  type CustomerInfo,
   INTRO_ELIGIBILITY_STATUS,
   LOG_LEVEL,
+  type PurchasesPackage,
 } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
@@ -17,26 +19,32 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  emitPrimeSubscriptionPurchaseSuccess,
+  preparePrimeSubscriptionPurchaseSuccess,
+  refreshPrimeUserInfoAfterPurchase,
+} from '../primeSubscriptionPurchaseSuccess';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
+import {
+  configureRevenueCat,
+  getRevenueCatRecurringPriceUnit,
+} from './revenueCatNativeCompatibility.native';
 
 import type {
   IPackage,
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-import type {
-  CustomerInfo,
-  PurchasesPackage,
-} from '@revenuecat/purchases-typescript-internal';
-
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
     await PurchasesReactNative.setLogLevel(LOG_LEVEL.VERBOSE);
@@ -103,10 +111,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       // The native setupPurchases runs synchronously on main thread via TurboModule,
       // and performs heavy JSON decoding of cached CustomerInfo causing 5s+ AppHang.
       requestIdleCallback(() => {
-        PurchasesReactNative.configure({
-          apiKey,
-          // useAmazon: true
-        });
+        configureRevenueCat({ apiKey });
         setIsPaymentReady(true);
       });
     })();
@@ -132,11 +137,20 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-    // Sync instanceId to RevenueCat so server-side events (renewal, cancellation, etc.)
-    // are sent to Mixpanel with the same distinct_id as client-side analytics.
+    // Sync instanceId to RevenueCat so server-side subscription lifecycle
+    // events (renewal, cancellation, etc.) land on the same analytics person
+    // as client-side events. Mixpanel reads $mixpanelDistinctId; the PostHog
+    // integration reads the $posthogUserId subscriber attribute instead.
     if (instanceId) {
       try {
         await PurchasesReactNative.setMixpanelDistinctID(instanceId);
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        await PurchasesReactNative.setAttributes({
+          '$posthogUserId': instanceId,
+        });
       } catch (e) {
         console.error(e);
       }
@@ -156,13 +170,27 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
       const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
       if (localIsActive) {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        defaultLogger.prime.subscription.primeRestorePurchaseResult({
+          result: 'success',
+        });
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.prime_restore_successful,
           }),
         });
+        try {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
+            reason: `restorePurchases user-info refresh failed: ${getSanitizedErrorLogText(
+              error,
+            )}`,
+          });
+        }
       } else {
+        defaultLogger.prime.subscription.primeRestorePurchaseResult({
+          result: 'noPurchases',
+        });
         Toast.message({
           title: intl.formatMessage({
             id: ETranslations.prime_no_purchases_found,
@@ -171,6 +199,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       }
     } catch (e) {
       console.error('restorePurchases >>>>>> error', e);
+      defaultLogger.prime.subscription.primeRestorePurchaseResult({
+        result: 'failed',
+      });
       Toast.message({
         title: (e as Error)?.message || 'Restore purchases failed',
       });
@@ -211,14 +242,17 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const availablePackages = offerings.current?.availablePackages || [];
     const iosIntroEligibleProductIds =
       await getIOSIntroEligibleProductIds(availablePackages);
+    const recurringPriceUnit = getRevenueCatRecurringPriceUnit();
 
     availablePackages.forEach((p) => {
       const { subscriptionPeriod } = p.product;
       const pricePerYear = primePaymentUtils.normalizeNativePrice(
         p.product.pricePerYear || 0,
+        recurringPriceUnit,
       );
       const pricePerMonth = primePaymentUtils.normalizeNativePrice(
         p.product.pricePerMonth || 0,
+        recurringPriceUnit,
       );
 
       const currencyCode = p.product.currencyCode || '';
@@ -270,6 +304,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       subscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
     }) => {
+      // This hook is the single owner of the post-purchase refresh for native
+      // IAP: the success path runs claim -> refresh -> emit below, and the
+      // finally block covers failed/cancelled purchases exactly once. Callers
+      // must not add their own refresh.
+      let isPurchaseSuccessful = false;
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth native not ready!');
@@ -292,6 +331,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           throw new OneKeyLocalError('Offering not found');
         }
 
+        const purchaseUserId = user.onekeyUserId;
+        if (!purchaseUserId) {
+          throw new OneKeyLocalError('User not logged in');
+        }
         const makePurchaseResult =
           await PurchasesReactNative.purchasePackage(offering);
 
@@ -299,6 +342,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          isPurchaseSuccessful = true;
+          const purchaseSuccessPayload =
+            await preparePrimeSubscriptionPurchaseSuccess(purchaseUserId);
           // Set subscriptionManageUrl immediately from purchase result,
           // because the server may not yet have it (RevenueCat webhook delay).
           setPrimePersistAtom(
@@ -311,19 +357,24 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
                   '',
               }),
           );
-          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+          await refreshPrimeUserInfoAfterPurchase();
 
           const rawPrice =
             subscriptionPeriod === 'P1Y'
               ? offering.product.pricePerYear
               : offering.product.pricePerMonth;
-          const amount = primePaymentUtils.normalizeNativePrice(rawPrice || 0);
+          const amount = primePaymentUtils.normalizeNativePrice(
+            rawPrice || 0,
+            getRevenueCatRecurringPriceUnit(),
+          );
 
           primePaymentUtils.trackPrimeSubscriptionSuccess({
             amount,
             currency: offering.product.currencyCode,
             subscriptionPeriod,
             featureName,
+            // react-native-purchases = StoreKit / Play Billing in-app purchase
+            paymentMethod: 'iap',
           });
 
           void Dialog.confirm({
@@ -339,20 +390,33 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             onConfirmText: intl.formatMessage({
               id: ETranslations.global_ok,
             }),
+            onClose: () => {
+              emitPrimeSubscriptionPurchaseSuccess(purchaseSuccessPayload);
+            },
           });
         }
         return makePurchaseResult;
       } catch (error) {
-        const e = error as Error | undefined;
-        if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'iap',
+          subscriptionPeriod,
+          featureName,
+        });
+        if (reason !== 'userCancelled') {
           errorToastUtils.toastIfError(error);
         }
         throw error;
       } finally {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
+        if (!isPurchaseSuccessful) {
+          // Defensive single refresh after a failed/cancelled purchase, in
+          // case the store transaction went further than the SDK reported.
+          await refreshPrimeUserInfoAfterPurchase();
+        }
       }
     },
-    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom, user.onekeyUserId],
   );
 
   return {

@@ -29,6 +29,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -42,7 +43,7 @@ import type {
   IChainValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -57,6 +58,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -115,8 +117,8 @@ type ISendAmountInputParams =
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
-  const [settings] = useSettingsPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
@@ -184,10 +186,50 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
+  const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
+    isNFT,
+    isNative: tokenInfo?.isNative,
+    tokenAddress: tokenInfo?.address,
+    nativeTokenAddress:
+      vaultSettings?.networkInfo[currentAccount.networkId]
+        ?.nativeTokenAddress ??
+      vaultSettings?.networkInfo.default.nativeTokenAddress,
+  });
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
+
+  // Prefetch the private-send support flag while the user is still picking a
+  // recipient, so the Regular/Private switch on the amount page can render
+  // without a visible delay. Fire-and-forget: the result lands in the
+  // ServiceSwap memo cache and the amount page issues the same (deduped)
+  // call; failures are silent because the amount page retries on its own.
+  useEffect(() => {
+    if (
+      isNFT ||
+      !tokenInfo ||
+      !account?.address ||
+      networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
+    ) {
+      return;
+    }
+    void backgroundApiProxy.serviceSwap
+      .checkTokenPrivateSendSupported({
+        networkId: currentAccount.networkId,
+        contractAddress: tokenInfo.address,
+        accountAddress: account.address,
+        accountId: currentAccount.accountId,
+      })
+      .catch(() => {});
+  }, [
+    account?.address,
+    currentAccount.accountId,
+    currentAccount.networkId,
+    isNFT,
+    tokenInfo,
+  ]);
+
   const [
     displayMemoForm,
     displayPaymentIdForm,
@@ -235,15 +277,13 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        const withCheckInscription =
+          await backgroundApiProxy.serviceSetting.getEffectiveInscriptionProtection(
             {
               networkId: network.id,
               accountId: account.id,
             },
           );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId: network.id,
           accountId: account.id,
@@ -261,6 +301,8 @@ function SendDataInputContainer() {
 
       return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
+    // The policy state is an intentional invalidation signal; bg computes the final value.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [
       account,
       isNFT,
@@ -270,7 +312,8 @@ function SendDataInputContainer() {
       serviceToken,
       token,
       tokenInfo,
-      settings.inscriptionProtection,
+      inscriptionProtectionState.localEnabled,
+      inscriptionProtectionState.serverEnabled,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
@@ -319,7 +362,6 @@ function SendDataInputContainer() {
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
   const toSimilarAddress = toValue?.similarAddress;
-
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       if (
@@ -400,6 +442,19 @@ function SendDataInputContainer() {
       const isValid = await form.trigger();
       if (!isValid) return;
 
+      const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      const { canProceed, hasAcknowledgedWarning } =
+        await confirmCexDepositIfUnsupported({
+          intl,
+          isNFT,
+          networkId: currentAccount.networkId,
+          tokenSymbol: tokenInfo?.symbol,
+          networkName: network?.name,
+          page: 'address',
+          cexSupportedInfo: toVal?.cexSupportedInfo,
+        });
+      if (!canProceed) return;
+
       defaultLogger.transaction.send.addressInput({
         addressInputMethod: addressInputChangeType.current,
       });
@@ -409,7 +464,6 @@ function SendDataInputContainer() {
       const nextNoteValue = form.getValues('note');
 
       // Reuse the matching amount-input route for the active modal stack.
-      const toVal = form.getValues('to') as IAddressInputValue | undefined;
 
       const isLightning = networkUtils.isLightningNetworkByNetworkId(
         currentAccount.networkId,
@@ -568,6 +622,7 @@ function SendDataInputContainer() {
         amount: invoiceAmount || scannedAmount || sendAmount || undefined,
         isInvoiceAmountLocked,
         isAllNetworks,
+        hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
         onSuccess,
         onFail,
         onCancel,
@@ -595,6 +650,8 @@ function SendDataInputContainer() {
     onSuccess,
     onFail,
     onCancel,
+    intl,
+    network?.name,
   ]);
 
   const validateMemoField = useValidateMemoField({
@@ -947,6 +1004,7 @@ function SendDataInputContainer() {
             enableAllowListValidation,
             ignoreSimilarAddressInAddressBook: true,
             enableCheckSimilarAddressInAddressBook: true,
+            tokenAddress: badgeQueryTokenAddress,
           });
         if (queryResult.validStatus !== 'valid' || queryResult.similarAddress) {
           // Address invalid — fall back to input for feedback
@@ -962,6 +1020,18 @@ function SendDataInputContainer() {
           queryResult.resolveAddress ||
           queryResult.validAddress ||
           selectedAddress;
+
+        const { canProceed, hasAcknowledgedWarning } =
+          await confirmCexDepositIfUnsupported({
+            intl,
+            isNFT,
+            networkId: currentAccount.networkId,
+            tokenSymbol: tokenInfo?.symbol,
+            networkName: network?.name,
+            page: 'address',
+            cexSupportedInfo: queryResult.cexSupportedInfo,
+          });
+        if (!canProceed) return;
 
         defaultLogger.transaction.send.addressInput({
           addressInputMethod: addressInputChangeType.current,
@@ -1033,6 +1103,7 @@ function SendDataInputContainer() {
           recipientNote,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
+          hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
           onSuccess,
           onFail,
           onCancel,
@@ -1060,6 +1131,7 @@ function SendDataInputContainer() {
       enableAllowListValidation,
       isAllNetworks,
       isNFT,
+      badgeQueryTokenAddress,
       nfts,
       onCancel,
       onFail,
@@ -1069,6 +1141,8 @@ function SendDataInputContainer() {
       scannedAmount,
       sendAmount,
       tokenInfo,
+      intl,
+      network?.name,
     ],
   );
 
@@ -1284,6 +1358,7 @@ function SendDataInputContainer() {
               ignoreSimilarAddressInAddressBook
               enableCheckSimilarAddressInAddressBook
               hasQuickSelectMatches={hasQuickSelectMatches}
+              tokenAddress={badgeQueryTokenAddress}
             />
             {toSimilarAddress ? (
               <Alert

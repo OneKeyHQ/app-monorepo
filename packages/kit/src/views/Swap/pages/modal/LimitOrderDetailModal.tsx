@@ -34,7 +34,10 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  clampLimitRateDecimals,
+  formatBalance,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { limitOrderEstimationFeePercent } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -50,7 +53,10 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
-import { getLimitOrderDisplayAmounts } from '../../components/LimitOrderCard.utils';
+import {
+  getLimitOrderDisplayAmounts,
+  getLimitOrderDisplayPrice,
+} from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
@@ -128,20 +134,18 @@ const LimitOrderDetailModal = () => {
   );
 
   const limitPrice = useMemo(() => {
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        Number(orderItemState?.toTokenInfo.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
+      toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+    }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
   }, [
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
+    orderItemState?.fromTokenInfo.decimals,
     orderItemState?.toTokenInfo.decimals,
   ]);
 
@@ -421,49 +425,46 @@ const LimitOrderDetailModal = () => {
     ).multipliedBy(new BigNumber(limitOrderEstimationFeePercent));
     let estimationRunPrice;
     let difValuePercentLabel = '0%';
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        Number(orderItemState?.toTokenInfo.decimals ?? 0),
-        BigNumber.ROUND_HALF_UP,
-      );
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
+      toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+    });
+    // The estimated fill price only differs from the limit price by how the
+    // fee is folded in; both branches share the toToken-denominated clamp and
+    // the percent label, which guards degenerate zero/non-finite prices.
+    let rawRunPrice;
     if (kind === ESwapQuoteKind.SELL) {
-      const estimationToAmountBN = new BigNumber(decimalsAmount.toAmount).plus(
-        feeAmountWithPercentBN,
+      rawRunPrice = decimalsAmount.toAmount
+        .plus(feeAmountWithPercentBN)
+        .dividedBy(decimalsAmount.fromAmount);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      rawRunPrice = decimalsAmount.toAmount.dividedBy(
+        decimalsAmount.fromAmount.minus(feeAmountWithPercentBN),
       );
-      estimationRunPrice = estimationToAmountBN
-        .dividedBy(decimalsAmount.fromAmount)
-        .decimalPlaces(
-          Number(orderItemState?.toTokenInfo.decimals ?? 0),
-          BigNumber.ROUND_HALF_UP,
-        );
-      const difValue = estimationRunPrice.minus(calculateLimitPrice);
-      const difValuePercent = difValue
-        .dividedBy(calculateLimitPrice)
-        .multipliedBy(100)
-        .toFixed(2);
-      difValuePercentLabel = `${difValuePercent}%`;
     }
-    if (kind === ESwapQuoteKind.BUY) {
-      const estimationFromAmountBN = new BigNumber(
-        decimalsAmount.fromAmount,
-      ).minus(feeAmountWithPercentBN);
-      estimationRunPrice = decimalsAmount.toAmount
-        .dividedBy(estimationFromAmountBN)
-        .decimalPlaces(
-          Number(orderItemState?.toTokenInfo.decimals ?? 0),
-          BigNumber.ROUND_HALF_UP,
-        );
-      const difValue = estimationRunPrice.minus(calculateLimitPrice);
-      const difValuePercent = difValue
-        .dividedBy(calculateLimitPrice)
-        .multipliedBy(100)
-        .toFixed(2);
-      difValuePercentLabel = `${difValuePercent}%`;
+    if (rawRunPrice) {
+      estimationRunPrice = clampLimitRateDecimals(
+        rawRunPrice,
+        orderItemState?.toTokenInfo.decimals,
+      );
+      if (
+        estimationRunPrice.isFinite() &&
+        calculateLimitPrice.gt(0) &&
+        calculateLimitPrice.isFinite()
+      ) {
+        const difValuePercent = estimationRunPrice
+          .minus(calculateLimitPrice)
+          .dividedBy(calculateLimitPrice)
+          .multipliedBy(100)
+          .toFixed(2);
+        difValuePercentLabel = `${difValuePercent}%`;
+      }
     }
-    if (estimationRunPrice) {
+    // A degenerate order (zero side / fee >= amount) yields a non-finite or
+    // non-positive estimation — hide the row instead of rendering "Infinity".
+    if (estimationRunPrice?.isFinite() && estimationRunPrice.gt(0)) {
       const estimationRunPriceFormat = formatBalance(
         estimationRunPrice.toFixed(),
       );

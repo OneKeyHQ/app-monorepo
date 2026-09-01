@@ -1,15 +1,34 @@
+import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
-export async function logoutPurchasesSdk() {
+let logoutPurchasesSdkPromise: Promise<boolean> | undefined;
+
+async function logoutPurchasesSdkInternal(): Promise<boolean> {
   try {
     const { Purchases } = await loadPurchasesSdkWeb();
     if (!Purchases.isConfigured()) {
-      return;
+      return true;
     }
-    await Purchases.getSharedInstance().changeUser(
-      Purchases.generateRevenueCatAnonymousAppUserId(),
+    const purchases = Purchases.getSharedInstance();
+    if (purchases.getAppUserId().startsWith('$RCAnonymousID:')) {
+      return true;
+    }
+    await purchases.changeUser(
+      purchaseSdkUtils.generateRevenueCatAnonymousAppUserId(),
     );
+    return true;
   } catch (e) {
-    console.error('[Prime] Purchases.changeUser anonymous error:', e);
+    console.error(
+      '[Prime] Purchases.changeUser anonymous error:',
+      e instanceof Error ? e.message : String(e),
+    );
+    return false;
   }
+}
+
+export function logoutPurchasesSdk(): Promise<boolean> {
+  logoutPurchasesSdkPromise ??= logoutPurchasesSdkInternal().finally(() => {
+    logoutPurchasesSdkPromise = undefined;
+  });
+  return logoutPurchasesSdkPromise;
 }

@@ -1,6 +1,7 @@
 import { TIME_RANGE_TO_API_MAP } from './types';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  ensureMarketTopCoinsCategory,
   isMarketStockCategory,
   isMarketStockCategoryById,
   parseValueToNumber,
@@ -406,6 +407,35 @@ describe('Market Stock Category Detection Tests', () => {
     expect(isMarketStockCategoryById(categories, 'trending')).toBe(false);
     expect(isMarketStockCategoryById(categories, 'missing')).toBe(false);
     expect(isMarketStockCategoryById(undefined, 'stock')).toBe(false);
+  });
+});
+
+describe('Top Coins Category Fallback Tests', () => {
+  test('inserts Top Coins before the first stock category', () => {
+    expect(
+      ensureMarketTopCoinsCategory(
+        [
+          { id: 'trending', name: 'Trending' },
+          { id: 'stocks', name: 'Stocks' },
+        ],
+        'Top Coins',
+      ),
+    ).toEqual([
+      { id: 'trending', name: 'Trending' },
+      { id: 'top_coins', name: 'Top Coins' },
+      { id: 'stocks', name: 'Stocks' },
+    ]);
+  });
+
+  test('preserves the server-provided Top Coins category and name', () => {
+    const categories = [
+      { id: 'trending', name: 'Trending' },
+      { id: 'top_coins', name: 'Top Assets' },
+    ];
+
+    expect(ensureMarketTopCoinsCategory(categories, 'Top Coins')).toBe(
+      categories,
+    );
   });
 });
 

@@ -21,7 +21,9 @@ export function getTabPreloadPolicy(): ITabPreloadPolicy {
     cpuTier: profile.cpu.tier,
     memoryClass: profile.memory.class,
     allowFullPreload:
-      !platformEnv.isWebMobile && !platformEnv.isExtensionUiPopup,
+      !platformEnv.isWebMobile &&
+      !platformEnv.isExtensionUiPopup &&
+      !platformEnv.isExtensionUiSidePanel,
   });
   if (!hasLoggedDeviceCapability) {
     hasLoggedDeviceCapability = true;

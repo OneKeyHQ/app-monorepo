@@ -1,8 +1,26 @@
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
+
 import {
   formatReceiveArrivalTime,
   getReceiveArrivalTimeText,
   resolveReceiveArrivalSeconds,
 } from './receiveArrivalTimeUtils';
+
+const defaultLocale = appLocale.intl.locale;
+const defaultMessages = appLocale.intl.messages;
+
+beforeEach(() => {
+  appLocale.setLocale('en-US', {
+    [ETranslations.receive_arrival_time_sec]: '~{number} s',
+    [ETranslations.receive_arrival_time_min]: '~{number} min',
+    [ETranslations.receive_arrival_time_over_min]: '> {number} min',
+  } as Parameters<typeof appLocale.setLocale>[1]);
+});
+
+afterEach(() => {
+  appLocale.setLocale(defaultLocale, defaultMessages);
+});
 
 describe('resolveReceiveArrivalSeconds', () => {
   it('resolves by impl for family chains', () => {

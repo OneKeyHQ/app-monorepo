@@ -50,6 +50,7 @@ import {
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -453,7 +454,7 @@ function WalletAccordionItem({
         {({ open }: { open: boolean }) => (
           <>
             <XStack
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
               flex={1}
               alignItems="center"
@@ -461,7 +462,7 @@ function WalletAccordionItem({
               opacity={isWalletEnabled ? 1 : 0.5}
             >
               <YStack
-                animation="quick"
+                transition="quick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
               >
@@ -498,12 +499,12 @@ function WalletAccordionItem({
         )}
       </Accordion.Trigger>
 
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           unstyled
           // bg="$transparent"
           bg="$bgDefault"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{
             opacity: 0,
@@ -838,7 +839,7 @@ function ManageAccountActivity() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_manage })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <AccountNotificationSettingsProvider wallets={wallets}>
           {isLoading ? (
             <LoadingView show={isLoading} />

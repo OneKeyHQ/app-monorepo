@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page, XStack, YStack, useMedia } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import {
   ProviderJotaiContextDeviceDetails,
   useDeviceAtom,
   useDeviceDetailsActions,
+  useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -16,6 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalDeviceManagementRoutes,
@@ -42,7 +45,11 @@ import DeviceSectionSecurity from './DeviceSectionSecurity';
 import DeviceSectionSupport from './DeviceSectionSupport';
 import DeviceSectionTrezorDebug from './DeviceSectionTrezorDebug';
 import { DeviceUpdateAlert } from './DeviceUpdateAlert';
-import { buildDeviceDetailsVisibility } from './utils';
+import {
+  buildDeviceDetailsVisibility,
+  shouldShowDeviceInteractiveSections,
+  syncRelevantDeviceStateEvent,
+} from './utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
@@ -70,17 +77,23 @@ function DeviceDetailsModalV2Cmp({
   initialDeviceVendor?: EHardwareVendor;
 }) {
   const intl = useIntl();
-  const { refresh } = useDeviceDetailsActions();
+  const localActions = useDeviceDetailsActions();
+  const { applyDeviceStateEvent, refresh } = localActions;
   const { handleBackPress } = useDeviceBackNavigation();
 
   const isQrWallet = accountUtils.isQrWallet({ walletId });
   const [device] = useDeviceAtom();
+  const [deviceMetaState] = useDeviceMetaStateAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const deviceVendor = device?.vendor ?? initialDeviceVendor;
   // DEV-ONLY Trezor THP debug tools, shown only in developer mode.
   const showTrezorDebug =
     devSettings.enabled && deviceVendor === EHardwareVendor.trezor;
   const hasLoadedDevice = isQrWallet || Boolean(device);
+  const showInteractiveSections = shouldShowDeviceInteractiveSections(
+    device?.deviceType,
+    deviceMetaState.isReady,
+  );
   const {
     vendorProfile,
     showFirmwareActions,
@@ -94,28 +107,82 @@ function DeviceDetailsModalV2Cmp({
     hasLoadedDevice,
   });
 
-  useEffect(() => {
+  const refreshCurrentDevice = useCallback(async () => {
     if (!walletId) return;
-    const fn = async () => {
-      const data = await refresh(walletId);
-      if (!data) {
-        void handleBackPress?.();
-      }
-    };
-    void fn();
-    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
-    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
-    appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
-      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
-      appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
-    };
+    // 设备详情页打开时优先展示已持久化的设备状态，避免页面聚焦就主动
+    // 建立连接，尤其是在没有已绑定 BLE connectId 时触发后台搜索/配对。
+    const data = await refresh(walletId, { skipDeviceStateSnapshot: true });
+    if (!data) {
+      void handleBackPress?.();
+    }
   }, [refresh, walletId, handleBackPress]);
 
-  const actions = useFirmwareUpdateActions();
-  const localActions = useDeviceDetailsActions();
+  const refreshConfirmedState = useCallback(
+    async (
+      event: IAppEventBusPayload[EAppEventBusNames.HardwareDeviceStateUpdate],
+    ) => {
+      if (!walletId) return;
+      await syncRelevantDeviceStateEvent({
+        event,
+        applyEvent: applyDeviceStateEvent,
+        refresh: () => refresh(walletId, { skipDeviceStateSnapshot: true }),
+      });
+    },
+    [applyDeviceStateEvent, refresh, walletId],
+  );
 
+  const refreshLegacyFeatures = useCallback(async () => {
+    if (!walletId) return;
+    await refresh(walletId, { skipDeviceStateSnapshot: true });
+  }, [refresh, walletId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshCurrentDevice();
+    }, [refreshCurrentDevice]),
+  );
+
+  useEffect(() => {
+    const refreshAfterFirmwareUpdate = async () => {
+      await refresh(walletId, { refreshFirmwareInfo: true });
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
+    appEventBus.on(
+      EAppEventBusNames.HardwareDeviceStateUpdate,
+      refreshConfirmedState,
+    );
+    appEventBus.on(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      refreshLegacyFeatures,
+    );
+    appEventBus.on(
+      EAppEventBusNames.FinishFirmwareUpdate,
+      refreshAfterFirmwareUpdate,
+    );
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshCurrentDevice);
+      appEventBus.off(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        refreshConfirmedState,
+      );
+      appEventBus.off(
+        EAppEventBusNames.HardwareFeaturesUpdate,
+        refreshLegacyFeatures,
+      );
+      appEventBus.off(
+        EAppEventBusNames.FinishFirmwareUpdate,
+        refreshAfterFirmwareUpdate,
+      );
+    };
+  }, [
+    refresh,
+    refreshConfirmedState,
+    refreshCurrentDevice,
+    refreshLegacyFeatures,
+    walletId,
+  ]);
+
+  const actions = useFirmwareUpdateActions();
   const onPressCheckForUpdates = useCallback(
     async (
       firmwareType?: EFirmwareType,
@@ -171,24 +238,30 @@ function DeviceDetailsModalV2Cmp({
                   )}
                 />
               ) : null}
-              {showDeviceSettings ? (
+              {showDeviceSettings && showInteractiveSections ? (
                 <>
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
-                  {/* Wipe device is a OneKey-SDK op; the danger zone is wipe-only
-                      for third-party (Trezor/Ledger), so hide it for them. */}
-                  {vendorProfile?.isThirdParty ? null : (
-                    <DeviceSectionDangerZone
-                      onPressCheckForUpdates={onPressCheckForUpdates}
-                    />
-                  )}
                 </>
               ) : null}
-              {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
+              {showPassphraseSettings && showInteractiveSections ? (
+                <DeviceSectionAdvance />
+              ) : null}
               {showDeviceConnection ? <DeviceSectionDeviceConnect /> : null}
+              {/* Last of the user-facing sections so a destructive action is
+                  never adjacent to the routine settings above. Wipe device is a
+                  OneKey-SDK op; the danger zone is wipe-only for third-party
+                  (Trezor/Ledger), so hide it for them. */}
+              {showDeviceSettings && !vendorProfile?.isThirdParty ? (
+                <DeviceSectionDangerZone
+                  onPressCheckForUpdates={onPressCheckForUpdates}
+                />
+              ) : null}
               {showTrezorDebug ? <DeviceSectionTrezorDebug /> : null}
             </YStack>
-            <DeviceGetStartedLayout visible={showDeviceSettings} />
+            <DeviceGetStartedLayout
+              visible={Boolean(showDeviceSettings && showInteractiveSections)}
+            />
           </XStack>
         </Page.Container>
       </Page.Body>

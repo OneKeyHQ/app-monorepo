@@ -6,17 +6,24 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
 import { getDeviceInfo } from './deviceInfo';
+import { type TAnalyticsTier, getAnalyticsTier } from './tier';
 
+import type { IAnalyticsUserProfile, IDeviceInfo } from './type';
 import type { AxiosInstance } from 'axios';
 
 export const ANALYTICS_EVENT_PATH = '/utility/v1/track';
 
 const TRACK_EVENT_PATH = `${ANALYTICS_EVENT_PATH}/event`;
 const TRACK_ATTRIBUTES_PATH = `${ANALYTICS_EVENT_PATH}/attributes`;
+
+type IAnalyticsDeviceInfo = Record<string, unknown> & {
+  tier: TAnalyticsTier;
+};
 
 export class Analytics {
   private instanceId = '';
@@ -25,7 +32,7 @@ export class Analytics {
 
   private cacheEvents = [] as [string, Record<string, any> | undefined][];
 
-  private cacheUserProfile = [] as Record<string, any>[];
+  private cacheUserProfile = [] as IAnalyticsUserProfile[];
 
   private request: AxiosInstance | null = null;
 
@@ -33,9 +40,11 @@ export class Analytics {
     pageName: string;
   };
 
-  private deviceInfo: Record<string, any> | null = null;
+  private deviceInfoPromise: Promise<IAnalyticsDeviceInfo> | null = null;
 
   private enableAnalyticsInDev = false;
+
+  private initializedWaiters: Array<() => void> = [];
 
   init({
     instanceId,
@@ -49,6 +58,11 @@ export class Analytics {
     this.instanceId = instanceId;
     this.baseURL = baseURL;
     this.enableAnalyticsInDev = enableAnalyticsInDev;
+    const waiters = this.initializedWaiters;
+    this.initializedWaiters = [];
+    for (const resolve of waiters) {
+      resolve();
+    }
     while (this.cacheEvents.length) {
       const params = this.cacheEvents.pop();
       if (params) {
@@ -115,15 +129,69 @@ export class Analytics {
     }
   }
 
-  private async lazyDeviceInfo() {
-    if (!this.deviceInfo) {
-      this.deviceInfo = await getDeviceInfo();
-      this.deviceInfo.platform = headerPlatform;
-      this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
-      this.deviceInfo.appVersion = platformEnv.version;
+  async trackEventAsync(
+    eventName: string,
+    eventProps?: Record<string, any>,
+  ): Promise<void> {
+    if (eventProps?.pageName) {
+      this.basicInfo.pageName = eventProps.pageName;
     }
-    this.deviceInfo.pageName = this.basicInfo.pageName;
-    return this.deviceInfo;
+    if (!this.instanceId || !this.baseURL) {
+      throw new OneKeyLocalError('Analytics is not initialized');
+    }
+    if (platformEnv.isWebEmbed) {
+      postMessage({
+        type: EWebEmbedPostMessageType.TrackEvent,
+        data: {
+          eventName,
+          eventProps,
+        },
+      });
+      return;
+    }
+    await this.requestEvent(eventName, eventProps);
+  }
+
+  private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
+    let deviceInfoPromise = this.deviceInfoPromise;
+    if (!deviceInfoPromise) {
+      deviceInfoPromise = (async () => {
+        let deviceInfo: IDeviceInfo = {};
+        let tier: TAnalyticsTier = 2;
+
+        try {
+          deviceInfo = await getDeviceInfo();
+        } catch (error) {
+          console.warn('[Analytics] Failed to load device info:', error);
+        }
+
+        try {
+          const { getDeviceCpuTier } =
+            await import('../performance/devicePerformanceTier');
+          tier = getAnalyticsTier(getDeviceCpuTier());
+        } catch (error) {
+          // Optional enrichment must never block the analytics request.
+          console.warn(
+            '[Analytics] Failed to load device performance tier:',
+            error,
+          );
+        }
+
+        return {
+          ...deviceInfo,
+          tier,
+          platform: headerPlatform,
+          appBuildNumber: platformEnv.buildNumber,
+          appVersion: platformEnv.version,
+        };
+      })();
+      this.deviceInfoPromise = deviceInfoPromise;
+    }
+    const deviceInfo = await deviceInfoPromise;
+    return {
+      ...deviceInfo,
+      pageName: this.basicInfo.pageName,
+    };
   }
 
   private async requestEvent(
@@ -140,8 +208,9 @@ export class Analytics {
     const event = {
       ...deviceInfo,
       ...eventProps,
+      tier: deviceInfo.tier,
       distinct_id: this.instanceId,
-    } as Record<string, string>;
+    } as Record<string, unknown>;
     if (
       !platformEnv.isNative &&
       // eslint-disable-next-line unicorn/prefer-global-this
@@ -158,7 +227,7 @@ export class Analytics {
     });
   }
 
-  private async requestUserProfile(attributes: Record<string, any>) {
+  private async requestUserProfile(attributes: IAnalyticsUserProfile) {
     if (
       (platformEnv.isDev || platformEnv.isE2E) &&
       !this.enableAnalyticsInDev
@@ -175,19 +244,30 @@ export class Analytics {
     });
   }
 
-  public updateUserProfile(attributes: {
-    walletCount?: number;
-    appWalletCount?: number;
-    hwWalletCount?: number;
-    keylessWalletCount?: number;
-    hwVendors?: string[];
-    primaryHwVendor?: string;
-  }) {
+  whenInitialized(): Promise<void> {
+    if (this.instanceId && this.baseURL) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.initializedWaiters.push(resolve);
+    });
+  }
+
+  public updateUserProfile(attributes: IAnalyticsUserProfile) {
     if (this.instanceId && this.baseURL) {
       void this.requestUserProfile(attributes);
     } else {
       this.cacheUserProfile.push(attributes);
     }
+  }
+
+  async updateUserProfileAsync(
+    attributes: IAnalyticsUserProfile,
+  ): Promise<void> {
+    if (!this.instanceId || !this.baseURL) {
+      throw new OneKeyLocalError('Analytics is not initialized');
+    }
+    await this.requestUserProfile(attributes);
   }
 }
 

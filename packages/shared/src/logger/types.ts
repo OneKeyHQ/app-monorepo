@@ -53,6 +53,7 @@ export interface IScope {
 export type IMethodDecoratorMetadata = {
   level: ILogLevel;
   type?: 'local' | 'server' | 'console';
+  waitForServer?: boolean;
 };
 
 export interface IScene {

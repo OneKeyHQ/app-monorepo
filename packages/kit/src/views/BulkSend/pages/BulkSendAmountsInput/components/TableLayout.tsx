@@ -225,6 +225,7 @@ function AmountCard() {
     isMaxMode,
     setIsMaxMode,
     hasDuplicateSenders,
+    displayBalance,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
@@ -234,7 +235,10 @@ function AmountCard() {
   const shouldShowMaxMode = isOneToMany
     ? !tokenInfo?.isNative
     : !hasDuplicateSenders;
-  const balance = tokenDetails?.balanceParsed ?? '0';
+  // Display basis for scaled-UI tokens (raw × multiplier); equals the raw
+  // balance for ordinary tokens. Drives validation, MAX split, and the
+  // Available label alike so they share one basis with user input.
+  const balance = displayBalance ?? tokenDetails?.balanceParsed ?? '0';
   const minTransferDisplayAmount = useMemo(
     () =>
       getBulkSendMinTransferDisplayAmount({
@@ -828,7 +832,7 @@ function AmountCard() {
               formatter="balance"
               formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
             >
-              {tokenDetails?.balanceParsed ?? '-'}
+              {displayBalance ?? tokenDetails?.balanceParsed ?? '-'}
             </NumberSizeableText>
           </XStack>
         ) : (

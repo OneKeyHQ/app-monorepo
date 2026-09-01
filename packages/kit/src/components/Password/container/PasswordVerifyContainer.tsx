@@ -15,6 +15,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -41,6 +42,8 @@ import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthAc
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
 
+import { formatLocalDbOpenErrorMessage } from './localDbOpenErrorMessage';
+
 import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -62,6 +65,7 @@ interface IPasswordVerifyProps {
   name?: 'lock';
   pageMode?: boolean;
   skipPostVerifyBackgroundTasks?: boolean;
+  kdfParams?: IPbkdf2KdfParams;
 }
 
 const PasswordVerifyContainer = ({
@@ -69,6 +73,7 @@ const PasswordVerifyContainer = ({
   name,
   pageMode,
   skipPostVerifyBackgroundTasks,
+  kdfParams,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
@@ -99,6 +104,15 @@ const PasswordVerifyContainer = ({
   // input immediately (see the effect below), without waiting for a verify
   // attempt.
   const [{ errorMessage: localDbOpenErrorMessage }] = useLocalDbOpenErrorAtom();
+  const localDbDowngradeGuidanceMessage = intl.formatMessage({
+    id: ETranslations.database_read_error_update_app__msg,
+  });
+  const localDbOpenErrorDisplayMessage = localDbOpenErrorMessage
+    ? formatLocalDbOpenErrorMessage(
+        localDbOpenErrorMessage,
+        localDbDowngradeGuidanceMessage,
+      )
+    : undefined;
   const resetPasswordStatus = useCallback(() => {
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
   }, []);
@@ -323,6 +337,7 @@ const PasswordVerifyContainer = ({
                   password: securePassword,
                   passwordMode,
                   skipPostVerifyBackgroundTasks,
+                  ...kdfParams,
                 });
               await callOnVerifyRes(verifiedPassword);
               setVerifiedStatus();
@@ -357,6 +372,7 @@ const PasswordVerifyContainer = ({
                 isBiologyAuth: true,
                 passwordMode,
                 skipPostVerifyBackgroundTasks,
+                ...kdfParams,
               });
           }
           if (biologyAuthRes) {
@@ -414,7 +430,10 @@ const PasswordVerifyContainer = ({
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
-          message = error?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
+          message = formatLocalDbOpenErrorMessage(
+            error?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE,
+            localDbDowngradeGuidanceMessage,
+          );
         } else if (isCallbackError && message) {
           // Use the callback error message as-is
         } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
@@ -466,6 +485,8 @@ const PasswordVerifyContainer = ({
       intl,
       isBiologyAuthEnable,
       isEnable,
+      kdfParams,
+      localDbDowngradeGuidanceMessage,
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
@@ -503,12 +524,14 @@ const PasswordVerifyContainer = ({
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: finalPassword,
+            ...kdfParams,
           });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
             skipPostVerifyBackgroundTasks,
+            ...kdfParams,
           });
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
@@ -585,7 +608,10 @@ const PasswordVerifyContainer = ({
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
-          message = errorWithFlag?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE;
+          message = formatLocalDbOpenErrorMessage(
+            errorWithFlag?.message || DB_OPEN_ERROR_FALLBACK_MESSAGE,
+            localDbDowngradeGuidanceMessage,
+          );
         } else {
           message = intl.formatMessage({
             id: ETranslations.auth_error_password_incorrect,
@@ -647,6 +673,8 @@ const PasswordVerifyContainer = ({
       intl,
       isLock,
       isProtectionTime,
+      kdfParams,
+      localDbDowngradeGuidanceMessage,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
@@ -687,16 +715,16 @@ const PasswordVerifyContainer = ({
   // the background DB layer when `_openDb()` throws), instead of only after the
   // user submits a password / triggers biometric.
   useEffect(() => {
-    if (localDbOpenErrorMessage) {
+    if (localDbOpenErrorDisplayMessage) {
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
-          message: localDbOpenErrorMessage,
+          message: localDbOpenErrorDisplayMessage,
         },
       }));
     }
-  }, [localDbOpenErrorMessage, setPasswordAtom]);
+  }, [localDbOpenErrorDisplayMessage, setPasswordAtom]);
 
   return (
     <Stack>
@@ -711,10 +739,10 @@ const PasswordVerifyContainer = ({
             // Keep showing a local DB open failure while the user types: it is a
             // terminal error (unlock cannot succeed), so it must not be cleared
             // like a normal wrong-password message. (OK-56874)
-            passwordVerifyStatus: localDbOpenErrorMessage
+            passwordVerifyStatus: localDbOpenErrorDisplayMessage
               ? {
                   value: EPasswordVerifyStatus.ERROR,
-                  message: localDbOpenErrorMessage,
+                  message: localDbOpenErrorDisplayMessage,
                 }
               : { value: EPasswordVerifyStatus.DEFAULT },
           }));

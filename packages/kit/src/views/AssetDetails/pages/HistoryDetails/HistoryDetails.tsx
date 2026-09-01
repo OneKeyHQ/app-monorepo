@@ -1043,6 +1043,11 @@ function HistoryDetails() {
           confirmationETABlocks: txDetails?.confirmationETABlocks,
           broadcastTimeMs,
           nowMs: Date.now(),
+          // Mirror only the real speed-up entry (renderReplaceButtons requires
+          // canReplaceTx); the "Order inquiry" button is not an accelerate
+          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+          // Stays undefined until the async capability check resolves.
+          canSpeedUp: canReplaceTx,
         })
       : null;
 
@@ -1084,6 +1089,7 @@ function HistoryDetails() {
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
+    canReplaceTx,
   ]);
 
   const renderTxFlow = useCallback(() => {

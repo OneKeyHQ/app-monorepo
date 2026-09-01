@@ -87,7 +87,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   return (
     <YStack pb={bottom}>
       <MultipleClickStack
-        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 1}
+        triggerAt={process.env.NODE_ENV === 'production' ? 10 : 3}
         showDevBgColor
         w="$8"
         h="$8"
@@ -331,7 +331,7 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer safeAreaBottomMode="content">
         <DebugInput onText={(value) => callback(value)} />
       </Page.Footer>
     </Page>

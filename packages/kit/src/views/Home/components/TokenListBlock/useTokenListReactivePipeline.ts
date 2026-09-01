@@ -81,6 +81,14 @@ export interface ICacheSeedItem {
   smallBalanceTokenList: IAccountToken[];
   riskyTokenList: IAccountToken[];
   tokenListMap: Record<string, ITokenFiat>;
+  /**
+   * Cached per-network worth counting tokens + smallBalanceTokens ONLY (risk
+   * excluded — ServiceToken computes it from the two group fiat subtotals).
+   * Seeded onto the floor round as its explicit `accountWorth` because the
+   * shared full `tokenListMap` below also contains risk-only entries a
+   * map-derived sum would wrongly include. Optional: legacy caches predate it.
+   */
+  tokenListValue?: string;
   aggregateTokenListMap?: { [key: string]: { tokens: IAccountToken[] } };
   aggregateTokenMap?: Record<string, ITokenFiat>;
   accountId: string;
@@ -122,7 +130,9 @@ export interface ITokenListReactivePipeline {
   /** LWW-ingest a settled live round (L2) + schedule a throttled flush. */
   ingestLiveRound: (result: ILiveRound, generation: number) => void;
   /** materialize ∩ enabledKeys → resolve merge flags → build the merged snapshot. */
-  buildAuthoritativeSnapshot: () => Promise<IMergedAllNetworkSnapshot>;
+  buildAuthoritativeSnapshot: () => Promise<
+    IMergedAllNetworkSnapshot | undefined
+  >;
   /** Ingest the authoritative snapshot + clear timer + bump epoch. */
   commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
 }
@@ -368,6 +378,7 @@ export function useTokenListReactivePipeline(
               keys: item.riskyTokenList.map((t) => t.$key).join(','),
               map: item.tokenListMap,
             },
+            accountWorth: item.tokenListValue,
             aggregateTokenListMap: item.aggregateTokenListMap,
             aggregateTokenMap: item.aggregateTokenMap,
             ownerAccountId,
@@ -431,19 +442,26 @@ export function useTokenListReactivePipeline(
     [ownerAccountId, ownerNetworkId],
   );
 
-  const buildAuthoritativeSnapshot =
-    useCallback(async (): Promise<IMergedAllNetworkSnapshot> => {
-      const viewRounds = progressiveViewRef.current.materialize(
-        enabledKeysRef.current,
-      );
-      const roundsWithFlag = await resolveRoundsWithMergeFlag(viewRounds);
-      return buildMergedAllNetworkSnapshot({
-        rounds: roundsWithFlag,
-        mergeDeriveAssetsByNetworkId: {},
-        accountId: ownerAccountId,
-        createAtNetwork: ownerCreateAtNetwork,
-      });
-    }, [ownerAccountId, ownerCreateAtNetwork, resolveRoundsWithMergeFlag]);
+  const buildAuthoritativeSnapshot = useCallback(async (): Promise<
+    IMergedAllNetworkSnapshot | undefined
+  > => {
+    const viewRounds = progressiveViewRef.current.materialize(
+      enabledKeysRef.current,
+    );
+    // An empty materialized view means the pipeline was reset and has not
+    // received cache or live rounds for the current run yet. It is not an
+    // authoritative empty wallet snapshot.
+    if (!viewRounds.length) {
+      return undefined;
+    }
+    const roundsWithFlag = await resolveRoundsWithMergeFlag(viewRounds);
+    return buildMergedAllNetworkSnapshot({
+      rounds: roundsWithFlag,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: ownerAccountId,
+      createAtNetwork: ownerCreateAtNetwork,
+    });
+  }, [ownerAccountId, ownerCreateAtNetwork, resolveRoundsWithMergeFlag]);
 
   const commitAuthoritativeIngest = useCallback(
     (snapshot: IMergedAllNetworkSnapshot) => {

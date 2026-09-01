@@ -68,6 +68,27 @@ export function useAutoSelectAccount({ num }: { num: number }) {
     };
   }, [account, actions, num, sceneName, sceneUrl]);
 
+  // **** autoSelectAccount after WalletRemove
+  useEffect(() => {
+    const fn = async ({ walletId }: { walletId: string }) => {
+      // Do not rebind a DApp connection during wallet cleanup.
+      if (sceneName === EAccountSelectorSceneName.discover) {
+        return;
+      }
+      await actions.current.autoSelectNextAccount({
+        num,
+        sceneName,
+        sceneUrl,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: walletId,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.WalletRemove, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletRemove, fn);
+    };
+  }, [actions, num, sceneName, sceneUrl]);
+
   // **** autoSelectAccount after AccountRemove
   useEffect(() => {
     const fn = async () => {

@@ -19,6 +19,7 @@ import type { IMarketTimeRangeValue } from '../../types';
 type IMarketNormalTokenListProps = {
   networkId?: string;
   selectedCategory?: string;
+  forceStockMetadataColumns?: boolean;
   stockCategory?: string;
   timeRange?: IMarketTimeRangeValue;
   sortBy?: string;
@@ -36,11 +37,14 @@ type IMarketNormalTokenListProps = {
   pollingInterval?: number;
   rowBg?: string;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  centerDesktopPortalContent?: boolean;
+  desktopColumnVariant?: 'default' | 'trending';
 };
 
 function MarketNormalTokenList({
   networkId = 'sol--101',
   selectedCategory,
+  forceStockMetadataColumns,
   stockCategory,
   timeRange,
   sortBy: initialSortBy,
@@ -56,6 +60,8 @@ function MarketNormalTokenList({
   pollingInterval,
   rowBg,
   onStockDataChange,
+  centerDesktopPortalContent,
+  desktopColumnVariant,
 }: IMarketNormalTokenListProps) {
   useMarketRenderCommitProbe('MarketNormalTokenList', {
     networkId,
@@ -118,10 +124,15 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle="auto"
+      forceStockMetadataColumns={forceStockMetadataColumns}
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
+      marketTokenCategory={selectedCategory}
+      desktopColumnVariant={desktopColumnVariant}
+      timeRange={timeRange}
     />
   );
 }

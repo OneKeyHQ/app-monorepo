@@ -25,6 +25,7 @@ import {
 import appStorage, {
   storageHub,
 } from '@onekeyhq/shared/src/storage/appStorage';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -32,6 +33,11 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../dbs/local/localDb';
+import {
+  DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+  deleteMmkvProfileKeyForLocalSecretEnvelope,
+  localSecretEnvelopeService,
+} from '../dbs/local/localSecretEnvelope';
 import simpleDb from '../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
@@ -68,6 +74,26 @@ class ServiceApp extends ServiceBase {
       mode: opts.mode ?? EAppRestartMode.All,
       reason: opts.reason ?? 'serviceApp.restartApp',
     });
+  }
+
+  private async resetNativeLocalSecretEnvelopeKeys() {
+    if (!platformEnv.isNative) {
+      return;
+    }
+
+    try {
+      await deleteMmkvProfileKeyForLocalSecretEnvelope();
+    } catch {
+      defaultLogger.app.error.log('Native LSE MMKV key reset failed');
+    }
+    try {
+      await secureStorageInstance.removeSecureItem(
+        DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
+      );
+    } catch {
+      defaultLogger.app.error.log('Native LSE secure-storage key reset failed');
+    }
+    localSecretEnvelopeService.clearCapabilityCache();
   }
 
   private async resetData() {
@@ -147,6 +173,11 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('v4appStorage-clear');
     await timerUtils.wait(100);
+
+    // Explicit App Reset performs crypto erasure before Realm is removed. The
+    // two native LSE keys live outside Realm and general app-settings storage.
+    await this.resetNativeLocalSecretEnvelopeKeys();
+    defaultLogger.setting.page.clearDataStep('localSecretEnvelopeKeys-reset');
 
     // WARNING:
     // After deleting the realm database on Android, it blocks the thread for about 300ms. Root cause unknown.
@@ -293,8 +324,13 @@ class ServiceApp extends ServiceBase {
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
-    // logout supabase is called in UI hooks
-    void this.backgroundApi.servicePrime.apiLogout();
+    try {
+      await this.backgroundApi.serviceIdentityExit.prepareIdentityAuthForAppReset();
+    } catch {
+      // App Reset must remain available when identity recovery itself is
+      // broken; resetData clears the same persisted identity state.
+      defaultLogger.setting.page.clearDataStep('identityAuthCleanup-skipped');
+    }
 
     defaultLogger.setting.page.clearDataStep('servicePrime-apiLogout');
     void this.backgroundApi.serviceNotification.unregisterClient();
@@ -367,12 +403,25 @@ class ServiceApp extends ServiceBase {
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;
+    marketTokenId?: string;
+    skipMarketDataFetch?: boolean;
+    disableTrade?: boolean;
     isNative?: boolean;
     from?: EEnterWay;
     showFavoriteButton?: boolean;
+    marketTokenCategory?: string;
   }) {
-    const { tokenAddress, network, isNative, from, showFavoriteButton } =
-      params;
+    const {
+      tokenAddress,
+      network,
+      marketTokenId,
+      skipMarketDataFetch,
+      disableTrade,
+      isNative,
+      from,
+      showFavoriteButton,
+      marketTokenCategory,
+    } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
     if (typeof isNative === 'boolean') {
@@ -384,9 +433,67 @@ class ServiceApp extends ServiceBase {
     if (typeof showFavoriteButton === 'boolean') {
       routeParams.showFavoriteButton = showFavoriteButton;
     }
+    if (marketTokenCategory) {
+      routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (marketTokenId) {
+      routeParams.marketTokenId = marketTokenId;
+    }
+    if (skipMarketDataFetch) {
+      routeParams.skipMarketDataFetch = true;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
 
     return extUtils.openExpandTab({
       path: `/market/token/${network}/${tokenAddress}`,
+      params: routeParams,
+    });
+  }
+
+  @backgroundMethod()
+  async openExtensionMarketStockDetail(params: {
+    stockId: string;
+    tokenAddress?: string;
+    network?: string;
+    isNative?: boolean;
+    from?: EEnterWay;
+    disableTrade?: boolean;
+    showFavoriteButton?: boolean;
+  }) {
+    const {
+      stockId,
+      tokenAddress,
+      network,
+      isNative,
+      from,
+      disableTrade,
+      showFavoriteButton,
+    } = params;
+    const routeParams: IOpenUrlRouteInfo['params'] = {};
+
+    if (tokenAddress) {
+      routeParams.tokenAddress = tokenAddress;
+    }
+    if (network) {
+      routeParams.network = network;
+    }
+    if (typeof isNative === 'boolean') {
+      routeParams.isNative = isNative;
+    }
+    if (from) {
+      routeParams.from = from;
+    }
+    if (typeof disableTrade === 'boolean') {
+      routeParams.disableTrade = disableTrade;
+    }
+    if (typeof showFavoriteButton === 'boolean') {
+      routeParams.showFavoriteButton = showFavoriteButton;
+    }
+
+    return extUtils.openExpandTab({
+      path: `/market/stock/${encodeURIComponent(stockId)}`,
       params: routeParams,
     });
   }

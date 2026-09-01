@@ -1,12 +1,21 @@
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import errorUtils from '../errors/utils/errorUtils';
 
+import { isRetryableSupabaseAuthError } from './supabaseAuthErrorUtils';
+
 // Detect transient infrastructure failures (network down, 5xx, timeout, rate
 // limit) as opposed to definite auth/business rejections. Relies only on
-// fields that survive bg -> main bridge serialization (className / code /
-// httpStatusCode) instead of instanceof checks, so the same classification
-// works identically in both runtimes.
+// fields that survive bg -> main bridge serialization (className / name /
+// code / httpStatusCode) instead of instanceof checks, so the same
+// classification works identically in both runtimes.
 export function isTransientNetworkLikeError(error: unknown): boolean {
+  // Retryable Supabase auth/storage errors (AuthRetryableFetchError,
+  // SupabaseStorageTransientError, AuthUnknownError) say nothing definitive
+  // about the session; UI teardown guards must not treat them as authoritative
+  // rejections. Matched by `name`, which survives bridge serialization.
+  if (isRetryableSupabaseAuthError(error)) {
+    return true;
+  }
   if (
     errorUtils.isErrorByClassName({
       error,

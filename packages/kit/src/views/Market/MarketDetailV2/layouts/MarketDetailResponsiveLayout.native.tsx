@@ -4,6 +4,24 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 
 export function MarketDetailResponsiveLayout({
   disableTrade,
+  isChartFullscreen,
+  isTradingViewNative,
+  onChartFullscreenChange,
+  onChartSwitch,
+  isNative,
+  networkId,
+  tokenAddress,
 }: IMarketDetailResponsiveLayoutProps) {
-  return <MobileLayout disableTrade={disableTrade} />;
+  return (
+    <MobileLayout
+      disableTrade={disableTrade}
+      isChartFullscreen={isChartFullscreen}
+      isTradingViewNative={isTradingViewNative}
+      onChartFullscreenChange={onChartFullscreenChange}
+      onChartSwitch={onChartSwitch}
+      isNative={isNative}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+    />
+  );
 }

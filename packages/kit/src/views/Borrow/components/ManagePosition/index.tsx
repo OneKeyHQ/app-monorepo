@@ -5,7 +5,7 @@ import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/Staki
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
 import { useAmountInput } from './hooks/useAmountInput';
-import { useBorrowApproveAndSubmit } from './hooks/useBorrowApproveAndSubmit';
+import { useBorrowApproval } from './hooks/useBorrowApproval';
 import { useManagePositionState } from './hooks/useManagePositionState';
 import { useTokenSelector } from './hooks/useTokenSelector';
 import { ManagePositionContext } from './ManagePositionContext';
@@ -38,8 +38,10 @@ export function ManagePosition(props: IManagePositionProps) {
     tokenImageUri,
     selectableAssets,
     selectableAssetsLoading,
+    approveType,
     approveTarget,
-    currentAllowance = '0',
+    borrowDelegationApproveTarget,
+    currentAllowance,
   } = props;
 
   // State management
@@ -94,25 +96,28 @@ export function ManagePosition(props: IManagePositionProps) {
     reserveAddress: borrowReserveAddress,
     amount: amountValue,
     isDisabled,
+    withdrawAll: baseState.isWithdrawAll,
     repayAll: baseState.isRepayAll,
   });
 
-  // Clear amount when reserve address changes (only for supply/borrow which use navigation)
+  // Clear amount when the transaction reserve scope changes.
   useEffect(() => {
-    if (action === 'supply' || action === 'borrow') {
-      setAmountValue('');
-    }
+    setAmountValue('');
   }, [action, borrowReserveAddress, setAmountValue]);
 
   // Submit handler
   const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
 
-    await onConfirm({
+    const started = await onConfirm({
       amount: amountValue,
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });
+
+    if (started === false) {
+      return;
+    }
 
     setAmountValue('');
   }, [
@@ -123,13 +128,30 @@ export function ManagePosition(props: IManagePositionProps) {
     setAmountValue,
   ]);
 
-  const { needsApproval, approveLoading, onApprove } =
-    useBorrowApproveAndSubmit({
-      approveTarget,
-      currentAllowance,
-      amountValue,
-      onSubmit: submitBorrowAction,
-    });
+  const approval = useBorrowApproval({
+    action,
+    providerName,
+    amountValue,
+    repayAll: baseState.isRepayAll,
+    withdrawAll: baseState.isWithdrawAll,
+    approveType,
+    approveTarget,
+    borrowDelegationApproveTarget,
+    currentAllowance,
+    onApprovedSubmit: submitBorrowAction,
+  });
+
+  const effectiveTokenSelectorTriggerProps = useMemo(() => {
+    if (!approval.approving) {
+      return tokenSelectorTriggerProps;
+    }
+    return {
+      ...tokenSelectorTriggerProps,
+      disabled: true,
+      onPress: undefined,
+      popover: undefined,
+    };
+  }, [approval.approving, tokenSelectorTriggerProps]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(
@@ -137,19 +159,15 @@ export function ManagePosition(props: IManagePositionProps) {
       ...baseState,
       amountValue,
       submitting,
-      shouldApprove: needsApproval,
-      approveLoading,
       tokenSelectorMode: selectorMode,
-      tokenSelectorTriggerProps,
+      tokenSelectorTriggerProps: effectiveTokenSelectorTriggerProps,
     }),
     [
       baseState,
       amountValue,
       submitting,
-      needsApproval,
-      approveLoading,
       selectorMode,
-      tokenSelectorTriggerProps,
+      effectiveTokenSelectorTriggerProps,
     ],
   );
 
@@ -165,7 +183,6 @@ export function ManagePosition(props: IManagePositionProps) {
       onTokenSelect,
       handleOpenTokenSelector,
       onSubmit: submitBorrowAction,
-      onApprove,
     }),
     [
       setAmountValue,
@@ -177,7 +194,6 @@ export function ManagePosition(props: IManagePositionProps) {
       onTokenSelect,
       handleOpenTokenSelector,
       submitBorrowAction,
-      onApprove,
     ],
   );
 
@@ -187,8 +203,9 @@ export function ManagePosition(props: IManagePositionProps) {
       state,
       actions,
       actionResult,
+      approval,
     }),
-    [state, actions, actionResult],
+    [state, actions, actionResult, approval],
   );
 
   return (

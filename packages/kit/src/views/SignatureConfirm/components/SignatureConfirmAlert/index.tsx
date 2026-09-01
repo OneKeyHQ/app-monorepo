@@ -7,4 +7,3 @@
  */
 
 export { default as TxConfirmAlert } from './TxConfirmAlert';
-export { default as MessageConfirmAlert } from './MessageConfirmAlert';

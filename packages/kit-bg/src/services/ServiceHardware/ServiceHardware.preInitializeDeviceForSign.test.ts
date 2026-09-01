@@ -87,12 +87,18 @@ function buildDevice(vendor: EHardwareVendor): IDBDevice {
   } as IDBDevice;
 }
 
-function buildService(device: IDBDevice) {
+function buildService(
+  device: IDBDevice,
+  deviceCommonParams: {
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
+  } = {
+    passphraseState: 'PASSPHRASE_STATE',
+  },
+) {
   const getWalletDeviceParams = jest.fn(async () => ({
     dbDevice: device,
-    deviceCommonParams: {
-      passphraseState: 'PASSPHRASE_STATE',
-    },
+    deviceCommonParams,
   }));
   const service = new ServiceHardware({
     backgroundApi: {
@@ -143,6 +149,23 @@ describe('ServiceHardware.preInitializeDeviceForSign', () => {
     });
     expect(preInitialize).toHaveBeenCalledWith('USB_ID', {
       passphraseState: 'PASSPHRASE_STATE',
+    });
+  });
+
+  it('pre-initializes a standard wallet without passphraseState', async () => {
+    const { preInitialize, service } = buildService(
+      buildDevice(EHardwareVendor.onekey),
+      {
+        passphraseState: undefined,
+        useEmptyPassphrase: true,
+      },
+    );
+
+    await service.preInitializeDeviceForSign({ walletId: 'hw-standard' });
+
+    expect(preInitialize).toHaveBeenCalledWith('USB_ID', {
+      passphraseState: undefined,
+      useEmptyPassphrase: true,
     });
   });
 });

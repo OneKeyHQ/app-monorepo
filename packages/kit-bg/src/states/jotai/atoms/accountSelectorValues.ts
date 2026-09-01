@@ -19,6 +19,11 @@ export type IAccountSelectorDeFiItem =
           currency: string;
         }
       >;
+      // Hyperliquid perps net worth (USD basis) from the local portfolio
+      // snapshot cache; only present when the selector context supports
+      // perps (mirrors Home's isPerpsSupported gating), so row totals can
+      // match the Home overview sum.
+      perpsNetWorthUsd?: string;
     }
   | undefined;
 

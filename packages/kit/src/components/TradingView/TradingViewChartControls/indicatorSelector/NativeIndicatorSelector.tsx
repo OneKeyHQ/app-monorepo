@@ -1,0 +1,414 @@
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  IconButton,
+  Popover,
+  ScrollView,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useDialogInstance,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import {
+  HEADER_ICON_BUTTON_STYLE_PROPS,
+  NATIVE_CHART_OPTION_GRID_GAP,
+  NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS,
+  getNativeChartOptionPillColors,
+} from '../utils/NativeChartControlsShared';
+
+import {
+  canToggleTradingViewNativeIndicatorOn,
+  commitNativeIndicatorSelection,
+  getIndicatorSections,
+} from './indicatorUtils';
+
+import type {
+  ITradingViewIndicatorOption,
+  ITradingViewNativeChartControlsConfigData,
+  ITradingViewNativeIndicatorSelection,
+} from '../types';
+
+const INDICATOR_GRID_COLUMN_COUNT = 4;
+
+function buildIndicatorItemTestID(value: string): string {
+  return `trading-view-native-indicator-item-${value
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 80)}`;
+}
+
+function IndicatorPill({
+  indicator,
+  isActive,
+  isDisabled,
+  onPress,
+}: {
+  indicator: ITradingViewIndicatorOption;
+  isActive: boolean;
+  isDisabled: boolean;
+  onPress?: () => void;
+}) {
+  const { color: textColor, ...pillColors } = getNativeChartOptionPillColors({
+    isHighlighted: isActive,
+    isDisabled,
+  });
+
+  return (
+    <XStack
+      key={indicator.value}
+      testID={buildIndicatorItemTestID(indicator.value)}
+      {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+      {...pillColors}
+      alignItems="center"
+      justifyContent="center"
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+      opacity={isDisabled ? 0.45 : 1}
+      cursor={isDisabled ? 'not-allowed' : 'pointer'}
+      userSelect="none"
+      onPress={isDisabled ? undefined : onPress}
+    >
+      <SizableText size="$bodyMdMedium" numberOfLines={1} color={textColor}>
+        {indicator.label}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function IndicatorGrid({
+  indicators,
+  activeIndicatorValues,
+  maxSelectableSubIndicatorCount,
+  onIndicatorPress,
+}: {
+  indicators: ITradingViewIndicatorOption[];
+  activeIndicatorValues: Set<string>;
+  maxSelectableSubIndicatorCount?: number;
+  onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+}) {
+  const rows = useMemo(() => {
+    const result: ITradingViewIndicatorOption[][] = [];
+    for (
+      let index = 0;
+      index < indicators.length;
+      index += INDICATOR_GRID_COLUMN_COUNT
+    ) {
+      result.push(indicators.slice(index, index + INDICATOR_GRID_COLUMN_COUNT));
+    }
+    return result;
+  }, [indicators]);
+
+  return (
+    <YStack gap={NATIVE_CHART_OPTION_GRID_GAP}>
+      {rows.map((row, rowIndex) => {
+        const placeholderCount = INDICATOR_GRID_COLUMN_COUNT - row.length;
+        return (
+          <XStack
+            key={`indicator-row-${rowIndex}`}
+            gap={NATIVE_CHART_OPTION_GRID_GAP}
+          >
+            {row.map((indicator) => {
+              const isDisabled = !canToggleTradingViewNativeIndicatorOn({
+                indicatorValue: indicator.value,
+                activeIndicatorValues,
+                maxSelectableSubIndicatorCount,
+              });
+
+              return (
+                <IndicatorPill
+                  key={indicator.value}
+                  indicator={indicator}
+                  isActive={activeIndicatorValues.has(indicator.value)}
+                  isDisabled={isDisabled}
+                  onPress={() => onIndicatorPress(indicator)}
+                />
+              );
+            })}
+            {Array.from({ length: placeholderCount }).map((_, index) => (
+              <Stack
+                key={`indicator-placeholder-${rowIndex}-${index}`}
+                {...NATIVE_CHART_OPTION_PILL_LAYOUT_PROPS}
+                borderColor="$transparent"
+                opacity={0}
+                pointerEvents="none"
+              />
+            ))}
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
+
+function IndicatorSection({
+  title,
+  indicators,
+  activeIndicatorValues,
+  maxSelectableSubIndicatorCount,
+  onIndicatorPress,
+}: {
+  title: string;
+  indicators: ITradingViewIndicatorOption[];
+  activeIndicatorValues: Set<string>;
+  maxSelectableSubIndicatorCount?: number;
+  onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+}) {
+  if (!indicators.length) {
+    return null;
+  }
+
+  return (
+    <YStack gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {title}
+      </SizableText>
+      <IndicatorGrid
+        indicators={indicators}
+        activeIndicatorValues={activeIndicatorValues}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+        onIndicatorPress={onIndicatorPress}
+      />
+    </YStack>
+  );
+}
+
+export function IndicatorListDialogContent({
+  indicators,
+  resetLayout,
+  maxSelectableSubIndicatorCount,
+  onSelect,
+  onSelectionConfirm,
+  onResetLayout,
+}: {
+  indicators: ITradingViewIndicatorOption[];
+  resetLayout?: ITradingViewNativeChartControlsConfigData['resetLayout'];
+  maxSelectableSubIndicatorCount?: number;
+  onSelect: (indicatorName: string, desiredActive: boolean) => void;
+  onSelectionConfirm?: (
+    selection: ITradingViewNativeIndicatorSelection,
+  ) => void;
+  onResetLayout: () => void;
+}) {
+  const intl = useIntl();
+  const dialog = useDialogInstance();
+  const [activeIndicatorValues, setActiveIndicatorValues] = useState(
+    () =>
+      new Set(
+        indicators
+          .filter((indicator) => indicator.active)
+          .map((indicator) => indicator.value),
+      ),
+  );
+  const originalActiveIndicatorValuesRef = useRef(activeIndicatorValues);
+  const activeIndicatorValuesRef = useRef(activeIndicatorValues);
+  const { mainIndicators, subIndicators } = useMemo(
+    () => getIndicatorSections(indicators),
+    [indicators],
+  );
+
+  const handleIndicatorPress = useCallback(
+    (indicator: ITradingViewIndicatorOption) => {
+      if (
+        !canToggleTradingViewNativeIndicatorOn({
+          indicatorValue: indicator.value,
+          activeIndicatorValues: activeIndicatorValuesRef.current,
+          maxSelectableSubIndicatorCount,
+        })
+      ) {
+        return;
+      }
+
+      const nextValues = new Set(activeIndicatorValuesRef.current);
+      const desiredActive = !nextValues.has(indicator.value);
+      if (desiredActive) {
+        nextValues.add(indicator.value);
+      } else {
+        nextValues.delete(indicator.value);
+      }
+
+      activeIndicatorValuesRef.current = nextValues;
+      setActiveIndicatorValues(nextValues);
+    },
+    [maxSelectableSubIndicatorCount],
+  );
+
+  const handleConfirmPress = useCallback(() => {
+    const originalValues = originalActiveIndicatorValuesRef.current;
+    const nextValues = activeIndicatorValuesRef.current;
+    commitNativeIndicatorSelection({
+      indicators,
+      nextActiveIndicatorValues: nextValues,
+      onSelect,
+      onSelectionConfirm,
+      originalActiveIndicatorValues: originalValues,
+    });
+    void dialog.close();
+  }, [dialog, indicators, onSelect, onSelectionConfirm]);
+
+  const confirmText = intl.formatMessage({
+    id: ETranslations.global_confirm,
+  });
+  const resetText = intl.formatMessage({
+    id: ETranslations.global_reset,
+  });
+
+  const resetButton = resetLayout?.enabled ? (
+    <Button
+      flex={1}
+      testID="trading-view-native-indicators-reset-layout-button"
+      variant="secondary"
+      size="large"
+      onPress={() => {
+        onResetLayout();
+        void dialog.close();
+      }}
+    >
+      {resetText}
+    </Button>
+  ) : null;
+
+  const confirmButton = (
+    <Button
+      flex={1}
+      testID="trading-view-native-indicators-confirm-button"
+      variant="primary"
+      size="large"
+      onPress={handleConfirmPress}
+    >
+      {confirmText}
+    </Button>
+  );
+
+  return (
+    <YStack gap="$6" pb="$2">
+      <ScrollView maxHeight={320} showsVerticalScrollIndicator={false}>
+        <YStack gap="$6">
+          <IndicatorSection
+            title={intl.formatMessage({
+              id: ETranslations.market_main_chart_indicators,
+            })}
+            indicators={mainIndicators}
+            activeIndicatorValues={activeIndicatorValues}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+            onIndicatorPress={handleIndicatorPress}
+          />
+          <IndicatorSection
+            title={intl.formatMessage({
+              id: ETranslations.market_sub_chart_indicators,
+            })}
+            indicators={subIndicators}
+            activeIndicatorValues={activeIndicatorValues}
+            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+            onIndicatorPress={handleIndicatorPress}
+          />
+        </YStack>
+      </ScrollView>
+      <XStack gap="$3" pt="$2">
+        {resetButton}
+        {confirmButton}
+      </XStack>
+    </YStack>
+  );
+}
+
+function IndicatorListPopoverContent({
+  indicators,
+  activeIndicatorValues,
+  maxSelectableSubIndicatorCount,
+  onIndicatorPress,
+}: {
+  indicators: ITradingViewIndicatorOption[];
+  activeIndicatorValues: Set<string>;
+  maxSelectableSubIndicatorCount?: number;
+  onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+}) {
+  const intl = useIntl();
+  const { mainIndicators, subIndicators } = useMemo(
+    () => getIndicatorSections(indicators),
+    [indicators],
+  );
+
+  return (
+    <YStack p="$5" gap="$5">
+      <IndicatorSection
+        title={intl.formatMessage({
+          id: ETranslations.market_main_chart_indicators,
+        })}
+        indicators={mainIndicators}
+        activeIndicatorValues={activeIndicatorValues}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+        onIndicatorPress={onIndicatorPress}
+      />
+      <IndicatorSection
+        title={intl.formatMessage({
+          id: ETranslations.market_sub_chart_indicators,
+        })}
+        indicators={subIndicators}
+        activeIndicatorValues={activeIndicatorValues}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+        onIndicatorPress={onIndicatorPress}
+      />
+    </YStack>
+  );
+}
+
+export function IndicatorPopover({
+  title,
+  indicators,
+  activeIndicatorValues,
+  maxSelectableSubIndicatorCount,
+  onIndicatorPress,
+  onControlInteraction,
+}: {
+  title: string;
+  indicators: ITradingViewIndicatorOption[];
+  activeIndicatorValues: Set<string>;
+  maxSelectableSubIndicatorCount?: number;
+  onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+  onControlInteraction?: () => void;
+}) {
+  return (
+    <Popover
+      title={title}
+      onOpenChange={(open) => {
+        if (open) {
+          onControlInteraction?.();
+        }
+      }}
+      showHeader={false}
+      usingSheet={false}
+      placement="bottom-start"
+      floatingPanelProps={{
+        width: 360,
+      }}
+      renderTrigger={
+        <IconButton
+          testID="trading-view-native-indicators-trigger"
+          size="small"
+          variant="tertiary"
+          icon="FunctionCustom"
+          iconSize="$5"
+          title={title}
+          {...HEADER_ICON_BUTTON_STYLE_PROPS}
+        />
+      }
+      renderContent={
+        <IndicatorListPopoverContent
+          indicators={indicators}
+          activeIndicatorValues={activeIndicatorValues}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+          onIndicatorPress={onIndicatorPress}
+        />
+      }
+    />
+  );
+}

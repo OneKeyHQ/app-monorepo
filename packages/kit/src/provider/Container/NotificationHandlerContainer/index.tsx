@@ -2,9 +2,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
 import {
+  appIsLocked,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -13,12 +18,14 @@ import {
   ETabRoutes,
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   type INotificationPageNavigationEvent,
   navigateToNotificationDetailByLocalParams,
   registerNotificationPageNavigationProcessor,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationViewDialogActionType,
@@ -39,6 +46,7 @@ import {
   NotificationHandlerDiscoveryProvider,
   useNotificationDappNavigation,
 } from './NotificationDappNavigation';
+import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -146,6 +154,10 @@ function BaseNotificationHandlerContainer() {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
+          // changeActiveAsset only writes perpsActiveAssetAtom, so a leftover
+          // spot mode would make the resync read spotActiveAssetAtom and drop
+          // this coin.
+          await tradingModeAtom.set('perp');
           // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
           // switch its active instrument; without this the coin switch is a
           // no-op when the Perp page was already opened (banner deep-link case).
@@ -153,20 +165,52 @@ function BaseNotificationHandlerContainer() {
             mode: 'perp',
             coin: perpToken,
           });
+          // Start the reconnect now so it overlaps the ~350ms of
+          // popToMainRoute + wait, rather than waiting for route focus.
+          // Never while locked: resumeSubscriptions enables the handler
+          // unconditionally, and the user has to unlock before anything
+          // renders anyway — unlock recovery resumes on its own.
+          const isAppLocked = await appIsLocked.get();
+          if (!isAppLocked) {
+            void backgroundApiProxy.serviceHyperliquidSubscription
+              .resumeSubscriptions()
+              .catch((error) => {
+                defaultLogger.perp.hyperliquid.coldStartInitializationError({
+                  type: 'prewarm_subscriptions',
+                  coin: perpToken,
+                  error,
+                });
+              });
+          }
         } catch (error) {
           console.error('Failed to change perps active asset:', error);
         }
       }
 
-      navigateToNotificationDetailByLocalParams({
-        payload: payloadObj,
-        localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
-      }).catch((error) => {
+      try {
+        await navigateToNotificationDetailByLocalParams({
+          payload: payloadObj,
+          localParams,
+          getEarnAccount: (props) =>
+            backgroundApiProxy.serviceStaking.getEarnAccount(props),
+        });
+        await timerUtils.wait(0);
+        if (isPerpNavigation) {
+          await recoverPerpsSubscriptionsAfterNavigation({
+            isAppVisible: getCurrentVisibilityState,
+            isAppLocked: () => appIsLocked.get(),
+            readDisabledCount: () =>
+              backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
+        }
+      } catch (error) {
         console.error(error);
         showFallbackUpdateDialog(null);
-      });
+      }
     };
     const handleShowNotificationInWebViewOverlay = (
       params: IWebViewPageParams,

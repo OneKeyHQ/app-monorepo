@@ -10,8 +10,14 @@ export const SettingTestIDs = {
   themeItem: 'setting-theme',
   notificationsItem: 'setting-notifications',
   securityItem: 'setting-security',
+  clearAppCacheItem: 'setting-clear-app-cache',
   addressBookItem: 'setting-address-book',
   aboutItem: 'setting-about',
+  officialChannelsItem: 'setting-official-channels',
+
+  // Clear application cache
+  clearAppCachePage: 'setting-clear-app-cache-page',
+  clearAppCacheOneKeyIdCheckbox: 'setting-clear-app-cache-onekey-id-checkbox',
 
   // OneKey ID
   oneKeyIdPage: 'setting-onekey-id-page',
@@ -60,6 +66,7 @@ export const SettingTestIDs = {
   tabUseGasAccountByDefaultSwitch:
     'setting-tab-use-gas-account-by-default-switch',
   tabSplitViewSwitch: 'setting-tab-split-view-switch',
+  tabHapticFeedbackSwitch: 'setting-tab-haptic-feedback-switch',
 
   // Dev split bundle test page
   devSplitBundleRefreshBtn: 'setting-dev-split-bundle-refresh-btn',
@@ -78,5 +85,16 @@ export const SettingTestIDs = {
   socialOnekeyWebsiteBtn: 'setting-social-onekey-website-btn',
   socialXBtn: 'setting-social-x-btn',
   socialGithubBtn: 'setting-social-github-btn',
+  socialRedditBtn: 'setting-social-reddit-btn',
+  socialInstagramBtn: 'setting-social-instagram-btn',
   socialSupportBtn: 'setting-social-support-btn',
 } as const;
+
+/**
+ * Sidebar tabs derived from a `desktopTab` item reuse the item's testID with
+ * this suffix so the tab and the still-rendered item row (e.g. a search
+ * result) never collide in one tree.
+ */
+export function settingsSidebarTabTestID(itemTestID: string): string {
+  return `${itemTestID}-tab`;
+}

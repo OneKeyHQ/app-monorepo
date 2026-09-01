@@ -98,11 +98,11 @@ export type IBackgroundThreadResponseErrorPayload = {
   // Preserve OneKeyError metadata across RPC so toast/i18n/dedup keep working.
   autoToast?: boolean;
   className?: string;
+  $isHardwareError?: boolean;
   code?: string | number;
   key?: string;
   requestId?: string;
   httpStatusCode?: number;
-  constructorName?: string;
   data?: unknown;
   payload?: unknown;
 };

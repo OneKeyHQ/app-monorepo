@@ -24,6 +24,7 @@ import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -73,6 +74,7 @@ import {
   getSwapSelectedTokensHomeAccountSyncAction,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
+  shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
@@ -199,8 +201,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapTips] = useSwapTipsAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
-  const [swapStockSelectedToken, setSwapStockSelectedToken] =
-    useSwapStockSelectedTokenAtom();
+  const [swapStockSelectedToken] = useSwapStockSelectedTokenAtom();
   const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
@@ -267,6 +268,11 @@ export function useSwapInit(params?: ISwapInitParams) {
       }),
     [swapFromToken, swapTypeSwitch, swapNetworks, toToken],
   );
+  const isNativeProTokenOwner =
+    shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+      isNative: Boolean(platformEnv.isNative),
+      swapType: swapTypeSwitch,
+    });
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
@@ -522,7 +528,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       toTokenRef.current = undefined;
       void resetSwapTokenData(ESwapDirectionType.FROM);
       void resetSwapTokenData(ESwapDirectionType.TO);
-      setSwapStockSelectedToken(undefined);
       setSelectedTokensColdStartContext(undefined);
       if (resetSwapType) {
         switchSwapTypeIfNeeded(
@@ -534,7 +539,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       params?.swapTabSwitchType,
       resetSwapTokenData,
       setSelectedTokensColdStartContext,
-      setSwapStockSelectedToken,
       switchSwapTypeIfNeeded,
     ],
   );
@@ -587,6 +591,12 @@ export function useSwapInit(params?: ISwapInitParams) {
       const selectedTokensSyncAction =
         getSwapSelectedTokensHomeAccountSyncAction({
           cachedContext: selectedTokensColdStartContextRef.current,
+          // The Home read may finish after Native Pro takes ownership.
+          deferSelectedTokenSync:
+            shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+              isNative: Boolean(platformEnv.isNative),
+              swapType: swapTypeSwitchRef.current,
+            }),
           hasSelectedTokens,
           homeSelectedAccount,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
@@ -601,7 +611,6 @@ export function useSwapInit(params?: ISwapInitParams) {
         selectedTokensColdStartContextRef.current = defaultTokens.context;
         setSwapFromToken(defaultTokens.fromToken);
         setToToken(defaultTokens.toToken);
-        setSwapStockSelectedToken(undefined);
         setSelectedTokensColdStartContext(defaultTokens.context);
         switchSwapTypeIfNeeded(
           defaultTokens.swapType,
@@ -644,7 +653,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       shouldPreserveUserInputAmount,
       setSelectedTokensColdStartContext,
       setSwapFromToken,
-      setSwapStockSelectedToken,
       setToToken,
       switchSwapTypeIfNeeded,
       updateSelectedAccount,
@@ -910,6 +918,16 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncDefaultSelectedToken = useCallback(async () => {
+    const shouldDeferForNativePro = () =>
+      shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+        isNative: Boolean(platformEnv.isNative),
+        swapType: swapTypeSwitchRef.current,
+      });
+    // Native Pro owns separate token atoms. Keep the parked Swap pair intact
+    // until Swap becomes the active owner again.
+    if (shouldDeferForNativePro()) {
+      return;
+    }
     const hasUnconsumedSwapInitParams = Boolean(
       swapInitParamsConsumptionKey &&
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
@@ -996,6 +1014,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     const homeAccountSyncResult =
       await syncSwapSelectedAccountFromLatestHomeStorage();
+    if (shouldDeferForNativePro()) {
+      return;
+    }
     if (homeAccountSyncResult.synced) {
       if (homeAccountSyncResult.clearedSelectedTokens) {
         hasSelectedTokens = false;
@@ -1052,6 +1073,12 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importFromToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          // Scaled-UI (rebase) tokens: fail-closed, same policy as the
+          // selectFromToken gate (setSwapFromToken writes the atom
+          // directly and bypasses it).
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importFromToken.balanceMultiplier,
           ),
         );
         const isImportToTokenSupported = Boolean(
@@ -1059,6 +1086,9 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importToToken).includes(
             importTokenSupportCheckType,
+          ) &&
+          !tokenRebaseUtils.isScalingBalanceMultiplier(
+            params.importToToken.balanceMultiplier,
           ),
         );
         const hasUnsupportedImportToken =
@@ -1258,7 +1288,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           : undefined;
         if (defaultFromToken) {
           setSwapFromToken(defaultFromTokenWithLogo);
-          setSwapStockSelectedToken(undefined);
           didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultFromToken.networkId);
         }
@@ -1269,7 +1298,6 @@ export function useSwapInit(params?: ISwapInitParams) {
               ? defaultToToken.networkLogoURI
               : netInfo?.logoURI,
           });
-          setSwapStockSelectedToken(undefined);
           didSetDefaultSelectedTokens = true;
           void syncNetworksSort(defaultToToken.networkId);
           if (shouldResetInvalidColdStartSwapType) {
@@ -1311,7 +1339,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           });
           if (needChangeToToken) {
             setToToken(needChangeToToken);
-            setSwapStockSelectedToken(undefined);
             didSetDefaultSelectedTokens = true;
             void syncNetworksSort(needChangeToToken.networkId);
             if (
@@ -1360,7 +1387,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     fromTokenAmount.value,
     setFromTokenAmount,
     setSelectedTokensColdStartContext,
-    setSwapStockSelectedToken,
     setToTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
@@ -1455,21 +1481,26 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
-      const simpleDbTips =
-        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
-      if (tips && !simpleDbTips.includes(tips.tipsId)) {
+      try {
+        const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+        const simpleDbTips =
+          await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+        if (tips && !simpleDbTips.includes(tips.tipsId)) {
+          setSwapTips({
+            tips,
+            status: 'ready',
+            updatedAt: Date.now(),
+          });
+          return;
+        }
         setSwapTips({
-          tips,
-          status: 'ready',
+          status: 'empty',
           updatedAt: Date.now(),
         });
-        return;
+      } catch (_error) {
+        // Keep the last settled presentation when remote config or local
+        // dismissal state cannot be loaded.
       }
-      setSwapTips({
-        status: 'empty',
-        updatedAt: Date.now(),
-      });
     })();
   }, [setSwapTips]);
 
@@ -1528,6 +1559,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.dbAccount?.id,
     swapActiveAccount.deriveType,
     selectedTokensRuntimeChannelSupport,
+    isNativeProTokenOwner,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

@@ -11,10 +11,10 @@ import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import type { ITradingViewDisabledFeature } from '@onekeyhq/kit/src/components/TradingView/constants';
 import {
+  syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '@onekeyhq/kit/src/components/TradingView/hooks';
-import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -34,12 +34,11 @@ import {
   type ITradingViewNativeIndicatorControlMode,
   type ITradingViewNativeIntervalControlMode,
   type ITradingViewNativePriceMarketCapControlMode,
-  TradingViewNativeChartControls,
   TradingViewNativeIndicatorQuickBar,
-  getTradingViewNativeSubIndicatorCount,
-  getTradingViewNativeSubIndicatorCountFromOptions,
+  TradingViewV2ChartControlsContainer,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
-} from '../TradingViewNativeChartControls';
+} from '../TradingViewV2ChartControls';
 
 import {
   useAutoKLineUpdate,
@@ -53,9 +52,13 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import { resolveTradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
+import { TradingViewRuntimeView } from './TradingViewRuntimeView';
+import { resolveTradingViewStorageNamespace } from './tradingViewStorageNamespace';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
+import type { ITradingViewNativeIndicatorQuickBarState } from './nativeIndicatorQuickBarState';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
@@ -69,6 +72,7 @@ import type {
 } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -124,10 +128,15 @@ interface IBaseTradingViewV2Props {
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
+  enableNativeChartSettings?: boolean;
   enableNativeIntervalSelector?: boolean;
-  maxNativeSubIndicatorCount?: number;
+  /** Limits new selections without hiding sub-indicators that are already active. */
+  maxSelectableSubIndicatorCount?: number;
   // `null` means the WebView controls configuration is not ready.
-  onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeSubIndicatorCountChange?: (
+    count: number | null,
+    options?: { layoutRestored?: boolean },
+  ) => void;
   nativeChartTypeControlMode?: ITradingViewNativeChartTypeControlMode;
   nativeIndicatorControlMode?: ITradingViewNativeIndicatorControlMode;
   nativeIntervalControlMode?: ITradingViewNativeIntervalControlMode;
@@ -136,11 +145,18 @@ interface IBaseTradingViewV2Props {
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   showNativeIndicatorQuickBar?: boolean;
-  onNativeIndicatorQuickBarChange?: (quickBar: ReactNode | null) => void;
+  onChartSwitch?: () => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
   onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
   onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
+  forceCandlestickChart?: boolean;
+  onChartError?: () => void;
+  onChartReady?: () => void;
+  onVisualReady?: () => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -160,6 +176,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig?.indicators,
   );
   const theme = useThemeVariant();
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
@@ -189,8 +207,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
+    enableNativeChartSettings = false,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     onNativeSubIndicatorCountChange,
     nativeChartTypeControlMode,
     nativeIndicatorControlMode,
@@ -200,11 +219,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     showNativeIndicatorQuickBar = true,
+    onChartSwitch,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
+    forceCandlestickChart = false,
+    onChartError,
+    onChartReady,
+    onVisualReady,
+    onLoadEnd,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -214,29 +239,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const hasNativeChartControlsConfig = Boolean(nativeChartControlsConfig);
   const isNativeChartControlsReady =
     !enableNativeChartControls || hasNativeChartControlsConfig;
-  const nativeSubIndicatorCountFromConfig = useMemo(
-    () =>
-      getTradingViewNativeSubIndicatorCountFromOptions(
-        nativeChartControlsConfig?.indicators,
-      ),
-    [nativeChartControlsConfig?.indicators],
-  );
-  const nativeSubIndicatorCountFromAppState = useMemo(
-    () =>
-      getTradingViewNativeSubIndicatorCount(
-        nativeIndicatorState.activeIndicatorValues,
-      ),
-    [nativeIndicatorState.activeIndicatorValues],
-  );
   const nativeSubIndicatorCount = useMemo(
     () =>
-      nativeIndicatorState.isInitialized
-        ? nativeSubIndicatorCountFromAppState
-        : nativeSubIndicatorCountFromConfig,
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: nativeIndicatorState.activeIndicatorValues,
+        configIndicators: nativeChartControlsConfig?.indicators,
+        isInitialized: nativeIndicatorState.isInitialized,
+        sourceIndicators: nativeIndicatorState.sourceIndicators,
+      }),
     [
+      nativeChartControlsConfig?.indicators,
+      nativeIndicatorState.activeIndicatorValues,
       nativeIndicatorState.isInitialized,
-      nativeSubIndicatorCountFromAppState,
-      nativeSubIndicatorCountFromConfig,
+      nativeIndicatorState.sourceIndicators,
     ],
   );
 
@@ -246,10 +261,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
     onNativeSubIndicatorCountChange?.(
       hasNativeChartControlsConfig ? nativeSubIndicatorCount : null,
+      hasNativeChartControlsConfig
+        ? { layoutRestored: nativeChartControlsConfig?.layoutRestored }
+        : undefined,
     );
   }, [
     enableNativeChartControls,
     hasNativeChartControlsConfig,
+    nativeChartControlsConfig?.layoutRestored,
     nativeSubIndicatorCount,
     onNativeSubIndicatorCountChange,
   ]);
@@ -422,6 +441,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       payload: {},
     });
   }, []);
+  const handleChartReady = useCallback(() => {
+    syncTradingViewTheme(webRef.current, latestThemeRef.current);
+  }, []);
 
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
@@ -448,14 +470,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onChartReady: handleChartReady,
     onKLineDataReady,
     onKLineLoadError,
     onKLinePeriodChange,
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const {
+    isHyperLiquidSource,
+    symbol: hyperLiquidSymbol,
+    isLoading: isHyperLiquidSourceLoading,
+  } = useHyperLiquidKlineSource(networkId, tokenAddress);
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const shouldDeferWebRuntime = platformEnv.isWeb && isHyperLiquidSourceLoading;
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
@@ -471,9 +498,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace =
-      storageNamespace?.trim() ||
-      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+    const finalStorageNamespace = resolveTradingViewStorageNamespace({
+      storageNamespace,
+      forceCandlestickChart,
+    });
 
     return {
       decimal: decimal?.toString(),
@@ -491,6 +519,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     decimal,
     enableNativeChartControls,
     enableNativeIntervalSelector,
+    forceCandlestickChart,
     networkId,
     storageNamespace,
     tokenAddress,
@@ -501,6 +530,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useTradingViewUrl({
       additionalParams,
       disabledFeatures,
+      theme,
     });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
@@ -546,6 +576,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartType: activeKLineResolution,
     symbol: chartSymbol,
   });
+
+  useEffect(() => {
+    syncTradingViewTheme(webRef.current, theme);
+  }, [theme]);
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
@@ -662,6 +696,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     [onLoadStart, resetInteractionLocks],
   );
 
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) => {
+      syncTradingViewTheme(webRef.current, latestThemeRef.current);
+      onLoadEnd?.(event);
+    },
+    [onLoadEnd],
+  );
+
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
@@ -671,6 +713,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
     [resetInteractionLocks, webRef],
   );
+
+  const isNativeIndicatorQuickBarAvailabilityResolved =
+    !enableNativeChartControls ||
+    !showNativeIndicatorQuickBar ||
+    nativeChartControlsConfig !== null;
 
   const nativeIndicatorQuickBar = useMemo(() => {
     if (
@@ -686,7 +733,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       <TradingViewNativeIndicatorQuickBar
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
-        maxSubIndicatorCount={maxNativeSubIndicatorCount}
+        maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
+        splitSections={nativeControlsLayoutMode === 'mobile'}
         onIndicatorSelect={handleNativeIndicatorSelect}
         onControlInteraction={handleNativeControlInteraction}
       />
@@ -695,15 +743,27 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     enableNativeChartControls,
     handleNativeControlInteraction,
     handleNativeIndicatorSelect,
-    maxNativeSubIndicatorCount,
+    maxSelectableSubIndicatorCount,
     nativeChartControlsConfig,
     nativeIndicatorState,
+    nativeControlsLayoutMode,
     showNativeIndicatorQuickBar,
   ]);
 
+  const nativeIndicatorQuickBarState =
+    useMemo<ITradingViewNativeIndicatorQuickBarState>(() => {
+      return resolveTradingViewNativeIndicatorQuickBarState({
+        isAvailabilityResolved: isNativeIndicatorQuickBarAvailabilityResolved,
+        quickBar: nativeIndicatorQuickBar,
+      });
+    }, [
+      isNativeIndicatorQuickBarAvailabilityResolved,
+      nativeIndicatorQuickBar,
+    ]);
+
   useEffect(() => {
-    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBar);
-  }, [nativeIndicatorQuickBar, onNativeIndicatorQuickBarChange]);
+    onNativeIndicatorQuickBarChange?.(nativeIndicatorQuickBarState);
+  }, [nativeIndicatorQuickBarState, onNativeIndicatorQuickBarChange]);
 
   useEffect(() => {
     return () => {
@@ -717,7 +777,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     }
 
     return () => {
-      onNativeIndicatorQuickBarChange(null);
+      onNativeIndicatorQuickBarChange({
+        status: 'loading',
+        quickBar: null,
+      });
     };
   }, [onNativeIndicatorQuickBarChange]);
 
@@ -729,37 +792,46 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   }, []);
 
   const webView = useMemo(
-    () => (
-      <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
-        containerProps={{ bg: '$bgApp' }}
-        containerStyle={tradingViewWebViewStyleProps.containerStyle}
-        style={tradingViewWebViewStyleProps.style}
-        customReceiveHandler={async (data) => {
-          const receiveData = data as ICustomReceiveHandlerData;
-          await customReceiveHandler(receiveData);
-        }}
-        onWebViewRef={handleWebViewRef}
-        allowsBackForwardNavigationGestures={false}
-        onLoadStart={handleLoadStart}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-        src={tradingViewUrlWithParams}
-      />
-    ),
+    () =>
+      shouldDeferWebRuntime ? null : (
+        <TradingViewRuntimeView
+          key={tradingViewUrlWithParams}
+          containerProps={{ bg: '$bgApp' }}
+          containerStyle={tradingViewWebViewStyleProps.containerStyle}
+          style={tradingViewWebViewStyleProps.style}
+          customReceiveHandler={async (data) => {
+            const receiveData = data as ICustomReceiveHandlerData;
+            await customReceiveHandler(receiveData);
+          }}
+          onChartError={onChartError}
+          onChartReady={onChartReady}
+          onVisualReady={onVisualReady}
+          onWebViewRef={handleWebViewRef}
+          allowsBackForwardNavigationGestures={false}
+          onLoadEnd={handleLoadEnd}
+          onLoadStart={handleLoadStart}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+          src={tradingViewUrlWithParams}
+        />
+      ),
     [
       customReceiveHandler,
+      handleLoadEnd,
       handleLoadStart,
       handleWebViewRef,
       onShouldStartLoadWithRequest,
-      theme,
+      onChartError,
+      onChartReady,
+      onVisualReady,
+      shouldDeferWebRuntime,
       tradingViewUrlWithParams,
       tradingViewWebViewStyleProps,
     ],
@@ -768,11 +840,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   return (
     <Stack flex={1} {...stackStyle}>
       {enableNativeIntervalSelector ? (
-        <TradingViewNativeChartControls
+        <TradingViewV2ChartControlsContainer
+          enableNativeChartSettings={enableNativeChartSettings}
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
           nativeIndicatorState={nativeIndicatorState}
-          maxSubIndicatorCount={maxNativeSubIndicatorCount}
+          maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           isControlsReady={isNativeChartControlsReady}
           chartTypeControlMode={nativeChartTypeControlMode}
           indicatorControlMode={nativeIndicatorControlMode}
@@ -782,6 +855,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           chartTimezone={tradingViewTimezone}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
+          onChartSwitch={onChartSwitch}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}

@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EApproveType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -40,6 +41,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const tokenDecimals = tokenApprove?.decimals ?? 0;
   const tokenSymbol = tokenApprove?.symbol ?? '';
   const approveType = tokenApprove?.approveType ?? EApproveType.Approve;
+  const approveBalanceMultiplier = tokenApprove?.balanceMultiplier;
 
   return {
     approveIcon,
@@ -55,6 +57,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     tokenDecimals,
     tokenSymbol,
     approveType,
+    approveBalanceMultiplier,
   };
 }
 
@@ -275,6 +278,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     tokenDecimals,
     tokenSymbol,
     approveType,
+    approveBalanceMultiplier,
   } = getTxActionTokenApproveInfo(props);
 
   const { vaultSettings } = useAccountData({
@@ -300,13 +304,23 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     spender: approveSpender,
   });
 
+  // Keep scaled-token allowance arithmetic on the display basis.
+  const displayAllowanceParsed = useMemo(
+    () =>
+      tokenRebaseUtils.applyBalanceMultiplier({
+        amount: currentAllowanceParsed ?? undefined,
+        balanceMultiplier: approveBalanceMultiplier,
+      }),
+    [currentAllowanceParsed, approveBalanceMultiplier],
+  );
+
   const finalAllowanceParsed = useMemo(() => {
-    if (!isIncrease || !currentAllowanceParsed) return null;
+    if (!isIncrease || !displayAllowanceParsed) return null;
     const deltaBN = new BigNumber(originalApproveAmount);
     // null signals "unlimited" to the caller; finite delta is added.
     if (!deltaBN.isFinite()) return null;
-    return new BigNumber(currentAllowanceParsed).plus(deltaBN).toFixed();
-  }, [currentAllowanceParsed, isIncrease, originalApproveAmount]);
+    return new BigNumber(displayAllowanceParsed).plus(deltaBN).toFixed();
+  }, [displayAllowanceParsed, isIncrease, originalApproveAmount]);
 
   let content: React.ReactNode = approveLabel;
   const amount = originalApproveAmount;
@@ -387,34 +401,40 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         >
           {content}
         </SizableText>
-        <Button
-          testID="tx-action-btn"
-          size="small"
-          variant="tertiary"
-          onPress={() =>
-            showApproveEditor({
-              accountId: decodedTx.accountId,
-              networkId: decodedTx.networkId,
-              isUnlimited,
-              allowance: amount,
-              tokenDecimals,
-              tokenSymbol,
-              tokenAddress,
-              approveInfo: decodedTx.approveInfo,
-              approveType,
-              spender: approveSpender,
-              currentAllowanceParsed: currentAllowanceParsed ?? undefined,
-            })
-          }
-        >
-          {intl.formatMessage({ id: ETranslations.global_edit })}
-        </Button>
+        {/* The legacy editor cannot safely encode scaled display amounts. */}
+        {!tokenRebaseUtils.isScalingBalanceMultiplier(
+          approveBalanceMultiplier,
+        ) ? (
+          <Button
+            testID="tx-action-btn"
+            size="small"
+            variant="tertiary"
+            onPress={() =>
+              showApproveEditor({
+                accountId: decodedTx.accountId,
+                networkId: decodedTx.networkId,
+                isUnlimited,
+                allowance: amount,
+                tokenDecimals,
+                tokenSymbol,
+                tokenAddress,
+                approveInfo: decodedTx.approveInfo,
+                approveType,
+                spender: approveSpender,
+                currentAllowanceParsed: currentAllowanceParsed ?? undefined,
+              })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_edit })}
+          </Button>
+        ) : null}
       </XStack>
     );
   }
 
   useEffect(() => {
     if (approveInfoInit.current || originalApproveAmount === '') return;
+    // Scaling-token reset is unreachable because editing is disabled above.
     updateTokenApproveInfo({
       originalAllowance: originalApproveAmount,
       originalIsUnlimited: approveIsMax,

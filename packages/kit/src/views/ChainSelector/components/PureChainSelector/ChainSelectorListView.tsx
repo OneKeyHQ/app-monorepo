@@ -164,7 +164,7 @@ const ChainSelectorListViewContent = ({
                   </XStack>
                 ) : undefined
               }
-              disabled={isFeaturedNetwork && featuredNetwork.disabled}
+              disabled={Boolean(isFeaturedNetwork && featuredNetwork.disabled)}
               gap={isFeaturedNetwork ? '$2' : '$3'}
               px={isFeaturedNetwork ? '$5' : '$3'}
               mx={isFeaturedNetwork ? '$0' : '$2'}

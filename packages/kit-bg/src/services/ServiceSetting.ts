@@ -55,7 +55,11 @@ import type {
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
+import type {
+  IKytIntroClaimResult,
+  IKytSupportedAsset,
+  IReceiveKytIntroEntryPoint,
+} from '@onekeyhq/shared/types/kyt';
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
@@ -73,12 +77,14 @@ import {
 } from '../states/jotai/atoms';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import {
+  inscriptionProtectionControlPersistAtom,
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
+import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
@@ -92,6 +98,19 @@ export type IAccountDerivationConfigItem = {
   defaultNetworkId: string;
 };
 
+const INSCRIPTION_PROTECTION_SETTING_KEY = 'BTC_INSCRIPTION_PROTECTION_ENABLED';
+
+function parseInscriptionProtectionServerEnabled(
+  value: string,
+): boolean | undefined {
+  try {
+    const parsed = JSON.parse(value) as { value?: unknown };
+    return typeof parsed?.value === 'boolean' ? parsed.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -99,6 +118,10 @@ class ServiceSetting extends ServiceBase {
   }
 
   _fetchWalletConfigControllers: AbortController[] = [];
+
+  private readonly kytIntroPromptClaimManager = new KytIntroPromptClaimManager(
+    this.backgroundApi.simpleDb.appStatus,
+  );
 
   @backgroundMethod()
   async refreshLocaleMessages() {
@@ -260,6 +283,11 @@ class ServiceSetting extends ServiceBase {
     await currencyPersistAtom.set({
       currencyMap,
     });
+    // Lazy import keeps the reconcile helper out of the native background
+    // startup graph (Startup Graph Budget check).
+    const { reconcileCurrencyInfoSymbolSnapshot } =
+      await import('./utils/currencySymbolSyncUtils');
+    await reconcileCurrencyInfoSymbolSnapshot({ currencyMap });
   }
 
   @backgroundMethod()
@@ -282,6 +310,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
@@ -335,6 +364,17 @@ class ServiceSetting extends ServiceBase {
     if (values.serverNetworks) {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
       await this.backgroundApi.simpleDb.recentNetworks.clearRawData();
+    }
+    if (values.perpsData) {
+      // Recovery exit for a perp record IndexedDB can no longer read. Runtime
+      // cache first so in-flight fetches cannot write stale data back.
+      await this.backgroundApi.serviceWebviewPerp.clearPerpsDepositTokenListRuntimeCache();
+      await this.backgroundApi.simpleDb.perp.clearRawData();
+    }
+    // This is an account-level logout and intentionally runs after the pure
+    // cache operations so a failure cannot prevent the selected cache clears.
+    if (values.oneKeyId) {
+      await this.backgroundApi.servicePrime.clearOneKeyIdLocalAuthCache();
     }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
@@ -480,6 +520,57 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private _fetchInscriptionProtectionControl = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key: INSCRIPTION_PROTECTION_SETTING_KEY,
+        },
+      });
+      const matched = response.data.data.find(
+        (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      );
+      const serverEnabled = matched
+        ? parseInscriptionProtectionServerEnabled(matched.value)
+        : undefined;
+      if (serverEnabled === undefined) {
+        throw new OneKeyLocalError(
+          'Invalid inscription protection control response',
+        );
+      }
+      await inscriptionProtectionControlPersistAtom.set(() => ({
+        enabled: serverEnabled,
+      }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async fetchInscriptionProtectionControl({
+    forceRefresh,
+  }: {
+    forceRefresh?: boolean;
+  } = {}) {
+    if (forceRefresh) {
+      void this._fetchInscriptionProtectionControl.clear();
+    }
+    try {
+      await this._fetchInscriptionProtectionControl();
+    } catch (error) {
+      void this._fetchInscriptionProtectionControl.clear();
+      defaultLogger.setting.page.consoleError(
+        'fetchInscriptionProtectionControl error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+    }
+  }
+
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
@@ -579,6 +670,42 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setInscriptionProtection(enabled: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      inscriptionProtection: enabled,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtectionServerEnabled() {
+    const { enabled } = await inscriptionProtectionControlPersistAtom.get();
+    return enabled;
+  }
+
+  @backgroundMethod()
+  public async getEffectiveInscriptionProtection({
+    networkId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+  }: {
+    networkId: string;
+    accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
+  }) {
+    const [settings, control, accountEligible] = await Promise.all([
+      settingsPersistAtom.get(),
+      inscriptionProtectionControlPersistAtom.get(),
+      this.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+        mergeDeriveAssetsEnabled,
+      }),
+    ]);
+    return accountEligible && settings.inscriptionProtection && control.enabled;
+  }
+
+  @backgroundMethod()
   public async isShowFloatingButton() {
     const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
     return isFloatingIconAlwaysDisplay ?? false;
@@ -673,9 +800,13 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
+    const nextHardwareTransportType =
+      deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      hardwareTransportType,
+      hardwareTransportType: nextHardwareTransportType,
     }));
   }
 
@@ -683,7 +814,9 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return hardwareTransportType;
+      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+        transportType: hardwareTransportType,
+      });
     }
     return deviceUtils.getDefaultHardwareTransportType();
   }
@@ -723,7 +856,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getEnableDesktopBluetooth() {
     const { enableDesktopBluetooth } = await settingsPersistAtom.get();
-    return enableDesktopBluetooth ?? false;
+    return enableDesktopBluetooth ?? true;
   }
 
   @backgroundMethod()
@@ -752,6 +885,14 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       enableMenuBarTray: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setHapticFeedbackEnabled(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hapticFeedbackEnabled: value,
     }));
   }
 
@@ -981,6 +1122,10 @@ class ServiceSetting extends ServiceBase {
         homeDefaultTokenMap,
         allAggregateTokenMap,
         aggregateTokenSymbolMap,
+        configSyncMeta: {
+          appVersion: platformEnv.version ?? '',
+          syncedAt: Date.now(),
+        },
       }),
       this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig({
         approvalResurfaceDays,
@@ -989,6 +1134,37 @@ class ServiceSetting extends ServiceBase {
     ]);
 
     return aggregateTokenConfigMap;
+  }
+
+  _syncWalletConfigIfNeededPromise: Promise<void> | undefined;
+
+  @backgroundMethod()
+  public async syncWalletConfigIfNeeded() {
+    if (this._syncWalletConfigIfNeededPromise) {
+      return this._syncWalletConfigIfNeededPromise;
+    }
+    this._syncWalletConfigIfNeededPromise = (async () => {
+      const rawData =
+        await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+      const configSyncMeta = rawData?.configSyncMeta;
+      const appVersion = platformEnv.version ?? '';
+      // Re-sync when the config has never been synced, when the app version
+      // changed (the bundled preset network list may differ, leaving stale
+      // networks in the cached aggregate-token maps), or when the cache is
+      // older than the TTL.
+      const shouldSync =
+        !rawData?.aggregateTokenConfigMap ||
+        !configSyncMeta ||
+        configSyncMeta.appVersion !== appVersion ||
+        Date.now() - configSyncMeta.syncedAt >
+          timerUtils.getTimeDurationMs({ day: 1 });
+      if (shouldSync) {
+        await this.syncWalletConfig();
+      }
+    })().finally(() => {
+      this._syncWalletConfigIfNeededPromise = undefined;
+    });
+    return this._syncWalletConfigIfNeededPromise;
   }
 
   @backgroundMethod()
@@ -1005,15 +1181,120 @@ class ServiceSetting extends ServiceBase {
     if (!onekeyUserId) {
       return;
     }
-    await this.backgroundApi.simpleDb.appStatus.setRawData(
-      (v): ISimpleDBAppStatus => {
-        const ids = v?.kytIntroShownUserIds ?? [];
-        if (ids.includes(onekeyUserId)) {
-          return { ...v, kytIntroShownUserIds: ids };
-        }
-        return { ...v, kytIntroShownUserIds: [...ids, onekeyUserId] };
-      },
-    );
+    await this.kytIntroPromptClaimManager.complete(onekeyUserId);
+  }
+
+  // Shared eligibility probe for tryClaimKytIntro: run once before claiming
+  // (cheap rejection) and once after the mutex-guarded claim to close the
+  // TOCTOU window opened while awaiting the lease write.
+  private async checkKytIntroEligibility(
+    onekeyUserId: string,
+  ): Promise<'userMismatch' | 'enabled' | undefined> {
+    const [primeUser, settings] = await Promise.all([
+      primePersistAtom.get(),
+      settingsPersistAtom.get(),
+    ]);
+    if (primeUser.onekeyUserId !== onekeyUserId) {
+      return 'userMismatch';
+    }
+    if (settings.receiveRiskMonitoringMap?.[onekeyUserId]) {
+      return 'enabled';
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
+  async tryClaimKytIntro({
+    onekeyUserId,
+    ownerId,
+    entryPoint,
+    claimId,
+  }: {
+    onekeyUserId: string;
+    ownerId: string;
+    entryPoint: IReceiveKytIntroEntryPoint;
+    claimId?: string;
+  }): Promise<IKytIntroClaimResult> {
+    const preCheckStatus = await this.checkKytIntroEligibility(onekeyUserId);
+    if (preCheckStatus) {
+      if (preCheckStatus === 'enabled' && claimId) {
+        await this.kytIntroPromptClaimManager.release({
+          onekeyUserId,
+          ownerId,
+          claimId,
+        });
+      }
+      return { status: preCheckStatus };
+    }
+
+    // Steady-state launches (intro already completed) stop here with a cached
+    // read instead of paying the lease write inside tryClaim.
+    if (await this.kytIntroPromptClaimManager.peekCompleted(onekeyUserId)) {
+      return { status: 'shown' };
+    }
+
+    const result = await this.kytIntroPromptClaimManager.tryClaim({
+      onekeyUserId,
+      ownerId,
+      entryPoint,
+      claimId,
+    });
+    if (result.status !== 'claimed') {
+      return result;
+    }
+
+    const postCheckStatus = await this.checkKytIntroEligibility(onekeyUserId);
+    if (postCheckStatus) {
+      await this.kytIntroPromptClaimManager.release({
+        onekeyUserId,
+        ownerId,
+        claimId: result.claimId,
+      });
+      return { status: postCheckStatus };
+    }
+    return result;
+  }
+
+  @backgroundMethod()
+  async markKytIntroClaimPresented({
+    onekeyUserId,
+    ownerId,
+    claimId,
+  }: {
+    onekeyUserId: string;
+    ownerId: string;
+    claimId: string;
+  }) {
+    return this.kytIntroPromptClaimManager.markPresented({
+      onekeyUserId,
+      ownerId,
+      claimId,
+    });
+  }
+
+  @backgroundMethod()
+  async releaseKytIntroClaim({
+    onekeyUserId,
+    ownerId,
+    claimId,
+  }: {
+    onekeyUserId: string;
+    ownerId: string;
+    claimId: string;
+  }) {
+    await this.kytIntroPromptClaimManager.release({
+      onekeyUserId,
+      ownerId,
+      claimId,
+    });
+  }
+
+  // Completion is user-terminal by design: the dialog was genuinely closed by
+  // the user, so mark "shown" and drop any lease regardless of which claim
+  // presented it.
+  @backgroundMethod()
+  async completeKytIntroClaim({ onekeyUserId }: { onekeyUserId: string }) {
+    await this.kytIntroPromptClaimManager.complete(onekeyUserId);
   }
 
   @backgroundMethod()
@@ -1022,6 +1303,7 @@ class ServiceSetting extends ServiceBase {
       (v): ISimpleDBAppStatus => ({
         ...v,
         kytIntroShownUserIds: [],
+        kytIntroClaimLeases: {},
       }),
     );
   }
@@ -1084,25 +1366,87 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async apiSetKytEnabled({ enabled }: { enabled: boolean }): Promise<boolean> {
+  async apiSetKytEnabled({
+    enabled,
+    onekeyUserId,
+  }: {
+    enabled: boolean;
+    onekeyUserId: string;
+  }): Promise<
+    | {
+        applied: true;
+        accountChanged: boolean;
+        kytEnabled: boolean;
+        onekeyUserId: string;
+      }
+    | {
+        applied: false;
+        accountChanged: true;
+        onekeyUserId: string;
+      }
+  > {
+    const expectedAuthStateGeneration =
+      await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+    const authHeaders = await this.getOneKeyIdAuthHeaders();
+    // Re-read after the token snapshot: a generation change here means the
+    // captured token may belong to a different auth epoch than the target user.
+    const [primeUserBeforeRequest, authStateGenerationBeforeRequest] =
+      await Promise.all([
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+      ]);
+    if (
+      primeUserBeforeRequest.onekeyUserId !== onekeyUserId ||
+      authStateGenerationBeforeRequest !== expectedAuthStateGeneration
+    ) {
+      return { applied: false, accountChanged: true, onekeyUserId };
+    }
+    if (!Object.keys(authHeaders).length) {
+      throw new OneKeyLocalError(
+        'Prime auth token unavailable while updating receive risk monitoring',
+      );
+    }
+
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
     const res = await client.put<IApiClientResponse<{ kytEnabled: boolean }>>(
       '/prime/v1/kyt/enabled',
       { enabled },
+      { headers: authHeaders },
     );
     const kytEnabled = res.data.data?.kytEnabled ?? enabled;
-    // Local cache is the source of truth; persist per Prime user (OneKey ID).
-    const { onekeyUserId } = await primePersistAtom.get();
-    if (onekeyUserId) {
-      await settingsPersistAtom.set((prev) => ({
-        ...prev,
-        receiveRiskMonitoringMap: {
-          ...prev.receiveRiskMonitoringMap,
-          [onekeyUserId]: kytEnabled,
-        },
-      }));
+    // The request is bound to the captured token, so always write its result to
+    // the target user even if another Extension surface switched accounts.
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      receiveRiskMonitoringMap: {
+        ...prev.receiveRiskMonitoringMap,
+        [onekeyUserId]: kytEnabled,
+      },
+    }));
+    if (kytEnabled) {
+      try {
+        await this.kytIntroPromptClaimManager.releaseForUser(onekeyUserId);
+      } catch (error) {
+        defaultLogger.prime.usage.primeReceiveKytIntroFlowFailed({
+          stage: 'claimRelease',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
-    return kytEnabled;
+
+    const [primeUserAfterRequest, authStateGenerationAfterRequest] =
+      await Promise.all([
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+      ]);
+    return {
+      applied: true,
+      accountChanged:
+        primeUserAfterRequest.onekeyUserId !== onekeyUserId ||
+        authStateGenerationAfterRequest !== expectedAuthStateGeneration,
+      kytEnabled,
+      onekeyUserId,
+    };
   }
 }
 

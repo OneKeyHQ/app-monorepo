@@ -4,8 +4,14 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { TRADING_VIEW_NATIVE_ALL_INDICATORS } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/chartIndicators/indicatorCatalog';
+
 import {
+  canToggleTradingViewNativeIndicatorOn,
+  getAppNativeIndicators,
   getNativeIndicatorSelectionUpdates,
+  getTradingViewNativeSubIndicatorCount,
+  getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
   useNativeIndicatorControls,
 } from './useNativeIndicatorActiveValues';
@@ -31,6 +37,71 @@ const nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData = {
 };
 
 describe('native indicator controls', () => {
+  it('projects controller options directly from canonical catalog order', () => {
+    expect(
+      getAppNativeIndicators(new Set()).map(({ label, value }) => ({
+        label,
+        value,
+      })),
+    ).toEqual(
+      TRADING_VIEW_NATIVE_ALL_INDICATORS.map((indicator) => ({
+        label: indicator,
+        value: indicator,
+      })),
+    );
+  });
+
+  it('does not count or cap unknown values as sub-indicators', () => {
+    const activeIndicatorValues = new Set(['VOL', 'UNKNOWN']);
+
+    expect(getTradingViewNativeSubIndicatorCount(activeIndicatorValues)).toBe(
+      1,
+    );
+    expect(
+      canToggleTradingViewNativeIndicatorOn({
+        activeIndicatorValues,
+        indicatorValue: 'UNKNOWN',
+        maxSelectableSubIndicatorCount: 1,
+      }),
+    ).toBe(true);
+    expect(
+      canToggleTradingViewNativeIndicatorOn({
+        activeIndicatorValues,
+        indicatorValue: 'MACD',
+        maxSelectableSubIndicatorCount: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses the count from a new config until app state syncs to that snapshot', () => {
+    const provisionalIndicators = indicators.map((indicator, index) => ({
+      ...indicator,
+      active: index === 0,
+    }));
+    const restoredIndicators = indicators.map((indicator, index) => ({
+      ...indicator,
+      active: index < 3,
+    }));
+
+    expect(
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: new Set(['VOL']),
+        configIndicators: restoredIndicators,
+        isInitialized: true,
+        sourceIndicators: provisionalIndicators,
+      }),
+    ).toBe(3);
+
+    expect(
+      getTradingViewNativeSubIndicatorCountForSnapshot({
+        activeIndicatorValues: new Set(['VOL', 'MACD', 'RSI', 'StochRSI']),
+        configIndicators: restoredIndicators,
+        isInitialized: true,
+        sourceIndicators: restoredIndicators,
+      }),
+    ).toBe(4);
+  });
+
   it('sends removals before additions when a dialog swaps indicators', () => {
     expect(
       getNativeIndicatorSelectionUpdates({
@@ -46,14 +117,24 @@ describe('native indicator controls', () => {
     ]);
   });
 
-  it('rejects back-to-back QuickBar additions after reaching the sub-indicator cap', async () => {
+  it('projects bridge values to canonical ids in selection updates', () => {
+    expect(
+      getNativeIndicatorSelectionUpdates({
+        indicators: [{ label: 'RSI', value: 'bridge-rsi' }],
+        nextActiveIndicatorValues: new Set(),
+        originalActiveIndicatorValues: new Set(['bridge-rsi']),
+      }),
+    ).toEqual([['RSI', false]]);
+  });
+
+  it('rejects QuickBar additions after reaching the selection cap', async () => {
     const onIndicatorSelect = jest.fn();
     const { result } = renderHook(() => {
       const nativeIndicatorState = useNativeIndicatorActiveValues(indicators);
       return useNativeIndicatorControls({
         nativeChartControlsConfig,
         nativeIndicatorState,
-        maxSubIndicatorCount: 4,
+        maxSelectableSubIndicatorCount: 4,
         onIndicatorSelect,
       });
     });
@@ -77,7 +158,7 @@ describe('native indicator controls', () => {
     ]);
   });
 
-  it('does not cap QuickBar additions when no sub-indicator cap is passed', async () => {
+  it('does not cap QuickBar additions without a selection cap', async () => {
     const onIndicatorSelect = jest.fn();
     const indicatorsWithFourActive = indicators.map((indicator, index) => ({
       ...indicator,

@@ -27,6 +27,9 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
+const {
+  patchTransformFileForPackedMaps,
+} = require('@expo/metro-config/build/serializer/packedMap');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
@@ -116,7 +119,6 @@ const { sourceMapStringNonBlocking } = require(
 const mobileDirPath = path.resolve(__dirname, '..');
 const mainEntry = path.resolve(mobileDirPath, 'index.ts');
 const bgEntry = path.resolve(mobileDirPath, 'background.ts');
-const projectRootPath = path.resolve(mobileDirPath, '../..');
 
 // Hermesc binary — same resolution as build-bundle.js keeps behavior
 // identical across the two entry points. We need it here so segment sha256
@@ -128,8 +130,10 @@ const projectRootPath = path.resolve(mobileDirPath, '../..');
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
 const HERMES_COMMAND = path.join(
-  projectRootPath,
-  `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
+  path.dirname(require.resolve('hermes-compiler/package.json')),
+  'hermesc',
+  HERMES_PLATFORM_DIR,
+  'hermesc',
 );
 
 function runHermescAsync({ outPath, inputPath }) {
@@ -399,6 +403,9 @@ function collectSegmentSyncEdges(graph, moduleToSegment, eagerModuleIds) {
     }
 
     for (const [, dep] of moduleData.dependencies) {
+      if (!dep.absolutePath) {
+        continue;
+      }
       if (dep.data?.data?.asyncType === 'async') {
         continue;
       }
@@ -1933,7 +1940,7 @@ async function main() {
   console.log(`Union build: platform=${args.platform}`);
 
   const config = await loadConfig({ cwd: mobileDirPath });
-  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v2`;
+  config.cacheVersion = `${config.cacheVersion || 'default'}:union-build-production-env-v3`;
 
   // On EAS Android workers the main + background graphs are held in memory at
   // the same time; with Metro's default worker count (6 on the 8-vCPU `large`
@@ -1959,6 +1966,7 @@ async function main() {
   }
 
   const metroServer = await Metro.runMetro(config, { watch: false });
+  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();
@@ -2102,14 +2110,14 @@ async function main() {
         moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
         absPathToSegment: backgroundAbsPathToSegment,
       });
-    const _mainRuntimeAsyncPaths = {
+    const mainRuntimeAsyncPaths = {
       absPathToSegment: mainAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,
         ...runtimeOwnership.mainStartupAbsPaths,
       ]),
     };
-    const _backgroundRuntimeAsyncPaths = {
+    const backgroundRuntimeAsyncPaths = {
       absPathToSegment: backgroundAbsPathToSegment,
       eagerAbsPaths: new Set([
         ...runtimeOwnership.sharedStartupAbsPaths,
@@ -2216,15 +2224,13 @@ async function main() {
     // loading (common.bundle first, then the runtime-specific bundle).
     //
     // Async require path strategy:
-    //   Common code runs in both runtimes, so its import() paths must
-    //   work everywhere. We use the MERGED segment map (main ∪ background)
-    //   instead of per-runtime variants. Shared segments (like locale JSON)
-    //   get a simple segment key — no {"main":…,"background":…} branching.
-    //   Both runtimes resolve the same key via the merged manifest.
+    //   Common code runs in both runtimes, so every import() path must reflect
+    //   the module's ownership in each runtime. A module may be eager in one
+    //   runtime but segmented in the other; that case requires a dispatch
+    //   record such as {"main":null,"background":"seg:key"}.
     //
-    //   For modules that are eager in main/background (not in a segment),
-    //   externalModulePaths covers both runtimes' eager sets so the
-    //   rewriter marks them as null (already loaded).
+    //   runtimeVariants collapses identical ownership to a simple segment key
+    //   or null, while preserving per-runtime records for asymmetric modules.
     const commonModuleToSegment = new Map([
       ...mainSerializedModuleToSegment,
       ...backgroundSerializedModuleToSegment,
@@ -2250,9 +2256,10 @@ async function main() {
         ...runtimeOwnership.mainStartupAbsPaths,
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
-      // No runtimeVariants — common code uses the merged segment map
-      // directly. Both runtimes share the same manifest and can load
-      // any shared segment by key.
+      runtimeVariants: {
+        main: mainRuntimeAsyncPaths,
+        background: backgroundRuntimeAsyncPaths,
+      },
     });
 
     // Main bundle: main-only eager modules + entry require

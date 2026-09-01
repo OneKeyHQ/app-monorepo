@@ -86,6 +86,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       },
     });
     const disconnect = jest.fn().mockResolvedValue(undefined);
+    const flushThpCredentials = jest.fn().mockResolvedValue(undefined);
     const { getDeviceByQuery, updateDeviceConnectId } = getLocalDbMock();
     const adapter = {
       hw: { cancel: jest.fn() },
@@ -93,6 +94,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       endBindingProbe,
       connectDevice,
       disconnect,
+      flushThpCredentials,
     } as unknown as IThirdPartyHardwareAdapter;
     getDeviceByQuery.mockResolvedValue(dbDevice);
     const emitSpy = jest
@@ -116,10 +118,14 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }),
     ).resolves.toBe('BLE_CONNECT_ID');
 
-    // Binding probe suppresses the THP pairing dialog for the probed candidate,
-    // then clears it when done.
     expect(beginBindingProbe).toHaveBeenCalledWith('BLE_CONNECT_ID');
     expect(endBindingProbe).toHaveBeenCalled();
+    // Binding can mint fresh THP credentials; without this drain the user
+    // re-enters the pairing code on every later connect. Must run before the
+    // finally-block disconnect.
+    expect(flushThpCredentials).toHaveBeenCalledWith('FEATURES_DEVICE_ID', {
+      connectId: 'BLE_CONNECT_ID',
+    });
     // Notifies the device-details UI so the bind row updates without a reopen.
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.HardwareFeaturesUpdate,
@@ -138,20 +144,17 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     expect(disconnect).toHaveBeenCalledWith('BLE_CONNECT_ID');
   });
 
-  it('treats a probe-suppressed pairing cancel as not-this-device', async () => {
+  // An unreadable identity is "could not verify", not "different device":
+  // reporting a mismatch would grey the user's own device out in the dialog.
+  it('throws instead of reporting a mismatch when the candidate returns no device_id', async () => {
     const connectDevice = jest.fn().mockResolvedValue({
-      success: false,
-      payload: {
-        code: HardwareErrorCode.UserAborted,
-        error: 'User aborted operation',
-      },
+      success: true,
+      payload: { connectId: 'BLE_CONNECT_ID', deviceId: '' },
     });
-    const endBindingProbe = jest.fn();
     const { updateDeviceConnectId } = getLocalDbMock();
     const adapter = {
       beginBindingProbe: jest.fn(),
-      endBindingProbe,
-      wasBindingProbeCancelled: jest.fn().mockReturnValue(true),
+      endBindingProbe: jest.fn(),
       connectDevice,
       disconnect: jest.fn().mockResolvedValue(undefined),
     } as unknown as IThirdPartyHardwareAdapter;
@@ -170,7 +173,46 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
         featuresDeviceId: 'FEATURES_DEVICE_ID',
         bleConnectId: 'BLE_CONNECT_ID',
       }),
-    ).resolves.toBeNull();
+    ).rejects.toThrow();
+
+    expect(updateDeviceConnectId).not.toHaveBeenCalled();
+  });
+
+  // A pairing request no longer counts as "not this device" — identity is
+  // settled by the post-handshake device_id comparison. A user-aborted pairing
+  // is a real failure and must surface, not resolve to a silent null.
+  it('throws when the probe connect is aborted during pairing', async () => {
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.UserAborted,
+        error: 'User aborted operation',
+      },
+    });
+    const endBindingProbe = jest.fn();
+    const { updateDeviceConnectId } = getLocalDbMock();
+    const adapter = {
+      beginBindingProbe: jest.fn(),
+      endBindingProbe,
+      connectDevice,
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.bindTrezorBleConnectId({
+        usbConnectId: 'USB_CONNECT_ID',
+        featuresDeviceId: 'FEATURES_DEVICE_ID',
+        bleConnectId: 'BLE_CONNECT_ID',
+      }),
+    ).rejects.toThrow();
 
     expect(updateDeviceConnectId).not.toHaveBeenCalled();
     expect(endBindingProbe).toHaveBeenCalled();

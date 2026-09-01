@@ -49,6 +49,7 @@ export const buildDesktopPlatformInfo = (): IDesktopApiPlatformInfo => ({
   channel: getChannel(),
   deskChannel: process.env.DESK_CHANNEL || '',
   processStartAt: getProcessStartAt(),
+  supportsShareImageFile: process.platform === 'darwin',
 });
 
 let cachedDesktopPlatformInfo: IDesktopApiPlatformInfo | undefined;

@@ -1,4 +1,5 @@
-import Expo
+internal import CryptoKit
+internal import Expo
 import React
 import ReactAppDependencyProvider
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
@@ -57,27 +58,44 @@ private enum BackgroundThreadBridge {
     }.first
   }
 
-  private static func sharedManager() -> NSObject? {
-    guard let cls = managerClass() else { return nil }
-    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
-  }
-
-  static func installSharedBridgeInMainRuntime(_ host: AnyObject) {
+  static func installSharedBridgeInMainRuntime(
+    _ host: AnyObject,
+    thenStartBackgroundRunnerWithEntryURL entryURL: String
+  ) {
     guard let cls = managerClass() else {
-      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip installSharedBridgeInMainRuntime")
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip ordered main/background runtime startup")
       return
     }
 
-    cls.perform(NSSelectorFromString("installSharedBridgeInMainRuntime:"), with: host)
+    let selector = NSSelectorFromString(
+      "installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithEntryURL:"
+    )
+    guard cls.responds(to: selector) else {
+      NitroModuleBridge.logInfo("BackgroundThread", "ordered startup selector unavailable, skip")
+      return
+    }
+
+    cls.perform(selector, with: host, with: entryURL)
   }
 
-  static func startBackgroundRunner(entryURL: String) {
-    guard let manager = sharedManager() else {
-      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip startBackgroundRunnerWithEntryURL")
+  static func installSharedBridgeInMainRuntime(
+    _ host: AnyObject,
+    thenStartBackgroundRunnerWithDevVendorConfig config: [String: String]
+  ) {
+    guard let cls = managerClass() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip dev-vendor startup")
       return
     }
 
-    manager.perform(NSSelectorFromString("startBackgroundRunnerWithEntryURL:"), with: entryURL)
+    let selector = NSSelectorFromString(
+      "installSharedBridgeInMainRuntime:thenStartBackgroundRunnerWithDevVendorConfig:"
+    )
+    guard cls.responds(to: selector) else {
+      NitroModuleBridge.logInfo("BackgroundThread", "dev-vendor startup selector unavailable, skip")
+      return
+    }
+
+    cls.perform(selector, with: host, with: config as NSDictionary)
   }
 }
 
@@ -105,18 +123,24 @@ private func isStartupProfileEnabled() -> Bool {
 private enum InitialBundleKind {
   case none
   case common
+  case devVendorCommon
   case main
 }
 
+private struct DevVendorBundleInfo {
+  let commonBundleURL: URL
+  let fingerprint: String
+}
+
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate {
   /// The real app-launch anchor. Captured eagerly inside `init()`, which is
   /// invoked by `UIApplicationMain` just after dyld + `UIApplication.init`
   /// finish and before `application(_:didFinishLaunchingWithOptions:)` fires.
   /// Reading this from anywhere else returns the same fixed timestamp.
   static let appLaunchCFTime: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()
 
-  public override init() {
+  override init() {
     // Force the static `let` above to evaluate now. Without this read the
     // anchor would stay un-initialized until something else first touched it
     // (which would be deep inside `didFinishLaunching`), and every "+from
@@ -131,7 +155,7 @@ public class AppDelegate: ExpoAppDelegate {
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
 
-  public override func application(
+  override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
@@ -198,7 +222,6 @@ public class AppDelegate: ExpoAppDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-    bindReactNativeFactory(factory)
     RCTI18nUtil.sharedInstance().allowRTL(true)
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
@@ -239,7 +262,7 @@ public class AppDelegate: ExpoAppDelegate {
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
   // Skip reset when in recovery mode (count >= 3) so recovery is still offered
   // if the user force-kills from the app switcher while viewing the recovery screen.
-  public override func applicationDidEnterBackground(_ application: UIApplication) {
+  override func applicationDidEnterBackground(_ application: UIApplication) {
     super.applicationDidEnterBackground(application)
     let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
     if count < 3 {
@@ -249,20 +272,12 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Background URLSession events (concurrent/background downloads).
-  // When the app is relaunched in the background to finish a background
-  // download, hand the completion handler to the downloader via a notification.
-  // We post rather than call directly because the Nitro module's C++ umbrella
-  // header can't be imported into this Swift AppDelegate (see the
-  // NSClassFromString bridges above). If the downloader instance isn't live yet
-  // the events are processed on the next foreground launch instead — the
-  // download itself still completed in the background.
-  //
   // Posted under a generic name (RangeDownloaderBackgroundEvents) so any number
-  // of channels (bundle / apk / chart) route through one notification; the
+  // of channels route through one notification; the
   // shared range-downloader filters by its own session identifier prefix (and
   // still recognizes the legacy identifier prefix for in-flight downloads that
   // span an app update).
-  public override func application(
+  override func application(
     _ application: UIApplication,
     handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void
@@ -276,7 +291,7 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Linking API
-  public override func application(
+  override func application(
     _ app: UIApplication,
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
@@ -285,7 +300,7 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Universal Links
-  public override func application(
+  override func application(
     _ application: UIApplication,
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
@@ -295,20 +310,20 @@ public class AppDelegate: ExpoAppDelegate {
   }
 
   // Register APNS & Upload DeviceToken
-  public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+  override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
 
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
-  public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+  override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
     NitroModuleBridge.logInfo("App", "didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
 
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
-  public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+  override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
@@ -320,6 +335,199 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
   private var initialBundleKind: InitialBundleKind = .none
+  private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
+
+  private func canonicalDevMetroURL(_ url: URL?) -> URL? {
+#if DEBUG && targetEnvironment(simulator)
+    guard
+      let url,
+      var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+    else {
+      return url
+    }
+    let configuredHost = ProcessInfo.processInfo.environment["ONEKEY_METRO_HOST"] ??
+      (Bundle.main.object(forInfoDictionaryKey: "ONEKEY_METRO_HOST") as? String)
+    let trimmedHost = configuredHost?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let host = trimmedHost.flatMap { isIPv4Address($0) ? $0 : nil } ?? "127.0.0.1"
+    if let trimmedHost, !trimmedHost.isEmpty, host != trimmedHost {
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "Ignoring invalid ONEKEY_METRO_HOST=\(trimmedHost); using 127.0.0.1"
+      )
+    }
+    components.host = host
+    return components.url
+#else
+    return url
+#endif
+  }
+
+  private func isIPv4Address(_ value: String) -> Bool {
+    let octets = value.split(separator: ".", omittingEmptySubsequences: false)
+    return octets.count == 4 && octets.allSatisfy {
+      guard let number = Int($0) else { return false }
+      return number >= 0 && number <= 255
+    }
+  }
+
+  private func explicitDevBackgroundHMRValue() -> Bool? {
+    if let envValue = ProcessInfo.processInfo.environment["ONEKEY_DEV_BG_HMR"] {
+      return ["1", "true", "yes", "on"].contains(
+        envValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      )
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_DEV_BG_HMR") as? NSNumber {
+      return enabled.boolValue
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ONEKEY_DEV_BG_HMR") as? String {
+      return ["1", "true", "yes", "on"].contains(
+        enabled.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      )
+    }
+    return nil
+  }
+
+  private func isDevBackgroundHMREnabled(fingerprint _: String) -> Bool {
+#if DEBUG
+    return explicitDevBackgroundHMRValue() ?? false
+#endif
+    return false
+  }
+
+  private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
+#if DEBUG
+    let commonURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-common",
+      withExtension: "hbc"
+    )
+    let manifestURL = Bundle.main.url(
+      forResource: "onekey-dev-vendor-manifest",
+      withExtension: "json"
+    )
+    if commonURL == nil && manifestURL == nil {
+      return nil
+    }
+    guard let commonURL, let manifestURL else {
+      fatalError("Dev-vendor common HBC and manifest must be embedded together")
+    }
+
+    do {
+      let manifestData = try Data(contentsOf: manifestURL)
+      guard
+        let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
+        (manifest["schemaVersion"] as? NSNumber)?.intValue == 2,
+        (manifest["strategyVersion"] as? NSNumber)?.intValue == 2,
+        manifest["platform"] as? String == "ios",
+        let fingerprint = manifest["fingerprint"] as? String,
+        fingerprint.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        let common = manifest["common"] as? [String: Any],
+        let bytecode = common["bytecode"] as? [String: Any],
+        bytecode["file"] as? String == "common.hbc",
+        let expectedBytes = bytecode["bytes"] as? NSNumber,
+        let expectedSha256 = bytecode["sha256"] as? String,
+        expectedSha256.range(
+          of: "^[0-9a-f]{64}$",
+          options: .regularExpression
+        ) != nil,
+        let commonData = try? Data(contentsOf: commonURL),
+        expectedBytes.int64Value > 0,
+        commonData.count == expectedBytes.intValue,
+        SHA256.hash(data: commonData).map({ String(format: "%02x", $0) }).joined()
+          == expectedSha256
+      else {
+        fatalError("Dev-vendor iOS manifest or common HBC is invalid")
+      }
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "native cache enabled platform=ios fingerprint=\(fingerprint)"
+      )
+      return DevVendorBundleInfo(
+        commonBundleURL: commonURL,
+        fingerprint: fingerprint
+      )
+    } catch {
+      fatalError("Unable to validate dev-vendor iOS artifacts: \(error)")
+    }
+#else
+    return nil
+#endif
+  }
+
+  private func devVendorEntryBundleURL(
+    runtimeTarget: String,
+    fingerprint: String
+  ) -> URL? {
+    let fallbackPath = runtimeTarget == "background"
+      ? "background.bundle"
+      : ".expo/.virtual-metro-entry.bundle"
+    let fallbackURL = URL(string: "http://localhost:8081/\(fallbackPath)")
+    let providerURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(
+      forBundleRoot: ".expo/.virtual-metro-entry"
+    ) ?? fallbackURL
+    let metroURL = canonicalDevMetroURL(providerURL)
+    guard var components = metroURL.flatMap({
+      URLComponents(url: $0, resolvingAgainstBaseURL: false)
+    }) else {
+      return nil
+    }
+    if runtimeTarget == "background" {
+      components.path = "/background.bundle"
+    }
+
+    var values = [
+      "platform": "ios",
+      "dev": "true",
+      "lazy": "false",
+      "minify": "false",
+      "inlineSourceMap": "false",
+      "modulesOnly": "true",
+      "runModule": "true",
+      "resolver.devVendor": "true",
+      "resolver.devVendorNative": "true",
+      "resolver.devVendorFingerprint": fingerprint,
+      "resolver.runtimeTarget": runtimeTarget,
+      "unstable_transformProfile": "hermes-stable",
+    ]
+    if runtimeTarget == "background", isDevBackgroundHMREnabled(fingerprint: fingerprint) {
+      values["resolver.devVendorBackgroundHMR"] = "true"
+    }
+    let overriddenNames = Set(values.keys)
+    var queryItems = (components.queryItems ?? []).filter {
+      !overriddenNames.contains($0.name)
+    }
+    queryItems.append(contentsOf: values.keys.sorted().map {
+      URLQueryItem(name: $0, value: values[$0])
+    })
+    components.queryItems = queryItems
+    return components.url
+  }
+
+  private func devVendorMainHMRBundleURL(from entryURL: URL) -> URL? {
+    guard var components = URLComponents(
+      url: entryURL,
+      resolvingAgainstBaseURL: false
+    ) else {
+      return nil
+    }
+    components.path = "/apps/mobile/index.bundle"
+    let values = [
+      "transform.routerRoot": "app",
+      "transform.engine": "hermes",
+      "transform.bytecode": "1",
+    ]
+    let overriddenNames = Set(values.keys)
+    var queryItems = (components.queryItems ?? []).filter {
+      !overriddenNames.contains($0.name)
+    }
+    queryItems.append(contentsOf: values.keys.sorted().map {
+      URLQueryItem(name: $0, value: values[$0])
+    })
+    components.queryItems = queryItems
+    return components.url
+  }
 
   private func isNativeBackgroundThreadEnabled() -> Bool {
 #if DEBUG
@@ -339,7 +547,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   private func backgroundDebugBundleURLString() -> String? {
-    if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
+    if let mainMetroURL = canonicalDevMetroURL(
+         RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+       ),
        var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
       components.path = "/background.bundle"
       return components.url?.absoluteString
@@ -347,7 +557,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     let packagerHostPort = RCTBundleURLProvider.sharedSettings().packagerServerHostPort()
     if !packagerHostPort.isEmpty {
-      return "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      let url = URL(string: "http://\(packagerHostPort)/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true")
+      return canonicalDevMetroURL(url)?.absoluteString
     }
 
     return nil
@@ -355,8 +566,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   private func backgroundBundleEntryURL() -> String {
 #if DEBUG
+    let fallbackURL = URL(string: "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true")
     let debugURL = backgroundDebugBundleURLString() ??
-      "http://localhost:8081/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+      canonicalDevMetroURL(fallbackURL)?.absoluteString ?? fallbackURL!.absoluteString
     NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
     return debugURL
 #else
@@ -383,7 +595,17 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    if let devVendorBundleInfo {
+      initialBundleKind = .devVendorCommon
+      NitroModuleBridge.logInfo(
+        "DevVendor",
+        "bundleURL(DEBUG): loading local common HBC"
+      )
+      return devVendorBundleInfo.commonBundleURL
+    }
+    let metroURL = canonicalDevMetroURL(
+      RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    )
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
     return metroURL
 #else
@@ -486,6 +708,62 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
+#if DEBUG
+    if initialBundleKind == .devVendorCommon {
+      guard
+        let devVendorBundleInfo,
+        let mainEntryURL = devVendorEntryBundleURL(
+          runtimeTarget: "main",
+          fingerprint: devVendorBundleInfo.fingerprint
+        ),
+        let mainHMRURL = devVendorMainHMRBundleURL(from: mainEntryURL)
+      else {
+        fatalError("Unable to construct the dev-vendor main entry or HMR URL")
+      }
+
+      if isNativeBackgroundThreadEnabled() {
+        guard
+          let backgroundEntryURL = devVendorEntryBundleURL(
+            runtimeTarget: "background",
+            fingerprint: devVendorBundleInfo.fingerprint
+          )
+        else {
+          fatalError("Unable to construct the dev-vendor background entry URL")
+        }
+        NitroModuleBridge.logInfo(
+          "BackgroundThread",
+          "hostDidStart: start background runner (dev-vendor) entryURL=\(backgroundEntryURL.absoluteString)"
+        )
+        // Queue SharedBridge first. Its runtime executor starts the background
+        // host after common.hbc is ready, before the main delta waits on Metro.
+        BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+          host,
+          thenStartBackgroundRunnerWithDevVendorConfig: [
+            "commonBundlePath": devVendorBundleInfo.commonBundleURL.path,
+            "entryURL": backgroundEntryURL.absoluteString,
+            "fingerprint": devVendorBundleInfo.fingerprint,
+            "backgroundHMREnabled": isDevBackgroundHMREnabled(
+              fingerprint: devVendorBundleInfo.fingerprint
+            ) ? "true" : "false",
+          ]
+        )
+      } else {
+        NitroModuleBridge.logInfo(
+          "BackgroundThread",
+          "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD"
+        )
+      }
+
+      SplitBundleLoader.loadDevVendorEntryBundle(
+        mainEntryURL,
+        hmrBundleURL: mainHMRURL,
+        fingerprint: devVendorBundleInfo.fingerprint,
+        inHost: host
+      )
+      return
+    }
+#endif
+
 #if !DEBUG
     // Skip entry bundle loading when RN's initial bundle is already main.jsbundle
     // (single-bundle Release: no common.bundle shipped, or legacy OTA pushed a
@@ -552,22 +830,27 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       return
     }
 
-    BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
-
 #if DEBUG
-    // Dev: pass the Metro URL directly (single bundle served by the dev server).
-    let entryURL = backgroundBundleEntryURL()
-    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
     let bgStartAtDebug = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAtDebug - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios, debug)")
-    BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
+    // Standard development mode keeps the existing single-bundle path. The
+    // dev-vendor path returned above after ordering background before main.
+    let entryURL = backgroundBundleEntryURL()
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner (debug) entryURL=\(entryURL)")
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+      host,
+      thenStartBackgroundRunnerWithEntryURL: entryURL
+    )
 #else
     // Release split-bundle: pass empty string so BackgroundRunnerReactNativeDelegate
     // uses the default two-step strategy (common.bundle first, then background.bundle).
     // Passing any non-empty path would bypass common.bundle loading.
     let bgStartAt = CFAbsoluteTimeGetCurrent()
     NitroModuleBridge.logInfo("StartupTiming", "bg_runner.start: +\(String(format: "%.0f", (bgStartAt - AppDelegate.appLaunchCFTime) * 1000))ms from launch (ios)")
-    BackgroundThreadBridge.startBackgroundRunner(entryURL: "")
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(
+      host,
+      thenStartBackgroundRunnerWithEntryURL: ""
+    )
 #endif
   }
 }
@@ -575,7 +858,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
     let userInfo = notification.request.content.userInfo
 
@@ -592,7 +875,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
   }
 
   @available(iOS 10.0, *)
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
 
     let userInfo = response.notification.request.content.userInfo
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
@@ -608,11 +891,11 @@ extension AppDelegate:JPUSHRegisterDelegate {
 
   }
 
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
 
   }
 
-  public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
+  func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
     NitroModuleBridge.logInfo("App", "receive notification authorization status: \(status), info: \(String(describing: info))")
   }
 

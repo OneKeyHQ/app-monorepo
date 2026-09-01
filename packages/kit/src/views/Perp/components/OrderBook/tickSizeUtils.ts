@@ -23,8 +23,138 @@ export interface ITickParam {
   value: string;
 }
 
+export interface IReferenceTickOptionsData {
+  symbol: string;
+  tickOptions: ITickParam[];
+  defaultTickOption: ITickParam;
+  priceDecimals: number;
+  // Set only by the szDecimals-less fallback builder, which labels the same
+  // tick differently; callers use it to refuse that list where the labelling
+  // has to be right.
+  isFallback?: boolean;
+}
+
+export function shouldSeedOrderBookTickOption({
+  isReady,
+  isFallbackList,
+  hasLoadedPersistedOptions,
+  hasPersistedOption,
+}: {
+  isReady: boolean;
+  isFallbackList: boolean;
+  hasLoadedPersistedOptions: boolean;
+  hasPersistedOption: boolean;
+}) {
+  // Seeding is first-write-wins, so each of these would otherwise be permanent:
+  // a list that is not ready, a fallback list that labels ticks differently, a
+  // seed racing the stored preferences load, or overwriting a value another
+  // order book already established (OK-59102).
+  if (!isReady || isFallbackList || !hasLoadedPersistedOptions) {
+    return false;
+  }
+  return !hasPersistedOption;
+}
+
+export function getTickOptionsDataDuringTransition<
+  T extends { symbol: string },
+>({
+  symbol,
+  hasMarketData,
+  cached,
+  reference,
+}: {
+  symbol: string | undefined;
+  hasMarketData: boolean;
+  cached: T | null;
+  reference?: T | null;
+}): T | null {
+  if (hasMarketData || !symbol) {
+    return null;
+  }
+  if (cached?.symbol === symbol) {
+    return cached;
+  }
+  return reference?.symbol === symbol ? reference : null;
+}
+
 function floorLog10(x: number): number {
   return Math.floor(Math.log10(x));
+}
+
+export function buildReferenceTickOptions({
+  symbol,
+  price,
+  szDecimals,
+  isSpot,
+}: {
+  symbol: string;
+  price: string | undefined;
+  szDecimals: number | undefined;
+  isSpot: boolean;
+}): IReferenceTickOptionsData | null {
+  const priceNumber = Number(price);
+  if (
+    !symbol ||
+    !Number.isFinite(priceNumber) ||
+    priceNumber <= 0 ||
+    !Number.isInteger(szDecimals) ||
+    (szDecimals ?? -1) < 0
+  ) {
+    return null;
+  }
+
+  const maximumPriceDecimals = Math.max(
+    0,
+    (isSpot ? 8 : 6) - (szDecimals ?? 0),
+  );
+  const priceDecimals = Math.min(
+    maximumPriceDecimals,
+    Math.max(0, 4 - floorLog10(priceNumber)),
+  );
+  const minimumTick = new BigNumber(10).pow(-priceDecimals);
+  const minimumTickNumber = minimumTick.toNumber();
+  const minimumTickValue = minimumTick.toFixed();
+  const defaultTickOption: ITickParam = {
+    targetTick: minimumTickNumber,
+    nSigFigs: null,
+    apiTick: minimumTickNumber,
+    exact: true,
+    multiplier: 1,
+    label: minimumTickValue,
+    value: minimumTickValue,
+  };
+  const multipliers =
+    minimumTickNumber >= 1
+      ? [1, 10, 20, 50, 100, 1000, 10_000]
+      : [1, 2, 5, 10, 100, 1000];
+  const tickOptions = [defaultTickOption];
+  const seenApiTicks = new Set([minimumTickValue]);
+
+  for (const multiplier of multipliers) {
+    const targetTick = minimumTick.multipliedBy(multiplier).toNumber();
+    const mapped = mapTickToParams(priceNumber, targetTick);
+    const apiTick = new BigNumber(mapped.apiTick);
+    const apiTickKey = apiTick.toFixed();
+    if (
+      apiTick.isGreaterThanOrEqualTo(minimumTick) &&
+      !seenApiTicks.has(apiTickKey)
+    ) {
+      seenApiTicks.add(apiTickKey);
+      tickOptions.push({
+        ...mapped,
+        multiplier,
+        label: apiTickKey,
+        value: apiTickKey,
+      });
+    }
+  }
+
+  return {
+    symbol,
+    tickOptions,
+    defaultTickOption,
+    priceDecimals,
+  };
 }
 
 /**

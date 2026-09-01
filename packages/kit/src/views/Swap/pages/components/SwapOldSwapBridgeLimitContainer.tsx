@@ -41,6 +41,7 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
@@ -60,6 +61,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   swapTypeSwitch: ESwapTabSwitchType;
+  routeSwapType?: ESwapTabSwitchType;
   alerts: {
     states: ISwapAlertState[];
     quoteId: string;
@@ -132,6 +134,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   quoteLoading,
   quoteEventFetching,
   swapTypeSwitch,
+  routeSwapType,
   alerts,
   isWrapped,
   onSelectRecentTokenPairs,
@@ -252,6 +255,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }
         quoteResult={quoteResult}
       />
+      <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&
@@ -293,6 +297,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
+            routeSwapType={routeSwapType}
           />
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
@@ -312,6 +317,7 @@ const SwapOldSwapBridgeLimitContainer = ({
           onOpenProviderList={undefined}
           quoteResult={quoteResult}
         />
+        <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
         {alerts.states.length > 0 &&
         !quoteLoading &&
         !quoteEventFetching &&
@@ -396,6 +402,7 @@ const SwapOldSwapBridgeLimitContainer = ({
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
+                routeSwapType={routeSwapType}
               />
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />
@@ -416,6 +423,7 @@ const SwapOldSwapBridgeLimitContainer = ({
               onOpenProviderList={undefined}
               quoteResult={quoteResult}
             />
+            <SwapQuoteStockMarketStatusAlert onMarketReopen={refreshAction} />
             {alerts.states.length > 0 &&
             !quoteLoading &&
             !quoteEventFetching &&

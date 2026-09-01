@@ -18,8 +18,9 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import { buildReferralLinks } from './referralLinks';
 
 interface IReferralLinkItemProps {
   title: string;
@@ -89,32 +90,6 @@ interface IReferralLinkPopoverContentProps {
   inviteUrl: string;
 }
 
-const REFERRAL_LINKS = [
-  {
-    pathSuffix: '/shop',
-    titleId: ETranslations.referral_link_hw_title,
-    descId: ETranslations.referral_link_hw_desc,
-    useWebAppUrl: false,
-  },
-  {
-    pathSuffix: '/app/defi',
-    titleId: ETranslations.referral_link_defi_title,
-    descId: ETranslations.referral_link_defi_desc,
-    useWebAppUrl: true,
-  },
-  {
-    pathSuffix: '/app/perps',
-    titleId: ETranslations.referral_link_perps_title,
-    descId: ETranslations.referral_link_perps_desc,
-    useWebAppUrl: true,
-  },
-];
-
-function extractInviteCode(url: string): string | undefined {
-  const match = url.match(/\/r\/([^/]+)/);
-  return match?.[1];
-}
-
 export function ReferralLinkPopoverContent({
   inviteUrl,
 }: IReferralLinkPopoverContentProps) {
@@ -138,16 +113,10 @@ export function ReferralLinkPopoverContent({
     [closePopover, copyUrl],
   );
 
-  const links = useMemo(() => {
-    const inviteCode = extractInviteCode(inviteUrl);
-    return REFERRAL_LINKS.map((link) => ({
-      ...link,
-      url:
-        link.useWebAppUrl && inviteCode
-          ? `${webAppUrl}/r/${inviteCode}${link.pathSuffix}`
-          : `${inviteUrl}${link.pathSuffix}`,
-    }));
-  }, [inviteUrl, webAppUrl]);
+  const links = useMemo(
+    () => buildReferralLinks({ inviteUrl, webAppUrl }),
+    [inviteUrl, webAppUrl],
+  );
 
   return (
     <YStack p="$1" $md={{ pb: '$3' }}>

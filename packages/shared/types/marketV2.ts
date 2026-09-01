@@ -193,6 +193,9 @@ export interface IMarketStockInfo {
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
+  // Whether trading in the underlying stock is temporarily halted (per-stock signal)
+  isPaused?: boolean;
+  pausedUpdatedAt?: string;
   assetAnalysis?: IMarketStockAssetAnalysis;
   tradingActivity?: IMarketStockTradingActivity;
   dividendPerShare?: string;
@@ -200,6 +203,34 @@ export interface IMarketStockInfo {
   sharesOutstanding?: string;
   underlyingAssetTicker?: string;
   underlyingAssetName?: string;
+  tokenToAssetRatio?: string;
+  analystRatings?: IMarketStockAnalystRatings;
+  about?: IMarketStockAbout;
+}
+
+export interface IMarketStockAnalystRatings {
+  buy: number;
+  hold: number;
+  sell: number;
+  consensus?: 'Buy' | 'Sell';
+  updatedAt?: string;
+}
+
+export interface IMarketStockAbout {
+  description?: string;
+  ceo?: string;
+  employees?: string;
+  exchange?: string;
+  ipoDate?: string;
+}
+
+export interface IMarketStockDetail {
+  ticker: string;
+  name: string;
+  logoUrl?: string;
+  introduction?: string;
+  underlyingUpdatedAt?: string;
+  stock: IMarketStockInfo;
 }
 
 export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields {
@@ -295,6 +326,41 @@ export interface IMarketTokenKLineResponse {
   points: IMarketTokenKLineDataPoint[];
   total: number;
 }
+
+export interface IMarketWsPriceData {
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  eventType: 'ohlcv';
+  type: string;
+  unixTime: number;
+  v: number;
+  symbol: string;
+  address: string;
+  volUsd?: number;
+  confirm?: number;
+  dataSource?: string;
+}
+
+export type IMarketWsPriceUpdate = Pick<
+  IMarketWsPriceData,
+  'address' | 'c' | 'unixTime'
+> &
+  Partial<Omit<IMarketWsPriceData, 'address' | 'c' | 'unixTime'>>;
+
+interface IMarketWsDataUpdateBasePayload {
+  tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
+  messageType?: string;
+  data: unknown;
+  originalData?: unknown;
+}
+
+export type IMarketWsDataUpdatePayload =
+  | (IMarketWsDataUpdateBasePayload & { channel: 'ohlcv' })
+  | (IMarketWsDataUpdateBasePayload & { channel: 'tokenTxs' });
 
 export interface IMarketTokenTransactionToken {
   symbol: string;
@@ -619,6 +685,14 @@ export interface IMarketAccountPortfolioItem {
   pnl?: IMarketAccountPortfolioPnl;
 }
 
+export interface IMarketAccountPortfolioDisplayItem extends IMarketAccountPortfolioItem {
+  networkId?: string;
+  tokenId?: string;
+  issuer?: string;
+  tokenLogoUrl?: string;
+  networkLogoUrl?: string;
+}
+
 export interface IMarketAccountPortfolioResponse {
   list: IMarketAccountPortfolioItem[];
 }
@@ -660,4 +734,196 @@ export interface IMarketBannerTokenListItem extends IMarketTokenListItem {
 
 export interface IMarketBannerTokenListResponse {
   list: IMarketBannerTokenListItem[];
+}
+
+export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
+
+export interface IMarketStockPublicItem {
+  stockId: string;
+  symbol: string;
+  name: string;
+  logoUrl: string;
+  assetType: IMarketStockAssetType;
+  price?: string;
+  priceChange24hPercent?: string;
+  marketCap?: string;
+  volume24h?: string;
+  peRatio?: string;
+  currency: 'USD';
+  quoteUpdatedAt?: string;
+  sparkline?: number[];
+  sparklineUpdatedAt?: string;
+}
+
+export type IMarketStockPublicListSortBy =
+  | 'default'
+  | 'price'
+  | 'priceChange24hPercent'
+  | 'symbol';
+
+export interface IMarketStockPublicListRequest {
+  cursor?: string;
+  limit?: number;
+  category?: string;
+  sortBy?: IMarketStockPublicListSortBy;
+  sortType?: 'asc' | 'desc';
+}
+
+export interface IMarketStockPublicSearchRequest {
+  query: string;
+  limit?: number;
+}
+
+export interface IMarketStockPublicListResponse {
+  items: IMarketStockPublicItem[];
+  nextCursor?: string;
+  total: number;
+}
+
+export interface IMarketStockPublicMarketStatus {
+  isOpen: boolean;
+  session?: string;
+  reason?: string | null;
+  nextOpenMinutes?: number;
+  nextOpenTime?: string;
+}
+
+export interface IMarketStockPublicDetail extends IMarketStockPublicItem {
+  categories: string[];
+  aliases: string[];
+  priceChange24hValue?: string;
+  marketStatus?: IMarketStockPublicMarketStatus;
+  todayHigh?: string;
+  todayLow?: string;
+  open?: string;
+  previousClose?: string;
+  amplitude24hPercent?: string;
+  weekHigh52?: string;
+  weekLow52?: string;
+  turnoverRate24h?: string;
+  volumeShares?: string;
+  averageVolume1y?: string;
+  averageVolume30d?: string;
+  epsTtm?: string;
+  pbRatio?: string;
+  psRatio?: string;
+  sharesOutstanding?: string;
+  dividendYieldTtm?: string;
+  dividendPerShareTtm?: string;
+  debtToEquityTtm?: string;
+  introduction?: string;
+  analystRatings?: IMarketStockAnalystRatings;
+  about?: IMarketStockAbout;
+  // Pending backend support; see stock-detail backend requirements (2026-08-26)
+  netIncomeFy?: string;
+  revenueFy?: string;
+  sharesFloat?: string;
+  beta1y?: string;
+  // Raw provider payload the endpoint passes through untouched. Only the
+  // analyst rating buckets are typed here; everything else stays opaque.
+  underlyingMeta?: {
+    analystRatingsStrongBuy?: string;
+    analystRatingsBuy?: string;
+    analystRatingsHold?: string;
+    analystRatingsSell?: string;
+    analystRatingsStrongSell?: string;
+  } & Record<string, unknown>;
+}
+
+export type IMarketStockPublicChartPeriod = '1h' | '1d' | '1w' | '1y' | 'all';
+
+export interface IMarketStockPublicChartPoint {
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+  t: number;
+}
+
+export interface IMarketStockPublicChartResponse {
+  stockId: string;
+  period: IMarketStockPublicChartPeriod;
+  currency: 'USD';
+  points: IMarketStockPublicChartPoint[];
+}
+
+export interface IMarketStockNewsItem {
+  id: string;
+  title: string;
+  summary?: string;
+  source: string;
+  publishedAt: string;
+  url: string;
+  imageUrl?: string;
+  symbols: string[];
+}
+
+export interface IMarketStockNewsResponse {
+  stockId: string;
+  items: IMarketStockNewsItem[];
+  updatedAt: string;
+}
+
+export type IMarketStockEventType =
+  | 'cash_dividend'
+  | 'stock_split'
+  | 'earnings';
+
+export type IMarketStockEventStatus = 'confirmed' | 'scheduled';
+
+export interface IMarketStockEvent {
+  id: string;
+  type: IMarketStockEventType;
+  title: string;
+  description?: string;
+  date: string;
+  status: IMarketStockEventStatus;
+  metadata?: Record<string, string | number | null>;
+}
+
+export interface IMarketStockEventsResponse {
+  stockId: string;
+  items: IMarketStockEvent[];
+  updatedAt: string;
+}
+
+export interface IMarketStockTokenVariant {
+  tokenId: string;
+  issuer: string;
+  issuerLogoUrl?: string;
+  website?: string;
+  twitter?: string;
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+  networkId: string;
+  networkName?: string;
+  networkLogoUrl?: string;
+  contractAddress: string;
+  tokenToAssetRatio?: string;
+  tradingHours?: {
+    days?: string;
+    isMarketOpen?: boolean;
+    session?: string;
+    reason?: string | null;
+    nextOpenMinutes?: number;
+    nextOpenTime?: string;
+    isPaused?: boolean;
+    pausedUpdatedAt?: string;
+  };
+  holders?: string;
+  price?: string;
+  priceChange24hPercent?: string;
+  currency: 'USD';
+  marketUpdatedAt?: string;
+  status: string;
+  tradingEnabled: boolean;
+  isPaused?: boolean;
+}
+
+export interface IMarketStockTokenVariantsResponse {
+  stockId: string;
+  items: IMarketStockTokenVariant[];
+  defaultTokenId?: string;
 }

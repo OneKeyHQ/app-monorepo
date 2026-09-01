@@ -1,16 +1,15 @@
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IVideoSource } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { ReactVideoSource } from 'react-native-video';
 
 export type IPrimeFeatureIntroPosterSource = ImageSourcePropType | string;
 
 export type IPrimeFeatureIntroMedia =
   | {
       type: 'video';
-      getSource: () => ReactVideoSource;
+      getSource: () => IVideoSource;
       getPosterSource: () => IPrimeFeatureIntroPosterSource;
     }
   | {
@@ -22,6 +21,7 @@ export type IPrimeFeatureIntroAction =
   | 'bulkSend'
   | 'bulkRevoke'
   | 'bulkCopyAddresses'
+  | 'historyExport'
   | 'notifications'
   | 'addressRiskCheck'
   | 'receiveRiskMonitoring'
@@ -53,7 +53,7 @@ export type IPrimeFeatureIntroCtaKind =
 const PRIME_FEATURE_VIDEO_CDN_BASE_URL =
   'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media';
 
-function getPrimeFeatureVideoSource(fileName: string): ReactVideoSource {
+function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
   return {
     uri: `${PRIME_FEATURE_VIDEO_CDN_BASE_URL}/${fileName}`,
   };
@@ -191,6 +191,25 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     ],
   },
   {
+    id: EPrimeFeatures.HistoryExport,
+    listIcon: 'ClockTimeHistoryOutline',
+    title: ETranslations.global_export_transaction_history,
+    description: ETranslations.wallet_export_on_chain_transactions_description,
+    descriptionValues: {
+      networkCount: 10,
+    },
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource('prime-feature-history-export-20260721.mp4'),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/history_export_poster.png') as ImageSourcePropType,
+    },
+    action: 'historyExport',
+    actionLabel: ETranslations.start_export__action,
+    details: [],
+  },
+  {
     id: EPrimeFeatures.DAppTranslate,
     listIcon: 'TranslateOutline',
     title: ETranslations.prime_ai_translate_title,
@@ -265,32 +284,6 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
           ETranslations.prime_features_increase_notification_limit_one_title,
         description:
           ETranslations.prime_features_increase_notification_limit_one_desc,
-      },
-    ],
-  },
-  {
-    id: EPrimeFeatures.HistoryExport,
-    listIcon: 'ClockTimeHistoryOutline',
-    title: ETranslations.global_export_transaction_history,
-    description: ETranslations.wallet_export_on_chain_transactions_description,
-    descriptionValues: {
-      networkCount: 12,
-    },
-    media: {
-      type: 'icon',
-      icon: 'ClockTimeHistorySolid',
-    },
-    isComingSoon: true,
-    details: [
-      {
-        icon: 'ArchiveBoxOutline',
-        title: ETranslations.prime_features_export_transactions_one_title,
-        description: ETranslations.prime_features_export_transactions_one_desc,
-      },
-      {
-        icon: 'BillOutline',
-        title: ETranslations.prime_features_export_transactions_two_title,
-        description: ETranslations.prime_features_export_transactions_two_desc,
       },
     ],
   },

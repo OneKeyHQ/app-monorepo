@@ -143,6 +143,7 @@ export interface ISimpleDbPerpData {
   tradingUniverse?: IPerpsUniverse[] | undefined; // legacy single-dex
   marginTablesMap?: IMarginTablesMap; // legacy single-dex
   tradingUniverses?: IPerpsUniverse[][]; // multi-dex
+  tradingUniversesUpdatedAt?: number;
   marginTablesMapList?: Array<IMarginTablesMap | undefined>;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
@@ -193,6 +194,10 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  // Everything here can be rebuilt from server/WS data or cheap re-acceptance,
+  // so dropping a corrupted record is safe (OK-59997).
+  protected override readonly enableUnreadableRecordSelfHeal = true;
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
@@ -294,6 +299,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getTradingUniverse(): Promise<{
     universesByDex: IPerpsUniverse[][];
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
+    updatedAt?: number;
   }> {
     const config = await this.getPerpData();
     const tradingUniverses = config.tradingUniverses;
@@ -322,6 +328,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     return {
       universesByDex,
       marginTablesMapByDex,
+      updatedAt: config.tradingUniversesUpdatedAt,
     };
   }
 
@@ -340,6 +347,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         marginTablesMap: marginTablesMapList?.[0],
         tradingUniverses: universes,
         tradingUniverse: universes?.[0],
+        tradingUniversesUpdatedAt: Date.now(),
       }),
     );
   }
@@ -417,24 +425,40 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     mantissa?: number | null;
     data: IBook;
   }) {
-    if (!coin || !data) {
+    await this.setL2BookSnapshotCaches([{ coin, nSigFigs, mantissa, data }]);
+  }
+
+  @backgroundMethod()
+  async setL2BookSnapshotCaches(
+    snapshots: Array<{
+      coin: string;
+      nSigFigs?: number | null;
+      mantissa?: number | null;
+      data: IBook;
+    }>,
+  ) {
+    const validSnapshots = snapshots.filter(
+      (snapshot) => snapshot.coin && snapshot.data,
+    );
+    if (validSnapshots.length === 0) {
       return;
     }
     await this.setPerpData((prev): ISimpleDbPerpData => {
-      const key = this._getL2BookSnapshotCacheKey({
-        coin,
-        nSigFigs,
-        mantissa,
-      });
-      const nextCache = {
-        ...prev?.l2BookSnapshotCache,
-        [key]: {
-          data,
-          updatedAt: Date.now(),
+      const updatedAt = Date.now();
+      const nextCache = { ...prev?.l2BookSnapshotCache };
+      validSnapshots.forEach(({ coin, nSigFigs, mantissa, data }) => {
+        const key = this._getL2BookSnapshotCacheKey({
+          coin,
           nSigFigs,
           mantissa,
-        },
-      };
+        });
+        nextCache[key] = {
+          data,
+          updatedAt,
+          nSigFigs,
+          mantissa,
+        };
+      });
       return {
         ...prev,
         l2BookSnapshotCache: this._limitSnapshotCacheEntries(nextCache),

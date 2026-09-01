@@ -266,6 +266,7 @@ function getEnabledNFTNetworkIds(): string[] {
     networkIdsMap.arbitrum,
     networkIdsMap.avalanche,
     networkIdsMap.sol,
+    networkIdsMap.hyperevm,
   ];
 }
 
@@ -280,6 +281,28 @@ function _getEnabledDeFiNetworkIds(): string[] {
     networkIdsMap.polygon,
     networkIdsMap.arbitrum,
     networkIdsMap.avalanche,
+    networkIdsMap.sol,
+  ];
+}
+
+function getEnabledExportHistoryNetworkIds(): string[] {
+  const networkIdsMap = getNetworkIdsMap();
+  return [
+    networkIdsMap.base,
+    networkIdsMap.btc,
+    networkIdsMap.etc,
+    networkIdsMap.tbtc,
+    networkIdsMap.doge,
+    networkIdsMap.ltc,
+    networkIdsMap.bch,
+    networkIdsMap.sepolia,
+    networkIdsMap.arbitrum,
+    networkIdsMap.avalanche,
+    networkIdsMap.optimism,
+    networkIdsMap.eth,
+    networkIdsMap.trx,
+    networkIdsMap.bsc,
+    networkIdsMap.polygon,
     networkIdsMap.sol,
   ];
 }
@@ -308,4 +331,5 @@ export default {
   isViewInExplorerDisabled,
   isAggregateNetwork,
   getEnabledNFTNetworkIds,
+  getEnabledExportHistoryNetworkIds,
 };

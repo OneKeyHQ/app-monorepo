@@ -19,6 +19,7 @@ import type {
   IReceiveShareData,
   IReceiveShareImageGeneratorRef,
 } from './types';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 interface IShareImageGeneratorProps {
   data: IReceiveShareData;
@@ -44,7 +45,7 @@ function createImagesReadyDeferred(): IImagesReadyDeferred {
 export const ShareImageGenerator = memo(
   forwardRef<IReceiveShareImageGeneratorRef, IShareImageGeneratorProps>(
     ({ data }, ref) => {
-      const viewShotRef = useRef<ViewShot>(null);
+      const viewShotRef = useRef<ViewShotRef>(null);
       const imagesReadyDeferredRef = useRef<IImagesReadyDeferred | null>(null);
       const prevImagesKeyRef = useRef<string | null>(null);
       const prevContentKeyRef = useRef<string | null>(null);
@@ -113,7 +114,12 @@ export const ShareImageGenerator = memo(
               width: SHARE_CARD_CONFIG.width,
             }}
           >
+            {/* keyed remount: the renderer's load counter and reveal state
+                must reset in lockstep with the deferred above when the logo
+                URIs change, or a stale count resolves the new deferred before
+                the images actually rendered (OK-58189) */}
             <ShareContentRenderer
+              key={imagesKey}
               data={data}
               onImagesReady={handleImagesReady}
             />

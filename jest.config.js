@@ -52,6 +52,7 @@ module.exports = async () => {
     ],
     // 'extensionsToTreatAsEsm': ['.wasm', '.ts'],
     moduleNameMapper: {
+      '^react-native$': 'react-native-web',
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
         '<rootDir>/__mocks__/fileMock.js',
@@ -71,7 +72,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal)/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':

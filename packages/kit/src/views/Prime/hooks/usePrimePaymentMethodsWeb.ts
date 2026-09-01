@@ -61,7 +61,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
       Purchases.configure(
         apiKey,
-        user?.onekeyUserId || Purchases.generateRevenueCatAnonymousAppUserId(),
+        user?.onekeyUserId ||
+          purchaseSdkUtils.generateRevenueCatAnonymousAppUserId(),
       );
       return { apiKey, isSandboxKey };
     },
@@ -230,6 +231,8 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
           subscriptionPeriod,
           featureName,
+          // purchases-js = RevenueCat web billing (Stripe embedded form)
+          paymentMethod: 'stripe',
         });
 
         // test credit card
@@ -238,7 +241,15 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
-        errorToastUtils.toastIfError(error);
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'stripe',
+          subscriptionPeriod,
+          featureName,
+        });
+        if (reason !== 'userCancelled') {
+          errorToastUtils.toastIfError(error);
+        }
         throw error;
       } finally {
         // will block stripe modal
