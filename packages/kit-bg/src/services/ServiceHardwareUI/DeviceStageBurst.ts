@@ -2,7 +2,10 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { isDeviceStageOwnedHardwareUiAction } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import {
+  isDeviceStageOwnedHardwareUiAction,
+  setDeviceStageBurstActive,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
@@ -67,8 +70,10 @@ const SILENT_CANCEL_CODES = [
   HardwareErrorCode.DeviceInterruptedFromOutside,
 ];
 
+/** DeviceNotFound (105) is deliberately absent: the initial search
+ * failing is its own verdict — the "Device not connected" card's
+ * territory (doc §05 mapping A), classified apart in mapErrorToReason. */
 const DISCONNECTED_CODES = [
-  HardwareErrorCode.DeviceNotFound,
   HardwareErrorCode.PollingTimeout,
   HardwareErrorCode.BridgeDeviceDisconnected,
   HardwareErrorCode.BleDeviceDisconnected,
@@ -143,10 +148,11 @@ const PROGRESS_WRITABLE_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
 ]);
 
 /** Outcomes that hold the stage until they are read: the notice a failed
- * call landed, the third-party ✓ beat. */
+ * call landed, the third-party ✓ beat, the Device-not-connected card. */
 const OUTCOME_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'error',
   'done',
+  'deviceNotFound',
 ]);
 
 /** The air-gap pair (doc §4.6). The request UR lives exactly as long as
@@ -173,6 +179,31 @@ export function pickQrScoped<T>(
     return undefined;
   }
   return next ?? prev;
+}
+
+/**
+ * Which story a DeviceNotFound failure (105) tells — "Device not
+ * connected" (doc §05 mapping A) or the mid-burst disconnect notice. The
+ * code alone cannot say: a later call in the same burst re-searches an
+ * unplugged device and throws the very same 105. But a device that was
+ * ever present has spoken by then — the SDK emits no UI event at all when
+ * its initial search fails — so "never heard from this burst" is the
+ * at-initiation verdict, and everything else keeps `disconnected` (the
+ * agreed split: mid-burst unplug stays the disconnect notice). Vendor
+ * bursts stay out entirely: their deviceNotFound is the adapter's own
+ * live retry ask, not an ending.
+ */
+export function resolveDeviceNotFoundLanding({
+  wasVendorBurst,
+  sawDeviceEventThisBurst,
+}: {
+  wasVendorBurst: boolean;
+  sawDeviceEventThisBurst: boolean;
+}): 'deviceNotFound' | 'disconnected' {
+  if (wasVendorBurst || sawDeviceEventThisBurst) {
+    return 'disconnected';
+  }
+  return 'deviceNotFound';
 }
 
 /** The steps that ask something of the person. Only an ask outranks an
@@ -312,6 +343,12 @@ export class DeviceStageBurstScope {
   /** The active burst's third-party vendor — drives the ✓ done beat. */
   private activeVendor: EHardwareVendor | undefined;
 
+  /** Whether any SDK-owned device event landed this burst — the input to
+   * resolveDeviceNotFoundLanding. App-authored beats (noteStep, the
+   * opening `connecting`) must not count: they play whether or not a
+   * device is there. */
+  private sawDeviceEventThisBurst = false;
+
   /**
    * The step a UI-side runner authored (the authenticity flow's beats).
    * While one is on stage, the SDK's generic events must not demote it:
@@ -414,12 +451,16 @@ export class DeviceStageBurstScope {
     }
     this.clearOffTimer();
     this.depth += 1;
+    setDeviceStageBurstActive(true);
     if (params.confirmContent) {
       this.confirmContent = params.confirmContent;
     }
     if (this.depth === 1) {
       this.activeVendor = params.vendor;
       this.authoredAuthStep = undefined;
+      // A fresh initiation makes its own presence finding — a device the
+      // PREVIOUS burst heard from proves nothing about this one.
+      this.sawDeviceEventThisBurst = false;
       // A new burst owns the stage; a nested wrapper joining mid-dwell
       // (depth >= 2) is not a new narrative and must not disarm it.
       this.clearAuthHold();
@@ -529,6 +570,9 @@ export class DeviceStageBurstScope {
     if (this.depth > 0) {
       return;
     }
+    // The last layer is landing: any DeviceNotFound built after this
+    // belongs to the legacy dialog again.
+    setDeviceStageBurstActive(false);
     this.confirmContent = undefined;
     // A ✓ still resting when the last burst layer ends keeps its own
     // exit: the armed handover retires the narrative at full rest and
@@ -554,6 +598,22 @@ export class DeviceStageBurstScope {
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
+    // DeviceNotFound splits by whether this burst ever heard from the
+    // device (see resolveDeviceNotFoundLanding). The at-initiation half
+    // lands the Device-not-connected card and is done — synchronously,
+    // like the mapped disconnect below, so no stale-landing window opens.
+    if (reason === 'notFound') {
+      if (
+        resolveDeviceNotFoundLanding({
+          wasVendorBurst,
+          sawDeviceEventThisBurst: this.sawDeviceEventThisBurst,
+        }) === 'deviceNotFound'
+      ) {
+        await this.setStep('deviceNotFound', {});
+        return;
+      }
+      reason = 'disconnected';
+    }
     // A dying transport rarely reports a mapped disconnect code — each
     // protocol fails with its own string (V2 transferIn errors, V1 retry
     // exhaustion, bridge messages) — so a generic outcome on a device
@@ -723,6 +783,11 @@ export class DeviceStageBurstScope {
     if (!step) {
       return;
     }
+    // An owned, non-close SDK event is the device speaking — the initial
+    // search failing emits nothing, so this is the presence proof
+    // resolveDeviceNotFoundLanding reads. Recorded before the repaint
+    // gates below: whether the event wins the stage is beside the point.
+    this.sawDeviceEventThisBurst = true;
     if (outcomeOnStage && !ASK_STEPS.has(step)) {
       return;
     }
@@ -1050,10 +1115,12 @@ export class DeviceStageBurstScope {
     this.clearOffTimer();
     this.clearPendingOpen();
     this.depth = 0;
+    setDeviceStageBurstActive(false);
     this.explicitToken = undefined;
     this.confirmContent = undefined;
     this.activeVendor = undefined;
     this.authoredAuthStep = undefined;
+    this.sawDeviceEventThisBurst = false;
     // The person's own exit wins outright.
     this.clearAuthHold();
     await this.forceOff({ force: true });
@@ -1129,9 +1196,13 @@ export class DeviceStageBurstScope {
     }
     // An error outcome owns its own exit: the notice form leaves through
     // onClose after its readable hold, the ask form waits for the person.
-    // A scheduled off (burst end racing in behind the outcome) must not
-    // cut either short; only the user's dismissal forces through.
-    if (prev.step === 'error' && !options.force) {
+    // The Device-not-connected card waits the same way. A scheduled off
+    // (burst end racing in behind the outcome) must not cut either short;
+    // only the user's dismissal forces through.
+    if (
+      (prev.step === 'error' || prev.step === 'deviceNotFound') &&
+      !options.force
+    ) {
       return;
     }
     await deviceStageAtom.set({
@@ -1310,7 +1381,7 @@ export class DeviceStageBurstScope {
 
   private mapErrorToReason(
     error: unknown,
-  ): IDeviceStageErrorReasonValue | 'silent' | 'generic' {
+  ): IDeviceStageErrorReasonValue | 'silent' | 'generic' | 'notFound' {
     if (
       isHardwareErrorByCode({ error: error as any, code: SILENT_CANCEL_CODES })
     ) {
@@ -1333,6 +1404,17 @@ export class DeviceStageBurstScope {
       })
     ) {
       return 'pinInvalid';
+    }
+    if (
+      isHardwareErrorByCode({
+        error: error as any,
+        code: HardwareErrorCode.DeviceNotFound,
+      })
+    ) {
+      // Not a reason of its own — end() resolves it into the
+      // Device-not-connected card or the disconnect notice by whether
+      // this burst ever heard from the device.
+      return 'notFound';
     }
     if (
       isHardwareErrorByCode({ error: error as any, code: DISCONNECTED_CODES })
