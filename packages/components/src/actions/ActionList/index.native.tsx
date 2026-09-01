@@ -36,6 +36,9 @@ import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
+import { useAsyncItemsLifecycle } from './useAsyncItemsLifecycle';
+
+import type { IActionListRenderItemsAsync } from './asyncItemsLifecycleTypes';
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../LazyPopover';
 
@@ -260,11 +263,11 @@ export interface IActionListProps extends Omit<
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
-  renderItemsAsync?: (params: {
-    // TODO use cloneElement to override onClose props
-    handleActionListClose: () => void;
-    handleActionListOpen: () => void;
-  }) => Promise<React.ReactNode>;
+  /**
+   * Starts loading when the list opens. Native applies the resolved content
+   * after the entry animation so fit-mode height stays stable while sliding.
+   */
+  renderItemsAsync?: IActionListRenderItemsAsync;
   /**
    * Unique identifier for tracking/analytics purposes.
    */
@@ -275,17 +278,16 @@ const useDefaultOpen = (defaultOpen: boolean) => {
   const [isOpen, setOpenStatus] = useState(
     platformEnv.isNativeAndroid ? false : defaultOpen,
   );
-  // Fix the crash on Android where the view node cannot be found.
   useEffect(() => {
-    if (platformEnv.isNativeAndroid) {
-      if (defaultOpen) {
-        setTimeout(() => {
-          setOpenStatus(defaultOpen);
-        }, 0);
-      }
+    if (!defaultOpen || !platformEnv.isNativeAndroid) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Android defers mounting to avoid missing view nodes.
+    const timer = setTimeout(() => {
+      setOpenStatus(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [defaultOpen]);
   return [isOpen, setOpenStatus] as [
     boolean,
     Dispatch<SetStateAction<boolean>>,
@@ -303,10 +305,20 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
+  sheetProps,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
-  const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+  const handleActionListOpenRef = useRef<() => void>(() => undefined);
+  const handleActionListCloseRef = useRef<() => void>(() => undefined);
+  const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
+    useAsyncItemsLifecycle({
+      isOpen,
+      renderItemsAsync,
+      handleActionListCloseRef,
+      handleActionListOpenRef,
+      sheetProps,
+    });
   const trackActionListToggle = useDebouncedCallback((openStatus: boolean) => {
     if (trackID) {
       if (openStatus) {
@@ -323,14 +335,17 @@ function BasicActionList({
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
+      handleAsyncItemsOpenChange(openStatus);
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
-      if (!openStatus) {
-        setAsyncItems(null);
-      }
     },
-    [onOpenChange, setOpenStatus, trackActionListToggle],
+    [
+      handleAsyncItemsOpenChange,
+      onOpenChange,
+      setOpenStatus,
+      trackActionListToggle,
+    ],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
@@ -338,26 +353,10 @@ function BasicActionList({
   const handleActionListClose = useCallback(() => {
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
+  handleActionListOpenRef.current = handleActionListOpen;
+  handleActionListCloseRef.current = handleActionListClose;
 
-  const { md } = useMedia();
   const intl = useIntl();
-  useEffect(() => {
-    if (renderItemsAsync && isOpen) {
-      void (async () => {
-        const asyncItemsToRender = await renderItemsAsync({
-          handleActionListClose,
-          handleActionListOpen,
-        });
-        setAsyncItems(asyncItemsToRender);
-      })();
-    }
-  }, [
-    handleActionListClose,
-    handleActionListOpen,
-    isOpen,
-    md,
-    renderItemsAsync,
-  ]);
 
   const renderActionListItem = useCallback(
     (item: IActionListItemProps) => (
@@ -386,8 +385,32 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
-  const renderContentMemo = useMemo(
-    () => (
+  const renderContentMemo = useMemo(() => {
+    let customItems: ReactNode;
+    if (renderItemsAsync) {
+      if (asyncItems) {
+        customItems = asyncItems.items;
+      } else if (renderItems) {
+        customItems = renderItems({
+          handleActionListClose,
+          handleActionListOpen,
+        });
+      } else {
+        customItems = (
+          <>
+            <ActionListSkeletonItem />
+            <ActionListSkeletonItem />
+          </>
+        );
+      }
+    } else {
+      customItems = renderItems?.({
+        handleActionListClose,
+        handleActionListOpen,
+      });
+    }
+
+    return (
       <YStack {...ACTION_LIST_CONTENT_STYLE}>
         {items?.map(renderActionListItem)}
         {sections?.map((section, sectionIdx) => (
@@ -411,33 +434,19 @@ function BasicActionList({
         ))}
 
         {/* custom render items */}
-        {renderItems?.({
-          handleActionListClose,
-          handleActionListOpen,
-        })}
-
-        {/* custom async render items - show skeleton while loading */}
-        {renderItemsAsync && !asyncItems ? (
-          <>
-            <ActionListSkeletonItem />
-            <ActionListSkeletonItem />
-          </>
-        ) : (
-          asyncItems
-        )}
+        {customItems}
       </YStack>
-    ),
-    [
-      items,
-      sections,
-      renderActionListItem,
-      renderItems,
-      renderItemsAsync,
-      asyncItems,
-      handleActionListClose,
-      handleActionListOpen,
-    ],
-  );
+    );
+  }, [
+    items,
+    sections,
+    renderActionListItem,
+    renderItems,
+    renderItemsAsync,
+    asyncItems,
+    handleActionListClose,
+    handleActionListOpen,
+  ]);
 
   return (
     <LazyPopover
@@ -447,7 +456,9 @@ function BasicActionList({
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
+      mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
+      sheetProps={resolvedSheetProps}
     />
   );
 }

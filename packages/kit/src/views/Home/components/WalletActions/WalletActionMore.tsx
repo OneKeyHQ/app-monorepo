@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -390,7 +391,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
 
   return (
     <RawActions.More
-      renderItems={renderItems}
+      renderItems={platformEnv.isNative ? renderItems : undefined}
       renderItemsAsync={renderItemsAsync}
       testID={HomeTestIDs.moreButton}
       iconOnly={iconOnly}
