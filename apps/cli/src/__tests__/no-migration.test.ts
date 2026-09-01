@@ -1,7 +1,26 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+
+import { LEGACY_MNEMONIC_ACCOUNT } from '../commands/auth/_internal/logout-pipeline';
 import { executeStatusPipeline } from '../commands/auth/_internal/status-pipeline';
 import { executeGetAddressCommand } from '../commands/get-address';
 import { VaultClientError } from '../infra/vault';
 import { SignerSoftwareBase } from '../signer';
+
+function listSourceFiles(dirPath: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+    const entryPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== '__tests__') {
+        files.push(...listSourceFiles(entryPath));
+      }
+    } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
 
 describe('no silent migration from legacy wallet:default keychain entries', () => {
   afterEach(() => {
@@ -63,5 +82,21 @@ describe('no silent migration from legacy wallet:default keychain entries', () =
         },
       }),
     ).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
+  });
+
+  it('only references legacy mnemonic cleanup in auth cleanup production code', () => {
+    const srcRoot = path.resolve(__dirname, '..');
+    const matches = [
+      ...listSourceFiles(path.join(srcRoot, 'commands')),
+      ...listSourceFiles(path.join(srcRoot, 'infra/vault')),
+    ]
+      .filter((filePath) =>
+        readFileSync(filePath, 'utf-8').includes(LEGACY_MNEMONIC_ACCOUNT),
+      )
+      .map((filePath) => path.relative(srcRoot, filePath));
+
+    expect(matches).toEqual([
+      'commands/auth/_internal/legacy-keychain-cleanup.ts',
+    ]);
   });
 });

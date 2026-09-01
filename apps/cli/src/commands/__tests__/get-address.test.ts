@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { createVaultAddressCacheKey } from '../../infra/vault';
 import { executeGetAddressCommand } from '../get-address';
 
@@ -100,5 +103,14 @@ describe('onekey get-address command', () => {
       }),
     );
     expect(process.exitCode).toBe(1);
+  });
+
+  it('does not import axios, secureCache, or getHdCredential', () => {
+    const source = readFileSync(
+      path.resolve(__dirname, '../get-address.ts'),
+      'utf-8',
+    );
+
+    expect(source).not.toMatch(/axios|secureCache\.set|getHdCredential/);
   });
 });

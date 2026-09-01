@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 // Test-only import (node env, never bundled): the SDK original is the source
 // of truth the local copy must stay in parity with.
@@ -289,6 +292,18 @@ describe('thirdPartyDeviceUtils', () => {
       });
     }
   });
+
+  it('keeps the adapter SDK out of the runtime import graph', () => {
+    // The whole point of the local copy: thirdPartyDeviceUtils is pulled into
+    // every platform's main bundle, and a runtime import of
+    // @onekeyfe/hwk-trezor-adapter drags in hwk-trezor-core (~620KB total).
+    const source = readFileSync(
+      join(__dirname, 'thirdPartyDeviceUtils.ts'),
+      'utf8',
+    );
+    expect(source).not.toContain("from '@onekeyfe/hwk-trezor-adapter'");
+  });
+
   it('detects Trezor BLE support from persisted device settings', () => {
     expect(
       thirdPartyDeviceUtils.isTrezorBleSupportedDevice({
