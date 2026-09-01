@@ -117,11 +117,14 @@ type IUnclaimableItemProps = {
 };
 
 function UnclaimableItem({ item }: IUnclaimableItemProps) {
-  const handlePress = useCallback(() => {
-    if (item.button?.data?.link) {
-      openUrlExternal(item.button.data.link);
-    }
-  }, [item]);
+  const dialogInstance = useDialogInstance();
+  const handlePress = useCallback(async () => {
+    const link = item.button?.data?.link;
+    if (!link) return;
+
+    await dialogInstance.close();
+    void openUrlExternal(link);
+  }, [dialogInstance, item.button?.data?.link]);
 
   return (
     <XStack alignItems="center" gap="$3" py="$2">
