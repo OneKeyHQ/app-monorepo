@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -58,7 +58,8 @@ export function MarketAsyncStarV2({
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
   const [resolvedIdentity, setResolvedIdentity] =
     useState<IMarketWatchlistIdentity>();
-  const [isResolving, setIsResolving] = useState(false);
+  const [optimisticChecked, setOptimisticChecked] = useState<boolean>();
+  const isResolvingRef = useRef(false);
 
   const candidateIdentities = useMemo(() => {
     if (
@@ -84,6 +85,13 @@ export function MarketAsyncStarV2({
     );
   }, [candidateIdentities, isMounted, watchListData]);
   const checked = checkedIdentities.length > 0;
+  const displayedChecked = optimisticChecked ?? checked;
+
+  useEffect(() => {
+    if (optimisticChecked !== undefined && optimisticChecked === checked) {
+      setOptimisticChecked(undefined);
+    }
+  }, [checked, optimisticChecked]);
 
   const logAdded = useCallback(
     (identity: IMarketWatchlistIdentity) => {
@@ -109,7 +117,11 @@ export function MarketAsyncStarV2({
   );
 
   const handlePress = useCallback(async () => {
+    if (isResolvingRef.current) {
+      return;
+    }
     if (checked) {
+      setOptimisticChecked(false);
       checkedIdentities.forEach((identity) => {
         actions.removeFromWatchListV2(
           identity.chainId,
@@ -120,7 +132,8 @@ export function MarketAsyncStarV2({
       return;
     }
 
-    setIsResolving(true);
+    isResolvingRef.current = true;
+    setOptimisticChecked(true);
     try {
       const identity = await resolveIdentity();
       if (!identity?.chainId) {
@@ -128,24 +141,21 @@ export function MarketAsyncStarV2({
       }
       setResolvedIdentity(identity);
 
-      if (actions.isInWatchListV2(identity.chainId, identity.contractAddress)) {
-        actions.removeFromWatchListV2(
-          identity.chainId,
-          identity.contractAddress,
-        );
-        logRemoved(identity);
-      } else {
+      if (
+        !actions.isInWatchListV2(identity.chainId, identity.contractAddress)
+      ) {
         actions.addIntoWatchListV2([identity]);
         logAdded(identity);
       }
     } catch (_error) {
+      setOptimisticChecked(undefined);
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_an_error_occurred,
         }),
       });
     } finally {
-      setIsResolving(false);
+      isResolvingRef.current = false;
     }
   }, [
     actions,
@@ -161,14 +171,15 @@ export function MarketAsyncStarV2({
     <IconButton
       testID={testID}
       title={intl.formatMessage({
-        id: checked
+        id: displayedChecked
           ? ETranslations.market_remove_from_favorites
           : ETranslations.market_add_to_favorites,
       })}
-      icon={checked ? 'StarSolid' : 'StarOutline'}
+      icon={displayedChecked ? 'StarSolid' : 'StarOutline'}
       iconSize={iconSize}
-      iconProps={{ color: checked ? '$iconActive' : '$iconSubdued' }}
-      loading={isResolving}
+      iconProps={{
+        color: displayedChecked ? '$iconActive' : '$iconSubdued',
+      }}
       onPress={handlePress}
       size={size}
       variant="tertiary"
