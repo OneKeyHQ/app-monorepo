@@ -28,6 +28,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 type ISupportedToken = {
   symbol: string;
   name: string;
@@ -294,7 +296,7 @@ const ReceiveRiskSupportedAssetsPage = () => {
         })}
         headerRight={headerRight}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <ReceiveRiskSupportedAssetsContent />
       </Page.Body>
     </Page>

@@ -6,7 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
-import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import {
+  buildSwapDefaultSelectedTokensForNetwork,
+  resolveSwapTokenNetworkLogoURI,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
@@ -101,6 +104,7 @@ import {
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
+  sanitizeSwapProSelectTokenSnapshot,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
@@ -734,19 +738,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // If token is not provided: load from db, if db is empty, use defaultToken
   persistSwapProSelectToken = contextAtomMethod(
     async (get, set, token?: ISwapToken, defaultToken?: ISwapToken) => {
-      // Remove realtime properties before saving to db
-      const getTokenForStorage = (t: ISwapToken): ISwapToken => {
-        const {
-          balanceParsed,
-          price,
-          fiatValue,
-          reservationValue,
-          accountAddress,
-          ...rest
-        } = t;
-        return rest;
-      };
-
       const setSelectedToken = (nextToken: ISwapToken) => {
         const currentToken = get(swapProSelectTokenAtom());
         const isSameToken =
@@ -769,17 +760,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (token) {
         setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-          getTokenForStorage(token),
+          sanitizeSwapProSelectTokenSnapshot(token),
         );
       } else {
+        const selectedTokenBeforeLoad = get(swapProSelectTokenAtom());
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
+        if (get(swapProSelectTokenAtom()) !== selectedTokenBeforeLoad) {
+          return;
+        }
         if (savedToken) {
           setSelectedToken(savedToken);
         } else if (defaultToken) {
           setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-            getTokenForStorage(defaultToken),
+            sanitizeSwapProSelectTokenSnapshot(defaultToken),
           );
         }
       }
@@ -3443,7 +3438,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken: currentToToken,
         });
         if (carryToken) {
-          void this.persistSwapProSelectToken.call(set, carryToken);
+          const networkLogoURI = resolveSwapTokenNetworkLogoURI({
+            swapNetworks: get(swapNetworks()),
+            token: carryToken,
+          });
+          void this.persistSwapProSelectToken.call(
+            set,
+            networkLogoURI && networkLogoURI !== carryToken.networkLogoURI
+              ? { ...carryToken, networkLogoURI }
+              : carryToken,
+          );
         }
       }
       if (

@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ListItemSelect } from '../../components/ListItemSelect';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 import { useOptions } from './useOptions';
 
@@ -206,7 +207,7 @@ const AppAutoLock = () => {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_auto_lock })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <AppAutoLockSettingsView />
       </Page.Body>
     </Page>

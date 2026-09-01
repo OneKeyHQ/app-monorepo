@@ -7,6 +7,9 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 import { useMarketTradingViewParams } from './useTokenDetail';
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({}));
+jest.mock('./StockDetailContext', () => ({
+  useStockDetail: () => ({ isStockRoute: false }),
+}));
 
 const tokenAddress = '0x020bfc650a365f8bb26819deaabf3e21291018b4';
 const networkId = 'evm--4663';

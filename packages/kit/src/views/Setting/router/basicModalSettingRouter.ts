@@ -47,6 +47,10 @@ const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
 );
 
+const SettingDAppConnectionListModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/DAppConnection/pages/ConnectionList'),
+);
+
 const FloatingIconModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
 );
@@ -249,6 +253,11 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,
     component: SettingSignatureRecordModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    component: SettingDAppConnectionListModal,
+    rewrite: '/dapp-connections',
   },
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,

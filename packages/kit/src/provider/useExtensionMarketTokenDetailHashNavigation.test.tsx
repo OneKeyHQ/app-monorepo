@@ -103,15 +103,19 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketTokenCategory=top_coins',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
       params: {
         network: 'bsc',
         tokenAddress: '0xabc',
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+        skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
+        disableTrade: true,
         showFavoriteButton: false,
       },
     });
@@ -120,13 +124,35 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses native market detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/btc--0/?isNative=true',
+        '#/market/token/btc--0/?isNative=true&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketTokenCategory=top_coins',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {
         network: 'btc--0',
         isNative: true,
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+        skipMarketDataFetch: true,
+        disableTrade: true,
+      },
+    });
+  });
+
+  it('parses market stock detail hash with an optional token variant', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?network=eth&tokenAddress=0xaapl&from=ExtensionPopup&disableTrade=true&showFavoriteButton=false',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        network: 'eth',
+        tokenAddress: '0xaapl',
+        from: 'ExtensionPopup',
+        disableTrade: true,
+        showFavoriteButton: false,
       },
     });
   });
@@ -171,6 +197,25 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
             network: 'eth',
             tokenAddress: '0xabc',
             isNative: false,
+          },
+        },
+      },
+    );
+  });
+
+  it('navigates to stock detail from current hash on mount', () => {
+    setHash('#/market/stock/AAPL');
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: {
+            stockId: 'AAPL',
           },
         },
       },
@@ -251,6 +296,59 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       },
     );
   });
+
+  it.each([
+    {
+      query: 'disableTrade=true',
+      currentParams: { disableTrade: false },
+      expectedParams: { disableTrade: true },
+    },
+    {
+      query: 'skipMarketDataFetch=true',
+      currentParams: { skipMarketDataFetch: false },
+      expectedParams: { skipMarketDataFetch: true },
+    },
+    {
+      query: 'marketTokenId=bitcoin',
+      currentParams: {},
+      expectedParams: { marketTokenId: 'bitcoin' },
+    },
+    {
+      query: 'marketTokenCategory=top_coins',
+      currentParams: {},
+      expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+  ])(
+    'refreshes the same token route when $query changes',
+    ({ query, currentParams, expectedParams }) => {
+      setHash(`#/market/token/eth/0xabc?${query}`);
+      mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+        name: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network: 'eth',
+          tokenAddress: '0xabc',
+          ...currentParams,
+        },
+      });
+
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+      expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.MarketDetailV2,
+            params: {
+              network: 'eth',
+              tokenAddress: '0xabc',
+              ...expectedParams,
+            },
+          },
+        },
+      );
+    },
+  );
 
   it('restores default favorite visibility when reopening the same token from Market', () => {
     setHash('#/market/token/eth/0xabc');
