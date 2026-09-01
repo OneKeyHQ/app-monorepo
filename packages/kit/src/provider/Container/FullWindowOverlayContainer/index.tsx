@@ -43,6 +43,10 @@ export function FullWindowOverlayContainer() {
         right={0}
         bottom={0}
         pointerEvents="box-none"
+        // RN 0.86 Fabric flattens this layout-only box-none container out
+        // of the native hierarchy, which kills hit-testing for the whole
+        // portal subtree (draws fine, touches dead). Keep the native view.
+        collapsable={false}
       >
         <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
       </Stack>
