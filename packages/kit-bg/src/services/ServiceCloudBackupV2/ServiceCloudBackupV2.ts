@@ -1,4 +1,5 @@
 import { cloneDeep } from 'lodash';
+import { Platform } from 'react-native';
 
 import { decryptAsync } from '@onekeyhq/core/src/secret';
 import {
@@ -87,6 +88,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   async supportCloudBackup(): Promise<boolean> {
+    if (Platform.OS === 'ios' && Platform.isMacCatalyst) {
+      return false;
+    }
     if (platformEnv.isNativeIOS) {
       // return false;
       return true;
