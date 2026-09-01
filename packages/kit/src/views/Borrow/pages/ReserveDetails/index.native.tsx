@@ -68,6 +68,7 @@ const ReserveDetailsPage = () => {
 
   const symbol = reserveToken?.symbol || routeSymbol;
   const logoURI = reserveToken?.logoURI || routeLogoURI;
+  const isShareMetadataReady = Boolean(routeLogoURI || reserveToken?.logoURI);
 
   const shareUrl = useMemo(() => {
     if (
@@ -99,9 +100,9 @@ const ReserveDetailsPage = () => {
   ]);
 
   const handleShare = useCallback(() => {
-    if (!shareUrl) return;
+    if (!shareUrl || !isShareMetadataReady) return;
     void shareText(shareUrl);
-  }, [shareUrl, shareText]);
+  }, [isShareMetadataReady, shareUrl, shareText]);
 
   // Native modal header: Token icon + Symbol
   const headerTitle = useCallback(
@@ -124,10 +125,11 @@ const ReserveDetailsPage = () => {
         size="small"
         variant="tertiary"
         iconColor="$iconSubdued"
+        disabled={!shareUrl || !isShareMetadataReady}
         onPress={handleShare}
       />
     ),
-    [handleShare],
+    [handleShare, isShareMetadataReady, shareUrl],
   );
 
   return (

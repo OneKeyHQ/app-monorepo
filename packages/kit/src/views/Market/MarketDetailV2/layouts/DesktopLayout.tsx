@@ -189,8 +189,8 @@ export function DesktopLayout({
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
-    xpub,
+    accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
+    xpub: shouldUseStockDesktopLayout ? undefined : xpub,
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
