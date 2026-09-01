@@ -193,6 +193,9 @@ describe('moduleIdRegistry', () => {
     expect(getModuleIdDomain('node_modules/react/index.js')).toBe(
       'nodeModules',
     );
+    expect(
+      getModuleIdDomain('packages/example/node_modules/react/index.js'),
+    ).toBe('nodeModules');
     expect(getModuleIdDomain('__prelude__')).toBe('virtual');
 
     expect(
