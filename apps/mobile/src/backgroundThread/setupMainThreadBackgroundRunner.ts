@@ -5,7 +5,6 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
-import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -38,6 +37,7 @@ import {
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
+import { applyOrQueueJotaiStateBroadcast } from './jotaiMainHydrationGate';
 import {
   deletePersistedNativeStorageContractViolation,
   drainPersistedNativeStorageContractViolations,
@@ -1181,8 +1181,7 @@ function handleBackgroundThreadJotaiStateUpdate(
     return;
   }
 
-  void jotaiUpdateFromUiByBgBroadcast({
-    $$isFromBgStatesSyncBroadcast: true,
+  applyOrQueueJotaiStateBroadcast({
     name: payload.name,
     payload: payload.payload,
   });
@@ -1204,8 +1203,7 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
   }
 
   for (const item of payload.items) {
-    void jotaiUpdateFromUiByBgBroadcast({
-      $$isFromBgStatesSyncBroadcast: true,
+    applyOrQueueJotaiStateBroadcast({
       name: item.name,
       payload: item.payload,
     });

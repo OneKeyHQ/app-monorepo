@@ -30,6 +30,10 @@ const mockInitializeJotaiFromBackground = jest.fn(
       mockJotaiInitRejectors.push(reject);
     }),
 );
+const mockRunJotaiMainHydration = jest.fn(
+  async (initializeFromBackground: () => Promise<void>) =>
+    initializeFromBackground(),
+);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),
@@ -45,6 +49,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     initializeJotaiFromBackground: () => mockInitializeJotaiFromBackground(),
   },
+}));
+
+jest.mock('./jotaiMainHydrationGate', () => ({
+  runJotaiMainHydration: (initializeFromBackground: () => Promise<void>) =>
+    mockRunJotaiMainHydration(initializeFromBackground),
 }));
 
 jest.mock('react-native', () => ({
@@ -208,6 +217,7 @@ describe('NativeStorageBootstrapRoot', () => {
       await Promise.resolve();
     });
     expect(mockInitializeJotaiFromBackground).toHaveBeenCalledTimes(2);
+    expect(mockRunJotaiMainHydration).toHaveBeenCalledTimes(2);
     await act(async () => {
       mockJotaiInitResolvers[1]?.();
       await Promise.resolve();

@@ -19,6 +19,7 @@ import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/st
 import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { bootstrapNativeStorage } from './bootstrapNativeStorage';
+import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
 
 let AppComponent: ComponentType | undefined;
@@ -41,7 +42,9 @@ function initializeJotaiFromBackground() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { default: backgroundApiProxy } =
     require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-  return backgroundApiProxy.initializeJotaiFromBackground();
+  return runJotaiMainHydration(() =>
+    backgroundApiProxy.initializeJotaiFromBackground(),
+  );
 }
 
 function withNativeBootstrapTimeout(promise: Promise<boolean>) {
