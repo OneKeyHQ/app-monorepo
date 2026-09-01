@@ -530,6 +530,7 @@ class ServiceSend extends ServiceBase {
         const transfer = action?.assetTransfer?.sends[0];
         const isExpectedTransferAsset =
           isValidPrimeInfiniPaymentContract({
+            chain: latestPayment.chain,
             networkId,
             token: latestPayment.token,
             contractAddress: paymentCacheKey.contractAddress,

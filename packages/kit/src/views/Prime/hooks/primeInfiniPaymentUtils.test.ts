@@ -85,10 +85,11 @@ describe('primeInfiniPaymentUtils', () => {
   it.each([
     { chain: 'ETHEREUM', networkId: networkIdsMap.eth, token: 'USDC' },
     { chain: 'BSC', networkId: networkIdsMap.bsc, token: 'ETH' },
+    { chain: 'BSC', networkId: networkIdsMap.eth, token: 'ETH' },
     { chain: 'UNKNOWN', networkId: 'unknown--1', token: 'ETH' },
     { chain: 'ALL', networkId: networkIdsMap.onekeyall, token: 'ALL NETWORKS' },
   ])(
-    'rejects an empty contract for a non-native $token asset on $chain',
+    'rejects invalid empty-contract $token metadata on $chain ($networkId)',
     ({ chain, networkId, token }) => {
       expect(
         getPrimeInfiniPaymentAssets([

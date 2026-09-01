@@ -406,6 +406,7 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
 
   test.each([
     { label: 'token symbol', changes: { token: 'USDC' } },
+    { label: 'chain', changes: { chain: 'BSC' } },
     { label: 'recipient', changes: { address: '0xotherrecipient' } },
     { label: 'amount', changes: { amountDue: '0.02' } },
   ])(

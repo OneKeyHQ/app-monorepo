@@ -5487,6 +5487,7 @@ class ServicePrime extends ServiceBase {
       ) {
         return [];
       }
+      const chain = option.chain.trim().toUpperCase();
       const networkId = option.networkId.trim();
       const tokens = option.tokens.flatMap((tokenValue) => {
         if (!tokenValue || typeof tokenValue !== 'object') {
@@ -5506,6 +5507,7 @@ class ServicePrime extends ServiceBase {
         const contract = isString(token.contract) ? token.contract.trim() : '';
         if (
           !isValidPrimeInfiniPaymentContract({
+            chain,
             networkId,
             token: symbol,
             contractAddress: contract,
@@ -5525,7 +5527,7 @@ class ServicePrime extends ServiceBase {
       }
       return [
         {
-          chain: option.chain.trim().toUpperCase(),
+          chain,
           networkId,
           tokens,
         },

@@ -96,6 +96,7 @@ function buildPrimeInfiniPaymentAsset({
     !normalizedToken ||
     !normalizedNetworkId ||
     !isValidPrimeInfiniPaymentContract({
+      chain: normalizedChain,
       networkId: normalizedNetworkId,
       token: normalizedToken,
       contractAddress: normalizedContractAddress,

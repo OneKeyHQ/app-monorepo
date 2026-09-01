@@ -1372,6 +1372,23 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).rejects.toThrow();
   });
 
+  test('rejects a native payment whose chain conflicts with its network', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    nativeSession.asset.chain = 'BSC';
+    nativeSession.asset.key = getPrimeInfiniPaymentAssetKey(
+      nativeSession.asset,
+    );
+    nativeSession.payment.chain = 'BSC';
+
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
   test('anchors legacy lifecycle fields before a validation refresh and never renews retention', async () => {
     const createdAt = Date.now();
     const { entity, read } = createSessionStore({

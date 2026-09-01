@@ -125,10 +125,12 @@ export function normalizePrimeInfiniContractAddress({
 }
 
 export function isValidPrimeInfiniPaymentContract({
+  chain,
   networkId,
   token,
   contractAddress,
 }: {
+  chain: string;
   networkId: string;
   token: string;
   contractAddress: unknown;
@@ -142,12 +144,20 @@ export function isValidPrimeInfiniPaymentContract({
   // An empty contract identifies the native asset, not a token with missing
   // metadata.
   const network = getListedNetworkMap()[networkId.trim()];
+  const normalizedChain = normalizeIdentityValue(chain);
   return Boolean(
     network &&
     !network.isAllNetworks &&
     !network.isAggregateNetwork &&
     typeof network.symbol === 'string' &&
-    normalizeIdentityValue(token) === normalizeIdentityValue(network.symbol),
+    normalizeIdentityValue(token) === normalizeIdentityValue(network.symbol) &&
+    // Native symbols cannot identify a chain because several networks share
+    // symbols such as ETH. Match only the selected network's chain names.
+    [network.name, network.code, network.shortcode, network.shortname].some(
+      (networkChain) =>
+        typeof networkChain === 'string' &&
+        normalizedChain === normalizeIdentityValue(networkChain),
+    ),
   );
 }
 

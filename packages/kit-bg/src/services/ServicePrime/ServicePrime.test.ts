@@ -1464,6 +1464,26 @@ describe('ServicePrime Infini payment APIs', () => {
     },
   );
 
+  it('drops a native payment option when the chain conflicts with the network', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: 'BSC',
+              networkId: 'evm--1',
+              tokens: [{ symbol: 'ETH', contract: '' }],
+            },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([]);
+  });
+
   it('drops malformed payment options at the service boundary', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
