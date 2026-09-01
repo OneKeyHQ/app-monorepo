@@ -395,10 +395,11 @@ describe('unionBuildHelpers', () => {
     expect(ownership.bgStartupAbsPaths.has(sharedPath)).toBe(true);
   });
 
-  it('promotes sync deps of shared modules to shared even if only in one graph', () => {
+  it('promotes shared-equivalent sync deps of shared modules to shared', () => {
     // defiUtils is shared (in both graphs, same signature).
-    // cryptoLib is a sync dep of defiUtils but only in the bg graph.
-    // cryptoLib should be promoted to shared so it ends up in common bundle.
+    // cryptoLib is a sync dep of defiUtils, identical in both graphs, but was
+    // only classified into the bg startup candidates. It must be promoted to
+    // shared so the common bundle can serve both runtimes with one copy.
     const defiUtilsPath = '/repo/packages/shared/src/utils/defiUtils.ts';
     const cryptoLibPath = '/repo/node_modules/@some/crypto-lib/index.js';
 
@@ -414,7 +415,7 @@ describe('unionBuildHelpers', () => {
       mainGraph: {
         dependencies: new Map([
           [defiUtilsPath, defiUtilsModule],
-          // cryptoLib NOT in main graph
+          [cryptoLibPath, cryptoLibModule],
         ]),
       },
       bgGraph: {
@@ -423,7 +424,7 @@ describe('unionBuildHelpers', () => {
           [cryptoLibPath, cryptoLibModule],
         ]),
       },
-      mainReachable: new Set([defiUtilsPath]),
+      mainReachable: new Set([defiUtilsPath, cryptoLibPath]),
       bgReachable: new Set([defiUtilsPath, cryptoLibPath]),
       mainStartupAbsPaths: new Set([defiUtilsPath]),
       bgStartupAbsPaths: new Set([defiUtilsPath, cryptoLibPath]),
@@ -435,6 +436,52 @@ describe('unionBuildHelpers', () => {
     expect(ownership.sharedStartupAbsPaths.has(cryptoLibPath)).toBe(true);
     // cryptoLib should NOT remain in bg-only
     expect(ownership.bgStartupAbsPaths.has(cryptoLibPath)).toBe(false);
+  });
+
+  it('keeps runtime-divergent sync deps of shared modules runtime-owned', () => {
+    // storageInstance is shared (identical in both graphs), but its sync dep
+    // resolves to different modules per runtime (react-native-mmkv is real in
+    // bg and a guard shim in main), so the dep path only exists in the bg
+    // graph. Promoting it to shared would drop it from every bundle: the
+    // common bundle is serialized from the MAIN graph and cannot emit it,
+    // while the bg eager filter subtracts shared paths. It must stay
+    // bg-owned so the bg eager bundle ships it.
+    const storageInstancePath =
+      '/repo/packages/shared/src/storage/instance/storageInstance.ts';
+    const mmkvPath = '/repo/node_modules/react-native-mmkv/src/index.ts';
+
+    const storageInstanceModule = createModuleData({
+      code: 'module.exports = "storage";',
+      dependencies: [{ key: 'react-native-mmkv', absolutePath: mmkvPath }],
+    });
+    const mmkvModule = createModuleData({
+      code: 'module.exports = "mmkv";',
+    });
+
+    const ownership = buildRuntimeOwnership({
+      mainGraph: {
+        dependencies: new Map([
+          [storageInstancePath, storageInstanceModule],
+          // react-native-mmkv resolves to a different path in the main graph
+        ]),
+      },
+      bgGraph: {
+        dependencies: new Map([
+          [storageInstancePath, storageInstanceModule],
+          [mmkvPath, mmkvModule],
+        ]),
+      },
+      mainReachable: new Set([storageInstancePath]),
+      bgReachable: new Set([storageInstancePath, mmkvPath]),
+      mainStartupAbsPaths: new Set([storageInstancePath]),
+      bgStartupAbsPaths: new Set([storageInstancePath, mmkvPath]),
+    });
+
+    expect(ownership.sharedStartupAbsPaths.has(storageInstancePath)).toBe(true);
+    // The divergent dep must NOT be promoted into the common bundle set...
+    expect(ownership.sharedStartupAbsPaths.has(mmkvPath)).toBe(false);
+    // ...and must remain owned by the bg eager bundle.
+    expect(ownership.bgStartupAbsPaths.has(mmkvPath)).toBe(true);
   });
 
   it('does not promote async deps of shared modules to shared', () => {

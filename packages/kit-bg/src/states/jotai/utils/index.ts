@@ -21,9 +21,7 @@ import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  MMKV_MIGRATION_COMPLETE_KEY,
   atomWithStorage,
-  buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
 } from '../jotaiStorage';
 
@@ -164,51 +162,17 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   let initialVal = Object.freeze(initialValue!);
 
-  // Hydrate persisted initialValue so the atom starts with the correct value.
-  if (platformEnv.isNative && name) {
-    // Native: read from MMKV per-key if BG thread migration is complete.
-    // If migration not done yet, use default initialValue — BG thread will
-    // migrate from AsyncStorage to MMKV per-key, available on next cold start.
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { default: jotaiMMKV } =
-        require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-
-      if (jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1') {
-        const raw = jotaiMMKV.getString(
-          buildJotaiStorageKey(name as IAtomNameKeys),
-        );
-        if (raw !== undefined && raw !== null) {
-          const cached = JSON.parse(raw);
-          if (cached !== undefined && cached !== null) {
-            initialVal = Object.freeze(
-              typeof initialValue === 'object' && typeof cached === 'object'
-                ? { ...initialValue, ...cached }
-                : cached,
-            ) as Value & Readonly<Value>;
-          }
-        }
-      }
-    } catch {
-      /* fallback to default initialValue */
-    }
-  } else {
-    // Non-native: opt-in snapshot injection used by jotaiInitFromUi's fast
-    // path (extension / native BG→UI bridge with useSnapshotInjection:true).
-    // Cold-start L1 mirror was REMOVED on web/desktop — hydrate.ts no longer
-    // writes to this global. So in practice on web/desktop this stays
-    // undefined and atoms initialize from defaults; jotaiInit reconciles
-    // from source-of-truth IDB asynchronously.
-    const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
-    if (snapshotStates && name && name in snapshotStates) {
-      const cached = snapshotStates[name];
-      if (cached !== undefined && cached !== null) {
-        initialVal = Object.freeze(
-          typeof initialValue === 'object' && typeof cached === 'object'
-            ? { ...initialValue, ...cached }
-            : cached,
-        ) as Value & Readonly<Value>;
-      }
+  // UI runtimes hydrate from a bg-provided snapshot. Native main must never
+  // synchronously open the MMKV instance during module evaluation.
+  const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
+  if (snapshotStates && name && name in snapshotStates) {
+    const cached = snapshotStates[name];
+    if (cached !== undefined && cached !== null) {
+      initialVal = Object.freeze(
+        typeof initialValue === 'object' && typeof cached === 'object'
+          ? { ...initialValue, ...cached }
+          : cached,
+      ) as Value & Readonly<Value>;
     }
   }
 
@@ -560,7 +524,7 @@ function flushColdStartCache() {
       );
     }
 
-    coldStartCacheStorage.set(
+    void coldStartCacheStorage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       preparedSnapshot.serialized,
     );
@@ -760,7 +724,7 @@ function flushCellsSlimColdStartWrites() {
       snapshot[scopedKey] = value;
     }
     const prepared = prepareColdStartSnapshotForWrite(snapshot);
-    storage.set(
+    void storage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       prepared.serialized,
     );

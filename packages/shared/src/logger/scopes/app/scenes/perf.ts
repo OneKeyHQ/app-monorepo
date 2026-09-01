@@ -67,6 +67,29 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  @LogToLocal({ level: 'warn' })
+  public swrCacheCapacityLimit(params: {
+    affectedEntryCount: number;
+    cooldownMs: number;
+    eventCount: number;
+    maxEntries: number;
+    maxEntrySerializedChars: number;
+    maxObservedEntrySerializedChars: number;
+    maxSerializedChars: number;
+    namespaces: string[];
+    reason:
+      | 'bootstrapEntryCountLimit'
+      | 'bootstrapSizeLimit'
+      | 'entryCountLimit'
+      | 'entryLimit'
+      | 'keyLimit'
+      | 'totalSizeLimit';
+    retainedEntryCount: number;
+    retainedSerializedChars: number;
+  }) {
+    return params;
+  }
+
   @LogToLocal()
   public renderPhase(params: { name: string; elapsedMs: number }) {
     return params;

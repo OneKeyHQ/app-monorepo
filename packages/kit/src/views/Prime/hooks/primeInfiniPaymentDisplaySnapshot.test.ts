@@ -1,5 +1,8 @@
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 import {
   isPrimeInfiniPaymentAccountSyncReady,
+  resolvePrimeInfiniAccountSelectionPress,
   resolvePrimeInfiniPaymentAsset,
   resolvePrimeInfiniPaymentDisplaySnapshot,
   resolvePrimeInfiniPaymentPinnedAssetKey,
@@ -111,6 +114,35 @@ describe('isPrimeInfiniPaymentAccountSyncReady', () => {
   });
 });
 
+describe('resolvePrimeInfiniAccountSelectionPress', () => {
+  it('opens onboarding when account sync has established that no wallet exists', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: true,
+        hasWallet: false,
+      }),
+    ).toBe('onboarding');
+  });
+
+  it('keeps the account selector for an existing wallet', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: true,
+        hasWallet: true,
+      }),
+    ).toBe('accountSelector');
+  });
+
+  it('does nothing while account selection is locked', () => {
+    expect(
+      resolvePrimeInfiniAccountSelectionPress({
+        canChangeAccountSelection: false,
+        hasWallet: false,
+      }),
+    ).toBe('disabled');
+  });
+});
+
 describe('resolvePrimeInfiniPaymentDisplaySnapshot', () => {
   it('keeps the last ready account and asset together during account network sync', () => {
     const lastReadySelectionSnapshot = {
@@ -209,9 +241,76 @@ describe('resolvePrimeInfiniPaymentDisplaySnapshot', () => {
 });
 
 describe('shouldShowPrimeInfiniPaymentButtonSkeleton', () => {
+  it.each([
+    { scenario: 'an empty wallet list', accountId: undefined },
+    { scenario: 'a watch-only account', accountId: 'watching--0--account' },
+    { scenario: 'an external account', accountId: 'external--0--account' },
+  ])('stops loading after account sync for $scenario', ({ accountId }) => {
+    const preparationState = {
+      hasPaymentAccount: Boolean(
+        accountId && accountUtils.isOwnAccount({ accountId }),
+      ),
+      hasCurrentPayment: false,
+      isOptionsRefreshing: false,
+      isBalanceLoading: false,
+      accountSyncReady: true,
+      accountSyncFailed: false,
+    };
+
+    expect(shouldShowPrimeInfiniPaymentButtonSkeleton(preparationState)).toBe(
+      false,
+    );
+    expect(
+      shouldShowPrimeInfiniExternalCheckoutLink({
+        canUseExternalCheckout: true,
+        isOptionsRefreshing: preparationState.isOptionsRefreshing,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps loading until account sync can determine whether an account is available', () => {
+    expect(
+      shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: false,
+        hasCurrentPayment: false,
+        isOptionsRefreshing: false,
+        isBalanceLoading: false,
+        accountSyncReady: false,
+        accountSyncFailed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps loading while payment options refresh without an account', () => {
+    expect(
+      shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: false,
+        hasCurrentPayment: false,
+        isOptionsRefreshing: true,
+        isBalanceLoading: false,
+        accountSyncReady: true,
+        accountSyncFailed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps loading while a supported account waits for its quote', () => {
+    expect(
+      shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: true,
+        hasCurrentPayment: false,
+        isOptionsRefreshing: false,
+        isBalanceLoading: false,
+        accountSyncReady: true,
+        accountSyncFailed: false,
+      }),
+    ).toBe(true);
+  });
+
   it('keeps the full button skeleton while local prerequisites are loading', () => {
     expect(
       shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: true,
         hasCurrentPayment: true,
         isOptionsRefreshing: false,
         isBalanceLoading: true,
@@ -221,6 +320,7 @@ describe('shouldShowPrimeInfiniPaymentButtonSkeleton', () => {
     ).toBe(true);
     expect(
       shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: true,
         hasCurrentPayment: true,
         isOptionsRefreshing: false,
         isBalanceLoading: false,
@@ -230,21 +330,26 @@ describe('shouldShowPrimeInfiniPaymentButtonSkeleton', () => {
     ).toBe(true);
   });
 
-  it('shows the real disabled button for a terminal local-data failure', () => {
-    expect(
-      shouldShowPrimeInfiniPaymentButtonSkeleton({
-        hasCurrentPayment: true,
-        isOptionsRefreshing: false,
-        isBalanceLoading: false,
-        accountSyncReady: false,
-        accountSyncFailed: true,
-      }),
-    ).toBe(false);
-  });
+  it.each([false, true])(
+    'shows the real disabled button after account sync fails, with payment: %s',
+    (hasCurrentPayment) => {
+      expect(
+        shouldShowPrimeInfiniPaymentButtonSkeleton({
+          hasPaymentAccount: true,
+          hasCurrentPayment,
+          isOptionsRefreshing: false,
+          isBalanceLoading: false,
+          accountSyncReady: false,
+          accountSyncFailed: true,
+        }),
+      ).toBe(false);
+    },
+  );
 
   it('shows the real button after the quote and local prerequisites are ready', () => {
     expect(
       shouldShowPrimeInfiniPaymentButtonSkeleton({
+        hasPaymentAccount: true,
         hasCurrentPayment: true,
         isOptionsRefreshing: false,
         isBalanceLoading: false,
@@ -258,15 +363,16 @@ describe('shouldShowPrimeInfiniPaymentButtonSkeleton', () => {
 describe('shouldShowPrimeInfiniExternalCheckoutLink', () => {
   it('shows the link without a compatible wallet account or payment quote', () => {
     const preparationState = {
+      hasPaymentAccount: false,
       hasCurrentPayment: false,
       isOptionsRefreshing: false,
       isBalanceLoading: false,
-      accountSyncReady: false,
+      accountSyncReady: true,
       accountSyncFailed: false,
     };
 
     expect(shouldShowPrimeInfiniPaymentButtonSkeleton(preparationState)).toBe(
-      true,
+      false,
     );
     expect(
       shouldShowPrimeInfiniExternalCheckoutLink({
@@ -278,6 +384,7 @@ describe('shouldShowPrimeInfiniExternalCheckoutLink', () => {
 
   it('shows the link while the wallet balance is loading', () => {
     const preparationState = {
+      hasPaymentAccount: true,
       hasCurrentPayment: true,
       isOptionsRefreshing: false,
       isBalanceLoading: true,

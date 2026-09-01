@@ -49,6 +49,7 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -5486,6 +5487,8 @@ class ServicePrime extends ServiceBase {
       ) {
         return [];
       }
+      const chain = option.chain.trim().toUpperCase();
+      const networkId = option.networkId.trim();
       const tokens = option.tokens.flatMap((tokenValue) => {
         if (!tokenValue || typeof tokenValue !== 'object') {
           return [];
@@ -5494,15 +5497,28 @@ class ServicePrime extends ServiceBase {
         if (
           !isString(token.symbol) ||
           !token.symbol.trim() ||
-          !isString(token.contract) ||
-          !token.contract.trim()
+          (token.contract !== undefined &&
+            token.contract !== null &&
+            !isString(token.contract))
+        ) {
+          return [];
+        }
+        const symbol = token.symbol.trim().toUpperCase();
+        const contract = isString(token.contract) ? token.contract.trim() : '';
+        if (
+          !isValidPrimeInfiniPaymentContract({
+            chain,
+            networkId,
+            token: symbol,
+            contractAddress: contract,
+          })
         ) {
           return [];
         }
         return [
           {
-            symbol: token.symbol.trim().toUpperCase(),
-            contract: token.contract.trim(),
+            symbol,
+            contract,
           },
         ];
       });
@@ -5511,8 +5527,8 @@ class ServicePrime extends ServiceBase {
       }
       return [
         {
-          chain: option.chain.trim().toUpperCase(),
-          networkId: option.networkId.trim(),
+          chain,
+          networkId,
           tokens,
         },
       ];

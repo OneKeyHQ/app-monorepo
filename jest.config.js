@@ -66,6 +66,12 @@ module.exports = async () => {
         '@emurgo/cardano-message-signing-nodejs',
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
+      // jest-expo/web ignores .native.ts, but many suites mock platformEnv as
+      // native and transitively construct native-owned storage singletons.
+      // Resolve the native implementations so those singletons build under
+      // jest; their platformEnv branches still honor each suite's mock.
+      '^(.+)/nativeSyncStorageParts$': '$1/nativeSyncStorageParts.native',
+      '^(.+)/jotaiStorageNativeMMKV$': '$1/jotaiStorageNativeMMKV.native',
       '^lodash-es$': 'lodash',
       // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
       // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
