@@ -2,6 +2,7 @@ import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import {
   Divider,
+  Icon,
   InteractiveIcon,
   SizableText,
   XStack,
@@ -79,6 +80,49 @@ export function TokenDetailHeaderLeft({
   const { website, twitter } = extraData || {};
 
   const isTopCoins = desktopDetailVariant === 'topCoins';
+  // Figma 25593:18401 lays the trending desktop header out as one 72px row:
+  // a single-line selector pill, the address/security/social row as the
+  // flexible middle, and the favorite/share buttons on the right edge.
+  const isTrendingDesktop = desktopRedesign && !md && !isTopCoins;
+
+  const shortenedAddress = address
+    ? accountUtils.shortenAddress({
+        address,
+        leadingLength: 6,
+        trailingLength: 4,
+      })
+    : '';
+
+  const socialIcons = (
+    <>
+      {website ? (
+        <InteractiveIcon
+          testID="market-icon"
+          icon="GlobusOutline"
+          onPress={handleOpenWebsite}
+          size="$4"
+        />
+      ) : null}
+
+      {twitter ? (
+        <InteractiveIcon
+          testID="market-icon"
+          icon="Xbrand"
+          onPress={handleOpenTwitter}
+          size="$4"
+        />
+      ) : null}
+
+      {address ? (
+        <InteractiveIcon
+          testID="market-icon"
+          icon="SearchOutline"
+          onPress={handleOpenXSearch}
+          size="$4"
+        />
+      ) : null}
+    </>
+  );
 
   const marketStar =
     showFavoriteButton && networkId ? (
@@ -101,10 +145,118 @@ export function TokenDetailHeaderLeft({
       useIconButton
       // `useIconButton` defaults to a medium IconButton, which sits a size above
       // the small favorite button next to it. The stock detail header pins both
-      // to small, so the Top Coins header does the same.
-      size={isTopCoins ? 'small' : undefined}
+      // to small, so the redesigned desktop headers do the same.
+      size={isTopCoins || isTrendingDesktop ? 'small' : undefined}
     />
   ) : null;
+
+  if (isTrendingDesktop) {
+    return (
+      <XStack ai="center" flex={1} gap="$5" minWidth={0}>
+        <MarketTokenSelector
+          defaultCategory="trending"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
+            <XStack
+              testID="trending-header-token-selector"
+              alignItems="center"
+              gap={14}
+              minWidth={0}
+              cursor="pointer"
+              // Hovering paints a rounded-full pill that reaches 8px past the
+              // content horizontally and 4px vertically. Each negative margin is
+              // cancelled by matching padding, so the row itself never moves.
+              ml={-8}
+              mr={-8}
+              my={-4}
+              pl={8}
+              pr={8}
+              py={4}
+              borderRadius="$full"
+              borderCurve="continuous"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <Token
+                size="xl"
+                tokenImageUri={logoUrl}
+                tokenImageUris={logoUrls}
+                networkImageUri={effectiveNetworkLogoUri}
+                fallbackIcon="CryptoCoinOutline"
+              />
+              <XStack alignItems="center" gap="$1.5" minWidth={0}>
+                <SizableText
+                  size="$headingXl"
+                  color="$text"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  maxWidth="$48"
+                  flexShrink={1}
+                >
+                  {symbol}
+                </SizableText>
+                {communityRecognized ? <CommunityRecognizedBadge /> : null}
+              </XStack>
+              {/* The chevron closes the whole pill and is centered on it, not
+                  tucked beside the ticker. */}
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          }
+        />
+
+        <XStack flex={1} minWidth={0} ai="center" gap="$2" py="$0.5">
+          {address ? (
+            <XStack ai="center" gap="$0.5">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="pointer"
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.6 }}
+                onPress={handleCopyAddress}
+              >
+                {shortenedAddress}
+              </SizableText>
+
+              <InteractiveIcon
+                testID="market-icon"
+                icon="Copy3Outline"
+                size="$3.5"
+                onPress={handleCopyAddress}
+              />
+            </XStack>
+          ) : null}
+
+          {showMediaAndSecurity ? (
+            <>
+              {address && networkId ? (
+                <TokenSecurityAlert showLeadingDivider />
+              ) : null}
+
+              {website || twitter || address ? (
+                <>
+                  <Divider vertical backgroundColor="$borderSubdued" h="$3" />
+
+                  <XStack gap="$2" ai="center">
+                    {socialIcons}
+                  </XStack>
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </XStack>
+
+        <XStack ai="center" gap="$4">
+          {marketStar}
+          {shareButton}
+        </XStack>
+      </XStack>
+    );
+  }
 
   return (
     <XStack ai="center" flex={1} gap="$3" jc="space-between" minWidth={0}>
@@ -181,11 +333,7 @@ export function TokenDetailHeaderLeft({
                   pressStyle={{ opacity: 0.6 }}
                   onPress={handleCopyAddress}
                 >
-                  {accountUtils.shortenAddress({
-                    address,
-                    leadingLength: 6,
-                    trailingLength: 4,
-                  })}
+                  {shortenedAddress}
                 </SizableText>
 
                 <InteractiveIcon
@@ -209,32 +357,7 @@ export function TokenDetailHeaderLeft({
                     <Divider vertical backgroundColor="$borderSubdued" h="$3" />
 
                     <XStack gap="$2" ai="center">
-                      {website ? (
-                        <InteractiveIcon
-                          testID="market-icon"
-                          icon="GlobusOutline"
-                          onPress={handleOpenWebsite}
-                          size="$4"
-                        />
-                      ) : null}
-
-                      {twitter ? (
-                        <InteractiveIcon
-                          testID="market-icon"
-                          icon="Xbrand"
-                          onPress={handleOpenTwitter}
-                          size="$4"
-                        />
-                      ) : null}
-
-                      {address ? (
-                        <InteractiveIcon
-                          testID="market-icon"
-                          icon="SearchOutline"
-                          onPress={handleOpenXSearch}
-                          size="$4"
-                        />
-                      ) : null}
+                      {socialIcons}
 
                       {networkId && address && address !== SUI_TYPE_ARG ? (
                         <ShareButton

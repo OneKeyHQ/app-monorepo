@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,8 +33,10 @@ interface ISupplementaryRow {
 
 export function TokenSupplementaryInfo({
   variant = 'sidebar',
+  px,
 }: {
   variant?: 'sidebar' | 'overview';
+  px?: ComponentProps<typeof XStack>['px'];
 }) {
   const intl = useIntl();
   const { tokenDetail, networkId } = useTokenDetail();
@@ -98,16 +101,6 @@ export function TokenSupplementaryInfo({
     if (variant === 'overview') {
       return [
         {
-          key: 'volume24h',
-          label: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_24h_volume,
-          }),
-          value: formatStatValueWithFormatter(
-            tokenDetail.volume24h,
-            USD_CURRENCY_FORMATTER,
-          ),
-        },
-        {
           key: 'marketCap',
           label: intl.formatMessage({ id: ETranslations.dexmarket_market_cap }),
           value: formatStatValueWithFormatter(
@@ -125,6 +118,24 @@ export function TokenSupplementaryInfo({
           ),
         },
         {
+          key: 'holders',
+          label: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.holders,
+            MARKET_CAP_FORMATTER,
+          ),
+        },
+        {
+          key: 'volume24h',
+          label: intl.formatMessage({
+            id: ETranslations.dexmarket_stock_24h_volume,
+          }),
+          value: formatStatValueWithFormatter(
+            tokenDetail.volume24h,
+            USD_CURRENCY_FORMATTER,
+          ),
+        },
+        {
           key: 'fdv',
           label: intl.formatMessage({ id: ETranslations.global_fdv }),
           value: formatStatValueWithFormatter(
@@ -132,14 +143,6 @@ export function TokenSupplementaryInfo({
             USD_CURRENCY_FORMATTER,
           ),
           tooltip: intl.formatMessage({ id: ETranslations.dexmarket_fdv_desc }),
-        },
-        {
-          key: 'holders',
-          label: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
-          value: formatStatValueWithFormatter(
-            tokenDetail.holders,
-            MARKET_CAP_FORMATTER,
-          ),
         },
       ];
     }
@@ -185,9 +188,9 @@ export function TokenSupplementaryInfo({
 
   if (variant === 'overview') {
     return (
-      <XStack width="100%" px="$5" py="$6">
+      <XStack width="100%" px={px ?? '$5'} py="$6" flexWrap="wrap" rowGap="$6">
         {rows.map((item) => (
-          <YStack key={item.key} flex={1} minWidth={0} pr="$2.5" gap="$1">
+          <YStack key={item.key} flex={1} minWidth={144} pr="$2.5" gap="$1">
             {item.tooltip ? (
               <Tooltip
                 placement="top"
@@ -215,7 +218,7 @@ export function TokenSupplementaryInfo({
                 {item.label}
               </SizableText>
             )}
-            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            <SizableText size="$headingMd" numberOfLines={1}>
               {item.value}
             </SizableText>
           </YStack>

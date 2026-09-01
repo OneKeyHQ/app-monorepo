@@ -40,23 +40,18 @@ function PortfolioBase({
   standalone = false,
 }: IPortfolioProps) {
   const intl = useIntl();
-  const { gtLg, gtXl } = useMedia();
-  const columnWidth = gtXl ? 240 : 130;
+  const { gtLg } = useMedia();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
 
   const renderPortfolioItem = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
       return gtLg ? (
-        <PortfolioItemNormal
-          item={item}
-          tokenLogoUrl={tokenLogoUrl}
-          columnWidth={columnWidth}
-        />
+        <PortfolioItemNormal item={item} tokenLogoUrl={tokenLogoUrl} />
       ) : (
         <PortfolioItemSmall item={item} />
       );
     },
-    [columnWidth, gtLg, tokenLogoUrl],
+    [gtLg, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =

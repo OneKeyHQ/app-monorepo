@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { ActivitySummaryRow } from './components/ActivitySummaryRow';
 import { TimeRangeSelector } from './components/TimeRangeSelector';
 import { TransactionRow } from './components/TransactionRow';
 import { VolumeRow } from './components/VolumeRow';
@@ -39,10 +41,12 @@ export function TokenActivityOverview({
   pl,
   pr,
   px = '$5',
+  desktopRedesign = false,
 }: {
   pl?: string;
   pr?: string;
   px?: string;
+  desktopRedesign?: boolean;
 }) {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
@@ -86,39 +90,61 @@ export function TokenActivityOverview({
   const totalTransactions =
     buys !== undefined && sells !== undefined ? buys + sells : undefined;
 
+  let activityContent: ReactNode = null;
+  if (tokenDetail) {
+    activityContent = desktopRedesign ? (
+      <ActivitySummaryRow
+        timeRange={selectedTimeRange}
+        buyCount={buys}
+        sellCount={sells}
+        buyVolume={buyVolume}
+        sellVolume={sellVolume}
+        totalVolume={totalVolume}
+        isLoading={needShowLoading}
+      />
+    ) : (
+      <>
+        <TransactionRow
+          label={intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions,
+          })}
+          buyCount={buys}
+          sellCount={sells}
+          totalCount={totalTransactions}
+          isLoading={needShowLoading}
+        />
+        <VolumeRow
+          label={intl
+            .formatMessage({
+              id: ETranslations.market_volume_percentage,
+            })
+            .replace('%', '')
+            .trim()}
+          buyVolume={buyVolume}
+          sellVolume={sellVolume}
+          totalVolume={totalVolume}
+          isLoading={needShowLoading}
+        />
+      </>
+    );
+  }
+
   return (
-    <Stack gap="$3" pl={pl ?? px} pr={pr ?? px} pt="$3" pb="$4">
+    <Stack
+      gap={desktopRedesign ? '$6' : '$3'}
+      pl={pl ?? px}
+      pr={pr ?? px}
+      pt="$3"
+      pb={desktopRedesign ? '$6' : '$4'}
+    >
       <TimeRangeSelector
         options={timeRangeOptions}
         value={selectedTimeRange}
         onChange={(value) => setSelectedTimeRange(value)}
         isLoading={needShowLoading}
+        desktopRedesign={desktopRedesign}
       />
-      {tokenDetail ? (
-        <>
-          <TransactionRow
-            label={intl.formatMessage({
-              id: ETranslations.dexmarket_details_transactions,
-            })}
-            buyCount={buys}
-            sellCount={sells}
-            totalCount={totalTransactions}
-            isLoading={needShowLoading}
-          />
-          <VolumeRow
-            label={intl
-              .formatMessage({
-                id: ETranslations.market_volume_percentage,
-              })
-              .replace('%', '')
-              .trim()}
-            buyVolume={buyVolume}
-            sellVolume={sellVolume}
-            totalVolume={totalVolume}
-            isLoading={needShowLoading}
-          />
-        </>
-      ) : null}
+      {activityContent}
     </Stack>
   );
 }

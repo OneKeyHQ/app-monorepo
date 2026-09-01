@@ -232,10 +232,15 @@ export function TokenDesktopLayout({
               />
             </Stack>
 
-            {isBTCMainnet ? null : <TokenActivityOverview px="$0" />}
+            {isBTCMainnet ? null : (
+              <YStack gap="$0">
+                <TokenActivityOverview px="$0" desktopRedesign />
+                <TokenSupplementaryInfo variant="overview" px="$0" />
+              </YStack>
+            )}
           </YStack>
 
-          <TokenSupplementaryInfo variant="overview" />
+          {isBTCMainnet ? <TokenSupplementaryInfo variant="overview" /> : null}
 
           <Stack minHeight={TOKEN_DETAIL_TABS_MIN_HEIGHT}>
             <InformationTabsComponent

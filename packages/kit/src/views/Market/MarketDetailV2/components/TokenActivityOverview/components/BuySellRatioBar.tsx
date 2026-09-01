@@ -1,15 +1,18 @@
 import { Stack, View } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
 
 interface IBuySellRatioBarProps {
   buyPercentage: number;
   isLoading?: boolean;
   noData?: boolean;
+  height?: IStackProps['height'];
 }
 
 export function BuySellRatioBar({
   buyPercentage,
   isLoading,
   noData,
+  height = '$2',
 }: IBuySellRatioBarProps) {
   const sellPercentage = 100 - buyPercentage;
 
@@ -17,7 +20,7 @@ export function BuySellRatioBar({
     return (
       <Stack
         flexDirection="row"
-        height="$2"
+        height={height}
         borderRadius="$2"
         overflow="hidden"
       >
@@ -29,7 +32,7 @@ export function BuySellRatioBar({
   return (
     <Stack
       flexDirection="row"
-      height="$2"
+      height={height}
       borderRadius="$2"
       overflow="hidden"
       gap="$1"

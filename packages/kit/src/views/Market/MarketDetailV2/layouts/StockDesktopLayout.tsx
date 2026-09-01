@@ -797,66 +797,6 @@ function StockPosition() {
   );
 }
 
-function StockOverview() {
-  const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
-
-  return (
-    <YStack>
-      <XStack
-        height={44}
-        px={STOCK_DETAIL_HORIZONTAL_GUTTER}
-        gap="$6"
-        alignItems="center"
-      >
-        <Button
-          testID="stock-detail-tab-overview"
-          size="medium"
-          variant="tertiary"
-          color={activeTab === 'overview' ? '$text' : '$textSubdued'}
-          bg="$transparent"
-          hoverStyle={{ bg: '$transparent' }}
-          pressStyle={{ bg: '$transparent' }}
-          borderRadius={0}
-          borderBottomWidth={activeTab === 'overview' ? 2 : 0}
-          borderBottomColor="$borderActive"
-          height={44}
-          m="$0"
-          px="$0"
-          onPress={() => setActiveTab('overview')}
-        >
-          {intl.formatMessage({ id: ETranslations.global_overview })}
-        </Button>
-        <Button
-          testID="stock-detail-tab-position"
-          size="medium"
-          variant="tertiary"
-          color={activeTab === 'position' ? '$text' : '$textSubdued'}
-          bg="$transparent"
-          hoverStyle={{ bg: '$transparent' }}
-          pressStyle={{ bg: '$transparent' }}
-          borderRadius={0}
-          borderBottomWidth={activeTab === 'position' ? 2 : 0}
-          borderBottomColor="$borderActive"
-          height={44}
-          m="$0"
-          px="$0"
-          onPress={() => setActiveTab('position')}
-        >
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
-          })}
-        </Button>
-      </XStack>
-      <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
-        <YStack minHeight={336} py={activeTab === 'overview' ? '$6' : '$0'}>
-          {activeTab === 'overview' ? <StockOverviewGrid /> : <StockPosition />}
-        </YStack>
-      </YStack>
-    </YStack>
-  );
-}
-
 const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 
 function StockAnalystRatings() {
@@ -1086,6 +1026,79 @@ function StockAbout() {
   );
 }
 
+function StockOverview() {
+  const intl = useIntl();
+  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
+
+  return (
+    <YStack>
+      <XStack
+        height={44}
+        px={STOCK_DETAIL_HORIZONTAL_GUTTER}
+        gap="$6"
+        alignItems="center"
+      >
+        <Button
+          testID="stock-detail-tab-overview"
+          size="medium"
+          variant="tertiary"
+          color={activeTab === 'overview' ? '$text' : '$textSubdued'}
+          bg="$transparent"
+          hoverStyle={{ bg: '$transparent' }}
+          pressStyle={{ bg: '$transparent' }}
+          borderRadius={0}
+          borderBottomWidth={activeTab === 'overview' ? 2 : 0}
+          borderBottomColor="$borderActive"
+          height={44}
+          m="$0"
+          px="$0"
+          onPress={() => setActiveTab('overview')}
+        >
+          {intl.formatMessage({ id: ETranslations.global_overview })}
+        </Button>
+        <Button
+          testID="stock-detail-tab-position"
+          size="medium"
+          variant="tertiary"
+          color={activeTab === 'position' ? '$text' : '$textSubdued'}
+          bg="$transparent"
+          hoverStyle={{ bg: '$transparent' }}
+          pressStyle={{ bg: '$transparent' }}
+          borderRadius={0}
+          borderBottomWidth={activeTab === 'position' ? 2 : 0}
+          borderBottomColor="$borderActive"
+          height={44}
+          m="$0"
+          px="$0"
+          onPress={() => setActiveTab('position')}
+        >
+          {intl.formatMessage({
+            id: ETranslations.dexmarket_details_myposition,
+          })}
+        </Button>
+      </XStack>
+      {activeTab === 'overview' ? (
+        <>
+          <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
+            <YStack minHeight={336} py="$6">
+              <StockOverviewGrid />
+            </YStack>
+          </YStack>
+          <StockEventsSection />
+          <StockAnalystRatings />
+          <StockNewsSection />
+          <StockAbout />
+        </>
+      ) : (
+        // Portfolio brings its own horizontal padding and sizes to its rows, so
+        // it is mounted bare: an outer gutter would double-indent the table and
+        // a min-height would strand the section header above dead space.
+        <StockPosition />
+      )}
+    </YStack>
+  );
+}
+
 export function StockDesktopLayout({
   marketTradingView,
   swapToken,
@@ -1199,11 +1212,10 @@ export function StockDesktopLayout({
               />
             </Stack>
           </YStack>
+          {/* The tab owns the whole lower region: Overview carries the stat
+              grid and the editorial sections, My position replaces all of
+              them. */}
           <StockOverview />
-          <StockEventsSection />
-          <StockAnalystRatings />
-          <StockNewsSection />
-          <StockAbout />
         </YStack>
 
         <Stack
