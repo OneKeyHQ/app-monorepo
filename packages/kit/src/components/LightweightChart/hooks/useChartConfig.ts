@@ -12,8 +12,11 @@ import {
 
 import type {
   ILightweightChartConfig,
+  ILightweightChartHistogramOptions,
   ILightweightChartLineType,
   ILightweightChartPriceScalePosition,
+  ILightweightChartReferenceLine,
+  ILightweightChartSeriesType,
   ILightweightChartTime,
 } from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -30,6 +33,8 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  horzLineColor?: string;
+  horzLineStyle?: number;
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
@@ -41,9 +46,11 @@ interface IUseChartConfigProps {
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline' | 'dotted-area';
+  seriesType?: ILightweightChartSeriesType;
   lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
+  histogramOptions?: ILightweightChartHistogramOptions;
+  referenceLine?: ILightweightChartReferenceLine;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
@@ -64,6 +71,8 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  horzLineColor,
+  horzLineStyle,
   priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
@@ -78,6 +87,8 @@ export function useChartConfig({
   seriesType,
   lineType,
   baselineOptions,
+  histogramOptions,
+  referenceLine,
   showLastValue,
   showLastPointMarker,
   showTimeScale = true,
@@ -104,8 +115,16 @@ export function useChartConfig({
       data.map(([time, value]: [number, number]) => ({
         time: time as ILightweightChartTime,
         value,
+        ...(resolvedSeriesType === 'histogram'
+          ? {
+              color:
+                value >= (histogramOptions?.base ?? 0)
+                  ? (histogramOptions?.positiveColor ?? lineColor)
+                  : (histogramOptions?.negativeColor ?? lineColor),
+            }
+          : {}),
       })),
-    [data],
+    [data, histogramOptions, lineColor, resolvedSeriesType],
   );
   const chartSecondaryLineData = useMemo(
     () =>
@@ -132,8 +151,8 @@ export function useChartConfig({
       priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
-      horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
-      horzLineStyle: 2,
+      horzLineColor: horzLineColor ?? theme.borderSubdued?.val ?? '#E5E5EA',
+      horzLineStyle: horzLineStyle ?? 2,
       crosshairVertLineColor,
       crosshairVertLineStyle,
       patternColor,
@@ -150,6 +169,8 @@ export function useChartConfig({
       seriesType: resolvedSeriesType,
       lineType,
       baselineOptions,
+      histogramOptions,
+      referenceLine,
       showLastValue,
       showLastPointMarker,
       showTimeScale,
@@ -171,6 +192,8 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      horzLineColor,
+      horzLineStyle,
       priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
@@ -186,6 +209,8 @@ export function useChartConfig({
       resolvedSeriesType,
       lineType,
       baselineOptions,
+      histogramOptions,
+      referenceLine,
       showLastValue,
       showLastPointMarker,
       showTimeScale,

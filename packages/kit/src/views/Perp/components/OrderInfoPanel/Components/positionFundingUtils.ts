@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
 import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
@@ -15,6 +16,49 @@ export type IPositionFundingProjection = {
   annualizedRate: string;
   annualizedPayment: string;
 };
+
+export function resolvePositionFundingAssetCtx({
+  positionCoin,
+  activeMode,
+  activeCoin,
+  activeAssetCtx,
+  fallbackAssetCtx,
+  preferActiveAssetCtx,
+}: {
+  positionCoin: string;
+  activeMode: 'perp' | 'spot';
+  activeCoin: string;
+  activeAssetCtx:
+    | {
+        coin: string;
+        ctx: IPerpsFormattedAssetCtx;
+      }
+    | undefined;
+  fallbackAssetCtx: IPerpsFormattedAssetCtx;
+  preferActiveAssetCtx: boolean;
+}): {
+  assetCtx: IPerpsFormattedAssetCtx;
+  usesActiveAssetCtx: boolean;
+} {
+  const activeMarkPrice = Number.parseFloat(
+    activeAssetCtx?.ctx.markPrice ?? '0',
+  );
+  if (
+    preferActiveAssetCtx &&
+    activeMode === 'perp' &&
+    activeCoin === positionCoin &&
+    activeAssetCtx?.coin === positionCoin &&
+    Number.isFinite(activeMarkPrice) &&
+    activeMarkPrice > 0
+  ) {
+    return {
+      assetCtx: activeAssetCtx.ctx,
+      usesActiveAssetCtx: true,
+    };
+  }
+
+  return { assetCtx: fallbackAssetCtx, usesActiveAssetCtx: false };
+}
 
 const positionFundingDateTimeFormatters = new Map<
   string,

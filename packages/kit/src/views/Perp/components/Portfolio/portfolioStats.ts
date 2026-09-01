@@ -37,9 +37,24 @@ export type IFundingMarketBreakdown = {
   maxAbsTotal: number;
 };
 
+export type IFundingDistributionRow = {
+  coin: string;
+  amount: number;
+};
+
+export type IFundingDirectionDistribution = {
+  paid: IFundingDistributionRow[];
+  received: IFundingDistributionRow[];
+};
+
 export type IFundingPeriodNetSummary = {
   net24h: number;
   net7d: number;
+};
+
+export type IFundingHistogramStyle = {
+  barWidthRatio: number;
+  maxBarWidth: number;
 };
 
 export type IPerpPortfolioFillsStats = {
@@ -60,6 +75,13 @@ type IPortfolioData = IPortfolio[number][];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const ONE_MONTH_MS = 30 * ONE_DAY_MS;
+const FUNDING_HISTOGRAM_BUCKET_COUNT_MAP: Record<IPortfolioTimePeriod, number> =
+  {
+    day: 24,
+    week: 7,
+    month: 30,
+    allTime: 30,
+  };
 
 const COMBINED_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
   day: 'day',
@@ -209,6 +231,105 @@ export function buildCumulativeFundingChartData({
   return {
     chartData,
     total: cumulativeFunding.toNumber(),
+  };
+}
+
+export function buildFundingHistogramChartData({
+  records,
+  timePeriod,
+  now = Date.now(),
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+}): {
+  chartData: [number, number][];
+  total: number;
+} {
+  const validRecords = records.flatMap((record) => {
+    if (!Number.isFinite(record.time) || record.time > now) {
+      return [];
+    }
+
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite()) return [];
+
+    return [{ record, payment }];
+  });
+  const rangeStart =
+    timePeriod === 'allTime'
+      ? Math.min(...validRecords.map(({ record }) => record.time))
+      : getStartTimeForPeriod(timePeriod, now);
+  const periodRecords = validRecords.filter(
+    ({ record }) => record.time >= rangeStart,
+  );
+
+  if (periodRecords.length === 0 || !Number.isFinite(rangeStart)) {
+    return { chartData: [], total: 0 };
+  }
+
+  const rangeDuration = Math.max(1, now - rangeStart);
+  const targetBucketCount = FUNDING_HISTOGRAM_BUCKET_COUNT_MAP[timePeriod];
+  const bucketCount = Math.min(
+    targetBucketCount,
+    Math.max(1, Math.floor(rangeDuration / 1000)),
+  );
+  const bucketValues = Array.from(
+    { length: bucketCount },
+    () => new BigNumber(0),
+  );
+
+  periodRecords.forEach(({ record, payment }) => {
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.floor(((record.time - rangeStart) / rangeDuration) * bucketCount),
+    );
+    bucketValues[bucketIndex] = bucketValues[bucketIndex].plus(payment);
+  });
+
+  return {
+    chartData: bucketValues.map((value, bucketIndex) => [
+      Math.floor(
+        (rangeStart + (rangeDuration * bucketIndex) / bucketCount) / 1000,
+      ),
+      value.toNumber(),
+    ]),
+    total: bucketValues
+      .reduce((sum, value) => sum.plus(value), new BigNumber(0))
+      .toNumber(),
+  };
+}
+
+export function resolveFundingHistogramStyle({
+  chartData,
+  isMobile,
+}: {
+  chartData: [number, number][];
+  isMobile: boolean;
+}): IFundingHistogramStyle {
+  const activeBucketCount = chartData.reduce(
+    (count, [, value]) =>
+      count + (Number.isFinite(value) && value !== 0 ? 1 : 0),
+    0,
+  );
+
+  if (chartData.length <= 7 || activeBucketCount <= 2) {
+    return {
+      barWidthRatio: 0.45,
+      maxBarWidth: isMobile ? 8 : 12,
+    };
+  }
+
+  if (chartData.length <= 24 || activeBucketCount <= 5) {
+    return {
+      barWidthRatio: 0.4,
+      maxBarWidth: isMobile ? 7 : 10,
+    };
+  }
+
+  return {
+    barWidthRatio: 0.35,
+    maxBarWidth: isMobile ? 6 : 8,
   };
 }
 
@@ -388,6 +509,65 @@ export function buildFundingMarketBreakdown({
       ),
     ),
     maxAbsTotal: Math.max(0, ...rows.map((row) => Math.abs(row.total))),
+  };
+}
+
+export function buildFundingDirectionDistribution({
+  records,
+  timePeriod,
+  now = Date.now(),
+  maxBaseMarkets = 5,
+}: {
+  records: IUserFunding[];
+  timePeriod: IPortfolioTimePeriod;
+  now?: number;
+  maxBaseMarkets?: number;
+}): IFundingDirectionDistribution {
+  const startTime = getStartTimeForPeriod(timePeriod, now);
+  const safeMaxBaseMarkets = Math.max(1, Math.floor(maxBaseMarkets));
+  const paidByMarket = new Map<string, BigNumber>();
+  const receivedByMarket = new Map<string, BigNumber>();
+
+  records.forEach((record) => {
+    if (record.time < startTime || record.time > now) return;
+
+    const payment = new BigNumber(record.delta.usdc);
+    if (!payment.isFinite() || payment.isZero()) return;
+
+    const targetMap = payment.isPositive() ? receivedByMarket : paidByMarket;
+    const amount = payment.abs();
+    targetMap.set(
+      record.delta.coin,
+      (targetMap.get(record.delta.coin) ?? new BigNumber(0)).plus(amount),
+    );
+  });
+
+  const buildRows = (
+    marketMap: Map<string, BigNumber>,
+  ): IFundingDistributionRow[] => {
+    const marketRows = Array.from(marketMap.entries())
+      .map(([coin, amount]) => ({ coin, amount: amount.toNumber() }))
+      .toSorted(
+        (rowA, rowB) =>
+          rowB.amount - rowA.amount || rowA.coin.localeCompare(rowB.coin),
+      );
+
+    if (marketRows.length <= safeMaxBaseMarkets) return marketRows;
+
+    const visibleRows = marketRows.slice(0, safeMaxBaseMarkets);
+    const otherRows = marketRows.slice(safeMaxBaseMarkets);
+    return [
+      ...visibleRows,
+      {
+        coin: 'Other',
+        amount: otherRows.reduce((sum, row) => sum + row.amount, 0),
+      },
+    ];
+  };
+
+  return {
+    paid: buildRows(paidByMarket),
+    received: buildRows(receivedByMarket),
   };
 }
 

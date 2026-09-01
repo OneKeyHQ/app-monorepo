@@ -5,11 +5,14 @@ import type {
 
 import {
   buildCumulativeFundingChartData,
+  buildFundingDirectionDistribution,
+  buildFundingHistogramChartData,
   buildFundingMarketBreakdown,
   buildFundingPaymentSummary,
   buildFundingPeriodNetSummary,
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
+  resolveFundingHistogramStyle,
 } from './portfolioStats';
 
 const NOW = 1_700_000_000_000;
@@ -307,6 +310,108 @@ describe('buildCumulativeFundingChartData', () => {
   });
 });
 
+describe('buildFundingHistogramChartData', () => {
+  it('aggregates signed funding into non-cumulative interval buckets', () => {
+    const day = 24 * 60 * 60 * 1000;
+    const rangeStart = NOW - 7 * day;
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'week',
+      now: NOW,
+      records: [
+        createFunding(NOW - 6.5 * day, '-0.5'),
+        createFunding(NOW - 6.25 * day, '0.2', 'ETH'),
+        createFunding(NOW - 2.5 * day, '1.5'),
+        createFunding(NOW - 8 * day, '99'),
+        createFunding(NOW + 1, '99'),
+        createFunding(NOW - day, 'invalid'),
+      ],
+    });
+
+    expect(result.total).toBe(1.2);
+    expect(result.chartData).toEqual(
+      [-0.3, 0, 0, 0, 1.5, 0, 0].map((value, index) => [
+        Math.floor((rangeStart + index * day) / 1000),
+        value,
+      ]),
+    );
+  });
+
+  it('uses one bucket for a single all-time funding payment', () => {
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'allTime',
+      now: NOW,
+      records: [createFunding(NOW, '-1.25')],
+    });
+
+    expect(result).toEqual({
+      total: -1.25,
+      chartData: [[Math.floor(NOW / 1000), -1.25]],
+    });
+  });
+
+  it('returns an empty series when the selected range has no valid payments', () => {
+    const result = buildFundingHistogramChartData({
+      timePeriod: 'day',
+      now: NOW,
+      records: [createFunding(NOW - 2 * 24 * 60 * 60 * 1000, '1')],
+    });
+
+    expect(result).toEqual({ chartData: [], total: 0 });
+  });
+});
+
+describe('resolveFundingHistogramStyle', () => {
+  function createChartData(bucketCount: number, activeBucketCount: number) {
+    return Array.from({ length: bucketCount }, (_, index) => [
+      index,
+      index < activeBucketCount ? 1 : 0,
+    ]) as [number, number][];
+  }
+
+  it.each([
+    {
+      bucketCount: 7,
+      activeBucketCount: 7,
+      isMobile: false,
+      expected: { barWidthRatio: 0.45, maxBarWidth: 12 },
+    },
+    {
+      bucketCount: 24,
+      activeBucketCount: 24,
+      isMobile: false,
+      expected: { barWidthRatio: 0.4, maxBarWidth: 10 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 2,
+      isMobile: false,
+      expected: { barWidthRatio: 0.45, maxBarWidth: 12 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 5,
+      isMobile: true,
+      expected: { barWidthRatio: 0.4, maxBarWidth: 7 },
+    },
+    {
+      bucketCount: 30,
+      activeBucketCount: 6,
+      isMobile: true,
+      expected: { barWidthRatio: 0.35, maxBarWidth: 6 },
+    },
+  ])(
+    'uses the expected density for $bucketCount buckets and $activeBucketCount active buckets',
+    ({ bucketCount, activeBucketCount, isMobile, expected }) => {
+      expect(
+        resolveFundingHistogramStyle({
+          chartData: createChartData(bucketCount, activeBucketCount),
+          isMobile,
+        }),
+      ).toEqual(expected);
+    },
+  );
+});
+
 describe('buildFundingPaymentSummary', () => {
   it('separates paid and received funding and calculates the all-time net', () => {
     const summary = buildFundingPaymentSummary([
@@ -430,5 +535,56 @@ describe('buildFundingMarketBreakdown', () => {
 
     expect(result.rows.map(({ coin }) => coin)).toEqual(['BTC', 'ETH']);
     expect(result.rows[0]).toMatchObject({ total: 0, activity: 10 });
+  });
+});
+
+describe('buildFundingDirectionDistribution', () => {
+  it('keeps received and paid funding separate for each market', () => {
+    const result = buildFundingDirectionDistribution({
+      records: [
+        createFunding(NOW - 1, '5', 'BTC'),
+        createFunding(NOW, '-2', 'BTC'),
+        createFunding(NOW, '-3', 'ETH'),
+        createFunding(NOW - 25 * 60 * 60 * 1000, '99', 'SOL'),
+        createFunding(NOW + 1, '99', 'DOGE'),
+        createFunding(NOW, 'invalid', 'HYPE'),
+      ],
+      timePeriod: 'day',
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      paid: [
+        { coin: 'ETH', amount: 3 },
+        { coin: 'BTC', amount: 2 },
+      ],
+      received: [{ coin: 'BTC', amount: 5 }],
+    });
+  });
+
+  it('shows five markets and groups the remainder into Other', () => {
+    const result = buildFundingDirectionDistribution({
+      records: [
+        createFunding(NOW, '7', 'BTC'),
+        createFunding(NOW, '6', 'ETH'),
+        createFunding(NOW, '5', 'SOL'),
+        createFunding(NOW, '4', 'DOGE'),
+        createFunding(NOW, '3', 'HYPE'),
+        createFunding(NOW, '2', 'ARB'),
+        createFunding(NOW, '1', 'OP'),
+      ],
+      timePeriod: 'allTime',
+      now: NOW,
+    });
+
+    expect(result.received).toEqual([
+      { coin: 'BTC', amount: 7 },
+      { coin: 'ETH', amount: 6 },
+      { coin: 'SOL', amount: 5 },
+      { coin: 'DOGE', amount: 4 },
+      { coin: 'HYPE', amount: 3 },
+      { coin: 'Other', amount: 3 },
+    ]);
+    expect(result.paid).toEqual([]);
   });
 });

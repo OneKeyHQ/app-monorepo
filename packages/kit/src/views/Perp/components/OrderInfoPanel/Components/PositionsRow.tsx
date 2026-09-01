@@ -417,11 +417,6 @@ const PositionRowDesktopFunding = memo(
     fundingHistory: IUserFunding[];
     isFundingHistoryLoading: boolean;
   }) => {
-    const [hasOpened, setHasOpened] = useState(false);
-    const handleHoverIn = useCallback(() => {
-      setHasOpened(true);
-    }, []);
-
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -443,19 +438,16 @@ const PositionRowDesktopFunding = memo(
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
                 cursor="help"
-                onHoverIn={handleHoverIn}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
-              hasOpened ? (
-                <PositionFundingDetails
-                  coin={coin}
-                  assetId={assetId}
-                  signedSize={signedSize}
-                  fundingHistory={fundingHistory}
-                  isFundingHistoryLoading={isFundingHistoryLoading}
-                />
-              ) : null
+              <PositionFundingDetails
+                coin={coin}
+                assetId={assetId}
+                signedSize={signedSize}
+                fundingHistory={fundingHistory}
+                isFundingHistoryLoading={isFundingHistoryLoading}
+              />
             }
           />
         </XStack>

@@ -19,6 +19,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
@@ -50,9 +51,10 @@ import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
 
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
-  buildCumulativeFundingChartData,
+  buildFundingHistogramChartData,
   buildFundingPaymentSummary,
   buildFundingPeriodNetSummary,
+  resolveFundingHistogramStyle,
 } from './portfolioStats';
 import {
   type IPortfolioChartType,
@@ -65,6 +67,7 @@ import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IPerpPortfolioContentProps {
   isMobile?: boolean;
+  initialChartType?: IPortfolioChartType;
 }
 
 const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
@@ -122,34 +125,19 @@ const PORTFOLIO_CONTENT_HEIGHT_DESKTOP = 608;
 const HOVER_TOOLTIP_WIDTH = 148;
 const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 const CHART_PRICE_SCALE_MARGINS_MOBILE = { top: 0.06, bottom: 0.12 };
+const FUNDING_CHART_PRICE_SCALE_MARGINS = { top: 0.16, bottom: 0.16 };
+const FUNDING_CHART_PRICE_SCALE_MARGINS_MOBILE = {
+  top: 0.12,
+  bottom: 0.14,
+};
 const CHART_AREA_FILL_ALPHA = 0.1;
+const PORTFOLIO_GRID_LINE_STYLE = 2;
 
 type IPortfolioPalette = {
   positive: string;
   negative: string;
   caution: string;
 };
-
-function colorWithAlpha(color: string, alpha: number) {
-  const normalized = color.trim();
-  const percentage = Math.round(alpha * 100);
-  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
-  const fullHex =
-    hex.length === 3
-      ? hex
-          .split('')
-          .map((c) => `${c}${c}`)
-          .join('')
-      : hex;
-  if (fullHex.length !== 6) {
-    return `color-mix(in srgb, ${normalized} ${percentage}%, transparent)`;
-  }
-
-  const r = parseInt(fullHex.slice(0, 2), 16);
-  const g = parseInt(fullHex.slice(2, 4), 16);
-  const b = parseInt(fullHex.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 function gaugeColor(pct: number, palette: IPortfolioPalette): string {
   if (pct <= GAUGE_SAFE_THRESHOLD) return palette.positive;
@@ -289,6 +277,7 @@ function SemiCircleGauge({
 
 function PerpPortfolioContentComponent({
   isMobile = false,
+  initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
   const theme = useTheme();
@@ -333,7 +322,6 @@ function PerpPortfolioContentComponent({
     ],
     [intl],
   );
-
   const chartTypeOptions = useMemo(
     () => [
       {
@@ -390,7 +378,7 @@ function PerpPortfolioContentComponent({
 
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('month');
   const [chartType, setChartType] =
-    useState<IPortfolioChartType>('accountValue');
+    useState<IPortfolioChartType>(initialChartType);
   const [pnlType, setPnlType] = useState<IPortfolioPnlType>('all');
   const handlePnlTypeChange = useCallback(
     (nextPnlType: IPortfolioPnlType) => {
@@ -480,7 +468,6 @@ function PerpPortfolioContentComponent({
   const [containerWidth, setContainerWidth] = useState(0);
   const isPnl = chartType === 'pnl';
   const isFunding = chartType === 'funding';
-  const isBaselineChart = isPnl || isFunding;
   const activityType: IPortfolioPnlType = chartType === 'pnl' ? pnlType : 'all';
 
   const {
@@ -493,9 +480,9 @@ function PerpPortfolioContentComponent({
   } = usePerpPortfolioData(timePeriod, activityType);
   const { records: fundingHistory, isLoading: isFundingHistoryLoading } =
     usePerpUserFundingHistory({ isActive: isFunding });
-  const cumulativeFunding = useMemo(
+  const fundingHistogram = useMemo(
     () =>
-      buildCumulativeFundingChartData({
+      buildFundingHistogramChartData({
         records: fundingHistory,
         timePeriod,
       }),
@@ -516,13 +503,13 @@ function PerpPortfolioContentComponent({
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
-    if (isFunding) return cumulativeFunding.chartData;
+    if (isFunding) return fundingHistogram.chartData;
     if (!chartData) return [];
     if (chartType === 'accountValue') return chartData.accountValueHistory;
     if (pnlType === 'perps') return chartData.perpsPnlHistory;
     if (pnlType === 'spot') return chartData.nonPerpsPnlHistory;
     return chartData.pnlHistory;
-  }, [chartData, chartType, cumulativeFunding.chartData, isFunding, pnlType]);
+  }, [chartData, chartType, fundingHistogram.chartData, isFunding, pnlType]);
   const showFundingEmptyState =
     !isChartLoading && isFunding && chartSeriesData.length === 0;
 
@@ -755,26 +742,76 @@ function PerpPortfolioContentComponent({
     (): BaselineSeriesPartialOptions => ({
       baseValue: { type: 'price', price: 0 },
       topLineColor: portfolioPalette.positive,
-      topFillColor1: colorWithAlpha(
+      topFillColor1: getChartColorWithAlpha(
         portfolioPalette.positive,
         CHART_AREA_FILL_ALPHA,
       ),
-      topFillColor2: colorWithAlpha(
+      topFillColor2: getChartColorWithAlpha(
         portfolioPalette.positive,
         CHART_AREA_FILL_ALPHA,
       ),
       bottomLineColor: portfolioPalette.negative,
-      bottomFillColor1: colorWithAlpha(
+      bottomFillColor1: getChartColorWithAlpha(
         portfolioPalette.negative,
         CHART_AREA_FILL_ALPHA,
       ),
-      bottomFillColor2: colorWithAlpha(
+      bottomFillColor2: getChartColorWithAlpha(
         portfolioPalette.negative,
         CHART_AREA_FILL_ALPHA,
       ),
     }),
     [portfolioPalette.negative, portfolioPalette.positive],
   );
+  const fundingHistogramStyle = useMemo(
+    () =>
+      resolveFundingHistogramStyle({
+        chartData: isFunding ? chartSeriesData : [],
+        isMobile,
+      }),
+    [chartSeriesData, isFunding, isMobile],
+  );
+  const fundingHistogramOptions = useMemo(
+    () => ({
+      positiveColor: portfolioPalette.positive,
+      negativeColor: portfolioPalette.negative,
+      base: 0,
+      ...fundingHistogramStyle,
+    }),
+    [
+      fundingHistogramStyle,
+      portfolioPalette.negative,
+      portfolioPalette.positive,
+    ],
+  );
+  const portfolioGridLineColor = useMemo(
+    () => getChartColorWithAlpha(theme.borderSubdued?.val ?? '#3D3D41', 1),
+    [theme.borderSubdued?.val],
+  );
+  const fundingZeroReferenceLine = useMemo(
+    () => ({
+      price: 0,
+      color: getChartColorWithAlpha(
+        theme.borderStrong?.val ?? theme.borderSubdued?.val ?? '#5B5B60',
+        0.78,
+      ),
+      lineWidth: 1 as const,
+      lineStyle: 'dashed' as const,
+      axisLabelVisible: false,
+    }),
+    [theme.borderStrong?.val, theme.borderSubdued?.val],
+  );
+  let portfolioChartSeriesType: 'baseline' | 'dotted-area' | 'histogram' =
+    'dotted-area';
+  if (isPnl) portfolioChartSeriesType = 'baseline';
+  if (isFunding) portfolioChartSeriesType = 'histogram';
+  let portfolioChartPriceScaleMargins = isMobile
+    ? CHART_PRICE_SCALE_MARGINS_MOBILE
+    : CHART_PRICE_SCALE_MARGINS;
+  if (isFunding) {
+    portfolioChartPriceScaleMargins = isMobile
+      ? FUNDING_CHART_PRICE_SCALE_MARGINS_MOBILE
+      : FUNDING_CHART_PRICE_SCALE_MARGINS;
+  }
 
   const pnlTypeSelectorTrigger = (
     <XStack
@@ -813,11 +850,12 @@ function PerpPortfolioContentComponent({
   }
 
   const chartPanel = (
-    <YStack flex={1} gap={isMobile ? '$2' : '$3'}>
+    <YStack flex={1} gap="$3">
       {/* Controls */}
       {isMobile ? (
         <XStack alignItems="center" gap="$2" flexWrap="wrap">
           <SegmentControl
+            testID="perp-portfolio-chart-type-selector"
             h={28}
             value={chartType}
             onChange={handleChartTypeChange}
@@ -839,6 +877,7 @@ function PerpPortfolioContentComponent({
           >
             <XStack alignItems="center" gap="$3">
               <SegmentControl
+                testID="perp-portfolio-chart-type-selector"
                 value={chartType}
                 onChange={handleChartTypeChange}
                 options={chartTypeOptions}
@@ -846,6 +885,7 @@ function PerpPortfolioContentComponent({
               {pnlTypeSelector}
             </XStack>
             <SegmentControl
+              testID="perp-portfolio-time-period-presets"
               h={32}
               value={timePeriod}
               onChange={handleTimePeriodChange}
@@ -937,30 +977,36 @@ function PerpPortfolioContentComponent({
             height={chartHeight}
             onHover={handleHover}
             lineColor={portfolioPalette.positive}
-            secondaryLineData={isBaselineChart ? undefined : chartSeriesData}
+            secondaryLineData={isPnl || isFunding ? undefined : chartSeriesData}
             secondaryLineColor={portfolioPalette.positive}
             secondaryLineWidth={3}
-            topColor={colorWithAlpha(
+            topColor={getChartColorWithAlpha(
               portfolioPalette.positive,
               CHART_AREA_FILL_ALPHA,
             )}
-            bottomColor={colorWithAlpha(portfolioPalette.positive, 0)}
+            bottomColor={getChartColorWithAlpha(portfolioPalette.positive, 0)}
             lineWidth={3}
             showPriceScale
-            showHorzGridLines={isBaselineChart}
-            priceScaleMargins={
-              isMobile
-                ? CHART_PRICE_SCALE_MARGINS_MOBILE
-                : CHART_PRICE_SCALE_MARGINS
+            showHorzGridLines={isPnl || isFunding}
+            horzLineColor={
+              isPnl || isFunding ? portfolioGridLineColor : undefined
             }
-            priceScaleEntireTextOnly={!isBaselineChart}
+            horzLineStyle={
+              isPnl || isFunding ? PORTFOLIO_GRID_LINE_STYLE : undefined
+            }
+            priceScaleMargins={portfolioChartPriceScaleMargins}
+            priceScaleEntireTextOnly={!isPnl}
             priceFormatter={formatChartUsdPrice}
-            fontSize={11}
-            seriesType={isBaselineChart ? 'baseline' : 'dotted-area'}
-            baselineOptions={isBaselineChart ? baselineOptions : undefined}
-            showLastValue={isBaselineChart}
-            showLastPointMarker={isBaselineChart ? undefined : false}
-            pulseLastPoint={!isBaselineChart}
+            fontSize={isFunding && isMobile ? 9 : 11}
+            seriesType={portfolioChartSeriesType}
+            baselineOptions={isPnl ? baselineOptions : undefined}
+            histogramOptions={isFunding ? fundingHistogramOptions : undefined}
+            referenceLine={isFunding ? fundingZeroReferenceLine : undefined}
+            showLastValue={isPnl}
+            showLastPointMarker={isPnl ? undefined : false}
+            pulseLastPoint={!isPnl && !isFunding}
+            priceScaleMinimumWidth={isFunding && !isMobile ? 64 : undefined}
+            hideCrosshairPriceLabel={isFunding}
             timeZone={timeZone}
             locale={intl.locale}
           />
@@ -969,6 +1015,7 @@ function PerpPortfolioContentComponent({
 
       {isMobile ? (
         <SegmentControl
+          testID="perp-portfolio-time-period-selector"
           fullWidth
           h={28}
           value={timePeriod}
@@ -1132,7 +1179,7 @@ function PerpPortfolioContentComponent({
 
   // ─── Portfolio Value — mobile layout ────────────────────────────────────────
   const mobilePortfolioValueBlock = (
-    <YStack gap="$3">
+    <YStack gap="$3" mb="$1">
       <YStack gap="$1">
         <SectionLabel>
           {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
@@ -1457,7 +1504,7 @@ function PerpPortfolioContentComponent({
   // ─── Mobile ─────────────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <YStack gap="$4" px="$5" pb="$5">
+      <YStack gap="$3" px="$5" pb="$5">
         {mobilePortfolioValueBlock}
         {chartPanel}
         {contextualStatsPanel}

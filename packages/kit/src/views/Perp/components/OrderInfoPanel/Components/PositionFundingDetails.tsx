@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDexIndexByCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
@@ -33,6 +35,7 @@ import {
   buildPositionCumulativeFundingChartData,
   buildPositionFundingProjection,
   formatPositionFundingDateTime,
+  resolvePositionFundingAssetCtx,
 } from './positionFundingUtils';
 
 import type { IPortfolioTimePeriod } from '../../Portfolio/portfolioStats';
@@ -63,29 +66,6 @@ const FUNDING_PERIODS: Array<{
 const EMPTY_FUNDING_HISTORY: IUserFunding[] = [];
 const FUNDING_CHART_PRICE_SCALE_MARGINS = { top: 0.08, bottom: 0.08 };
 const MemoizedLightweightChart = memo(LightweightChart);
-
-function colorWithAlpha(color: string, alpha: number) {
-  const normalized = color.trim();
-  const hex = normalized.startsWith('#') ? normalized.slice(1) : normalized;
-  const fullHex =
-    hex.length === 3
-      ? hex
-          .split('')
-          .map((character) => `${character}${character}`)
-          .join('')
-      : hex;
-
-  if (fullHex.length !== 6) {
-    return `color-mix(in srgb, ${normalized} ${Math.round(
-      alpha * 100,
-    )}%, transparent)`;
-  }
-
-  return `rgba(${parseInt(fullHex.slice(0, 2), 16)}, ${parseInt(
-    fullHex.slice(2, 4),
-    16,
-  )}, ${parseInt(fullHex.slice(4, 6), 16)}, ${alpha})`;
-}
 
 function formatRate(rate: string | undefined) {
   if (rate === undefined) return '--';
@@ -133,11 +113,7 @@ function FundingProjectionRow({
 }) {
   return (
     <XStack alignItems="center" minHeight={isMobile ? 24 : 20} gap="$2">
-      <SizableText
-        flex={1}
-        size={isMobile ? '$bodySm' : '$bodyXs'}
-        color="$text"
-      >
+      <SizableText flex={1} size="$bodySm" color="$text">
         {label}
       </SizableText>
       <XStack
@@ -146,10 +122,7 @@ function FundingProjectionRow({
         alignItems="center"
         justifyContent="flex-end"
       >
-        <SizableText
-          size={isMobile ? '$bodySmMedium' : '$bodyXsMedium'}
-          color={getRateColor(rate)}
-        >
+        <SizableText size="$bodySmMedium" color={getRateColor(rate)}>
           {formatRate(rate)}
         </SizableText>
       </XStack>
@@ -159,10 +132,7 @@ function FundingProjectionRow({
         alignItems="center"
         justifyContent="flex-end"
       >
-        <SizableText
-          size={isMobile ? '$bodySmMedium' : '$bodyXsMedium'}
-          color={getPaymentColor(payment)}
-        >
+        <SizableText size="$bodySmMedium" color={getPaymentColor(payment)}>
           {formatPayment(payment)}
         </SizableText>
       </XStack>
@@ -183,6 +153,8 @@ export function PositionFundingDetails({
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
+  const [hoveredPeriod, setHoveredPeriod] =
+    useState<IPortfolioTimePeriod | null>(null);
   const [hoverData, setHoverData] = useState<{
     time: number;
     price: number;
@@ -196,11 +168,34 @@ export function PositionFundingDetails({
   const resolvedFundingHistoryLoading = useOwnFundingHistory
     ? ownFundingHistory.isLoading
     : Boolean(isFundingHistoryLoading);
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const dexIndex = getDexIndexByCoin(coin);
-  const { assetCtx, isLoading: isAssetCtxLoading } = usePerpsAssetCtx({
-    assetId: assetId ?? -1,
-    dexIndex,
-  });
+  const { assetCtx: fallbackAssetCtx, isLoading: isFallbackAssetCtxLoading } =
+    usePerpsAssetCtx({
+      assetId: assetId ?? -1,
+      dexIndex,
+    });
+  const { assetCtx, usesActiveAssetCtx } = useMemo(
+    () =>
+      resolvePositionFundingAssetCtx({
+        positionCoin: coin,
+        activeMode: activeTradeInstrument.mode,
+        activeCoin: activeTradeInstrument.coin,
+        activeAssetCtx,
+        fallbackAssetCtx,
+        preferActiveAssetCtx: !isMobile,
+      }),
+    [
+      activeAssetCtx,
+      activeTradeInstrument.coin,
+      activeTradeInstrument.mode,
+      coin,
+      fallbackAssetCtx,
+      isMobile,
+    ],
+  );
+  const isAssetCtxLoading = isFallbackAssetCtxLoading && !usesActiveAssetCtx;
   const countdown = useFundingCountdown();
   const projection = useMemo(() => {
     if (assetId === undefined || isAssetCtxLoading) return null;
@@ -232,19 +227,30 @@ export function PositionFundingDetails({
     : latestPoint;
   const positiveColor = theme.bgAccent?.val ?? '#31E72F';
   const negativeColor = theme.bgCriticalStrong?.val ?? '#EF4444';
-  const chartHeight = isMobile ? 180 : 144;
+  const zeroLineColor = theme.borderSubdued?.val ?? '#3D3D41';
+  const chartHeight = isMobile ? 180 : 112;
   const emptyChartHeight = isMobile ? 180 : 96;
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
       baseValue: { type: 'price', price: 0 },
       topLineColor: positiveColor,
-      topFillColor1: colorWithAlpha(positiveColor, 0.1),
-      topFillColor2: colorWithAlpha(positiveColor, 0.1),
+      topFillColor1: 'transparent',
+      topFillColor2: 'transparent',
       bottomLineColor: negativeColor,
-      bottomFillColor1: colorWithAlpha(negativeColor, 0.1),
-      bottomFillColor2: colorWithAlpha(negativeColor, 0.1),
+      bottomFillColor1: 'transparent',
+      bottomFillColor2: 'transparent',
     }),
     [negativeColor, positiveColor],
+  );
+  const zeroReferenceLine = useMemo(
+    () => ({
+      price: 0,
+      color: zeroLineColor,
+      lineWidth: 1 as const,
+      lineStyle: 'dashed' as const,
+      axisLabelVisible: false,
+    }),
+    [zeroLineColor],
   );
   const handleChartHover = useCallback(
     ({ time, price }: { time?: number; price?: number }) => {
@@ -266,18 +272,14 @@ export function PositionFundingDetails({
     >
       <YStack gap={isMobile ? '$3' : '$2'}>
         <XStack gap="$2" alignItems="center">
-          <SizableText
-            flex={1}
-            size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
-            color="$textSubdued"
-          >
+          <SizableText flex={1} size="$bodySmMedium" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perps_fee_rate_projection,
             })}
           </SizableText>
           <SizableText
             width={76}
-            size={isMobile ? '$bodySm' : '$bodyXs'}
+            size={isMobile ? '$bodySmMedium' : '$bodySm'}
             color="$textSubdued"
             textAlign="right"
           >
@@ -287,7 +289,7 @@ export function PositionFundingDetails({
           </SizableText>
           <SizableText
             width={88}
-            size={isMobile ? '$bodySm' : '$bodyXs'}
+            size={isMobile ? '$bodySmMedium' : '$bodySm'}
             color="$textSubdued"
             textAlign="right"
           >
@@ -339,10 +341,7 @@ export function PositionFundingDetails({
 
       <YStack gap="$2">
         <XStack alignItems="center" justifyContent="space-between" gap="$2">
-          <SizableText
-            size={isMobile ? '$bodyMdMedium' : '$bodySmMedium'}
-            color="$textSubdued"
-          >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_funding_cumulative__title,
             })}
@@ -361,17 +360,21 @@ export function PositionFundingDetails({
                   borderCurve="continuous"
                   alignItems="center"
                   justifyContent="center"
-                  bg={isSelected ? '$bgActive' : '$transparent'}
                   cursor="pointer"
-                  pressStyle={{ bg: '$bgStrong' }}
+                  onHoverIn={() => setHoveredPeriod(period.value)}
+                  onHoverOut={() => setHoveredPeriod(null)}
                   onPress={() => {
                     setTimePeriod(period.value);
                     setHoverData(null);
                   }}
                 >
                   <SizableText
-                    size={isMobile ? '$bodySmMedium' : '$bodyXsMedium'}
-                    color={isSelected ? '$text' : '$textSubdued'}
+                    size="$bodySmMedium"
+                    color={
+                      isSelected || hoveredPeriod === period.value
+                        ? '$text'
+                        : '$textSubdued'
+                    }
                   >
                     {intl.formatMessage({ id: period.labelId })}
                   </SizableText>
@@ -421,13 +424,12 @@ export function PositionFundingDetails({
             height={chartHeight}
             onHover={handleChartHover}
             lineColor={positiveColor}
-            topColor={colorWithAlpha(positiveColor, 0.1)}
-            bottomColor={colorWithAlpha(positiveColor, 0)}
             lineWidth={2}
             showTimeScale={false}
             priceScaleMargins={FUNDING_CHART_PRICE_SCALE_MARGINS}
             seriesType="baseline"
             baselineOptions={baselineOptions}
+            referenceLine={zeroReferenceLine}
             timeZone={timeZone}
             locale={intl.locale}
           />

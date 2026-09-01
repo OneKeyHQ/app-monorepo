@@ -81,6 +81,10 @@ export type IModalPerpParamList = {
     openedFromTransfer?: boolean;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
-  [EModalPerpRoutes.MobilePortfolioPage]: undefined;
+  [EModalPerpRoutes.MobilePortfolioPage]:
+    | {
+        initialChartType?: 'accountValue' | 'pnl' | 'funding';
+      }
+    | undefined;
   [EModalPerpRoutes.PerpGuidePage]: undefined;
 };

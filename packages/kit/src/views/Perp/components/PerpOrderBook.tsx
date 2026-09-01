@@ -58,6 +58,7 @@ import {
 } from '../hooks/usePerpMarketData';
 import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
@@ -125,6 +126,9 @@ function FundingDialogContent({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { showPortfolio: showFundingAnalysis } = useShowPortfolio({
+    initialChartType: 'funding',
+  });
   const countdown = useFundingCountdown();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { assetCtx } = usePerpsActiveAssetCtxDisplay(
@@ -147,6 +151,13 @@ function FundingDialogContent({
       });
     }, FUNDING_DIALOG_CLOSE_DURATION_MS);
   }, [closeDialog, navigation]);
+
+  const handleViewFundingAnalysis = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      void showFundingAnalysis();
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, showFundingAnalysis]);
 
   return (
     <YStack
@@ -290,17 +301,30 @@ function FundingDialogContent({
           })}
         </SizableText>
       </YStack>
-      <Button
-        size="medium"
-        variant="secondary"
-        width="100%"
-        testID="perp-view-funding-history-button"
-        onPress={handleViewFundingHistory}
-      >
-        {intl.formatMessage({
-          id: ETranslations.export_history__action,
-        })}
-      </Button>
+      <YStack gap="$3" width="100%">
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-history-button"
+          onPress={handleViewFundingHistory}
+        >
+          {intl.formatMessage({
+            id: ETranslations.export_history__action,
+          })}
+        </Button>
+        <Button
+          size="medium"
+          variant="secondary"
+          width="100%"
+          testID="perp-view-funding-analysis-button"
+          onPress={handleViewFundingAnalysis}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_view_funding_analysis__action,
+          })}
+        </Button>
+      </YStack>
     </YStack>
   );
 }

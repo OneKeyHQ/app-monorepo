@@ -95,6 +95,65 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     expect(html).toContain('getTimeScaleOptions(nextConfig)');
   });
 
+  it('creates a dashed reference line in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [{ time: 1 as UTCTimestamp, value: 1 }],
+      lineWidth: 2,
+      referenceLine: {
+        price: 0,
+        color: '#555555',
+        lineWidth: 1,
+        lineStyle: 'dashed',
+        axisLabelVisible: false,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#8D8FE8',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"referenceLine":{"price":0');
+    expect(html).toContain("lineStyle === 'dashed'");
+    expect(html).toContain('window.series.createPriceLine');
+  });
+
+  it('creates a signed histogram series in the native chart template', () => {
+    const html = generateChartHTML({
+      data: [
+        { time: 1 as UTCTimestamp, value: 2, color: '#00aa00' },
+        { time: 2 as UTCTimestamp, value: -3, color: '#ee0000' },
+      ],
+      lineWidth: 2,
+      seriesType: 'histogram',
+      histogramOptions: {
+        positiveColor: '#00aa00',
+        negativeColor: '#ee0000',
+        base: 0,
+        barWidthRatio: 0.5,
+        maxBarWidth: 24,
+      },
+      theme: {
+        bgColor: '#000000',
+        textSubduedColor: '#999999',
+        lineColor: '#00aa00',
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+      },
+    });
+
+    expect(html).toContain('"seriesType":"histogram"');
+    expect(html).toContain('"color":"#00aa00"');
+    expect(html).toContain('"color":"#ee0000"');
+    expect(html).toContain('createHistogramSeriesPaneView()');
+    expect(html).toContain('barWidthRatio: 0.5');
+    expect(html).toContain('maxBarWidth: 24');
+    expect(html).toContain('value === options.base) return');
+    expect(html).toContain('getHistogramSeriesOptions(nextConfig)');
+  });
+
   it('preserves native adaptive tick labels when no time zone is provided', () => {
     const html = generateChartHTML({
       data: [{ time: 1 as UTCTimestamp, value: 1 }],
@@ -178,6 +237,12 @@ describe('resolveSerializablePriceFormatterType', () => {
     expect(
       resolveSerializablePriceFormatterType({
         seriesType: 'area',
+        priceFormatter: (value) => `$${value.toFixed(2)}`,
+      }),
+    ).toBe('usd');
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'histogram',
         priceFormatter: (value) => `$${value.toFixed(2)}`,
       }),
     ).toBe('usd');

@@ -4,9 +4,28 @@ import {
   buildPositionCumulativeFundingChartData,
   buildPositionFundingProjection,
   formatPositionFundingDateTime,
+  resolvePositionFundingAssetCtx,
 } from './positionFundingUtils';
 
 const NOW = Date.UTC(2026, 7, 25, 8);
+
+const FALLBACK_ASSET_CTX = {
+  midPrice: '100',
+  lastPrice: '100',
+  markPrice: '100',
+  oraclePrice: '100',
+  prevDayPrice: '90',
+  fundingRate: '0.0001',
+  openInterest: '1',
+  volume24h: '1000',
+  change24h: '10',
+  change24hPercent: 10,
+};
+
+const ACTIVE_ASSET_CTX = {
+  ...FALLBACK_ASSET_CTX,
+  fundingRate: '0.0002',
+};
 
 function createFunding({
   coin,
@@ -75,6 +94,125 @@ describe('buildPositionFundingProjection', () => {
         fundingRate: '0.001',
       }),
     ).toBeNull();
+  });
+});
+
+describe('resolvePositionFundingAssetCtx', () => {
+  it('uses the live active context when the position is the current asset', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'perp',
+        activeCoin: 'xyz:SPCX',
+        activeAssetCtx: {
+          coin: 'xyz:SPCX',
+          ctx: ACTIVE_ASSET_CTX,
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: true,
+      }),
+    ).toEqual({
+      assetCtx: ACTIVE_ASSET_CTX,
+      usesActiveAssetCtx: true,
+    });
+  });
+
+  it('keeps the scoped fallback when the active context is stale', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'perp',
+        activeCoin: 'BTC',
+        activeAssetCtx: {
+          coin: 'xyz:SPCX',
+          ctx: ACTIVE_ASSET_CTX,
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: true,
+      }),
+    ).toEqual({
+      assetCtx: FALLBACK_ASSET_CTX,
+      usesActiveAssetCtx: false,
+    });
+  });
+
+  it('keeps the scoped fallback while the active context is switching coins', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'perp',
+        activeCoin: 'xyz:SPCX',
+        activeAssetCtx: {
+          coin: 'BTC',
+          ctx: ACTIVE_ASSET_CTX,
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: true,
+      }),
+    ).toEqual({
+      assetCtx: FALLBACK_ASSET_CTX,
+      usesActiveAssetCtx: false,
+    });
+  });
+
+  it('keeps the scoped fallback until the active context is valid', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'perp',
+        activeCoin: 'xyz:SPCX',
+        activeAssetCtx: {
+          coin: 'xyz:SPCX',
+          ctx: {
+            ...ACTIVE_ASSET_CTX,
+            markPrice: '0',
+          },
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: true,
+      }),
+    ).toEqual({
+      assetCtx: FALLBACK_ASSET_CTX,
+      usesActiveAssetCtx: false,
+    });
+  });
+
+  it('keeps the scoped fallback in spot mode', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'spot',
+        activeCoin: 'xyz:SPCX',
+        activeAssetCtx: {
+          coin: 'xyz:SPCX',
+          ctx: ACTIVE_ASSET_CTX,
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: true,
+      }),
+    ).toEqual({
+      assetCtx: FALLBACK_ASSET_CTX,
+      usesActiveAssetCtx: false,
+    });
+  });
+
+  it('keeps the scoped fallback outside the desktop layout', () => {
+    expect(
+      resolvePositionFundingAssetCtx({
+        positionCoin: 'xyz:SPCX',
+        activeMode: 'perp',
+        activeCoin: 'xyz:SPCX',
+        activeAssetCtx: {
+          coin: 'xyz:SPCX',
+          ctx: ACTIVE_ASSET_CTX,
+        },
+        fallbackAssetCtx: FALLBACK_ASSET_CTX,
+        preferActiveAssetCtx: false,
+      }),
+    ).toEqual({
+      assetCtx: FALLBACK_ASSET_CTX,
+      usesActiveAssetCtx: false,
+    });
   });
 });
 
