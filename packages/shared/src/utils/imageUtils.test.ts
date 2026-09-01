@@ -2,8 +2,9 @@
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
 import {
+  atkinsonDither,
   isAboveThresholdBrighter,
-  otsuThreshold,
+  otsuFromHistogram,
   pickThresholdAxis,
   robustSpread,
   shouldInvertForMajorityWhite,
@@ -24,31 +25,43 @@ describe('toGrayScale', () => {
   });
 });
 
-describe('otsuThreshold', () => {
+function histogramOf(values: number[]): { histogram: number[]; total: number } {
+  const histogram = new Array<number>(256).fill(0);
+  for (const v of values) histogram[v] += 1;
+  return { histogram, total: values.length };
+}
+
+describe('otsuFromHistogram', () => {
   it('splits a clearly bimodal histogram between the two clusters', () => {
-    const luminance = new Uint8ClampedArray(200);
-    luminance.fill(30, 0, 100);
-    luminance.fill(220, 100, 200);
-    const threshold = otsuThreshold(luminance);
+    const { histogram, total } = histogramOf([
+      ...new Array<number>(100).fill(30),
+      ...new Array<number>(100).fill(220),
+    ]);
+    const { threshold, separability } = otsuFromHistogram(histogram, total);
     expect(threshold).toBeGreaterThanOrEqual(30);
     expect(threshold).toBeLessThan(220);
+    // Two tight clusters are the textbook perfect split.
+    expect(separability).toBeCloseTo(1, 2);
   });
 
-  it('falls back to the default 128 when every pixel is identical', () => {
-    const luminance = new Uint8ClampedArray(100).fill(90);
-    expect(otsuThreshold(luminance)).toBe(128);
+  it('scores a single smear of tones far below a real split', () => {
+    // A flat field with noise: what must be dithered rather than cut.
+    const values: number[] = [];
+    for (let i = 0; i < 1000; i += 1) values.push(126 + (i % 5));
+    const { histogram, total } = histogramOf(values);
+    expect(otsuFromHistogram(histogram, total).separability).toBeLessThan(0.85);
   });
 
-  it('does not throw on an empty array', () => {
-    expect(otsuThreshold(new Uint8ClampedArray(0))).toBe(128);
+  it('falls back to the default 128 when every value is identical', () => {
+    const { histogram, total } = histogramOf(new Array<number>(100).fill(90));
+    const result = otsuFromHistogram(histogram, total);
+    expect(result.threshold).toBe(128);
+    expect(result.separability).toBe(0);
   });
 
-  it('picks a threshold inside a two-value histogram, not defaulting to 128', () => {
-    const luminance = new Uint8ClampedArray(20).fill(10);
-    luminance[15] = 200;
-    const threshold = otsuThreshold(luminance);
-    expect(threshold).toBeGreaterThanOrEqual(10);
-    expect(threshold).toBeLessThan(200);
+  it('does not throw on an empty histogram', () => {
+    const { histogram, total } = histogramOf([]);
+    expect(otsuFromHistogram(histogram, total).threshold).toBe(128);
   });
 });
 
@@ -177,9 +190,9 @@ describe('pickThresholdAxis', () => {
     expect(result.canSplit).toBe(true);
   });
 
-  it('still refuses a near-solid image, even one carrying blown-out pixels', () => {
-    // max-min called these separable off a single pixel, then cut the
-    // compression noise into a checkerboard.
+  it('reports a near-solid image as unsplittable, which now routes it to the dither', () => {
+    // Cutting these at any threshold only carves up compression noise. Saying so
+    // is not a rejection any more: convertToBlackAndWhiteImageBase64 dithers them.
     expect(pickThresholdAxis(nearSolidImage([128, 128, 128], 1)).canSplit).toBe(
       false,
     );
@@ -189,6 +202,42 @@ describe('pickThresholdAxis', () => {
     expect(pickThresholdAxis(nearSolidImage([128, 128, 128], 0)).canSplit).toBe(
       false,
     );
+  });
+});
+
+describe('atkinsonDither', () => {
+  const WIDTH_8 = 8;
+
+  it('never returns a blank field for a mid-tone image', () => {
+    // The regression this replaces: an image the threshold could not split was
+    // emitted as solid black, which clears the device screen.
+    const flat = new Uint8ClampedArray(WIDTH_8 * WIDTH_8).fill(128);
+    const out = atkinsonDither(flat, WIDTH_8);
+    const white = out.filter((v) => v === 255).length;
+    expect(white).toBeGreaterThan(0);
+    expect(white).toBeLessThan(out.length);
+  });
+
+  it('tracks the tone: darker input yields fewer white pixels', () => {
+    const ratio = (tone: number) => {
+      const img = new Uint8ClampedArray(32 * 32).fill(tone);
+      const out = atkinsonDither(img, 32);
+      return out.filter((v) => v === 255).length / out.length;
+    };
+    expect(ratio(32)).toBeLessThan(ratio(128));
+    expect(ratio(128)).toBeLessThan(ratio(224));
+  });
+
+  it('keeps pure black and pure white solid', () => {
+    const black = atkinsonDither(new Uint8ClampedArray(64).fill(0), WIDTH_8);
+    const white = atkinsonDither(new Uint8ClampedArray(64).fill(255), WIDTH_8);
+    expect(black.every((v) => v === 0)).toBe(true);
+    expect(white.every((v) => v === 255)).toBe(true);
+  });
+
+  it('emits exactly one value per input pixel', () => {
+    const img = new Uint8ClampedArray(WIDTH_8 * 3).fill(100);
+    expect(atkinsonDither(img, WIDTH_8)).toHaveLength(WIDTH_8 * 3);
   });
 });
 

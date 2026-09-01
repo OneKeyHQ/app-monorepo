@@ -45,63 +45,38 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
-// Wide enough to cut on brightness alone. Below it the image still may be a real
-// two-tone pattern, so a narrow spread only sends the decision to the separability
-// test — on its own it never means "nothing to show".
-const MIN_LUMINANCE_RANGE_FOR_OTSU = 32;
-
-// Spread is measured between these quantiles, not between min and max: max-min is
-// decided by two pixels out of thousands, so one specular highlight or dead pixel
-// declared a flat photo separable.
-const SPREAD_OUTLIER_QUANTILE = 0.02;
-
-type IThresholdAxis = {
-  name: string;
-  project: (red: number, green: number, blue: number) => number;
-};
-
-const LUMINANCE_AXIS: IThresholdAxis = {
-  name: 'luminance',
-  project: toGrayScale,
-};
-
 // How cleanly the best cut separates the image into two clusters, 0..1. A two-tone
-// pattern scores ~1 however little it spans; flat noise peaks around 0.65.
+// image scores ~1 however little it spans; one smear of tones — a photo, or a flat
+// field carrying compression noise — peaks around 0.65 and gets dithered instead.
 const MIN_SEPARABILITY = 0.85;
 
-// Both sides of the cut must be a real share of the image. Without this, a few
-// blown-out pixels form their own perfect "cluster" and score 1.
-const MIN_CLUSTER_FRACTION = 0.01;
+// Below this the luminance histogram is a single spike, which is the one case worth
+// looking at color for: two hues of equal brightness are invisible to luminance.
+const FLAT_LUMINANCE_SPREAD = 8;
 
-// Luminance is blind to two hues of equal brightness — red against a green of the
-// same brightness leaves a single-spike histogram — so these give the cut somewhere
-// else to look. Only reached when luminance has nothing to cut.
-const CHROMA_AXES: IThresholdAxis[] = [
-  { name: 'red', project: (red) => red },
-  { name: 'green', project: (_red, green) => green },
-  { name: 'blue', project: (_red, _green, blue) => blue },
-  {
-    name: 'redGreen',
-    project: (red, green) => Math.round((red - green + 255) / 2),
-  },
-  {
-    name: 'blueYellow',
-    project: (red, green, blue) =>
-      Math.round((blue - (red + green) / 2 + 255) / 2),
-  },
+type IProjection = (red: number, green: number, blue: number) => number;
+
+const CHROMA_AXES: IProjection[] = [
+  (red) => red,
+  (_red, green) => green,
+  (_red, _green, blue) => blue,
+  (red, green) => Math.round((red - green + 255) / 2),
+  (red, green, blue) => Math.round((blue - (red + green) / 2 + 255) / 2),
 ];
 
-function projectPixels(data: Uint8ClampedArray, axis: IThresholdAxis) {
+function projectPixels(data: Uint8ClampedArray, project: IProjection) {
   const pixelCount = data.length / 4;
   const values = new Uint8ClampedArray(pixelCount);
   const histogram = new Array<number>(256).fill(0);
   for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-    values[p] = axis.project(data[i], data[i + 1], data[i + 2]);
+    values[p] = project(data[i], data[i + 1], data[i + 2]);
     histogram[values[p]] += 1;
   }
   return { values, histogram, pixelCount };
 }
 
+// Between the 2nd and 98th percentile, not between min and max: one specular
+// highlight or dead pixel must not describe the whole image.
 export function robustSpread(histogram: number[], pixelCount: number): number {
   if (pixelCount <= 0) {
     return 0;
@@ -117,75 +92,96 @@ export function robustSpread(histogram: number[], pixelCount: number): number {
     }
     return 255;
   };
-  return (
-    quantile(1 - SPREAD_OUTLIER_QUANTILE) - quantile(SPREAD_OUTLIER_QUANTILE)
-  );
+  return quantile(0.98) - quantile(0.02);
 }
 
 // Picks the axis to cut on, its threshold, and whether anything is separable at all.
 export function pickThresholdAxis(data: Uint8ClampedArray) {
-  const brightness = projectPixels(data, LUMINANCE_AXIS);
-  const { values: luminance, histogram, pixelCount } = brightness;
+  const {
+    values: luminance,
+    histogram,
+    pixelCount,
+  } = projectPixels(data, toGrayScale);
+  const brightness = otsuFromHistogram(histogram, pixelCount);
 
-  // Brightness spans enough to cut on: unchanged from what every working image does today.
-  if (robustSpread(histogram, pixelCount) >= MIN_LUMINANCE_RANGE_FOR_OTSU) {
+  if (brightness.separability >= MIN_SEPARABILITY) {
     return {
-      axis: LUMINANCE_AXIS.name,
+      axis: 'luminance',
       values: luminance,
       luminance,
-      threshold: otsuFromHistogram(histogram, pixelCount).threshold,
+      threshold: brightness.threshold,
       canSplit: true,
     };
   }
 
-  // Too narrow to judge by spread, and the two cases look alike there: a two-tone
-  // pattern is still two clean clusters, compression noise is one smear. Separability
-  // tells them apart, on whichever axis sees it.
-  let best:
-    | {
-        axis: string;
-        values: Uint8ClampedArray;
-        threshold: number;
-        separability: number;
+  // A flat luminance histogram is the one case a color axis can rescue. Anything
+  // else that fails here is a photo or a noisy field, which dithers better than it
+  // cuts, so there is nothing to gain from searching further.
+  if (robustSpread(histogram, pixelCount) < FLAT_LUMINANCE_SPREAD) {
+    for (const project of CHROMA_AXES) {
+      const projected = projectPixels(data, project);
+      const chroma = otsuFromHistogram(projected.histogram, pixelCount);
+      if (chroma.separability >= MIN_SEPARABILITY) {
+        return {
+          axis: 'chroma',
+          values: projected.values,
+          luminance,
+          threshold: chroma.threshold,
+          canSplit: true,
+        };
       }
-    | undefined;
-  for (const axis of [LUMINANCE_AXIS, ...CHROMA_AXES]) {
-    const projected =
-      axis === LUMINANCE_AXIS ? brightness : projectPixels(data, axis);
-    const { threshold, separability, minClusterFraction } = otsuFromHistogram(
-      projected.histogram,
-      pixelCount,
-    );
-    const isCleanSplit =
-      separability >= MIN_SEPARABILITY &&
-      minClusterFraction >= MIN_CLUSTER_FRACTION;
-    if (isCleanSplit && (!best || separability > best.separability)) {
-      best = {
-        axis: axis.name,
-        values: projected.values,
-        threshold,
-        separability,
-      };
     }
   }
 
-  if (best) {
-    return {
-      axis: best.axis,
-      values: best.values,
-      luminance,
-      threshold: best.threshold,
-      canSplit: true,
-    };
-  }
-
   return {
-    axis: LUMINANCE_AXIS.name,
+    axis: 'luminance',
     values: luminance,
     luminance,
     threshold: 128,
     canSplit: false,
   };
+}
+
+// Atkinson error diffusion: the classic six-neighbour kernel that spreads only
+// three quarters of the error, which holds contrast on a screen this small better
+// than the kernels spreading all of it. Error accumulates in a float array rather
+// than a clamped one so it carries instead of saturating, and row edges are guarded.
+//
+// This is what runs when no threshold can honestly split the image. A flat field
+// becomes an even texture that reads as grey, which beats emitting a blank screen.
+export function atkinsonDither(
+  luminance: Uint8ClampedArray,
+  width: number,
+): Uint8Array {
+  const height = Math.floor(luminance.length / width);
+  const error = new Float32Array(luminance.length);
+  const out = new Uint8Array(luminance.length);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = y * width + x;
+      const value = luminance[i] + error[i];
+      const black = value < 128;
+      out[i] = black ? 0 : 255;
+      const diffused = (value - (black ? 0 : 255)) / 8;
+
+      const spread = (dx: number, dy: number) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= width || ny >= height) {
+          return;
+        }
+        error[ny * width + nx] += diffused;
+      };
+      spread(1, 0);
+      spread(2, 0);
+      spread(-1, 1);
+      spread(0, 1);
+      spread(1, 1);
+      spread(0, 2);
+    }
+  }
+  return out;
 }
 
 // The chosen axis need not run dark-to-bright, so which side becomes white is
@@ -223,8 +219,8 @@ const INVERT_DEAD_ZONE = 0.05;
 
 // Threshold that maximizes between-class variance, separating an image's own
 // bright/dark clusters, plus how convincing that split is: separability is the
-// between-class share of total variance, and minClusterFraction the smaller side.
-function otsuFromHistogram(histogram: number[], total: number) {
+// between-class share of total variance.
+export function otsuFromHistogram(histogram: number[], total: number) {
   let sum = 0;
   for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
 
@@ -239,7 +235,6 @@ function otsuFromHistogram(histogram: number[], total: number) {
   let weightBackground = 0;
   let maxVariance = 0;
   let threshold = 128;
-  let weightAtThreshold = 0;
   for (let t = 0; t < 256; t += 1) {
     weightBackground += histogram[t];
     if (weightBackground !== 0) {
@@ -257,7 +252,6 @@ function otsuFromHistogram(histogram: number[], total: number) {
       if (betweenClassVariance > maxVariance) {
         maxVariance = betweenClassVariance;
         threshold = t;
-        weightAtThreshold = weightBackground;
       }
     }
   }
@@ -265,19 +259,7 @@ function otsuFromHistogram(histogram: number[], total: number) {
   return {
     threshold,
     separability: totalVariance === 0 ? 0 : maxVariance / totalVariance,
-    minClusterFraction:
-      total === 0
-        ? 0
-        : Math.min(weightAtThreshold, total - weightAtThreshold) / total,
   };
-}
-
-export function otsuThreshold(luminance: Uint8ClampedArray): number {
-  const histogram = new Array<number>(256).fill(0);
-  for (let p = 0; p < luminance.length; p += 1) {
-    histogram[luminance[p]] += 1;
-  }
-  return otsuFromHistogram(histogram, luminance.length).threshold;
 }
 
 // Reverse only when white is unambiguously the majority. Near 50% the Otsu
@@ -359,6 +341,20 @@ function convertToBlackAndWhiteImageBase64(
       const { values, luminance, threshold, canSplit } =
         pickThresholdAxis(data);
 
+      // No threshold separates this image, so render its tones as a dither
+      // pattern rather than giving up and emitting a blank screen.
+      if (!canSplit) {
+        const dithered = atkinsonDither(luminance, canvas.width);
+        for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+          data[i] = dithered[p];
+          data[i + 1] = dithered[p];
+          data[i + 2] = dithered[p];
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL(mime || 'image/jpeg'));
+        return;
+      }
+
       const aboveIsBrighter = isAboveThresholdBrighter({
         values,
         luminance,
@@ -368,7 +364,7 @@ function convertToBlackAndWhiteImageBase64(
       let whiteCount = 0;
       for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
         const isAbove = values[p] > threshold;
-        const isWhite = canSplit && isAbove === aboveIsBrighter;
+        const isWhite = isAbove === aboveIsBrighter;
         const bw = isWhite ? 255 : 0;
         if (bw === 255) {
           whiteCount += 1;
