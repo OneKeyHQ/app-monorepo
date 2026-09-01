@@ -682,6 +682,20 @@ class ServiceHardwareUI extends ServiceBase {
     await this.deviceStageBurst.noteAuthNarrativeResolved();
   }
 
+  /** The showQr card's Next: the person watched the device show its
+   * answer code — on to the in-card camera (doc §4.6). */
+  @backgroundMethod()
+  async deviceStageQrProceedToScan() {
+    await this.deviceStageBurst.qrProceedToScan();
+  }
+
+  /** The scanQr card's way back: re-present the code (never a reject —
+   * the legacy skipReject crossing, in stage form). */
+  @backgroundMethod()
+  async deviceStageQrBackToShow() {
+    await this.deviceStageBurst.qrBackToShow();
+  }
+
   /** Confirm channel: UI-side registration for callers that know the
    * confirm payload before (or while) the hardware call runs. */
   @backgroundMethod()
@@ -701,7 +715,21 @@ class ServiceHardwareUI extends ServiceBase {
     connectId?: string;
     skipDeviceCancel?: boolean;
   }) {
+    // Read before the close settles the atom at off: which cancel a
+    // dismissed air-gap step maps to depends on where the person was.
+    const stepAtClose = (await deviceStageAtom.get())?.step;
+    const qrStepAtClose = stepAtClose === 'showQr' || stepAtClose === 'scanQr';
     await this.deviceStageBurst.userClose();
+    // Unconditional, keyed to session existence (a no-op without one):
+    // a pending air-gap scan must reject on ANY stage close, even where
+    // something repainted the QR pair before the person closed — keying
+    // on the painted step alone would strand the bg promise until the
+    // 30-minute expiry, holding the flow (and, for wrapped flows, the
+    // global hardware semaphore) the whole time. The step only picks
+    // which legacy cancel the reject speaks.
+    await this.backgroundApi.serviceQrWallet.cancelStageAirGapScan({
+      scanning: stepAtClose === 'scanQr',
+    });
     // Same announcement the legacy dialog made on a user close: pages
     // holding state for the interaction (address verify, a running
     // authenticity check) stand down with it.
@@ -710,9 +738,13 @@ class ServiceHardwareUI extends ServiceBase {
       undefined,
     );
     // Cancel semantics: same path the legacy dialog's user-close takes.
+    // An air-gap step forces the device half off: there is no device
+    // call to cancel, and a connectId-less sdk.cancel is a GLOBAL one —
+    // it would cold-boot the SDK and interrupt every queued call on
+    // every connected device (the legacy toast close touched nothing).
     await this.closeHardwareUiStateDialogFn({
       connectId,
-      skipDeviceCancel: skipDeviceCancel ?? false,
+      skipDeviceCancel: qrStepAtClose ? true : (skipDeviceCancel ?? false),
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });

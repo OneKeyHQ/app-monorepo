@@ -15,7 +15,9 @@ import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts'
 import { IMPL_EVM, IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyErrorAirGapInvalidQrCode,
+  OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
+  SecureQRCodeDialogCancel,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -72,6 +74,83 @@ function loadOneKeyRequestDeviceQR() {
 
 @backgroundClass()
 class ServiceQrWallet extends ServiceBase {
+  /**
+   * The live stage-driven two-way scan (OK-59934 §4.6): its servicePromise
+   * id, held here so the card's exits — a completed scan, the person
+   * closing the stage — can answer the pending call without the id ever
+   * leaving bg. One at a time: a newer request supersedes the pending one
+   * (the legacy container's last-writer-wins).
+   */
+  private stageAirGapSession:
+    | { promiseId: number; sessionId: number }
+    | undefined;
+
+  private stageAirGapSessionSeq = 0;
+
+  private async rejectStageAirGapSession(error: unknown) {
+    const session = this.stageAirGapSession;
+    if (!session) {
+      return;
+    }
+    this.stageAirGapSession = undefined;
+    await this.backgroundApi.servicePromise.rejectCallback({
+      id: session.promiseId,
+      error,
+    });
+  }
+
+  /**
+   * The completed scan, submitted by the stage's embedded camera — the
+   * legacy scan page's resolve, in stage form. The result is the same
+   * parse shape the legacy flow resolved with (`data.fullData` for a
+   * collected UR, `raw` for a plain-text response).
+   *
+   * `sessionId` restores the legacy pipeline's per-request promiseId
+   * binding: a frame that finished parsing after its session was
+   * superseded (or cancelled) must land as a no-op, never as the NEXT
+   * request's answer — a wrong signature in the worst case.
+   */
+  @backgroundMethod()
+  async submitStageAirGapScanResult({
+    result,
+    sessionId,
+  }: {
+    result: IQRCodeHandlerParseResult<IAnimationValue>;
+    sessionId: number | undefined;
+  }) {
+    const session = this.stageAirGapSession;
+    if (
+      !session ||
+      sessionId === undefined ||
+      session.sessionId !== sessionId
+    ) {
+      return;
+    }
+    this.stageAirGapSession = undefined;
+    // The wait paints before the flow resumes, so the card the person
+    // answered never lingers behind the decode.
+    await this.backgroundApi.serviceHardwareUI.deviceStageBurst.qrNoteScanCompleted();
+    await this.backgroundApi.servicePromise.resolveCallback({
+      id: session.promiseId,
+      data: result,
+    });
+  }
+
+  /**
+   * The stage was dismissed over an air-gap step: reject the pending call
+   * with the same cancel the legacy surfaces used — the toast's cancel on
+   * showQr, the scan page's on scanQr — so every downstream contract
+   * (silent-cancel toast policy, batch-flow termination) keeps holding.
+   */
+  @backgroundMethod()
+  async cancelStageAirGapScan({ scanning }: { scanning?: boolean } = {}) {
+    await this.rejectStageAirGapSession(
+      scanning
+        ? new OneKeyErrorScanQrCodeCancel()
+        : new SecureQRCodeDialogCancel(),
+    );
+  }
+
   async startTwoWayAirGapScanUr({
     requestUr,
     appQrCodeModalTitle,
@@ -85,22 +164,63 @@ class ServiceQrWallet extends ServiceBase {
     responseUr?: AirGapUR;
   }> {
     const { airGapUrUtils } = await loadQrWalletSdk();
+    // **** 1. Device scan App Qrcode
+    const valueUr = airGapUrUtils.urToJson({ ur: requestUr });
+    const { deviceStageBurst } = this.backgroundApi.serviceHardwareUI;
+    // The firmware-update workflow silences the stage; production rode
+    // the legacy toast through that window, so this does too — the gate
+    // is the stage's, never the flow's.
+    const stageEnabled = await deviceStageBurst.isEnabled();
+
     // **** 2. app scan device Qrcode
-    const appScanDeviceResult = await new Promise<
-      IQRCodeHandlerParseResult<IAnimationValue>
-    >((resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
+    let appScanDeviceResult: IQRCodeHandlerParseResult<IAnimationValue>;
+    if (stageEnabled) {
+      // A newer request supersedes a pending one — the legacy container
+      // closed the standing toast and rejected its promise the same way.
+      await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
+      let promiseId = 0;
+      const scanPromise = new Promise<
+        IQRCodeHandlerParseResult<IAnimationValue>
+      >((resolve, reject) => {
+        promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
       });
-      // **** 1. Device scan App Qrcode
-      const valueUr = airGapUrUtils.urToJson({ ur: requestUr });
-      appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
-        valueUr,
-        promiseId,
-        title: appQrCodeModalTitle,
+      this.stageAirGapSessionSeq += 1;
+      const sessionId = this.stageAirGapSessionSeq;
+      this.stageAirGapSession = { promiseId, sessionId };
+      // Depth-joins the wrapper's burst where one is active (sign, verify
+      // address); brackets the flows that have no wrapper (add address).
+      await deviceStageBurst.begin({});
+      let stageError: unknown;
+      try {
+        await deviceStageBurst.qrShowCode({ valueUr, sessionId });
+        appScanDeviceResult = await scanPromise;
+      } catch (error) {
+        stageError = error;
+        throw error;
+      } finally {
+        if (this.stageAirGapSession?.promiseId === promiseId) {
+          this.stageAirGapSession = undefined;
+        }
+        await deviceStageBurst.end({ error: stageError });
+      }
+    } else {
+      appScanDeviceResult = await new Promise<
+        IQRCodeHandlerParseResult<IAnimationValue>
+      >((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
+          valueUr,
+          promiseId,
+          title: appQrCodeModalTitle,
+        });
       });
-    });
+    }
 
     let responseUr: AirGapUR | undefined;
     let raw: string | undefined;

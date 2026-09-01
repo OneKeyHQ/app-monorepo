@@ -4,7 +4,10 @@ import {
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
+  pickQrScoped,
 } from './DeviceStageBurst';
+
+import type { IDeviceStageState } from '../../states/jotai/atoms';
 
 describe('pickDeviceType', () => {
   it('keeps the device it already identified when an event does not know', () => {
@@ -56,6 +59,44 @@ describe('pickIdentityText', () => {
   it('stays unknown while nothing has ever named it', () => {
     expect(pickIdentityText('', undefined)).toBeUndefined();
     expect(pickIdentityText(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe('pickQrScoped', () => {
+  const ur = { type: 'onekey-app-call-device' } as NonNullable<
+    IDeviceStageState['qrValueUr']
+  >;
+  const newerUr = { type: 'eth-sign-request' } as NonNullable<
+    IDeviceStageState['qrValueUr']
+  >;
+
+  it('carries the code across the crossing to the camera and back', () => {
+    // The way back from scanQr re-presents the same code — dropping it at
+    // the crossing would land the person on an empty white card.
+    expect(pickQrScoped('scanQr', undefined, ur)).toBe(ur);
+    expect(pickQrScoped('showQr', undefined, ur)).toBe(ur);
+  });
+
+  it('lets an explicit hand-over replace what the step showed', () => {
+    expect(pickQrScoped('showQr', newerUr, ur)).toBe(newerUr);
+  });
+
+  it('drops the code the moment the stage leaves the pair', () => {
+    // No other step may re-present a stale request code — and no stale
+    // session tag may authorize a submit (the same rule carries both).
+    expect(pickQrScoped('processing', undefined, ur)).toBeUndefined();
+    expect(pickQrScoped('error', undefined, ur)).toBeUndefined();
+    expect(pickQrScoped('off', undefined, ur)).toBeUndefined();
+    expect(pickQrScoped('processing', undefined, 7)).toBeUndefined();
+  });
+
+  it('carries the session tag by the same rule', () => {
+    expect(pickQrScoped('scanQr', undefined, 7)).toBe(7);
+    expect(pickQrScoped('showQr', 8, 7)).toBe(8);
+  });
+
+  it('never invents one outside the pair, explicit or not', () => {
+    expect(pickQrScoped('connecting', ur, undefined)).toBeUndefined();
   });
 });
 
