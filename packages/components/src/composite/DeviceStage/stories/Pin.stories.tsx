@@ -68,9 +68,10 @@ export const Flow: Story = {
 // The switch entry (OK-61489): a button device resting on the on-device
 // default offers "Prefer to enter PIN in app?" in the description seat;
 // the tap fakes the background write (a beat of latency), then the line
-// lands as the set-to-app banner. The stage keeps its confirmed state
-// for the surface's life — real wiring mounts a fresh stage per request,
-// so replaying the demo means leaving Off and coming back.
+// lands as the set-to-app banner. Confirmed lives per card stay — the
+// production surface is permanently mounted, so leaving enterPin resets
+// it and the next card's wiring decides eligibility afresh. Replay the
+// demo by stepping away (PIN in app / Off) and coming back.
 function PinSwitchStage(props: IDeviceStageProps) {
   const driver = useStageDriver(props);
   const handleSwitchPinInputToApp = useCallback(
