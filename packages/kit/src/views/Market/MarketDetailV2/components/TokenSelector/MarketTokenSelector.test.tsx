@@ -187,7 +187,7 @@ jest.mock('./MarketTokenSelectorList', () => ({
     searchResults,
     selectedCategory,
   }: {
-    dataOverride?: IMarketToken[];
+    dataOverride?: (IMarketToken & { marketAssetId?: string })[];
     isWatchlistMode: boolean;
     onItemPress: (item: IMarketToken) => void;
     searchResults?: IMarketToken[];
@@ -200,6 +200,15 @@ jest.mock('./MarketTokenSelectorList', () => ({
         data-testid="token-list"
         data-watchlist={String(isWatchlistMode)}
       />
+      {dataOverride?.[0] ? (
+        <button
+          data-testid="market-token-selector-top-coin"
+          type="button"
+          onClick={() => onItemPress(dataOverride[0])}
+        >
+          Select Top Coin
+        </button>
+      ) : null}
       {searchResults?.[0] ? (
         <button
           data-testid="market-token-selector-search-result"
@@ -255,6 +264,12 @@ describe('MarketTokenSelector stock default category', () => {
         screen.getByTestId('token-list').getAttribute('data-override-count'),
       ).toBe('1');
     });
+
+    fireEvent.click(screen.getByTestId('market-token-selector-top-coin'));
+    expect(mockTopCoinPress).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'btc' }),
+    );
+    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
   });
 
   function renderOpenStockSelector() {

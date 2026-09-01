@@ -11,22 +11,6 @@ function normalizeIdentity(value?: string) {
   return value?.trim().toLowerCase() ?? '';
 }
 
-export function getTopCoinsAssetIdCandidates({
-  marketTokenId,
-  symbol,
-}: {
-  marketTokenId?: string;
-  symbol?: string;
-}) {
-  return Array.from(
-    new Set(
-      [marketTokenId, normalizeIdentity(symbol)].filter(
-        (assetId): assetId is string => Boolean(assetId),
-      ),
-    ),
-  );
-}
-
 export function findTopCoinsEarnAsset({
   assets,
   symbol,
@@ -54,31 +38,15 @@ export function useTopCoinsDetail(marketTokenId?: string) {
   const { result: assetDetail, isLoading: isAssetDetailLoading } =
     usePromiseResult<IMarketAssetDetailData | undefined>(
       async () => {
-        const assetIds = getTopCoinsAssetIdCandidates({
-          marketTokenId,
-          symbol,
-        });
-        if (!assetIds.length) {
+        if (!marketTokenId) {
           return undefined;
         }
-        let lastError: unknown;
-        for (const assetId of assetIds) {
-          try {
-            return await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail(
-              {
-                assetId,
-                currency: 'usd',
-              },
-            );
-          } catch (error) {
-            lastError = error;
-          }
-        }
-        throw lastError instanceof Error
-          ? lastError
-          : new Error('Failed to fetch the market asset detail');
+        return backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+          assetId: marketTokenId,
+          currency: 'usd',
+        });
       },
-      [marketTokenId, symbol],
+      [marketTokenId],
       {
         checkIsFocused: false,
         watchLoading: true,

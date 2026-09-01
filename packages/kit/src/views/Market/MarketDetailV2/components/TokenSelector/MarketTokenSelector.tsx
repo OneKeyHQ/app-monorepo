@@ -45,6 +45,7 @@ import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
+  marketAssetId?: string;
   selectorSubtitle?: string;
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
@@ -68,9 +69,10 @@ function convertTopCoinToSelectorToken(
 ): IMarketTokenSelectorItem {
   return {
     id: `market_asset_${item.assetId}`,
+    marketAssetId: item.assetId,
     name: item.symbol.toUpperCase(),
     symbol: item.symbol.toUpperCase(),
-    address: item.assetId,
+    address: '',
     decimals: 0,
     price: toFiniteNumber(item.price),
     change24h: toFiniteNumber(item.priceChange24hPercent),
@@ -83,8 +85,8 @@ function convertTopCoinToSelectorToken(
     turnover: toFiniteNumber(item.volume24h),
     tokenImageUri: item.logoUrl,
     networkLogoUri: '',
-    networkId: 'coingecko',
-    chainId: 'coingecko',
+    networkId: '',
+    chainId: '',
     selectorSubtitle: item.symbol.toUpperCase(),
   };
 }
@@ -298,7 +300,9 @@ function BaseMarketTokenSelectorContent({
   const handleSelectToken = useCallback(
     (item: IMarketTokenSelectorItem) => {
       if (isTopCoinsSelection && !searchValueDebounce) {
-        const topCoin = topCoinsById.get(item.address);
+        const topCoin = item.marketAssetId
+          ? topCoinsById.get(item.marketAssetId)
+          : undefined;
         if (topCoin) {
           void closePopover?.();
           void handleTopCoinPress(topCoin);
