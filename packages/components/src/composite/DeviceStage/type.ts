@@ -369,6 +369,12 @@ export interface IDeviceStageProps {
    */
   onPassphraseIntroContinue?: (options: { keepShortcut: boolean }) => void;
   /**
+   * Where the intro's shortcut switch starts — the person's remembered
+   * choice (the wallet-list preference the integration layer persists).
+   * Omitted, the switch starts ON, the first-run default.
+   */
+  passphraseIntroKeepShortcut?: boolean;
+  /**
    * Which shape the passphrase step takes — the live flow's two:
    * 'verify' (unlock an existing hidden wallet: the step's own title) or
    * 'create' (the Add-hidden-wallet flow: the step titles itself after

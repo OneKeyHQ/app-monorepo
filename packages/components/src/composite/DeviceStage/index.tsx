@@ -475,6 +475,7 @@ export function DeviceStage({
   onPinSubmit,
   onSelectWalletType,
   onPassphraseIntroContinue,
+  passphraseIntroKeepShortcut,
   passphraseMode,
   onPassphraseSubmit,
   onPassphraseAttachPin,
@@ -1420,11 +1421,18 @@ export function DeviceStage({
           <PassphraseIntro
             onContinue={onPassphraseIntroContinue}
             resetSignal={introEpoch}
+            keepShortcutDefault={passphraseIntroKeepShortcut}
           />
         </View>
       </YStack>
     ),
-    [intl, introEpoch, onPassphraseIntroContinue, panelMeasureHandlers],
+    [
+      intl,
+      introEpoch,
+      onPassphraseIntroContinue,
+      panelMeasureHandlers,
+      passphraseIntroKeepShortcut,
+    ],
   );
   const passphrasePanel = useMemo(
     () => (
