@@ -118,10 +118,9 @@ describe('native preloadImages', () => {
 
   test('only retries failed optimized entries with their original URLs', async () => {
     mockNativePreload
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(true);
 
     await expect(
@@ -143,11 +142,11 @@ describe('native preloadImages', () => {
       ]),
     ).resolves.toBe(true);
 
-    expect(mockNativePreload).toHaveBeenCalledTimes(5);
-    expect(mockNativePreload).toHaveBeenNthCalledWith(2, [
+    expect(mockNativePreload).toHaveBeenCalledTimes(4);
+    expect(mockNativePreload).toHaveBeenNthCalledWith(3, [
       expect.objectContaining({ uri: 'https://example.com/c.png' }),
     ]);
-    expect(mockNativePreload).toHaveBeenNthCalledWith(5, [
+    expect(mockNativePreload).toHaveBeenNthCalledWith(4, [
       expect.objectContaining({
         uri: 'https://uni.onekey-asset.com/b.png',
       }),

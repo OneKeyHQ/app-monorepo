@@ -17,39 +17,54 @@ const CACHE_POLICIES = {
 
 type IPreloadRequest = Parameters<typeof OneKeyImageCache.preload>[0][number];
 
-type IOptimizedPreloadRequest = {
+type IPreloadRequestEntry = {
+  optimized: boolean;
   rawUri: string;
   request: IPreloadRequest;
 };
 
-async function preloadWithRawFallback(
-  preloadRequests: IOptimizedPreloadRequest[],
-): Promise<boolean> {
-  if (preloadRequests.length === 0) {
-    return true;
-  }
-  const success = await OneKeyImageCache.preload(
-    preloadRequests.map(({ request }) => request),
-  ).catch(() => false);
-  if (success) {
-    return true;
-  }
-  if (preloadRequests.length === 1) {
-    const [{ rawUri, request }] = preloadRequests;
-    return OneKeyImageCache.preload([
-      {
-        ...request,
-        uri: rawUri,
-      },
-    ]).catch(() => false);
-  }
+const MAX_CONCURRENT_PRELOADS = 4;
 
-  const middleIndex = Math.ceil(preloadRequests.length / 2);
-  const results = await Promise.all([
-    preloadWithRawFallback(preloadRequests.slice(0, middleIndex)),
-    preloadWithRawFallback(preloadRequests.slice(middleIndex)),
-  ]);
-  return results.every(Boolean);
+async function preloadRequestWithRawFallback({
+  optimized,
+  rawUri,
+  request,
+}: IPreloadRequestEntry): Promise<boolean> {
+  const success = await OneKeyImageCache.preload([request]).catch(() => false);
+  if (success || !optimized) {
+    return success;
+  }
+  return OneKeyImageCache.preload([
+    {
+      ...request,
+      uri: rawUri,
+    },
+  ]).catch(() => false);
+}
+
+async function preloadWithConcurrency(
+  preloadRequests: IPreloadRequestEntry[],
+): Promise<boolean> {
+  let nextIndex = 0;
+  let success = true;
+  const preloadNext = async () => {
+    while (nextIndex < preloadRequests.length) {
+      const request = preloadRequests[nextIndex];
+      nextIndex += 1;
+      if (!(await preloadRequestWithRawFallback(request))) {
+        success = false;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(MAX_CONCURRENT_PRELOADS, preloadRequests.length),
+      },
+      preloadNext,
+    ),
+  );
+  return success;
 }
 
 export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
@@ -87,19 +102,7 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
         optimized: optimizedSource.optimized,
       };
     });
-  const optimizedPreloadRequests = preloadRequests.filter(
-    ({ optimized }) => optimized,
-  );
-  const passthroughRequests = preloadRequests
-    .filter(({ optimized }) => !optimized)
-    .map(({ request }) => request);
-  const [optimizedSuccess, passthroughSuccess] = await Promise.all([
-    preloadWithRawFallback(optimizedPreloadRequests),
-    passthroughRequests.length > 0
-      ? OneKeyImageCache.preload(passthroughRequests).catch(() => false)
-      : true,
-  ]);
-  return optimizedSuccess && passthroughSuccess;
+  return preloadWithConcurrency(preloadRequests);
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>
