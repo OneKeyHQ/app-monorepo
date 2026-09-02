@@ -13,10 +13,8 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  IconButton,
   Skeleton,
   Stack,
-  XStack,
   onVisibilityStateChange,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -26,7 +24,6 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
-import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import {
   type IScopedActiveTokenList,
   type IScopedActiveTokenListState,
@@ -74,6 +71,8 @@ import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simp
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   EJotaiContextStoreNames,
+  useFirmwareUpdateWorkflowRunningAtom,
+  useHardwareUiStateAtom,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -85,12 +84,12 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -120,7 +119,6 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -146,6 +144,7 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import { PortfolioSyncButton } from './PortfolioSyncButton';
 import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
@@ -289,6 +288,9 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [firmwareUpdateWorkflowRunning] =
+    useFirmwareUpdateWorkflowRunningAtom();
+  const [hardwareUiState] = useHardwareUiStateAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
   // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
@@ -328,8 +330,7 @@ function TokenListBlock({
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
   } = pipeline;
-  const [tokenSelectorFilter, setTokenSelectorFilter] =
-    useTokenSelectorFilterPersistAtom();
+  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
   const showLpTokenFilterSwitch =
     isTokenSelectorDappTokenFilterSupportedNetwork({
@@ -352,7 +353,6 @@ function TokenListBlock({
       isRefreshing: false,
       initialized: false,
     });
-  const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
   const [tokenListState] = useTokenListStateAtom();
   const [allNetworkAccounts, setAllNetworkAccounts] = useState<
     IAllNetworkAccountInfo[] | undefined
@@ -403,14 +403,20 @@ function TokenListBlock({
   };
   const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
   const portfolioSyncRequestIdRef = useRef(0);
-  const portfolioSyncRequestRef = useRef<
-    IPortfolioSyncRequest | undefined
-  >(undefined);
+  const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
+    undefined,
+  );
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const portfolioSyncSuccessTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
   const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
     useState<IPortfolioSyncRequestPhase>();
+  const [portfolioSyncFeedback, setPortfolioSyncFeedback] = useState<
+    'idle' | 'success'
+  >('idle');
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
   const portfolioSyncIndexedAccountId =
@@ -419,9 +425,9 @@ function TokenListBlock({
   const portfolioSyncWalletId = wallet?.id ?? '';
   const hasPortfolioSyncTarget = Boolean(
     portfolioSyncDeviceDbId &&
-      portfolioSyncIndexedAccountId &&
-      portfolioSyncNetworkId &&
-      portfolioSyncWalletId,
+    portfolioSyncIndexedAccountId &&
+    portfolioSyncNetworkId &&
+    portfolioSyncWalletId,
   );
   const portfolioSyncTargetKey = buildPortfolioSyncTargetKey({
     deviceDbId: portfolioSyncDeviceDbId,
@@ -447,6 +453,14 @@ function TokenListBlock({
     }
   }, []);
 
+  const clearPortfolioSyncSuccessTimer = useCallback(() => {
+    const timer = portfolioSyncSuccessTimerRef.current;
+    if (timer) {
+      clearTimeout(timer);
+      portfolioSyncSuccessTimerRef.current = undefined;
+    }
+  }, []);
+
   const finishPortfolioSyncRequest = useCallback(
     (requestId: number) => {
       if (portfolioSyncRequestRef.current?.id !== requestId) {
@@ -457,6 +471,27 @@ function TokenListBlock({
       setPortfolioSyncRequestPhase(undefined);
     },
     [clearPortfolioSyncFallbackTimer],
+  );
+
+  const completePortfolioSyncRequest = useCallback(
+    (requestId: number) => {
+      const request = portfolioSyncRequestRef.current;
+      if (request?.id !== requestId) {
+        return;
+      }
+      clearPortfolioSyncFallbackTimer();
+      clearPortfolioSyncSuccessTimer();
+      portfolioSyncRequestRef.current = undefined;
+      setPortfolioSyncRequestPhase(undefined);
+      setPortfolioSyncFeedback('success');
+      portfolioSyncSuccessTimerRef.current = setTimeout(() => {
+        portfolioSyncSuccessTimerRef.current = undefined;
+        if (portfolioSyncTargetKeyRef.current === request.targetKey) {
+          setPortfolioSyncFeedback('idle');
+        }
+      }, 1500);
+    },
+    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
   );
 
   const transitionPortfolioSyncRequest = useCallback(
@@ -479,13 +514,20 @@ function TokenListBlock({
     if (request && request.targetKey !== portfolioSyncTargetKey) {
       finishPortfolioSyncRequest(request.id);
     }
-  }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
+    clearPortfolioSyncSuccessTimer();
+    setPortfolioSyncFeedback('idle');
+  }, [
+    clearPortfolioSyncSuccessTimer,
+    finishPortfolioSyncRequest,
+    portfolioSyncTargetKey,
+  ]);
 
   useEffect(
     () => () => {
       clearPortfolioSyncFallbackTimer();
+      clearPortfolioSyncSuccessTimer();
     },
-    [clearPortfolioSyncFallbackTimer],
+    [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
   );
 
   const accountTokensValue = useMemo(
@@ -576,37 +618,6 @@ function TokenListBlock({
   const tokenListStore = useTokenListContextData().store!;
   const [listStructure] = useListStructureAtom();
 
-  const handleLpTokenFilterChange = useCallback(
-    (value: boolean) => {
-      if (value === showLpTokensOnly) {
-        return;
-      }
-      setIsLpTokenSwitchLoading(!!value && !!account?.id && !!network?.id);
-      if (value && account?.id && network?.id) {
-        setScopedLpTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-        setScopedLpTokenList({
-          tokens: [],
-          keys: '',
-        });
-        setScopedLpTokenListMap({});
-      } else {
-        setScopedLpTokenListState({
-          initialized: true,
-          isRefreshing: false,
-        });
-        setIsLpTokenSwitchLoading(false);
-      }
-      setTokenSelectorFilter((prev) => ({
-        ...prev,
-        homeShowLpTokensOnly: value,
-      }));
-    },
-    [account?.id, network?.id, setTokenSelectorFilter, showLpTokensOnly],
-  );
-
   const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
     return r;
@@ -642,10 +653,7 @@ function TokenListBlock({
 
         portfolioSyncRequest = getCurrentPortfolioSyncRequest();
         if (portfolioSyncRequest?.phase === 'queued') {
-          transitionPortfolioSyncRequest(
-            portfolioSyncRequest.id,
-            'refreshing',
-          );
+          transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
         }
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -841,10 +849,10 @@ function TokenListBlock({
                 syncMode: 'interactive',
               },
             );
+            completePortfolioSyncRequest(portfolioSyncRequest.id);
           } catch (error) {
             errorToastUtils.toastIfError(error);
             errorToastUtils.showToastOfError(error);
-          } finally {
             finishPortfolioSyncRequest(portfolioSyncRequest.id);
           }
         }
@@ -914,7 +922,16 @@ function TokenListBlock({
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
         } else {
-          throw e;
+          const activePortfolioSyncRequest = getCurrentPortfolioSyncRequest();
+          if (
+            activePortfolioSyncRequest &&
+            activePortfolioSyncRequest.id === portfolioSyncRequest?.id
+          ) {
+            errorToastUtils.toastIfError(e);
+            errorToastUtils.showToastOfError(e);
+          } else {
+            throw e;
+          }
         }
       } finally {
         if (portfolioSyncRequest) {
@@ -927,6 +944,7 @@ function TokenListBlock({
     [
       account,
       accountName,
+      completePortfolioSyncRequest,
       currencyInfo?.id,
       device?.connectId,
       device?.deviceType,
@@ -959,7 +977,6 @@ function TokenListBlock({
   const { run: runLpTokenList } = usePromiseResult(
     async () => {
       if (!showLpTokensOnly || !account?.id || !network?.id) {
-        setIsLpTokenSwitchLoading(false);
         return;
       }
 
@@ -981,9 +998,6 @@ function TokenListBlock({
         requestContext.tokenSelectorFilterMode !== 'lp-dapp-token' ||
         !isLatestRequest()
       ) {
-        if (requestContext.tokenSelectorFilterMode !== 'lp-dapp-token') {
-          setIsLpTokenSwitchLoading(false);
-        }
         return;
       }
 
@@ -1030,7 +1044,6 @@ function TokenListBlock({
             initialized: true,
             isRefreshing: false,
           });
-          setIsLpTokenSwitchLoading(false);
         }
         setIsHeaderRefreshing(false);
       }
@@ -1057,7 +1070,6 @@ function TokenListBlock({
 
   useLayoutEffect(() => {
     if (!showLpTokensOnly || !account?.id || !network?.id) {
-      setIsLpTokenSwitchLoading(false);
       // Leaving DeFi-token mode must drop the scoped list/map, restoring the
       // invariant "scoped map populated ⟹ LP mode ON". The residue is not
       // rendered while the mode is off, but stale data outliving its mode is
@@ -1484,10 +1496,7 @@ function TokenListBlock({
     }) => {
       const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
       if (portfolioSyncRequest?.phase === 'queued') {
-        transitionPortfolioSyncRequest(
-          portfolioSyncRequest.id,
-          'refreshing',
-        );
+        transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
       }
       const updateCurrentAccountTask =
         accountId && networkId
@@ -2168,10 +2177,10 @@ function TokenListBlock({
                   syncMode: 'interactive',
                 },
               );
+              completePortfolioSyncRequest(portfolioSyncRequest.id);
             } catch (error) {
               errorToastUtils.toastIfError(error);
               errorToastUtils.showToastOfError(error);
-            } finally {
               finishPortfolioSyncRequest(portfolioSyncRequest.id);
             }
           } else {
@@ -2217,6 +2226,7 @@ function TokenListBlock({
     account?.indexedAccountId,
     accountName,
     cellsNonZeroInputs,
+    completePortfolioSyncRequest,
     device?.connectId,
     device?.deviceType,
     device?.id,
@@ -2735,6 +2745,8 @@ function TokenListBlock({
     if (!refreshWalletTokenList || !hasPortfolioSyncTarget) {
       return;
     }
+    clearPortfolioSyncSuccessTimer();
+    setPortfolioSyncFeedback('idle');
     portfolioSyncRequestIdRef.current += 1;
     const request: IPortfolioSyncRequest = {
       id: portfolioSyncRequestIdRef.current,
@@ -2744,7 +2756,11 @@ function TokenListBlock({
     portfolioSyncRequestRef.current = request;
     setPortfolioSyncRequestPhase(request.phase);
     refreshWalletTokenList();
-  }, [hasPortfolioSyncTarget, portfolioSyncTargetKey]);
+  }, [
+    clearPortfolioSyncSuccessTimer,
+    hasPortfolioSyncTarget,
+    portfolioSyncTargetKey,
+  ]);
 
   const lastVisibilityRefreshAtRef = useRef(0);
   const handleRefreshOnVisibilityActive = useCallback(() => {
@@ -3056,18 +3072,13 @@ function TokenListBlock({
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
 
   const isPortfolioSyncing = portfolioSyncRequestPhase !== undefined;
-  const deviceVendor = device?.vendor ?? device?.settings?.vendor;
-  const isProtocolV2Device =
-    device?.connectProtocol === 'V2' ||
-    device?.deviceStateInfo?.protocol === 'V2';
   const showPortfolioSyncButton = Boolean(
-    isProtocolV2ProductType(device?.deviceType) &&
-    isProtocolV2Device &&
-    deviceVendor === EHardwareVendor.onekey &&
-    hasPortfolioSyncTarget &&
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
-    !accountUtils.isQrWallet({ walletId: wallet.id }),
+    !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+    isProtocolV2ProductType(
+      device?.deviceType ?? wallet.associatedDeviceInfo?.deviceType,
+    ),
   );
 
   const renderPortfolioSyncButton = useCallback(() => {
@@ -3075,26 +3086,18 @@ function TokenListBlock({
       return null;
     }
     return (
-      <IconButton
-        testID="home-sync-portfolio"
-        title={`${intl.formatMessage({
-          id: ETranslations.global_refresh,
-        })} ${intl.formatMessage({
-          id: ETranslations.global_portfolio,
-        })}`}
-        variant="tertiary"
-        icon="RefreshCwOutline"
+      <PortfolioSyncButton
         onPress={handleSyncPortfolio}
-        disabled={showLpTokensOnly || isPortfolioSyncing}
-        loading={isPortfolioSyncing}
-        size="small"
+        disabled={Boolean(hardwareUiState || firmwareUpdateWorkflowRunning)}
+        state={isPortfolioSyncing ? 'loading' : portfolioSyncFeedback}
       />
     );
   }, [
     handleSyncPortfolio,
-    intl,
+    firmwareUpdateWorkflowRunning,
+    hardwareUiState,
     isPortfolioSyncing,
-    showLpTokensOnly,
+    portfolioSyncFeedback,
     showPortfolioSyncButton,
   ]);
 
@@ -3105,18 +3108,15 @@ function TokenListBlock({
       }
 
       return (
-        <XStack alignItems="center" gap="$2">
-          <Currency
-            hideValue
-            size="$headingXl"
-            color="$textSubdued"
-            formatter="value"
-            sourceCurrency={accountTokensWorth.currency}
-          >
-            {accountTokensValue}
-          </Currency>
-          {renderPortfolioSyncButton()}
-        </XStack>
+        <Currency
+          hideValue
+          size="$headingXl"
+          color="$textSubdued"
+          formatter="value"
+          sourceCurrency={accountTokensWorth.currency}
+        >
+          {accountTokensValue}
+        </Currency>
       );
     }
 
@@ -3125,63 +3125,13 @@ function TokenListBlock({
     tableLayout,
     accountTokensWorth.currency,
     accountTokensValue,
-    renderPortfolioSyncButton,
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);
 
   const renderHeaderActions = useCallback(() => {
-    const portfolioSyncButton = tableLayout
-      ? null
-      : renderPortfolioSyncButton();
-    const filterSwitch = showLpTokenFilterSwitch ? (
-      <TokenSelectorLpTokenSwitch
-        value={showLpTokensOnly}
-        onChange={handleLpTokenFilterChange}
-        loading={isLpTokenSwitchLoading}
-      />
-    ) : null;
-
-    if (manageTokenEnabled && tableLayout) {
-      return (
-        <XStack alignItems="center" gap="$2">
-          {filterSwitch}
-          <IconButton
-            testID="home-render-header-actions-icon-btn"
-            title={intl.formatMessage({
-              id: ETranslations.manage_token_title,
-            })}
-            variant="tertiary"
-            icon="SliderHorOutline"
-            onPress={handleOnManageToken}
-            disabled={showLpTokensOnly}
-            size="medium"
-          />
-        </XStack>
-      );
-    }
-
-    if (portfolioSyncButton) {
-      return (
-        <XStack alignItems="center" gap="$2">
-          {portfolioSyncButton}
-          {filterSwitch}
-        </XStack>
-      );
-    }
-
-    return filterSwitch;
-  }, [
-    tableLayout,
-    intl,
-    manageTokenEnabled,
-    handleOnManageToken,
-    showLpTokensOnly,
-    showLpTokenFilterSwitch,
-    handleLpTokenFilterChange,
-    isLpTokenSwitchLoading,
-    renderPortfolioSyncButton,
-  ]);
+    return renderPortfolioSyncButton();
+  }, [renderPortfolioSyncButton]);
 
   const renderContent = useCallback(() => {
     return (
