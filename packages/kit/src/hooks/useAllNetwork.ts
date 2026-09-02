@@ -38,6 +38,7 @@ import { perfTokenListView } from '../components/TokenListView/perfTokenListView
 
 import {
   type IAllNetworkLastPublishedResult,
+  resolveAllNetworkFailedRunRestore,
   resolveAllNetworkPublishedResult,
 } from './allNetworkRunResultUtils';
 import { makeColdRequestFactory } from './makeColdRequestFactory';
@@ -214,6 +215,26 @@ function filterAllNetworkAccountsInfoResult({
   };
 }
 
+// Identity of the owner a runner closure was created for. A runner parked in
+// the debounce window can outlive an account/network/wallet switch; comparing
+// this key against a render-updated ref lets the stale runner bail out before
+// it mutates any shared ref or clears the new owner's published result.
+function buildAllNetworkRunOwnerKey({
+  accountId,
+  networkId,
+  walletId,
+  isAllNetworks,
+}: {
+  accountId?: string;
+  networkId?: string;
+  walletId?: string;
+  isAllNetworks?: boolean;
+}): string {
+  return `${accountId ?? ''}|${networkId ?? ''}|${walletId ?? ''}|${
+    isAllNetworks ? 1 : 0
+  }`;
+}
+
 type IEnabledNetworksCompatResult = {
   networkInfoMap: Record<string, INetworkDeriveInfo>;
   compatibleNetworks: IServerNetwork[];
@@ -341,6 +362,11 @@ function useAllNetworkRequests<T>(params: {
   // consumer's LWW materialized view reject a stale earlier run's settle.
   onRequestSettled?: (result: T, generation: number) => void;
   revalidateOnFocus?: boolean;
+  // Clear a retained result after the all-network redundant-run gate accepts a
+  // new fan-out. Deliberately NOT forwarded to usePromiseResult's
+  // `undefinedResultIfReRun` (which clears on EVERY runner start): a skipped
+  // duplicate must keep its stable result here.
+  clearRetainedResultOnAcceptedRun?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
     alwaysSetState?: boolean;
@@ -367,9 +393,15 @@ function useAllNetworkRequests<T>(params: {
     onCacheChecked,
     onRequestSettled,
     revalidateOnFocus = false,
+    clearRetainedResultOnAcceptedRun = false,
   } = params;
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
+  // Reserve active debounce windows so a second manual refresh is queued by
+  // runWithQueue instead of starting another usePromiseResult runner and
+  // invalidating the first runner's nonce. A count handles overlapping
+  // dependency-triggered runners without releasing the reservation early.
+  const debouncePendingCountRef = useRef(0);
   const runCountRef = useRef(0);
   // Monotonic run generation for the consumer's LWW materialized view. Unlike
   // `runCountRef` (reset to 0 on owner/enabled-network change), this is NEVER
@@ -387,6 +419,14 @@ function useAllNetworkRequests<T>(params: {
   const runWithQueueRef = useRef<
     ((config?: IAllNetworkRequestsRunConfig) => Promise<void>) | undefined
   >(undefined);
+  // Applies a value to the hook result from inside the runner closure.
+  // `setResult` is declared after the runner (usePromiseResult return), so it
+  // must be reached through a render-updated ref.
+  const applyResultRef = useRef<
+    ((result: Array<T> | null | undefined) => void) | undefined
+  >(undefined);
+  // Render-updated owner identity used to detect a stale runner closure.
+  const liveRunOwnerKeyRef = useRef('');
   const lastPublishedResultRef = useRef<
     IAllNetworkLastPublishedResult<T> | undefined
   >(undefined);
@@ -479,8 +519,14 @@ function useAllNetworkRequests<T>(params: {
     enabledNetworksChangedNonce,
   ]);
 
-  const { run, result } = usePromiseResult(
+  const { run, result, setResult } = usePromiseResult(
     async () => {
+      const runnerOwnerKey = buildAllNetworkRunOwnerKey({
+        accountId: currentAccountId,
+        networkId: currentNetworkId,
+        walletId: currentWalletId,
+        isAllNetworks,
+      });
       const ignoreDisabledForThisRun = ignoreDisabledRef.current;
       ignoreDisabledRef.current = false;
       const effectiveDisabled = disabled && !ignoreDisabledForThisRun;
@@ -493,7 +539,16 @@ function useAllNetworkRequests<T>(params: {
         !!isAllNetworks &&
         runCountRef.current > 0;
       if (shouldDebounceWait) {
-        await timerUtils.wait(POLLING_DEBOUNCE_INTERVAL);
+        if (clearRetainedResultOnAcceptedRun) {
+          debouncePendingCountRef.current += 1;
+        }
+        try {
+          await timerUtils.wait(POLLING_DEBOUNCE_INTERVAL);
+        } finally {
+          if (clearRetainedResultOnAcceptedRun) {
+            debouncePendingCountRef.current -= 1;
+          }
+        }
       }
       perfTokenListView.markEnd(
         'useAllNetworkRequestsRun_debounceDelay',
@@ -506,13 +561,60 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      if (effectiveDisabled) return;
+      const scheduleQueuedRerun = () => {
+        const hasQueuedRerun = rerunAfterCurrentRef.current;
+        if (!hasQueuedRerun) {
+          return false;
+        }
+        rerunAfterCurrentRef.current = false;
+        // Preserve the explicit refresh flags from runWithQueue. A queue set
+        // by an internal dependency runner has no config and must still pass
+        // through the redundant-run gate; otherwise every render churn could
+        // be promoted to another forced fan-out.
+        const rerunConfig = rerunConfigRef.current;
+        const hasQueuedMustRun =
+          !!rerunConfig?.alwaysSetState ||
+          !!rerunConfig?.skipAccountsCache ||
+          !!rerunConfig?.ignoreDisabled;
+        rerunConfigRef.current = undefined;
+        setTimeout(() => {
+          void runWithQueueRef.current?.(rerunConfig);
+        }, 0);
+        // Only an explicit must-run refresh supersedes the result that just
+        // completed. A dependency-triggered duplicate is still drained, but
+        // its preceding result remains publishable while the gate skips it.
+        return clearRetainedResultOnAcceptedRun
+          ? hasQueuedMustRun
+          : hasQueuedRerun;
+      };
+
+      // A runner resumed from the debounce window may belong to a previous
+      // owner: the dep change that swapped the owner already spawned a fresh
+      // runner, and this one's return value is nonce-invalidated anyway. Bail
+      // out before the redundant-run gate so the stale closure cannot clear
+      // the new owner's published result via `applyResultRef` or corrupt
+      // `lastRunSignatureRef` / `isFetching` with a full ghost fan-out.
+      if (liveRunOwnerKeyRef.current !== runnerOwnerKey) {
+        if (clearRetainedResultOnAcceptedRun) scheduleQueuedRerun();
+        return;
+      }
+
+      if (effectiveDisabled) {
+        if (clearRetainedResultOnAcceptedRun) scheduleQueuedRerun();
+        return;
+      }
       if (isFetching.current) {
         rerunAfterCurrentRef.current = true;
         return;
       }
-      if (!currentAccountId || !currentNetworkId || !currentWalletId) return;
-      if (!isAllNetworks) return;
+      if (!currentAccountId || !currentNetworkId || !currentWalletId) {
+        if (clearRetainedResultOnAcceptedRun) scheduleQueuedRerun();
+        return;
+      }
+      if (!isAllNetworks) {
+        if (clearRetainedResultOnAcceptedRun) scheduleQueuedRerun();
+        return;
+      }
 
       // L5: drop redundant same-owner re-fires (usePromiseResult dep-identity
       // churn during/after a switch). Read+reset the relayed alwaysSetState
@@ -542,9 +644,26 @@ function useAllNetworkRequests<T>(params: {
           lastSignature: lastRunSignatureRef.current,
         })
       ) {
+        if (clearRetainedResultOnAcceptedRun) {
+          scheduleQueuedRerun();
+          return lastPublishedResultRef.current?.runSignature ===
+            currentRunSignature
+            ? lastPublishedResultRef.current.result
+            : undefined;
+        }
         return;
       }
       lastRunSignatureRef.current = currentRunSignature;
+
+      // Captured for the failure path: an accepted run invalidates the
+      // retained result below, and a failed fan-out must restore it.
+      const previousPublishedResult = lastPublishedResultRef.current;
+      if (clearRetainedResultOnAcceptedRun) {
+        // Keep a queued refresh from restoring the prior published result
+        // after the new run has already invalidated it.
+        applyResultRef.current?.(undefined);
+        lastPublishedResultRef.current = undefined;
+      }
 
       runCountRef.current += 1;
       runGenerationRef.current += 1;
@@ -912,6 +1031,29 @@ function useAllNetworkRequests<T>(params: {
           ownerPresent: !!currentAccountId,
           reason: requestKind,
         });
+      } catch (error) {
+        if (clearRetainedResultOnAcceptedRun) {
+          // The accepted run cleared the retained result before fetching.
+          // Restore the last-good snapshot so a failed fan-out does not pin
+          // the consumer on `undefined` until the next successful must-run.
+          // The visible result is only restored while the owner is unchanged
+          // AND the retained snapshot carries this run's signature: the ref
+          // outlives owner switches, so `ownerUnchanged` alone cannot prove
+          // the snapshot belongs to the current owner. The ref restore alone
+          // is safe because the skip path re-checks the run signature before
+          // serving it.
+          const { nextLastPublished, shouldRestoreResult } =
+            resolveAllNetworkFailedRunRestore({
+              previousPublished: previousPublishedResult,
+              ownerUnchanged: liveRunOwnerKeyRef.current === runnerOwnerKey,
+              currentRunSignature,
+            });
+          lastPublishedResultRef.current = nextLastPublished;
+          if (shouldRestoreResult && previousPublishedResult) {
+            applyResultRef.current?.(previousPublishedResult.result);
+          }
+        }
+        throw error;
       } finally {
         // Wait for onStarted to settle before firing onFinished, so
         // the started/finished events for this run land in monotonic
@@ -940,15 +1082,7 @@ function useAllNetworkRequests<T>(params: {
         // during async cleanup must queue behind this run so its completed
         // result can be classified as superseded before publication.
         isFetching.current = false;
-        hasQueuedRerun = rerunAfterCurrentRef.current;
-        if (hasQueuedRerun) {
-          rerunAfterCurrentRef.current = false;
-          const rerunConfig = rerunConfigRef.current;
-          rerunConfigRef.current = undefined;
-          setTimeout(() => {
-            void runWithQueueRef.current?.(rerunConfig);
-          }, 0);
-        }
+        hasQueuedRerun = scheduleQueuedRerun();
       }
 
       const resolved = resolveAllNetworkPublishedResult({
@@ -956,6 +1090,10 @@ function useAllNetworkRequests<T>(params: {
         hasQueuedRerun,
         lastPublished: lastPublishedResultRef.current,
         runSignature: currentRunSignature,
+        // The accepted run cleared the retained result above; a superseded
+        // completed result is then the only last-good snapshot the queued
+        // must-run can restore from if its fan-out fails.
+        retainSupersededResult: clearRetainedResultOnAcceptedRun,
       });
       lastPublishedResultRef.current = resolved.nextLastPublished;
       return resolved.publishedResult;
@@ -978,6 +1116,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheData,
       allNetworkRequests,
       onRequestSettled,
+      clearRetainedResultOnAcceptedRun,
     ],
     {
       revalidateOnFocus,
@@ -989,7 +1128,11 @@ function useAllNetworkRequests<T>(params: {
 
   const runWithQueue = useCallback(
     async (config?: IAllNetworkRequestsRunConfig) => {
-      if (isFetching.current) {
+      if (
+        isFetching.current ||
+        (clearRetainedResultOnAcceptedRun &&
+          debouncePendingCountRef.current > 0)
+      ) {
         rerunAfterCurrentRef.current = true;
         rerunConfigRef.current = {
           ...rerunConfigRef.current,
@@ -1017,9 +1160,16 @@ function useAllNetworkRequests<T>(params: {
       }
       await run(config);
     },
-    [run],
+    [run, clearRetainedResultOnAcceptedRun],
   );
 
+  applyResultRef.current = (nextResult) => setResult(nextResult);
+  liveRunOwnerKeyRef.current = buildAllNetworkRunOwnerKey({
+    accountId: currentAccountId,
+    networkId: currentNetworkId,
+    walletId: currentWalletId,
+    isAllNetworks,
+  });
   runWithQueueRef.current = runWithQueue;
 
   return {
