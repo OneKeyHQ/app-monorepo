@@ -163,6 +163,7 @@ const networkIdsMap = getNetworkIdsMap();
  * call — flip it to `false` to stop feeding the BG VM in an emergency.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
+const PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS = 1500;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -489,7 +490,7 @@ function TokenListBlock({
         if (portfolioSyncTargetKeyRef.current === request.targetKey) {
           setPortfolioSyncFeedback('idle');
         }
-      }, 1500);
+      }, PORTFOLIO_SYNC_SUCCESS_FEEDBACK_MS);
     },
     [clearPortfolioSyncFallbackTimer, clearPortfolioSyncSuccessTimer],
   );

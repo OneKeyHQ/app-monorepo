@@ -1239,6 +1239,21 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
   });
 
+  test('returns false when an explicit upload is not applied by the device', async () => {
+    const { service, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    uploadPortfolioPackage.mockResolvedValueOnce({ portfolioUpdated: false });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(false);
+  });
+
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
     const payload = buildHardwarePayload();

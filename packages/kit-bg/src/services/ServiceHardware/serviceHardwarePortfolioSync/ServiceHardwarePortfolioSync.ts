@@ -1103,8 +1103,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       const devices = await usb.getDevices();
       return devices.some(
         (usbDevice) =>
-          Boolean(usbDevice.serialNumber) &&
-          targetIdentityKeys.has(usbDevice.serialNumber as string),
+          typeof usbDevice.serialNumber === 'string' &&
+          targetIdentityKeys.has(usbDevice.serialNumber),
       );
     } catch {
       return false;
@@ -1273,7 +1273,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }: {
     eventPayload: IPortfolioSyncSettledPayload;
     syncMode: IPortfolioSyncMode;
-  }): Promise<boolean | void> {
+  }): Promise<boolean | undefined> {
     if (syncMode === 'interactive') {
       const authorizedPayload =
         await this.resolveAuthorizedPortfolioPayload(eventPayload);
@@ -2115,7 +2115,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         );
     this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {
-      return Boolean(await uploadPromise);
+      const upload = await uploadPromise;
+      return upload?.portfolioUpdated === true;
     } finally {
       if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
         this.activeUploadByTargetKey.delete(targetKey);
