@@ -6,7 +6,10 @@ type ILoadBundleAsyncGlobal = typeof globalThis & {
       | string
       | Partial<Record<'main' | 'background' | 'shared', string | null>>,
   ) => Promise<void>;
+  __ONEKEY_RUNTIME_POLYFILLS_READY__?: number;
 };
+
+const RUNTIME_POLYFILLS_VERSION = 1;
 
 const mockNativeLoggerWrite = jest.fn();
 
@@ -24,6 +27,8 @@ beforeEach(() => {
     }),
   );
   (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+  (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_POLYFILLS_READY__ =
+    RUNTIME_POLYFILLS_VERSION;
   (globalThis as any).__SEGMENT_MANIFEST__ = {
     segments: {
       'seg:test.a': {
@@ -56,6 +61,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
+  delete (globalThis as ILoadBundleAsyncGlobal)
+    .__ONEKEY_RUNTIME_POLYFILLS_READY__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__loadBundleAsync;
   delete (globalThis as any).__METRO_GLOBAL_PREFIX__;
@@ -79,6 +86,16 @@ function createMockNativeLoader() {
 }
 
 describe('installProdBundleLoader', () => {
+  it('rejects installation before runtime polyfills are ready', () => {
+    delete (globalThis as ILoadBundleAsyncGlobal)
+      .__ONEKEY_RUNTIME_POLYFILLS_READY__;
+    const { installProdBundleLoader } = getLoader();
+
+    expect(() => installProdBundleLoader(createMockNativeLoader())).toThrow(
+      /runtime polyfill bootstrap/i,
+    );
+  });
+
   it('loads a segment and marks it as ready', async () => {
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
       getLoader();
