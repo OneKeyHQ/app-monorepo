@@ -28,7 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
-  IMarketAccountPortfolioItem,
+  IMarketAccountPortfolioDisplayItem,
   IMarketStockInfo,
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -799,9 +799,15 @@ function StockOverviewGrid() {
   );
 }
 
-function StockPosition() {
-  const { portfolioData, isRefreshing, hasAccount } = useStockPortfolioData();
-
+function StockPosition({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+}) {
   return (
     <Portfolio
       standalone
@@ -812,7 +818,15 @@ function StockPosition() {
   );
 }
 
-function StockOverview() {
+function StockOverview({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+}) {
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
 
@@ -865,7 +879,15 @@ function StockOverview() {
       </XStack>
       <YStack minHeight={344} px={STOCK_DETAIL_HORIZONTAL_GUTTER} pt="$2">
         <YStack minHeight={336} py={activeTab === 'overview' ? '$6' : '$0'}>
-          {activeTab === 'overview' ? <StockOverviewGrid /> : <StockPosition />}
+          {activeTab === 'overview' ? (
+            <StockOverviewGrid />
+          ) : (
+            <StockPosition
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+              hasAccount={hasAccount}
+            />
+          )}
         </YStack>
       </YStack>
     </YStack>
@@ -1104,7 +1126,6 @@ function StockAbout() {
 export function StockDesktopLayout({
   marketTradingView,
   swapToken,
-  portfolioData,
   chartMode,
   isChartSwitchDisabled,
   disableTrade,
@@ -1116,7 +1137,6 @@ export function StockDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
-  portfolioData: IMarketAccountPortfolioItem[];
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   disableTrade?: boolean;
@@ -1129,6 +1149,11 @@ export function StockDesktopLayout({
   onEnterChartFullscreen: () => void;
 }) {
   const { stockId } = useStockDetail();
+  const {
+    portfolioData: stockPortfolioData,
+    isRefreshing: isStockPortfolioRefreshing,
+    hasAccount: hasStockPortfolioAccount,
+  } = useStockPortfolioData();
   const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
   const handlePriceModeChange = useCallback(
     (source: IMarketPriceSource) => setPriceSource({ source }),
@@ -1214,7 +1239,11 @@ export function StockDesktopLayout({
               />
             </Stack>
           </YStack>
-          <StockOverview />
+          <StockOverview
+            portfolioData={stockPortfolioData}
+            isRefreshing={isStockPortfolioRefreshing}
+            hasAccount={hasStockPortfolioAccount}
+          />
           <StockEventsSection />
           <StockAnalystRatings />
           <StockNewsSection />
@@ -1231,7 +1260,7 @@ export function StockDesktopLayout({
           <SwapPanel
             swapToken={swapToken}
             disableTrade={disableTrade}
-            portfolioData={portfolioData}
+            portfolioData={stockPortfolioData}
             stockDetailDesktopLayout
           />
         </Stack>
