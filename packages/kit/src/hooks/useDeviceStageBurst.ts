@@ -15,8 +15,16 @@ import type { IDeviceStageBurstBeginParams } from '@onekeyhq/kit-bg/src/services
  */
 export function useDeviceStageBurst() {
   const tokenRef = useRef<number | undefined>(undefined);
+  const isMountedRef = useRef(true);
+  // Every begin and end claims a new request id. The token only exists once
+  // the background answers, so a request that lost the race — the holder
+  // unmounted, or a newer begin/end superseded it — must close its own token
+  // instead of parking it in a ref nothing will ever read again, which would
+  // strand an explicit hold in the background for good.
+  const requestSeqRef = useRef(0);
 
   const endBurst = useCallback(async (params?: { error?: unknown }) => {
+    requestSeqRef.current += 1;
     const token = tokenRef.current;
     if (token === undefined) {
       return;
@@ -33,10 +41,19 @@ export function useDeviceStageBurst() {
       // One holder at a time: a restarted flow supersedes its own burst
       // rather than stacking a second hold nothing would ever release.
       await endBurst();
-      tokenRef.current =
+      requestSeqRef.current += 1;
+      const seq = requestSeqRef.current;
+      const token =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst(
           params,
         );
+      if (!isMountedRef.current || seq !== requestSeqRef.current) {
+        await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
+          token,
+        });
+        return;
+      }
+      tokenRef.current = token;
     },
     [endBurst],
   );
@@ -47,23 +64,43 @@ export function useDeviceStageBurst() {
    * is reopened rather than silently assumed. */
   const ensureBurst = useCallback(
     async (params: IDeviceStageBurstBeginParams = {}) => {
-      tokenRef.current =
+      requestSeqRef.current += 1;
+      const seq = requestSeqRef.current;
+      const reuseToken = tokenRef.current;
+      const token =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
           ...params,
-          reuseToken: tokenRef.current,
+          reuseToken,
         });
+      if (!isMountedRef.current || seq !== requestSeqRef.current) {
+        // Getting the presented token back means the background kept the
+        // live hold rather than opening a second one: it belongs to whoever
+        // superseded this request, so there is nothing here to close.
+        if (token !== reuseToken) {
+          await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
+            token,
+          });
+        }
+        return;
+      }
+      tokenRef.current = token;
     },
     [],
   );
 
   const endBurstRef = useRef(endBurst);
   endBurstRef.current = endBurst;
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Raise the flag on every (re)mount, not only lower it on cleanup:
+    // StrictMode's dev double-invoke runs mount -> cleanup -> mount, and a
+    // flag that is only ever cleared would make every later burst in
+    // development release itself the moment it opens.
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
       void endBurstRef.current();
-    },
-    [],
-  );
+    };
+  }, []);
 
   return { beginBurst, ensureBurst, endBurst };
 }
