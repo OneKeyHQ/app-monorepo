@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "Устройство находится в режиме загрузчика. Нажмите кнопку ниже, чтобы предоставить доступ к USB для продолжения передачи установочного пакета.",
   "firmware_update.status_completed": "Завершено",
   "firmware_update.status_validating": "Проверка",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "Переключение прошивки приведет к удалению данных устройства. Пожалуйста, подключите устройство заново и нажмите кнопку ниже, чтобы авторизовать USB и продолжить.",
   "first_deposit_gets_account_ready_to_trade__desc": "Ваш первый депозит подготовит ваш аккаунт к торговле. Выводите средства в любое время.",
   "for_reference_only": "Только для справки",

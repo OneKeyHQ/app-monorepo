@@ -190,27 +190,36 @@ describe('DeviceSettingsManager device adapters', () => {
   );
 
   test.each([
-    [EDeviceType.Pro2, { pinType: DeviceSessionPinType.Any }],
-    [EDeviceType.Touch, {}],
+    [EDeviceType.Pro2, 'runtime', { pinType: DeviceSessionPinType.Any }],
+    [EDeviceType.Touch, 'settings', {}],
   ])(
-    'uses the expected PIN policy when reading %s advanced settings',
-    async (deviceType, expectedPinParams) => {
+    'uses conditional unlock with the expected PIN policy when reading %s advanced settings',
+    async (deviceType, expectedScope, expectedPinParams) => {
       const device = buildDevice(deviceType);
       jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
       const unlockDevice = jest.fn(async () => undefined);
+      const state = {
+        status: {
+          initialized: true,
+          unlocked: true,
+          passphraseProtection: true,
+        },
+      };
+      const getDeviceStateWithUnlock = jest.fn(async () => state);
+      const getDeviceStateByWallet = jest.fn(async () => state);
       const backgroundApi = {
         serviceHardware: {
           unlockDevice,
-          getDeviceStateByWallet: jest.fn(async () => ({
-            status: { passphraseProtection: true },
-          })),
+          getDeviceStateWithUnlock,
+          getDeviceStateByWallet,
           getDeviceSupportFeatures: jest.fn(async () => ({
             inputPinOnSoftware: { support: true },
           })),
         },
         serviceHardwareUI: {
           withHardwareProcessing: jest.fn(
-            async (action: () => Promise<unknown>) => action(),
+            async (action: (lease: object) => Promise<unknown>) =>
+              action({ deviceKey: 'device-db-id', owner: Symbol('test') }),
           ),
         },
       } as unknown as IBackgroundApi;
@@ -222,10 +231,18 @@ describe('DeviceSettingsManager device adapters', () => {
         passphraseEnabled: true,
         inputPinOnSoftwareSupport: true,
       });
-      expect(unlockDevice).toHaveBeenCalledWith({
+      expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
         connectId: device.connectId,
+        params: { scope: expectedScope },
+        oneKeyOperationLease: expect.objectContaining({
+          deviceKey: 'device-db-id',
+        }),
         ...expectedPinParams,
       });
+      expect(unlockDevice).not.toHaveBeenCalled();
+      expect(getDeviceStateByWallet).toHaveBeenCalledTimes(
+        deviceType === EDeviceType.Pro2 ? 1 : 0,
+      );
     },
   );
 
