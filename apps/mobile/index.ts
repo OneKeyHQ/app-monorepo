@@ -18,6 +18,11 @@ type IAppModule = typeof import('./App');
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
+require('@onekeyhq/shared/src/polyfills');
+const { assertRuntimePolyfillsReady } =
+  require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+assertRuntimePolyfillsReady();
+
 // ── On-device Storybook workbench: independent top-level entry ──
 //
 // Registered before the wallet bootstrap in the else branch so a wallet-init
@@ -30,7 +35,6 @@ type IAppModule = typeof import('./App');
 // normal bundles (STORYBOOK_ENABLED unset), so this branch adds nothing to
 // production. Main runtime only; the background runtime is never started.
 if (process.env.STORYBOOK_ENABLED === 'true') {
-  require('@onekeyhq/shared/src/polyfills');
   const { I18nManager } =
     require('react-native') as typeof import('react-native');
   I18nManager.allowRTL(true);
@@ -51,7 +55,6 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
 
   require('@onekeyhq/shared/src/performance/init');
   require('./jsReady');
-  require('@onekeyhq/shared/src/polyfills');
 
   // Install production split bundle loader before any async imports execute.
   // In dev mode __SEGMENT_MANIFEST__ is undefined so this is a no-op.

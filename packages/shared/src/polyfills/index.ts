@@ -1,16 +1,19 @@
-/* eslint-disable import-js/order */
+/* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
 // import { clearIntervalAsync, setIntervalAsync } from 'set-interval-async';
 
-// walletconnect react-native-compat polyfill
-import './walletConnectCompact';
-import './polyfillsPlatform';
-import './reactCreateElementShim';
+// Runtime primitives must be installed before compatibility adapters import
+// third-party modules that may execute against those globals at module scope.
+require('./polyfillsPlatform');
+require('./walletConnectCompact');
+require('./reactCreateElementShim');
 
-import '../modules3rdParty/cross-crypto/verify';
-import '../request';
+require('../modules3rdParty/cross-crypto/verify');
+require('../request');
 
 // import { normalizeRequestLibs } from '../request/normalize';
-import timerUtils from '../utils/timerUtils';
+const timerUtils = (
+  require('../utils/timerUtils') as typeof import('../utils/timerUtils')
+).default;
 // @ts-ignore
 // global.setInterval = setIntervalAsync;
 // // @ts-ignore
@@ -19,4 +22,7 @@ import timerUtils from '../utils/timerUtils';
 
 // normalizeRequestLibs();
 timerUtils.interceptTimerWithDisable();
+const { markRuntimePolyfillsReady } =
+  require('./runtimeCapabilities') as typeof import('./runtimeCapabilities');
+markRuntimePolyfillsReady();
 // interceptConsoleErrorWithExtraInfo();

@@ -10,6 +10,9 @@
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
 require('@onekeyhq/shared/src/polyfills');
+const { assertRuntimePolyfillsReady } =
+  require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+assertRuntimePolyfillsReady();
 
 // Lightweight logger for background runtime entry diagnostics.
 // Uses NativeLogger directly (no console) so output goes to app-latest.log.
