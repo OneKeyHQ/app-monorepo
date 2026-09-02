@@ -2104,28 +2104,40 @@ function DepositWithdrawContent({
   );
 
   // The selector always needs the active external withdrawal rail, including
-  // when HyperEVM is selected. The background service serves its cached value.
+  // when HyperEVM is selected. Kept on the same refresh as the fee quote: a rail
+  // that flips while the form is open makes submission fail with "route
+  // changed", and without a refresh the retry that error asks for can never
+  // succeed. The background service serves its cached value, so most ticks cost
+  // nothing.
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
       return;
     }
     let cancelled = false;
     setWithdrawRoute(undefined);
-    void backgroundApiProxy.serviceHyperliquidExchange
-      .getUsdcWithdrawRoute()
-      .then((route) => {
-        if (!cancelled) {
-          setWithdrawRoute(route);
-        }
-      })
-      .catch((error) => {
-        console.error(
-          '[DepositWithdrawModal] Failed to resolve withdraw route:',
-          error,
-        );
-      });
+    const loadWithdrawRoute = () => {
+      void backgroundApiProxy.serviceHyperliquidExchange
+        .getUsdcWithdrawRoute()
+        .then((route) => {
+          if (!cancelled) {
+            setWithdrawRoute(route);
+          }
+        })
+        .catch((error) => {
+          console.error(
+            '[DepositWithdrawModal] Failed to resolve withdraw route:',
+            error,
+          );
+        });
+    };
+    loadWithdrawRoute();
+    const refreshInterval = setInterval(
+      loadWithdrawRoute,
+      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
+    );
     return () => {
       cancelled = true;
+      clearInterval(refreshInterval);
     };
   }, [selectedAction]);
 
