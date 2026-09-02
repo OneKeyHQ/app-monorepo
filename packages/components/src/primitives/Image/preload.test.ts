@@ -115,4 +115,42 @@ describe('native preloadImages', () => {
       }),
     ]);
   });
+
+  test('only retries failed optimized entries with their original URLs', async () => {
+    mockNativePreload
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    await expect(
+      preloadNativeImages([
+        {
+          uri: 'https://uni.onekey-asset.com/a.png',
+          resizeWidth: 32,
+          pixelRatio: 1,
+        },
+        {
+          uri: 'https://uni.onekey-asset.com/b.png',
+          resizeWidth: 32,
+          pixelRatio: 1,
+        },
+        {
+          uri: 'https://example.com/c.png',
+          optimize: false,
+        },
+      ]),
+    ).resolves.toBe(true);
+
+    expect(mockNativePreload).toHaveBeenCalledTimes(5);
+    expect(mockNativePreload).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({ uri: 'https://example.com/c.png' }),
+    ]);
+    expect(mockNativePreload).toHaveBeenNthCalledWith(5, [
+      expect.objectContaining({
+        uri: 'https://uni.onekey-asset.com/b.png',
+      }),
+    ]);
+  });
 });

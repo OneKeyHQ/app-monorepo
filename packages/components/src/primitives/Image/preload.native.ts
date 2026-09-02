@@ -15,9 +15,48 @@ const CACHE_POLICIES = {
   none: OneKeyImageCachePolicy.NONE,
 } as const;
 
-export const preloadImages: IPreloadImagesFunc = (sources, options) => {
+type IPreloadRequest = Parameters<typeof OneKeyImageCache.preload>[0][number];
+
+type IOptimizedPreloadRequest = {
+  rawUri: string;
+  request: IPreloadRequest;
+};
+
+async function preloadWithRawFallback(
+  preloadRequests: IOptimizedPreloadRequest[],
+): Promise<boolean> {
+  if (preloadRequests.length === 0) {
+    return true;
+  }
+  const success = await OneKeyImageCache.preload(
+    preloadRequests.map(({ request }) => request),
+  ).catch(() => false);
+  if (success) {
+    return true;
+  }
+  if (preloadRequests.length === 1) {
+    const [{ rawUri, request }] = preloadRequests;
+    return OneKeyImageCache.preload([
+      {
+        ...request,
+        uri: rawUri,
+      },
+    ]).catch(() => false);
+  }
+
+  const middleIndex = Math.ceil(preloadRequests.length / 2);
+  const results = await Promise.all([
+    preloadWithRawFallback(preloadRequests.slice(0, middleIndex)),
+    preloadWithRawFallback(preloadRequests.slice(middleIndex)),
+  ]);
+  return results.every(Boolean);
+}
+
+export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
   const preloadRequests = sources
-    .filter((source) => Boolean(source.uri))
+    .filter((source): source is typeof source & { uri: string } =>
+      Boolean(source.uri),
+    )
     .map((source) => {
       const pixelRatio =
         source.pixelRatio ?? options?.pixelRatio ?? PixelRatio.get();
@@ -48,21 +87,19 @@ export const preloadImages: IPreloadImagesFunc = (sources, options) => {
         optimized: optimizedSource.optimized,
       };
     });
-  const requests = preloadRequests.map(({ request }) => request);
-
-  return OneKeyImageCache.preload(requests)
-    .catch(() => false)
-    .then((success) => {
-      if (success || !preloadRequests.some(({ optimized }) => optimized)) {
-        return success;
-      }
-      return OneKeyImageCache.preload(
-        preloadRequests.map(({ request, rawUri }) => ({
-          ...request,
-          uri: rawUri,
-        })),
-      ).catch(() => false);
-    });
+  const optimizedPreloadRequests = preloadRequests.filter(
+    ({ optimized }) => optimized,
+  );
+  const passthroughRequests = preloadRequests
+    .filter(({ optimized }) => !optimized)
+    .map(({ request }) => request);
+  const [optimizedSuccess, passthroughSuccess] = await Promise.all([
+    preloadWithRawFallback(optimizedPreloadRequests),
+    passthroughRequests.length > 0
+      ? OneKeyImageCache.preload(passthroughRequests).catch(() => false)
+      : true,
+  ]);
+  return optimizedSuccess && passthroughSuccess;
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>
