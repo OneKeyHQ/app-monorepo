@@ -117,7 +117,11 @@ export function handleSwapQuoteTabVisibilityChange({
  *
  * This hook coordinates state and side effects related to swap quote retrieval, token and amount changes, slippage settings, and user interactions. It integrates with Jotai atoms, event bus listeners, and debounced input handling to ensure accurate and efficient quote updates. The hook also manages cleanup and event subscriptions based on tab focus and modal state.
  */
-export function useSwapQuote() {
+export function useSwapQuote({
+  isMarketEmbeddedSwap = false,
+}: {
+  isMarketEmbeddedSwap?: boolean;
+} = {}) {
   const {
     quoteAction,
     cleanQuoteInterval,
@@ -253,8 +257,9 @@ export function useSwapQuote() {
   }
   const isFocused = useIsFocused();
   const isModalPage = useIsOverlayPage();
+  const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
   const isQuoteVisibleRef = useRef(isFocused);
-  if (isModalPage || !isFocused) {
+  if (shouldUseRouteQuoteLifecycle || !isFocused) {
     isQuoteVisibleRef.current = isFocused;
   }
 
@@ -999,7 +1004,7 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (!isModalPage) {
+      if (!shouldUseRouteQuoteLifecycle) {
         handleSwapQuoteTabVisibilityChange({
           isFocus,
           isHiddenModel,
@@ -1016,7 +1021,7 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (isModalPage) {
+    if (shouldUseRouteQuoteLifecycle) {
       if (isFocused) {
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
@@ -1025,16 +1030,16 @@ export function useSwapQuote() {
       }
     }
     return () => {
-      if (isModalPage && !isProviderSelectRouteActive()) {
+      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
         unsubscribeQuoteEvents();
       }
     };
   }, [
     isFocused,
-    isModalPage,
     isProviderSelectRouteActive,
     pauseQuoteOnFocusLoss,
     refreshPreservedInputQuoteOnFocus,
+    shouldUseRouteQuoteLifecycle,
     subscribeQuoteEvents,
     unsubscribeQuoteEvents,
   ]);

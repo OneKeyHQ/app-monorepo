@@ -77,6 +77,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   fromTokenAmountValue: string;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   headerContent?: ReactNode;
+  hideRecentTokenPairs?: boolean;
 }
 
 const DESKTOP_SWAP_TITLE_TRANSITION =
@@ -141,6 +142,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   fromTokenAmountValue,
   swapRecentTokenPairs,
   headerContent,
+  hideRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -262,11 +264,13 @@ const SwapOldSwapBridgeLimitContainer = ({
       alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
         <SwapAlertContainer alerts={alerts.states} />
       ) : null}
-      <SwapRecentTokenPairsGroup
-        onSelectTokenPairs={onSelectRecentTokenPairs}
-        tokenPairs={swapRecentTokenPairs}
-        fromTokenAmount={fromTokenAmountValue}
-      />
+      {hideRecentTokenPairs ? null : (
+        <SwapRecentTokenPairsGroup
+          onSelectTokenPairs={onSelectRecentTokenPairs}
+          tokenPairs={swapRecentTokenPairs}
+          fromTokenAmount={fromTokenAmountValue}
+        />
+      )}
       <SwapPendingHistoryListComponent pageType={pageType} />
     </YStack>
   );
@@ -324,11 +328,13 @@ const SwapOldSwapBridgeLimitContainer = ({
         alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
           <SwapAlertContainer alerts={alerts.states} />
         ) : null}
-        <SwapRecentTokenPairsGroup
-          onSelectTokenPairs={onSelectRecentTokenPairs}
-          tokenPairs={swapRecentTokenPairs}
-          fromTokenAmount={fromTokenAmountValue}
-        />
+        {hideRecentTokenPairs ? null : (
+          <SwapRecentTokenPairsGroup
+            onSelectTokenPairs={onSelectRecentTokenPairs}
+            tokenPairs={swapRecentTokenPairs}
+            fromTokenAmount={fromTokenAmountValue}
+          />
+        )}
         <SwapPendingHistoryListComponent pageType={pageType} />
       </YStack>
     );
@@ -430,11 +436,13 @@ const SwapOldSwapBridgeLimitContainer = ({
             alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
               <SwapAlertContainer alerts={alerts.states} />
             ) : null}
-            <SwapRecentTokenPairsGroup
-              onSelectTokenPairs={onSelectRecentTokenPairs}
-              tokenPairs={swapRecentTokenPairs}
-              fromTokenAmount={fromTokenAmountValue}
-            />
+            {hideRecentTokenPairs ? null : (
+              <SwapRecentTokenPairsGroup
+                onSelectTokenPairs={onSelectRecentTokenPairs}
+                tokenPairs={swapRecentTokenPairs}
+                fromTokenAmount={fromTokenAmountValue}
+              />
+            )}
             <SwapPendingHistoryListComponent pageType={pageType} />
           </YStack>
         </YStack>

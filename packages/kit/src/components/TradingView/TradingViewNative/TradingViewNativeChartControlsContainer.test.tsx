@@ -26,7 +26,6 @@ type IMockDialogConfig = {
   >;
   testID?: string;
 };
-
 const mockTradingViewChartControls = jest.fn<null, [unknown]>(() => null);
 const mockPushModal = jest.fn();
 const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
@@ -101,8 +100,10 @@ describe('TradingViewNative chart controls', () => {
     expect(mockTradingViewChartControls).toHaveBeenCalledWith(
       expect.objectContaining({
         backgroundColor: '$transparent',
+        chartMode: undefined,
         hasVisibleIndicators: true,
         hasVisibleIntervalSelector: true,
+        onChartSwitch: undefined,
         settingsEnabled: false,
         showIndicatorPopover: false,
         showChartTypeSelect: true,
@@ -259,7 +260,6 @@ describe('TradingViewNative chart controls', () => {
         settingsEnabled: true,
       }),
     );
-
     const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
       onSettingsPress: () => void;
     };
@@ -268,6 +268,24 @@ describe('TradingViewNative chart controls', () => {
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',
     });
+  });
+
+  it('keeps settings out of opted-in mobile controls', () => {
+    render(
+      <TradingViewNativeChartControlsContainer
+        {...defaultIndicatorSettingsProps}
+        activeIndicatorValues={new Set(['MA'])}
+        enableNativeChartSettings
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIndicatorChange={jest.fn()}
+        onIntervalChange={jest.fn()}
+      />,
+    );
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      settingsEnabled: boolean;
+    };
+    expect(controlsProps.settingsEnabled).toBe(false);
   });
 
   it('enables calendar navigation in desktop controls', () => {
@@ -297,7 +315,7 @@ describe('TradingViewNative chart controls', () => {
     );
   });
 
-  it('forwards the chart switch action to the shared controls', () => {
+  it('forwards the chart switch action from desktop controls', () => {
     const handleChartSwitch = jest.fn();
     render(
       <TradingViewNativeChartControlsContainer
@@ -305,6 +323,7 @@ describe('TradingViewNative chart controls', () => {
         activeIndicatorValues={new Set(['MA'])}
         intervalConfig={{ activeInterval: '60', intervals: [] }}
         isChartSwitchDisabled
+        layoutMode="desktop"
         onChartSwitch={handleChartSwitch}
         onIndicatorChange={jest.fn()}
         onIntervalChange={jest.fn()}

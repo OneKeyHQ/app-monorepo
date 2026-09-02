@@ -1,4 +1,7 @@
-import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+import {
+  type ITradingViewNativeChartTypePreference,
+  TRADING_VIEW_NATIVE_THEME_COLORS,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 export type ITradingViewSettingsMockAppearanceSectionId =
   | 'candles'
@@ -122,6 +125,7 @@ export type ITradingViewChartSettingsOptions = {
 
 export type ITradingViewChartSettingsValue = {
   schemaVersion: typeof TRADING_VIEW_SETTINGS_SCHEMA_VERSION;
+  chartType: ITradingViewNativeChartTypePreference;
   appearanceSections: ITradingViewSettingsMockAppearanceSection[];
   options: ITradingViewChartSettingsOptions;
   latestPriceLine: {
@@ -1660,6 +1664,7 @@ function cloneIndicators() {
 export function createTradingViewChartSettingsValue(): ITradingViewChartSettingsValue {
   return {
     schemaVersion: TRADING_VIEW_SETTINGS_SCHEMA_VERSION,
+    chartType: 'auto',
     appearanceSections: cloneAppearanceSections(),
     options: {
       yAxis: true,
