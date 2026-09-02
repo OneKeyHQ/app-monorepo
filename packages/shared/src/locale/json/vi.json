@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "Thị trường nóng",
   "perp_insufficient_margin__title": "Ký quỹ không đủ",
   "perp_invalid_scale_order__msg": "Lệnh tỷ lệ không hợp lệ",
+  "perp_io_market__desc": "io cho biết các thị trường thuộc Entropy HIP-3 DEX trên Hyperliquid, bao gồm các công ty AI giai đoạn tiền IPO và cổ phiếu công nghệ niêm yết.",
   "perp_ip_restriction__title": "Giao dịch hợp đồng tạm thời không khả dụng",
   "perp_ip_restriction_perp__desc": "Giao dịch hợp đồng hiện không khả dụng trong mạng hoặc khu vực hiện tại của bạn. Vui lòng thử lại trong khu vực hoặc môi trường mạng được hỗ trợ.",
   "perp_ip_restriction_spot__desc": "Lệnh spot mới không khả dụng tại khu vực của bạn. Bạn vẫn có thể xem thị trường, hủy lệnh và chuyển tiền ra ngoài.",

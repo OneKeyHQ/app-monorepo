@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "Mercados em destaque",
   "perp_insufficient_margin__title": "Margem insuficiente",
   "perp_invalid_scale_order__msg": "Ordem de escala inválida",
+  "perp_io_market__desc": "io identifica os mercados do DEX HIP-3 Entropy na Hyperliquid, incluindo empresas de IA em fase de pré-IPO e ações tecnológicas cotadas.",
   "perp_ip_restriction__title": "Trading de contratos temporariamente indisponível",
   "perp_ip_restriction_perp__desc": "O trading de contratos não está disponível na sua rede ou região atual. Tente novamente numa região ou ambiente de rede compatível.",
   "perp_ip_restriction_spot__desc": "As novas ordens spot não estão disponíveis na sua região. Ainda pode consultar os mercados, cancelar ordens e transferir fundos para fora.",
