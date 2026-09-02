@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
@@ -19,6 +20,7 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES =
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
   isNative: boolean;
+  marketAssetId?: string;
   networkId: string;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
@@ -29,6 +31,7 @@ type IStockSimpleChartRequestParams = {
 export function resolveStockSimpleChartRequestScope({
   coinGeckoId,
   isNative,
+  marketAssetId,
   networkId,
   priceMode,
   range,
@@ -39,6 +42,7 @@ export function resolveStockSimpleChartRequestScope({
     return {
       coinGeckoId: undefined,
       isNative: false,
+      marketAssetId: undefined,
       networkId: '',
       priceMode,
       range,
@@ -50,6 +54,7 @@ export function resolveStockSimpleChartRequestScope({
   return {
     coinGeckoId,
     isNative,
+    marketAssetId,
     networkId,
     priceMode,
     range,
@@ -77,6 +82,11 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1M': '4H',
   '1Y': '1D',
   All: '1W',
+};
+
+const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
+  ...STOCK_TOKEN_CHART_INTERVALS,
+  '1D': '30m',
 };
 
 const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
@@ -131,6 +141,7 @@ export async function fetchStockSimpleChartPoints(
   const {
     coinGeckoId,
     isNative,
+    marketAssetId,
     networkId,
     priceMode,
     range,
@@ -144,6 +155,7 @@ export async function fetchStockSimpleChartPoints(
   }
   if (
     !isSharePrice &&
+    !marketAssetId &&
     !coinGeckoId &&
     (!networkId || (!tokenAddress && !isNative))
   ) {
@@ -169,6 +181,26 @@ export async function fetchStockSimpleChartPoints(
         const isValidPoint =
           Number.isFinite(timestamp) && Number.isFinite(price);
         return isValidPoint && (!timeFrom || timestamp >= timeFrom);
+      })
+      .toSorted((a, b) => a[0] - b[0]);
+  }
+
+  if (marketAssetId) {
+    const response = await fetchMarketAssetKLineData({
+      assetId: marketAssetId,
+      interval: MARKET_ASSET_CHART_INTERVALS[range],
+      ...(timeFrom !== undefined ? { timeFrom, timeTo } : undefined),
+    });
+    return response.points
+      .map((point) => [Number(point.t), Number(point.c)] as [number, number])
+      .filter(([timestamp, price]) => {
+        const isValidPoint =
+          Number.isFinite(timestamp) && Number.isFinite(price);
+        return (
+          isValidPoint &&
+          (!timeFrom || timestamp >= timeFrom) &&
+          timestamp <= timeTo
+        );
       })
       .toSorted((a, b) => a[0] - b[0]);
   }

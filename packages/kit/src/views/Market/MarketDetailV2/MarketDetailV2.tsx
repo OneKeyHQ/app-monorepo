@@ -109,6 +109,8 @@ function MarketDetail({
   const disableTrade = params.disableTrade;
   const marketTokenId =
     'marketTokenId' in params ? params.marketTokenId : undefined;
+  const marketVariantId =
+    'marketVariantId' in params ? params.marketVariantId : undefined;
   const marketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const skipMarketDataFetch = normalizeRouteBooleanParam(
@@ -136,12 +138,16 @@ function MarketDetail({
 
   // Start auto-refresh for token details every 5 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
-  useAutoRefreshTokenDetail({
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch,
-  });
+  const { marketAssetDetail, isMarketAssetDetailLoading } =
+    useAutoRefreshTokenDetail({
+      tokenAddress,
+      networkId,
+      isNative: isNativeBoolean,
+      skipMarketDataFetch,
+      marketTokenId,
+      marketVariantId,
+      marketTokenCategory,
+    });
 
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
@@ -208,6 +214,8 @@ function MarketDetail({
             networkId={networkId}
             tokenAddress={tokenAddress}
             marketTokenId={marketTokenId}
+            marketAssetDetail={marketAssetDetail}
+            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={shouldDisableTrade}
@@ -229,6 +237,19 @@ function MarketDetailV2(
   const { navigation } = props;
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
+  const stockPreview =
+    stockId &&
+    'stockPreviewSymbol' in props.route.params &&
+    props.route.params.stockPreviewSymbol &&
+    props.route.params.stockPreviewName &&
+    props.route.params.stockPreviewLogoUrl
+      ? {
+          stockId,
+          symbol: props.route.params.stockPreviewSymbol,
+          name: props.route.params.stockPreviewName,
+          logoUrl: props.route.params.stockPreviewLogoUrl,
+        }
+      : undefined;
   const initialTokenAddress =
     'tokenAddress' in props.route.params
       ? props.route.params.tokenAddress
@@ -345,6 +366,7 @@ function MarketDetailV2(
           <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
           <StockDetailProvider
             stockId={stockId}
+            initialStockPreview={stockPreview}
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
           >

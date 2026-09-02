@@ -304,7 +304,7 @@ function MarketStockListImpl({
               TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               onRow={(item) => ({
-                onPress: () => void toMarketStockDetailPage(item.stockId),
+                onPress: () => void toMarketStockDetailPage(item),
                 rowProps: {
                   testID: MarketTestIDs.stockRow(item.stockId),
                 },

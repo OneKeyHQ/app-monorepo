@@ -123,7 +123,7 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
   });
 
-  it('uses the Market Stocks columns and selects stocks by stockId', () => {
+  it('uses the Market Stocks columns and preserves the selected stock preview', () => {
     render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
 
     expect(screen.getByTestId('stock-table')).toBeTruthy();
@@ -140,6 +140,6 @@ describe('MarketStockSelectorList', () => {
     });
 
     fireEvent.click(screen.getByTestId('stock-row-AAPL'));
-    expect(mockOnItemPress).toHaveBeenCalledWith('AAPL');
+    expect(mockOnItemPress).toHaveBeenCalledWith(mockStock);
   });
 });
