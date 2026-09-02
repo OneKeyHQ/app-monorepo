@@ -146,21 +146,35 @@ class ProviderApiWalletConnect {
       // proposal,
       proposal?.params?.requiredNamespaces,
     );
+    // A required namespace the wallet has no impl for is left out of the
+    // approve payload, which then fails the SDK's requiredNamespaces
+    // conformance check after the user already tapped Approve. Catch it here:
+    // getNotSupportedChains only inspects the chains an entry declares.
+    const notSupportedNamespaces =
+      await serviceWalletConnect.getNotSupportedNamespaces(
+        proposal?.params?.requiredNamespaces,
+      );
     const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
 
     const metadata = proposal.params.proposer.metadata;
-    if (notSupportedChains.length > 0) {
+    if (notSupportedChains.length > 0 || notSupportedNamespaces.length > 0) {
+      const notSupportedLabel = notSupportedChains.length
+        ? `ChainId: ${notSupportedChains[0]}`
+        : `Namespace: ${notSupportedNamespaces[0]}`;
       console.error(
-        'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
+        'ProviderApiWalletConnect ERROR: onSessionProposal not supported',
         notSupportedChains,
+        notSupportedNamespaces,
       );
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
-        reason: getSdkError('UNSUPPORTED_CHAINS'),
+        reason: notSupportedChains.length
+          ? getSdkError('UNSUPPORTED_CHAINS')
+          : getSdkError('UNSUPPORTED_NAMESPACE_KEY'),
       });
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
-        title: `ChainId: ${notSupportedChains[0]}`,
+        title: notSupportedLabel,
         message: 'Unsupported yet',
       });
       defaultLogger.discovery.dapp.dappUse({
@@ -168,7 +182,7 @@ class ProviderApiWalletConnect {
         dappDomain: metadata.url,
         action: 'ConnectWallet',
         network: optionalNamespacesString,
-        failReason: `Unsupported ChainId: ${notSupportedChains[0]}`,
+        failReason: `Unsupported ${notSupportedLabel}`,
       });
       return;
     }
