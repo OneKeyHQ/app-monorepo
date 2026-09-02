@@ -13,6 +13,7 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -214,6 +215,7 @@ const mockRestoreTempCreatedWallet = jest.fn();
 const mockGetWalletDevice = jest.fn();
 const mockGetAllHwQrWalletWithDevice = jest.fn();
 const mockUpdateWalletsDeprecatedState = jest.fn();
+const mockShowQrHiddenCreateGuideDialogIfErrorMatched = jest.fn();
 const mockIsSoftwareWalletOnlyUser = jest.fn();
 const mockAddDefaultNetworkAccountsService = jest.fn<
   Promise<{
@@ -302,7 +304,9 @@ jest.mock(
   () => ({
     __esModule: true,
     default: {
-      showDialogIfErrorMatched: jest.fn(),
+      showDialogIfErrorMatched: (...args: unknown[]) => {
+        mockShowQrHiddenCreateGuideDialogIfErrorMatched(...args);
+      },
     },
   }),
 );
@@ -881,18 +885,10 @@ describe('useAccountSelectorActions', () => {
       });
     });
 
-    it('keeps the standard wallet flow when passphrase is disabled', async () => {
-      const realStandardWallet = {
-        ...standardWallet,
-        isMocked: false,
-      } as IWallet;
-      mockCreateHWWalletService.mockResolvedValueOnce({
-        wallet: realStandardWallet,
-        device: currentDevice,
-        indexedAccount: standardIndexedAccount,
-        isOverrideWallet: false,
-      });
-      const standardParams = {
+    it('preserves the global passphrase guide for an explicitly selected hidden wallet', async () => {
+      const passphraseError = new DeviceNotOpenedPassphrase();
+      mockCreateHWHiddenWalletService.mockRejectedValueOnce(passphraseError);
+      const hiddenParams = {
         ...createParams,
         deviceState: {
           status: {
@@ -901,24 +897,24 @@ describe('useAccountSelectorActions', () => {
         },
       } as unknown as IDBCreateHwWalletParamsBase;
 
-      const { store, Wrapper } = createWrapper();
+      const { Wrapper } = createWrapper();
       const { result } = renderHook(() => useAccountSelectorActions().current, {
         wrapper: Wrapper,
       });
 
       await act(async () => {
-        await result.current.createHWWalletWithHidden(standardParams);
+        await expect(
+          result.current.createHWWalletWithHidden(hiddenParams),
+        ).rejects.toBe(passphraseError);
       });
 
       expect(mockCreateHWWalletService).toHaveBeenCalledWith(
-        expect.objectContaining({ isMockedStandardHwWallet: false }),
+        expect.objectContaining({ isMockedStandardHwWallet: true }),
       );
-      expect(mockCreateHWHiddenWalletService).not.toHaveBeenCalled();
-      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
-        walletId: realStandardWallet.id,
-        focusedWallet: realStandardWallet.id,
-        indexedAccountId: standardIndexedAccount.id,
-      });
+      expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
+      expect(
+        mockShowQrHiddenCreateGuideDialogIfErrorMatched,
+      ).toHaveBeenCalledWith(passphraseError);
     });
 
     it('creates the hidden wallet for Attach PIN mode without a passphrase flag', async () => {
