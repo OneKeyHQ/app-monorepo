@@ -346,15 +346,27 @@ export function DesktopLayout({
     return (
       <LazyDesktopMarketTradingView
         key={isStockSharePrice ? `stock-share:${stockId ?? ''}` : 'token'}
-        tokenAddress={effectiveMarketTradingViewParams?.tokenAddress ?? ''}
-        networkId={effectiveMarketTradingViewParams?.networkId ?? ''}
+        tokenAddress={
+          isStockSharePrice
+            ? ''
+            : (effectiveMarketTradingViewParams?.tokenAddress ?? '')
+        }
+        networkId={
+          isStockSharePrice
+            ? ''
+            : (effectiveMarketTradingViewParams?.networkId ?? '')
+        }
         tokenSymbol={
           isStockSharePrice
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
-        isNative={effectiveMarketTradingViewParams?.isNative}
-        decimal={marketTradingViewParams?.decimal}
+        isNative={
+          isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
+        }
+        decimal={
+          isStockSharePrice ? undefined : marketTradingViewParams?.decimal
+        }
         dataSource={
           isStockSharePrice
             ? 'polling'

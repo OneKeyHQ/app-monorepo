@@ -2,9 +2,11 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
+  buildMarketNetworkLogoUriMap,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
@@ -29,6 +31,11 @@ export function useMarketBannerDetail({
   tokenListId,
   isPerps,
 }: IUseMarketBannerDetailParams) {
+  const { networkList } = useMarketBasicConfig();
+  const networkLogoUriMap = useMemo(
+    () => buildMarketNetworkLogoUriMap(networkList),
+    [networkList],
+  );
   const [bannerSort, setBannerSort] = useMarketBannerListSortAtom();
   const sortRef = useRef(bannerSort);
   sortRef.current = bannerSort;
@@ -52,14 +59,16 @@ export function useMarketBannerDetail({
     if (!tickerResult) return [];
     return tickerResult.map((item, index) => {
       const chainId = item.networkId || '';
-      const networkLogoUri = getNetworkLogoUri(chainId);
+      const networkLogoUri =
+        networkLogoUriMap.get(chainId) || getNetworkLogoUri(chainId);
       return transformApiItemToToken(item, {
         chainId,
+        networkLogoUriMap,
         networkLogoUri,
         sortIndex: index,
       });
     });
-  }, [tickerResult]);
+  }, [networkLogoUriMap, tickerResult]);
 
   const currentSortBy = isBannerDetailSortBy(bannerSort.sortBy)
     ? bannerSort.sortBy
