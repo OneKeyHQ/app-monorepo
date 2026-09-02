@@ -10,6 +10,7 @@ import {
   ChartSettingsDialogContent,
   showTradingViewChartSettingsDialog,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { TradingViewMobileChartSettingsDialogContent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent';
 
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 
@@ -247,6 +248,31 @@ export const TradingViewV2ChartControlsContainer = memo(
       showTradingViewChartSettingsDialog();
     }, [enableNativeChartSettings, onControlInteraction]);
 
+    const showMobileChartSettingsDialog = useCallback(() => {
+      if (!enableNativeChartSettings) {
+        return;
+      }
+
+      onControlInteraction?.();
+      Dialog.show({
+        title: chartSettingsTitle,
+        showFooter: false,
+        testID: 'trading-view-native-chart-settings-quick-dialog',
+        renderContent: (
+          <TradingViewMobileChartSettingsDialogContent
+            chartMode="tradingView"
+            onChartSwitch={onChartSwitch}
+            onOpenSettings={showTradingViewChartSettingsDialog}
+          />
+        ),
+      });
+    }, [
+      chartSettingsTitle,
+      enableNativeChartSettings,
+      onChartSwitch,
+      onControlInteraction,
+    ]);
+
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
         onControlInteraction?.();
@@ -271,7 +297,11 @@ export const TradingViewV2ChartControlsContainer = memo(
 
     const handleSettingsPress = useCallback(() => {
       if (enableNativeChartSettings) {
-        showNewChartSettingsDialog();
+        if (layoutMode === 'mobile' && onChartSwitch) {
+          showMobileChartSettingsDialog();
+        } else {
+          showNewChartSettingsDialog();
+        }
         return;
       }
 
@@ -283,8 +313,11 @@ export const TradingViewV2ChartControlsContainer = memo(
       showChartSettingsDialog();
     }, [
       enableNativeChartSettings,
+      layoutMode,
+      onChartSwitch,
       onOpenChartSettings,
       showChartSettingsDialog,
+      showMobileChartSettingsDialog,
       showNewChartSettingsDialog,
     ]);
     return (

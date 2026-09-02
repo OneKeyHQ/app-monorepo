@@ -12,7 +12,12 @@ import {
 } from './TradingViewNativeChartSettingsButton';
 
 type IMockDialogConfig = {
-  renderContent: ReactElement<{ onOpenSettings: () => void }>;
+  renderContent: ReactElement<{
+    chartMode: 'native';
+    isChartSwitchDisabled?: boolean;
+    onChartSwitch?: () => void;
+    onOpenSettings: () => void;
+  }>;
   testID?: string;
 };
 
@@ -83,7 +88,14 @@ describe('TradingViewNativeChartSettingsButton', () => {
   });
 
   it('opens the native quick settings dialog', () => {
-    render(<TradingViewNativeChartSettingsButton priceAxisWidth={52} />);
+    const handleChartSwitch = jest.fn();
+    render(
+      <TradingViewNativeChartSettingsButton
+        priceAxisWidth={52}
+        isChartSwitchDisabled
+        onChartSwitch={handleChartSwitch}
+      />,
+    );
 
     const buttonProps = mockIconButton.mock.calls[0][0] as {
       onPress: () => void;
@@ -93,6 +105,13 @@ describe('TradingViewNativeChartSettingsButton', () => {
     expect(mockDialogShow).toHaveBeenCalledWith(
       expect.objectContaining({
         testID: 'trading-view-native-chart-settings-quick-dialog',
+      }),
+    );
+    expect(mockDialogShow.mock.calls[0][0].renderContent.props).toEqual(
+      expect.objectContaining({
+        chartMode: 'native',
+        isChartSwitchDisabled: true,
+        onChartSwitch: handleChartSwitch,
       }),
     );
     mockDialogShow.mock.calls[0][0].renderContent.props.onOpenSettings();

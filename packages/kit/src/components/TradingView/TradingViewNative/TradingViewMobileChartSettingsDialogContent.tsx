@@ -19,6 +19,10 @@ import type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
+import {
+  type ITradingViewChartMode,
+  TradingViewChartModeSelect,
+} from '../TradingViewChartControls';
 import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
@@ -90,8 +94,14 @@ function QuickSettingOption({
 }
 
 export function TradingViewMobileChartSettingsDialogContent({
+  chartMode,
+  isChartSwitchDisabled = false,
+  onChartSwitch,
   onOpenSettings,
 }: {
+  chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
+  onChartSwitch?: () => void;
   onOpenSettings: () => void;
 }) {
   const intl = useIntl();
@@ -107,6 +117,10 @@ export function TradingViewMobileChartSettingsDialogContent({
     await dialog.close();
     onOpenSettings();
   }, [dialog, onOpenSettings]);
+  const handleChartSwitch = useCallback(async () => {
+    await dialog.close();
+    onChartSwitch?.();
+  }, [dialog, onChartSwitch]);
 
   const handleOptionChange = useCallback(
     (key: keyof IQuickSettingOptions, value: boolean) => {
@@ -139,34 +153,52 @@ export function TradingViewMobileChartSettingsDialogContent({
       <SettingsEntry onPress={() => void handleOpenSettings()} />
       <Divider />
 
-      <YStack gap="$3" pt="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.market_chart_settings__chart_display,
-          })}
-        </SizableText>
-        <TradingViewChartTypeSettingsRow
-          value={normalizedSettings.chartType}
-          onChange={handleChartTypeChange}
-        />
-        <XStack flexWrap="wrap" rowGap="$1">
-          {QUICK_SETTING_OPTIONS.map((option) => (
-            <QuickSettingOption
-              key={option}
-              option={option}
-              label={
-                option === 'previousClose'
-                  ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
-                  : intl.formatMessage({
-                      id: OPTION_TRANSLATION_IDS[option],
-                    })
-              }
-              value={normalizedSettings.options[option]}
-              onChange={(value) => handleOptionChange(option, value)}
+      {chartMode && onChartSwitch ? (
+        <>
+          <YStack gap="$3" pt="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.market_chart })}
+            </SizableText>
+            <TradingViewChartModeSelect
+              chartMode={chartMode}
+              isDisabled={isChartSwitchDisabled}
+              onChartSwitch={() => void handleChartSwitch()}
             />
-          ))}
-        </XStack>
-      </YStack>
+          </YStack>
+          {chartMode === 'native' ? <Divider /> : null}
+        </>
+      ) : null}
+
+      {chartMode !== 'tradingView' ? (
+        <YStack gap="$3" pt="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.market_chart_settings__chart_display,
+            })}
+          </SizableText>
+          <TradingViewChartTypeSettingsRow
+            value={normalizedSettings.chartType}
+            onChange={handleChartTypeChange}
+          />
+          <XStack flexWrap="wrap" rowGap="$1">
+            {QUICK_SETTING_OPTIONS.map((option) => (
+              <QuickSettingOption
+                key={option}
+                option={option}
+                label={
+                  option === 'previousClose'
+                    ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
+                    : intl.formatMessage({
+                        id: OPTION_TRANSLATION_IDS[option],
+                      })
+                }
+                value={normalizedSettings.options[option]}
+                onChange={(value) => handleOptionChange(option, value)}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

@@ -26,8 +26,12 @@ export function getTradingViewNativeChartSettingsButtonRight(
 
 export function TradingViewNativeChartSettingsButton({
   priceAxisWidth,
+  isChartSwitchDisabled = false,
+  onChartSwitch,
 }: {
   priceAxisWidth: number;
+  isChartSwitchDisabled?: boolean;
+  onChartSwitch?: () => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -43,11 +47,14 @@ export function TradingViewNativeChartSettingsButton({
       testID: 'trading-view-native-chart-settings-quick-dialog',
       renderContent: (
         <TradingViewMobileChartSettingsDialogContent
+          chartMode="native"
+          isChartSwitchDisabled={isChartSwitchDisabled}
+          onChartSwitch={onChartSwitch}
           onOpenSettings={openChartSettingsModal}
         />
       ),
     });
-  }, [intl, openChartSettingsModal]);
+  }, [intl, isChartSwitchDisabled, onChartSwitch, openChartSettingsModal]);
 
   return (
     <IconButton

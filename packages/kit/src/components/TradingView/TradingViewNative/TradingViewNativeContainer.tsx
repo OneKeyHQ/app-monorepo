@@ -842,6 +842,8 @@ export const TradingViewNativeContainer = memo(
           {isMobileControlsLayout && enableNativeChartSettings ? (
             <TradingViewNativeChartSettingsButton
               priceAxisWidth={priceAxisWidth}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
             />
           ) : null}
           {isMobileControlsLayout && onNativeChartFullscreenChange ? (

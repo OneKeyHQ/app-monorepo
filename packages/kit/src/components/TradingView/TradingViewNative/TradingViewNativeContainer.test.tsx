@@ -41,7 +41,13 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
 const mockTradingViewNativeChartSettingsButton = jest.fn<
   null,
-  [{ priceAxisWidth: number }]
+  [
+    {
+      priceAxisWidth: number;
+      isChartSwitchDisabled?: boolean;
+      onChartSwitch?: () => void;
+    },
+  ]
 >(() => null);
 const mockShowTradingViewNativeIndicatorSettingsDialog = jest.fn<
   void,
@@ -226,8 +232,11 @@ jest.mock('./TradingViewNativeChartControlsContainer', () => ({
 }));
 
 jest.mock('./TradingViewNativeChartSettingsButton', () => ({
-  TradingViewNativeChartSettingsButton: (props: { priceAxisWidth: number }) =>
-    mockTradingViewNativeChartSettingsButton(props),
+  TradingViewNativeChartSettingsButton: (props: {
+    priceAxisWidth: number;
+    isChartSwitchDisabled?: boolean;
+    onChartSwitch?: () => void;
+  }) => mockTradingViewNativeChartSettingsButton(props),
 }));
 
 jest.mock('./showTradingViewNativeIndicatorSettingsDialog', () => ({
@@ -1040,6 +1049,7 @@ describe('TradingViewNativeContainer', () => {
   });
 
   it('renders chart settings inside the opted-in mobile native chart', () => {
+    const handleChartSwitch = jest.fn();
     const source = {
       kind: 'market' as const,
       networkId: 'evm--1',
@@ -1052,11 +1062,15 @@ describe('TradingViewNativeContainer', () => {
       <TradingViewNativeContainer
         source={source}
         enableNativeChartSettings
+        isChartSwitchDisabled
         nativeControlsLayoutMode="mobile"
+        onChartSwitch={handleChartSwitch}
       />,
     );
 
     expect(mockTradingViewNativeChartSettingsButton).toHaveBeenCalledWith({
+      isChartSwitchDisabled: true,
+      onChartSwitch: handleChartSwitch,
       priceAxisWidth: 0,
     });
 
