@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
-import { SizableText, XStack } from '../../primitives';
+import { SizableText } from '../../primitives';
 import { SWAP_IN_MS, SWAP_OUT_MS } from '../MorphOverlay';
 
 /**
@@ -51,7 +51,6 @@ export function StepText({
   animated,
   subColor = '$textSubdued',
   subSlot,
-  titleSlot,
 }: {
   title: string;
   sub: string;
@@ -63,11 +62,6 @@ export function StepText({
    * title). Rendered live, outside the swap's shown-text cache: a slot
    * change never replays the title, it just appears in place. */
   subSlot?: ReactNode;
-  /** Furniture riding the title's own row, 8pt after the words (the
-   * device pill, the count pill) — the ratified seat trails the title,
-   * it does not sit at the card's far edge. Live like subSlot; the
-   * title shrinks first, the slot never squeezes. */
-  titleSlot?: ReactNode;
 }) {
   const [shown, setShown] = useState({ title, sub });
   const targetRef = useRef({ title, sub });
@@ -114,16 +108,7 @@ export function StepText({
   const style = useMemo(() => [styles.textBlock, motionStyle], [motionStyle]);
   return (
     <Animated.View style={style}>
-      {titleSlot ? (
-        <XStack ai="flex-start" gap="$2">
-          <SizableText size="$heading2xl" flexShrink={1}>
-            {shown.title}
-          </SizableText>
-          {titleSlot}
-        </XStack>
-      ) : (
-        <SizableText size="$heading2xl">{shown.title}</SizableText>
-      )}
+      <SizableText size="$heading2xl">{shown.title}</SizableText>
       {shown.sub ? (
         <SizableText size="$bodyMd" color={subColor}>
           {shown.sub}
