@@ -478,11 +478,13 @@ function buildDeviceBleName({
 }
 
 /**
- * The name the DeviceStage wears on its badge and capsule second line: a
- * device's Bluetooth name, which is fixed, where `IDBDevice.name` is a
- * display name the user-settable label wins (see getDeviceDisplayName).
- * Devices that advertise no Bluetooth name — third-party vendors above
- * all — keep the display name they already showed.
+ * The name the DeviceStage wears on its badge and capsule second line: the
+ * device's Bluetooth name in the same canonical form every other surface
+ * shows it (the onboarding scan list, the device list, About) — where
+ * `IDBDevice.name` is a display name the user-settable label wins (see
+ * getDeviceDisplayName). Devices that advertise no Bluetooth name —
+ * third-party vendors above all — keep the display name they already
+ * showed.
  */
 function buildDeviceStageName({
   features,
