@@ -44,7 +44,9 @@ import type {
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import imageUtils, {
+  type IResizeImageResult,
+} from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 
@@ -468,20 +470,25 @@ function WallpaperCustomCategorySection({
 
     const imgBase64: string = data.data;
 
-    const img = await imageUtils.resizeImage({
-      uri: imgBase64,
+    let img: IResizeImageResult | undefined;
+    try {
+      img = await imageUtils.resizeImage({
+        uri: imgBase64,
 
-      width: config.size?.width,
-      height: config.size?.height,
+        width: config.size?.width,
+        height: config.size?.height,
 
-      originW,
-      originH,
-      isMonochrome,
-    });
+        originW,
+        originH,
+        isMonochrome,
+      });
+    } catch {
+      img = undefined;
+    }
 
-    // resizeImage reports a failed decode by returning a result with no base64
-    // rather than throwing. Caching that stored an empty entry, which rendered as a
-    // blank wallpaper and only failed on apply, with an internal error string.
+    // resizeImage can reject or return a result with no base64. Caching either
+    // failure stored an empty entry, which rendered as a blank wallpaper and only
+    // failed on apply with an internal error string.
     if (!img?.base64) {
       Toast.error({
         title: intl.formatMessage({
