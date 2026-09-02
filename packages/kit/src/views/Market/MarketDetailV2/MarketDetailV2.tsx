@@ -237,6 +237,19 @@ function MarketDetailV2(
   const { navigation } = props;
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
+  const stockPreview =
+    stockId &&
+    'stockPreviewSymbol' in props.route.params &&
+    props.route.params.stockPreviewSymbol &&
+    props.route.params.stockPreviewName &&
+    props.route.params.stockPreviewLogoUrl
+      ? {
+          stockId,
+          symbol: props.route.params.stockPreviewSymbol,
+          name: props.route.params.stockPreviewName,
+          logoUrl: props.route.params.stockPreviewLogoUrl,
+        }
+      : undefined;
   const initialTokenAddress =
     'tokenAddress' in props.route.params
       ? props.route.params.tokenAddress
@@ -353,6 +366,7 @@ function MarketDetailV2(
           <LegacyTokenPreviewInitializer preview={legacyTokenPreview} />
           <StockDetailProvider
             stockId={stockId}
+            initialStockPreview={stockPreview}
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
           >

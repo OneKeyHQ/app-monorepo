@@ -755,6 +755,11 @@ export interface IMarketStockPublicItem {
   sparklineUpdatedAt?: string;
 }
 
+export type IMarketStockDetailPreview = Pick<
+  IMarketStockPublicItem,
+  'stockId' | 'symbol' | 'name' | 'logoUrl'
+>;
+
 export type IMarketStockPublicListSortBy =
   | 'default'
   | 'price'
