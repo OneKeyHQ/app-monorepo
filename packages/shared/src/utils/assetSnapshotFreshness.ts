@@ -11,9 +11,7 @@ let nextLocalSeq = Date.now() * 1000;
 // persisted snapshot. Self-heal by lifting the counter above any persisted
 // sequence observed during a comparison, so the very next minted sequence
 // orders after the stored watermark.
-function observeLocalSeqWatermark(
-  meta: IAssetSnapshotMeta | undefined,
-): void {
+function observeLocalSeqWatermark(meta: IAssetSnapshotMeta | undefined): void {
   if (!meta) {
     return;
   }

@@ -583,7 +583,9 @@ function useAllNetworkRequests<T>(params: {
         // Only an explicit must-run refresh supersedes the result that just
         // completed. A dependency-triggered duplicate is still drained, but
         // its preceding result remains publishable while the gate skips it.
-        return clearRetainedResultOnAcceptedRun ? hasQueuedMustRun : hasQueuedRerun;
+        return clearRetainedResultOnAcceptedRun
+          ? hasQueuedMustRun
+          : hasQueuedRerun;
       };
 
       // A runner resumed from the debounce window may belong to a previous
@@ -1120,7 +1122,8 @@ function useAllNetworkRequests<T>(params: {
     async (config?: IAllNetworkRequestsRunConfig) => {
       if (
         isFetching.current ||
-        (clearRetainedResultOnAcceptedRun && debouncePendingCountRef.current > 0)
+        (clearRetainedResultOnAcceptedRun &&
+          debouncePendingCountRef.current > 0)
       ) {
         rerunAfterCurrentRef.current = true;
         rerunConfigRef.current = {

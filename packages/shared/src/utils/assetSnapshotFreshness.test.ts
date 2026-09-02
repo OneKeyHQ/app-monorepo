@@ -69,16 +69,14 @@ describe('assetSnapshotFreshness', () => {
     const versioned = { localSeq: 10 };
     expect(normalizeAssetSnapshotMeta(malformed)).toBeUndefined();
     expect(compareAssetSnapshotMeta(malformed, versioned)).toBeLessThan(0);
-    expect(getNewestAssetSnapshotMeta(malformed, versioned)).toEqual(
-      versioned,
-    );
+    expect(getNewestAssetSnapshotMeta(malformed, versioned)).toEqual(versioned);
   });
 
   it('lets a legacy write initialize an unversioned key but never clobber a versioned one', () => {
     expect(canApplyAssetSnapshotMeta(undefined, undefined)).toBe(true);
-    expect(
-      canApplyAssetSnapshotMeta(undefined, { localSeq: Number.NaN }),
-    ).toBe(true);
+    expect(canApplyAssetSnapshotMeta(undefined, { localSeq: Number.NaN })).toBe(
+      true,
+    );
     expect(canApplyAssetSnapshotMeta(undefined, { localSeq: 1 })).toBe(false);
     expect(canApplyAssetSnapshotMeta({ localSeq: 2 }, { localSeq: 1 })).toBe(
       true,
