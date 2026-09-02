@@ -311,6 +311,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
