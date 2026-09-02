@@ -2206,8 +2206,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             | {
                 wallet: IDBWallet;
                 indexedAccount: IDBIndexedAccount | undefined;
-                isOverrideWallet?: boolean;
-                isAttachPinMode?: boolean;
               }
             | undefined;
           if (shouldCreateHiddenWalletOnly) {
@@ -2255,8 +2253,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ? {
                   wallet: hiddenWalletCreatedResult.wallet,
                   indexedAccount: hiddenWalletCreatedResult.indexedAccount,
-                  isOverrideWallet: hiddenWalletCreatedResult.isOverrideWallet,
-                  isAttachPinMode: hiddenWalletCreatedResult.isAttachPinMode,
                 }
               : undefined,
           };
@@ -2291,8 +2287,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.autoSelectToCreatedWallet.call(set, {
               wallet: hidden.wallet,
               indexedAccount: hidden.indexedAccount,
-              isOverrideWallet: hidden.isOverrideWallet,
-              isAttachPinMode: hidden.isAttachPinMode,
+              isOverrideWallet: false,
+              isAttachPinMode: params.isAttachPinMode,
             });
           }
 
