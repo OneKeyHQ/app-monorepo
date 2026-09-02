@@ -2,6 +2,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type IMarketDetailLayoutPreloadTarget = 'desktop' | 'mobile';
 type IMarketDetailV2Module = typeof import('../index');
+type IPreloadOptions = {
+  includeHeavyModules?: boolean;
+  isStockRoute?: boolean;
+  layout?: IMarketDetailLayoutPreloadTarget;
+};
 
 let marketDetailV2ShellModule: IMarketDetailV2Module | undefined;
 let marketDetailV2ShellPromise: Promise<IMarketDetailV2Module> | undefined;
@@ -81,21 +86,20 @@ export function preloadMarketDetailV2TradingView() {
 
 export function preloadMarketDetailV2SwapPanel(
   target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
-  isStockRoute = false,
+  isStockRoute?: boolean,
 ) {
   if (shouldSkipMarketDetailPreload()) {
     return;
   }
 
-  if (target === 'desktop' && !isStockRoute) {
-    void import(
-      /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
-    ).catch(() => undefined);
-    return;
-  }
-
-  void import(
-    /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
+  void (
+    target === 'desktop' && !isStockRoute
+      ? import(
+          /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
+        )
+      : import(
+          /* webpackChunkName: "market-detail-v2-swap-panel" */ '../components/SwapPanel/SwapPanel'
+        )
   ).catch(() => undefined);
   if (target === 'mobile') {
     void import(
@@ -120,13 +124,9 @@ export function preloadMarketDetailV2InfoPanel(
 
 export function preloadMarketDetailV2BodyModules({
   layout = resolveDefaultLayoutTarget(),
-  includeHeavyModules = false,
-  isStockRoute = false,
-}: {
-  layout?: IMarketDetailLayoutPreloadTarget;
-  includeHeavyModules?: boolean;
-  isStockRoute?: boolean;
-} = {}) {
+  includeHeavyModules,
+  isStockRoute,
+}: IPreloadOptions) {
   preloadMarketDetailV2Layout(layout);
 
   if (!includeHeavyModules) {
@@ -141,16 +141,11 @@ export function preloadMarketDetailV2BodyModules({
 }
 
 export function preloadMarketDetailV2Page({
-  includeBodyModules = false,
-  includeHeavyModules = false,
+  includeBodyModules,
+  includeHeavyModules,
   layout = resolveDefaultLayoutTarget(),
-  isStockRoute = false,
-}: {
-  includeBodyModules?: boolean;
-  includeHeavyModules?: boolean;
-  layout?: IMarketDetailLayoutPreloadTarget;
-  isStockRoute?: boolean;
-} = {}) {
+  isStockRoute,
+}: IPreloadOptions & { includeBodyModules?: boolean } = {}) {
   const shellPreloadPromise = preloadMarketDetailV2Shell();
 
   if (includeBodyModules) {
