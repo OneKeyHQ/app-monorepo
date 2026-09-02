@@ -1,11 +1,19 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
+import { EAtomNames } from './atomNames';
 import { globalJotaiStorageReadyHandler } from './jotaiStorage';
 import { globalAtomRegistry } from './utils';
 import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
-import type { EAtomNames } from './atomNames';
 import type { IJotaiAtomSetWithoutProxy, IJotaiWritableAtomPro } from './types';
+
+async function syncJotaiContextStoreMemoMap(payload: unknown) {
+  const { syncJotaiContextTrackerMap } =
+    await import('./atoms/jotaiContextStoreMap');
+  syncJotaiContextTrackerMap(
+    payload as import('./atoms/jotaiContextStoreMap').IJotaiContextStoreMap,
+  );
+}
 
 function isCrossAtomLike(
   value: unknown,
@@ -21,6 +29,9 @@ function isCrossAtomLike(
 export async function jotaiUpdateFromUiByBgBroadcast(
   params: IGlobalStatesSyncBroadcastParams,
 ) {
+  if (params.name === EAtomNames.jotaiContextStoreMapAtom) {
+    await syncJotaiContextStoreMemoMap(params.payload);
+  }
   // Try registry first (no barrel import needed)
   const registeredAtom = globalAtomRegistry.get(params.name);
   if (registeredAtom) {
@@ -62,6 +73,11 @@ export async function jotaiInitFromUi({
   states: Partial<Record<EAtomNames, any>>;
   useSnapshotInjection?: boolean;
 }) {
+  if (EAtomNames.jotaiContextStoreMapAtom in states) {
+    await syncJotaiContextStoreMemoMap(
+      states[EAtomNames.jotaiContextStoreMapAtom],
+    );
+  }
   if (useSnapshotInjection) {
     // Store snapshot on globalThis for atoms to read at creation time.
     // Each atom in crossAtomBuilder checks this and uses the cached value

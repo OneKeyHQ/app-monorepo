@@ -1,9 +1,11 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IJotaiContextStoreData,
   IJotaiContextStoreMap,
   IJotaiContextStoreMapValue,
+  IJotaiContextStoreRegistrationUpdate,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EJotaiContextStoreNames,
@@ -12,6 +14,7 @@ import {
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
@@ -38,6 +41,7 @@ const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
 const accountSelectorEnabledNumCounts = new Map<string, Map<number, number>>();
+let nextMirrorRegistrationId = 0;
 
 export type IJotaiContextStoreMirrorRegistrationChange = {
   action: 'add' | 'remove';
@@ -151,7 +155,54 @@ export function JotaiContextStoreMirrorTracker({
   const { storeName, accountSelectorInfo } = data;
   const { setMap } = useJotaiContextTrackerMap();
   const storeId = buildJotaiContextStoreId(data);
+  const registrationIdRef = useRef<string | undefined>(undefined);
+  const registrationRevisionRef = useRef(0);
+  const registrationUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
+  if (!registrationIdRef.current) {
+    nextMirrorRegistrationId += 1;
+    registrationIdRef.current = `${appEventBus.nodeId}:${nextMirrorRegistrationId}`;
+  }
   useEffect(() => {
+    if (platformEnv.isExtensionUi) {
+      const enqueueRegistrationUpdate = (
+        action: IJotaiContextStoreRegistrationUpdate['action'],
+      ) => {
+        registrationRevisionRef.current += 1;
+        const update: IJotaiContextStoreRegistrationUpdate = {
+          action,
+          data: { accountSelectorInfo, storeName },
+          registrationId: registrationIdRef.current as string,
+          revision: registrationRevisionRef.current,
+          storeId,
+        };
+        registrationUpdateQueueRef.current = registrationUpdateQueueRef.current
+          .catch(() => undefined)
+          .then(async () => {
+            const result =
+              await backgroundApiProxy.updateJotaiContextStoreRegistration(
+                update,
+              );
+            if (action === 'remove' && result.registrationCount <= 0) {
+              jotaiContextStore.completeStoreResetIfRequestedById(storeId);
+            }
+            onRegistrationChange?.({
+              action,
+              registrationCount: result.registrationCount,
+              storeId,
+            });
+          })
+          .catch((error: unknown) => {
+            console.error(
+              'Failed to update the Jotai context store registration',
+              error,
+            );
+          });
+      };
+
+      enqueueRegistrationUpdate('add');
+      return () => enqueueRegistrationUpdate('remove');
+    }
+
     const processMapCount = (action: 'add' | 'remove') => {
       const toMergeMap: IJotaiContextStoreMap = {};
 
@@ -194,29 +245,10 @@ export function JotaiContextStoreMirrorTracker({
             enabledNumCounts?.set(num, nextCount);
           }
         });
-        // The counts only cover mounts of this runtime, while the map they are
-        // written into is shared across runtimes. On single UI runtime targets
-        // that is the whole picture, so a count-based shrink is accurate. An
-        // extension can run several UI runtimes (popup, side panel, expand
-        // tab) at once, so its local counts cannot represent the global
-        // picture: publish only on add, and only as a union with the already
-        // published enabledNum — replacing it with local keys after a local
-        // unmount would erase nums other runtimes still need.
-        if (action === 'add' || !platformEnv.isExtension) {
-          const localEnabledNum = [...enabledNumCounts.keys()];
-          const nextEnabledNum = platformEnv.isExtension
-            ? [
-                ...new Set([
-                  ...value.accountSelectorInfo.enabledNum,
-                  ...localEnabledNum,
-                ]),
-              ]
-            : localEnabledNum;
-          value.accountSelectorInfo = {
-            ...value.accountSelectorInfo,
-            enabledNum: nextEnabledNum.toSorted((a, b) => a - b),
-          };
-        }
+        value.accountSelectorInfo = {
+          ...value.accountSelectorInfo,
+          enabledNum: [...enabledNumCounts.keys()].toSorted((a, b) => a - b),
+        };
       }
       if (value.count <= 0) {
         delete mapCache[key];
