@@ -135,6 +135,38 @@ function reconcileTokenSelectorFavoritesOrder({
   return [...filtered, ...missing];
 }
 
+// Favorites missing from the persisted sequence keep their membership order
+// at the end, covering legacy data and toggles done outside the favorites bar.
+function sortTokenSelectorFavoritesBySequence<
+  T extends ITokenSelectorFavoriteOrderEntry,
+>(items: T[], sequence: ITokenSelectorFavoriteOrderEntry[]): T[] {
+  const itemsByKey = new Map<string, T>();
+  for (const item of items) {
+    const key = getTokenSelectorFavoriteOrderKey(item);
+    if (!itemsByKey.has(key)) {
+      itemsByKey.set(key, item);
+    }
+  }
+  const ordered: T[] = [];
+  const seenKeys = new Set<string>();
+  for (const entry of dedupeTokenSelectorFavoritesOrder(sequence)) {
+    const key = getTokenSelectorFavoriteOrderKey(entry);
+    const item = itemsByKey.get(key);
+    if (item && !seenKeys.has(key)) {
+      ordered.push(item);
+      seenKeys.add(key);
+    }
+  }
+  for (const item of items) {
+    const key = getTokenSelectorFavoriteOrderKey(item);
+    if (!seenKeys.has(key)) {
+      ordered.push(item);
+      seenKeys.add(key);
+    }
+  }
+  return ordered;
+}
+
 export {
   dedupeTokenSelectorFavoriteCoins,
   dedupeTokenSelectorFavoritesOrder,
@@ -142,6 +174,7 @@ export {
   isSameFavoritesOrderSequence,
   isSameStringArray,
   reconcileTokenSelectorFavoritesOrder,
+  sortTokenSelectorFavoritesBySequence,
   toggleTokenSelectorFavoriteCoin,
   updateTokenSelectorFavoriteCoins,
 };
