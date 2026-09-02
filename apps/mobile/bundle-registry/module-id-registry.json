@@ -18184,7 +18184,7 @@
     "packages/components/src/primitives/Image/ImageV2.native.tsx": 2234,
     "packages/components/src/primitives/Image/ImageWithFallbackSources.tsx": 2235,
     "packages/components/src/primitives/Image/cache.ts": 2236,
-    "packages/components/src/primitives/Image/cacheControl.native.ts": 7975,
+    "packages/components/src/primitives/Image/cacheControl.native.ts": 7978,
     "packages/components/src/primitives/Image/cachePolicy.ts": 2237,
     "packages/components/src/primitives/Image/context.ts": 2238,
     "packages/components/src/primitives/Image/index.tsx": 2239,
