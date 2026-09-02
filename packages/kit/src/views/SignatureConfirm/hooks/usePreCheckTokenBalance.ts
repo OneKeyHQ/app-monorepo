@@ -128,14 +128,18 @@ function usePreCheckTokenBalance({
         );
 
         if (amountToUpdate.gte(0)) {
+          const adjustedAmount = vaultSettings?.shouldFixMaxSendAmount
+            ? chainValueUtils.fixNativeTokenMaxSendAmount({
+                amount: amountToUpdate,
+                network,
+              })
+            : amountToUpdate;
+
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
-            amountToUpdate: vaultSettings?.shouldFixMaxSendAmount
-              ? chainValueUtils.fixNativeTokenMaxSendAmount({
-                  amount: amountToUpdate,
-                  network,
-                })
-              : amountToUpdate.toFixed(),
+            amountToUpdate: new BigNumber(adjustedAmount)
+              .decimalPlaces(network.decimals, BigNumber.ROUND_FLOOR)
+              .toFixed(),
           });
         } else {
           updateNativeTokenTransferAmountToUpdate({
