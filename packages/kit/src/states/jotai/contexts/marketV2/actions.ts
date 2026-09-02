@@ -78,7 +78,6 @@ function isSameMarketTokenDetail({
 }
 
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
-  // Token Detail Actions
   setTokenDetail = contextAtomMethod(
     (_, set, payload: IMarketTokenDetail | undefined) => {
       set(tokenDetailAtom(), payload);
@@ -315,10 +314,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  // ShowWatchlistOnly Actions
   setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
     set(showWatchlistOnlyAtom(), payload);
-    // Emit app event when showWatchlistOnly changes
     appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
       showWatchlistOnly: payload,
     });
@@ -328,7 +325,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     const current = get(showWatchlistOnlyAtom());
     const newValue = !current;
     set(showWatchlistOnlyAtom(), newValue);
-    // Emit app event when showWatchlistOnly changes
     appEventBus.emit(EAppEventBusNames.MarketWatchlistOnlyChanged, {
       showWatchlistOnly: newValue,
     });
@@ -390,7 +386,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
-        // Extract token, websocket and perpsInfo from response format
         const tokenData = responseData.data.token;
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
@@ -450,7 +445,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  // Existing WatchList Actions
   flushWatchListV2Atom = contextAtomMethod(
     (_, set, payload: IMarketWatchListItemV2[]) => {
       const result = { data: payload };
@@ -458,7 +452,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  // ------------------------------------------------------------
   refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
@@ -512,9 +505,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_addIntoWatchListV2',
         });
       } catch (error) {
-        if (get(marketWatchListV2Atom()).data === sortedNewData) {
-          set(marketWatchListV2Atom(), prev);
-        }
+        const current = get(marketWatchListV2Atom());
+        const failedKeys = new Set(params.map(uniqByFn));
+        set(marketWatchListV2Atom(), {
+          ...current,
+          data: current.data.filter((item) => !failedKeys.has(uniqByFn(item))),
+        });
         throw error;
       }
       await this.refreshWatchListV2.call(set).catch(() => undefined);
@@ -555,9 +551,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           callerName: 'jotaiContextActions_removeFromWatchListV2',
         });
       } catch (error) {
-        if (get(marketWatchListV2Atom()).data === newData) {
-          set(marketWatchListV2Atom(), prev);
-        }
+        const current = get(marketWatchListV2Atom());
+        const removed = prev.data.filter((item) => !newData.includes(item));
+        const data = sortUtils.buildSortedList({
+          oldList: current.data,
+          saveItems: removed,
+          uniqByFn,
+        });
+        set(marketWatchListV2Atom(), { ...current, data });
         throw error;
       }
       await this.refreshWatchListV2.call(set).catch(() => undefined);
@@ -595,7 +596,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       await this.refreshWatchListV2.call(set);
 
-      // Sync to Perps TokenSelector favorites
       void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
         coin: perpsCoin,
         action: 'add',
@@ -619,7 +619,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       await this.refreshWatchListV2.call(set);
 
-      // Sync to Perps TokenSelector favorites
       void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
         coin: perpsCoin,
         action: 'remove',
@@ -733,7 +732,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
     set(marketWatchListV2Atom(), { ...prev, data: [] });
 
-    // Asynchronously call API without waiting for result
     await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
   });
 }
