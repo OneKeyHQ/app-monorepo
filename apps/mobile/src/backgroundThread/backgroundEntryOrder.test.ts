@@ -5,7 +5,16 @@ const mockExecutorInstalled = new Promise<void>((resolve) => {
   mockResolveExecutorInstalled = resolve;
 });
 
-jest.mock('@onekeyhq/shared/src/polyfills', () => ({}));
+jest.mock('@onekeyhq/shared/src/polyfills', () => {
+  mockLoadOrder.push('polyfills');
+  return {};
+});
+
+jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
+  markRuntimePolyfillsReady: jest.fn(() => {
+    mockLoadOrder.push('polyfills-ready');
+  }),
+}));
 
 jest.mock(
   '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
@@ -58,6 +67,8 @@ describe('background entry initialization order', () => {
     await mockExecutorInstalled;
 
     expect(mockLoadOrder).toEqual([
+      'polyfills',
+      'polyfills-ready',
       'handler',
       'storage',
       'business',
