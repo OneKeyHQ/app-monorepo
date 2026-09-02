@@ -28,7 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
-  IMarketAccountPortfolioItem,
+  IMarketAccountPortfolioDisplayItem,
   IMarketStockInfo,
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -780,9 +780,15 @@ function StockOverviewGrid() {
   );
 }
 
-function StockPosition() {
-  const { portfolioData, isRefreshing, hasAccount } = useStockPortfolioData();
-
+function StockPosition({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+}) {
   return (
     <Portfolio
       standalone
@@ -1031,7 +1037,15 @@ function StockAbout() {
   );
 }
 
-function StockOverview() {
+function StockOverview({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+}) {
   const intl = useIntl();
   const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
 
@@ -1098,7 +1112,11 @@ function StockOverview() {
         // Portfolio brings its own horizontal padding and sizes to its rows, so
         // it is mounted bare: an outer gutter would double-indent the table and
         // a min-height would strand the section header above dead space.
-        <StockPosition />
+        <StockPosition
+          portfolioData={portfolioData}
+          isRefreshing={isRefreshing}
+          hasAccount={hasAccount}
+        />
       )}
     </YStack>
   );
@@ -1107,7 +1125,6 @@ function StockOverview() {
 export function StockDesktopLayout({
   marketTradingView,
   swapToken,
-  portfolioData,
   chartMode,
   isChartSwitchDisabled,
   disableTrade,
@@ -1119,7 +1136,6 @@ export function StockDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
-  portfolioData: IMarketAccountPortfolioItem[];
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   disableTrade?: boolean;
@@ -1132,6 +1148,11 @@ export function StockDesktopLayout({
   onEnterChartFullscreen: () => void;
 }) {
   const { stockId } = useStockDetail();
+  const {
+    portfolioData: stockPortfolioData,
+    isRefreshing: isStockPortfolioRefreshing,
+    hasAccount: hasStockPortfolioAccount,
+  } = useStockPortfolioData();
   const [{ source: priceMode }, setPriceSource] = useMarketPriceSourceAtom();
   const handlePriceModeChange = useCallback(
     (source: IMarketPriceSource) => setPriceSource({ source }),
@@ -1220,7 +1241,11 @@ export function StockDesktopLayout({
           {/* The tab owns the whole lower region: Overview carries the stat
               grid and the editorial sections, My position replaces all of
               them. */}
-          <StockOverview />
+          <StockOverview
+            portfolioData={stockPortfolioData}
+            isRefreshing={isStockPortfolioRefreshing}
+            hasAccount={hasStockPortfolioAccount}
+          />
         </YStack>
 
         <Stack
@@ -1233,7 +1258,7 @@ export function StockDesktopLayout({
           <SwapPanel
             swapToken={swapToken}
             disableTrade={disableTrade}
-            portfolioData={portfolioData}
+            portfolioData={stockPortfolioData}
             stockDetailDesktopLayout
           />
         </Stack>

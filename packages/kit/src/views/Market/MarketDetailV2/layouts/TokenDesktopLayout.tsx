@@ -146,6 +146,7 @@ export function TokenDesktopLayout({
   chartFullscreenZIndex,
   chartMode,
   isChartSwitchDisabled,
+  disableTrade,
   onChartSwitch,
   onEnterChartFullscreen,
   InformationTabsComponent,
@@ -162,6 +163,7 @@ export function TokenDesktopLayout({
   chartFullscreenZIndex: number;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
+  disableTrade?: boolean;
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
   InformationTabsComponent: ComponentType<IDesktopInformationTabsProps>;
@@ -257,9 +259,11 @@ export function TokenDesktopLayout({
           width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
           flexShrink={0}
         >
-          <Stack px="$5" pt="$5" pb="$3">
-            <SwapPanel swapToken={swapToken} portfolioData={portfolioData} />
-          </Stack>
+          {disableTrade ? null : (
+            <Stack px="$5" pt="$5" pb="$3">
+              <SwapPanel swapToken={swapToken} portfolioData={portfolioData} />
+            </Stack>
+          )}
         </YStack>
       </XStack>
     </YStack>
