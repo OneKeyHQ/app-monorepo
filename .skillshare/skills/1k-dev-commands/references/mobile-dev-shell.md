@@ -27,6 +27,12 @@ If more than one target is available, do not guess. Resolve the requested UDID
 or serial and rerun with `--device <serial-or-UDID>`. The launcher accepts one
 available target without an explicit device argument.
 
+`--metro-url <origin>` overrides only the device-visible route written into the
+private session. Use it for a LAN address or reverse proxy that routes to the
+Metro process started by this launcher. It does not attach to an independently
+started Metro process; the launcher-owned process receives the session ID used
+to reject requests from other worktrees and device sessions.
+
 The target must support the published shell architecture: `arm64` for an iOS
 Simulator or `arm64-v8a` for Android. The launcher rejects unsupported targets
 before restoring, building, or installing a shell.

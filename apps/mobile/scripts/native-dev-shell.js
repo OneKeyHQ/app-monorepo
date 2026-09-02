@@ -623,7 +623,10 @@ function configureDeviceMetro({
   runCheckedCommand = runChecked,
   runForOutputCommand = runForOutput,
 }) {
-  if (requestedMetroUrl) return { metroUrl: requestedMetroUrl };
+  if (requestedMetroUrl) {
+    // Only override the device-facing route. Metro remains launcher-owned.
+    return { metroUrl: requestedMetroUrl };
+  }
   if (platform !== 'android') {
     return { metroUrl: getDefaultMetroUrl(platform, metroPort) };
   }

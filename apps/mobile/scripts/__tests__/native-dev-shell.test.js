@@ -112,7 +112,7 @@ describe('native-dev-shell', () => {
     fs.rmSync(temporaryDirectory, { force: true, recursive: true });
   });
 
-  it('normalizes an external Metro origin', () => {
+  it('normalizes a device-visible Metro origin', () => {
     expect(parseMetroBaseUrl('http://192.168.1.5:8081/')).toBe(
       'http://192.168.1.5:8081',
     );
@@ -1297,7 +1297,7 @@ describe('native-dev-shell', () => {
     );
   });
 
-  it('validates an explicit Metro URL before acquiring runtime locks', () => {
+  it('binds an explicit device route to launcher-owned Metro', () => {
     const nativeDevShell = fs.readFileSync(
       path.join(__dirname, '../native-dev-shell.js'),
       'utf8',
@@ -1313,6 +1313,10 @@ describe('native-dev-shell', () => {
     expect(launchSource.indexOf('const metroAllocation =')).toBeGreaterThan(
       launchSource.indexOf('try {'),
     );
+    expect(launchSource).toContain(
+      'requestedMetroUrl: requestedDeviceMetroUrl',
+    );
+    expect(launchSource).toContain('ONEKEY_DEV_SESSION_ID: sessionId');
   });
 
   it('binds each shell platform to its native contract', () => {
