@@ -373,7 +373,7 @@ function SecurityCheckCard({
   ) : null;
 
   const staticSection =
-    !hasFindings && (model.status === 'loading' || model.shouldShowNoIssue) ? (
+    !hasFindings && model.status ? (
       <XStack alignItems="center" gap="$2" px="$3" py="$2.5">
         <YStack flex={1} minWidth={0} gap="$0.5">
           {renderHeaderTitle()}
@@ -388,8 +388,7 @@ function SecurityCheckCard({
     ) : null;
 
   const securitySection = findingsSection ?? staticSection;
-  const showSignGuardFooter =
-    !hasFindings || accordionValue.includes(SECURITY_CHECK_ACCORDION_VALUE);
+  const showSignGuardFooter = hasAssets || model.hasTransactionSecurityCheck;
 
   if (!hasAssets && !securitySection) {
     return null;

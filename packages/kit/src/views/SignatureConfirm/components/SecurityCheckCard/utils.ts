@@ -21,20 +21,25 @@ function findParserAlertSentenceEnd(text: string) {
   return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
-// Address tag severities that represent risk. They stay next to the address,
-// while the SecurityCheckCard uses this set only to avoid a contradictory
-// global "No issues" verdict.
-export const RISK_BADGE_TYPES: ReadonlySet<IBadgeType> = new Set<IBadgeType>([
-  'warning',
-  'critical',
-]);
+// Address details stay next to the address row. The card only consumes their
+// highest severity so its overall verdict cannot contradict those details.
+export function getAddressRiskStatus(components: IDisplayComponent[]) {
+  let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
 
-export function hasAddressRiskTags(components: IDisplayComponent[]) {
-  return components.some(
-    (component) =>
-      component.type === EParseTxComponentType.Address &&
-      component.tags.some((tag) => RISK_BADGE_TYPES.has(tag.displayType)),
-  );
+  components.forEach((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      return;
+    }
+    component.tags.forEach((tag) => {
+      if (tag.displayType === 'critical') {
+        status = 'critical';
+      } else if (tag.displayType === 'warning' && !status) {
+        status = 'warning';
+      }
+    });
+  });
+
+  return status;
 }
 
 export function shouldShowNoIssueSection({
@@ -72,10 +77,12 @@ export function shouldHideGenericPermitAlert({
 }) {
   const normalize = (value: string) =>
     value.trim().replace(/\s+/g, ' ').toLowerCase();
+  const normalizedAlert = normalize(alert);
   return (
     isPermitSignMethod &&
     isSiteVerified &&
-    normalize(alert) === normalize(genericPermitAlert)
+    Boolean(normalizedAlert) &&
+    normalizedAlert === normalize(genericPermitAlert)
   );
 }
 

@@ -17,8 +17,8 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 
 import {
+  getAddressRiskStatus,
   getParserAlertDisplay,
-  hasAddressRiskTags,
   shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
@@ -77,6 +77,7 @@ export type ISecurityCheckViewModel = {
   coverageTitle: string;
   statusSourceTitle: string;
   isPending: boolean;
+  hasTransactionSecurityCheck: boolean;
   shouldShowNoIssue: boolean;
   defaultExpanded: boolean;
 };
@@ -332,7 +333,19 @@ function getOperationFindings({
     const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
 
     if (isTypedData) {
-      if (isOrderSignMethod) {
+      if (isPermitSignMethod) {
+        localMessageFindings.push({
+          id: 'message-permit',
+          category: 'operation',
+          status: 'info',
+          title: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_permit_signature_request__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.dapp_connect_security_checks_permit_authorization__desc,
+          }),
+        });
+      } else if (isOrderSignMethod) {
         localMessageFindings.push({
           id: 'message-order',
           category: 'operation',
@@ -344,7 +357,7 @@ function getOperationFindings({
             id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
           }),
         });
-      } else if (!isPermitSignMethod) {
+      } else {
         localMessageFindings.push({
           id: 'message-typed-data',
           category: 'operation',
@@ -553,8 +566,11 @@ export function buildSecurityCheckModel(
   const {
     kind,
     decodedTxs,
+    unsignedMessage,
+    urlSecurityInfo,
     isConfirmationRequired,
     isTransactionSecurityPending,
+    transactionSecurityInfo,
     intl,
   } = params;
   const findings = dedupeFindings(
@@ -583,22 +599,36 @@ export function buildSecurityCheckModel(
     return weightDiff || CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b);
   });
   const highestFindingStatus = getHighestFindingStatus(findings);
-  const hasAddressRisk = hasAddressRiskTags(getDisplayComponents(params));
+  const addressRiskStatus = getAddressRiskStatus(getDisplayComponents(params));
+  const hasAddressRisk = Boolean(addressRiskStatus);
+  const highestStatus =
+    addressRiskStatus &&
+    (!highestFindingStatus ||
+      SECURITY_CHECK_STATUS_WEIGHT[addressRiskStatus] >
+        SECURITY_CHECK_STATUS_WEIGHT[highestFindingStatus])
+      ? addressRiskStatus
+      : highestFindingStatus;
   const coverageTitle = getCoverageTitle(params);
   const shouldShowNoIssue = shouldShowNoIssueSection({
-    hasCardFindings: findings.length > 0,
+    hasCardFindings: findings.some((finding) => finding.status !== 'info'),
     hasAddressRisk,
     hasResolvedRequiredChecks: hasResolvedRequiredChecks(params),
     hasCoverageTitle: Boolean(coverageTitle),
     isTransactionSecurityPending,
   });
-  const hasRiskFinding = findings.some(
-    (finding) => finding.status === 'critical' || finding.status === 'warning',
-  );
+  const hasRiskFinding =
+    highestStatus === 'critical' || highestStatus === 'warning';
+  const isTrustedPermit =
+    kind === 'message' &&
+    Boolean(
+      unsignedMessage &&
+      isPrimaryTypePermitSign({ unsignedMessage }) &&
+      urlSecurityInfo?.level === EHostSecurityLevel.Security,
+    );
   const requestNeedsConfirmation =
     kind === 'transaction'
       ? decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
-      : isConfirmationRequired;
+      : isConfirmationRequired && !isTrustedPermit;
   let confirmation: ISecurityCheckConfirmation = 'none';
   if (isTransactionSecurityPending) {
     confirmation = 'pending';
@@ -607,23 +637,25 @@ export function buildSecurityCheckModel(
   } else if (requestNeedsConfirmation) {
     confirmation = 'request';
   }
-  let status: ISecurityCheckStatus | undefined = highestFindingStatus;
+  let status: ISecurityCheckStatus | undefined = highestStatus;
   if (!status && isTransactionSecurityPending) {
     status = 'loading';
-  } else if (!status && shouldShowNoIssue) {
+  } else if ((!status || status === 'info') && shouldShowNoIssue) {
     status = 'success';
   }
-  const statusSourceTitle = highestFindingStatus
-    ? CATEGORY_ORDER.filter((category) =>
-        findings.some(
-          (finding) =>
-            finding.category === category &&
-            finding.status === highestFindingStatus,
-        ),
-      )
-        .map((category) => getCategorySourceLabel({ category, kind, intl }))
-        .join(' · ')
-    : coverageTitle;
+  const statusSourceCategories = CATEGORY_ORDER.filter(
+    (category) =>
+      findings.some(
+        (finding) => finding.category === category && finding.status === status,
+      ) ||
+      (category === 'operation' && addressRiskStatus === status),
+  );
+  const statusSourceTitle =
+    status === 'success' || status === 'loading'
+      ? coverageTitle
+      : statusSourceCategories
+          .map((category) => getCategorySourceLabel({ category, kind, intl }))
+          .join(' · ') || coverageTitle;
 
   return {
     kind,
@@ -635,12 +667,17 @@ export function buildSecurityCheckModel(
     coverageTitle,
     statusSourceTitle,
     isPending: Boolean(isTransactionSecurityPending),
-    shouldShowNoIssue,
-    defaultExpanded: findings.some(
-      (finding) =>
-        finding.status === 'critical' ||
-        finding.status === 'warning' ||
-        (finding.status === 'unknown' && finding.category !== 'site'),
+    hasTransactionSecurityCheck: Boolean(
+      transactionSecurityInfo || isTransactionSecurityPending,
     ),
+    shouldShowNoIssue,
+    defaultExpanded:
+      hasAddressRisk ||
+      findings.some(
+        (finding) =>
+          finding.status === 'critical' ||
+          finding.status === 'warning' ||
+          (finding.status === 'unknown' && finding.category !== 'site'),
+      ),
   };
 }

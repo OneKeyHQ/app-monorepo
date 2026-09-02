@@ -7,6 +7,8 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -81,6 +83,7 @@ function TxConfirm() {
     >();
 
   const intl = useIntl();
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
 
   const {
     transferPayload,
@@ -115,6 +118,7 @@ function TxConfirm() {
     reactiveUnsignedTxs?.[0]?.accountId ?? route.params.accountId;
   const networkId =
     reactiveUnsignedTxs?.[0]?.networkId ?? route.params.networkId;
+  const { network: securityCheckNetwork } = useAccountData({ networkId });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -391,28 +395,31 @@ function TxConfirm() {
     [reactiveUnsignedTxs],
   );
 
+  const unsignedTxsToCheck = useMemo(
+    () =>
+      (reactiveUnsignedTxs ?? []).filter((unsignedTx) =>
+        Boolean(unsignedTx.encodedTx),
+      ),
+    [reactiveUnsignedTxs],
+  );
+  const shouldCheckTransactionSecurity = Boolean(
+    isPrimeSubscriptionActive &&
+    securityCheckNetwork &&
+    !securityCheckNetwork.isCustomNetwork &&
+    sourceInfo?.origin &&
+    accountId &&
+    networkId &&
+    unsignedTxsToCheck.length,
+  );
+
   const {
     result: transactionSecurityCheck,
     isLoading: isCheckingTransactionSecurity,
   } = usePromiseResult(
     async () => {
-      const requestKey = (reactiveUnsignedTxs ?? [])
-        .map(
-          (tx, index) =>
-            tx.uuid ?? `${tx.accountId ?? ''}:${tx.networkId ?? ''}:${index}`,
-        )
-        .join('|');
-      const unsignedTxsToCheck = (reactiveUnsignedTxs ?? []).filter(
-        (unsignedTx) => Boolean(unsignedTx.encodedTx),
-      );
-      if (
-        !sourceInfo?.origin ||
-        !accountId ||
-        !networkId ||
-        unsignedTxsToCheck.length === 0
-      ) {
+      if (!shouldCheckTransactionSecurity) {
         return {
-          requestKey,
+          requestKey: securityCheckRequestKey,
           result: undefined,
         };
       }
@@ -426,18 +433,24 @@ function TxConfirm() {
         ),
       );
       return {
-        requestKey,
+        requestKey: securityCheckRequestKey,
         result: mergeTransactionSecurityResults(results),
       };
     },
-    [accountId, networkId, reactiveUnsignedTxs, sourceInfo?.origin],
+    [
+      accountId,
+      networkId,
+      securityCheckRequestKey,
+      shouldCheckTransactionSecurity,
+      unsignedTxsToCheck,
+    ],
     {
       watchLoading: true,
     },
   );
 
-  const shouldCheckTransactionSecurity = Boolean(sourceInfo?.origin);
   const isCurrentTransactionSecurityCheck =
+    shouldCheckTransactionSecurity &&
     transactionSecurityCheck?.requestKey === securityCheckRequestKey;
   const transactionSecurityInfo = isCurrentTransactionSecurityCheck
     ? transactionSecurityCheck.result

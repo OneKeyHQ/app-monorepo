@@ -1,7 +1,11 @@
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 import type { ITransactionSecurityCheckResult } from '@onekeyhq/shared/types/transactionSecurity';
 
@@ -21,6 +25,11 @@ const parsedMessage: ISignatureConfirmDisplay = {
   title: 'Signature request',
   components: [],
   alerts: [],
+};
+
+const permitMessage: IUnsignedMessage = {
+  type: EMessageTypesEth.TYPED_DATA_V4,
+  message: JSON.stringify({ primaryType: 'Permit' }),
 };
 
 function buildTransactionSecurityResult(
@@ -52,6 +61,7 @@ describe('securityCheckModel', () => {
 
     expect(model.status).toBe('success');
     expect(model.confirmation).toBe('request');
+    expect(model.hasTransactionSecurityCheck).toBe(true);
     expect(model.findings).toEqual([]);
   });
 
@@ -72,6 +82,57 @@ describe('securityCheckModel', () => {
     expect(model.findings.map((finding) => finding.id)).toEqual([
       'tx-security-result-high',
     ]);
+  });
+
+  it('keeps a trusted generic Permit request informational', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        alerts: [ETranslations.dapp_connect_permit_sign_alert],
+      },
+      unsignedMessage: permitMessage,
+      isConfirmationRequired: true,
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Security,
+      ),
+      intl,
+    });
+
+    expect(model.status).toBe('success');
+    expect(model.confirmation).toBe('none');
+    expect(model.findings).toEqual([
+      expect.objectContaining({ id: 'message-permit', status: 'info' }),
+    ]);
+  });
+
+  it('includes address risk in the overall verdict without duplicating it', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        components: [
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Spender',
+            address: '0xrisk',
+            tags: [{ value: 'Suspicious address', displayType: 'warning' }],
+          },
+        ],
+      },
+      intl,
+    });
+
+    expect(model.status).toBe('warning');
+    expect(model.confirmation).toBe('risk');
+    expect(model.findings).toEqual([]);
+    expect(model.statusSourceTitle).toBe(
+      ETranslations.dapp_connect_signature_analysis__title,
+    );
   });
 
   it('keeps an existing warning visible while Prime is still checking', () => {
@@ -107,6 +168,7 @@ describe('securityCheckModel', () => {
     expect(model.status).toBe('loading');
     expect(model.confirmation).toBe('pending');
     expect(model.isPending).toBe(true);
+    expect(model.hasTransactionSecurityCheck).toBe(true);
     expect(model.findings).toEqual([]);
     expect(model.shouldShowNoIssue).toBe(false);
   });
@@ -125,5 +187,19 @@ describe('securityCheckModel', () => {
 
     expect(model.status).toBe('unknown');
     expect(model.confirmation).toBe('none');
+    expect(model.hasTransactionSecurityCheck).toBe(true);
+  });
+
+  it('does not attribute basic checks to transaction security', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      intl,
+    });
+
+    expect(model.status).toBe('success');
+    expect(model.hasTransactionSecurityCheck).toBe(false);
   });
 });

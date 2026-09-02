@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -78,6 +80,7 @@ function MessageConfirm() {
     >();
 
   const intl = useIntl();
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
 
   const {
     accountId,
@@ -91,6 +94,7 @@ function MessageConfirm() {
     onFail,
     onCancel,
   } = route.params;
+  const { network: securityCheckNetwork } = useAccountData({ networkId });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -233,17 +237,41 @@ function MessageConfirm() {
     [networkId, sourceInfo?.data],
   );
 
+  const transactionSecurityCheckParams = useMemo(() => {
+    if (
+      !isPrimeSubscriptionActive ||
+      !securityCheckNetwork ||
+      securityCheckNetwork.isCustomNetwork ||
+      !sourceInfo?.origin ||
+      !accountId ||
+      !networkId ||
+      !transactionSecurityJsonRpc
+    ) {
+      return undefined;
+    }
+    return {
+      accountId,
+      networkId,
+      jsonRpc: transactionSecurityJsonRpc,
+    };
+  }, [
+    accountId,
+    isPrimeSubscriptionActive,
+    networkId,
+    securityCheckNetwork,
+    sourceInfo?.origin,
+    transactionSecurityJsonRpc,
+  ]);
+  const shouldCheckTransactionSecurity = Boolean(
+    transactionSecurityCheckParams,
+  );
+
   const {
     result: transactionSecurityCheck,
     isLoading: isCheckingTransactionSecurity,
   } = usePromiseResult(
     async () => {
-      if (
-        !sourceInfo?.origin ||
-        !accountId ||
-        !networkId ||
-        !transactionSecurityJsonRpc
-      ) {
+      if (!transactionSecurityCheckParams) {
         return {
           requestKey: securityCheckRequestKey,
           result: undefined,
@@ -251,33 +279,21 @@ function MessageConfirm() {
       }
       const transactionSecurityResult =
         await backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
-          {
-            accountId,
-            networkId,
-            jsonRpc: transactionSecurityJsonRpc,
-          },
+          transactionSecurityCheckParams,
         );
       return {
         requestKey: securityCheckRequestKey,
         result: transactionSecurityResult,
       };
     },
-    [
-      accountId,
-      networkId,
-      securityCheckRequestKey,
-      sourceInfo?.origin,
-      transactionSecurityJsonRpc,
-    ],
+    [securityCheckRequestKey, transactionSecurityCheckParams],
     {
       watchLoading: true,
     },
   );
 
-  const shouldCheckTransactionSecurity = Boolean(
-    sourceInfo?.origin && transactionSecurityJsonRpc,
-  );
   const isCurrentTransactionSecurityCheck =
+    shouldCheckTransactionSecurity &&
     transactionSecurityCheck?.requestKey === securityCheckRequestKey;
   const transactionSecurityInfo = isCurrentTransactionSecurityCheck
     ? transactionSecurityCheck.result
