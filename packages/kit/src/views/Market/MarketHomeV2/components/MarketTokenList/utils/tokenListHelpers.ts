@@ -1,5 +1,8 @@
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
@@ -129,6 +132,14 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   return network?.logoURI || '';
 }
 
+export function buildMarketNetworkLogoUriMap(
+  networkList: readonly IMarketBasicConfigNetwork[],
+) {
+  return new Map<string, string>(
+    networkList.map((network) => [network.networkId, network.logoUrl] as const),
+  );
+}
+
 function safeNumber(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
@@ -208,6 +219,29 @@ export function calculateMarketTokenLivePriceChange({
   return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
+export function getMarketTokenNetworkLogoUri({
+  tokenNetworkId,
+  chainId,
+  networkLogoUriMap,
+  networkLogoUri,
+}: {
+  tokenNetworkId?: string;
+  chainId: string;
+  networkLogoUriMap?: ReadonlyMap<string, string>;
+  networkLogoUri: string;
+}) {
+  if (!tokenNetworkId) {
+    return networkLogoUri;
+  }
+
+  return (
+    networkLogoUriMap?.get(tokenNetworkId) ||
+    (tokenNetworkId === chainId
+      ? networkLogoUri
+      : getNetworkLogoUri(tokenNetworkId))
+  );
+}
+
 /**
  * Convert raw api item to component token shape
  */
@@ -228,12 +262,12 @@ export function transformApiItemToToken(
   },
 ): IMarketToken {
   const tokenNetworkId = item.networkId || chainId;
-  const tokenNetworkLogoUri = item.networkId
-    ? networkLogoUriMap?.get(item.networkId) ||
-      (item.networkId === chainId
-        ? networkLogoUri
-        : getNetworkLogoUri(item.networkId))
-    : networkLogoUri;
+  const tokenNetworkLogoUri = getMarketTokenNetworkLogoUri({
+    tokenNetworkId: item.networkId,
+    chainId,
+    networkLogoUriMap,
+    networkLogoUri,
+  });
 
   const priceChangeValue = item.stock
     ? item.priceChange24hPercent
