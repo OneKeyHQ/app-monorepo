@@ -10,12 +10,11 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
   '1W',
   '1M',
   '1Y',
-] as const satisfies readonly IStockSimpleChartRange[];
-
-export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
-  ...TOKEN_SIMPLE_CHART_RANGES,
   'All',
 ] as const satisfies readonly IStockSimpleChartRange[];
+
+export const STOCK_SHARE_SIMPLE_CHART_RANGES =
+  TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
 
 type IStockSimpleChartRequestParams = {
   coinGeckoId?: string;
@@ -53,7 +52,7 @@ export function resolveStockSimpleChartRequestScope({
     isNative,
     networkId,
     priceMode,
-    range: range === 'All' ? '1Y' : range,
+    range,
     stockId: undefined,
     tokenAddress,
   };
@@ -100,6 +99,31 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1Y': '1y',
   All: 'all',
 };
+
+async function resolveTokenChartCoinGeckoId({
+  coinGeckoId,
+  networkId,
+  tokenAddress,
+}: {
+  coinGeckoId?: string;
+  networkId: string;
+  tokenAddress: string;
+}) {
+  const normalizedCoinGeckoId = coinGeckoId?.trim();
+  if (normalizedCoinGeckoId) {
+    return normalizedCoinGeckoId;
+  }
+
+  try {
+    const tokenInfo = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+      networkId,
+      tokenAddress,
+    });
+    return tokenInfo?.info?.coingeckoId?.trim() || undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
 
 export async function fetchStockSimpleChartPoints(
   params: IStockSimpleChartRequestParams,
@@ -149,11 +173,22 @@ export async function fetchStockSimpleChartPoints(
       .toSorted((a, b) => a[0] - b[0]);
   }
 
-  if (coinGeckoId) {
+  if (coinGeckoId || range === 'All') {
+    const resolvedCoinGeckoId =
+      range === 'All'
+        ? await resolveTokenChartCoinGeckoId({
+            coinGeckoId,
+            networkId,
+            tokenAddress,
+          })
+        : coinGeckoId;
     const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
-      coinGeckoId,
+      resolvedCoinGeckoId,
       COINGECKO_CHART_DAYS[range],
-      { requestCurrency: 'usd' },
+      {
+        requestCurrency: 'usd',
+        ...(!resolvedCoinGeckoId ? { networkId, tokenAddress } : undefined),
+      },
     );
     return response
       .map(
@@ -173,6 +208,10 @@ export async function fetchStockSimpleChartPoints(
           timestamp <= timeTo,
       )
       .toSorted((a, b) => a[0] - b[0]);
+  }
+
+  if (timeFrom === undefined) {
+    return [];
   }
 
   const response =
