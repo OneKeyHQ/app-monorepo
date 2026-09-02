@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -66,6 +67,7 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
+  buildBleBondError,
   buildBleNotifyChangeError,
   buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
@@ -790,8 +792,11 @@ function HardwareUiStateContainerCmpControlled() {
     const callback = throttle(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        // Only handle DeviceNotFound errors for now, can be extended for other error types
-        if (errorType !== 'DeviceNotFound') {
+        const isDeviceNotFound =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
+        const isBleDeviceBondError =
+          errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+        if (!isDeviceNotFound && !isBleDeviceBondError) {
           return;
         }
         // Prevent duplicate dialog instances
@@ -800,6 +805,13 @@ function HardwareUiStateContainerCmpControlled() {
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
+
+        if (isBleDeviceBondError) {
+          hardwareErrorDialogInstanceRef.current = Dialog.show(
+            buildBleBondError(intl),
+          );
+          return;
+        }
 
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);

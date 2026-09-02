@@ -1,6 +1,11 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
+  EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
+  appEventBus,
+} from '../../eventBus/appEventBus';
+import {
   BluetoothUnavailableWhileUsbConnectedError,
   ConnectTimeoutError,
   DeviceBondError,
@@ -103,7 +108,44 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect(error).toMatchObject({
         code: HardwareErrorCode.BleDeviceBondError,
         key: 'feedback.try_repairing_device_in_settings',
+        autoToast: false,
       });
     },
   );
+
+  it('opens the shared repair dialog for interactive calls', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError({
+      code: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      connectId: 'PRO2_BLE',
+    });
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      }),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it('does not open the repair dialog for silent probes', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError(
+      {
+        code: HardwareErrorCode.BleDeviceBondError,
+        connectId: 'PRO2_BLE',
+      },
+      { silentMode: true },
+    );
+
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.anything(),
+    );
+    emitSpy.mockRestore();
+  });
 });

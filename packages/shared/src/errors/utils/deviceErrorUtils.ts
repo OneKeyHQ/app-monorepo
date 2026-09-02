@@ -183,7 +183,10 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
-      return new HardwareErrors.DeviceBondError({ payload });
+      return new HardwareErrors.DeviceBondError({
+        payload,
+        silentMode: options?.silentMode,
+      });
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new HardwareErrors.BleWriteCharacteristicError({ payload });
     case HardwareErrorCode.BleScanError:

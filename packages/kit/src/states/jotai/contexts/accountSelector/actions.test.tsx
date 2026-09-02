@@ -879,6 +879,63 @@ describe('useAccountSelectorActions', () => {
       });
     });
 
+    it('marks the stale wallet deprecated after standard wallet creation', async () => {
+      const resetCurrentDevice = {
+        id: 'db-device-after-reset',
+        connectId: 'runtime-connect-id',
+        usbConnectId: 'PRO2-USB',
+        deviceId: 'device-id-after-reset',
+      };
+      const newStandardWallet = {
+        ...standardWallet,
+        id: 'hw-after-reset',
+        associatedDevice: resetCurrentDevice.id,
+        isMocked: false,
+      } as IWallet;
+      mockCreateHWWalletService.mockResolvedValueOnce({
+        wallet: newStandardWallet,
+        device: resetCurrentDevice,
+        indexedAccount: {
+          ...standardIndexedAccount,
+          id: 'hw-after-reset--0',
+          walletId: newStandardWallet.id,
+        },
+        isOverrideWallet: false,
+      });
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        oldStandard: {
+          wallet: {
+            id: 'hw-before-reset',
+            deprecated: false,
+          },
+          device: {
+            connectId: 'legacy-primary-id',
+            usbConnectId: 'pro2-usb',
+            deviceId: 'device-id-before-reset',
+          },
+        },
+        currentStandard: {
+          wallet: newStandardWallet,
+          device: resetCurrentDevice,
+        },
+      });
+
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithoutHidden(createParams);
+      });
+
+      expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+        willUpdateDeprecateMap: {
+          'hw-before-reset': true,
+        },
+      });
+    });
+
     it('does not broadcast a redundant wallet state update', async () => {
       mockGetAllHwQrWalletWithDevice.mockResolvedValue({
         oldHidden: {

@@ -2118,9 +2118,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   createHWWalletWithoutHidden = contextAtomMethod(
     async (_, set, params: IDBCreateHwWalletParamsBase) => {
+      let createdDevice: IDBDevice | undefined;
+
       return this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, indexedAccount, isOverrideWallet } =
+          const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
@@ -2132,6 +2134,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 disableAutoSelect: true,
               },
             );
+          createdDevice = device;
           if (!wallet.isMocked && indexedAccount?.id) {
             // autoSelect account here
             await this.autoSelectToCreatedWallet.call(set, {
@@ -2159,6 +2162,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             skipDeviceCancel: false,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
           });
+          if (createdDevice?.connectId && createdDevice.deviceId) {
+            await this.updateHwWalletsDeprecatedStatus.call(set, {
+              connectId: createdDevice.connectId,
+              usbConnectId: createdDevice.usbConnectId,
+              bleConnectId: createdDevice.bleConnectId,
+              deviceId: createdDevice.deviceId,
+            });
+          }
         },
       });
     },
@@ -2263,6 +2274,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (createdDevice?.connectId && createdDevice.deviceId) {
             await this.updateHwWalletsDeprecatedStatus.call(set, {
               connectId: createdDevice.connectId,
+              usbConnectId: createdDevice.usbConnectId,
+              bleConnectId: createdDevice.bleConnectId,
               deviceId: createdDevice.deviceId,
             });
           }
@@ -2407,7 +2420,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      { connectId, deviceId }: { connectId: string; deviceId: string },
+      {
+        connectId,
+        usbConnectId,
+        bleConnectId,
+        deviceId,
+      }: {
+        connectId: string;
+        usbConnectId?: string;
+        bleConnectId?: string;
+        deviceId: string;
+      },
     ) => {
       if (!connectId || !deviceId) {
         return;
@@ -2416,6 +2439,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // Best-effort cleanup: callers run it after the wallet is already
       // created + committed; a throw must never fail that success path.
       try {
+        const currentConnectIds = new Set(
+          [connectId, usbConnectId, bleConnectId]
+            .filter((item): item is string => Boolean(item))
+            .map((item) => item.toLowerCase()),
+        );
         const allHwWallets =
           await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
             filterHiddenWallet: false,
@@ -2428,10 +2456,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const wallet = walletWithDevice.wallet;
           const device = walletWithDevice.device;
 
-          if (wallet?.id && device?.connectId) {
-            const isSameConnectId =
-              device.connectId === connectId ||
-              device.bleConnectId === connectId;
+          if (wallet?.id && device) {
+            const isSameConnectId = [
+              device.connectId,
+              device.usbConnectId,
+              device.bleConnectId,
+            ]
+              .filter((item): item is string => Boolean(item))
+              .some((item) => currentConnectIds.has(item.toLowerCase()));
             const isSameDevice = device.deviceId === deviceId;
 
             // only handle wallet with same connectId

@@ -19,6 +19,14 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import type { IntlShape } from 'react-intl';
 
+async function openBluetoothSettings() {
+  if (platformEnv.isDesktop) {
+    await globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
+    return;
+  }
+  await openBLESettings();
+}
+
 export const buildBleSettingsDialogProps = (
   intl: IntlShape,
 ): IDialogShowProps =>
@@ -38,7 +46,7 @@ export const buildBleSettingsDialogProps = (
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLESettings();
+      await openBluetoothSettings();
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative
@@ -84,7 +92,7 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
     },
     onConfirm: async ({ close }) => {
       await close?.();
-      await openBLESettings();
+      await openBluetoothSettings();
     },
     showCancelButton: false,
     sheetOverlayProps: platformEnv.isNative
@@ -112,6 +120,13 @@ function OpenBleNotifyChangeErrorDialogContainer(
 export const OpenBleNotifyChangeErrorDialog = forwardRef(
   OpenBleNotifyChangeErrorDialogContainer,
 );
+
+export const buildBleBondError = (intl: IntlShape): IDialogShowProps => ({
+  ...buildBleNotifyChangeError(intl),
+  description: intl.formatMessage({
+    id: ETranslations.feedback_try_repairing_device_in_settings,
+  }),
+});
 
 export const buildBlePermissionDialogProps = (
   intl: IntlShape,
