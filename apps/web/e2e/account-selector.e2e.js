@@ -580,7 +580,7 @@ function readPositiveNumberEnv(name, fallbackValue) {
   if (rawValue === undefined) return fallbackValue;
   const value = Number(rawValue);
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a positive number, received: ${rawValue}`);
+    throw new Error(`${name} must be a positive number`);
   }
   return value;
 }
@@ -591,13 +591,11 @@ function readJsonObjectEnv(name) {
   let parsed;
   try {
     parsed = JSON.parse(rawValue);
-  } catch (error) {
-    throw new Error(`${name} must be valid JSON: ${error.message}`, {
-      cause: error,
-    });
+  } catch {
+    throw new Error(`${name} must be valid JSON`);
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${name} must be a JSON object, received: ${rawValue}`);
+    throw new Error(`${name} must be a JSON object`);
   }
   return parsed;
 }
@@ -6969,7 +6967,8 @@ async function runCycle({ browser, cycle, rendererUrl }) {
     );
     return report;
   } catch (error) {
-    const screenshotPath = path.join(artifactDir, `cycle-${cycle}-failure.png`);
+    const screenshotFileName = `cycle-${cycle}-failure.png`;
+    const screenshotPath = path.join(artifactDir, screenshotFileName);
     fs.writeFileSync(
       path.join(artifactDir, `cycle-${cycle}-exceptions.json`),
       `${JSON.stringify({ cdpExceptions, pageErrors }, null, 2)}\n`,
@@ -6977,7 +6976,7 @@ async function runCycle({ browser, cycle, rendererUrl }) {
     await page
       .screenshot({ path: screenshotPath, fullPage: true })
       .catch(() => {});
-    log(`cycle#${cycle}: failure screenshot ${screenshotPath}`);
+    log(`cycle#${cycle}: failure screenshot saved as ${screenshotFileName}`);
     throw error;
   } finally {
     await context.close().catch(() => {});
