@@ -63,6 +63,36 @@ function getResizeMode({
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+  const imageContainerRef = useRef<HTMLElement | null>(null);
+  const [shouldLoadImage, setShouldLoadImage] = useState(!platformEnv.isWeb);
+  const setImageContainerRef = useCallback((element: unknown) => {
+    imageContainerRef.current = element as HTMLElement | null;
+  }, []);
+
+  useEffect(() => {
+    if (!platformEnv.isWeb || shouldLoadImage) {
+      return undefined;
+    }
+
+    const element = imageContainerRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setShouldLoadImage(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadImage(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px 0px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [shouldLoadImage]);
+
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -264,7 +294,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     return (
       <ImageComponent
         key={recyclingKey}
-        source={resolvedSource as ImageSourcePropType}
+        source={
+          shouldLoadImage ? (resolvedSource as ImageSourcePropType) : undefined
+        }
         style={fullSizeStyle}
         resizeMode={getResizeMode({ contentFit, resizeMode })}
         onError={handleError}
@@ -287,6 +319,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     recyclingKey,
     resizeMode,
     resolvedSource,
+    shouldLoadImage,
   ]);
 
   const containerStyle = useMemo(
@@ -301,7 +334,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   );
 
   return (
-    <YStack style={containerStyle}>
+    <YStack ref={setImageContainerRef} style={containerStyle}>
       {content}
       {isPlaceholderVisible ? (
         <Stack position="absolute" width="100%" height="100%">
