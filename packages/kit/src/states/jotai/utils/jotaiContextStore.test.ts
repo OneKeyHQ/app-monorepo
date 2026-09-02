@@ -12,8 +12,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IJotaiContextStoreData,
-  IJotaiContextStoreMap,
   IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRegistrationUpdateResult,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import {
@@ -40,7 +40,7 @@ import {
 import { useJotaiContextRootStore } from './useJotaiContextRootStore';
 
 const mockUpdateJotaiContextStoreRegistration = jest.fn<
-  Promise<{ map: IJotaiContextStoreMap; registrationCount: number }>,
+  Promise<IJotaiContextStoreRegistrationUpdateResult>,
   [IJotaiContextStoreRegistrationUpdate]
 >();
 
@@ -197,6 +197,7 @@ describe('jotaiContextStore reset flow', () => {
     jest.clearAllMocks();
     mockUpdateJotaiContextStoreRegistration.mockResolvedValue({
       map: {},
+      mapChanged: false,
       registrationCount: 0,
     });
     const globalCache = globalThis as IGlobalColdStartSnapshot;
@@ -384,8 +385,16 @@ describe('jotaiContextStore reset flow', () => {
     platformEnv.isExtension = true;
     platformEnv.isExtensionUi = true;
     mockUpdateJotaiContextStoreRegistration
-      .mockResolvedValueOnce({ map: {}, registrationCount: 1 })
-      .mockResolvedValueOnce({ map: {}, registrationCount: 0 });
+      .mockResolvedValueOnce({
+        map: {},
+        mapChanged: true,
+        registrationCount: 1,
+      })
+      .mockResolvedValueOnce({
+        map: {},
+        mapChanged: true,
+        registrationCount: 0,
+      });
     const extensionData: IJotaiContextStoreData = {
       storeName: EJotaiContextStoreNames.accountSelector,
       accountSelectorInfo: {
@@ -400,23 +409,20 @@ describe('jotaiContextStore reset flow', () => {
     await waitFor(() =>
       expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'add',
-          data: extensionData,
-          revision: 1,
+          action: 'reconcile-runtime',
+          registrations: expect.arrayContaining([
+            expect.objectContaining({ data: extensionData }),
+          ]),
           storeId: buildJotaiContextStoreId(extensionData),
         }),
       ),
     );
-    const registrationId =
-      mockUpdateJotaiContextStoreRegistration.mock.calls[0][0].registrationId;
-
     unmount();
     await waitFor(() =>
       expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'remove',
-          registrationId,
-          revision: 2,
+          action: 'reconcile-runtime',
+          registrations: [],
         }),
       ),
     );

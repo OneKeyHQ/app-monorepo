@@ -5,6 +5,7 @@ import type {
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
+import { redactErrorMessageForLocalLog } from '../../../utils/redactErrorMessage';
 
 export class RequestScene extends BaseScene {
   @LogToLocal({ level: 'error' })
@@ -45,7 +46,14 @@ export class RequestScene extends BaseScene {
     flag: string;
     networkId?: string;
   }) {
-    return [{ errorMessage, errorName, flag, networkId }];
+    return [
+      {
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
+        errorName,
+        flag,
+        networkId,
+      },
+    ];
   }
 
   @LogToLocal({ level: 'error' })

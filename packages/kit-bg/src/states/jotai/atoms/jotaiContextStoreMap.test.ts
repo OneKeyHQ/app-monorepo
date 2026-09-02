@@ -91,4 +91,123 @@ describe('jotaiContextStoreMap', () => {
     expect(allClosed.map[storeId]).toBeUndefined();
     expect(allClosed.registrationCount).toBe(0);
   });
+
+  it('prunes a runtime that vanished without sending remove', () => {
+    let now = 0;
+    const registry = new JotaiContextStoreRegistrationRegistry({
+      leaseMs: 100,
+      now: () => now,
+    });
+    const storeId = 'accountSelector:swap';
+    const buildUpdate = ({
+      enabledNum,
+      registrationId,
+      runtimeId,
+    }: {
+      enabledNum: number[];
+      registrationId: string;
+      runtimeId: string;
+    }) => ({
+      action: 'add' as const,
+      data: {
+        storeName: EJotaiContextStoreNames.accountSelector,
+        accountSelectorInfo: {
+          enabledNum,
+          sceneName: EAccountSelectorSceneName.swap,
+        },
+      },
+      registrationId,
+      revision: 1,
+      runtimeId,
+      storeId,
+    });
+
+    registry.update(
+      buildUpdate({
+        enabledNum: [0],
+        registrationId: 'popup:1',
+        runtimeId: 'popup',
+      }),
+    );
+    now = 101;
+    const afterPopupDeath = registry.update(
+      buildUpdate({
+        enabledNum: [1],
+        registrationId: 'side-panel:1',
+        runtimeId: 'side-panel',
+      }),
+    );
+
+    expect(afterPopupDeath.map[storeId]).toMatchObject({
+      accountSelectorInfo: { enabledNum: [1] },
+      count: 1,
+    });
+  });
+
+  it('rebuilds all live registrations from a runtime snapshot after background restart', () => {
+    const storeId = 'accountSelector:swap';
+    const update = {
+      action: 'reconcile-runtime' as const,
+      registrations: [
+        {
+          data: {
+            storeName: EJotaiContextStoreNames.accountSelector,
+            accountSelectorInfo: {
+              enabledNum: [0, 1],
+              sceneName: EAccountSelectorSceneName.swap,
+            },
+          },
+          registrationId: 'side-panel:1',
+          storeId,
+        },
+      ],
+      revision: 2,
+      runtimeId: 'side-panel',
+      storeId,
+    };
+
+    const beforeRestart = new JotaiContextStoreRegistrationRegistry();
+    expect(beforeRestart.update(update).map[storeId]?.count).toBe(1);
+
+    const afterRestart = new JotaiContextStoreRegistrationRegistry();
+    const rebuilt = afterRestart.update(update);
+    expect(rebuilt.map[storeId]).toMatchObject({
+      accountSelectorInfo: { enabledNum: [0, 1] },
+      count: 1,
+    });
+  });
+
+  it('renews a lease without publishing an unchanged aggregate map', () => {
+    let now = 0;
+    const registry = new JotaiContextStoreRegistrationRegistry({
+      leaseMs: 100,
+      now: () => now,
+    });
+    const storeId = 'accountSelector:swap';
+    const buildSnapshot = (revision: number) => ({
+      action: 'reconcile-runtime' as const,
+      registrations: [
+        {
+          data: {
+            storeName: EJotaiContextStoreNames.accountSelector,
+            accountSelectorInfo: {
+              enabledNum: [0],
+              sceneName: EAccountSelectorSceneName.swap,
+            },
+          },
+          registrationId: 'side-panel:1',
+          storeId,
+        },
+      ],
+      revision,
+      runtimeId: 'side-panel',
+      storeId,
+    });
+
+    expect(registry.update(buildSnapshot(1)).mapChanged).toBe(true);
+    now = 50;
+    expect(registry.update(buildSnapshot(2)).mapChanged).toBe(false);
+    now = 120;
+    expect(registry.update(buildSnapshot(3)).map[storeId]?.count).toBe(1);
+  });
 });

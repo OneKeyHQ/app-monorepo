@@ -274,6 +274,38 @@ describe('ServiceDApp connection approval transaction', () => {
 
   afterEach(() => {
     emitSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('emits the previous Home selection as the UI compare-and-swap baseline', async () => {
+    const origin = 'https://home-ui-cas.test';
+    const harness = createHarness({
+      alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+    });
+    const previousHome = buildSelectedAccount('previous-home');
+    const alignedHome = buildSelectedAccount('aligned-home');
+    await harness.accountSelector.saveSelectedAccount({
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+      selectedAccount: previousHome,
+    });
+    jest
+      .spyOn(harness.service, 'buildHomeSelectedAccountByDappAccount')
+      .mockResolvedValue(alignedHome);
+    jest.clearAllMocks();
+
+    await harness.service.syncDappAccountIfPrimaryMode({ origin });
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.SyncDappAccountToHomeAccount,
+      {
+        expectedSelectedAccount: previousHome,
+        selectedAccount: alignedHome,
+      },
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 250);
+    });
   });
 
   it('rejects an older renderer snapshot when a newer cross-runtime selection intent arrived first', async () => {

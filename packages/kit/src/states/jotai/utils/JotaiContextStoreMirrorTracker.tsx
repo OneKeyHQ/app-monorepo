@@ -1,14 +1,15 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IJotaiContextStoreData,
   IJotaiContextStoreMap,
   IJotaiContextStoreMapValue,
   IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRuntimeRegistration,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EJotaiContextStoreNames,
+  JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS,
   getJotaiContextTrackerMap,
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
@@ -42,6 +43,15 @@ const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
 const SWAP_COLD_START_SCOPE_KEY = `store:${EJotaiContextStoreNames.swap}`;
 const accountSelectorEnabledNumCounts = new Map<string, Map<number, number>>();
 let nextMirrorRegistrationId = 0;
+const extensionRuntimeRegistrations = new Map<
+  string,
+  IJotaiContextStoreRuntimeRegistration
+>();
+let extensionRuntimeRegistrationRevision = 0;
+let extensionRuntimeRegistrationUpdateQueue = Promise.resolve();
+let extensionRuntimeRegistrationHeartbeat:
+  | ReturnType<typeof setInterval>
+  | undefined;
 
 export type IJotaiContextStoreMirrorRegistrationChange = {
   action: 'add' | 'remove';
@@ -147,6 +157,75 @@ function hasSwapColdStartSnapshot() {
   );
 }
 
+function enqueueExtensionRuntimeRegistrationSnapshot({
+  changeAction,
+  onRegistrationChange,
+  storeId,
+}: {
+  changeAction?: 'add' | 'remove';
+  onRegistrationChange?: (
+    change: IJotaiContextStoreMirrorRegistrationChange,
+  ) => void;
+  storeId: string;
+}) {
+  extensionRuntimeRegistrationRevision += 1;
+  const update: IJotaiContextStoreRegistrationUpdate = {
+    action: 'reconcile-runtime',
+    registrations: [...extensionRuntimeRegistrations.values()],
+    revision: extensionRuntimeRegistrationRevision,
+    runtimeId: appEventBus.nodeId,
+    storeId,
+  };
+  extensionRuntimeRegistrationUpdateQueue =
+    extensionRuntimeRegistrationUpdateQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+        const result =
+          await backgroundApiProxy.updateJotaiContextStoreRegistration(update);
+        if (changeAction === 'remove' && result.registrationCount <= 0) {
+          jotaiContextStore.completeStoreResetIfRequestedById(storeId);
+        }
+        if (changeAction) {
+          onRegistrationChange?.({
+            action: changeAction,
+            registrationCount: result.registrationCount,
+            storeId,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(
+          'Failed to reconcile the Jotai context store registrations',
+          error,
+        );
+      });
+}
+
+function updateExtensionRuntimeRegistrationHeartbeat() {
+  if (
+    extensionRuntimeRegistrations.size > 0 &&
+    !extensionRuntimeRegistrationHeartbeat
+  ) {
+    extensionRuntimeRegistrationHeartbeat = setInterval(() => {
+      const firstRegistration = extensionRuntimeRegistrations.values().next()
+        .value as IJotaiContextStoreRuntimeRegistration | undefined;
+      if (firstRegistration) {
+        enqueueExtensionRuntimeRegistrationSnapshot({
+          storeId: firstRegistration.storeId,
+        });
+      }
+    }, JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS);
+  } else if (
+    extensionRuntimeRegistrations.size === 0 &&
+    extensionRuntimeRegistrationHeartbeat
+  ) {
+    clearInterval(extensionRuntimeRegistrationHeartbeat);
+    extensionRuntimeRegistrationHeartbeat = undefined;
+  }
+}
+
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker({
   onRegistrationChange,
@@ -156,51 +235,33 @@ export function JotaiContextStoreMirrorTracker({
   const { setMap } = useJotaiContextTrackerMap();
   const storeId = buildJotaiContextStoreId(data);
   const registrationIdRef = useRef<string | undefined>(undefined);
-  const registrationRevisionRef = useRef(0);
-  const registrationUpdateQueueRef = useRef<Promise<void>>(Promise.resolve());
   if (!registrationIdRef.current) {
     nextMirrorRegistrationId += 1;
     registrationIdRef.current = `${appEventBus.nodeId}:${nextMirrorRegistrationId}`;
   }
   useEffect(() => {
     if (platformEnv.isExtensionUi) {
-      const enqueueRegistrationUpdate = (
-        action: IJotaiContextStoreRegistrationUpdate['action'],
-      ) => {
-        registrationRevisionRef.current += 1;
-        const update: IJotaiContextStoreRegistrationUpdate = {
-          action,
-          data: { accountSelectorInfo, storeName },
-          registrationId: registrationIdRef.current as string,
-          revision: registrationRevisionRef.current,
+      const registrationId = registrationIdRef.current as string;
+      extensionRuntimeRegistrations.set(registrationId, {
+        data: { accountSelectorInfo, storeName },
+        registrationId,
+        storeId,
+      });
+      updateExtensionRuntimeRegistrationHeartbeat();
+      enqueueExtensionRuntimeRegistrationSnapshot({
+        changeAction: 'add',
+        onRegistrationChange,
+        storeId,
+      });
+      return () => {
+        extensionRuntimeRegistrations.delete(registrationId);
+        updateExtensionRuntimeRegistrationHeartbeat();
+        enqueueExtensionRuntimeRegistrationSnapshot({
+          changeAction: 'remove',
+          onRegistrationChange,
           storeId,
-        };
-        registrationUpdateQueueRef.current = registrationUpdateQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            const result =
-              await backgroundApiProxy.updateJotaiContextStoreRegistration(
-                update,
-              );
-            if (action === 'remove' && result.registrationCount <= 0) {
-              jotaiContextStore.completeStoreResetIfRequestedById(storeId);
-            }
-            onRegistrationChange?.({
-              action,
-              registrationCount: result.registrationCount,
-              storeId,
-            });
-          })
-          .catch((error: unknown) => {
-            console.error(
-              'Failed to update the Jotai context store registration',
-              error,
-            );
-          });
+        });
       };
-
-      enqueueRegistrationUpdate('add');
-      return () => enqueueRegistrationUpdate('remove');
     }
 
     const processMapCount = (action: 'add' | 'remove') => {

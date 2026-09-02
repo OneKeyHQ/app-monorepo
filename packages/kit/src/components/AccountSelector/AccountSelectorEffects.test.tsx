@@ -11,6 +11,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorJotaiProvider,
+  accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
   defaultActiveAccountInfo,
@@ -36,6 +37,9 @@ const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
   () => Promise<boolean>
 > = jest.fn();
 const mockBuildActiveAccountInfoFromSelectedAccount: jest.MockedFunction<
+  (params: unknown) => Promise<unknown>
+> = jest.fn();
+const mockGetDBAccount: jest.MockedFunction<
   (params: unknown) => Promise<unknown>
 > = jest.fn();
 const mockFixOthersWalletAccountNetworkPair: jest.MockedFunction<
@@ -125,6 +129,9 @@ jest.mock('./hooks/useAccountSelectorAvailableNetworks', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceAccount: {
+      getDBAccount: (params: unknown) => mockGetDBAccount(params),
+    },
     serviceAccountSelector: {
       buildActiveAccountInfoFromSelectedAccount: (params: unknown) =>
         mockBuildActiveAccountInfoFromSelectedAccount(params),
@@ -137,6 +144,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockShouldSyncHomeAndSwapSelectedAccount(),
       shouldSyncWithHomeSource: () => mockShouldSyncWithHomeSource(),
       shouldUseGlobalDeriveType: () => mockShouldUseGlobalDeriveType(),
+    },
+    serviceDApp: {
+      recordConnectionSelectionIntent: async () => 1,
     },
     serviceNetwork: {
       isDeriveTypeAvailableForNetwork: () =>
@@ -646,6 +656,7 @@ describe('AccountSelectorEffects unmount selection flush', () => {
   const mountReadyHomeEffects = () => {
     const store = createStore();
     store.set(accountSelectorStorageReadyAtom(), true);
+    store.set(accountSelectorStorageInitDoneAtom(), true);
     store.set(selectedAccountsAtom(), { 0: defaultSelectedAccount() });
     const rendered = render(
       <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
@@ -667,6 +678,7 @@ describe('AccountSelectorEffects unmount selection flush', () => {
     mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
       activeAccount: defaultActiveAccountInfo(),
     });
+    mockGetDBAccount.mockResolvedValue(undefined);
     mockFixOthersWalletAccountNetworkPair.mockImplementation(
       async ({ selectedAccount }) => selectedAccount,
     );
@@ -674,6 +686,75 @@ describe('AccountSelectorEffects unmount selection flush', () => {
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockSimpleDbGetSelectedAccount.mockResolvedValue(undefined);
     mockSimpleDbSaveSelectedAccount.mockResolvedValue({ persisted: true });
+  });
+
+  it('waits for this process storage init before auto-saving a warm cached selection', async () => {
+    const store = createStore();
+    store.set(accountSelectorStorageReadyAtom(), true);
+    store.set(accountSelectorStorageInitDoneAtom(), false);
+    store.set(selectedAccountsAtom(), { 0: buildHdSelectedAccount() });
+    render(
+      <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
+        <AccountSelectorEffects num={0} />
+      </AccountSelectorJotaiProvider>,
+    );
+    await act(async () => {});
+
+    expect(mockSimpleDbSaveSelectedAccount).not.toHaveBeenCalled();
+
+    await act(async () => {
+      store.set(accountSelectorStorageInitDoneAtom(), true);
+    });
+    await waitFor(() => {
+      expect(mockSimpleDbSaveSelectedAccount).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('retries the same revision after an incompatible pair becomes valid', async () => {
+    const selectedAccount = {
+      ...defaultSelectedAccount(),
+      deriveType: 'default' as const,
+      focusedWallet: 'imported',
+      networkId: 'evm--1',
+      othersWalletAccountId: 'imported--btc',
+      walletId: 'imported',
+    };
+    mockGetDBAccount.mockResolvedValue({
+      createAtNetwork: 'btc--0',
+      id: selectedAccount.othersWalletAccountId,
+      impl: 'btc',
+      networks: ['btc--0'],
+    });
+    const store = createStore();
+    store.set(accountSelectorStorageReadyAtom(), true);
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(selectedAccountsAtom(), { 0: selectedAccount });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: { eventEmitDisabled: false, updatedAt: 2000 },
+    });
+    render(
+      <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
+        <AccountSelectorEffects num={0} />
+      </AccountSelectorJotaiProvider>,
+    );
+    await act(async () => {});
+    expect(mockSimpleDbSaveSelectedAccount).not.toHaveBeenCalled();
+
+    mockGetDBAccount.mockResolvedValue({
+      createAtNetwork: 'evm--1',
+      id: selectedAccount.othersWalletAccountId,
+      impl: 'evm',
+      networks: ['evm--1'],
+    });
+    await act(async () => {
+      store.set(accountSelectorStorageInitDoneAtom(), false);
+    });
+    await act(async () => {
+      store.set(accountSelectorStorageInitDoneAtom(), true);
+    });
+    await waitFor(() => {
+      expect(mockSimpleDbSaveSelectedAccount).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('flushes an unsaved selection exactly once on unmount', async () => {

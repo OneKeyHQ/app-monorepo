@@ -21,7 +21,7 @@ import {
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import useConfigurableChainSelector from '../../../views/ChainSelector/hooks/useChainSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
@@ -54,7 +54,7 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
   const items = useNetworkSelectorItems();
 
   const { selectedAccount } = useSelectedAccount({ num });
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
   const [isReady] = useAccountSelectorStorageReadyAtom();
 
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerLegacy' });
@@ -72,13 +72,13 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
         testID={AccountSelectorTestIDs.actionsSelect}
         items={items}
         value={selectedAccount.networkId}
-        onChange={(id) =>
-          actions.current.updateSelectedAccountNetwork({
+        onChange={(id) => {
+          void runAccountSelectorAction('updateSelectedAccountNetwork', {
             num,
             networkId: id,
             reason: 'userSelectNetwork',
-          })
-        }
+          });
+        }}
         title="网络"
       />
     </>

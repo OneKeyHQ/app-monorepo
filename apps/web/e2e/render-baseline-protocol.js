@@ -118,6 +118,7 @@ function comparableConfig(artifact) {
       platform: artifact.environment?.platform,
     },
     fixture: artifact.fixture,
+    instrumentation: artifact.instrumentation,
     iterations: artifact.iterations,
     metricsVersion: artifact.metricsVersion,
     operationWindow: artifact.operationWindow,

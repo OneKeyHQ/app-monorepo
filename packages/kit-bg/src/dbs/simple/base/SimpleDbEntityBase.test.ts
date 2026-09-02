@@ -274,6 +274,45 @@ describe('SimpleDbEntityBase guarded transaction visibility', () => {
     await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
     expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
   });
+
+  test('retries a failed guarded rollback instead of leaving rejected data on disk', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let rollbackAttemptCount = 0;
+    let transactionStarted = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        if (transactionStarted && readStoredData(value).v === 1) {
+          rollbackAttemptCount += 1;
+          if (rollbackAttemptCount === 1) {
+            throw new OneKeyLocalError('transient rollback failure');
+          }
+        }
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+    transactionStarted = true;
+    let guardCheckCount = 0;
+
+    await expect(
+      entity.runTransaction({
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => {
+          guardCheckCount += 1;
+          return guardCheckCount === 1;
+        },
+      }),
+    ).rejects.toThrow('transient rollback failure');
+
+    expect(rollbackAttemptCount).toBe(2);
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
 });
 
 // A corrupted external blob makes every read reject forever, and builder-based
