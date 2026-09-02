@@ -297,6 +297,17 @@ class ServiceWalletConnect extends ServiceBase {
         optionalNamespaces,
         namespace,
       );
+      // One selector per impl. A proposal can reach the same impl through more
+      // than one key (`eip155:1` alongside `eip155:137`), and both the approve
+      // payload and updateNamespaceAndSession look the account up by impl, so a
+      // second selector would be filled in by the user and then never read.
+      const existImpl = supported.find((s) => s.impl === impl);
+      if (existImpl) {
+        existImpl.networkIds = Array.from(
+          new Set([...existImpl.networkIds, ...networkIds]),
+        );
+        continue;
+      }
       supported.push({
         impl,
         accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
