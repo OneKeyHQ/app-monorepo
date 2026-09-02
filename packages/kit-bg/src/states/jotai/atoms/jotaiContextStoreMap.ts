@@ -43,7 +43,10 @@ export type IJotaiContextStoreMap = {
   [storeId: string]: IJotaiContextStoreMapValue;
 };
 export const JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS = 20_000;
-export const JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS = 60_000;
+// Hidden extension tabs may only run chained timers once per minute. Keep the
+// lease beyond two throttled heartbeat slots so another active runtime cannot
+// prune a live tab before its delayed heartbeat runs.
+export const JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS = 150_000;
 
 export type IJotaiContextStoreRuntimeRegistration = {
   data: IJotaiContextStoreData;
