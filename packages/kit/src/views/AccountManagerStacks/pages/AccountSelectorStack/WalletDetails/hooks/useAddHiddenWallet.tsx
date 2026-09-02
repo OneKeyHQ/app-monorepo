@@ -23,9 +23,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -184,80 +182,17 @@ export function useAddHiddenWallet() {
 
   const createHwHiddenWallet = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
-      const walletId = wallet?.id || '';
-      const closeHardwareUiStateDialog = async () => {
-        const device =
-          await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
-            walletId,
-          });
-        if (device?.connectId) {
-          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
-            {
-              connectId: device.connectId,
-              hardClose: true,
-            },
-          );
-        }
-      };
-      const createWallet = async () =>
-        actions.current.createHWHiddenWallet(
+      try {
+        setIsLoading(true);
+        await actions.current.createHWHiddenWallet(
           {
-            walletId,
+            walletId: wallet?.id || '',
           },
           {
             addDefaultNetworkAccounts: true,
             showAddAccountsLoading: true,
           },
         );
-
-      try {
-        setIsLoading(true);
-        try {
-          await createWallet();
-        } catch (error) {
-          if (
-            !errorUtils.isErrorByClassName({
-              error,
-              className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
-            })
-          ) {
-            throw error;
-          }
-
-          await closeHardwareUiStateDialog();
-          await new Promise<void>((resolve, reject) => {
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.passphrase_disabled_dialog_title,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.passphrase_disabled_dialog_desc,
-              }),
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_enable,
-              }),
-              onCancel: (close) => {
-                void close();
-                resolve();
-              },
-              onClose: () => resolve(),
-              onConfirm: async () => {
-                try {
-                  await backgroundApiProxy.serviceHardware.setPassphraseEnabled(
-                    {
-                      walletId,
-                      passphraseEnabled: true,
-                    },
-                  );
-                  resolve();
-                } catch (enableError) {
-                  reject(enableError);
-                }
-              },
-            });
-          });
-          return;
-        }
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.global_success,
@@ -265,7 +200,18 @@ export function useAddHiddenWallet() {
         });
       } finally {
         setIsLoading(false);
-        await closeHardwareUiStateDialog();
+        const device =
+          await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
+            walletId: wallet?.id || '',
+          });
+        if (device?.connectId) {
+          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+            {
+              connectId: device?.connectId,
+              hardClose: true,
+            },
+          );
+        }
       }
     },
     [actions, intl],

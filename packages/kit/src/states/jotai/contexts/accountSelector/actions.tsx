@@ -2181,12 +2181,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       return this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
+          const shouldCreateHiddenWalletOnly =
+            params.isAttachPinMode === true ||
+            Boolean(
+              params.deviceState?.status.passphraseProtection ??
+              params.features?.passphrase_protection,
+            );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               {
                 ...params,
-                isMockedStandardHwWallet: true,
+                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
                 skipDeviceCancel: true,
               },
               {
@@ -2194,48 +2200,68 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               },
             );
 
-          if (!device) {
-            throw new OneKeyLocalError(
-              'Unable to create hidden wallet without a hardware device',
-            );
-          }
           createdDevice = device;
 
-          // wait previous action done, wait device ready
-          if (!params.hideCheckingDeviceLoading) {
-            await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
+          let hiddenWalletCreatedResult:
+            | {
+                wallet: IDBWallet;
+                indexedAccount: IDBIndexedAccount | undefined;
+                isOverrideWallet?: boolean;
+                isAttachPinMode?: boolean;
+              }
+            | undefined;
+          if (shouldCreateHiddenWalletOnly) {
+            if (!device) {
+              throw new OneKeyLocalError(
+                'Unable to create hidden wallet without a hardware device',
+              );
+            }
+            // wait previous action done, wait device ready
+            if (!params.hideCheckingDeviceLoading) {
+              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
+                {
+                  connectId: device.connectId,
+                },
+              );
+            }
+            await timerUtils.wait(100);
+
+            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
+              set,
               {
-                connectId: device.connectId,
+                walletId: wallet.id,
+                skipDeviceCancel: true,
+                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
               },
             );
           }
-          await timerUtils.wait(100);
-
-          const hiddenWalletCreatedResult =
-            await this.createHWHiddenWallet.call(set, {
-              walletId: wallet.id,
-              skipDeviceCancel: true,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-            });
 
           await serviceAccount.restoreTempCreatedWallet({
             walletId: wallet.id,
           });
+          if (!hiddenWalletCreatedResult) {
+            await this.autoSelectToCreatedWallet.call(set, {
+              wallet,
+              indexedAccount,
+              isOverrideWallet,
+              isAttachPinMode: params.isAttachPinMode,
+            });
+          }
           return {
             isOverrideWallet,
             wallet,
             indexedAccount,
-            hidden: {
-              wallet: hiddenWalletCreatedResult.wallet,
-              indexedAccount: hiddenWalletCreatedResult.indexedAccount,
-            },
+            hidden: hiddenWalletCreatedResult
+              ? {
+                  wallet: hiddenWalletCreatedResult.wallet,
+                  indexedAccount: hiddenWalletCreatedResult.indexedAccount,
+                  isOverrideWallet: hiddenWalletCreatedResult.isOverrideWallet,
+                  isAttachPinMode: hiddenWalletCreatedResult.isAttachPinMode,
+                }
+              : undefined,
           };
         },
-        generatingAccountsFn: async ({
-          wallet,
-          indexedAccount,
-          hidden,
-        }) => {
+        generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
           if (hidden && hidden.wallet && hidden.indexedAccount) {
             // hidden wallet account should be first create before normal wallet account
             // otherwise, passphrase input will be asked many times
@@ -2265,6 +2291,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.autoSelectToCreatedWallet.call(set, {
               wallet: hidden.wallet,
               indexedAccount: hidden.indexedAccount,
+              isOverrideWallet: hidden.isOverrideWallet,
+              isAttachPinMode: hidden.isAttachPinMode,
             });
           }
 

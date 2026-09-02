@@ -809,7 +809,9 @@ describe('useAccountSelectorActions', () => {
     } as IIndexedAccount;
     const createParams = {
       device: currentDevice,
-      features: {},
+      features: {
+        passphrase_protection: true,
+      },
       hideCheckingDeviceLoading: true,
     } as unknown as IDBCreateHwWalletParamsBase;
 
@@ -877,6 +879,74 @@ describe('useAccountSelectorActions', () => {
           'hw-old-hidden': true,
         },
       });
+    });
+
+    it('keeps the standard wallet flow when passphrase is disabled', async () => {
+      const realStandardWallet = {
+        ...standardWallet,
+        isMocked: false,
+      } as IWallet;
+      mockCreateHWWalletService.mockResolvedValueOnce({
+        wallet: realStandardWallet,
+        device: currentDevice,
+        indexedAccount: standardIndexedAccount,
+        isOverrideWallet: false,
+      });
+      const standardParams = {
+        ...createParams,
+        deviceState: {
+          status: {
+            passphraseProtection: false,
+          },
+        },
+      } as unknown as IDBCreateHwWalletParamsBase;
+
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithHidden(standardParams);
+      });
+
+      expect(mockCreateHWWalletService).toHaveBeenCalledWith(
+        expect.objectContaining({ isMockedStandardHwWallet: false }),
+      );
+      expect(mockCreateHWHiddenWalletService).not.toHaveBeenCalled();
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: realStandardWallet.id,
+        focusedWallet: realStandardWallet.id,
+        indexedAccountId: standardIndexedAccount.id,
+      });
+    });
+
+    it('creates the hidden wallet for Attach PIN mode without a passphrase flag', async () => {
+      const attachPinParams = {
+        ...createParams,
+        features: {},
+        deviceState: {
+          status: {
+            passphraseProtection: null,
+            unlockedAttachPin: true,
+          },
+        },
+        isAttachPinMode: true,
+      } as unknown as IDBCreateHwWalletParamsBase;
+
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.createHWWalletWithHidden(attachPinParams);
+      });
+
+      expect(mockCreateHWWalletService).toHaveBeenCalledWith(
+        expect.objectContaining({ isMockedStandardHwWallet: true }),
+      );
+      expect(mockCreateHWHiddenWalletService).toHaveBeenCalledTimes(1);
     });
 
     it('marks the stale wallet deprecated after standard wallet creation', async () => {
