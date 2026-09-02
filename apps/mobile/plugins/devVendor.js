@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+const YAML = require('yaml');
+
 const devVendorConfig = require('../dev-vendor.config');
 
 const {
@@ -351,6 +353,114 @@ function readKeyValueProperties(filePath) {
   );
 }
 
+function getPodRootName(requirement) {
+  return requirement.split(' (', 1)[0].split('/', 1)[0];
+}
+
+function getIosNativePodDescriptor(dependencyNames, repoRoot) {
+  const lock = YAML.parse(
+    fs.readFileSync(
+      path.join(repoRoot, 'apps/mobile/ios/Podfile.lock'),
+      'utf8',
+    ),
+  );
+  if (
+    !Array.isArray(lock?.PODS) ||
+    !Array.isArray(lock?.DEPENDENCIES) ||
+    (lock['CHECKOUT OPTIONS'] !== undefined &&
+      (lock['CHECKOUT OPTIONS'] === null ||
+        typeof lock['CHECKOUT OPTIONS'] !== 'object')) ||
+    !lock['SPEC CHECKSUMS'] ||
+    typeof lock['SPEC CHECKSUMS'] !== 'object'
+  ) {
+    throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+  }
+
+  const dependencyNameSet = new Set(dependencyNames);
+  const linkedPackages = new Set();
+  const directPods = new Set();
+  for (const dependency of lock.DEPENDENCIES) {
+    if (typeof dependency === 'string') {
+      const packageMatch = dependency.match(
+        /node_modules\/((?:@[^/`]+\/)?[^/`]+)/u,
+      );
+      if (packageMatch && dependencyNameSet.has(packageMatch[1])) {
+        linkedPackages.add(packageMatch[1]);
+        directPods.add(getPodRootName(dependency));
+      }
+    }
+  }
+  const missingPackage = dependencyNames.find(
+    (name) => name !== 'hermes-compiler' && !linkedPackages.has(name),
+  );
+  if (missingPackage) {
+    throw new Error(
+      `[devVendor] Native ABI dependency is missing from Podfile.lock: ${missingPackage}`,
+    );
+  }
+
+  const pods = new Map();
+  for (const entry of lock.PODS) {
+    const podRequirement =
+      typeof entry === 'string' ? entry : Object.keys(entry || {})[0];
+    const podDependencies =
+      typeof entry === 'string' ? [] : Object.values(entry || {})[0];
+    const match = podRequirement?.match(/^(.+) \(([^)]+)\)$/u);
+    if (!match || !Array.isArray(podDependencies)) {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+    const name = getPodRootName(match[1]);
+    const version = match[2];
+    const existing = pods.get(name);
+    if (existing && existing.version !== version) {
+      throw new Error(
+        `[devVendor] CocoaPods resolved conflicting versions for ${name}.`,
+      );
+    }
+    const dependencies = new Set(existing?.dependencies || []);
+    for (const dependency of podDependencies) {
+      if (typeof dependency !== 'string') {
+        throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+      }
+      dependencies.add(getPodRootName(dependency));
+    }
+    pods.set(name, { dependencies, version });
+  }
+
+  const resolvedPods = new Set();
+  const pendingPods = [...directPods];
+  while (pendingPods.length > 0) {
+    const name = pendingPods.pop();
+    if (!resolvedPods.has(name)) {
+      const pod = pods.get(name);
+      if (!pod) {
+        throw new Error(`[devVendor] CocoaPods resolution is missing: ${name}`);
+      }
+      resolvedPods.add(name);
+      pendingPods.push(...pod.dependencies);
+    }
+  }
+  return [...resolvedPods].toSorted().map((name) => {
+    const checksum = lock['SPEC CHECKSUMS'][name];
+    if (!/^[0-9a-f]{40}$/u.test(checksum || '')) {
+      throw new Error(`[devVendor] CocoaPods checksum is missing: ${name}`);
+    }
+    const checkout = Object.entries(
+      lock['CHECKOUT OPTIONS']?.[name] || {},
+    ).toSorted(([first], [second]) => compareModuleKeys(first, second));
+    if (
+      checkout.some(
+        ([key, value]) => typeof key !== 'string' || typeof value !== 'string',
+      )
+    ) {
+      throw new Error(
+        `[devVendor] CocoaPods checkout resolution is invalid: ${name}`,
+      );
+    }
+    return { checkout, checksum, name, version: pods.get(name).version };
+  });
+}
+
 function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
@@ -413,6 +523,10 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
     engine,
     loaderProtocolVersion: devVendorConfig.NATIVE_LOADER_PROTOCOL_VERSION,
     platform,
+    pods:
+      platform === 'ios'
+        ? getIosNativePodDescriptor(dependencyNames, repoRoot)
+        : [],
     vendorSchemaVersion: devVendorConfig.SCHEMA_VERSION,
     vendorStrategyVersion: devVendorConfig.STRATEGY_VERSION,
   };
@@ -523,6 +637,15 @@ function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
       ...descriptor.dependencies.map(
         ({ checksum, name, resolution, version }) =>
           [name, resolution, version, checksum || ''].join('\0'),
+      ),
+      ...descriptor.pods.map(({ checkout, checksum, name, version }) =>
+        [
+          'pod',
+          name,
+          version,
+          checksum,
+          ...checkout.flatMap(([key, value]) => [key, value]),
+        ].join('\0'),
       ),
     ].join('\0'),
   );

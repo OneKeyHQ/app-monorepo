@@ -24,6 +24,8 @@ const RECEIPT_FILE = 'mobile-dev-shell-oci-receipt.json';
 const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 const MAX_ATTESTATION_BYTES = 32 * 1024 * 1024;
 const MAX_ARTIFACT_BYTES = 1536 * 1024 * 1024;
+const MAX_CACHED_SHELLS = 4;
+const CACHE_LEASE_DIRECTORY = '.leases';
 
 function compareStrings(left, right) {
   if (left < right) return -1;
@@ -525,6 +527,175 @@ async function verifyCache({
   return { artifactPath, manifest, ...receipt };
 }
 
+function getCacheTagLockDirectory(cacheRoot, tag) {
+  return path.join(cacheRoot, '.locks', `${tag}.lock`);
+}
+
+function isProcessRunning(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    if (error?.code === 'EPERM') return true;
+    throw error;
+  }
+}
+
+async function hasActiveCacheLease(cacheDirectory) {
+  const leaseDirectory = path.join(cacheDirectory, CACHE_LEASE_DIRECTORY);
+  let entries;
+  try {
+    entries = await fs.promises.readdir(leaseDirectory, {
+      withFileTypes: true,
+    });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+  let active = false;
+  for (const entry of entries) {
+    const leasePath = path.join(leaseDirectory, entry.name);
+    if (!entry.isFile() || entry.isSymbolicLink()) {
+      await fs.promises.rm(leasePath, { force: true, recursive: true });
+    } else {
+      try {
+        const lease = JSON.parse(await fs.promises.readFile(leasePath, 'utf8'));
+        if (isProcessRunning(lease.pid)) {
+          active = true;
+        } else {
+          await fs.promises.rm(leasePath, { force: true });
+        }
+      } catch (error) {
+        if (error?.code !== 'ENOENT') {
+          await fs.promises.rm(leasePath, { force: true });
+        }
+      }
+    }
+  }
+  return active;
+}
+
+async function listCacheTagDirectories(cacheRoot) {
+  const entries = await fs.promises.readdir(cacheRoot, {
+    withFileTypes: true,
+  });
+  const tagPattern =
+    /^mobile-dev-shell-(?:contract|input)-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/u;
+  const directories = [];
+  for (const entry of entries) {
+    if (entry.isDirectory() && tagPattern.test(entry.name)) {
+      const directoryPath = path.join(cacheRoot, entry.name);
+      const stat = await fs.promises.lstat(directoryPath);
+      if (!stat.isSymbolicLink()) {
+        directories.push({
+          directoryPath,
+          mtimeMs: stat.mtimeMs,
+          tag: entry.name,
+        });
+      }
+    }
+  }
+  return directories.toSorted(
+    (first, second) => second.mtimeMs - first.mtimeMs,
+  );
+}
+
+async function touchAndPruneMobileShellCache(cacheRoot, currentTag) {
+  const currentDirectory = path.join(cacheRoot, currentTag);
+  const now = new Date();
+  await fs.promises.utimes(currentDirectory, now, now);
+  const candidates = (await listCacheTagDirectories(cacheRoot))
+    .filter(({ tag }) => tag !== currentTag)
+    .slice(MAX_CACHED_SHELLS - 1);
+  for (const candidate of candidates) {
+    try {
+      await withCacheLock(
+        getCacheTagLockDirectory(cacheRoot, candidate.tag),
+        async () => {
+          const retainedTags = new Set([
+            currentTag,
+            ...(await listCacheTagDirectories(cacheRoot))
+              .filter(({ tag }) => tag !== currentTag)
+              .slice(0, MAX_CACHED_SHELLS - 1)
+              .map(({ tag }) => tag),
+          ]);
+          if (
+            !retainedTags.has(candidate.tag) &&
+            !(await hasActiveCacheLease(candidate.directoryPath))
+          ) {
+            await fs.promises.rm(candidate.directoryPath, {
+              force: true,
+              recursive: true,
+            });
+          }
+        },
+        { waitTimeoutMs: 0 },
+      );
+    } catch (error) {
+      if (error?.constructor?.name !== 'CacheLockTimeoutError') throw error;
+    }
+  }
+}
+
+async function createMobileShellCacheLease({ cacheRoot, tag }) {
+  const cacheDirectory = path.join(cacheRoot, tag);
+  const leaseDirectory = path.join(cacheDirectory, CACHE_LEASE_DIRECTORY);
+  const leasePath = path.join(
+    leaseDirectory,
+    `${String(process.pid)}-${crypto.randomUUID()}.json`,
+  );
+  await fs.promises.mkdir(leaseDirectory, { mode: 0o700, recursive: true });
+  await fs.promises.writeFile(
+    leasePath,
+    `${JSON.stringify({ pid: process.pid })}\n`,
+    { flag: 'wx', mode: 0o600 },
+  );
+  let released = false;
+  return async () => {
+    if (released) return;
+    released = true;
+    await withCacheLock(getCacheTagLockDirectory(cacheRoot, tag), async () => {
+      let pruneError;
+      try {
+        await touchAndPruneMobileShellCache(cacheRoot, tag);
+      } catch (error) {
+        pruneError = error;
+      }
+      await fs.promises.rm(leasePath, { force: true });
+      try {
+        await fs.promises.rmdir(leaseDirectory);
+      } catch (error) {
+        if (!['ENOENT', 'ENOTEMPTY'].includes(error?.code)) throw error;
+      }
+      if (pruneError) {
+        throw new Error('[mobileDevShell] Failed to prune the shell cache.', {
+          cause: pruneError,
+        });
+      }
+    });
+  };
+}
+
+async function runWithCacheLeaseCleanup({ operation, releaseCacheLease }) {
+  let result;
+  try {
+    result = await operation();
+  } catch (operationError) {
+    try {
+      await releaseCacheLease?.();
+    } catch (cleanupError) {
+      console.error(
+        `[mobileDevShellResource] Cache lease cleanup warning: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+      );
+    }
+    throw operationError;
+  }
+  await releaseCacheLease?.();
+  return result;
+}
+
 async function restoreLocator({
   attestationVerifier,
   cacheRoot,
@@ -534,7 +705,7 @@ async function restoreLocator({
   tag,
 }) {
   const cacheDirectory = path.join(cacheRoot, tag);
-  const lockDirectory = path.join(cacheRoot, '.locks', `${tag}.lock`);
+  const lockDirectory = getCacheTagLockDirectory(cacheRoot, tag);
   return withCacheLock(lockDirectory, async () => {
     await fs.promises.mkdir(cacheRoot, { mode: 0o700, recursive: true });
     try {
@@ -545,7 +716,15 @@ async function restoreLocator({
         locator,
         tag,
       });
-      return { ...restored, cacheHit: true, source: 'remote-cache' };
+      return {
+        ...restored,
+        cacheHit: true,
+        releaseCacheLease: await createMobileShellCacheLease({
+          cacheRoot,
+          tag,
+        }),
+        source: 'remote-cache',
+      };
     } catch {
       await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
     }
@@ -598,6 +777,10 @@ async function restoreLocator({
         ...restored,
         artifactPath: path.join(cacheDirectory, compatibility.artifactFile),
         cacheHit: false,
+        releaseCacheLease: await createMobileShellCacheLease({
+          cacheRoot,
+          tag,
+        }),
         source: 'remote',
       };
     } catch (error) {
@@ -739,17 +922,22 @@ async function main() {
   const { getShellCompatibility } = require('./native-dev-shell');
   const compatibility = getShellCompatibility({ platform });
   const result = await restoreMobileDevShell({ compatibility });
-  if (process.argv.includes('--install')) {
-    await installMobileDevShell({
-      artifactPath: result.artifactPath,
-      deviceId,
-      platform,
-    });
-  }
-  console.log(result.artifactPath);
-  if (result.userNotice) {
-    console.error(`[ONEKEY_USER_NOTICE] ${result.userNotice}`);
-  }
+  await runWithCacheLeaseCleanup({
+    operation: async () => {
+      if (process.argv.includes('--install')) {
+        await installMobileDevShell({
+          artifactPath: result.artifactPath,
+          deviceId,
+          platform,
+        });
+      }
+      console.log(result.artifactPath);
+      if (result.userNotice) {
+        console.error(`[ONEKEY_USER_NOTICE] ${result.userNotice}`);
+      }
+    },
+    releaseCacheLease: result.releaseCacheLease,
+  });
 }
 
 if (require.main === module) {
@@ -761,12 +949,16 @@ if (require.main === module) {
 
 module.exports = {
   ATTESTATION_FILE,
+  MAX_CACHED_SHELLS,
   assertDeviceId,
+  createMobileShellCacheLease,
   getCacheRoot,
   getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
   restoreMobileDevShell,
+  runWithCacheLeaseCleanup,
+  touchAndPruneMobileShellCache,
   verifyArtifactManifest,
   verifyOciManifest,
 };

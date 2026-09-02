@@ -184,7 +184,10 @@ const nativeContractDependencies = {
 
 const nativeContractFiles = {
   android: ['apps/mobile/android/gradle.properties'],
-  ios: ['apps/mobile/ios/Podfile.properties.json'],
+  ios: [
+    'apps/mobile/ios/Podfile.lock',
+    'apps/mobile/ios/Podfile.properties.json',
+  ],
   shared: ['apps/mobile/package.json', 'yarn.lock'],
 };
 

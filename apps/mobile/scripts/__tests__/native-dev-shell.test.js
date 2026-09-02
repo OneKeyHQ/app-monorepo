@@ -1,3 +1,4 @@
+const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
@@ -6,10 +7,14 @@ const path = require('path');
 const {
   addFallbackNotice,
   addFailureNotice,
+  acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  createRenewedDevSession,
   createSessionId,
   createRunReport,
+  getAndroidPrivateSessionInstallArgs,
+  getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
   getShellArtifactTag,
   getShellCompatibility,
@@ -20,9 +25,57 @@ const {
   parseMetroPort,
   printRunSummary,
   pruneSessionDirectories,
+  quoteAdbShellArgument,
+  renewPrivateSession,
   selectTargetDevice,
+  waitForMetroCompletionWithSessionRenewal,
   writeArtifactManifest,
 } = require('../native-dev-shell');
+
+function createDevSession({
+  deviceId,
+  platform,
+  sessionId,
+  worktreeId = '111111111111',
+}) {
+  return {
+    deviceId,
+    expiresAt: new Date(12 * 60 * 60 * 1000).toISOString(),
+    expiresAtEpochMs: 12 * 60 * 60 * 1000,
+    metro: { baseUrl: 'http://127.0.0.1:8081' },
+    nativeContractKey: '1'.repeat(64),
+    platform,
+    schemaVersion: 2,
+    sessionId,
+    vendor: {},
+    worktreeId,
+  };
+}
+
+function createCurrentSession(session) {
+  return {
+    deviceId: session.deviceId,
+    schemaVersion: 1,
+    sessionId: session.sessionId,
+    worktreeId: session.worktreeId,
+  };
+}
+
+function writeReclaimMarker({ lockDirectory, mainOwnerToken, pid, token }) {
+  const stat = fs.statSync(lockDirectory);
+  const markerDirectory = path.join(lockDirectory, '.reclaim');
+  fs.mkdirSync(markerDirectory);
+  fs.writeFileSync(
+    path.join(markerDirectory, 'owner.json'),
+    `${JSON.stringify({
+      mainOwnerToken,
+      pid,
+      rootIdentity: `${String(stat.dev)}:${String(stat.ino)}`,
+      token,
+    })}\n`,
+  );
+  return markerDirectory;
+}
 
 describe('native-dev-shell', () => {
   let temporaryDirectory;
@@ -137,6 +190,543 @@ describe('native-dev-shell', () => {
         }),
       ),
     ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+  });
+
+  it('keeps the complete Android run-as script in one quoted adb argument', () => {
+    const deviceId = 'emulator-5554';
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const args = getAndroidPrivateSessionInstallArgs({ deviceId, sessionId });
+
+    expect(args.slice(0, -1)).toEqual([
+      '-s',
+      deviceId,
+      'shell',
+      'run-as',
+      'so.onekey.app.wallet',
+      'sh',
+      '-c',
+    ]);
+    expect(args.at(-1)).toMatch(/^'umask 077 .* && .*'$/u);
+    expect(args.at(-1)).toContain(
+      `mv files/onekey-dev-sessions/current.json.tmp-${sessionId} files/onekey-dev-sessions/current.json`,
+    );
+
+    const probeValue = "first'part && second part";
+    const probe = spawnSync(
+      '/bin/sh',
+      [
+        '-c',
+        `set -- ${quoteAdbShellArgument(probeValue)}; printf '%s\\n%s' "$#" "$1"`,
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(probe).toMatchObject({ status: 0, stdout: `1\n${probeValue}` });
+  });
+
+  it('atomically renews the current Android private session through stdin', async () => {
+    const deviceId = 'emulator-5554';
+    const session = createDevSession({
+      deviceId,
+      platform: 'android',
+      sessionId: 'wk-111111111111-dev-222222222222-3333333333333333',
+    });
+    const runCheckedCommand = jest.fn();
+    const runForOutputCommand = jest
+      .fn()
+      .mockReturnValue(JSON.stringify(createCurrentSession(session)));
+    const nowEpochMs = 123_000;
+
+    const renewedSession = await renewPrivateSession({
+      deviceId,
+      nowEpochMs,
+      platform: 'android',
+      runCheckedCommand,
+      runForOutputCommand,
+      session,
+    });
+
+    expect(runForOutputCommand).toHaveBeenCalledWith('adb', [
+      '-s',
+      deviceId,
+      'exec-out',
+      'run-as',
+      'so.onekey.app.wallet',
+      'cat',
+      'files/onekey-dev-sessions/current.json',
+    ]);
+    const expectedArgs = getAndroidPrivateSessionRenewalArgs({
+      deviceId,
+      sessionId: session.sessionId,
+    });
+    expect(runCheckedCommand).toHaveBeenCalledWith(
+      'adb',
+      expectedArgs,
+      expect.objectContaining({
+        input: `${JSON.stringify(renewedSession, null, 2)}\n`,
+        stdio: ['pipe', 'inherit', 'inherit'],
+      }),
+    );
+    expect(expectedArgs.slice(0, -1)).toEqual([
+      '-s',
+      deviceId,
+      'shell',
+      'run-as',
+      'so.onekey.app.wallet',
+      'sh',
+      '-c',
+    ]);
+    expect(expectedArgs.at(-1)).toMatch(/^'umask 077 .* && .*'$/u);
+    expect(expectedArgs.at(-1)).toContain(
+      `cat > files/onekey-dev-sessions/${session.sessionId}/session.json.tmp-${session.sessionId} && mv files/onekey-dev-sessions/${session.sessionId}/session.json.tmp-${session.sessionId} files/onekey-dev-sessions/${session.sessionId}/session.json`,
+    );
+    expect(expectedArgs.join(' ')).not.toContain(renewedSession.expiresAt);
+    expect(renewedSession.expiresAtEpochMs).toBe(
+      nowEpochMs + 12 * 60 * 60 * 1000,
+    );
+    expect(renewedSession).toEqual(
+      createRenewedDevSession(session, { nowEpochMs }),
+    );
+    expect(session.expiresAtEpochMs).toBe(12 * 60 * 60 * 1000);
+
+    runCheckedCommand.mockClear();
+    runForOutputCommand.mockReturnValue(
+      JSON.stringify({
+        ...createCurrentSession(session),
+        sessionId: 'wk-111111111111-dev-222222222222-4444444444444444',
+      }),
+    );
+    await expect(
+      renewPrivateSession({
+        deviceId,
+        nowEpochMs,
+        platform: 'android',
+        runCheckedCommand,
+        runForOutputCommand,
+        session,
+      }),
+    ).rejects.toThrow('is no longer current');
+    expect(runCheckedCommand).not.toHaveBeenCalled();
+  });
+
+  it('atomically renews isolated iOS Simulator session containers', async () => {
+    const sessions = [
+      createDevSession({
+        deviceId: 'SIMULATOR-A',
+        platform: 'ios',
+        sessionId: 'wk-111111111111-dev-aaaaaaaaaaaa-1111111111111111',
+      }),
+      createDevSession({
+        deviceId: 'SIMULATOR-B',
+        platform: 'ios',
+        sessionId: 'wk-111111111111-dev-bbbbbbbbbbbb-2222222222222222',
+      }),
+    ];
+    const containers = new Map(
+      sessions.map((session) => [
+        session.deviceId,
+        path.join(temporaryDirectory, session.deviceId),
+      ]),
+    );
+    for (const session of sessions) {
+      const appRoot = path.join(
+        containers.get(session.deviceId),
+        'Library/Application Support/onekey-dev-sessions',
+      );
+      const sessionDirectory = path.join(appRoot, session.sessionId);
+      fs.mkdirSync(sessionDirectory, { recursive: true });
+      fs.writeFileSync(
+        path.join(appRoot, 'current.json'),
+        JSON.stringify(createCurrentSession(session)),
+      );
+      fs.writeFileSync(
+        path.join(sessionDirectory, 'session.json'),
+        JSON.stringify(session),
+      );
+    }
+    const renameCalls = [];
+    const fileSystem = {
+      promises: {
+        lstat: (...args) => fs.promises.lstat(...args),
+        readFile: (...args) => fs.promises.readFile(...args),
+        rename: (...args) => {
+          renameCalls.push(args);
+          return fs.promises.rename(...args);
+        },
+        rm: (...args) => fs.promises.rm(...args),
+        writeFile: (...args) => fs.promises.writeFile(...args),
+      },
+    };
+    const runForOutputCommand = jest.fn((_command, args) => {
+      return containers.get(args[2]);
+    });
+
+    for (const [index, session] of sessions.entries()) {
+      await renewPrivateSession({
+        deviceId: session.deviceId,
+        fileSystem,
+        nowEpochMs: 1_000_000 + index,
+        platform: 'ios',
+        runForOutputCommand,
+        session,
+      });
+    }
+
+    expect(runForOutputCommand.mock.calls).toEqual(
+      sessions.map((session) => [
+        'xcrun',
+        [
+          'simctl',
+          'get_app_container',
+          session.deviceId,
+          'so.onekey.wallet',
+          'data',
+        ],
+      ]),
+    );
+    expect(renameCalls).toHaveLength(2);
+    for (const [index, session] of sessions.entries()) {
+      const sessionDirectory = path.join(
+        containers.get(session.deviceId),
+        'Library/Application Support/onekey-dev-sessions',
+        session.sessionId,
+      );
+      const sessionPath = path.join(sessionDirectory, 'session.json');
+      expect(renameCalls[index]).toEqual([
+        path.join(sessionDirectory, `session.json.tmp-${session.sessionId}`),
+        sessionPath,
+      ]);
+      expect(JSON.parse(fs.readFileSync(sessionPath, 'utf8'))).toMatchObject({
+        deviceId: session.deviceId,
+        expiresAtEpochMs: 1_000_000 + index + 12 * 60 * 60 * 1000,
+        sessionId: session.sessionId,
+      });
+      expect(
+        fs.existsSync(
+          path.join(sessionDirectory, `session.json.tmp-${session.sessionId}`),
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it('awaits an in-flight renewal when Metro completes concurrently', async () => {
+    let finishMetro;
+    const metroCompletion = new Promise((resolve) => {
+      finishMetro = resolve;
+    });
+    let finishRenewal;
+    let markRenewalStarted;
+    const renewalStarted = new Promise((resolve) => {
+      markRenewalStarted = resolve;
+    });
+    const renewSession = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          finishRenewal = resolve;
+          markRenewalStarted();
+        }),
+    );
+    const waiting = waitForMetroCompletionWithSessionRenewal({
+      intervalMs: 0,
+      metroCompletion,
+      renewSession,
+    });
+    await renewalStarted;
+    finishMetro({ code: 0, signal: null });
+    let settled = false;
+    void waiting.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    finishRenewal();
+
+    await expect(waiting).resolves.toEqual({ code: 0, signal: null });
+    expect(renewSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces a session renewal failure to the awaited launch path', async () => {
+    await expect(
+      waitForMetroCompletionWithSessionRenewal({
+        intervalMs: 0,
+        metroCompletion: new Promise(() => {}),
+        renewSession: () =>
+          fs.promises.readFile(
+            path.join(temporaryDirectory, 'missing-session.json'),
+          ),
+      }),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('retries lock acquisition when the stale lock vanishes before stat', () => {
+    const lockRoot = path.join(temporaryDirectory, 'stat-race-locks');
+    const kind = 'test-stat-race';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    let raced = false;
+    const racingFileSystem = {
+      ...fs,
+      statSync(targetPath) {
+        if (!raced && targetPath === lockDirectory) {
+          raced = true;
+          fs.rmSync(lockDirectory, { force: true, recursive: true });
+          throw Object.assign(new Error('lock moved'), { code: 'ENOENT' });
+        }
+        return fs.statSync(targetPath);
+      },
+    };
+
+    const acquired = acquireNamedLock({
+      fileSystem: racingFileSystem,
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: process.pid, sessionId: 'replacement-owner' },
+      processIsAlive: () => false,
+    });
+    expect(raced).toBe(true);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json')))
+        .sessionId,
+    ).toBe('replacement-owner');
+    acquired.release();
+  });
+
+  it('rejects a mixed-generation snapshot when root changes after owner read', () => {
+    const lockRoot = path.join(temporaryDirectory, 'snapshot-race-locks');
+    const kind = 'test-snapshot-race';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'old-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    const newOwner = { pid: 202, sessionId: 'new-owner' };
+    let replaced = false;
+    const racingFileSystem = {
+      ...fs,
+      readFileSync(targetPath, ...args) {
+        const value = fs.readFileSync(targetPath, ...args);
+        if (!replaced && targetPath === ownerPath) {
+          replaced = true;
+          fs.rmSync(lockDirectory, { force: true, recursive: true });
+          fs.mkdirSync(lockDirectory);
+          fs.writeFileSync(ownerPath, `${JSON.stringify(newOwner)}\n`);
+        }
+        return value;
+      },
+    };
+
+    expect(
+      acquireNamedLock({
+        fileSystem: racingFileSystem,
+        key: 'shared',
+        kind,
+        lockRoot,
+        owner: { pid: 303, sessionId: 'unexpected-owner' },
+        processIsAlive: (pid) => pid === newOwner.pid,
+        returnNullWhenBusy: true,
+      }),
+    ).toBeNull();
+    expect(replaced).toBe(true);
+    expect(JSON.parse(fs.readFileSync(ownerPath))).toEqual(newOwner);
+    expect(fs.existsSync(path.join(lockDirectory, '.reclaim'))).toBe(false);
+  });
+
+  it('does not remove a competing owner after losing a stale rename race', () => {
+    const lockRoot = path.join(temporaryDirectory, 'rename-race-locks');
+    const kind = 'test-rename-race';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    const competingOwner = { pid: 202, sessionId: 'competing-owner' };
+    let raced = false;
+    const racingFileSystem = {
+      ...fs,
+      renameSync(sourcePath, stalePath) {
+        if (!raced && sourcePath === lockDirectory) {
+          raced = true;
+          fs.renameSync(sourcePath, stalePath);
+          fs.rmSync(stalePath, { force: true, recursive: true });
+          fs.mkdirSync(sourcePath);
+          fs.writeFileSync(
+            path.join(sourcePath, 'owner.json'),
+            `${JSON.stringify(competingOwner)}\n`,
+          );
+          throw Object.assign(new Error('stale lock already moved'), {
+            code: 'ENOENT',
+          });
+        }
+        return fs.renameSync(sourcePath, stalePath);
+      },
+    };
+
+    expect(
+      acquireNamedLock({
+        fileSystem: racingFileSystem,
+        key: 'shared',
+        kind,
+        lockRoot,
+        owner: { pid: process.pid, sessionId: 'unexpected-owner' },
+        processIsAlive: (pid) => pid === competingOwner.pid,
+        returnNullWhenBusy: true,
+      }),
+    ).toBeNull();
+    expect(raced).toBe(true);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json'))),
+    ).toEqual(competingOwner);
+  });
+
+  it('allows only one cleaner to reclaim a stale lock generation', () => {
+    const lockRoot = path.join(temporaryDirectory, 'reclaim-marker-locks');
+    const kind = 'test-reclaim-marker';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    let secondCleanerResult;
+    const firstCleanerFileSystem = {
+      ...fs,
+      renameSync(sourcePath, stalePath) {
+        secondCleanerResult = acquireNamedLock({
+          key: 'shared',
+          kind,
+          lockRoot,
+          owner: { pid: 202, sessionId: 'second-cleaner' },
+          processIsAlive: (pid) => pid === process.pid,
+          returnNullWhenBusy: true,
+        });
+        return fs.renameSync(sourcePath, stalePath);
+      },
+    };
+
+    const firstOwner = { pid: process.pid, sessionId: 'first-cleaner' };
+    const firstCleanerResult = acquireNamedLock({
+      fileSystem: firstCleanerFileSystem,
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: firstOwner,
+      processIsAlive: () => false,
+    });
+
+    expect(secondCleanerResult).toBeNull();
+    expect(
+      acquireNamedLock({
+        key: 'shared',
+        kind,
+        lockRoot,
+        owner: { pid: 303, sessionId: 'late-second-cleaner' },
+        processIsAlive: (pid) => pid === firstOwner.pid,
+        returnNullWhenBusy: true,
+      }),
+    ).toBeNull();
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json'))),
+    ).toEqual(firstOwner);
+    firstCleanerResult.release();
+  });
+
+  it('recovers a dead reclaimer marker and acquires the stale lock', () => {
+    const lockRoot = path.join(temporaryDirectory, 'dead-reclaimer-locks');
+    const kind = 'test-dead-reclaimer';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    writeReclaimMarker({
+      lockDirectory,
+      mainOwnerToken: 'stale-owner',
+      pid: 202,
+      token: 'crashed-reclaimer-token',
+    });
+
+    const acquired = acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: process.pid, sessionId: 'recovered-owner' },
+      processIsAlive: () => false,
+    });
+
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json')))
+        .sessionId,
+    ).toBe('recovered-owner');
+    acquired.release();
+  });
+
+  it('does not steal a stale lock from a live reclaimer marker', () => {
+    const lockRoot = path.join(temporaryDirectory, 'live-reclaimer-locks');
+    const kind = 'test-live-reclaimer';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    const markerDirectory = writeReclaimMarker({
+      lockDirectory,
+      mainOwnerToken: 'stale-owner',
+      pid: 202,
+      token: 'live-reclaimer-token',
+    });
+
+    expect(
+      acquireNamedLock({
+        key: 'shared',
+        kind,
+        lockRoot,
+        owner: { pid: 303, sessionId: 'unexpected-owner' },
+        processIsAlive: (pid) => pid === 202,
+        returnNullWhenBusy: true,
+      }),
+    ).toBeNull();
+    expect(
+      JSON.parse(fs.readFileSync(path.join(markerDirectory, 'owner.json')))
+        .token,
+    ).toBe('live-reclaimer-token');
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json')))
+        .sessionId,
+    ).toBe('stale-owner');
   });
 
   it('separates and locks the local Metro port from the device-visible URL', async () => {
@@ -331,6 +921,25 @@ describe('native-dev-shell', () => {
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
   });
 
+  it('holds a restored shell cache lease through device installation', () => {
+    const nativeDevShell = fs.readFileSync(
+      path.join(__dirname, '../native-dev-shell.js'),
+      'utf8',
+    );
+    const installSource = nativeDevShell.slice(
+      nativeDevShell.indexOf('async function resolveAndInstallShell('),
+      nativeDevShell.indexOf('\nasync function prepareVendor('),
+    );
+
+    const cleanupSource = installSource.slice(
+      installSource.indexOf('await runWithCacheLeaseCleanup({'),
+    );
+    expect(cleanupSource).toContain('operation: async () => {');
+    expect(cleanupSource.indexOf('await installMobileDevShell({')).toBeLessThan(
+      cleanupSource.indexOf('releaseCacheLease,'),
+    );
+  });
+
   it('keeps dev session bootstrap private and session-scoped on both platforms', () => {
     const nativeDevShell = fs.readFileSync(
       path.join(__dirname, '../native-dev-shell.js'),
@@ -384,6 +993,14 @@ describe('native-dev-shell', () => {
     expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
       nativeDevShell.indexOf('preparationLock.release();'),
     );
+    const launchSource = nativeDevShell.slice(
+      nativeDevShell.indexOf('async function launchDevShell('),
+      nativeDevShell.indexOf('\nasync function main()'),
+    );
+    expect(launchSource).toContain(
+      'await waitForMetroCompletionWithSessionRenewal({',
+    );
+    expect(launchSource).toContain('addFailureNotice(report, report.failure);');
   });
 
   it('creates an input-bound ARM shell artifact manifest', async () => {

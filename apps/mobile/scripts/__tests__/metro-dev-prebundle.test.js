@@ -769,6 +769,273 @@ describe('metro-dev-prebundle release transport', () => {
     }
   });
 
+  it('allows only one cleaner to reclaim a stale lock generation', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-cleaners-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    let staleOwnerReads = 0;
+    let releaseInitialReads;
+    const initialReads = new Promise((resolve) => {
+      releaseInitialReads = resolve;
+    });
+    let rootRenameCount = 0;
+    const fileSystem = {
+      ...fs.promises,
+      async readFile(filePath, ...args) {
+        const content = await fs.promises.readFile(filePath, ...args);
+        if (
+          filePath === ownerPath &&
+          content.includes('stale-owner') &&
+          staleOwnerReads < 2
+        ) {
+          staleOwnerReads += 1;
+          if (staleOwnerReads === 2) releaseInitialReads();
+          await initialReads;
+        }
+        return content;
+      },
+      async rename(sourcePath, targetPath) {
+        if (sourcePath === lockDirectory) rootRenameCount += 1;
+        return fs.promises.rename(sourcePath, targetPath);
+      },
+    };
+    let activeCallbacks = 0;
+    let maxActiveCallbacks = 0;
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(ownerPath, {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+      const results = await Promise.all(
+        ['first', 'second'].map((result) =>
+          withCacheLock(
+            lockDirectory,
+            async () => {
+              activeCallbacks += 1;
+              maxActiveCallbacks = Math.max(
+                maxActiveCallbacks,
+                activeCallbacks,
+              );
+              await new Promise((resolve) => setTimeout(resolve, 10));
+              activeCallbacks -= 1;
+              return result;
+            },
+            {
+              fileSystem,
+              processIsRunning: (pid) => pid === process.pid,
+              staleMs: 0,
+              waitPollIntervalMs: 1,
+              waitTimeoutMs: 1000,
+            },
+          ),
+        ),
+      );
+
+      expect(results.toSorted()).toEqual(['first', 'second']);
+      expect(staleOwnerReads).toBe(2);
+      expect(rootRenameCount).toBe(1);
+      expect(maxActiveCallbacks).toBe(1);
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
+  it('does not move or remove a new live owner during stale reclaim', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-replacement-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    let staleOwnerReads = 0;
+    let releaseInitialReads;
+    const initialReads = new Promise((resolve) => {
+      releaseInitialReads = resolve;
+    });
+    let releaseLiveOwner;
+    const holdLiveOwner = new Promise((resolve) => {
+      releaseLiveOwner = resolve;
+    });
+    let notifyLiveOwner;
+    const liveOwnerEntered = new Promise((resolve) => {
+      notifyLiveOwner = resolve;
+    });
+    let liveOwnerPromise = Promise.resolve();
+    let liveOwnerStarted = false;
+    let liveOwnerToken;
+    let rootRenameCount = 0;
+    const fileSystem = {
+      ...fs.promises,
+      async readFile(filePath, ...args) {
+        const content = await fs.promises.readFile(filePath, ...args);
+        if (
+          filePath === ownerPath &&
+          content.includes('stale-owner') &&
+          staleOwnerReads < 2
+        ) {
+          staleOwnerReads += 1;
+          if (staleOwnerReads === 2) releaseInitialReads();
+          await initialReads;
+        }
+        return content;
+      },
+      async rename(sourcePath, targetPath) {
+        await fs.promises.rename(sourcePath, targetPath);
+        if (sourcePath === lockDirectory) {
+          rootRenameCount += 1;
+          if (!liveOwnerStarted) {
+            liveOwnerStarted = true;
+            liveOwnerPromise = withCacheLock(lockDirectory, async () => {
+              liveOwnerToken = (await fs.readJson(ownerPath)).token;
+              notifyLiveOwner();
+              await holdLiveOwner;
+            });
+            await liveOwnerEntered;
+          }
+        }
+      },
+    };
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(ownerPath, {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+      const cleaners = ['first', 'second'].map((result) =>
+        withCacheLock(lockDirectory, async () => result, {
+          fileSystem,
+          processIsRunning: (pid) => pid === process.pid,
+          staleMs: 0,
+          waitPollIntervalMs: 1,
+          waitTimeoutMs: 1000,
+        }),
+      );
+
+      await liveOwnerEntered;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(await fs.pathExists(lockDirectory)).toBe(true);
+      expect((await fs.readJson(ownerPath)).token).toBe(liveOwnerToken);
+      expect(rootRenameCount).toBe(1);
+
+      releaseLiveOwner();
+      await liveOwnerPromise;
+      await expect(Promise.all(cleaners)).resolves.toHaveLength(2);
+      expect(rootRenameCount).toBe(1);
+    } finally {
+      releaseLiveOwner?.();
+      await liveOwnerPromise.catch(() => undefined);
+      await fs.remove(root);
+    }
+  });
+
+  it('retries a snapshot when the root changes between stat and owner read', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-snapshot-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    const replacedDirectory = path.join(root, 'replaced-tag.lock');
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    let replaced = false;
+    const fileSystem = {
+      ...fs.promises,
+      async readFile(filePath, ...args) {
+        if (filePath === ownerPath && !replaced) {
+          replaced = true;
+          await fs.promises.rename(lockDirectory, replacedDirectory);
+          await fs.ensureDir(lockDirectory);
+          await fs.writeJson(ownerPath, {
+            pid: process.pid,
+            token: 'live-replacement',
+          });
+        }
+        return fs.promises.readFile(filePath, ...args);
+      },
+    };
+    const callback = jest.fn();
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(ownerPath, {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+
+      await expect(
+        withCacheLock(lockDirectory, callback, {
+          fileSystem,
+          processIsRunning: (pid) => pid === process.pid,
+          staleMs: 0,
+          waitPollIntervalMs: 1,
+          waitTimeoutMs: 10,
+        }),
+      ).rejects.toThrow('Timed out waiting for shared cache lock');
+
+      expect(replaced).toBe(true);
+      expect(callback).not.toHaveBeenCalled();
+      expect(await fs.readJson(ownerPath)).toEqual({
+        pid: process.pid,
+        token: 'live-replacement',
+      });
+      expect(await fs.pathExists(path.join(lockDirectory, '.reclaim'))).toBe(
+        false,
+      );
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
+  it('treats a repeatedly unstable snapshot as busy without adding a marker', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-unstable-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    let rootStatCount = 0;
+    const fileSystem = {
+      ...fs.promises,
+      async lstat(filePath) {
+        const stat = await fs.promises.lstat(filePath);
+        if (filePath !== lockDirectory) return stat;
+        rootStatCount += 1;
+        return {
+          dev: stat.dev,
+          ino: stat.ino + rootStatCount,
+          isDirectory: () => stat.isDirectory(),
+          isSymbolicLink: () => stat.isSymbolicLink(),
+          mtimeMs: stat.mtimeMs,
+        };
+      },
+    };
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(ownerPath, {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+
+      await expect(
+        withCacheLock(lockDirectory, async () => 'unexpected', {
+          fileSystem,
+          processIsRunning: () => false,
+          staleMs: 0,
+          waitTimeoutMs: 0,
+        }),
+      ).rejects.toThrow('Timed out waiting for shared cache lock');
+
+      expect(rootStatCount).toBe(6);
+      expect(await fs.readJson(ownerPath)).toEqual({
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+      expect(await fs.pathExists(path.join(lockDirectory, '.reclaim'))).toBe(
+        false,
+      );
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
   it('does not release a lock after its ownership token changes', async () => {
     const root = await fs.mkdtemp(
       path.join(os.tmpdir(), 'onekey-metro-cache-owner-'),

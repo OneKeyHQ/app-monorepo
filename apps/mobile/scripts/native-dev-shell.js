@@ -26,18 +26,21 @@ const { preparePlatform } = require('./build-dev-vendor');
 const {
   installMobileDevShell,
   restoreMobileDevShell,
+  runWithCacheLeaseCleanup,
 } = require('./mobile-dev-shell-resource');
 
 const MOBILE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(MOBILE_ROOT, '../..');
 const DEV_SESSION_SCHEMA_VERSION = 2;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_RENEW_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
 const IOS_BUNDLE_ID = 'so.onekey.wallet';
 const DEV_SESSION_ROOT_NAME = 'onekey-dev-sessions';
 const LOCK_ROOT = path.join(os.tmpdir(), 'onekey-mobile-dev-locks-v1');
+const LOCK_STALE_MS = 30_000;
 const WORKTREE_ID = crypto
   .createHash('sha256')
   .update(fs.realpathSync(REPO_ROOT))
@@ -339,6 +342,61 @@ async function writeDevSession({
   return { outputPath, session };
 }
 
+function createRenewedDevSession(
+  session,
+  { nowEpochMs = Date.now(), ttlMs = SESSION_TTL_MS } = {},
+) {
+  if (
+    session?.schemaVersion !== DEV_SESSION_SCHEMA_VERSION ||
+    !['android', 'ios'].includes(session.platform) ||
+    typeof session.deviceId !== 'string' ||
+    !/^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u.test(
+      session.sessionId || '',
+    ) ||
+    typeof session.worktreeId !== 'string'
+  ) {
+    throw new Error('[nativeDevShell] Cannot renew an invalid dev session.');
+  }
+  const expiresAtEpochMs = nowEpochMs + ttlMs;
+  if (
+    !Number.isSafeInteger(nowEpochMs) ||
+    !Number.isSafeInteger(ttlMs) ||
+    ttlMs <= 0 ||
+    !Number.isSafeInteger(expiresAtEpochMs)
+  ) {
+    throw new Error('[nativeDevShell] Invalid dev session renewal time.');
+  }
+  return {
+    ...session,
+    expiresAt: new Date(expiresAtEpochMs).toISOString(),
+    expiresAtEpochMs,
+  };
+}
+
+function parseCurrentDevSession(content) {
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    throw new Error(
+      '[nativeDevShell] Current private dev session pointer is invalid.',
+      { cause: error },
+    );
+  }
+}
+
+function assertCurrentDevSession(current, session) {
+  if (
+    current?.schemaVersion !== 1 ||
+    current.deviceId !== session.deviceId ||
+    current.sessionId !== session.sessionId ||
+    current.worktreeId !== session.worktreeId
+  ) {
+    throw new Error(
+      '[nativeDevShell] Refusing to renew a private dev session that is no longer current.',
+    );
+  }
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
   const command = argv[0];
   if (
@@ -557,6 +615,36 @@ async function waitForMetro(metroPort, child, getSpawnError) {
   throw new Error('[nativeDevShell] Timed out waiting for Metro.');
 }
 
+async function waitForMetroCompletionWithSessionRenewal({
+  clearTimeoutFn = clearTimeout,
+  intervalMs = SESSION_RENEW_INTERVAL_MS,
+  metroCompletion,
+  renewSession,
+  setTimeoutFn = setTimeout,
+}) {
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 0) {
+    throw new Error('[nativeDevShell] Invalid session renewal interval.');
+  }
+  const metroOutcome = metroCompletion.then((value) => ({
+    type: 'metro-complete',
+    value,
+  }));
+  while (true) {
+    let timer;
+    const renewalDue = new Promise((resolve) => {
+      timer = setTimeoutFn(() => resolve({ type: 'renewal-due' }), intervalMs);
+    });
+    let outcome;
+    try {
+      outcome = await Promise.race([metroOutcome, renewalDue]);
+    } finally {
+      clearTimeoutFn(timer);
+    }
+    if (outcome.type === 'metro-complete') return outcome.value;
+    await renewSession();
+  }
+}
+
 function runChecked(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: 'inherit', ...options });
   if (result.status !== 0 || result.error) {
@@ -668,62 +756,323 @@ function isProcessAlive(pid) {
   }
 }
 
-function acquireNamedLock({ key, kind, owner, returnNullWhenBusy = false }) {
-  fs.mkdirSync(LOCK_ROOT, { recursive: true });
+function getLockSnapshot({ fileSystem, lockDirectory, ownerPath }) {
+  const missingSnapshot = () => ({
+    activeOwner: undefined,
+    ageMs: undefined,
+    identity: undefined,
+    missing: true,
+  });
+  let before;
+  try {
+    before = fileSystem.statSync(lockDirectory);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return missingSnapshot();
+    throw error;
+  }
+  let activeOwner;
+  try {
+    activeOwner = JSON.parse(fileSystem.readFileSync(ownerPath, 'utf8'));
+  } catch {
+    activeOwner = undefined;
+  }
+  try {
+    const after = fileSystem.statSync(lockDirectory);
+    if (before.dev !== after.dev || before.ino !== after.ino) {
+      return missingSnapshot();
+    }
+    return {
+      activeOwner,
+      ageMs: Date.now() - after.mtimeMs,
+      identity: `${String(after.dev)}:${String(after.ino)}`,
+      missing: false,
+    };
+  } catch (error) {
+    if (error?.code === 'ENOENT') return missingSnapshot();
+    throw error;
+  }
+}
+
+function getLockOwnerToken(snapshot) {
+  return snapshot.activeOwner?.sessionId;
+}
+
+function isSameLockGeneration(left, right) {
+  return (
+    !left.missing &&
+    !right.missing &&
+    left.identity === right.identity &&
+    getLockOwnerToken(left) === getLockOwnerToken(right)
+  );
+}
+
+function getReclaimMarkerSnapshot(fileSystem, reclaimMarker) {
+  return getLockSnapshot({
+    fileSystem,
+    lockDirectory: reclaimMarker,
+    ownerPath: path.join(reclaimMarker, 'owner.json'),
+  });
+}
+
+function isSameMarkerGeneration(left, right) {
+  return (
+    !left.missing &&
+    !right.missing &&
+    left.identity === right.identity &&
+    left.activeOwner?.token === right.activeOwner?.token
+  );
+}
+
+function isMarkerBoundToRoot(marker, root) {
+  return (
+    !marker.activeOwner ||
+    (marker.activeOwner.rootIdentity === root.identity &&
+      marker.activeOwner.mainOwnerToken === getLockOwnerToken(root))
+  );
+}
+
+function recoverAbandonedReclaimMarker({
+  fileSystem,
+  lockDirectory,
+  ownerPath,
+  processIsAlive,
+  reclaimMarker,
+  rootSnapshot,
+}) {
+  const marker = getReclaimMarkerSnapshot(fileSystem, reclaimMarker);
+  if (marker.missing) return true;
+  if (!isMarkerBoundToRoot(marker, rootSnapshot)) return false;
+  if (marker.activeOwner && processIsAlive(marker.activeOwner.pid)) {
+    return false;
+  }
+  if (!marker.activeOwner && marker.ageMs < LOCK_STALE_MS) {
+    return false;
+  }
+  const confirmedRoot = getLockSnapshot({
+    fileSystem,
+    lockDirectory,
+    ownerPath,
+  });
+  const confirmedMarker = getReclaimMarkerSnapshot(fileSystem, reclaimMarker);
+  if (
+    !isSameLockGeneration(rootSnapshot, confirmedRoot) ||
+    !isSameMarkerGeneration(marker, confirmedMarker) ||
+    !isMarkerBoundToRoot(confirmedMarker, confirmedRoot) ||
+    (confirmedMarker.activeOwner &&
+      processIsAlive(confirmedMarker.activeOwner.pid))
+  ) {
+    return false;
+  }
+  const markerToken =
+    confirmedMarker.activeOwner?.token || confirmedMarker.identity;
+  const staleMarker = `${reclaimMarker}.stale-${crypto
+    .createHash('sha256')
+    .update(markerToken)
+    .digest('hex')
+    .slice(0, 16)}`;
+  try {
+    fileSystem.renameSync(reclaimMarker, staleMarker);
+  } catch (error) {
+    if (
+      error?.code === 'ENOENT' ||
+      error?.code === 'EEXIST' ||
+      error?.code === 'ENOTEMPTY'
+    ) {
+      return false;
+    }
+    throw error;
+  }
+  const movedMarker = getReclaimMarkerSnapshot(fileSystem, staleMarker);
+  const finalRoot = getLockSnapshot({
+    fileSystem,
+    lockDirectory,
+    ownerPath,
+  });
+  if (
+    !isSameMarkerGeneration(confirmedMarker, movedMarker) ||
+    !isSameLockGeneration(confirmedRoot, finalRoot)
+  ) {
+    return false;
+  }
+  fileSystem.rmSync(staleMarker, { force: true, recursive: true });
+  return true;
+}
+
+function acquireNamedLock({
+  fileSystem = fs,
+  key,
+  kind,
+  lockRoot = LOCK_ROOT,
+  owner,
+  processIsAlive = isProcessAlive,
+  returnNullWhenBusy = false,
+}) {
+  fileSystem.mkdirSync(lockRoot, { recursive: true });
   const lockKey = crypto
     .createHash('sha256')
     .update(`${kind}\0${key}`)
     .digest('hex');
-  const lockDirectory = path.join(LOCK_ROOT, `${kind}-${lockKey}`);
+  const lockDirectory = path.join(lockRoot, `${kind}-${lockKey}`);
   const ownerPath = path.join(lockDirectory, 'owner.json');
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  let lastContentionError;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     try {
-      fs.mkdirSync(lockDirectory);
-      fs.writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`, {
-        flag: 'wx',
-      });
+      fileSystem.mkdirSync(lockDirectory);
+      fileSystem.writeFileSync(
+        ownerPath,
+        `${JSON.stringify(owner, null, 2)}\n`,
+        { flag: 'wx' },
+      );
       return {
         release() {
           let activeOwner;
           try {
-            activeOwner = JSON.parse(fs.readFileSync(ownerPath, 'utf8'));
+            activeOwner = JSON.parse(
+              fileSystem.readFileSync(ownerPath, 'utf8'),
+            );
           } catch {
             return;
           }
           if (activeOwner.sessionId === owner.sessionId) {
-            fs.rmSync(lockDirectory, { force: true, recursive: true });
+            fileSystem.rmSync(lockDirectory, {
+              force: true,
+              recursive: true,
+            });
           }
         },
       };
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
-      let activeOwner;
-      try {
-        activeOwner = JSON.parse(fs.readFileSync(ownerPath, 'utf8'));
-      } catch {
-        activeOwner = undefined;
-      }
-      if (!activeOwner) {
-        const ageMs = Date.now() - fs.statSync(lockDirectory).mtimeMs;
-        if (ageMs < 30_000) {
+      lastContentionError = error;
+      const snapshot = getLockSnapshot({
+        fileSystem,
+        lockDirectory,
+        ownerPath,
+      });
+      if (!snapshot.missing) {
+        if (!snapshot.activeOwner && snapshot.ageMs < LOCK_STALE_MS) {
           if (returnNullWhenBusy) return null;
           throw new Error(
             `[nativeDevShell] ${kind} lock is being acquired by another process.`,
             { cause: error },
           );
         }
+        if (snapshot.activeOwner && processIsAlive(snapshot.activeOwner.pid)) {
+          if (returnNullWhenBusy) return null;
+          throw new Error(
+            `[nativeDevShell] ${kind} is already owned by worktree=${snapshot.activeOwner.worktreeId || 'unknown'} device=${snapshot.activeOwner.deviceId || 'unknown'} session=${snapshot.activeOwner.sessionId || 'unknown'} pid=${String(snapshot.activeOwner.pid)}.`,
+            { cause: error },
+          );
+        }
+        const reclaimMarker = path.join(lockDirectory, '.reclaim');
+        let markerOwner;
+        let markerAcquired = false;
+        let lockRenamed = false;
+        try {
+          try {
+            fileSystem.mkdirSync(reclaimMarker);
+            markerOwner = {
+              mainOwnerToken: getLockOwnerToken(snapshot),
+              pid: process.pid,
+              rootIdentity: snapshot.identity,
+              token: crypto.randomBytes(16).toString('hex'),
+            };
+            fileSystem.writeFileSync(
+              path.join(reclaimMarker, 'owner.json'),
+              `${JSON.stringify(markerOwner, null, 2)}\n`,
+              { flag: 'wx' },
+            );
+            markerAcquired = true;
+          } catch (markerError) {
+            if (markerError?.code === 'EEXIST') {
+              const recovered = recoverAbandonedReclaimMarker({
+                fileSystem,
+                lockDirectory,
+                ownerPath,
+                processIsAlive,
+                reclaimMarker,
+                rootSnapshot: snapshot,
+              });
+              if (!recovered) {
+                if (returnNullWhenBusy) return null;
+                throw new Error(
+                  `[nativeDevShell] ${kind} stale lock is already being reclaimed.`,
+                  { cause: markerError },
+                );
+              }
+            } else if (markerError?.code !== 'ENOENT') {
+              throw markerError;
+            }
+            lastContentionError = markerError;
+          }
+          if (markerAcquired) {
+            const confirmed = getLockSnapshot({
+              fileSystem,
+              lockDirectory,
+              ownerPath,
+            });
+            const confirmedMarker = getReclaimMarkerSnapshot(
+              fileSystem,
+              reclaimMarker,
+            );
+            if (
+              isSameLockGeneration(snapshot, confirmed) &&
+              confirmedMarker.activeOwner?.token === markerOwner.token &&
+              isMarkerBoundToRoot(confirmedMarker, confirmed)
+            ) {
+              if (
+                confirmed.activeOwner &&
+                processIsAlive(confirmed.activeOwner.pid)
+              ) {
+                if (returnNullWhenBusy) return null;
+                throw new Error(
+                  `[nativeDevShell] ${kind} became active while reclaiming its stale owner.`,
+                  { cause: error },
+                );
+              }
+              const staleDirectory = `${lockDirectory}.stale-${process.pid}-${crypto.randomBytes(8).toString('hex')}`;
+              try {
+                fileSystem.renameSync(lockDirectory, staleDirectory);
+                lockRenamed = true;
+                fileSystem.rmSync(staleDirectory, {
+                  force: true,
+                  recursive: true,
+                });
+              } catch (renameError) {
+                if (renameError?.code !== 'ENOENT') throw renameError;
+                lastContentionError = renameError;
+              }
+            }
+          }
+        } finally {
+          if (markerAcquired && !lockRenamed) {
+            const current = getLockSnapshot({
+              fileSystem,
+              lockDirectory,
+              ownerPath,
+            });
+            const currentMarker = getReclaimMarkerSnapshot(
+              fileSystem,
+              reclaimMarker,
+            );
+            if (
+              isSameLockGeneration(snapshot, current) &&
+              currentMarker.activeOwner?.token === markerOwner.token &&
+              isMarkerBoundToRoot(currentMarker, current)
+            ) {
+              fileSystem.rmSync(reclaimMarker, {
+                force: true,
+                recursive: true,
+              });
+            }
+          }
+        }
       }
-      if (activeOwner && isProcessAlive(activeOwner.pid)) {
-        if (returnNullWhenBusy) return null;
-        throw new Error(
-          `[nativeDevShell] ${kind} is already owned by worktree=${activeOwner.worktreeId || 'unknown'} device=${activeOwner.deviceId || 'unknown'} session=${activeOwner.sessionId || 'unknown'} pid=${String(activeOwner.pid)}.`,
-          { cause: error },
-        );
-      }
-      fs.rmSync(lockDirectory, { force: true, recursive: true });
     }
   }
-  throw new Error(`[nativeDevShell] Unable to acquire ${kind} lock.`);
+  throw new Error(`[nativeDevShell] Unable to acquire ${kind} lock.`, {
+    cause: lastContentionError,
+  });
 }
 
 async function acquireWorktreePreparationLock({
@@ -871,11 +1220,42 @@ async function preparePrivateSessionPayload({
   return { directory, outputPath, session };
 }
 
-function stageAndroidPrivateSession({ deviceId, directory, sessionId }) {
+function quoteAdbShellArgument(value) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function getAndroidPrivateSessionInstallArgs({ deviceId, sessionId }) {
   const remoteTemporaryDirectory = `/data/local/tmp/onekey-dev-session-${sessionId}`;
   const appRoot = `files/${DEV_SESSION_ROOT_NAME}`;
   const appTemporaryDirectory = `${appRoot}/.tmp-${sessionId}`;
   const appSessionDirectory = `${appRoot}/${sessionId}`;
+  const installCommand = [
+    'umask 077',
+    `mkdir -p ${appRoot}`,
+    `rm -rf ${appTemporaryDirectory}`,
+    `mkdir ${appTemporaryDirectory}`,
+    `cp ${remoteTemporaryDirectory}/session.json ${appTemporaryDirectory}/session.json`,
+    `cp ${remoteTemporaryDirectory}/vendor-manifest.json ${appTemporaryDirectory}/vendor-manifest.json`,
+    `cp ${remoteTemporaryDirectory}/common.hbc ${appTemporaryDirectory}/common.hbc`,
+    `mv ${appTemporaryDirectory} ${appSessionDirectory}`,
+    `cp ${remoteTemporaryDirectory}/current.json ${appRoot}/current.json.tmp-${sessionId}`,
+    `mv ${appRoot}/current.json.tmp-${sessionId} ${appRoot}/current.json`,
+    `for candidate in ${appRoot}/wk-*; do if [ -d "$candidate" ] && [ "$candidate" != ${appSessionDirectory} ]; then rm -rf "$candidate"; fi; done`,
+  ].join(' && ');
+  return [
+    '-s',
+    deviceId,
+    'shell',
+    'run-as',
+    ANDROID_APPLICATION_ID,
+    'sh',
+    '-c',
+    quoteAdbShellArgument(installCommand),
+  ];
+}
+
+function stageAndroidPrivateSession({ deviceId, directory, sessionId }) {
+  const remoteTemporaryDirectory = `/data/local/tmp/onekey-dev-session-${sessionId}`;
   runChecked('adb', [
     '-s',
     deviceId,
@@ -899,29 +1279,10 @@ function stageAndroidPrivateSession({ deviceId, directory, sessionId }) {
         `${remoteTemporaryDirectory}/${fileName}`,
       ]);
     }
-    const installCommand = [
-      'umask 077',
-      `mkdir -p ${appRoot}`,
-      `rm -rf ${appTemporaryDirectory}`,
-      `mkdir ${appTemporaryDirectory}`,
-      `cp ${remoteTemporaryDirectory}/session.json ${appTemporaryDirectory}/session.json`,
-      `cp ${remoteTemporaryDirectory}/vendor-manifest.json ${appTemporaryDirectory}/vendor-manifest.json`,
-      `cp ${remoteTemporaryDirectory}/common.hbc ${appTemporaryDirectory}/common.hbc`,
-      `mv ${appTemporaryDirectory} ${appSessionDirectory}`,
-      `cp ${remoteTemporaryDirectory}/current.json ${appRoot}/current.json.tmp-${sessionId}`,
-      `mv ${appRoot}/current.json.tmp-${sessionId} ${appRoot}/current.json`,
-      `for candidate in ${appRoot}/wk-*; do if [ -d "$candidate" ] && [ "$candidate" != ${appSessionDirectory} ]; then rm -rf "$candidate"; fi; done`,
-    ].join(' && ');
-    runChecked('adb', [
-      '-s',
-      deviceId,
-      'shell',
-      'run-as',
-      ANDROID_APPLICATION_ID,
-      'sh',
-      '-c',
-      installCommand,
-    ]);
+    runChecked(
+      'adb',
+      getAndroidPrivateSessionInstallArgs({ deviceId, sessionId }),
+    );
   } finally {
     runBestEffort('adb', [
       '-s',
@@ -991,6 +1352,140 @@ async function stageIosPrivateSession({ deviceId, directory, sessionId }) {
         }),
       ),
   );
+}
+
+function getAndroidPrivateSessionRenewalArgs({ deviceId, sessionId }) {
+  const appRoot = `files/${DEV_SESSION_ROOT_NAME}`;
+  const sessionDirectory = `${appRoot}/${sessionId}`;
+  const sessionPath = `${sessionDirectory}/session.json`;
+  const temporaryPath = `${sessionPath}.tmp-${sessionId}`;
+  const renewalCommand = [
+    'umask 077',
+    `test -d ${sessionDirectory}`,
+    `rm -f ${temporaryPath}`,
+    `cat > ${temporaryPath}`,
+    `mv ${temporaryPath} ${sessionPath}`,
+  ].join(' && ');
+  return [
+    '-s',
+    deviceId,
+    'shell',
+    'run-as',
+    ANDROID_APPLICATION_ID,
+    'sh',
+    '-c',
+    quoteAdbShellArgument(renewalCommand),
+  ];
+}
+
+function renewAndroidPrivateSession({
+  deviceId,
+  nowEpochMs,
+  runCheckedCommand = runChecked,
+  runForOutputCommand = runForOutput,
+  session,
+}) {
+  const appRoot = `files/${DEV_SESSION_ROOT_NAME}`;
+  const current = parseCurrentDevSession(
+    runForOutputCommand('adb', [
+      '-s',
+      deviceId,
+      'exec-out',
+      'run-as',
+      ANDROID_APPLICATION_ID,
+      'cat',
+      `${appRoot}/current.json`,
+    ]),
+  );
+  assertCurrentDevSession(current, session);
+  const renewedSession = createRenewedDevSession(session, { nowEpochMs });
+  runCheckedCommand(
+    'adb',
+    getAndroidPrivateSessionRenewalArgs({
+      deviceId,
+      sessionId: session.sessionId,
+    }),
+    {
+      input: `${JSON.stringify(renewedSession, null, 2)}\n`,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    },
+  );
+  return renewedSession;
+}
+
+async function renewIosPrivateSession({
+  deviceId,
+  fileSystem = fs,
+  nowEpochMs,
+  runForOutputCommand = runForOutput,
+  session,
+}) {
+  const dataContainer = runForOutputCommand('xcrun', [
+    'simctl',
+    'get_app_container',
+    deviceId,
+    IOS_BUNDLE_ID,
+    'data',
+  ]);
+  const appRoot = path.join(
+    dataContainer,
+    'Library/Application Support',
+    DEV_SESSION_ROOT_NAME,
+  );
+  const current = parseCurrentDevSession(
+    await fileSystem.promises.readFile(
+      path.join(appRoot, 'current.json'),
+      'utf8',
+    ),
+  );
+  assertCurrentDevSession(current, session);
+  const sessionDirectory = path.join(appRoot, session.sessionId);
+  const sessionDirectoryStat =
+    await fileSystem.promises.lstat(sessionDirectory);
+  if (
+    !sessionDirectoryStat.isDirectory() ||
+    sessionDirectoryStat.isSymbolicLink()
+  ) {
+    throw new Error(
+      '[nativeDevShell] iOS private dev session directory is invalid.',
+    );
+  }
+  const renewedSession = createRenewedDevSession(session, { nowEpochMs });
+  const sessionPath = path.join(sessionDirectory, 'session.json');
+  const temporaryPath = path.join(
+    sessionDirectory,
+    `session.json.tmp-${session.sessionId}`,
+  );
+  await fileSystem.promises.rm(temporaryPath, { force: true });
+  try {
+    await fileSystem.promises.writeFile(
+      temporaryPath,
+      `${JSON.stringify(renewedSession, null, 2)}\n`,
+      { flag: 'wx', mode: 0o600 },
+    );
+    await fileSystem.promises.rename(temporaryPath, sessionPath);
+  } finally {
+    await fileSystem.promises.rm(temporaryPath, { force: true });
+  }
+  return renewedSession;
+}
+
+async function renewPrivateSession({
+  deviceId,
+  platform,
+  session,
+  ...options
+}) {
+  const targetPlatform = assertPlatform(platform);
+  if (session.platform !== targetPlatform || session.deviceId !== deviceId) {
+    throw new Error(
+      '[nativeDevShell] Dev session renewal target does not match its host owner.',
+    );
+  }
+  if (targetPlatform === 'android') {
+    return renewAndroidPrivateSession({ deviceId, session, ...options });
+  }
+  return renewIosPrivateSession({ deviceId, session, ...options });
 }
 
 async function stagePrivateSession(options) {
@@ -1079,6 +1574,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
   }
   const compatibility = getShellCompatibility({ platform });
   let artifactPath;
+  let releaseCacheLease;
   let usedFallback = false;
   if (shell === 'local') {
     report.shell = {
@@ -1101,6 +1597,7 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
     try {
       const restored = await restoreMobileDevShell({ compatibility });
       artifactPath = restored.artifactPath;
+      releaseCacheLease = restored.releaseCacheLease;
       report.shell.source = restored.source;
       report.shell.ociDigest = restored.ociDigest;
       if (restored.compatibilityFallback) {
@@ -1124,13 +1621,18 @@ async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
       artifactPath = await buildLocalShell({ platform, report });
     }
   }
-  report.shell.status = 'installing';
-  await writeRunReport(report);
-  await installMobileDevShell({ artifactPath, deviceId, platform });
-  if (usedFallback) printFallbackDone(report, 'shell');
-  report.shell.artifactPath = artifactPath;
-  report.shell.status = 'ready';
-  await writeRunReport(report);
+  await runWithCacheLeaseCleanup({
+    operation: async () => {
+      report.shell.status = 'installing';
+      await writeRunReport(report);
+      await installMobileDevShell({ artifactPath, deviceId, platform });
+      if (usedFallback) printFallbackDone(report, 'shell');
+      report.shell.artifactPath = artifactPath;
+      report.shell.status = 'ready';
+      await writeRunReport(report);
+    },
+    releaseCacheLease,
+  });
 }
 
 async function prepareVendor({ platform, report, vendor }) {
@@ -1281,7 +1783,15 @@ async function launchDevShell({
         cause: metroSpawnError,
       });
     }
-    const { code, signal } = await metroCompletion;
+    const { code, signal } = await waitForMetroCompletionWithSessionRenewal({
+      metroCompletion,
+      renewSession: () =>
+        renewPrivateSession({
+          deviceId: selectedDevice.id,
+          platform,
+          session,
+        }),
+    });
     if (code !== 0 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
       throw new Error(
         `[nativeDevShell] Metro exited with code ${String(code)} signal ${String(signal)}.`,
@@ -1345,10 +1855,14 @@ module.exports = {
   SHELL_MANIFEST_SCHEMA_VERSION,
   addFallbackNotice,
   addFailureNotice,
+  acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  createRenewedDevSession,
   createSessionId,
   createRunReport,
+  getAndroidPrivateSessionInstallArgs,
+  getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
   getPlatformArtifact,
   getShellArtifactTag,
@@ -1361,7 +1875,10 @@ module.exports = {
   parseMetroPort,
   printRunSummary,
   pruneSessionDirectories,
+  quoteAdbShellArgument,
+  renewPrivateSession,
   selectTargetDevice,
+  waitForMetroCompletionWithSessionRenewal,
   writeContractManifest,
   writeArtifactManifest,
   writeDevSession,

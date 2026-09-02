@@ -652,6 +652,7 @@ describe('devVendor', () => {
         fixture.repoRoot,
       );
       expect(iosInputs).toEqual([
+        'apps/mobile/ios/Podfile.lock',
         'apps/mobile/ios/Podfile.properties.json',
         'apps/mobile/package.json',
         'yarn.lock',
@@ -673,6 +674,49 @@ describe('devVendor', () => {
         'android',
         fixture.repoRoot,
       );
+      const podLockPath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/ios/Podfile.lock',
+      );
+      const podLock = fs.readFileSync(podLockPath, 'utf8');
+      const changedPodfileChecksum = podLock.replace(
+        /^PODFILE CHECKSUM: [0-9a-f]{40}$/mu,
+        `PODFILE CHECKSUM: ${'f'.repeat(40)}`,
+      );
+      expect(changedPodfileChecksum).not.toBe(podLock);
+      fs.writeFileSync(podLockPath, changedPodfileChecksum);
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+
+      const changedPodResolution = podLock.replace(
+        /^(  SPAlert: )[0-9a-f]{40}$/mu,
+        `$1${'f'.repeat(40)}`,
+      );
+      expect(changedPodResolution).not.toBe(podLock);
+      fs.writeFileSync(podLockPath, changedPodResolution);
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(podLockPath, podLock);
+
+      const changedPodCheckout = podLock.replace(
+        /^(CHECKOUT OPTIONS:\n  TOCropViewController:\n    :commit: )[0-9a-f]{40}$/mu,
+        `$1${'f'.repeat(40)}`,
+      );
+      expect(changedPodCheckout).not.toBe(podLock);
+      fs.writeFileSync(podLockPath, changedPodCheckout);
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(podLockPath, podLock);
+
       const webEmbedInputKey = '1'.repeat(64);
       const iosShellInputBaseline = computeShellInputKey(
         {

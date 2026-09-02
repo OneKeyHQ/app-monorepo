@@ -3,10 +3,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { withCacheLock } = require('../metro-dev-prebundle');
 const {
+  MAX_CACHED_SHELLS,
   assertDeviceId,
+  createMobileShellCacheLease,
   getGhAttestationVerifyArgs,
   restoreMobileDevShell,
+  runWithCacheLeaseCleanup,
+  touchAndPruneMobileShellCache,
   verifyArtifactManifest,
   verifyOciManifest,
 } = require('../mobile-dev-shell-resource');
@@ -152,6 +157,43 @@ describe('mobile-dev-shell-resource', () => {
     expect(assertDeviceId('emulator-5554')).toBe('emulator-5554');
     expect(() => assertDeviceId()).toThrow('explicit device ID');
     expect(() => assertDeviceId('bad\ndevice')).toThrow('explicit device ID');
+  });
+
+  it('preserves the operation error when cache lease cleanup also fails', async () => {
+    const operationError = new Error('device installation failed');
+    const cleanupError = new Error('lease lock failed');
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        runWithCacheLeaseCleanup({
+          operation: async () => {
+            throw operationError;
+          },
+          releaseCacheLease: async () => {
+            throw cleanupError;
+          },
+        }),
+      ).rejects.toBe(operationError);
+      expect(consoleError).toHaveBeenCalledWith(
+        '[mobileDevShellResource] Cache lease cleanup warning: lease lock failed',
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('fails with the cleanup error when the operation succeeds', async () => {
+    const cleanupError = new Error('lease lock failed');
+    await expect(
+      runWithCacheLeaseCleanup({
+        operation: async () => 'installed',
+        releaseCacheLease: async () => {
+          throw cleanupError;
+        },
+      }),
+    ).rejects.toBe(cleanupError);
   });
 
   it('binds shell attestations to the x branch', () => {
@@ -456,6 +498,83 @@ describe('mobile-dev-shell-resource', () => {
       );
     } finally {
       consoleError.mockRestore();
+      fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('bounds cache entries without pruning the current or actively leased shell', async () => {
+    const cacheRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-shell-prune-test-'),
+    );
+    const tags = Array.from(
+      { length: MAX_CACHED_SHELLS + 3 },
+      (_, index) =>
+        `mobile-dev-shell-input-v3-android-arm64-v8a-${index.toString(16).padStart(64, '0')}`,
+    );
+    const leasedTag = tags[0];
+    const lockedTag = tags[1];
+    const currentTag = tags.at(-1);
+    try {
+      for (const [index, tag] of tags.entries()) {
+        const directory = path.join(cacheRoot, tag);
+        fs.mkdirSync(directory);
+        fs.writeFileSync(path.join(directory, 'shell.apk'), 'shell');
+        const timestamp = new Date(1000 + index * 1000);
+        fs.utimesSync(directory, timestamp, timestamp);
+      }
+      const releaseCacheLease = await createMobileShellCacheLease({
+        cacheRoot,
+        tag: leasedTag,
+      });
+      const oldestTimestamp = new Date(1000);
+      fs.utimesSync(
+        path.join(cacheRoot, leasedTag),
+        oldestTimestamp,
+        oldestTimestamp,
+      );
+
+      await withCacheLock(
+        path.join(cacheRoot, '.locks', `${lockedTag}.lock`),
+        async () => {
+          await touchAndPruneMobileShellCache(cacheRoot, currentTag);
+          expect(fs.existsSync(path.join(cacheRoot, currentTag))).toBe(true);
+          expect(fs.existsSync(path.join(cacheRoot, leasedTag))).toBe(true);
+          expect(fs.existsSync(path.join(cacheRoot, lockedTag))).toBe(true);
+        },
+      );
+
+      const leasedDirectory = path.join(cacheRoot, leasedTag);
+      const leaseDirectory = path.join(leasedDirectory, '.leases');
+      let leasePresentDuringPrune = false;
+      const originalUtimes = fs.promises.utimes;
+      const utimes = jest
+        .spyOn(fs.promises, 'utimes')
+        .mockImplementation(async (targetPath, ...args) => {
+          if (targetPath === leasedDirectory) {
+            leasePresentDuringPrune =
+              fs.existsSync(leaseDirectory) &&
+              fs.readdirSync(leaseDirectory).length > 0;
+          }
+          return originalUtimes(targetPath, ...args);
+        });
+      try {
+        await releaseCacheLease();
+      } finally {
+        utimes.mockRestore();
+      }
+      expect(leasePresentDuringPrune).toBe(true);
+      const retainedTags = fs
+        .readdirSync(cacheRoot, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isDirectory() && entry.name.startsWith('mobile-dev-shell-'),
+        )
+        .map(({ name }) => name);
+      expect(retainedTags).toHaveLength(MAX_CACHED_SHELLS);
+      expect(retainedTags).toEqual(
+        expect.arrayContaining([currentTag, leasedTag]),
+      );
+    } finally {
       fs.rmSync(cacheRoot, { force: true, recursive: true });
     }
   });
