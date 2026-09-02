@@ -20268,6 +20268,7 @@
     "packages/kit/src/states/jotai/contexts/accountSelector/actionsLazy.ts": 4306,
     "packages/kit/src/states/jotai/contexts/accountSelector/activeAccountInitGuard.ts": 4307,
     "packages/kit/src/states/jotai/contexts/accountSelector/atoms.ts": 4308,
+    "packages/kit/src/states/jotai/contexts/accountSelector/hardwareWalletActions.ts": 7976,
     "packages/kit/src/states/jotai/contexts/accountSelector/index.ts": 4309,
     "packages/kit/src/states/jotai/contexts/approvalList/actions.ts": 4310,
     "packages/kit/src/states/jotai/contexts/approvalList/atoms.ts": 4311,
