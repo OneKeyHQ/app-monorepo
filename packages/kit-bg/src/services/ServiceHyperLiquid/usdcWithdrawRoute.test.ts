@@ -63,6 +63,26 @@ describe('usdc withdraw route resolution', () => {
     expect(requestMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses the resolved rail for five minutes', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    try {
+      requestMock
+        .mockResolvedValueOnce({ withdrawalRoute: 'cctp' })
+        .mockResolvedValueOnce({ withdrawalRoute: 'bridge' });
+
+      await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
+      nowSpy.mockReturnValue(1000 + 5 * 60 * 1000 - 1);
+      await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
+      expect(requestMock).toHaveBeenCalledTimes(1);
+
+      nowSpy.mockReturnValue(1000 + 5 * 60 * 1000);
+      await expect(getUsdcWithdrawRoute()).resolves.toBe('bridge');
+      expect(requestMock).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   // A failure must not be cached, or one flaky response would pin every later
   // withdrawal to the more expensive rail for the whole cache window.
   it('retries after a failed lookup', async () => {

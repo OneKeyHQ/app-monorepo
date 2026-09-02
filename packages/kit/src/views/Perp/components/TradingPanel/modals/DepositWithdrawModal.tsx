@@ -2103,42 +2103,31 @@ function DepositWithdrawContent({
     [setPerpsCustomSettings],
   );
 
-  // HyperEVM is a native sendAsset transfer. Only external CCTP destinations
-  // need the server-selected bridge/CCTP rail.
+  // The selector always needs the active external withdrawal rail, including
+  // when HyperEVM is selected. The background service serves its cached value.
   useEffect(() => {
-    if (
-      selectedAction !== 'withdraw' ||
-      selectedWithdrawDestination.transferType === 'hyperEvm'
-    ) {
+    if (selectedAction !== 'withdraw') {
       return;
     }
     let cancelled = false;
     setWithdrawRoute(undefined);
-    const loadWithdrawRoute = () => {
-      void backgroundApiProxy.serviceHyperliquidExchange
-        .getUsdcWithdrawRoute()
-        .then((route) => {
-          if (!cancelled) {
-            setWithdrawRoute(route);
-          }
-        })
-        .catch((error) => {
-          console.error(
-            '[DepositWithdrawModal] Failed to resolve withdraw route:',
-            error,
-          );
-        });
-    };
-    loadWithdrawRoute();
-    const refreshInterval = setInterval(
-      loadWithdrawRoute,
-      WITHDRAW_QUOTE_REFRESH_INTERVAL_MS,
-    );
+    void backgroundApiProxy.serviceHyperliquidExchange
+      .getUsdcWithdrawRoute()
+      .then((route) => {
+        if (!cancelled) {
+          setWithdrawRoute(route);
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[DepositWithdrawModal] Failed to resolve withdraw route:',
+          error,
+        );
+      });
     return () => {
       cancelled = true;
-      clearInterval(refreshInterval);
     };
-  }, [selectedAction, selectedWithdrawDestination.transferType]);
+  }, [selectedAction]);
 
   useEffect(() => {
     if (selectedAction !== 'withdraw') {

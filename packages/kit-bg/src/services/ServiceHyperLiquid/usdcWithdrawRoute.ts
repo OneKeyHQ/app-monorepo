@@ -17,7 +17,7 @@ interface IUsdcRoutingResponse {
   withdrawalRoute?: string;
 }
 
-const ROUTE_CACHE_TTL_MS = 30 * 1000;
+const ROUTE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 // An unreachable or unparsable response tells us nothing new, so fall back to the
 // rail that has been working in production all along. It costs the legacy $1 fee
