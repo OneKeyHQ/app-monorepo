@@ -17,11 +17,20 @@ inputs:
   compatibility_tag:
     description: First-write-wins locator tag for a compatible shell.
     required: true
+  exact_tag:
+    description: First-write-wins locator tag for the exact shell build inputs.
+    required: true
+  input_key:
+    description: Exact native shell build input key.
+    required: true
   manifest:
     description: Path to the artifact sidecar manifest.
     required: true
   platform:
     description: Native artifact platform.
+    required: true
+  native_contract_key:
+    description: Vendor/native loader ABI contract key.
     required: true
   signer_workflow:
     description: Expected GitHub Actions signer workflow.
@@ -59,7 +68,7 @@ runs:
             --bundle "$ATTESTATION_BUNDLE" \
             --custom-trusted-root "$trusted_root" \
             --signer-workflow "$SIGNER_WORKFLOW" \
-            --source-ref "$GITHUB_REF" \
+            --source-ref refs/heads/x \
             --source-digest "$GITHUB_SHA" \
             --deny-self-hosted-runners
         done
@@ -84,7 +93,10 @@ runs:
         ARTIFACT_TAG: ${{ inputs.artifact_tag }}
         COMPATIBILITY_KEY: ${{ inputs.compatibility_key }}
         COMPATIBILITY_TAG: ${{ inputs.compatibility_tag }}
+        EXACT_TAG: ${{ inputs.exact_tag }}
+        INPUT_KEY: ${{ inputs.input_key }}
         MANIFEST: ${{ inputs.manifest }}
+        NATIVE_CONTRACT_KEY: ${{ inputs.native_contract_key }}
         PLATFORM: ${{ inputs.platform }}
       run: |
         set -euo pipefail
@@ -94,12 +106,45 @@ runs:
         attestation_name="mobile-dev-shell-attestations.jsonl"
         artifact_reference="ghcr.io/onekeyhq/mobile-dev-shell:$ARTIFACT_TAG"
         compatibility_reference="ghcr.io/onekeyhq/mobile-dev-shell:$COMPATIBILITY_TAG"
+        exact_reference="ghcr.io/onekeyhq/mobile-dev-shell:$EXACT_TAG"
         artifact_digest="sha256:$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')"
         manifest_digest="sha256:$(shasum -a 256 "$MANIFEST" | awk '{print $1}')"
 
+        push_shell_manifest() {
+          local reference="$1"
+          (
+            cd "$artifact_dir"
+            oras push \
+              --artifact-type application/vnd.onekey.mobile-dev-shell.v1 \
+              --annotation "com.onekey.mobile.architecture=$ARCHITECTURE" \
+              --annotation "com.onekey.mobile.platform=$PLATFORM" \
+              --annotation "com.onekey.mobile.native-contract-key=$NATIVE_CONTRACT_KEY" \
+              --annotation "com.onekey.mobile.shell-compatibility-key=$COMPATIBILITY_KEY" \
+              --annotation "com.onekey.mobile.shell-input-key=$INPUT_KEY" \
+              --annotation "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --annotation "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --annotation "org.opencontainers.image.version=$ARTIFACT_TAG" \
+              "$reference" \
+              "$artifact_name:application/vnd.onekey.mobile-dev-shell.binary.v1" \
+              "$manifest_name:application/vnd.onekey.mobile-dev-shell.metadata.v1+json" \
+              "$attestation_name:application/vnd.onekey.mobile-dev-shell.attestation.v1+jsonl"
+          )
+        }
+
+        if [[ "$GITHUB_REF" != "refs/heads/x" ]]; then
+          echo "::error::Mobile dev shell resources may only be published from refs/heads/x." >&2
+          exit 1
+        fi
+
         descriptor_error="$RUNNER_TEMP/mobile-dev-shell-descriptor-error.txt"
-        if compatibility_manifest="$(oras manifest fetch "$compatibility_reference" 2>"$descriptor_error")"; then
+        if artifact_manifest="$(oras manifest fetch "$artifact_reference" 2>"$descriptor_error")"; then
           jq -e \
+            --arg artifact_digest "$artifact_digest" \
+            --arg artifact_name "$artifact_name" \
+            --arg input_key "$INPUT_KEY" \
+            --arg manifest_digest "$manifest_digest" \
+            --arg manifest_name "$manifest_name" \
+            --arg native_contract_key "$NATIVE_CONTRACT_KEY" \
             --arg architecture "$ARCHITECTURE" \
             --arg compatibility_key "$COMPATIBILITY_KEY" \
             --arg platform "$PLATFORM" \
@@ -107,48 +152,63 @@ runs:
               .artifactType == "application/vnd.onekey.mobile-dev-shell.v1" and
               .annotations["com.onekey.mobile.architecture"] == $architecture and
               .annotations["com.onekey.mobile.platform"] == $platform and
+              .annotations["com.onekey.mobile.native-contract-key"] == $native_contract_key and
+              .annotations["com.onekey.mobile.shell-compatibility-key"] == $compatibility_key and
+              .annotations["com.onekey.mobile.shell-input-key"] == $input_key and
+              any(.layers[]; .annotations["org.opencontainers.image.title"] == $artifact_name and .digest == $artifact_digest) and
+              any(.layers[]; .annotations["org.opencontainers.image.title"] == $manifest_name and .digest == $manifest_digest)
+            ' <<< "$artifact_manifest"
+        elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
+          push_shell_manifest "$artifact_reference"
+        else
+          cat "$descriptor_error" >&2
+          exit 1
+        fi
+
+        if exact_manifest="$(oras manifest fetch "$exact_reference" 2>"$descriptor_error")"; then
+          jq -e \
+            --arg architecture "$ARCHITECTURE" \
+            --arg compatibility_key "$COMPATIBILITY_KEY" \
+            --arg input_key "$INPUT_KEY" \
+            --arg native_contract_key "$NATIVE_CONTRACT_KEY" \
+            --arg platform "$PLATFORM" \
+            '
+              .annotations["com.onekey.mobile.architecture"] == $architecture and
+              .annotations["com.onekey.mobile.platform"] == $platform and
+              .annotations["com.onekey.mobile.native-contract-key"] == $native_contract_key and
+              .annotations["com.onekey.mobile.shell-compatibility-key"] == $compatibility_key and
+              .annotations["com.onekey.mobile.shell-input-key"] == $input_key
+            ' <<< "$exact_manifest"
+        elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
+          oras tag "$artifact_reference" "$EXACT_TAG"
+        else
+          cat "$descriptor_error" >&2
+          exit 1
+        fi
+
+        if compatibility_manifest="$(oras manifest fetch "$compatibility_reference" 2>"$descriptor_error")"; then
+          jq -e \
+            --arg architecture "$ARCHITECTURE" \
+            --arg compatibility_key "$COMPATIBILITY_KEY" \
+            --arg native_contract_key "$NATIVE_CONTRACT_KEY" \
+            --arg platform "$PLATFORM" \
+            '
+              .annotations["com.onekey.mobile.architecture"] == $architecture and
+              .annotations["com.onekey.mobile.platform"] == $platform and
+              .annotations["com.onekey.mobile.native-contract-key"] == $native_contract_key and
               .annotations["com.onekey.mobile.shell-compatibility-key"] == $compatibility_key
             ' <<< "$compatibility_manifest"
         elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
-          if artifact_manifest="$(oras manifest fetch "$artifact_reference" 2>"$descriptor_error")"; then
-            jq -e \
-              --arg artifact_digest "$artifact_digest" \
-              --arg artifact_name "$artifact_name" \
-              --arg manifest_digest "$manifest_digest" \
-              --arg manifest_name "$manifest_name" \
-              '
-                any(.layers[]; .annotations["org.opencontainers.image.title"] == $artifact_name and .digest == $artifact_digest) and
-                any(.layers[]; .annotations["org.opencontainers.image.title"] == $manifest_name and .digest == $manifest_digest)
-              ' <<< "$artifact_manifest"
-          elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
-            (
-              cd "$artifact_dir"
-              oras push \
-                --artifact-type application/vnd.onekey.mobile-dev-shell.v1 \
-                --annotation "com.onekey.mobile.architecture=$ARCHITECTURE" \
-                --annotation "com.onekey.mobile.platform=$PLATFORM" \
-                --annotation "com.onekey.mobile.shell-compatibility-key=$COMPATIBILITY_KEY" \
-                --annotation "org.opencontainers.image.revision=$GITHUB_SHA" \
-                --annotation "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-                --annotation "org.opencontainers.image.version=$ARTIFACT_TAG" \
-                "$artifact_reference" \
-                "$artifact_name:application/vnd.onekey.mobile-dev-shell.binary.v1" \
-                "$manifest_name:application/vnd.onekey.mobile-dev-shell.metadata.v1+json" \
-                "$attestation_name:application/vnd.onekey.mobile-dev-shell.attestation.v1+jsonl"
-            )
-          else
-            cat "$descriptor_error" >&2
-            exit 1
-          fi
           oras tag "$artifact_reference" "$COMPATIBILITY_TAG"
         else
           cat "$descriptor_error" >&2
           exit 1
         fi
 
-        oci_digest="$(oras manifest fetch --descriptor "$compatibility_reference" | jq -er '.digest')"
+        oci_digest="$(oras manifest fetch --descriptor "$exact_reference" | jq -er '.digest')"
         {
           echo "### $PLATFORM dev shell"
-          echo "- OCI reference: \`$compatibility_reference@$oci_digest\`"
+          echo "- Exact OCI reference: \`$exact_reference@$oci_digest\`"
+          echo "- Compatible OCI reference: \`$compatibility_reference\`"
           echo "- Architecture: \`$ARCHITECTURE\`"
         } >> "$GITHUB_STEP_SUMMARY"

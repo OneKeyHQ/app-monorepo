@@ -58,6 +58,24 @@ function createTemporaryRepo() {
   for (const relativeDirectory of devVendorConfig.fingerprintDirectories) {
     fs.ensureDirSync(path.join(repoRoot, relativeDirectory));
   }
+  const nativeDependencies = new Set([
+    ...devVendorConfig.nativeContractDependencies.shared,
+    ...devVendorConfig.nativeContractDependencies.android,
+    ...devVendorConfig.nativeContractDependencies.ios,
+  ]);
+  for (const name of nativeDependencies) {
+    const source = require.resolve(`${name}/package.json`, {
+      paths: [path.join(REPO_ROOT, 'apps/mobile')],
+    });
+    const destination = path.join(
+      repoRoot,
+      'node_modules',
+      ...name.split('/'),
+      'package.json',
+    );
+    fs.ensureDirSync(path.dirname(destination));
+    fs.copyFileSync(source, destination);
+  }
   const modulePath = 'node_modules/react/index.js';
   const moduleId = loadRegistry().modules[modulePath];
   if (!moduleId) {

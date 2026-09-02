@@ -14,6 +14,10 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
+concurrency:
+  group: mobile-dev-shell-android-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-android-dev-shell:
     name: Build Android arm64 dev shell
@@ -28,6 +32,12 @@ jobs:
         node-version: [24.x]
 
     steps:
+      - name: Require x branch
+        if: ${{ github.ref != 'refs/heads/x' }}
+        run: |
+          echo "::error::Mobile dev shells may only be published from refs/heads/x."
+          exit 1
+
       - name: Show executed time
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
@@ -109,10 +119,15 @@ jobs:
             --web-embed-receipt apps/web-embed/out-dir-bundle/web-embed-prebundle-restored.json \
             --output "$manifest")"
           shell_compatibility_key="$(jq -er '.shellCompatibilityKey' "$manifest")"
+          shell_input_key="$(jq -er '.shellInputKey' "$manifest")"
+          native_contract_key="$(jq -er '.nativeContractKey' "$manifest")"
           {
-            echo "artifact_tag=mobile-dev-shell-artifact-v2-android-arm64-v8a-$shell_artifact_key"
+            echo "artifact_tag=mobile-dev-shell-artifact-v3-android-arm64-v8a-$shell_artifact_key"
             echo "compatibility_key=$shell_compatibility_key"
-            echo "compatibility_tag=mobile-dev-shell-compat-v2-android-arm64-v8a-$shell_compatibility_key"
+            echo "compatibility_tag=mobile-dev-shell-contract-v3-android-arm64-v8a-$shell_compatibility_key"
+            echo "exact_tag=mobile-dev-shell-input-v3-android-arm64-v8a-$shell_input_key"
+            echo "input_key=$shell_input_key"
+            echo "native_contract_key=$native_contract_key"
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish Android dev shell to GHCR
@@ -123,7 +138,10 @@ jobs:
           artifact_tag: ${{ steps.artifact.outputs.artifact_tag }}
           compatibility_key: ${{ steps.artifact.outputs.compatibility_key }}
           compatibility_tag: ${{ steps.artifact.outputs.compatibility_tag }}
+          exact_tag: ${{ steps.artifact.outputs.exact_tag }}
+          input_key: ${{ steps.artifact.outputs.input_key }}
           manifest: apps/mobile/out-dir-bundle/dev-shell/OneKeyWallet-DevShell-android-arm64-v8a.json
+          native_contract_key: ${{ steps.artifact.outputs.native_contract_key }}
           platform: android
           signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml
 

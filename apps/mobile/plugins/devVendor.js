@@ -1,4 +1,5 @@
 /* eslint-disable onekey/no-raw-error */
+const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +16,27 @@ const {
 const MANIFEST_NAME = 'manifest.json';
 const SUPPORTED_PLATFORMS = new Set(['android', 'ios']);
 const SUPPORTED_RUNTIME_TARGETS = new Set(['main', 'background']);
+const DEV_SESSION_ID_PATTERN =
+  /^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u;
+const SHELL_INPUT_BINARY_EXTENSIONS = new Set([
+  '.aar',
+  '.bin',
+  '.dat',
+  '.gif',
+  '.gz',
+  '.ico',
+  '.icns',
+  '.jar',
+  '.jpeg',
+  '.jpg',
+  '.keystore',
+  '.pdf',
+  '.png',
+  '.so',
+  '.ttf',
+  '.woff',
+  '.woff2',
+]);
 const runtimeCache = new Map();
 
 function sha256(content) {
@@ -60,14 +82,43 @@ function getFingerprintInputPaths(repoRoot = REPO_ROOT) {
   ].toSorted();
 }
 
-function getNativePatchInputPaths(platform, repoRoot = REPO_ROOT) {
+function listShellInputRepoFiles(repoRoot, inputScopes) {
+  const result = spawnSync(
+    'git',
+    [
+      '-C',
+      repoRoot,
+      'ls-files',
+      '-z',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+      '--',
+      ...inputScopes,
+    ],
+    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+  );
+  if (result.status !== 0 || result.error) {
+    throw new Error(
+      `[devVendor] Unable to list shell inputs: ${result.stderr || result.error?.message || 'unknown error'}`,
+    );
+  }
+  return [...new Set(result.stdout.split('\0').filter(Boolean))].toSorted();
+}
+
+function getNativePatchInputPaths(
+  platform,
+  repoRoot = REPO_ROOT,
+  shellInputFiles = listShellInputRepoFiles(repoRoot, ['patches']),
+) {
   const platformPathPattern =
     platform === 'android'
       ? /(?:^|\/)android(?:\/|$)|\.(?:gradle|java|kt|kts)$/iu
       : /(?:^|\/)(?:apple|ios)(?:\/|$)|\.(?:m|mm|podspec|swift)$/iu;
   const sharedNativePathPattern =
     /(?:^|\/)(?:common\/cpp|cpp)(?:\/|$)|\.(?:c|cc|cpp|h|hpp)$/iu;
-  return listDirectoryFiles(repoRoot, 'patches').filter((relativePath) => {
+  return shellInputFiles.filter((relativePath) => {
+    if (!relativePath.startsWith('patches/')) return false;
     if (!relativePath.endsWith('.patch')) return false;
     const source = fs.readFileSync(
       path.resolve(repoRoot, relativePath),
@@ -86,7 +137,7 @@ function getNativePatchInputPaths(platform, repoRoot = REPO_ROOT) {
   });
 }
 
-function getNativeContractInputPaths(platform, repoRoot = REPO_ROOT) {
+function getNativeContractInputPaths(platform) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
@@ -94,15 +145,277 @@ function getNativeContractInputPaths(platform, repoRoot = REPO_ROOT) {
     ...new Set([
       ...devVendorConfig.nativeContractFiles.shared,
       ...devVendorConfig.nativeContractFiles[platform],
-      ...getNativePatchInputPaths(platform, repoRoot),
-      ...[
-        ...devVendorConfig.nativeContractDirectories.shared,
-        ...devVendorConfig.nativeContractDirectories[platform],
-      ].flatMap((relativeDirectory) =>
-        listDirectoryFiles(repoRoot, relativeDirectory),
-      ),
     ]),
   ].toSorted();
+}
+
+function getShellInputPaths(platform, repoRoot = REPO_ROOT) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  const ignoredDirectories = devVendorConfig.shellInputIgnoredDirectories.map(
+    (relativeDirectory) => `${relativeDirectory}/`,
+  );
+  const inputDirectories = [
+    ...devVendorConfig.shellInputDirectories.shared,
+    ...devVendorConfig.shellInputDirectories[platform],
+  ];
+  const directoryPrefixes = inputDirectories.map(
+    (relativeDirectory) => `${relativeDirectory}/`,
+  );
+  const configuredFiles = [
+    ...devVendorConfig.shellInputFiles.shared,
+    ...devVendorConfig.shellInputFiles[platform],
+  ];
+  const shellInputFiles = listShellInputRepoFiles(repoRoot, [
+    ...inputDirectories,
+    ...configuredFiles,
+    'patches',
+  ]);
+  const shellInputFileSet = new Set(shellInputFiles);
+  const excludedConfiguredFile = configuredFiles.find(
+    (relativePath) => !shellInputFileSet.has(relativePath),
+  );
+  if (excludedConfiguredFile) {
+    throw new Error(
+      `[devVendor] Configured shell input is missing or excluded: ${excludedConfiguredFile}`,
+    );
+  }
+  const directoryFiles = shellInputFiles
+    .filter((relativePath) =>
+      directoryPrefixes.some((directoryPrefix) =>
+        relativePath.startsWith(directoryPrefix),
+      ),
+    )
+    .filter(
+      (relativePath) =>
+        !ignoredDirectories.some((ignoredDirectory) =>
+          relativePath.startsWith(ignoredDirectory),
+        ),
+    );
+  return [
+    ...new Set([
+      ...configuredFiles,
+      ...directoryFiles,
+      ...getNativePatchInputPaths(platform, repoRoot, shellInputFiles),
+    ]),
+  ].toSorted();
+}
+
+function readYarnScalar(value) {
+  if (value.startsWith('"')) return JSON.parse(value);
+  return value;
+}
+
+function getYarnDescriptor(packageName, requested) {
+  const protocolPattern =
+    /^(?:exec|file|git|https?|link|patch|portal|workspace):/u;
+  return `${packageName}@${
+    requested.startsWith('npm:') || protocolPattern.test(requested)
+      ? requested
+      : `npm:${requested}`
+  }`;
+}
+
+function versionMatchesRequested(version, requested) {
+  const aliasVersion = requested.startsWith('npm:')
+    ? requested.slice(requested.lastIndexOf('@') + 1)
+    : requested;
+  const match = aliasVersion.match(/^(\^|~)?(\d+)\.(\d+)\.(\d+)/u);
+  const versionMatch = version.match(/^(\d+)\.(\d+)\.(\d+)/u);
+  if (!match || !versionMatch) return false;
+  const requestedParts = match.slice(2).map(Number);
+  const versionParts = versionMatch.slice(1).map(Number);
+  if (!match[1]) {
+    return requestedParts.every((part, index) => part === versionParts[index]);
+  }
+  if (match[1] === '~') {
+    return (
+      requestedParts[0] === versionParts[0] &&
+      requestedParts[1] === versionParts[1] &&
+      versionParts[2] >= requestedParts[2]
+    );
+  }
+  const isAtLeastRequested = versionParts.some(
+    (part, index) =>
+      part > requestedParts[index] &&
+      versionParts
+        .slice(0, index)
+        .every(
+          (prefixPart, prefixIndex) =>
+            prefixPart === requestedParts[prefixIndex],
+        ),
+  );
+  return (
+    requestedParts[0] === versionParts[0] &&
+    (requestedParts.every((part, index) => part === versionParts[index]) ||
+      isAtLeastRequested)
+  );
+}
+
+function readInstalledPackageVersion(packageName, repoRoot) {
+  const packagePath = path.join(
+    repoRoot,
+    'node_modules',
+    ...packageName.split('/'),
+    'package.json',
+  );
+  if (!fs.existsSync(packagePath)) return undefined;
+  return JSON.parse(fs.readFileSync(packagePath, 'utf8')).version;
+}
+
+function readYarnResolutions(dependencies, repoRoot) {
+  const descriptorSet = new Set(
+    dependencies.map(({ descriptor }) => descriptor),
+  );
+  const resolutions = new Map();
+  const candidates = new Map(dependencies.map(({ name }) => [name, []]));
+  let activeDescriptors = [];
+  let activeNames = [];
+  let activeResolution;
+
+  const flush = () => {
+    if (activeDescriptors.length === 0 && activeNames.length === 0) return;
+    if (!activeResolution?.resolution || !activeResolution.version) {
+      throw new Error(
+        `[devVendor] Invalid yarn.lock entry: ${activeDescriptors[0] || activeNames[0]}`,
+      );
+    }
+    for (const descriptor of activeDescriptors) {
+      resolutions.set(descriptor, activeResolution);
+    }
+    for (const name of activeNames) candidates.get(name).push(activeResolution);
+  };
+
+  const lockSource = fs.readFileSync(path.join(repoRoot, 'yarn.lock'), 'utf8');
+  for (const line of lockSource.split('\n')) {
+    if (line && !line.startsWith(' ') && line.endsWith(':')) {
+      flush();
+      const rawKey = line.slice(0, -1);
+      const key = rawKey.startsWith('"') ? JSON.parse(rawKey) : rawKey;
+      activeDescriptors = key
+        .split(', ')
+        .filter((descriptor) => descriptorSet.has(descriptor));
+      activeNames = dependencies
+        .filter(({ name }) =>
+          key
+            .split(', ')
+            .some((descriptor) => descriptor.startsWith(`${name}@`)),
+        )
+        .map(({ name }) => name);
+      activeResolution =
+        activeDescriptors.length > 0 || activeNames.length > 0 ? {} : undefined;
+    } else if (activeResolution) {
+      const field = line.match(/^  (checksum|resolution|version): (.+)$/u);
+      if (field) activeResolution[field[1]] = readYarnScalar(field[2]);
+    }
+  }
+  flush();
+
+  for (const { descriptor, name, requested } of dependencies) {
+    if (!resolutions.has(descriptor)) {
+      const installedVersion = readInstalledPackageVersion(name, repoRoot);
+      const matchingCandidates = candidates
+        .get(name)
+        .filter(({ version }) =>
+          installedVersion
+            ? version === installedVersion
+            : versionMatchesRequested(version, requested),
+        );
+      if (matchingCandidates.length === 1) {
+        resolutions.set(descriptor, matchingCandidates[0]);
+      } else {
+        throw new Error(
+          `[devVendor] Native ABI dependency is missing from yarn.lock: ${descriptor}`,
+        );
+      }
+    }
+  }
+  return resolutions;
+}
+
+function readKeyValueProperties(filePath) {
+  return Object.fromEntries(
+    fs
+      .readFileSync(filePath, 'utf8')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && line.includes('='))
+      .map((line) => {
+        const separator = line.indexOf('=');
+        return [
+          line.slice(0, separator).trim(),
+          line.slice(separator + 1).trim(),
+        ];
+      }),
+  );
+}
+
+function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, 'apps/mobile/package.json'), 'utf8'),
+  );
+  const dependencyNames = [
+    ...devVendorConfig.nativeContractDependencies.shared,
+    ...devVendorConfig.nativeContractDependencies[platform],
+  ].toSorted();
+  const dependencies = dependencyNames.map((name) => {
+    const directRequested =
+      packageJson.dependencies?.[name] ?? packageJson.devDependencies?.[name];
+    const requested =
+      directRequested ?? readInstalledPackageVersion(name, repoRoot);
+    if (typeof requested !== 'string' || !requested) {
+      throw new Error(
+        `[devVendor] Native ABI dependency is not installed: ${name}`,
+      );
+    }
+    return { descriptor: getYarnDescriptor(name, requested), name, requested };
+  });
+  const resolutions = readYarnResolutions(dependencies, repoRoot);
+  let engine;
+  if (platform === 'android') {
+    const properties = readKeyValueProperties(
+      path.join(repoRoot, 'apps/mobile/android/gradle.properties'),
+    );
+    engine = {
+      hermes: properties.hermesEnabled,
+      newArchitecture: properties.newArchEnabled,
+    };
+  } else {
+    const properties = JSON.parse(
+      fs.readFileSync(
+        path.join(repoRoot, 'apps/mobile/ios/Podfile.properties.json'),
+        'utf8',
+      ),
+    );
+    engine = {
+      hermes: properties['expo.jsEngine'],
+      newArchitecture: properties['expo.newArchEnabled'],
+    };
+  }
+  if (!engine.hermes || !engine.newArchitecture) {
+    throw new Error('[devVendor] Native engine ABI configuration is missing.');
+  }
+  return {
+    dependencies: dependencies.map(({ descriptor, name, requested }) => {
+      const resolution = resolutions.get(descriptor);
+      return {
+        checksum: resolution.checksum || null,
+        name,
+        requested,
+        resolution: resolution.resolution,
+        version: resolution.version,
+      };
+    }),
+    engine,
+    loaderProtocolVersion: devVendorConfig.NATIVE_LOADER_PROTOCOL_VERSION,
+    platform,
+    vendorSchemaVersion: devVendorConfig.SCHEMA_VERSION,
+    vendorStrategyVersion: devVendorConfig.STRATEGY_VERSION,
+  };
 }
 
 function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
@@ -124,6 +437,38 @@ function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
           .replaceAll('\r\n', '\n'),
         'latin1',
       ),
+    );
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+function normalizeShellInputContent(relativePath, content) {
+  if (
+    SHELL_INPUT_BINARY_EXTENSIONS.has(path.extname(relativePath)) ||
+    content.includes(0)
+  ) {
+    return content;
+  }
+  try {
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(content);
+    return Buffer.from(source.replaceAll('\r\n', '\n'));
+  } catch {
+    return content;
+  }
+}
+
+function hashShellInputFiles(relativePaths, repoRoot = REPO_ROOT) {
+  const hash = crypto.createHash('sha256');
+  for (const relativePath of relativePaths) {
+    const absolutePath = path.resolve(repoRoot, relativePath);
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`[devVendor] Shell input is missing: ${relativePath}`);
+    }
+    hash.update(relativePath);
+    hash.update('\0');
+    hash.update(
+      normalizeShellInputContent(relativePath, fs.readFileSync(absolutePath)),
     );
     hash.update('\0');
   }
@@ -165,16 +510,66 @@ function computeConfigInputsDigest(
 }
 
 function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
-  if (!SUPPORTED_PLATFORMS.has(platform)) {
-    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
-  }
+  const descriptor = getNativeContractDescriptor(platform, repoRoot);
   return sha256(
     [
       `onekey-native-dev-shell-contract-v${devVendorConfig.NATIVE_CONTRACT_VERSION}`,
+      `platform=${descriptor.platform}`,
+      `loader-protocol=${descriptor.loaderProtocolVersion}`,
+      `vendor-schema=${descriptor.vendorSchemaVersion}`,
+      `vendor-strategy=${descriptor.vendorStrategyVersion}`,
+      `engine.hermes=${descriptor.engine.hermes}`,
+      `engine.new-architecture=${descriptor.engine.newArchitecture}`,
+      ...descriptor.dependencies.map(
+        ({ checksum, name, resolution, version }) =>
+          [name, resolution, version, checksum || ''].join('\0'),
+      ),
+    ].join('\0'),
+  );
+}
+
+function computeShellCompatibilityKey({
+  nativeContractKey,
+  platform,
+  webEmbedInputKey,
+}) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  if (!/^[0-9a-f]{64}$/u.test(nativeContractKey || '')) {
+    throw new Error('[devVendor] Invalid native contract key.');
+  }
+  if (!/^[0-9a-f]{64}$/u.test(webEmbedInputKey || '')) {
+    throw new Error('[devVendor] Invalid web-embed input key.');
+  }
+  const architecture = platform === 'android' ? 'arm64-v8a' : 'arm64';
+  return sha256(
+    [
+      'onekey-mobile-dev-shell-compatibility-v3',
       `platform=${platform}`,
-      `vendor-schema=${devVendorConfig.SCHEMA_VERSION}`,
-      `vendor-strategy=${devVendorConfig.STRATEGY_VERSION}`,
-      hashRepoFiles(getNativeContractInputPaths(platform, repoRoot), repoRoot),
+      `architecture=${architecture}`,
+      `native-contract=${nativeContractKey}`,
+      `web-embed=${webEmbedInputKey}`,
+      '',
+    ].join('\0'),
+  );
+}
+
+function computeShellInputKey(
+  { nativeContractKey, platform, webEmbedInputKey },
+  repoRoot = REPO_ROOT,
+) {
+  const shellCompatibilityKey = computeShellCompatibilityKey({
+    nativeContractKey,
+    platform,
+    webEmbedInputKey,
+  });
+  return sha256(
+    [
+      'onekey-mobile-dev-shell-input-v3',
+      `compatibility=${shellCompatibilityKey}`,
+      hashShellInputFiles(getShellInputPaths(platform, repoRoot), repoRoot),
+      '',
     ].join('\0'),
   );
 }
@@ -572,6 +967,7 @@ function isDevVendorRequest(bundleOptions) {
 
 function assertNativeDevVendorResolverContract({
   customResolverOptions,
+  env = process.env,
   manifest,
   platform,
 }) {
@@ -591,6 +987,29 @@ function assertNativeDevVendorResolverContract({
   if (!SUPPORTED_RUNTIME_TARGETS.has(runtimeTarget)) {
     throw new Error(
       `[devVendor] Native ${platform} request has an invalid runtime target: ${String(runtimeTarget)}.`,
+    );
+  }
+  const requestedSessionId = customResolverOptions.devSessionId;
+  if (
+    typeof requestedSessionId !== 'string' ||
+    !DEV_SESSION_ID_PATTERN.test(requestedSessionId)
+  ) {
+    throw new Error(
+      `[devVendor] Native ${platform} request has an invalid dev session ID.`,
+    );
+  }
+  const serverSessionId = env.ONEKEY_DEV_SESSION_ID;
+  if (
+    typeof serverSessionId !== 'string' ||
+    !DEV_SESSION_ID_PATTERN.test(serverSessionId)
+  ) {
+    throw new Error(
+      `[devVendor] Native ${platform} Metro server has no valid ONEKEY_DEV_SESSION_ID.`,
+    );
+  }
+  if (requestedSessionId !== serverSessionId) {
+    throw new Error(
+      `[devVendor] Native ${platform} request dev session does not match this Metro server.`,
     );
   }
 }
@@ -695,28 +1114,42 @@ function applyDevVendorConfig(config, projectRoot) {
 
   const previousResolveRequest = config.resolver.resolveRequest;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
-    const resolution = previousResolveRequest(context, moduleName, platform);
+    const customResolverOptions = context.customResolverOptions;
+    const isNativeRequest = customResolverOptions?.devVendorNative === 'true';
+    if (isNativeRequest && customResolverOptions.devVendor !== 'true') {
+      throw new Error(
+        '[devVendor] Native request is missing resolver.devVendor=true.',
+      );
+    }
+    if (isNativeRequest && !SUPPORTED_PLATFORMS.has(platform)) {
+      throw new Error(
+        `[devVendor] Native request has an unsupported platform: ${String(platform)}.`,
+      );
+    }
     if (
-      context.customResolverOptions?.devVendor !== 'true' ||
-      !SUPPORTED_PLATFORMS.has(platform) ||
-      resolution.type !== 'sourceFile'
+      customResolverOptions?.devVendor !== 'true' ||
+      !SUPPORTED_PLATFORMS.has(platform)
     ) {
-      return resolution;
+      return previousResolveRequest(context, moduleName, platform);
     }
     let runtime = loadRuntime(projectRoot, platform);
     if (
-      context.customResolverOptions?.devVendorNative === 'true' &&
-      context.customResolverOptions.devVendorFingerprint !==
+      isNativeRequest &&
+      customResolverOptions.devVendorFingerprint !==
         runtime.manifest.fingerprint
     ) {
       runtimeCache.delete(getRuntimeCacheKey(projectRoot, platform));
       runtime = loadRuntime(projectRoot, platform);
     }
     assertNativeDevVendorResolverContract({
-      customResolverOptions: context.customResolverOptions,
+      customResolverOptions,
       manifest: runtime.manifest,
       platform,
     });
+    const resolution = previousResolveRequest(context, moduleName, platform);
+    if (resolution.type !== 'sourceFile') {
+      return resolution;
+    }
     const moduleRecord = runtime.moduleByAbsolutePath.get(
       path.resolve(resolution.filePath),
     );
@@ -817,6 +1250,8 @@ module.exports = {
   assertSortedUniqueModules,
   computeConfigInputsDigest,
   computeNativeContractKey,
+  computeShellCompatibilityKey,
+  computeShellInputKey,
   computeFingerprint,
   computeModulesDigest,
   computeRegistryInputsDigest,
@@ -825,11 +1260,14 @@ module.exports = {
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
   getNativeContractInputPaths,
+  getNativeContractDescriptor,
+  getShellInputPaths,
   getManifestPath,
   getPlatformOutputDirectory,
   getReleaseTag,
   getStubPath,
   hashRepoFiles,
+  hashShellInputFiles,
   isDevVendorEnabled,
   isDevVendorRequest,
   inspectDevVendorGraph,

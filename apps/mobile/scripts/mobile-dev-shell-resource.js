@@ -48,23 +48,41 @@ function getSidecarFile(artifactFile) {
 
 function getCacheRoot(env = process.env) {
   const baseDirectory = env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
-  return path.join(baseDirectory, 'onekey/mobile-dev-shell/v2');
+  return path.join(baseDirectory, 'onekey/mobile-dev-shell/v3');
 }
 
 function assertCompatibility(compatibility) {
+  const expectedShellCompatibilityKey = hashValues(
+    'onekey-mobile-dev-shell-compatibility-v3',
+    [
+      `platform=${compatibility?.platform || ''}`,
+      `architecture=${compatibility?.architecture || ''}`,
+      `native-contract=${compatibility?.nativeContractKey || ''}`,
+      `web-embed=${compatibility?.webEmbedInputKey || ''}`,
+    ],
+  );
   if (
     !['android', 'ios'].includes(compatibility?.platform) ||
     !['android', 'ios-simulator'].includes(compatibility?.resourcePlatform) ||
     !['arm64-v8a', 'arm64'].includes(compatibility?.architecture) ||
     !/^[0-9a-f]{64}$/.test(compatibility?.nativeContractKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.shellCompatibilityKey || '') ||
+    !/^[0-9a-f]{64}$/.test(compatibility?.shellInputKey || '') ||
     !/^[0-9a-f]{64}$/.test(compatibility?.webEmbedInputKey || '') ||
-    !/^mobile-dev-shell-compat-v2-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
-      compatibility?.tag || '',
+    compatibility?.shellCompatibilityKey !== expectedShellCompatibilityKey ||
+    !/^mobile-dev-shell-contract-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
+      compatibility?.compatibilityTag || '',
+    ) ||
+    !/^mobile-dev-shell-input-v3-[a-z0-9-]+-[a-z0-9-]+-[0-9a-f]{64}$/.test(
+      compatibility?.exactTag || '',
     ) ||
     !/^OneKeyWallet-DevShell-[A-Za-z0-9.-]+\.(apk|zip)$/.test(
       compatibility?.artifactFile || '',
-    )
+    ) ||
+    !compatibility.compatibilityTag.endsWith(
+      compatibility.shellCompatibilityKey,
+    ) ||
+    !compatibility.exactTag.endsWith(compatibility.shellInputKey)
   ) {
     throw new Error('[mobileDevShellResource] Invalid shell compatibility.');
   }
@@ -211,7 +229,7 @@ function createOciClient({ fetchImpl = globalThis.fetch } = {}) {
   };
 }
 
-function verifyOciManifest({ compatibility, manifest }) {
+function verifyOciManifest({ compatibility, locator, manifest }) {
   const sidecarFile = getSidecarFile(compatibility.artifactFile);
   const expectedFiles = [
     ATTESTATION_FILE,
@@ -231,8 +249,16 @@ function verifyOciManifest({ compatibility, manifest }) {
       compatibility.architecture ||
     manifest.annotations?.['com.onekey.mobile.platform'] !==
       compatibility.resourcePlatform ||
+    manifest.annotations?.['com.onekey.mobile.native-contract-key'] !==
+      compatibility.nativeContractKey ||
     manifest.annotations?.['com.onekey.mobile.shell-compatibility-key'] !==
       compatibility.shellCompatibilityKey ||
+    !/^[0-9a-f]{64}$/.test(
+      manifest.annotations?.['com.onekey.mobile.shell-input-key'] || '',
+    ) ||
+    (locator === 'exact' &&
+      manifest.annotations?.['com.onekey.mobile.shell-input-key'] !==
+        compatibility.shellInputKey) ||
     JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)
   ) {
     throw new Error('[mobileDevShellResource] Invalid OCI shell manifest.');
@@ -262,13 +288,15 @@ function verifyOciManifest({ compatibility, manifest }) {
   return layers;
 }
 
-async function resolveOciShell({ compatibility, fetchImpl }) {
+async function resolveOciShell({ compatibility, fetchImpl, locator, tag }) {
   const client = createOciClient({ fetchImpl });
-  const response = await client.fetchManifest(compatibility.tag);
+  const response = await client.fetchManifest(tag);
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       `[mobileDevShellResource] Shell locator unavailable: HTTP ${response.status}.`,
     );
+    if (response.status === 404) error.code = 'SHELL_LOCATOR_NOT_FOUND';
+    throw error;
   }
   const manifestBytes = await readResponseBody({
     fileName: 'OCI shell manifest',
@@ -292,7 +320,7 @@ async function resolveOciShell({ compatibility, fetchImpl }) {
   }
   return {
     client,
-    layers: verifyOciManifest({ compatibility, manifest }),
+    layers: verifyOciManifest({ compatibility, locator, manifest }),
     ociDigest,
     sourceCommit,
   };
@@ -364,6 +392,7 @@ async function readJsonFile(filePath, maxBytes = MAX_MANIFEST_BYTES) {
 async function verifyArtifactManifest({
   artifactPath,
   compatibility,
+  locator,
   manifest,
 }) {
   const stat = await fs.promises.lstat(artifactPath);
@@ -374,15 +403,18 @@ async function verifyArtifactManifest({
   }
   const artifactSha256 = await sha256File(artifactPath);
   const expectedArtifactKey = hashValues(
-    'onekey-mobile-dev-shell-artifact-v2',
-    [compatibility.shellCompatibilityKey, artifactSha256, stat.size],
+    'onekey-mobile-dev-shell-artifact-v3',
+    [manifest.shellInputKey, artifactSha256, stat.size],
   );
   if (
-    manifest?.schemaVersion !== 2 ||
+    manifest?.schemaVersion !== 3 ||
     manifest.platform !== compatibility.platform ||
     manifest.architecture !== compatibility.architecture ||
     manifest.nativeContractKey !== compatibility.nativeContractKey ||
     manifest.shellCompatibilityKey !== compatibility.shellCompatibilityKey ||
+    !/^[0-9a-f]{64}$/.test(manifest.shellInputKey || '') ||
+    (locator === 'exact' &&
+      manifest.shellInputKey !== compatibility.shellInputKey) ||
     manifest.shellArtifactKey !== expectedArtifactKey ||
     manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
     !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
@@ -398,7 +430,7 @@ async function verifyArtifactManifest({
   return manifest;
 }
 
-async function runGhAttestationVerify({
+function getGhAttestationVerifyArgs({
   artifactPath,
   bundlePath,
   compatibility,
@@ -408,29 +440,34 @@ async function runGhAttestationVerify({
     compatibility.platform === 'android'
       ? 'OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-android.yml'
       : 'OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-ios-simulator.yml';
-  const result = spawnSync(
-    'gh',
-    [
-      'attestation',
-      'verify',
-      artifactPath,
-      '--repo',
-      SOURCE_REPOSITORY,
-      '--bundle',
-      bundlePath,
-      '--custom-trusted-root',
-      path.join(
-        REPO_ROOT,
-        'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
-      ),
-      '--signer-workflow',
-      signerWorkflow,
-      '--source-digest',
-      sourceCommit,
-      '--deny-self-hosted-runners',
-    ],
-    { encoding: 'utf8', timeout: 30_000 },
-  );
+  return [
+    'attestation',
+    'verify',
+    artifactPath,
+    '--repo',
+    SOURCE_REPOSITORY,
+    '--bundle',
+    bundlePath,
+    '--custom-trusted-root',
+    path.join(
+      REPO_ROOT,
+      'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
+    ),
+    '--signer-workflow',
+    signerWorkflow,
+    '--source-ref',
+    'refs/heads/x',
+    '--source-digest',
+    sourceCommit,
+    '--deny-self-hosted-runners',
+  ];
+}
+
+async function runGhAttestationVerify(options) {
+  const result = spawnSync('gh', getGhAttestationVerifyArgs(options), {
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
   if (result.status !== 0 || result.error) {
     throw new Error(
       `[mobileDevShellResource] GitHub attestation verification failed: ${result.stderr || result.error?.message || 'unknown error'}`,
@@ -442,6 +479,8 @@ async function verifyCache({
   attestationVerifier = runGhAttestationVerify,
   cacheDirectory,
   compatibility,
+  locator,
+  tag,
 }) {
   const artifactPath = path.join(cacheDirectory, compatibility.artifactFile);
   const sidecarPath = path.join(
@@ -451,14 +490,19 @@ async function verifyCache({
   const bundlePath = path.join(cacheDirectory, ATTESTATION_FILE);
   const receipt = await readJsonFile(path.join(cacheDirectory, RECEIPT_FILE));
   if (
-    receipt.tag !== compatibility.tag ||
+    receipt.tag !== tag ||
     !/^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '') ||
     !/^[0-9a-f]{40}$/.test(receipt.sourceCommit || '')
   ) {
     throw new Error('[mobileDevShellResource] Invalid cached OCI receipt.');
   }
   const manifest = await readJsonFile(sidecarPath);
-  await verifyArtifactManifest({ artifactPath, compatibility, manifest });
+  await verifyArtifactManifest({
+    artifactPath,
+    compatibility,
+    locator,
+    manifest,
+  });
   const bundleStat = await fs.promises.lstat(bundlePath);
   if (
     !bundleStat.isFile() ||
@@ -481,19 +525,16 @@ async function verifyCache({
   return { artifactPath, manifest, ...receipt };
 }
 
-async function restoreMobileDevShell({
+async function restoreLocator({
   attestationVerifier,
-  cacheRoot = getCacheRoot(),
-  compatibility: inputCompatibility,
+  cacheRoot,
+  compatibility,
   fetchImpl,
+  locator,
+  tag,
 }) {
-  const compatibility = assertCompatibility(inputCompatibility);
-  const cacheDirectory = path.join(cacheRoot, compatibility.tag);
-  const lockDirectory = path.join(
-    cacheRoot,
-    '.locks',
-    `${compatibility.tag}.lock`,
-  );
+  const cacheDirectory = path.join(cacheRoot, tag);
+  const lockDirectory = path.join(cacheRoot, '.locks', `${tag}.lock`);
   return withCacheLock(lockDirectory, async () => {
     await fs.promises.mkdir(cacheRoot, { mode: 0o700, recursive: true });
     try {
@@ -501,19 +542,24 @@ async function restoreMobileDevShell({
         attestationVerifier,
         cacheDirectory,
         compatibility,
+        locator,
+        tag,
       });
       return { ...restored, cacheHit: true, source: 'remote-cache' };
-    } catch (error) {
-      if (error?.code !== 'ENOENT') {
-        await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
-      }
+    } catch {
+      await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
     }
 
     const temporaryDirectory = await fs.promises.mkdtemp(
-      path.join(cacheRoot, `${compatibility.tag}.download-`),
+      path.join(cacheRoot, `${tag}.download-`),
     );
     try {
-      const resolved = await resolveOciShell({ compatibility, fetchImpl });
+      const resolved = await resolveOciShell({
+        compatibility,
+        fetchImpl,
+        locator,
+        tag,
+      });
       const files = [
         [compatibility.artifactFile, MAX_ARTIFACT_BYTES],
         [getSidecarFile(compatibility.artifactFile), MAX_MANIFEST_BYTES],
@@ -533,7 +579,7 @@ async function restoreMobileDevShell({
           {
             ociDigest: resolved.ociDigest,
             sourceCommit: resolved.sourceCommit,
-            tag: compatibility.tag,
+            tag,
           },
           null,
           2,
@@ -544,9 +590,16 @@ async function restoreMobileDevShell({
         attestationVerifier,
         cacheDirectory: temporaryDirectory,
         compatibility,
+        locator,
+        tag,
       });
       await fs.promises.rename(temporaryDirectory, cacheDirectory);
-      return { ...restored, cacheHit: false, source: 'remote' };
+      return {
+        ...restored,
+        artifactPath: path.join(cacheDirectory, compatibility.artifactFile),
+        cacheHit: false,
+        source: 'remote',
+      };
     } catch (error) {
       await fs.promises.rm(temporaryDirectory, {
         force: true,
@@ -555,6 +608,49 @@ async function restoreMobileDevShell({
       throw error;
     }
   });
+}
+
+async function restoreMobileDevShell({
+  attestationVerifier,
+  cacheRoot = getCacheRoot(),
+  compatibility: inputCompatibility,
+  fetchImpl,
+}) {
+  const compatibility = assertCompatibility(inputCompatibility);
+  try {
+    const restored = await restoreLocator({
+      attestationVerifier,
+      cacheRoot,
+      compatibility,
+      fetchImpl,
+      locator: 'exact',
+      tag: compatibility.exactTag,
+    });
+    return {
+      ...restored,
+      compatibilityFallback: false,
+      fallbackReason: null,
+      userNotice: null,
+    };
+  } catch (error) {
+    if (error?.code !== 'SHELL_LOCATOR_NOT_FOUND') throw error;
+    const restored = await restoreLocator({
+      attestationVerifier,
+      cacheRoot,
+      compatibility,
+      fetchImpl,
+      locator: 'compatible',
+      tag: compatibility.compatibilityTag,
+    });
+    const notice = `Exact mobile shell input ${compatibility.shellInputKey} is unavailable; using ABI-compatible shell ${restored.manifest.shellInputKey}.`;
+    console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+    return {
+      ...restored,
+      compatibilityFallback: true,
+      fallbackReason: error.message,
+      userNotice: notice,
+    };
+  }
 }
 
 function runChecked(command, args, options = {}) {
@@ -567,9 +663,33 @@ function runChecked(command, args, options = {}) {
   }
 }
 
-async function installMobileDevShell({ artifactPath, platform }) {
+function assertDeviceId(deviceId) {
+  let hasAsciiControl = false;
+  if (typeof deviceId === 'string') {
+    for (let index = 0; index < deviceId.length; index += 1) {
+      if (deviceId.charCodeAt(index) < 0x20) {
+        hasAsciiControl = true;
+        break;
+      }
+    }
+  }
+  if (
+    typeof deviceId !== 'string' ||
+    !deviceId ||
+    deviceId.length > 256 ||
+    hasAsciiControl
+  ) {
+    throw new Error(
+      '[mobileDevShellResource] A valid explicit device ID is required.',
+    );
+  }
+  return deviceId;
+}
+
+async function installMobileDevShell({ artifactPath, deviceId, platform }) {
+  const targetDeviceId = assertDeviceId(deviceId);
   if (platform === 'android') {
-    runChecked('adb', ['install', '-r', artifactPath]);
+    runChecked('adb', ['-s', targetDeviceId, 'install', '-r', artifactPath]);
     return;
   }
   const temporaryDirectory = await fs.promises.mkdtemp(
@@ -589,7 +709,12 @@ async function installMobileDevShell({ artifactPath, platform }) {
         '[mobileDevShellResource] iOS Simulator archive must contain one app.',
       );
     }
-    runChecked('xcrun', ['simctl', 'install', 'booted', appDirectories[0]]);
+    runChecked('xcrun', [
+      'simctl',
+      'install',
+      targetDeviceId,
+      appDirectories[0],
+    ]);
   } finally {
     await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
   }
@@ -598,9 +723,17 @@ async function installMobileDevShell({ artifactPath, platform }) {
 async function main() {
   const platformIndex = process.argv.indexOf('--platform');
   const platform = process.argv[platformIndex + 1];
+  const deviceIndex = process.argv.indexOf('--device');
+  const deviceId =
+    deviceIndex === -1 ? undefined : process.argv[deviceIndex + 1];
   if (process.argv[2] !== 'restore' || !['android', 'ios'].includes(platform)) {
     throw new Error(
-      'Usage: mobile-dev-shell-resource.js restore --platform <android|ios> [--install]',
+      'Usage: mobile-dev-shell-resource.js restore --platform <android|ios> [--install --device <id>]',
+    );
+  }
+  if (process.argv.includes('--install') && !deviceId) {
+    throw new Error(
+      '[mobileDevShellResource] --install requires an explicit --device.',
     );
   }
   const { getShellCompatibility } = require('./native-dev-shell');
@@ -609,10 +742,14 @@ async function main() {
   if (process.argv.includes('--install')) {
     await installMobileDevShell({
       artifactPath: result.artifactPath,
+      deviceId,
       platform,
     });
   }
   console.log(result.artifactPath);
+  if (result.userNotice) {
+    console.error(`[ONEKEY_USER_NOTICE] ${result.userNotice}`);
+  }
 }
 
 if (require.main === module) {
@@ -624,7 +761,9 @@ if (require.main === module) {
 
 module.exports = {
   ATTESTATION_FILE,
+  assertDeviceId,
   getCacheRoot,
+  getGhAttestationVerifyArgs,
   getSidecarFile,
   installMobileDevShell,
   restoreMobileDevShell,

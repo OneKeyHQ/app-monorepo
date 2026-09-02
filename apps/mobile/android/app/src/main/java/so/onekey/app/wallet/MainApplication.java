@@ -41,16 +41,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.concurrent.FutureTask;
 import java.util.regex.Pattern;
 
 import org.json.JSONObject;
@@ -102,7 +98,9 @@ public class MainApplication extends Application implements ReactApplication {
   private DevVendorBundleInfo devVendorBundleInfo;
 
   private static final String DEV_SHELL_CONTRACT_ASSET = "onekey-dev-shell-contract.json";
+  private static final String DEV_SESSION_ROOT = "onekey-dev-sessions";
   private static final Pattern DEV_VENDOR_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+  private static final Pattern DEV_SESSION_ID_PATTERN = Pattern.compile("^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$");
   private static final int MAX_DEV_SESSION_BYTES = 2 * 1024 * 1024;
   private static final long MAX_DEV_VENDOR_BYTES = 512L * 1024L * 1024L;
 
@@ -131,51 +129,18 @@ public class MainApplication extends Application implements ReactApplication {
     private final String commonBundlePath;
     private final String fingerprint;
     private final String metroBaseUrl;
+    private final String sessionId;
 
     private DevVendorBundleInfo(
       @NonNull String commonBundlePath,
       @NonNull String fingerprint,
-      @NonNull String metroBaseUrl
+      @NonNull String metroBaseUrl,
+      @NonNull String sessionId
     ) {
       this.commonBundlePath = commonBundlePath;
       this.fingerprint = fingerprint;
       this.metroBaseUrl = metroBaseUrl;
-    }
-  }
-
-  @NonNull
-  private byte[] readUrlBytes(@NonNull URL url, long maxBytes) throws Exception {
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-    connection.setConnectTimeout(10_000);
-    connection.setReadTimeout(60_000);
-    connection.setInstanceFollowRedirects(false);
-    connection.setRequestProperty("Cache-Control", "no-store");
-    try {
-      int status = connection.getResponseCode();
-      long declaredBytes = connection.getContentLengthLong();
-      if (status != HttpURLConnection.HTTP_OK || declaredBytes > maxBytes) {
-        throw new IllegalStateException(
-          "DevSession download failed status=" + status + " url=" + url
-        );
-      }
-      try (
-        InputStream input = connection.getInputStream();
-        ByteArrayOutputStream output = new ByteArrayOutputStream()
-      ) {
-        byte[] buffer = new byte[8192];
-        int count;
-        long received = 0;
-        while ((count = input.read(buffer)) != -1) {
-          received += count;
-          if (received > maxBytes) {
-            throw new IllegalStateException("DevSession download exceeds size limit");
-          }
-          output.write(buffer, 0, count);
-        }
-        return output.toByteArray();
-      }
-    } finally {
-      connection.disconnect();
+      this.sessionId = sessionId;
     }
   }
 
@@ -195,121 +160,83 @@ public class MainApplication extends Application implements ReactApplication {
     }
   }
 
-  private void assertSameOrigin(@NonNull URL sessionUrl, @NonNull URL assetUrl) {
-    int sessionPort = sessionUrl.getPort() == -1
-      ? sessionUrl.getDefaultPort()
-      : sessionUrl.getPort();
-    int assetPort = assetUrl.getPort() == -1
-      ? assetUrl.getDefaultPort()
-      : assetUrl.getPort();
-    if (
-      !sessionUrl.getProtocol().equals(assetUrl.getProtocol()) ||
-      !sessionUrl.getHost().equals(assetUrl.getHost()) ||
-      sessionPort != assetPort ||
-      assetUrl.getUserInfo() != null
+  @NonNull
+  private JSONObject readJsonFile(@NonNull File file, long maxBytes) throws Exception {
+    if (!file.isFile() || file.length() <= 0 || file.length() > maxBytes) {
+      throw new IllegalStateException(
+        "DevSession file is missing or exceeds size limit: " + file.getName()
+      );
+    }
+    try (
+      InputStream input = new FileInputStream(file);
+      ByteArrayOutputStream output = new ByteArrayOutputStream()
     ) {
-      throw new IllegalStateException("DevSession asset URL must use the session origin");
+      byte[] buffer = new byte[8192];
+      int count;
+      long received = 0;
+      while ((count = input.read(buffer)) != -1) {
+        received += count;
+        if (received > maxBytes) {
+          throw new IllegalStateException("DevSession file exceeds size limit");
+        }
+        output.write(buffer, 0, count);
+      }
+      return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
     }
   }
 
   @NonNull
-  private File cacheDevVendor(
-    @NonNull URL commonHbcUrl,
-    long expectedBytes,
-    @NonNull String expectedSha256,
-    @NonNull String fingerprint
-  ) throws Exception {
-    File cacheDirectory = new File(getFilesDir(), "onekey-dev-vendor/" + fingerprint);
-    if (!cacheDirectory.exists() && !cacheDirectory.mkdirs()) {
-      throw new IOException("Unable to create dev-vendor cache directory");
-    }
-    File commonFile = new File(cacheDirectory, "common.hbc");
+  private String validateMetroBaseUrl(@NonNull String value) {
+    Uri uri = Uri.parse(value);
+    String scheme = uri.getScheme();
     if (
-      commonFile.isFile() &&
-      commonFile.length() == expectedBytes &&
-      expectedSha256.equals(sha256File(commonFile))
+      !("http".equals(scheme) || "https".equals(scheme)) ||
+      uri.getHost() == null ||
+      uri.getHost().isEmpty() ||
+      uri.getUserInfo() != null ||
+      (uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath())) ||
+      uri.getQuery() != null ||
+      uri.getFragment() != null
     ) {
-      return commonFile;
+      throw new IllegalStateException("DevSession Metro URL must be an HTTP(S) origin");
     }
-    File temporaryFile = new File(cacheDirectory, "common.hbc.tmp-" + android.os.Process.myPid());
-    HttpURLConnection connection = (HttpURLConnection) commonHbcUrl.openConnection();
-    connection.setConnectTimeout(10_000);
-    connection.setReadTimeout(60_000);
-    connection.setInstanceFollowRedirects(false);
-    connection.setRequestProperty("Cache-Control", "no-store");
-    try {
-      int status = connection.getResponseCode();
-      long declaredBytes = connection.getContentLengthLong();
-      if (
-        status != HttpURLConnection.HTTP_OK ||
-        declaredBytes > MAX_DEV_VENDOR_BYTES
-      ) {
-        throw new IllegalStateException(
-          "Dev-vendor download failed status=" + status + " url=" + commonHbcUrl
-        );
-      }
-      try (
-        InputStream input = connection.getInputStream();
-        FileOutputStream output = new FileOutputStream(temporaryFile)
-      ) {
-        byte[] buffer = new byte[8192];
-        int count;
-        long received = 0;
-        while ((count = input.read(buffer)) != -1) {
-          received += count;
-          if (received > MAX_DEV_VENDOR_BYTES) {
-            throw new IllegalStateException("Dev-vendor download exceeds size limit");
-          }
-          output.write(buffer, 0, count);
-        }
-        output.getFD().sync();
-      }
-    } catch (Exception error) {
-      temporaryFile.delete();
-      throw error;
-    } finally {
-      connection.disconnect();
-    }
-    if (
-      temporaryFile.length() != expectedBytes ||
-      !expectedSha256.equals(sha256File(temporaryFile))
-    ) {
-      temporaryFile.delete();
-      throw new IllegalStateException("Dev-vendor common.hbc integrity mismatch");
-    }
-    if (commonFile.exists() && !commonFile.delete()) {
-      temporaryFile.delete();
-      throw new IOException("Unable to replace cached dev-vendor common.hbc");
-    }
-    if (!temporaryFile.renameTo(commonFile)) {
-      temporaryFile.delete();
-      throw new IOException("Unable to promote cached dev-vendor common.hbc");
-    }
-    return commonFile;
+    return value.replaceAll("/$", "");
   }
 
-  public synchronized void configureDevSession(@Nullable String sessionUrlValue) {
+  public synchronized void configureDevSession() {
     if (!BuildConfig.DEBUG || !BuildConfig.ONEKEY_DEV_SHELL) {
       return;
     }
     if (devVendorBundleInfo != null) {
       return;
     }
-    if (sessionUrlValue == null || sessionUrlValue.trim().isEmpty()) {
-      throw new IllegalStateException("Android dev shell requires ONEKEY_DEV_SESSION_URL");
-    }
-    FutureTask<DevVendorBundleInfo> devSessionTask = new FutureTask<>(() -> {
-      URL sessionUrl = new URL(sessionUrlValue);
-      if (
-        !("http".equals(sessionUrl.getProtocol()) || "https".equals(sessionUrl.getProtocol())) ||
-        sessionUrl.getHost().isEmpty() ||
-        sessionUrl.getUserInfo() != null
-      ) {
-        throw new IllegalStateException("Invalid DevSession URL");
-      }
+    try {
       JSONObject contract = readJsonAsset(DEV_SHELL_CONTRACT_ASSET);
-      JSONObject session = new JSONObject(
-        new String(readUrlBytes(sessionUrl, MAX_DEV_SESSION_BYTES), StandardCharsets.UTF_8)
+      File sessionRoot = new File(getFilesDir(), DEV_SESSION_ROOT);
+      JSONObject current = readJsonFile(
+        new File(sessionRoot, "current.json"),
+        MAX_DEV_SESSION_BYTES
+      );
+      String sessionId = current.optString("sessionId");
+      String deviceId = current.optString("deviceId");
+      String worktreeId = current.optString("worktreeId");
+      if (
+        current.optInt("schemaVersion", -1) != 1 ||
+        !DEV_SESSION_ID_PATTERN.matcher(sessionId).matches() ||
+        deviceId.isEmpty() ||
+        !worktreeId.matches("^[0-9a-f]{12}$") ||
+        !sessionId.startsWith("wk-" + worktreeId + "-")
+      ) {
+        throw new IllegalStateException("Android dev shell current session pointer is invalid");
+      }
+      File sessionDirectory = new File(sessionRoot, sessionId);
+      String rootPath = sessionRoot.getCanonicalPath() + File.separator;
+      if (!sessionDirectory.getCanonicalPath().startsWith(rootPath)) {
+        throw new IllegalStateException("Android dev shell session path escapes its private root");
+      }
+      JSONObject session = readJsonFile(
+        new File(sessionDirectory, "session.json"),
+        MAX_DEV_SESSION_BYTES
       );
       JSONObject sessionVendor = session.getJSONObject("vendor");
       JSONObject metro = session.getJSONObject("metro");
@@ -318,22 +245,27 @@ public class MainApplication extends Application implements ReactApplication {
       if (
         contract.optInt("schemaVersion", -1) != 1 ||
         !"android".equals(contract.optString("platform")) ||
-        session.optInt("schemaVersion", -1) != 1 ||
+        session.optInt("schemaVersion", -1) != 2 ||
         !"android".equals(session.optString("platform")) ||
+        !sessionId.equals(session.optString("sessionId")) ||
+        !deviceId.equals(session.optString("deviceId")) ||
+        !worktreeId.equals(session.optString("worktreeId")) ||
         !DEV_VENDOR_FINGERPRINT_PATTERN.matcher(nativeContractKey).matches() ||
         !nativeContractKey.equals(sessionContractKey) ||
         session.optLong("expiresAtEpochMs", -1L) <= System.currentTimeMillis()
       ) {
         throw new IllegalStateException("DevSession does not match this Android shell");
       }
-      URL manifestUrl = new URL(sessionVendor.getString("manifestUrl"));
-      URL commonHbcUrl = new URL(sessionVendor.getString("commonHbcUrl"));
-      URL metroBaseUrl = new URL(metro.getString("baseUrl"));
-      assertSameOrigin(sessionUrl, manifestUrl);
-      assertSameOrigin(sessionUrl, commonHbcUrl);
-      assertSameOrigin(sessionUrl, metroBaseUrl);
-      JSONObject manifest = new JSONObject(
-        new String(readUrlBytes(manifestUrl, MAX_DEV_SESSION_BYTES), StandardCharsets.UTF_8)
+      if (
+        !"vendor-manifest.json".equals(sessionVendor.optString("manifestFile")) ||
+        !"common.hbc".equals(sessionVendor.optString("commonHbcFile"))
+      ) {
+        throw new IllegalStateException("DevSession uses unsupported private file names");
+      }
+      String metroBaseUrl = validateMetroBaseUrl(metro.getString("baseUrl"));
+      JSONObject manifest = readJsonFile(
+        new File(sessionDirectory, "vendor-manifest.json"),
+        MAX_DEV_SESSION_BYTES
       );
       String fingerprint = manifest.optString("fingerprint");
       JSONObject bytecode = manifest.getJSONObject("common").getJSONObject("bytecode");
@@ -356,29 +288,32 @@ public class MainApplication extends Application implements ReactApplication {
       ) {
         throw new IllegalStateException("DevSession vendor manifest is incompatible");
       }
-      File commonFile = cacheDevVendor(
-        commonHbcUrl,
-        expectedBytes,
-        expectedSha256,
-        fingerprint
-      );
-      return new DevVendorBundleInfo(
+      File commonFile = new File(sessionDirectory, "common.hbc");
+      if (
+        !commonFile.isFile() ||
+        commonFile.length() != expectedBytes ||
+        commonFile.length() > MAX_DEV_VENDOR_BYTES ||
+        !expectedSha256.equals(sha256File(commonFile))
+      ) {
+        throw new IllegalStateException("DevSession private common.hbc integrity mismatch");
+      }
+      devVendorBundleInfo = new DevVendorBundleInfo(
         commonFile.getAbsolutePath(),
         fingerprint,
-        metroBaseUrl.toString().replaceAll("/$", "")
+        metroBaseUrl,
+        sessionId
       );
-    });
-    Thread devSessionThread = new Thread(devSessionTask, "OneKeyDevSession");
-    devSessionThread.start();
-    try {
-      devVendorBundleInfo = devSessionTask.get();
-      setupBackgroundThreadBootstrap();
       OneKeyLog.info(
         "DevVendor",
-        "configured external Android dev vendor fingerprint=" + devVendorBundleInfo.fingerprint
+        "configured private Android dev vendor session=" + sessionId
+          + " fingerprint=" + devVendorBundleInfo.fingerprint
       );
     } catch (Exception error) {
-      throw new IllegalStateException("Unable to configure Android DevSession", error);
+      throw new IllegalStateException(
+        "Unable to configure Android DevSession from app-private storage. "
+          + "Run the dev-shell command again for this exact emulator.",
+        error
+      );
     }
   }
 
@@ -445,6 +380,7 @@ public class MainApplication extends Application implements ReactApplication {
         .appendQueryParameter("resolver.devVendor", "true")
         .appendQueryParameter("resolver.devVendorNative", "true")
         .appendQueryParameter("resolver.devVendorFingerprint", fingerprint)
+        .appendQueryParameter("resolver.devSessionId", getDevVendorBundleInfo().sessionId)
         .appendQueryParameter("resolver.runtimeTarget", runtimeTarget)
         .appendQueryParameter("unstable_transformProfile", "hermes-stable");
       if ("background".equals(runtimeTarget) && BuildConfig.ONEKEY_DEV_BG_HMR) {
@@ -802,6 +738,8 @@ public class MainApplication extends Application implements ReactApplication {
         return;
     }
 
+    configureDevSession();
+
     // The migration bridge uses MMKV's Java wrapper, whose initialization
     // state is separate from the Nitro C++ factory used by react-native-mmkv.
     MMKV.initialize(this);
@@ -828,9 +766,7 @@ public class MainApplication extends Application implements ReactApplication {
     // }
     long tBeforeBg = System.currentTimeMillis();
     registerBackgroundThreadActivityBridge();
-    if (!BuildConfig.DEBUG || !BuildConfig.ONEKEY_DEV_SHELL) {
-      setupBackgroundThreadBootstrap();
-    }
+    setupBackgroundThreadBootstrap();
     long tAfterBg = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",

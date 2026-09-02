@@ -5,6 +5,8 @@
 const { spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
+const os = require('os');
 const path = require('path');
 
 const {
@@ -13,6 +15,8 @@ const {
 const devVendorConfig = require('../dev-vendor.config');
 const {
   computeNativeContractKey,
+  computeShellCompatibilityKey,
+  computeShellInputKey,
   getPlatformOutputDirectory,
   getReleaseTag,
   verifyManifest,
@@ -26,15 +30,19 @@ const {
 
 const MOBILE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(MOBILE_ROOT, '../..');
-const DEV_SESSION_SCHEMA_VERSION = 1;
-const DEV_SESSION_ROUTE_PREFIX = '/onekey-dev';
+const DEV_SESSION_SCHEMA_VERSION = 2;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const SHELL_MANIFEST_SCHEMA_VERSION = 2;
-const SHELL_RELEASE_TAG_VERSION = 2;
-const RUN_REPORT_PATH = path.join(
-  REPO_ROOT,
-  'node_modules/.cache/onekey-mobile-dev/last-run.json',
-);
+const SHELL_MANIFEST_SCHEMA_VERSION = 3;
+const SHELL_RELEASE_TAG_VERSION = 3;
+const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
+const IOS_BUNDLE_ID = 'so.onekey.wallet';
+const DEV_SESSION_ROOT_NAME = 'onekey-dev-sessions';
+const LOCK_ROOT = path.join(os.tmpdir(), 'onekey-mobile-dev-locks-v1');
+const WORKTREE_ID = crypto
+  .createHash('sha256')
+  .update(fs.realpathSync(REPO_ROOT))
+  .digest('hex')
+  .slice(0, 12);
 
 function getPlatformArtifact(platform) {
   const targetPlatform = assertPlatform(platform);
@@ -105,12 +113,25 @@ function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function createRunReport({ metroUrl, platform, shell, vendor }) {
+function createRunReport({
+  deviceId,
+  metroPort,
+  metroUrl,
+  platform,
+  sessionId,
+  shell,
+  vendor,
+  worktreeId = WORKTREE_ID,
+}) {
   return {
     contract: getContractManifest(platform),
+    deviceId,
     finishedAt: undefined,
+    metroPort,
     metroUrl,
     platform,
+    runReportPath: getRunReportPath(sessionId),
+    sessionId,
     shell: { requested: shell, status: 'pending' },
     startedAt: new Date().toISOString(),
     status: 'preparing',
@@ -118,37 +139,68 @@ function createRunReport({ metroUrl, platform, shell, vendor }) {
     userNotices: [],
     vendor: { requested: vendor, status: 'pending' },
     webEmbed: { status: 'not-required' },
+    worktreeId,
   };
 }
 
 function addFallbackNotice(report, { reason, resource }) {
-  const notice = `${resource} remote resource failed; using a local build. Reason: ${reason}`;
+  const context = formatRunContext(report);
+  const notice = `${context} resource=${resource} action=local-build reason=${JSON.stringify(reason)}`;
   report.userNoticeRequired = true;
   report.userNotices.push({ notice, reason, resource });
   console.error(
-    `[ONEKEY_FALLBACK_START] resource=${resource} action=BUILD_LOCAL reason=${reason}`,
+    `[ONEKEY_FALLBACK_START] ${context} resource=${resource} action=BUILD_LOCAL reason=${JSON.stringify(reason)}`,
   );
   console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
 }
 
-function printFallbackDone(resource) {
+function addCompatibilityNotice(report, { reason, resource }) {
+  const context = formatRunContext(report);
+  const notice = `${context} resource=${resource} action=use-compatible-remote reason=${JSON.stringify(reason)}`;
+  report.userNoticeRequired = true;
+  report.userNotices.push({ notice, reason, resource });
+  console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+}
+
+function addFailureNotice(report, reason) {
+  const context = formatRunContext(report);
+  const notice = `${context} action=run-failed reason=${JSON.stringify(reason)}`;
+  report.userNoticeRequired = true;
+  report.userNotices.push({ notice, reason, resource: 'run' });
+  console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+}
+
+function printFallbackDone(report, resource) {
   console.error(
-    `[ONEKEY_FALLBACK_DONE] resource=${resource} source=local-build`,
+    `[ONEKEY_FALLBACK_DONE] ${formatRunContext(report)} resource=${resource} source=local-build`,
   );
 }
 
 async function writeRunReport(report) {
-  await writeJson(RUN_REPORT_PATH, report);
+  await writeJson(report.runReportPath, report);
 }
 
 function printRunSummary(report) {
-  console.error(
-    `[ONEKEY_RUN_SUMMARY] shell.source=${report.shell.source || 'unresolved'} vendor.source=${report.vendor.source || 'unresolved'} webEmbed.source=${report.webEmbed.source || 'not-required'} metro.url=${report.metroUrl} userNoticeRequired=${String(report.userNoticeRequired)}`,
-  );
+  const summary = `${formatRunContext(report)} status=${report.status} shell.source=${report.shell.source || 'unresolved'} vendor.source=${report.vendor.source || 'unresolved'} webEmbed.source=${report.webEmbed.source || 'not-required'} metro.url=${report.metroUrl} metro.port=${String(report.metroPort)} userNoticeRequired=${String(report.userNoticeRequired)}`;
+  console.error(`[ONEKEY_RUN_SUMMARY] ${summary}`);
   for (const { notice } of report.userNotices) {
     console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
   }
-  console.error(`[ONEKEY_RUN_REPORT] ${RUN_REPORT_PATH}`);
+  console.error(`[ONEKEY_RUN_REPORT] ${report.runReportPath}`);
+}
+
+function formatRunContext(report) {
+  return `worktree=${report.worktreeId} device=${report.deviceId} session=${report.sessionId}`;
+}
+
+function getRunReportPath(sessionId) {
+  if (!sessionId) return undefined;
+  return path.join(
+    REPO_ROOT,
+    'node_modules/.cache/onekey-mobile-dev/sessions',
+    sessionId,
+    'run-result.json',
+  );
 }
 
 async function writeContractManifest({ output, platform }) {
@@ -160,8 +212,57 @@ async function writeContractManifest({ output, platform }) {
   return manifest;
 }
 
-function getDevSessionDirectory(platform) {
-  return path.join(MOBILE_ROOT, 'out-dir-bundle/dev-session', platform);
+function getDevSessionDirectory(platform, sessionId) {
+  return path.join(
+    MOBILE_ROOT,
+    'out-dir-bundle/dev-session',
+    platform,
+    sessionId,
+  );
+}
+
+async function pruneSessionDirectories(
+  rootDirectory,
+  { maxSessions = 3, preserveSessionId } = {},
+) {
+  let entries;
+  try {
+    entries = await fs.promises.readdir(rootDirectory, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  const sessions = await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          entry.isDirectory() &&
+          /^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u.test(entry.name),
+      )
+      .map(async (entry) => ({
+        modifiedAt: (
+          await fs.promises.stat(path.join(rootDirectory, entry.name))
+        ).mtimeMs,
+        name: entry.name,
+      })),
+  );
+  sessions.sort((left, right) => right.modifiedAt - left.modifiedAt);
+  const retained = new Set();
+  if (preserveSessionId) retained.add(preserveSessionId);
+  for (const session of sessions) {
+    if (retained.size >= maxSessions) break;
+    retained.add(session.name);
+  }
+  await Promise.all(
+    sessions
+      .filter((session) => !retained.has(session.name))
+      .map((session) =>
+        fs.promises.rm(path.join(rootDirectory, session.name), {
+          force: true,
+          recursive: true,
+        }),
+      ),
+  );
 }
 
 function loadVendorManifest(platform) {
@@ -172,11 +273,28 @@ function loadVendorManifest(platform) {
   return verifyManifest({ artifactDirectory, manifest, platform });
 }
 
-async function writeDevSession({ metroUrl, output, platform }) {
+function createSessionId({
+  deviceId = 'unbound',
+  randomBytes = crypto.randomBytes,
+} = {}) {
+  const deviceKey = crypto
+    .createHash('sha256')
+    .update(deviceId)
+    .digest('hex')
+    .slice(0, 12);
+  return `wk-${WORKTREE_ID}-dev-${deviceKey}-${randomBytes(8).toString('hex')}`;
+}
+
+async function writeDevSession({
+  deviceId,
+  metroUrl,
+  output,
+  platform,
+  sessionId = createSessionId({ deviceId }),
+}) {
   const targetPlatform = assertPlatform(platform);
   const metroBaseUrl = parseMetroBaseUrl(metroUrl);
   const vendorManifest = loadVendorManifest(targetPlatform);
-  const routeRoot = `${DEV_SESSION_ROUTE_PREFIX}/${targetPlatform}`;
   const contract = getContractManifest(targetPlatform);
   if (vendorManifest.nativeContractKey !== contract.nativeContractKey) {
     throw new Error(
@@ -188,24 +306,36 @@ async function writeDevSession({ metroUrl, output, platform }) {
   const session = {
     expiresAt: new Date(expiresAtEpochMs).toISOString(),
     expiresAtEpochMs,
+    deviceId,
     metro: { baseUrl: metroBaseUrl },
     nativeContractKey: contract.nativeContractKey,
     platform: targetPlatform,
     schemaVersion: DEV_SESSION_SCHEMA_VERSION,
+    sessionId,
     vendor: {
       commonHbcSha256: commonBytecode.sha256,
-      commonHbcUrl: `${metroBaseUrl}${routeRoot}/vendor/common.hbc`,
+      commonHbcFile: 'common.hbc',
       fingerprint: vendorManifest.fingerprint,
-      manifestUrl: `${metroBaseUrl}${routeRoot}/vendor/manifest.json`,
+      manifestFile: 'vendor-manifest.json',
       nativeContractKey: vendorManifest.nativeContractKey,
       schemaVersion: vendorManifest.schemaVersion,
       strategyVersion: vendorManifest.strategyVersion,
     },
+    worktreeId: WORKTREE_ID,
   };
   const outputPath = path.resolve(
-    output || path.join(getDevSessionDirectory(targetPlatform), 'session.json'),
+    output ||
+      path.join(
+        getDevSessionDirectory(targetPlatform, sessionId),
+        'session.json',
+      ),
   );
   await writeJson(outputPath, session);
+  if (!output) {
+    await pruneSessionDirectories(path.dirname(outputPath), {
+      preserveSessionId: sessionId,
+    });
+  }
   return { outputPath, session };
 }
 
@@ -221,7 +351,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     ].includes(command)
   ) {
     throw new Error(
-      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--artifact <path>] [--metro-url <url>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
+      'Usage: native-dev-shell.js <artifact-manifest|compatibility|contract|session|launch> --platform <android|ios> [--device <serial|UDID>] [--artifact <path>] [--metro-url <url>] [--metro-port <port>] [--shell <auto|local|remote>] [--vendor <auto|local|tag>] [--output <path>]',
     );
   }
   const values = {};
@@ -234,6 +364,8 @@ function parseArgs(argv = process.argv.slice(2)) {
     if (
       ![
         'artifact',
+        'device',
+        'metro-port',
         'metro-url',
         'output',
         'platform',
@@ -253,6 +385,8 @@ function parseArgs(argv = process.argv.slice(2)) {
   return {
     command,
     artifact: values.artifact,
+    device: values.device,
+    metroPort: values['metro-port'],
     metroUrl: values['metro-url'],
     output: values.output,
     platform: assertPlatform(values.platform),
@@ -295,21 +429,21 @@ function getShellCompatibility({
     throw new Error('[nativeDevShell] Invalid web-embed input key.');
   }
   const platformArtifact = getPlatformArtifact(targetPlatform);
-  const shellCompatibilityKey = hashValues(
-    'onekey-mobile-dev-shell-compatibility-v2',
-    [
-      targetPlatform,
-      platformArtifact.architecture,
-      resolvedNativeContractKey,
-      webEmbedInputKey,
-    ],
-  );
+  const keyInputs = {
+    nativeContractKey: resolvedNativeContractKey,
+    platform: targetPlatform,
+    webEmbedInputKey,
+  };
+  const shellCompatibilityKey = computeShellCompatibilityKey(keyInputs);
+  const shellInputKey = computeShellInputKey(keyInputs);
   return {
     ...platformArtifact,
+    compatibilityTag: `mobile-dev-shell-contract-v${SHELL_RELEASE_TAG_VERSION}-${platformArtifact.resourcePlatform}-${platformArtifact.architecture}-${shellCompatibilityKey}`,
+    exactTag: `mobile-dev-shell-input-v${SHELL_RELEASE_TAG_VERSION}-${platformArtifact.resourcePlatform}-${platformArtifact.architecture}-${shellInputKey}`,
     nativeContractKey: resolvedNativeContractKey,
     platform: targetPlatform,
     shellCompatibilityKey,
-    tag: `mobile-dev-shell-compat-v${SHELL_RELEASE_TAG_VERSION}-${platformArtifact.resourcePlatform}-${platformArtifact.architecture}-${shellCompatibilityKey}`,
+    shellInputKey,
     webEmbedInputKey,
   };
 }
@@ -360,8 +494,8 @@ async function writeArtifactManifest({
     throw new Error('[nativeDevShell] Artifact must be a regular file.');
   }
   const artifactSha256 = sha256File(artifactPath);
-  const shellArtifactKey = hashValues('onekey-mobile-dev-shell-artifact-v2', [
-    compatibility.shellCompatibilityKey,
+  const shellArtifactKey = hashValues('onekey-mobile-dev-shell-artifact-v3', [
+    compatibility.shellInputKey,
     artifactSha256,
     stat.size,
   ]);
@@ -377,6 +511,7 @@ async function writeArtifactManifest({
     schemaVersion: SHELL_MANIFEST_SCHEMA_VERSION,
     shellArtifactKey,
     shellCompatibilityKey: compatibility.shellCompatibilityKey,
+    shellInputKey: compatibility.shellInputKey,
     webEmbed: {
       inputKey: receipt.inputKey,
       ociDigest: receipt.ociDigest,
@@ -388,22 +523,29 @@ async function writeArtifactManifest({
   return manifest;
 }
 
-function getDefaultMetroUrl(platform) {
+function getDefaultMetroUrl(platform, metroPort) {
   return platform === 'android'
-    ? 'http://10.0.2.2:8081'
-    : 'http://127.0.0.1:8081';
+    ? `http://10.0.2.2:${metroPort}`
+    : `http://127.0.0.1:${metroPort}`;
 }
 
-async function waitForSession(sessionUrl, child) {
+async function waitForMetro(metroPort, child, getSpawnError) {
   const deadline = Date.now() + 90_000;
+  const statusUrl = `http://127.0.0.1:${metroPort}/status`;
   while (Date.now() < deadline) {
+    const spawnError = getSpawnError();
+    if (spawnError) {
+      throw new Error('[nativeDevShell] Unable to start Metro.', {
+        cause: spawnError,
+      });
+    }
     if (child.exitCode !== null) {
       throw new Error(
         `[nativeDevShell] Metro exited before serving the session (code ${String(child.exitCode)}).`,
       );
     }
     try {
-      const response = await fetch(sessionUrl, {
+      const response = await fetch(statusUrl, {
         signal: AbortSignal.timeout(1000),
       });
       if (response.ok) return;
@@ -412,49 +554,460 @@ async function waitForSession(sessionUrl, child) {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('[nativeDevShell] Timed out waiting for Metro DevSession.');
+  throw new Error('[nativeDevShell] Timed out waiting for Metro.');
 }
 
 function runChecked(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: 'inherit', ...options });
-  if (result.status !== 0) {
+  if (result.status !== 0 || result.error) {
     throw new Error(
       `[nativeDevShell] Command failed (${String(result.status)}): ${command}`,
+      { cause: result.error },
     );
   }
 }
 
-function launchNativeApp(platform, sessionUrl) {
+function runBestEffort(command, args, options = {}) {
+  try {
+    runChecked(command, args, options);
+  } catch (error) {
+    console.error(
+      `[nativeDevShell] Cleanup warning: ${getErrorMessage(error)}`,
+    );
+  }
+}
+
+function runForOutput(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...options,
+  });
+  if (result.status !== 0 || result.error) {
+    throw new Error(
+      `[nativeDevShell] Command failed (${String(result.status)}): ${command} ${result.stderr?.trim() || ''}`,
+      { cause: result.error },
+    );
+  }
+  return result.stdout.trim();
+}
+
+function parseAndroidDevices(output) {
+  return output
+    .split(/\r?\n/u)
+    .slice(1)
+    .map((line) => line.trim().split(/\s+/u))
+    .filter((parts) => parts.length >= 2 && parts[1] === 'device')
+    .map(([id]) => ({ id, name: id }));
+}
+
+function parseIosSimulators(output) {
+  let parsed;
+  try {
+    parsed = JSON.parse(output);
+  } catch (error) {
+    throw new Error('[nativeDevShell] Unable to parse simctl device list.', {
+      cause: error,
+    });
+  }
+  return Object.values(parsed.devices || {})
+    .flat()
+    .filter(
+      (device) => device.isAvailable !== false && device.state === 'Booted',
+    )
+    .map((device) => ({ id: device.udid, name: device.name }));
+}
+
+function selectTargetDevice({ candidates, platform, requestedDevice }) {
+  if (requestedDevice) {
+    const selected = candidates.find(({ id }) => id === requestedDevice);
+    if (!selected) {
+      throw new Error(
+        `[nativeDevShell] Device ${requestedDevice} is not available for ${platform}. Available devices:\n${formatDeviceList(candidates)}`,
+      );
+    }
+    return selected;
+  }
+  if (candidates.length !== 1) {
+    throw new Error(
+      `[nativeDevShell] --device is required when ${candidates.length === 0 ? 'no' : 'multiple'} ${platform} devices are available. Available devices:\n${formatDeviceList(candidates)}`,
+    );
+  }
+  return candidates[0];
+}
+
+function formatDeviceList(candidates) {
+  return candidates.length
+    ? candidates.map(({ id, name }) => `- ${id} (${name})`).join('\n')
+    : '- none';
+}
+
+function resolveTargetDevice({ platform, requestedDevice }) {
+  const candidates =
+    platform === 'android'
+      ? parseAndroidDevices(runForOutput('adb', ['devices', '-l']))
+      : parseIosSimulators(
+          runForOutput('xcrun', [
+            'simctl',
+            'list',
+            'devices',
+            'available',
+            '--json',
+          ]),
+        );
+  return selectTargetDevice({ candidates, platform, requestedDevice });
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+}
+
+function acquireNamedLock({ key, kind, owner, returnNullWhenBusy = false }) {
+  fs.mkdirSync(LOCK_ROOT, { recursive: true });
+  const lockKey = crypto
+    .createHash('sha256')
+    .update(`${kind}\0${key}`)
+    .digest('hex');
+  const lockDirectory = path.join(LOCK_ROOT, `${kind}-${lockKey}`);
+  const ownerPath = path.join(lockDirectory, 'owner.json');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      fs.mkdirSync(lockDirectory);
+      fs.writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`, {
+        flag: 'wx',
+      });
+      return {
+        release() {
+          let activeOwner;
+          try {
+            activeOwner = JSON.parse(fs.readFileSync(ownerPath, 'utf8'));
+          } catch {
+            return;
+          }
+          if (activeOwner.sessionId === owner.sessionId) {
+            fs.rmSync(lockDirectory, { force: true, recursive: true });
+          }
+        },
+      };
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      let activeOwner;
+      try {
+        activeOwner = JSON.parse(fs.readFileSync(ownerPath, 'utf8'));
+      } catch {
+        activeOwner = undefined;
+      }
+      if (!activeOwner) {
+        const ageMs = Date.now() - fs.statSync(lockDirectory).mtimeMs;
+        if (ageMs < 30_000) {
+          if (returnNullWhenBusy) return null;
+          throw new Error(
+            `[nativeDevShell] ${kind} lock is being acquired by another process.`,
+            { cause: error },
+          );
+        }
+      }
+      if (activeOwner && isProcessAlive(activeOwner.pid)) {
+        if (returnNullWhenBusy) return null;
+        throw new Error(
+          `[nativeDevShell] ${kind} is already owned by worktree=${activeOwner.worktreeId || 'unknown'} device=${activeOwner.deviceId || 'unknown'} session=${activeOwner.sessionId || 'unknown'} pid=${String(activeOwner.pid)}.`,
+          { cause: error },
+        );
+      }
+      fs.rmSync(lockDirectory, { force: true, recursive: true });
+    }
+  }
+  throw new Error(`[nativeDevShell] Unable to acquire ${kind} lock.`);
+}
+
+async function acquireWorktreePreparationLock({
+  report,
+  waitIntervalMs = 500,
+}) {
+  let waitNoticePrinted = false;
+  while (true) {
+    const lock = acquireNamedLock({
+      key: fs.realpathSync(REPO_ROOT),
+      kind: 'worktree-preparation',
+      owner: {
+        deviceId: report.deviceId,
+        pid: process.pid,
+        sessionId: report.sessionId,
+        worktreeId: report.worktreeId,
+      },
+      returnNullWhenBusy: true,
+    });
+    if (lock) return lock;
+    if (!waitNoticePrinted) {
+      const reason = 'another device session is preparing shared outputs';
+      const notice = `${formatRunContext(report)} action=wait-worktree-preparation reason=${JSON.stringify(reason)}`;
+      report.userNoticeRequired = true;
+      report.userNotices.push({
+        notice,
+        reason,
+        resource: 'worktree-preparation',
+      });
+      console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+      waitNoticePrinted = true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, waitIntervalMs));
+  }
+}
+
+function canListenOnPort(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.once('error', () => resolve(false));
+    server.listen({ host: '0.0.0.0', port }, () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+function parseMetroPort(value) {
+  if (value === undefined) return undefined;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`[nativeDevShell] Invalid --metro-port: ${String(value)}`);
+  }
+  return port;
+}
+
+async function acquireMetroPort({ deviceId, requestedPort, sessionId }) {
+  const explicitPort = parseMetroPort(requestedPort);
+  const candidates = explicitPort
+    ? [explicitPort]
+    : Array.from({ length: 200 }, (_value, index) => 8081 + index);
+  for (const port of candidates) {
+    const lock = acquireNamedLock({
+      key: String(port),
+      kind: 'metro-port',
+      owner: { deviceId, pid: process.pid, sessionId, worktreeId: WORKTREE_ID },
+      returnNullWhenBusy: true,
+    });
+    if (!lock) {
+      if (explicitPort) {
+        throw new Error(
+          `[nativeDevShell] Metro port ${port} is already locked.`,
+        );
+      }
+    } else {
+      if (await canListenOnPort(port)) return { lock, port };
+      lock.release();
+      if (explicitPort) {
+        throw new Error(
+          `[nativeDevShell] Metro port ${port} is already in use.`,
+        );
+      }
+    }
+  }
+  throw new Error('[nativeDevShell] No available Metro port in 8081-8280.');
+}
+
+function launchNativeApp(platform, deviceId) {
   if (platform === 'android') {
     runChecked('adb', [
+      '-s',
+      deviceId,
       'shell',
       'am',
       'start',
       '-S',
       '-n',
       'so.onekey.app.wallet/.MainActivity',
-      '--es',
-      'ONEKEY_DEV_SESSION_URL',
-      sessionUrl,
     ]);
     return;
   }
-  runChecked(
-    'xcrun',
-    [
-      'simctl',
-      'launch',
-      '--terminate-running-process',
-      'booted',
-      'so.onekey.wallet',
-    ],
-    {
-      env: {
-        ...process.env,
-        SIMCTL_CHILD_ONEKEY_DEV_SESSION_URL: sessionUrl,
-      },
-    },
+  runChecked('xcrun', [
+    'simctl',
+    'launch',
+    '--terminate-running-process',
+    deviceId,
+    IOS_BUNDLE_ID,
+  ]);
+}
+
+async function preparePrivateSessionPayload({
+  deviceId,
+  metroUrl,
+  platform,
+  sessionId,
+}) {
+  const directory = getDevSessionDirectory(platform, sessionId);
+  await fs.promises.rm(directory, { force: true, recursive: true });
+  await fs.promises.mkdir(directory, { recursive: true });
+  await pruneSessionDirectories(path.dirname(directory), {
+    preserveSessionId: sessionId,
+  });
+  const { outputPath, session } = await writeDevSession({
+    deviceId,
+    metroUrl,
+    output: path.join(directory, 'session.json'),
+    platform,
+    sessionId,
+  });
+  const artifactDirectory = getPlatformOutputDirectory(MOBILE_ROOT, platform);
+  const manifestPath = path.join(artifactDirectory, 'manifest.json');
+  const commonPath = path.join(artifactDirectory, 'common.hbc');
+  await fs.promises.copyFile(
+    manifestPath,
+    path.join(directory, 'vendor-manifest.json'),
   );
+  await fs.promises.copyFile(commonPath, path.join(directory, 'common.hbc'));
+  const current = {
+    deviceId,
+    schemaVersion: 1,
+    sessionId,
+    worktreeId: WORKTREE_ID,
+  };
+  await writeJson(path.join(directory, 'current.json'), current);
+  return { directory, outputPath, session };
+}
+
+function stageAndroidPrivateSession({ deviceId, directory, sessionId }) {
+  const remoteTemporaryDirectory = `/data/local/tmp/onekey-dev-session-${sessionId}`;
+  const appRoot = `files/${DEV_SESSION_ROOT_NAME}`;
+  const appTemporaryDirectory = `${appRoot}/.tmp-${sessionId}`;
+  const appSessionDirectory = `${appRoot}/${sessionId}`;
+  runChecked('adb', [
+    '-s',
+    deviceId,
+    'shell',
+    'mkdir',
+    '-p',
+    remoteTemporaryDirectory,
+  ]);
+  try {
+    for (const fileName of [
+      'session.json',
+      'vendor-manifest.json',
+      'common.hbc',
+      'current.json',
+    ]) {
+      runChecked('adb', [
+        '-s',
+        deviceId,
+        'push',
+        path.join(directory, fileName),
+        `${remoteTemporaryDirectory}/${fileName}`,
+      ]);
+    }
+    const installCommand = [
+      'umask 077',
+      `mkdir -p ${appRoot}`,
+      `rm -rf ${appTemporaryDirectory}`,
+      `mkdir ${appTemporaryDirectory}`,
+      `cp ${remoteTemporaryDirectory}/session.json ${appTemporaryDirectory}/session.json`,
+      `cp ${remoteTemporaryDirectory}/vendor-manifest.json ${appTemporaryDirectory}/vendor-manifest.json`,
+      `cp ${remoteTemporaryDirectory}/common.hbc ${appTemporaryDirectory}/common.hbc`,
+      `mv ${appTemporaryDirectory} ${appSessionDirectory}`,
+      `cp ${remoteTemporaryDirectory}/current.json ${appRoot}/current.json.tmp-${sessionId}`,
+      `mv ${appRoot}/current.json.tmp-${sessionId} ${appRoot}/current.json`,
+      `for candidate in ${appRoot}/wk-*; do if [ -d "$candidate" ] && [ "$candidate" != ${appSessionDirectory} ]; then rm -rf "$candidate"; fi; done`,
+    ].join(' && ');
+    runChecked('adb', [
+      '-s',
+      deviceId,
+      'shell',
+      'run-as',
+      ANDROID_APPLICATION_ID,
+      'sh',
+      '-c',
+      installCommand,
+    ]);
+  } finally {
+    runBestEffort('adb', [
+      '-s',
+      deviceId,
+      'shell',
+      'rm',
+      '-rf',
+      remoteTemporaryDirectory,
+    ]);
+  }
+}
+
+async function stageIosPrivateSession({ deviceId, directory, sessionId }) {
+  const dataContainer = runForOutput('xcrun', [
+    'simctl',
+    'get_app_container',
+    deviceId,
+    IOS_BUNDLE_ID,
+    'data',
+  ]);
+  const appRoot = path.join(
+    dataContainer,
+    'Library/Application Support',
+    DEV_SESSION_ROOT_NAME,
+  );
+  const temporaryDirectory = path.join(appRoot, `.tmp-${sessionId}`);
+  const sessionDirectory = path.join(appRoot, sessionId);
+  await fs.promises.mkdir(appRoot, { recursive: true });
+  await fs.promises.rm(temporaryDirectory, { force: true, recursive: true });
+  await fs.promises.mkdir(temporaryDirectory);
+  for (const fileName of [
+    'session.json',
+    'vendor-manifest.json',
+    'common.hbc',
+  ]) {
+    await fs.promises.copyFile(
+      path.join(directory, fileName),
+      path.join(temporaryDirectory, fileName),
+    );
+  }
+  await fs.promises.rename(temporaryDirectory, sessionDirectory);
+  const currentTemporaryPath = path.join(
+    appRoot,
+    `current.json.tmp-${sessionId}`,
+  );
+  await fs.promises.copyFile(
+    path.join(directory, 'current.json'),
+    currentTemporaryPath,
+  );
+  await fs.promises.rename(
+    currentTemporaryPath,
+    path.join(appRoot, 'current.json'),
+  );
+  const entries = await fs.promises.readdir(appRoot, { withFileTypes: true });
+  await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          entry.isDirectory() &&
+          entry.name.startsWith('wk-') &&
+          entry.name !== sessionId,
+      )
+      .map((entry) =>
+        fs.promises.rm(path.join(appRoot, entry.name), {
+          force: true,
+          recursive: true,
+        }),
+      ),
+  );
+}
+
+async function stagePrivateSession(options) {
+  const payload = await preparePrivateSessionPayload(options);
+  try {
+    if (options.platform === 'android') {
+      stageAndroidPrivateSession({ ...options, directory: payload.directory });
+    } else {
+      await stageIosPrivateSession({
+        ...options,
+        directory: payload.directory,
+      });
+    }
+    return payload.session;
+  } finally {
+    await fs.promises.rm(payload.directory, { force: true, recursive: true });
+  }
 }
 
 async function prepareWebEmbedForLocalShell(report) {
@@ -476,15 +1029,13 @@ async function prepareWebEmbedForLocalShell(report) {
       status: 'building',
     };
     await writeRunReport(report);
-    runChecked('yarn', ['app:web-embed:build'], {
-      cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        WEB_EMBED_SKIP_POSTBUILD: 'true',
-      },
-    });
+    runChecked(
+      'yarn',
+      ['workspace', '@onekeyhq/web-embed', 'prebundle:build'],
+      { cwd: REPO_ROOT },
+    );
     report.webEmbed.status = 'ready';
-    printFallbackDone('web-embed');
+    printFallbackDone(report, 'web-embed');
   }
   await writeRunReport(report);
 }
@@ -520,7 +1071,7 @@ async function buildLocalShell({ platform, report }) {
   }
 }
 
-async function resolveAndInstallShell({ platform, report, shell }) {
+async function resolveAndInstallShell({ deviceId, platform, report, shell }) {
   if (!['auto', 'local', 'remote'].includes(shell)) {
     throw new Error(
       `[nativeDevShell] --shell must be auto, local, or remote; received ${shell}.`,
@@ -534,7 +1085,8 @@ async function resolveAndInstallShell({ platform, report, shell }) {
       requested: shell,
       source: 'local-build',
       status: 'building',
-      tag: compatibility.tag,
+      compatibilityTag: compatibility.compatibilityTag,
+      exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
     artifactPath = await buildLocalShell({ platform, report });
@@ -542,7 +1094,8 @@ async function resolveAndInstallShell({ platform, report, shell }) {
     report.shell = {
       requested: shell,
       status: 'restoring',
-      tag: compatibility.tag,
+      compatibilityTag: compatibility.compatibilityTag,
+      exactTag: compatibility.exactTag,
     };
     await writeRunReport(report);
     try {
@@ -550,6 +1103,15 @@ async function resolveAndInstallShell({ platform, report, shell }) {
       artifactPath = restored.artifactPath;
       report.shell.source = restored.source;
       report.shell.ociDigest = restored.ociDigest;
+      if (restored.compatibilityFallback) {
+        const reason =
+          restored.fallbackReason ||
+          restored.userNotice ||
+          'exact shell input was unavailable';
+        report.shell.compatibilityFallback = true;
+        report.shell.fallbackReason = reason;
+        addCompatibilityNotice(report, { reason, resource: 'shell' });
+      }
     } catch (error) {
       if (shell === 'remote') throw error;
       const reason = getErrorMessage(error);
@@ -564,8 +1126,8 @@ async function resolveAndInstallShell({ platform, report, shell }) {
   }
   report.shell.status = 'installing';
   await writeRunReport(report);
-  await installMobileDevShell({ artifactPath, platform });
-  if (usedFallback) printFallbackDone('shell');
+  await installMobileDevShell({ artifactPath, deviceId, platform });
+  if (usedFallback) printFallbackDone(report, 'shell');
   report.shell.artifactPath = artifactPath;
   report.shell.status = 'ready';
   await writeRunReport(report);
@@ -598,7 +1160,7 @@ async function prepareVendor({ platform, report, vendor }) {
     },
     source,
   });
-  if (result.fallback) printFallbackDone('vendor');
+  if (result.fallback) printFallbackDone(report, 'vendor');
   report.vendor = {
     ...report.vendor,
     ...result,
@@ -607,85 +1169,145 @@ async function prepareVendor({ platform, report, vendor }) {
   await writeRunReport(report);
 }
 
-async function launchDevShell({ metroUrl, platform, shell, vendor }) {
+async function launchDevShell({
+  device,
+  metroPort: requestedMetroPort,
+  metroUrl,
+  platform,
+  shell,
+  vendor,
+}) {
   devVendorConfig.applyTransformationEnvironment(process.env);
-  const deviceMetroUrl = parseMetroBaseUrl(
-    metroUrl || getDefaultMetroUrl(platform),
-  );
-  const report = createRunReport({
-    metroUrl: deviceMetroUrl,
+  const requestedDeviceMetroUrl = metroUrl
+    ? parseMetroBaseUrl(metroUrl)
+    : undefined;
+  const selectedDevice = resolveTargetDevice({
     platform,
-    shell,
-    vendor,
+    requestedDevice: device,
   });
-  await writeRunReport(report);
-  try {
-    await resolveAndInstallShell({ platform, report, shell });
-    await prepareVendor({ platform, report, vendor });
-  } catch (error) {
-    report.finishedAt = new Date().toISOString();
-    report.status = 'failed';
-    report.failure = getErrorMessage(error);
-    await writeRunReport(report);
-    printRunSummary(report);
-    throw error;
-  }
-  await writeDevSession({ metroUrl: deviceMetroUrl, platform });
-  const deviceSessionUrl = `${deviceMetroUrl}${DEV_SESSION_ROUTE_PREFIX}/${platform}/session.json`;
-  const metroPort =
-    new URL(deviceMetroUrl).port ||
-    (deviceMetroUrl.startsWith('https:') ? '443' : '80');
-  const child = spawn(
-    'yarn',
-    [
-      'workspace',
-      '@onekeyhq/mobile',
-      'native-bundle',
-      '--port',
-      metroPort,
-      '--host',
-      '0.0.0.0',
-    ],
-    {
-      cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        ONEKEY_DEV_SESSION_PLATFORM: platform,
-        ONEKEY_DEV_VENDOR: 'true',
-      },
-      stdio: 'inherit',
+  const sessionId = createSessionId({ deviceId: selectedDevice.id });
+  const deviceLock = acquireNamedLock({
+    key: `${platform}\0${selectedDevice.id}\0${platform === 'android' ? ANDROID_APPLICATION_ID : IOS_BUNDLE_ID}`,
+    kind: 'device',
+    owner: {
+      deviceId: selectedDevice.id,
+      pid: process.pid,
+      sessionId,
+      worktreeId: WORKTREE_ID,
     },
-  );
-  const localSessionUrl = `http://127.0.0.1:${metroPort}${DEV_SESSION_ROUTE_PREFIX}/${platform}/session.json`;
+  });
+  let metroLock;
+  let child;
+  let preparationLock;
+  let report;
   try {
-    await waitForSession(localSessionUrl, child);
-    launchNativeApp(platform, deviceSessionUrl);
+    const metroAllocation = await acquireMetroPort({
+      deviceId: selectedDevice.id,
+      requestedPort: requestedMetroPort,
+      sessionId,
+    });
+    metroLock = metroAllocation.lock;
+    const metroPort = metroAllocation.port;
+    const deviceMetroUrl =
+      requestedDeviceMetroUrl || getDefaultMetroUrl(platform, metroPort);
+    report = createRunReport({
+      deviceId: selectedDevice.id,
+      metroPort,
+      metroUrl: deviceMetroUrl,
+      platform,
+      sessionId,
+      shell,
+      vendor,
+    });
+    await writeRunReport(report);
+    preparationLock = await acquireWorktreePreparationLock({ report });
+    await resolveAndInstallShell({
+      deviceId: selectedDevice.id,
+      platform,
+      report,
+      shell,
+    });
+    await prepareVendor({ platform, report, vendor });
+    const session = await stagePrivateSession({
+      deviceId: selectedDevice.id,
+      metroUrl: deviceMetroUrl,
+      platform,
+      sessionId,
+    });
+    report.session = {
+      devicePath: `${DEV_SESSION_ROOT_NAME}/${sessionId}`,
+      status: 'injected',
+      worktreeId: session.worktreeId,
+    };
+    await writeRunReport(report);
+    child = spawn(
+      'yarn',
+      [
+        'workspace',
+        '@onekeyhq/mobile',
+        'native-bundle',
+        '--port',
+        String(metroPort),
+        '--host',
+        '0.0.0.0',
+      ],
+      {
+        cwd: REPO_ROOT,
+        env: {
+          ...process.env,
+          ONEKEY_DEV_SESSION_ID: sessionId,
+          ONEKEY_DEV_VENDOR: 'true',
+        },
+        stdio: 'inherit',
+      },
+    );
+    let metroSpawnError;
+    child.once('error', (error) => {
+      metroSpawnError = error;
+    });
+    const metroCompletion = new Promise((resolve) => {
+      child.once('exit', (code, signal) => resolve({ code, signal }));
+    });
+    await waitForMetro(metroPort, child, () => metroSpawnError);
+    preparationLock.release();
+    preparationLock = undefined;
+    launchNativeApp(platform, selectedDevice.id);
     report.launchedAt = new Date().toISOString();
     report.status = 'running';
     await writeRunReport(report);
     printRunSummary(report);
-    await new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('exit', (code, signal) => {
-        if (code === 0 || signal === 'SIGINT' || signal === 'SIGTERM')
-          resolve();
-        else {
-          reject(
-            new Error(
-              `[nativeDevShell] Metro exited with code ${String(code)} signal ${String(signal)}.`,
-            ),
-          );
-        }
+    if (metroSpawnError) {
+      throw new Error('[nativeDevShell] Unable to start Metro.', {
+        cause: metroSpawnError,
       });
-    });
-  } catch (error) {
+    }
+    const { code, signal } = await metroCompletion;
+    if (code !== 0 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
+      throw new Error(
+        `[nativeDevShell] Metro exited with code ${String(code)} signal ${String(signal)}.`,
+      );
+    }
     report.finishedAt = new Date().toISOString();
-    report.status = 'failed';
-    report.failure = getErrorMessage(error);
+    report.status = 'finished';
     await writeRunReport(report);
     printRunSummary(report);
-    child.kill('SIGTERM');
+  } catch (error) {
+    if (report) {
+      report.finishedAt = new Date().toISOString();
+      report.status = 'failed';
+      report.failure = getErrorMessage(error);
+      addFailureNotice(report, report.failure);
+      await writeRunReport(report);
+      printRunSummary(report);
+    }
     throw error;
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+    }
+    preparationLock?.release();
+    metroLock?.release();
+    deviceLock.release();
   }
 }
 
@@ -700,9 +1322,10 @@ async function main() {
     const manifest = await writeContractManifest(args);
     console.log(manifest.nativeContractKey);
   } else if (args.command === 'session') {
+    const metroPort = parseMetroPort(args.metroPort) || 8081;
     const result = await writeDevSession({
       ...args,
-      metroUrl: args.metroUrl || getDefaultMetroUrl(args.platform),
+      metroUrl: args.metroUrl || getDefaultMetroUrl(args.platform, metroPort),
     });
     console.log(result.outputPath);
   } else {
@@ -718,18 +1341,27 @@ if (require.main === module) {
 }
 
 module.exports = {
-  DEV_SESSION_ROUTE_PREFIX,
   DEV_SESSION_SCHEMA_VERSION,
   SHELL_MANIFEST_SCHEMA_VERSION,
   addFallbackNotice,
+  addFailureNotice,
+  acquireMetroPort,
+  acquireWorktreePreparationLock,
+  createSessionId,
   createRunReport,
   getContractManifest,
   getPlatformArtifact,
   getShellArtifactTag,
   getShellCompatibility,
   loadVendorManifest,
+  parseAndroidDevices,
   parseArgs,
+  parseIosSimulators,
   parseMetroBaseUrl,
+  parseMetroPort,
+  printRunSummary,
+  pruneSessionDirectories,
+  selectTargetDevice,
   writeContractManifest,
   writeArtifactManifest,
   writeDevSession,

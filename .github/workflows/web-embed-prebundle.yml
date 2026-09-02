@@ -105,10 +105,8 @@ jobs:
           NODE_OPTIONS: --max_old_space_size=8192
         run: yarn install --immutable
 
-      - name: Build web-embed without native asset sync
-        env:
-          WEB_EMBED_SKIP_POSTBUILD: 'true'
-        run: yarn app:web-embed:build
+      - name: Build canonical web-embed prebundle
+        run: yarn workspace @onekeyhq/web-embed prebundle:build
 
       - name: Package release assets
         run: >-

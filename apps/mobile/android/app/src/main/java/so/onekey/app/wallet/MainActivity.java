@@ -37,10 +37,6 @@ public class MainActivity extends ReactActivity {
       "StartupTiming",
       "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
     );
-    ((MainApplication) getApplication()).configureDevSession(
-      getIntent().getStringExtra("ONEKEY_DEV_SESSION_URL")
-    );
-
     // Record this MainActivity.onCreate attempt and get the post-write
     // time-windowed count back. The increment lives HERE (not in
     // MainApplication.onCreate) so system-initiated process launches —

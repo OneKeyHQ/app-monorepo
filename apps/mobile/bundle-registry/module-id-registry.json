@@ -15988,7 +15988,7 @@
     "packages/components/src/actions/Popover/index.tsx": 43,
     "packages/components/src/actions/Popover/popoverSideEffects.ts": 44,
     "packages/components/src/actions/Popover/type.ts": 45,
-    "packages/components/src/actions/Popover/useNativePortalLifecycle.native.ts": 7957,
+    "packages/components/src/actions/Popover/useNativePortalLifecycle.native.ts": 7934,
     "packages/components/src/actions/SegmentControl/index.tsx": 46,
     "packages/components/src/actions/Shortcut/index.tsx": 47,
     "packages/components/src/actions/Shortcut/type.ts": 48,

@@ -5,6 +5,8 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const devVendorConfig = require('../dev-vendor.config');
+
 const {
   getPlatformArtifact,
   getShellCompatibility,
@@ -85,6 +87,28 @@ function listFiles(directoryPath) {
   return files;
 }
 
+function getNativeBuildEnvironment(env = process.env) {
+  return {
+    ...env,
+    ANDROID_CHANNEL: 'direct',
+    ENABLE_NATIVE_BACKGROUND_THREAD: 'true',
+    NODE_ENV: 'production',
+    ONEKEY_DEV_BG_HMR: 'false',
+    ONEKEY_DEV_SHELL: 'true',
+    ONEKEY_DEV_VENDOR: 'false',
+    ONEKEY_STARTUP_PROFILE: 'false',
+    SENTRY_DISABLE_AUTO_UPLOAD: 'true',
+  };
+}
+
+function getIosBuildSettings(nativeContractKey) {
+  return [
+    `ONEKEY_NATIVE_CONTRACT_KEY=${nativeContractKey}`,
+    `ONEKEY_DEV_VENDOR_SCHEMA_VERSION=${devVendorConfig.SCHEMA_VERSION}`,
+    `ONEKEY_DEV_VENDOR_STRATEGY_VERSION=${devVendorConfig.STRATEGY_VERSION}`,
+  ];
+}
+
 function buildAndroid({ artifactPath }) {
   runChecked(
     './gradlew',
@@ -95,12 +119,7 @@ function buildAndroid({ artifactPath }) {
     ],
     {
       cwd: path.join(MOBILE_ROOT, 'android'),
-      env: {
-        ...process.env,
-        NODE_ENV: process.env.NODE_ENV || 'production',
-        ONEKEY_DEV_SHELL: 'true',
-        SENTRY_DISABLE_AUTO_UPLOAD: 'true',
-      },
+      env: getNativeBuildEnvironment(),
     },
   );
   const outputDirectory = path.join(
@@ -160,17 +179,12 @@ function buildIosSimulator({ artifactPath, nativeContractKey }) {
       './outputs',
       'ARCHS=arm64',
       'ONLY_ACTIVE_ARCH=YES',
-      `ONEKEY_NATIVE_CONTRACT_KEY=${nativeContractKey}`,
+      ...getIosBuildSettings(nativeContractKey),
       'CODE_SIGNING_ALLOWED=NO',
     ],
     {
       cwd: iosDirectory,
-      env: {
-        ...process.env,
-        NODE_ENV: process.env.NODE_ENV || 'production',
-        ONEKEY_DEV_SHELL: 'true',
-        SENTRY_DISABLE_AUTO_UPLOAD: 'true',
-      },
+      env: getNativeBuildEnvironment(),
     },
   );
   const appDirectory = path.join(
@@ -278,6 +292,8 @@ if (require.main === module) {
 
 module.exports = {
   buildMobileDevShell,
+  getIosBuildSettings,
+  getNativeBuildEnvironment,
   parseArgs,
   syncWebEmbedAssets,
 };

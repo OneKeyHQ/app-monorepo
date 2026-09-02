@@ -52,6 +52,10 @@
 	<string>$(ONEKEY_DEV_BG_HMR)</string>
 	<key>ONEKEY_NATIVE_CONTRACT_KEY</key>
 	<string>$(ONEKEY_NATIVE_CONTRACT_KEY)</string>
+	<key>ONEKEY_DEV_VENDOR_SCHEMA_VERSION</key>
+	<string>$(ONEKEY_DEV_VENDOR_SCHEMA_VERSION)</string>
+	<key>ONEKEY_DEV_VENDOR_STRATEGY_VERSION</key>
+	<string>$(ONEKEY_DEV_VENDOR_STRATEGY_VERSION)</string>
 	<key>EXDefaultScreenOrientationMask</key>
 	<string>UIInterfaceOrientationMaskPortrait</string>
 	<key>EXDefaultScreenOrientationMask~ipad</key>

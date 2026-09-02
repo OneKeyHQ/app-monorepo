@@ -132,10 +132,8 @@ private struct DevVendorBundleInfo {
   let commonBundleURL: URL
   let fingerprint: String
   let metroBaseURL: URL
+  let sessionId: String
 }
-
-private let devVendorSchemaVersion = 4
-private let devVendorStrategyVersion = 5
 
 @UIApplicationMain
 class AppDelegate: ExpoAppDelegate {
@@ -388,54 +386,81 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     else {
       return nil
     }
-    guard
-      let sessionURLValue = ProcessInfo.processInfo.environment["ONEKEY_DEV_SESSION_URL"],
-      let sessionURL = URL(string: sessionURLValue),
-      let sessionScheme = sessionURL.scheme,
-      ["http", "https"].contains(sessionScheme),
-      sessionURL.host != nil,
-      sessionURL.user == nil,
-      sessionURL.password == nil
-    else {
-      fatalError("iOS Simulator dev shell requires ONEKEY_DEV_SESSION_URL")
-    }
     do {
-      let sessionData = try readDevSessionData(
-        from: sessionURL,
+      guard
+        let vendorSchemaVersion = bundleInteger(
+          forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_SCHEMA_VERSION"
+        ),
+        let vendorStrategyVersion = bundleInteger(
+          forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_STRATEGY_VERSION"
+        )
+      else {
+        fatalError("iOS Simulator dev shell is missing generated vendor contract versions")
+      }
+      let fileManager = FileManager.default
+      let sessionRoot = try fileManager.url(
+        for: .applicationSupportDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: true
+      ).appendingPathComponent("onekey-dev-sessions", isDirectory: true)
+      let current = try readDevSessionJSON(
+        from: sessionRoot.appendingPathComponent("current.json"),
         maxBytes: 2 * 1024 * 1024
       )
       guard
-        let session = try JSONSerialization.jsonObject(with: sessionData) as? [String: Any],
-        (session["schemaVersion"] as? NSNumber)?.intValue == 1,
+        (current["schemaVersion"] as? NSNumber)?.intValue == 1,
+        let sessionId = current["sessionId"] as? String,
+        let deviceId = current["deviceId"] as? String,
+        !deviceId.isEmpty,
+        let worktreeId = current["worktreeId"] as? String,
+        worktreeId.range(of: "^[0-9a-f]{12}$", options: .regularExpression) != nil,
+        sessionId.range(
+          of: "^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$",
+          options: .regularExpression
+        ) != nil,
+        sessionId.hasPrefix("wk-\(worktreeId)-")
+      else {
+        fatalError("iOS Simulator dev shell current session pointer is invalid")
+      }
+      let sessionDirectory = sessionRoot
+        .appendingPathComponent(sessionId, isDirectory: true)
+        .standardizedFileURL
+      guard sessionDirectory.path.hasPrefix(sessionRoot.standardizedFileURL.path + "/") else {
+        fatalError("iOS Simulator dev shell session path escapes its private root")
+      }
+      let session = try readDevSessionJSON(
+        from: sessionDirectory.appendingPathComponent("session.json"),
+        maxBytes: 2 * 1024 * 1024
+      )
+      guard
+        (session["schemaVersion"] as? NSNumber)?.intValue == 2,
         session["platform"] as? String == "ios",
+        session["sessionId"] as? String == sessionId,
+        session["deviceId"] as? String == deviceId,
+        session["worktreeId"] as? String == worktreeId,
         session["nativeContractKey"] as? String == nativeContractKey,
         let expiresAtEpochMs = session["expiresAtEpochMs"] as? NSNumber,
         expiresAtEpochMs.int64Value > Int64(Date().timeIntervalSince1970 * 1000),
         let sessionVendor = session["vendor"] as? [String: Any],
         sessionVendor["nativeContractKey"] as? String == nativeContractKey,
+        sessionVendor["manifestFile"] as? String == "vendor-manifest.json",
+        sessionVendor["commonHbcFile"] as? String == "common.hbc",
         let metro = session["metro"] as? [String: Any],
         let metroBaseURLValue = metro["baseUrl"] as? String,
-        let metroBaseURL = URL(string: metroBaseURLValue),
-        let manifestURLValue = sessionVendor["manifestUrl"] as? String,
-        let manifestURL = URL(string: manifestURLValue),
-        let commonURLValue = sessionVendor["commonHbcUrl"] as? String,
-        let commonURL = URL(string: commonURLValue),
-        hasSameOrigin(sessionURL, metroBaseURL),
-        hasSameOrigin(sessionURL, manifestURL),
-        hasSameOrigin(sessionURL, commonURL)
+        let metroBaseURL = validatedMetroBaseURL(metroBaseURLValue)
       else {
         fatalError("DevSession does not match this iOS Simulator shell")
       }
-      let manifestData = try readDevSessionData(
-        from: manifestURL,
+      let manifest = try readDevSessionJSON(
+        from: sessionDirectory.appendingPathComponent("vendor-manifest.json"),
         maxBytes: 2 * 1024 * 1024
       )
       guard
-        let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
         let contractVendorSchema = sessionVendor["schemaVersion"] as? NSNumber,
         let contractVendorStrategy = sessionVendor["strategyVersion"] as? NSNumber,
-        contractVendorSchema.intValue == devVendorSchemaVersion,
-        contractVendorStrategy.intValue == devVendorStrategyVersion,
+        contractVendorSchema.intValue == vendorSchemaVersion,
+        contractVendorStrategy.intValue == vendorStrategyVersion,
         (manifest["schemaVersion"] as? NSNumber)?.intValue == contractVendorSchema.intValue,
         (manifest["strategyVersion"] as? NSNumber)?.intValue == contractVendorStrategy.intValue,
         manifest["platform"] as? String == "ios",
@@ -456,103 +481,110 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
           of: "^[0-9a-f]{64}$",
           options: .regularExpression
         ) != nil,
-        expectedBytes.int64Value > 0
+        expectedBytes.int64Value > 0,
+        expectedBytes.int64Value <= 512 * 1024 * 1024
       else {
         fatalError("DevSession vendor manifest is incompatible")
       }
-      let cachedCommonURL = try cacheDevVendor(
-        commonURL: commonURL,
-        expectedBytes: expectedBytes.intValue,
-        expectedSha256: expectedSha256,
-        fingerprint: fingerprint
-      )
+      let commonURL = sessionDirectory.appendingPathComponent("common.hbc")
+      let commonAttributes = try fileManager.attributesOfItem(atPath: commonURL.path)
+      guard
+        let commonSize = commonAttributes[.size] as? NSNumber,
+        commonSize.int64Value == expectedBytes.int64Value,
+        (try sha256File(commonURL)) == expectedSha256
+      else {
+        fatalError("DevSession private common.hbc integrity mismatch")
+      }
       NitroModuleBridge.logInfo(
         "DevVendor",
-        "configured external iOS dev vendor fingerprint=\(fingerprint)"
+        "configured private iOS dev vendor session=\(sessionId) fingerprint=\(fingerprint)"
       )
       return DevVendorBundleInfo(
-        commonBundleURL: cachedCommonURL,
+        commonBundleURL: commonURL,
         fingerprint: fingerprint,
-        metroBaseURL: metroBaseURL
+        metroBaseURL: metroBaseURL,
+        sessionId: sessionId
       )
     } catch {
-      fatalError("Unable to configure iOS Simulator DevSession: \(error)")
+      fatalError(
+        "Unable to configure iOS Simulator DevSession from app-private storage. " +
+        "Run the dev-shell command again for this exact simulator. Error: \(error)"
+      )
     }
 #else
     return nil
 #endif
   }
 
-  private func readDevSessionData(from url: URL, maxBytes: Int) throws -> Data {
-    let data = try Data(contentsOf: url, options: .uncached)
-    guard !data.isEmpty, data.count <= maxBytes else {
+  private func bundleInteger(forInfoDictionaryKey key: String) -> Int? {
+    if let value = Bundle.main.object(forInfoDictionaryKey: key) as? NSNumber {
+      return value.intValue
+    }
+    if
+      let value = Bundle.main.object(forInfoDictionaryKey: key) as? String,
+      let integer = Int(value)
+    {
+      return integer
+    }
+    return nil
+  }
+
+  private func readDevSessionJSON(from url: URL, maxBytes: Int) throws -> [String: Any] {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    guard
+      let fileSize = attributes[.size] as? NSNumber,
+      fileSize.int64Value > 0,
+      fileSize.int64Value <= maxBytes
+    else {
       throw NSError(
         domain: "OneKeyDevSession",
         code: 1,
-        userInfo: [NSLocalizedDescriptionKey: "DevSession resource exceeds size limit"]
+        userInfo: [NSLocalizedDescriptionKey: "DevSession file exceeds size limit"]
       )
     }
-    return data
-  }
-
-  private func hasSameOrigin(_ first: URL, _ second: URL) -> Bool {
-    let defaultPort: (URL) -> Int? = { url in
-      if let port = url.port { return port }
-      return url.scheme == "https" ? 443 : (url.scheme == "http" ? 80 : nil)
-    }
-    return first.scheme == second.scheme &&
-      first.host == second.host &&
-      defaultPort(first) == defaultPort(second) &&
-      second.user == nil &&
-      second.password == nil
-  }
-
-  private func cacheDevVendor(
-    commonURL: URL,
-    expectedBytes: Int,
-    expectedSha256: String,
-    fingerprint: String
-  ) throws -> URL {
-    let fileManager = FileManager.default
-    let cacheRoot = try fileManager.url(
-      for: .cachesDirectory,
-      in: .userDomainMask,
-      appropriateFor: nil,
-      create: true
-    )
-    let cacheDirectory = cacheRoot
-      .appendingPathComponent("onekey-dev-vendor", isDirectory: true)
-      .appendingPathComponent(fingerprint, isDirectory: true)
-    try fileManager.createDirectory(
-      at: cacheDirectory,
-      withIntermediateDirectories: true
-    )
-    let cachedCommonURL = cacheDirectory.appendingPathComponent("common.hbc")
-    if
-      let cachedData = try? Data(contentsOf: cachedCommonURL),
-      cachedData.count == expectedBytes,
-      SHA256.hash(data: cachedData).map({ String(format: "%02x", $0) }).joined()
-        == expectedSha256
-    {
-      return cachedCommonURL
-    }
-    let commonData = try readDevSessionData(
-      from: commonURL,
-      maxBytes: 512 * 1024 * 1024
-    )
+    let data = try Data(contentsOf: url, options: .mappedIfSafe)
     guard
-      commonData.count == expectedBytes,
-      SHA256.hash(data: commonData).map({ String(format: "%02x", $0) }).joined()
-        == expectedSha256
+      data.count <= maxBytes,
+      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
     else {
       throw NSError(
         domain: "OneKeyDevSession",
         code: 2,
-        userInfo: [NSLocalizedDescriptionKey: "Dev-vendor common.hbc integrity mismatch"]
+        userInfo: [NSLocalizedDescriptionKey: "DevSession JSON is invalid"]
       )
     }
-    try commonData.write(to: cachedCommonURL, options: .atomic)
-    return cachedCommonURL
+    return json
+  }
+
+  private func validatedMetroBaseURL(_ value: String) -> URL? {
+    guard
+      var components = URLComponents(string: value),
+      let scheme = components.scheme,
+      ["http", "https"].contains(scheme),
+      let host = components.host,
+      !host.isEmpty,
+      components.user == nil,
+      components.password == nil,
+      components.query == nil,
+      components.fragment == nil,
+      components.path.isEmpty || components.path == "/"
+    else {
+      return nil
+    }
+    components.path = ""
+    return components.url
+  }
+
+  private func sha256File(_ url: URL) throws -> String {
+    let handle = try FileHandle(forReadingFrom: url)
+    defer { try? handle.close() }
+    var hasher = SHA256()
+    while true {
+      let data = try handle.read(upToCount: 1024 * 1024) ?? Data()
+      if data.isEmpty { break }
+      hasher.update(data: data)
+    }
+    return hasher.finalize().map { String(format: "%02x", $0) }.joined()
   }
 
   private func devVendorEntryBundleURL(
@@ -562,16 +594,16 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     let fallbackPath = runtimeTarget == "background"
       ? "background.bundle"
       : ".expo/.virtual-metro-entry.bundle"
-    let fallbackURL = URL(string: "http://localhost:8081/\(fallbackPath)")
-    let metroURL = devVendorBundleInfo?.metroBaseURL ?? fallbackURL
-    guard var components = metroURL.flatMap({
-      URLComponents(url: $0, resolvingAgainstBaseURL: false)
-    }) else {
+    guard
+      let devVendorBundleInfo,
+      var components = URLComponents(
+        url: devVendorBundleInfo.metroBaseURL,
+        resolvingAgainstBaseURL: false
+      )
+    else {
       return nil
     }
-    if runtimeTarget == "background" {
-      components.path = "/background.bundle"
-    }
+    components.path = "/\(fallbackPath)"
 
     var values = [
       "platform": "ios",
@@ -584,6 +616,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       "resolver.devVendor": "true",
       "resolver.devVendorNative": "true",
       "resolver.devVendorFingerprint": fingerprint,
+      "resolver.devSessionId": devVendorBundleInfo.sessionId,
       "resolver.runtimeTarget": runtimeTarget,
       "unstable_transformProfile": "hermes-stable",
     ]

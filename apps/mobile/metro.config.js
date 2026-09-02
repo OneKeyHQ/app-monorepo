@@ -21,7 +21,6 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const {
   withStorybook,
 } = require('@storybook/react-native/metro/withStorybook');
-const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
 
@@ -634,86 +633,8 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   };
 };
 
-const createDevSessionMiddleware = () => {
-  const platform = process.env.ONEKEY_DEV_SESSION_PLATFORM;
-  if (!['android', 'ios'].includes(platform)) {
-    return (_req, _res, next) => next();
-  }
-  const routeRoot = `/onekey-dev/${platform}`;
-  const routes = new Map([
-    [
-      `${routeRoot}/session.json`,
-      {
-        contentType: 'application/json; charset=utf-8',
-        filePath: path.join(
-          projectRoot,
-          'out-dir-bundle/dev-session',
-          platform,
-          'session.json',
-        ),
-      },
-    ],
-    [
-      `${routeRoot}/vendor/manifest.json`,
-      {
-        contentType: 'application/json; charset=utf-8',
-        filePath: path.join(
-          projectRoot,
-          'out-dir-bundle/dev-vendor',
-          platform,
-          'manifest.json',
-        ),
-      },
-    ],
-    [
-      `${routeRoot}/vendor/common.hbc`,
-      {
-        contentType: 'application/octet-stream',
-        filePath: path.join(
-          projectRoot,
-          'out-dir-bundle/dev-vendor',
-          platform,
-          'common.hbc',
-        ),
-      },
-    ],
-  ]);
-  return (req, res, next) => {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
-    const route = routes.get(pathname);
-    if (!route) return next();
-    if (req.method !== 'GET') {
-      res.statusCode = 405;
-      res.setHeader('Allow', 'GET');
-      res.end('Method Not Allowed');
-      return undefined;
-    }
-    let stat;
-    try {
-      stat = fs.lstatSync(route.filePath);
-    } catch {
-      res.statusCode = 404;
-      res.end('Not Found');
-      return undefined;
-    }
-    if (!stat.isFile() || stat.isSymbolicLink()) {
-      res.statusCode = 404;
-      res.end('Not Found');
-      return undefined;
-    }
-    res.statusCode = 200;
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Length', String(stat.size));
-    res.setHeader('Content-Type', route.contentType);
-    fs.createReadStream(route.filePath).pipe(res);
-    return undefined;
-  };
-};
-
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  connect()
-    .use(createDevSessionMiddleware())
-    .use(applyFixImageAssetsMiddleware(metroMiddleware));
+  applyFixImageAssetsMiddleware(metroMiddleware);
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
 // transform-cache key cannot see — flipping modes would serve stale transforms
