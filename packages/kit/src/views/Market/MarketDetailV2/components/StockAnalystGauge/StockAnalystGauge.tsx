@@ -81,37 +81,46 @@ const GRADIENT_SUCCESS_OFFSET = gaugeAngleToGradientOffset(45);
 const GRADIENT_END_OFFSET = gaugeAngleToGradientOffset(0);
 
 // Measured at $bodySmMedium (12/16) in the reference and re-fitted for
-// $bodyMdMedium (14/20): every `top` moves up by (20 - 16) / 2 so the glyphs
-// keep the reference's optical center. The two outer labels were measured for
-// the English copy, but the translated extremes run much longer in German,
-// Russian and Ukrainian, so they anchor on their gauge edge and
-// size to their text, growing inward under the dial up to just short of the
-// needle pivot — a fixed width would truncate both extremes into the same
-// ellipsis. The three inner labels keep fixed centered boxes: their anchor IS
-// the box center, and their translations fit.
-const OUTER_ZONE_LABEL_MAX_WIDTH = DIAL_CENTER_X - 12;
+// $bodyMdMedium (14/20): every anchor moves so the glyphs keep the reference's
+// optical center. English boxes were measured for the English copy; translated
+// extremes run much longer (German, Russian, Ukrainian), so:
+// - The outer boxes are capped by the arc, not the dial center: at the label
+//   line-box bottom (y = 112.6) the arc's edge sits at
+//   DIAL_CENTER_X - sqrt(DIAL_OUTER_RADIUS² - (DIAL_CENTER_Y - 112.6)²) ≈ 87,
+//   so 79 keeps ~8px of clearance. Long translations wrap onto a second line
+//   that grows UPWARD (bottom-anchored; the area above the label at x < 79 is
+//   outside the arc), so a single-line English label sits exactly where the
+//   reference put it.
+// - The middle box widens to 90 around its unchanged center (190): the
+//   Russian/Ukrainian "Neutral" label measures 81px and overflows the
+//   English-measured 80.
+const OUTER_ZONE_LABEL_WIDTH = 79;
+const OUTER_ZONE_LABEL_BOTTOM = STOCK_ANALYST_GAUGE_DIAL_HEIGHT - 112.6;
 const ZONE_LABEL_LAYOUT: {
   left?: number;
   right?: number;
-  width?: number;
-  maxWidth?: number;
-  top: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+  maxLines: number;
   textAlign: 'left' | 'center' | 'right';
 }[] = [
   {
     left: 0,
-    maxWidth: OUTER_ZONE_LABEL_MAX_WIDTH,
-    top: 92.6,
-    textAlign: 'left',
+    width: OUTER_ZONE_LABEL_WIDTH,
+    bottom: OUTER_ZONE_LABEL_BOTTOM,
+    maxLines: 2,
+    textAlign: 'right',
   },
-  { left: 61.2, width: 80, top: 38, textAlign: 'center' },
-  { left: 150, width: 80, top: 9.2, textAlign: 'center' },
-  { left: 239.1, width: 80, top: 38, textAlign: 'center' },
+  { left: 61.2, width: 80, top: 38, maxLines: 1, textAlign: 'center' },
+  { left: 145, width: 90, top: 9.2, maxLines: 1, textAlign: 'center' },
+  { left: 239.1, width: 80, top: 38, maxLines: 1, textAlign: 'center' },
   {
     right: 0,
-    maxWidth: OUTER_ZONE_LABEL_MAX_WIDTH,
-    top: 92.6,
-    textAlign: 'right',
+    width: OUTER_ZONE_LABEL_WIDTH,
+    bottom: OUTER_ZONE_LABEL_BOTTOM,
+    maxLines: 2,
+    textAlign: 'left',
   },
 ];
 
@@ -297,14 +306,14 @@ export function StockAnalystGauge({
               left={layout.left}
               right={layout.right}
               top={layout.top}
+              bottom={layout.bottom}
               width={layout.width}
-              maxWidth={layout.maxWidth}
               pointerEvents="none"
             >
               <SizableText
                 size="$bodyMdMedium"
                 textAlign={layout.textAlign}
-                numberOfLines={1}
+                numberOfLines={layout.maxLines}
                 color={getZoneLabelColor(index, index === activeZoneIndex)}
               >
                 {intl.formatMessage({ id: labelId })}
