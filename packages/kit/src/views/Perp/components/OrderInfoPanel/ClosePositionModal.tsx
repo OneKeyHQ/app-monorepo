@@ -243,6 +243,7 @@ const ClosePositionForm = memo(
         return;
       }
       submittingRef.current = true;
+      let submitted = false;
       try {
         if (isNil(assetId) || Number.isNaN(assetId)) {
           return;
@@ -298,13 +299,18 @@ const ClosePositionForm = memo(
         }
 
         hyperliquidActions.current.resetTradingForm();
+        // The dialog stays mounted through its exit animation, so the guard
+        // must stay armed after success or a tap there places a second order.
+        submitted = true;
         if (isMountedRef.current) {
           onClose();
         }
       } finally {
-        submittingRef.current = false;
-        if (isMountedRef.current) {
-          setIsSubmitting(false);
+        if (!submitted) {
+          submittingRef.current = false;
+          if (isMountedRef.current) {
+            setIsSubmitting(false);
+          }
         }
       }
     }, [
