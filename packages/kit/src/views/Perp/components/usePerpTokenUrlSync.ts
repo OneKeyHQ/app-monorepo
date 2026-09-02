@@ -13,77 +13,15 @@ import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
 import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
-import {
-  DEX_PREFIXES,
-  DEX_SEPARATOR,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 
-const SPOT_PAIR_SEPARATOR = '_';
-
-// Longest prefix first so a shorter one cannot shadow it. Bare-prefix matching
-// has to stay: legacy links omit the separator (`xyzNVDA`).
-function findDexPrefix(token: string): string | null {
-  const lowerToken = token.toLowerCase();
-  return (
-    [...DEX_PREFIXES]
-      .toSorted((a, b) => b.length - a.length)
-      .find((prefix) => lowerToken.startsWith(prefix)) ?? null
-  );
-}
-
-function encodeCoinForUrl(params: {
-  coin: string;
-  mode: 'perp' | 'spot';
-  spotUniverse?: ISpotUniverse;
-}): string {
-  const { coin, mode, spotUniverse } = params;
-  if (!coin) return '';
-
-  // Spot raw forms (`@149`, `PURR/USDC`, `UETH`) URL-encode to `%40149` /
-  // `PURR%2FUSDC` — unreadable. Use BASE_QUOTE with the normalized base name
-  // when the universe is available; perp falls through to the upper-cased coin.
-  if (mode === 'spot' && spotUniverse) {
-    const base = getSpotTokenDisplayName(spotUniverse.baseName);
-    return `${base}${SPOT_PAIR_SEPARATOR}${spotUniverse.quoteName}`;
-  }
-
-  const dexPrefix = findDexPrefix(coin);
-  if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
-    const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
-    // Without the separator a main-dex symbol starting with a registered prefix
-    // is indistinguishable from a sub-DEX token on decode.
-    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
-  }
-
-  return coin.toUpperCase();
-}
-
-function decodeCoinFromUrl(urlToken: string): {
-  coin: string;
-  // Separator-free legacy links are ambiguous; the caller must confirm the
-  // guess against the universe.
-  isAmbiguousLegacyGuess: boolean;
-} {
-  if (!urlToken) return { coin: '', isAmbiguousLegacyGuess: false };
-
-  const dexPrefix = findDexPrefix(urlToken);
-  if (dexPrefix && urlToken.length > dexPrefix.length) {
-    const hasNoSeparator = !urlToken.includes(DEX_SEPARATOR);
-    const symbolStartIndex = hasNoSeparator
-      ? dexPrefix.length
-      : dexPrefix.length + DEX_SEPARATOR.length;
-    const symbol = urlToken.slice(symbolStartIndex);
-    return {
-      coin: `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`,
-      isAmbiguousLegacyGuess: hasNoSeparator,
-    };
-  }
-
-  return { coin: urlToken.toUpperCase(), isAmbiguousLegacyGuess: false };
-}
+import {
+  SPOT_PAIR_SEPARATOR,
+  decodeCoinFromUrl,
+  encodeCoinForUrl,
+} from './usePerpTokenUrlSync.utils';
 
 async function readCompleteUniverses() {
   const { universesByDex } =
@@ -95,7 +33,8 @@ async function readCompleteUniverses() {
 
 // A guessed prefix is only trustworthy once the coin is known to exist.
 async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
-  const { coin, isAmbiguousLegacyGuess } = decodeCoinFromUrl(urlToken);
+  const { coin, isAmbiguousLegacyGuess, unverifiedFallbackCoin } =
+    decodeCoinFromUrl(urlToken);
   if (!isAmbiguousLegacyGuess) {
     return coin;
   }
@@ -109,17 +48,17 @@ async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
       await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
       universesByDex = await readCompleteUniverses();
     }
-    // Still incomplete: the guess is unproven either way, and keeping it is what
-    // lets a later refresh resolve the link.
+    // Still incomplete, and URL resolution runs once, so no later refresh gets
+    // to settle it: take whichever reading is likelier for this prefix.
     if (!universesByDex) {
-      return coin;
+      return unverifiedFallbackCoin;
     }
     const exists = universesByDex.some((assets) =>
       assets?.some((asset) => asset.name === coin),
     );
     return exists ? coin : urlToken.toUpperCase();
   } catch {
-    return coin;
+    return unverifiedFallbackCoin;
   }
 }
 
