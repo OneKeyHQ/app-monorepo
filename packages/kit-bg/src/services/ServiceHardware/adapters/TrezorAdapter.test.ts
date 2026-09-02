@@ -8,7 +8,10 @@ import {
 
 import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { thirdPartyHardwareUiStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EThirdPartyHardwareUiAction,
+  thirdPartyHardwareUiStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { TrezorAdapter } from './TrezorAdapter';
 
@@ -23,21 +26,18 @@ jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDb', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  EThirdPartyHardwareUiAction: {
-    searching: 'searching',
-    requestDeviceNotFound: 'requestDeviceNotFound',
-    requestTrezorThpPairing: 'requestTrezorThpPairing',
-    requestTrezorPassphrase: 'requestTrezorPassphrase',
-    unlockDevice: 'unlockDevice',
-    confirmOnDevice: 'confirmOnDevice',
-    connecting: 'connecting',
-    processing: 'processing',
-  },
-  thirdPartyHardwareUiStateAtom: {
-    set: jest.fn(),
-  },
-}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  // The real enum: its members are dashed wire strings
+  // ('ui-event-ledger-searching'), and a hand-written stub keyed by member
+  // name asserted values production never emits.
+  const actual = jest.requireActual('@onekeyhq/kit-bg/src/states/jotai/atoms');
+  return {
+    EThirdPartyHardwareUiAction: actual.EThirdPartyHardwareUiAction,
+    thirdPartyHardwareUiStateAtom: {
+      set: jest.fn(),
+    },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -84,7 +84,7 @@ describe('TrezorAdapter', () => {
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'requestDeviceNotFound',
+        action: EThirdPartyHardwareUiAction.requestDeviceNotFound,
         vendor: 'trezor',
         payload: expect.objectContaining({
           reason: 'device-not-found',
@@ -117,7 +117,9 @@ describe('TrezorAdapter', () => {
     // device_id comparison, which needs this dialog to complete.
     expect(hw.cancel).not.toHaveBeenCalled();
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'requestTrezorThpPairing' }),
+      expect.objectContaining({
+        action: EThirdPartyHardwareUiAction.requestTrezorThpPairing,
+      }),
     );
   });
 
@@ -199,7 +201,7 @@ describe('TrezorAdapter', () => {
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'requestTrezorPassphrase',
+        action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
       }),
     );
   });
@@ -226,7 +228,7 @@ describe('TrezorAdapter', () => {
       payload: { value: '' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-      action: 'requestTrezorPassphrase',
+      action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
       vendor: 'trezor',
       payload: {
         connectId: 'TREZOR-USB',
@@ -257,7 +259,7 @@ describe('TrezorAdapter', () => {
       payload: { value: '' },
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-      action: 'requestTrezorPassphrase',
+      action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
       vendor: 'trezor',
       payload: {
         connectId: 'TREZOR-USB',
@@ -284,7 +286,7 @@ describe('TrezorAdapter', () => {
     });
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-      action: 'confirmOnDevice',
+      action: EThirdPartyHardwareUiAction.confirmOnDevice,
       vendor: 'trezor',
     });
   });
@@ -661,7 +663,7 @@ describe('TrezorAdapter', () => {
     const promise = adapter.connectDevice('USB-1');
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-      action: 'connecting',
+      action: EThirdPartyHardwareUiAction.connecting,
       vendor: 'trezor',
     });
 
@@ -694,7 +696,7 @@ describe('TrezorAdapter', () => {
     });
 
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-      action: 'processing',
+      action: EThirdPartyHardwareUiAction.processing,
       vendor: 'trezor',
     });
 
@@ -735,7 +737,7 @@ describe('TrezorAdapter', () => {
       type: EConnectorInteraction.ConfirmOnDevice,
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
-      action: 'confirmOnDevice',
+      action: EThirdPartyHardwareUiAction.confirmOnDevice,
       vendor: 'trezor',
     });
 
@@ -743,7 +745,7 @@ describe('TrezorAdapter', () => {
       type: EConnectorInteraction.InteractionComplete,
     });
     expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
-      action: 'processing',
+      action: EThirdPartyHardwareUiAction.processing,
       vendor: 'trezor',
     });
 
@@ -796,7 +798,7 @@ describe('TrezorAdapter', () => {
       const promise = call(adapter);
 
       expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledWith({
-        action: 'processing',
+        action: EThirdPartyHardwareUiAction.processing,
         vendor: 'trezor',
       });
 
