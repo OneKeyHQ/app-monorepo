@@ -18283,7 +18283,7 @@
     "packages/core/src/chains/btc/CoreChainImported.ts": 2337,
     "packages/core/src/chains/btc/CoreChainSoftware.ts": 2338,
     "packages/core/src/chains/btc/index.ts": 2339,
-    "packages/core/src/chains/btc/sdkBtc/batchPsbt.ts": 7959,
+    "packages/core/src/chains/btc/sdkBtc/batchPsbt.ts": 7972,
     "packages/core/src/chains/btc/sdkBtc/bip137.ts": 2340,
     "packages/core/src/chains/btc/sdkBtc/bip371.ts": 2341,
     "packages/core/src/chains/btc/sdkBtc/deriveContextHash.ts": 2342,
