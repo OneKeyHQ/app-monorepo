@@ -81,8 +81,16 @@ export function preloadMarketDetailV2TradingView() {
 
 export function preloadMarketDetailV2SwapPanel(
   target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+  isStockRoute = false,
 ) {
   if (shouldSkipMarketDetailPreload()) {
+    return;
+  }
+
+  if (target === 'desktop' && !isStockRoute) {
+    void import(
+      /* webpackChunkName: "market-embedded-swap" */ '../../../Swap/pages/components/SwapMainLand'
+    ).catch(() => undefined);
     return;
   }
 
@@ -113,9 +121,11 @@ export function preloadMarketDetailV2InfoPanel(
 export function preloadMarketDetailV2BodyModules({
   layout = resolveDefaultLayoutTarget(),
   includeHeavyModules = false,
+  isStockRoute = false,
 }: {
   layout?: IMarketDetailLayoutPreloadTarget;
   includeHeavyModules?: boolean;
+  isStockRoute?: boolean;
 } = {}) {
   preloadMarketDetailV2Layout(layout);
 
@@ -126,7 +136,7 @@ export function preloadMarketDetailV2BodyModules({
   if (layout === 'mobile') {
     preloadMarketDetailV2TradingView();
   }
-  preloadMarketDetailV2SwapPanel(layout);
+  preloadMarketDetailV2SwapPanel(layout, isStockRoute);
   preloadMarketDetailV2InfoPanel(layout);
 }
 
@@ -134,15 +144,21 @@ export function preloadMarketDetailV2Page({
   includeBodyModules = false,
   includeHeavyModules = false,
   layout = resolveDefaultLayoutTarget(),
+  isStockRoute = false,
 }: {
   includeBodyModules?: boolean;
   includeHeavyModules?: boolean;
   layout?: IMarketDetailLayoutPreloadTarget;
+  isStockRoute?: boolean;
 } = {}) {
   const shellPreloadPromise = preloadMarketDetailV2Shell();
 
   if (includeBodyModules) {
-    preloadMarketDetailV2BodyModules({ layout, includeHeavyModules });
+    preloadMarketDetailV2BodyModules({
+      layout,
+      includeHeavyModules,
+      isStockRoute,
+    });
   }
 
   return shellPreloadPromise;

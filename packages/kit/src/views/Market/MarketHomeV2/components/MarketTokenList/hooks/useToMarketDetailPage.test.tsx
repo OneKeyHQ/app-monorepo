@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -35,6 +36,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
   },
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+  }),
+);
 
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: {
@@ -147,6 +155,12 @@ describe('useToDetailPage', () => {
       disableTrade: true,
       showFavoriteButton: false,
     });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: true,
+      layout: 'mobile',
+    });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -174,6 +188,12 @@ describe('useToDetailPage', () => {
       isNative: true,
       from: undefined,
       marketTokenCategory: 'top_coins',
+    });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: false,
+      layout: 'mobile',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
