@@ -4,9 +4,11 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 
 import androidx.annotation.NonNull;
 
@@ -31,12 +33,83 @@ import expo.modules.splashscreen.SplashScreenManager;
 public class MainActivity extends ReactActivity {
   private static boolean hasCreatedInstance;
 
+  private static final class RecoveryReactActivityDelegate extends ReactActivityDelegate {
+    RecoveryReactActivityDelegate(ReactActivity activity) {
+      super(activity, null);
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {}
+
+    @Override
+    public void onPause() {}
+
+    @Override
+    public void onResume() {}
+
+    @Override
+    public void onDestroy() {}
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {}
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+      return false;
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+      return false;
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+      return false;
+    }
+
+    @Override
+    public boolean onBackPressed() {
+      return false;
+    }
+
+    @Override
+    public boolean onNewIntent(Intent intent) {
+      return false;
+    }
+
+    @Override
+    public void onUserLeaveHint() {}
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {}
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {}
+
+    @Override
+    public void onRequestPermissionsResult(
+      int requestCode,
+      String[] permissions,
+      int[] grantResults
+    ) {}
+  }
+
   static boolean hasCreatedInstance() {
     return hasCreatedInstance;
   }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    if (MainApplication.shouldShowRecovery) {
+      // ReactActivity requires super.onCreate(), but its normal delegate would
+      // access the ReactHost after Application intentionally skipped RN setup.
+      super.onCreate(null);
+      startActivity(new Intent(this, RecoveryActivity.class));
+      finish();
+      return;
+    }
+
     hasCreatedInstance = true;
     long tActivityStart = System.currentTimeMillis();
     OneKeyLog.info(
@@ -113,6 +186,9 @@ public class MainActivity extends ReactActivity {
     // super -> ReactActivityDelegate drives the UI-host ReactContext's
     // ActivityEventListener fan-out in the normal RN path.
     super.onActivityResult(requestCode, resultCode, data);
+    if (MainApplication.shouldShowRecovery) {
+      return;
+    }
     // Manager re-dispatches only to an allowlisted subset of listeners on
     // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
     // This lets google-signin's bg instance resolve its pending signIn
@@ -124,6 +200,9 @@ public class MainActivity extends ReactActivity {
   @Override
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
+    if (MainApplication.shouldShowRecovery) {
+      return;
+    }
     BackgroundThreadManager.getInstance().dispatchNewIntent(intent);
   }
 
@@ -187,6 +266,9 @@ public class MainActivity extends ReactActivity {
    */
   @Override
   protected ReactActivityDelegate createReactActivityDelegate() {
+    if (MainApplication.shouldShowRecovery) {
+      return new RecoveryReactActivityDelegate(this);
+    }
     return new ReactActivityDelegateWrapper(this, BuildConfig.IS_NEW_ARCHITECTURE_ENABLED, new DefaultReactActivityDelegate(
         this,
         getMainComponentName(),

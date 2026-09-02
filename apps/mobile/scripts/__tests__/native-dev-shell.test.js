@@ -532,6 +532,13 @@ describe('native-dev-shell', () => {
       path.join(__dirname, '../native-dev-shell.js'),
       'utf8',
     );
+    const androidReleaseDeploy = fs.readFileSync(
+      path.join(
+        __dirname,
+        '../../../../development/scripts/android-release-build-deploy.sh',
+      ),
+      'utf8',
+    );
 
     expect(launcherActivity).toContain(
       'class MainLauncherActivity extends Activity',
@@ -554,7 +561,22 @@ describe('native-dev-shell', () => {
     ).toBeLessThan(launcherActivity.indexOf('MainActivity.class'));
     expect(launcherActivity).toContain('new Intent(getIntent())');
     expect(mainActivity).not.toContain('BootRecoveryStore.recordBootAttempt(');
-    expect(mainActivity).not.toContain('RecoveryActivity.class');
+    expect(mainActivity).toContain('class RecoveryReactActivityDelegate');
+    expect(mainActivity).toContain(
+      'return new RecoveryReactActivityDelegate(this);',
+    );
+    expect(
+      mainActivity.indexOf('if (MainApplication.shouldShowRecovery) {'),
+    ).toBeLessThan(
+      mainActivity.indexOf(
+        'startActivity(new Intent(this, RecoveryActivity.class));',
+      ),
+    );
+    expect(
+      mainActivity.indexOf(
+        'startActivity(new Intent(this, RecoveryActivity.class));',
+      ),
+    ).toBeLessThan(mainActivity.indexOf('hasCreatedInstance = true;'));
     expect(mainActivity).toContain('hasCreatedInstance = true;');
     expect(mainActivity).toContain('hasCreatedInstance = false;');
     expect(mainApplication.indexOf('if (shouldShowRecovery) {')).toBeLessThan(
@@ -584,6 +606,10 @@ describe('native-dev-shell', () => {
     expect(nativeDevShell).toContain(
       'so.onekey.app.wallet/.MainLauncherActivity',
     );
+    expect(androidReleaseDeploy).toContain(
+      '$PACKAGE_NAME/.MainLauncherActivity',
+    );
+    expect(androidReleaseDeploy).not.toContain('$PACKAGE_NAME/.MainActivity');
   });
 
   it('keeps Android reverse ownership inside the device lock lifetime', () => {
