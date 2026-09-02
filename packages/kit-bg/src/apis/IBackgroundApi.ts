@@ -104,6 +104,10 @@ import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 import type { EAtomNames } from '../states/jotai/atomNames';
+import type {
+  IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRegistrationUpdateResult,
+} from '../states/jotai/atoms/jotaiContextStoreMap';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -135,6 +139,9 @@ export type IBackgroundAtomStates = Partial<Record<EAtomNames, any>>;
 export interface IBackgroundApiBridge {
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
+  updateJotaiContextStoreRegistration: (
+    update: IJotaiContextStoreRegistrationUpdate,
+  ) => Promise<IJotaiContextStoreRegistrationUpdateResult>;
   getAtomStates: (
     atomNames?: EAtomNames[],
   ) => Promise<{ states: IBackgroundAtomStates }>;
