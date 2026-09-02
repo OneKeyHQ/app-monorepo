@@ -171,7 +171,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'walletEdit'
       | 'accountSelectorAddMenu'
       | 'browserTranslate'
-      | 'historySettings';
+      | 'historySettings'
+      | 'sendAddressInput';
     isPrimeActive: boolean;
   }) {
     return {
