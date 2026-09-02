@@ -8,7 +8,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
-import { MarketAsyncStarV2 } from './MarketAsyncStarV2';
+import {
+  MarketAsyncStarV2,
+  createCachedMarketIdentityResolver,
+} from './MarketAsyncStarV2';
 
 const mockAddIntoWatchListV2 = jest.fn();
 const mockIsInWatchListV2 = jest.fn(() => false);
@@ -75,6 +78,103 @@ jest.mock('./watchListHooksV2', () => ({
 }));
 
 const mockWatchlistLogger = jest.mocked(defaultLogger.dex.watchlist);
+
+describe('createCachedMarketIdentityResolver', () => {
+  it('starts the next queued request whenever any worker becomes free', async () => {
+    const requestResolvers = new Map<
+      string,
+      (value: string | undefined) => void
+    >();
+    const load = jest.fn(
+      (key: string) =>
+        new Promise<string | undefined>((resolve) => {
+          requestResolvers.set(key, resolve);
+        }),
+    );
+    const resolveIdentity = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load,
+    });
+
+    const first = resolveIdentity('first');
+    const second = resolveIdentity('second');
+    const third = resolveIdentity('third');
+    const fourth = resolveIdentity('fourth');
+
+    expect(load.mock.calls.map(([key]) => key)).toEqual([
+      'first',
+      'second',
+      'third',
+    ]);
+    requestResolvers.get('second')?.('second');
+    await second;
+    await Promise.resolve();
+    expect(load.mock.calls.map(([key]) => key)).toEqual([
+      'first',
+      'second',
+      'third',
+      'fourth',
+    ]);
+
+    requestResolvers.get('first')?.('first');
+    requestResolvers.get('third')?.('third');
+    requestResolvers.get('fourth')?.('fourth');
+    await Promise.all([first, third, fourth]);
+  });
+
+  it('deduplicates prefetches and refreshes the cache for interaction', async () => {
+    const load = jest.fn(() => Promise.resolve('identity'));
+    const resolveIdentity = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load,
+    });
+
+    await Promise.all([
+      resolveIdentity('btc', { intent: 'prefetch' }),
+      resolveIdentity('btc', { intent: 'prefetch' }),
+    ]);
+    await resolveIdentity('btc', { intent: 'prefetch' });
+    expect(load).toHaveBeenCalledTimes(1);
+
+    await resolveIdentity('btc', { intent: 'interaction' });
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips a queued prefetch after its consumer is canceled', async () => {
+    const activeResolvers: Array<(value: string) => void> = [];
+    const blockingResolver = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load: () =>
+        new Promise<string>((resolve) => {
+          activeResolvers.push(resolve);
+        }),
+    });
+    const queuedLoad = jest.fn(() => Promise.resolve('queued'));
+    const queuedResolver = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load: queuedLoad,
+    });
+    const activeRequests = [
+      blockingResolver('one'),
+      blockingResolver('two'),
+      blockingResolver('three'),
+    ];
+    let canceled = false;
+    const queuedRequest = queuedResolver('queued', {
+      intent: 'prefetch',
+      isCanceled: () => canceled,
+    });
+
+    canceled = true;
+    activeResolvers[0]('one');
+    expect(await queuedRequest).toBeUndefined();
+    expect(queuedLoad).not.toHaveBeenCalled();
+
+    activeResolvers[1]('two');
+    activeResolvers[2]('three');
+    await Promise.all(activeRequests);
+  });
+});
 
 describe('MarketAsyncStarV2', () => {
   beforeEach(() => {
@@ -175,7 +275,8 @@ describe('MarketAsyncStarV2', () => {
     );
   });
 
-  it('removes an existing favorite on the first press after resolving it', async () => {
+  it('reveals an existing favorite before allowing it to be removed', async () => {
+    mockWatchListData = [{ chainId: 'evm--1', contractAddress: '0xbtc' }];
     mockIsInWatchListV2.mockReturnValue(true);
     const resolveIdentity = jest.fn(() =>
       Promise.resolve({ chainId: 'evm--1', contractAddress: '0xbtc' }),
@@ -195,8 +296,17 @@ describe('MarketAsyncStarV2', () => {
       await Promise.resolve();
     });
 
+    expect(mockRemoveFromWatchListV2).not.toHaveBeenCalled();
+    expect(screen.getByTestId('async-star').getAttribute('data-icon')).toBe(
+      'StarSolid',
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('async-star'));
+      await Promise.resolve();
+    });
+
     expect(mockRemoveFromWatchListV2).toHaveBeenCalledWith('evm--1', '0xbtc');
-    expect(mockAddIntoWatchListV2).not.toHaveBeenCalled();
     expect(mockWatchlistLogger.dexRemoveFromWatchlist.mock.calls).toHaveLength(
       1,
     );

@@ -4,21 +4,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
-import { MarketAsyncStarV2 } from '../../../components/MarketAsyncStarV2';
+import {
+  type IMarketIdentityResolveOptions,
+  MarketAsyncStarV2,
+  createCachedMarketIdentityResolver,
+} from '../../../components/MarketAsyncStarV2';
 import { MarketTestIDs } from '../../../testIDs';
 import { selectMarketStockWatchlistVariant } from '../../../utils/stockTokenVariant';
 
 import { getMarketStockVariantSummaryIdentities } from './MarketStockStar.utils';
 
-export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
-  const identities = useMemo(
-    () => getMarketStockVariantSummaryIdentities(stock.variants),
-    [stock.variants],
-  );
-  const resolveIdentity = useCallback(async () => {
+const resolveMarketStockIdentity = createCachedMarketIdentityResolver({
+  failureCacheTtlMs: 30_000,
+  load: async (stockId: string) => {
     const response =
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants({
-        stockId: stock.stockId,
+        stockId,
       });
     const variant = selectMarketStockWatchlistVariant(response);
     if (!variant) {
@@ -28,7 +29,19 @@ export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
       chainId: variant.networkId,
       contractAddress: variant.contractAddress,
     };
-  }, [stock.stockId]);
+  },
+});
+
+export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
+  const identities = useMemo(
+    () => getMarketStockVariantSummaryIdentities(stock.variants),
+    [stock.variants],
+  );
+  const resolveIdentity = useCallback(
+    (options?: IMarketIdentityResolveOptions) =>
+      resolveMarketStockIdentity(stock.stockId, options),
+    [stock.stockId],
+  );
 
   return (
     <MarketAsyncStarV2

@@ -20,6 +20,167 @@ export type IMarketWatchlistIdentity = {
   isNative?: boolean;
 };
 
+export type IMarketIdentityResolveOptions = {
+  intent?: 'interaction' | 'prefetch';
+  isCanceled?: () => boolean;
+};
+
+type IMarketIdentityRequestJob = {
+  interactive: boolean;
+  run: () => void;
+  shouldSkip: () => boolean;
+  skip: () => void;
+};
+
+const MARKET_IDENTITY_REQUEST_CONCURRENCY = 3;
+const marketIdentityRequestQueue: IMarketIdentityRequestJob[] = [];
+let activeMarketIdentityRequests = 0;
+
+function drainMarketIdentityRequestQueue() {
+  while (activeMarketIdentityRequests < MARKET_IDENTITY_REQUEST_CONCURRENCY) {
+    const job = marketIdentityRequestQueue.shift();
+    if (!job) {
+      return;
+    }
+    if (!job.interactive && job.shouldSkip()) {
+      job.skip();
+    } else {
+      activeMarketIdentityRequests += 1;
+      job.run();
+    }
+  }
+}
+
+function scheduleMarketIdentityRequest<T>(
+  load: () => Promise<T | undefined>,
+  intent: 'interaction' | 'prefetch',
+  shouldSkip: () => boolean,
+) {
+  let resolveRequest: (result: {
+    skipped: boolean;
+    value: T | undefined;
+  }) => void = () => undefined;
+  let rejectRequest: (reason?: unknown) => void = () => undefined;
+  const promise = new Promise<{
+    skipped: boolean;
+    value: T | undefined;
+  }>((resolve, reject) => {
+    resolveRequest = resolve;
+    rejectRequest = reject;
+  });
+  const job: IMarketIdentityRequestJob = {
+    interactive: intent === 'interaction',
+    shouldSkip,
+    skip: () => resolveRequest({ skipped: true, value: undefined }),
+    run: () => {
+      void load()
+        .then((value) => resolveRequest({ skipped: false, value }))
+        .catch(rejectRequest)
+        .finally(() => {
+          activeMarketIdentityRequests -= 1;
+          drainMarketIdentityRequestQueue();
+        });
+    },
+  };
+  marketIdentityRequestQueue.push(job);
+  drainMarketIdentityRequestQueue();
+
+  return {
+    promise,
+    promote: () => {
+      job.interactive = true;
+      const queueIndex = marketIdentityRequestQueue.indexOf(job);
+      if (queueIndex > 0) {
+        marketIdentityRequestQueue.splice(queueIndex, 1);
+        marketIdentityRequestQueue.unshift(job);
+      }
+    },
+  };
+}
+
+export function createCachedMarketIdentityResolver<TKey, TValue>({
+  failureCacheTtlMs,
+  load,
+}: {
+  failureCacheTtlMs: number;
+  load: (key: TKey) => Promise<TValue | undefined>;
+}) {
+  const identityCache = new Map<TKey, TValue>();
+  const failureCache = new Map<TKey, number>();
+  const pendingRequests = new Map<
+    TKey,
+    {
+      prefetchConsumers: Array<() => boolean>;
+      promise: Promise<TValue | undefined>;
+      promote: () => void;
+    }
+  >();
+
+  return (
+    key: TKey,
+    options: IMarketIdentityResolveOptions = {},
+  ): Promise<TValue | undefined> => {
+    const intent = options.intent ?? 'interaction';
+    if (intent === 'prefetch') {
+      if (identityCache.has(key)) {
+        return Promise.resolve(identityCache.get(key));
+      }
+      const failureExpiresAt = failureCache.get(key);
+      if (failureExpiresAt && failureExpiresAt > Date.now()) {
+        return Promise.resolve(undefined);
+      }
+      failureCache.delete(key);
+    }
+
+    const pendingRequest = pendingRequests.get(key);
+    if (pendingRequest) {
+      if (intent === 'interaction') {
+        pendingRequest.promote();
+      } else if (options.isCanceled) {
+        pendingRequest.prefetchConsumers.push(options.isCanceled);
+      }
+      return pendingRequest.promise;
+    }
+
+    const prefetchConsumers = options.isCanceled ? [options.isCanceled] : [];
+    const scheduledRequest = scheduleMarketIdentityRequest(
+      () => load(key),
+      intent,
+      () =>
+        prefetchConsumers.length > 0 &&
+        prefetchConsumers.every((isCanceled) => isCanceled()),
+    );
+    const promise = scheduledRequest.promise
+      .then(({ skipped, value }) => {
+        if (skipped) {
+          return undefined;
+        }
+        if (value === undefined) {
+          failureCache.set(key, Date.now() + failureCacheTtlMs);
+        } else {
+          failureCache.delete(key);
+          identityCache.set(key, value);
+        }
+        return value;
+      })
+      .catch((error: unknown) => {
+        failureCache.set(key, Date.now() + failureCacheTtlMs);
+        throw error;
+      })
+      .finally(() => {
+        if (pendingRequests.get(key)?.promise === promise) {
+          pendingRequests.delete(key);
+        }
+      });
+    pendingRequests.set(key, {
+      prefetchConsumers,
+      promise,
+      promote: scheduledRequest.promote,
+    });
+    return promise;
+  };
+}
+
 function isSameIdentity(
   left: IMarketWatchlistIdentity,
   right: IMarketWatchlistIdentity,
@@ -48,7 +209,9 @@ export function MarketAsyncStarV2({
   iconSize = '$4',
 }: {
   identities: IMarketWatchlistIdentity[];
-  resolveIdentity: () => Promise<IMarketWatchlistIdentity | undefined>;
+  resolveIdentity: (
+    options?: IMarketIdentityResolveOptions,
+  ) => Promise<IMarketWatchlistIdentity | undefined>;
   identityKey: string;
   resolveOnMount?: boolean;
   from: EWatchlistFrom;
@@ -77,14 +240,25 @@ export function MarketAsyncStarV2({
     if (!resolveOnMount || !isMounted || watchListData.length === 0) {
       return;
     }
+    let canceled = false;
     const requestIdentityKey = identityKey;
-    void resolveIdentity()
+    void resolveIdentity({
+      intent: 'prefetch',
+      isCanceled: () => canceled,
+    })
       .then((identity) => {
-        if (identity && identityKeyRef.current === requestIdentityKey) {
+        if (
+          !canceled &&
+          identity &&
+          identityKeyRef.current === requestIdentityKey
+        ) {
           setResolvedIdentity(identity);
         }
       })
       .catch(() => undefined);
+    return () => {
+      canceled = true;
+    };
   }, [
     identityKey,
     isMounted,
@@ -183,7 +357,7 @@ export function MarketAsyncStarV2({
 
     setOptimisticChecked(true);
     try {
-      const identity = await resolveIdentity();
+      const identity = await resolveIdentity({ intent: 'interaction' });
       if (!identity?.chainId) {
         throw new OneKeyLocalError('No watchlist identity');
       }
@@ -193,16 +367,7 @@ export function MarketAsyncStarV2({
       setResolvedIdentity(identity);
 
       if (actions.isInWatchListV2(identity.chainId, identity.contractAddress)) {
-        setOptimisticChecked(false);
-        const removed = await actions.removeFromWatchListV2(
-          identity.chainId,
-          identity.contractAddress,
-        );
-        if (removed) {
-          logRemoved(identity);
-        } else {
-          setOptimisticChecked(undefined);
-        }
+        setOptimisticChecked(undefined);
         return;
       }
 
