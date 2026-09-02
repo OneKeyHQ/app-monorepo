@@ -31,7 +31,7 @@ function ConnectionIndicatorCard({ children }: { children: ReactNode }) {
 function ConnectionIndicatorAnimation({ children }: { children: ReactNode }) {
   return (
     <YStack
-      h={320}
+      h={288}
       alignItems="center"
       justifyContent="center"
       overflow="hidden"
