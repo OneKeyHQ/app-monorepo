@@ -1093,6 +1093,40 @@ describe('devVendor', () => {
     });
   });
 
+  it('computes the release tag without installed JavaScript dependencies', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '-e',
+        `
+          const Module = require('module');
+          const path = require('path');
+          const builtins = new Set(
+            Module.builtinModules.map((name) => name.replace(/^node:/u, '')),
+          );
+          const load = Module._load;
+          Module._load = function guardedLoad(request) {
+            const normalized = request.replace(/^node:/u, '');
+            if (
+              !request.startsWith('.') &&
+              !path.isAbsolute(request) &&
+              !builtins.has(normalized)
+            ) {
+              throw new Error('External dependency required: ' + request);
+            }
+            return load.apply(this, arguments);
+          };
+          const { getReleaseTag } = require('./apps/mobile/plugins/devVendor');
+          process.stdout.write(getReleaseTag());
+        `,
+      ],
+      { cwd: repoRoot, encoding: 'utf8' },
+    );
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^metro-dev-prebundle-v\d+-[0-9a-f]{64}$/u);
+  });
+
   it('isolates release compatibility from workspace-only registry growth', () => {
     const registry = loadRegistry();
     const workspaceOnlyChange = {

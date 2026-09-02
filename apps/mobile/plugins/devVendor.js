@@ -4,8 +4,6 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const YAML = require('yaml');
-
 const devVendorConfig = require('../dev-vendor.config');
 
 const {
@@ -434,37 +432,115 @@ function getPodRootName(requirement) {
   return requirement.split(' (', 1)[0].split('/', 1)[0];
 }
 
-function getIosNativePodDescriptor(dependencyNames, repoRoot) {
-  const lock = YAML.parse(
+function readCocoaPodsLockScalar(rawValue) {
+  const value = rawValue.trim();
+  if (value.startsWith('"')) {
+    const parsed = JSON.parse(value);
+    if (typeof parsed !== 'string') {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+    return parsed;
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replaceAll("''", "'");
+  }
+  return value;
+}
+
+function getCocoaPodsLockSections(source) {
+  const sections = new Map();
+  let activeSection;
+  for (const line of source.split('\n')) {
+    const section = line.match(/^([A-Z][A-Z ]+):$/u);
+    if (section) {
+      activeSection = section[1];
+      sections.set(activeSection, []);
+    } else if (activeSection && line.startsWith(' ')) {
+      sections.get(activeSection).push(line);
+    } else if (line.trim()) {
+      activeSection = undefined;
+    }
+  }
+  return sections;
+}
+
+function readCocoaPodsLock(repoRoot) {
+  const sections = getCocoaPodsLockSections(
     fs.readFileSync(
       path.join(repoRoot, 'apps/mobile/ios/Podfile.lock'),
       'utf8',
     ),
   );
-  if (
-    !Array.isArray(lock?.PODS) ||
-    !Array.isArray(lock?.DEPENDENCIES) ||
-    (lock['CHECKOUT OPTIONS'] !== undefined &&
-      (lock['CHECKOUT OPTIONS'] === null ||
-        typeof lock['CHECKOUT OPTIONS'] !== 'object')) ||
-    !lock['SPEC CHECKSUMS'] ||
-    typeof lock['SPEC CHECKSUMS'] !== 'object'
-  ) {
+  const podLines = sections.get('PODS');
+  const dependencyLines = sections.get('DEPENDENCIES');
+  const checksumLines = sections.get('SPEC CHECKSUMS');
+  if (!podLines || !dependencyLines || !checksumLines) {
     throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
   }
+
+  const pods = [];
+  let activePod;
+  for (const line of podLines) {
+    if (line.startsWith('  - ')) {
+      let requirement = line.slice(4);
+      if (requirement.endsWith(':')) requirement = requirement.slice(0, -1);
+      activePod = {
+        dependencies: [],
+        requirement: readCocoaPodsLockScalar(requirement),
+      };
+      pods.push(activePod);
+    } else if (line.startsWith('    - ') && activePod) {
+      activePod.dependencies.push(readCocoaPodsLockScalar(line.slice(6)));
+    } else if (line.trim()) {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+  }
+
+  const dependencies = dependencyLines.map((line) => {
+    if (!line.startsWith('  - ')) {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+    return readCocoaPodsLockScalar(line.slice(4));
+  });
+  const specChecksums = new Map();
+  for (const line of checksumLines) {
+    const checksum = line.match(/^  (.+): ([0-9a-f]{40})$/u);
+    if (!checksum) {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+    specChecksums.set(readCocoaPodsLockScalar(checksum[1]), checksum[2]);
+  }
+
+  const checkoutOptions = new Map();
+  let activeCheckout;
+  for (const line of sections.get('CHECKOUT OPTIONS') || []) {
+    const checkout = line.match(/^  (.+):$/u);
+    const option = line.match(/^    (:[^:]+): (.+)$/u);
+    if (checkout) {
+      activeCheckout = new Map();
+      checkoutOptions.set(readCocoaPodsLockScalar(checkout[1]), activeCheckout);
+    } else if (option && activeCheckout) {
+      activeCheckout.set(option[1], readCocoaPodsLockScalar(option[2]));
+    } else if (line.trim()) {
+      throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
+    }
+  }
+  return { checkoutOptions, dependencies, pods, specChecksums };
+}
+
+function getIosNativePodDescriptor(dependencyNames, repoRoot) {
+  const lock = readCocoaPodsLock(repoRoot);
 
   const dependencyNameSet = new Set(dependencyNames);
   const linkedPackages = new Set();
   const directPods = new Set();
-  for (const dependency of lock.DEPENDENCIES) {
-    if (typeof dependency === 'string') {
-      const packageMatch = dependency.match(
-        /node_modules\/((?:@[^/`]+\/)?[^/`]+)/u,
-      );
-      if (packageMatch && dependencyNameSet.has(packageMatch[1])) {
-        linkedPackages.add(packageMatch[1]);
-        directPods.add(getPodRootName(dependency));
-      }
+  for (const dependency of lock.dependencies) {
+    const packageMatch = dependency.match(
+      /node_modules\/((?:@[^/`]+\/)?[^/`]+)/u,
+    );
+    if (packageMatch && dependencyNameSet.has(packageMatch[1])) {
+      linkedPackages.add(packageMatch[1]);
+      directPods.add(getPodRootName(dependency));
     }
   }
   const missingPackage = dependencyNames.find(
@@ -477,13 +553,9 @@ function getIosNativePodDescriptor(dependencyNames, repoRoot) {
   }
 
   const pods = new Map();
-  for (const entry of lock.PODS) {
-    const podRequirement =
-      typeof entry === 'string' ? entry : Object.keys(entry || {})[0];
-    const podDependencies =
-      typeof entry === 'string' ? [] : Object.values(entry || {})[0];
-    const match = podRequirement?.match(/^(.+) \(([^)]+)\)$/u);
-    if (!match || !Array.isArray(podDependencies)) {
+  for (const { dependencies: podDependencies, requirement } of lock.pods) {
+    const match = requirement.match(/^(.+) \(([^)]+)\)$/u);
+    if (!match) {
       throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
     }
     const name = getPodRootName(match[1]);
@@ -496,9 +568,6 @@ function getIosNativePodDescriptor(dependencyNames, repoRoot) {
     }
     const dependencies = new Set(existing?.dependencies || []);
     for (const dependency of podDependencies) {
-      if (typeof dependency !== 'string') {
-        throw new Error('[devVendor] Invalid CocoaPods lock resolution.');
-      }
       dependencies.add(getPodRootName(dependency));
     }
     pods.set(name, { dependencies, version });
@@ -518,22 +587,13 @@ function getIosNativePodDescriptor(dependencyNames, repoRoot) {
     }
   }
   return [...resolvedPods].toSorted().map((name) => {
-    const checksum = lock['SPEC CHECKSUMS'][name];
+    const checksum = lock.specChecksums.get(name);
     if (!/^[0-9a-f]{40}$/u.test(checksum || '')) {
       throw new Error(`[devVendor] CocoaPods checksum is missing: ${name}`);
     }
-    const checkout = Object.entries(
-      lock['CHECKOUT OPTIONS']?.[name] || {},
-    ).toSorted(([first], [second]) => compareModuleKeys(first, second));
-    if (
-      checkout.some(
-        ([key, value]) => typeof key !== 'string' || typeof value !== 'string',
-      )
-    ) {
-      throw new Error(
-        `[devVendor] CocoaPods checkout resolution is invalid: ${name}`,
-      );
-    }
+    const checkout = [
+      ...(lock.checkoutOptions.get(name)?.entries() || []),
+    ].toSorted(([first], [second]) => compareModuleKeys(first, second));
     return { checkout, checksum, name, version: pods.get(name).version };
   });
 }

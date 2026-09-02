@@ -98,6 +98,9 @@ describe('build-mobile-dev-shell', () => {
     expect(androidBuildGradle).toContain(
       "(useDevShell ? 'true' : enableNativeBackgroundThread)",
     );
+    expect(androidBuildGradle).toContain(
+      "BUILTIN_BUNDLE_VERSION: (useDevShell ? '0' : defEnvStr(appEnvConfig, 'BUNDLE_VERSION'))",
+    );
   });
 
   it('injects the iOS contract only into the built app Info.plist', () => {
