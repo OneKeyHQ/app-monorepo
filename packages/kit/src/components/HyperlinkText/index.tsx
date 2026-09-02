@@ -12,8 +12,9 @@ import {
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   openUrlExternal,
-  openUrlInApp,
+  openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
@@ -207,9 +208,12 @@ export function HyperlinkText({
                 );
               },
               url: renderUrlChunk,
-              // Same link, opened inside the app so the page can talk to the
-              // wallet and closing it lands back on the page the link was on.
-              // <url> keeps handing plain web links to the system browser.
+              // Same link, kept inside the app so the page can talk to the
+              // wallet. It opens as a Discovery tab rather than a WebView
+              // overlay, so it joins the user's browser tabs and survives
+              // navigating away instead of being torn down with the screen it
+              // was opened from. <url> keeps handing plain web links to the
+              // system browser.
               urlInApp: (params: React.ReactNode[]) =>
                 renderUrlChunk(params, {
                   openWith: (link) => {
@@ -220,7 +224,14 @@ export function HyperlinkText({
                       openUrlExternal(link);
                       return;
                     }
-                    openUrlInApp(link, undefined, { enableDappBridge: true });
+                    // Discovery only exists on desktop and native; web and the
+                    // extension keep handing the link to the system browser,
+                    // the same fallback openUrlInApp made here before.
+                    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+                      openUrlExternal(link);
+                      return;
+                    }
+                    openUrlInDiscovery({ url: link });
                   },
                   // The arrow reads as "leaves the app", which this one does not.
                   showExternalIndicator: false,

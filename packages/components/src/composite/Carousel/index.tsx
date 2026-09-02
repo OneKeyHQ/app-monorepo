@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { debounce } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -24,6 +25,11 @@ import { PaginationItem } from './PaginationItem';
 import type { ICarouselProps, IPaginationItemProps } from './type';
 import type { LayoutChangeEvent, NativeSyntheticEvent } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
+
+// A press arriving within this window of the pager settling is the tail of a
+// swipe, not a tap. Long enough to cover the lift after a fast flick, short
+// enough that a deliberate tap right after one still registers.
+const PRESS_SUPPRESS_AFTER_SCROLL_MS = 150;
 
 const defaultRenderPaginationItem = <T,>(
   { dotStyle, activeDotStyle, onPress }: IPaginationItemProps<T>,
@@ -49,13 +55,28 @@ const defaultRenderPaginationItem = <T,>(
  */
 const CarouselContext = createContext<{
   pageIndex: number;
+  /**
+   * Whether a press landing right now came out of a swipe rather than a tap.
+   *
+   * The pager handles the horizontal gesture natively, so a Pressable inside a
+   * page never receives the move that would cancel it — it sees only down and
+   * up and fires onPress. Items with their own onPress consult this first.
+   */
+  shouldSuppressPress: () => boolean;
 }>({
   pageIndex: 0,
+  shouldSuppressPress: () => false,
 });
 
 const useCarouselContext = () => {
   const context = useContext(CarouselContext);
   return context;
+};
+
+/** Lets a carousel item ignore the press a swipe leaves behind. */
+export const useCarouselPressSuppressor = () => {
+  const { shouldSuppressPress } = useCarouselContext();
+  return shouldSuppressPress;
 };
 
 export const useCarouselIndex = () => {
@@ -205,6 +226,16 @@ export function Carousel<T>({
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPageVisibleRef = useRef(true);
+  // True from the moment the pager leaves `idle` — a finger on the page, or
+  // the deceleration after it — until the pager settles again. Autoplay yields
+  // to it and the infinite-wrap jump waits for it. Web's pager shim never
+  // reports the state, so it stays false there and behavior is unchanged.
+  const isInteractingRef = useRef(false);
+  // A wrap jump that arrived mid-gesture, held until the pager is idle.
+  const pendingCloneSwapRef = useRef<number | null>(null);
+  // When the pager last settled. A finger lifting at the end of a swipe still
+  // produces a press, so items stay press-proof for a moment afterwards.
+  const lastScrollEndAtRef = useRef(0);
 
   const stopAutoPlay = useCallback(() => {
     if (timerRef.current) {
@@ -217,7 +248,11 @@ export function Carousel<T>({
     if (loop && isPageVisibleRef.current) {
       stopAutoPlay();
       timerRef.current = setTimeout(() => {
-        scrollToNextPage();
+        // Turning the page out from under a finger is what puts the pager into
+        // the state that crashes; skip this beat and try again later instead.
+        if (!isInteractingRef.current) {
+          scrollToNextPage();
+        }
         startAutoPlay();
       }, autoPlayInterval);
     }
@@ -253,12 +288,30 @@ export function Carousel<T>({
     };
   }, [loop, startAutoPlay, stopAutoPlay]);
 
+  // Autoplay follows screen focus. Without this the timer is only ever paused
+  // and resumed by onPressIn/onPressOut, so tapping a card to navigate away
+  // stops it (onPressIn) and nothing ever starts it again — onPressOut does not
+  // arrive once the screen is leaving, and the IntersectionObserver above is
+  // web-only. Coming back re-focuses the screen and picks it up again.
+  const isFocused = useIsFocused();
+
   useEffect(() => {
-    startAutoPlay();
+    if (isFocused) {
+      startAutoPlay();
+    } else {
+      stopAutoPlay();
+    }
     return () => {
       stopAutoPlay();
     };
-  }, [loop, autoPlayInterval, scrollToNextPage, startAutoPlay, stopAutoPlay]);
+  }, [
+    isFocused,
+    loop,
+    autoPlayInterval,
+    scrollToNextPage,
+    startAutoPlay,
+    stopAutoPlay,
+  ]);
 
   useImperativeHandle(instanceRef, () => {
     return {
@@ -303,9 +356,17 @@ export function Carousel<T>({
         // no animation so nothing is visible, which puts content back on both
         // sides of the finger. The re-entrant onPageSelected this triggers
         // resolves to the same logical index, so it is a no-op.
-        pagerRef.current?.setPageWithoutAnimation(
-          toRenderedIndex(logicalIndex),
-        );
+        const renderedTarget = toRenderedIndex(logicalIndex);
+        if (isInteractingRef.current) {
+          // Jumping while the pager is still driven by the gesture is what
+          // takes the app down: UIPageViewController asserts if its view
+          // controllers are replaced during an in-flight transition, and
+          // ViewPager2 rejects setCurrentItem while dragging. Hold it until the
+          // pager reports idle.
+          pendingCloneSwapRef.current = renderedTarget;
+          return;
+        }
+        pagerRef.current?.setPageWithoutAnimation(renderedTarget);
       }
     },
     [
@@ -317,6 +378,33 @@ export function Carousel<T>({
       toRenderedIndex,
     ],
   );
+  // The pager's own gesture state, the only reliable signal that the user has
+  // taken over: the container's press handlers do not fire for a horizontal
+  // swipe, which the native pager claims outright.
+  const onPageScrollStateChanged = useCallback(
+    (
+      e: NativeSyntheticEvent<
+        Readonly<{ pageScrollState: 'idle' | 'dragging' | 'settling' }>
+      >,
+    ) => {
+      const isIdle = e.nativeEvent.pageScrollState === 'idle';
+      isInteractingRef.current = !isIdle;
+      if (!isIdle) {
+        stopAutoPlay();
+        return;
+      }
+      lastScrollEndAtRef.current = Date.now();
+      // Settled: it is now safe to finish a wrap that landed mid-gesture.
+      const pending = pendingCloneSwapRef.current;
+      if (pending !== null) {
+        pendingCloneSwapRef.current = null;
+        pagerRef.current?.setPageWithoutAnimation(pending);
+      }
+      startAutoPlay();
+    },
+    [startAutoPlay, stopAutoPlay],
+  );
+
   const [layout, setLayout] = useState<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -355,7 +443,17 @@ export function Carousel<T>({
     startAutoPlay();
   }, [startAutoPlay]);
 
-  const value = useMemo(() => ({ pageIndex }), [pageIndex]);
+  const shouldSuppressPress = useCallback(
+    () =>
+      isInteractingRef.current ||
+      Date.now() - lastScrollEndAtRef.current < PRESS_SUPPRESS_AFTER_SCROLL_MS,
+    [],
+  );
+
+  const value = useMemo(
+    () => ({ pageIndex, shouldSuppressPress }),
+    [pageIndex, shouldSuppressPress],
+  );
 
   const containerSizeStyle = useMemo(
     () => ({
@@ -410,6 +508,7 @@ export function Carousel<T>({
                 initialPage={toRenderedIndex(defaultIndex)}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
+                onPageScrollStateChanged={onPageScrollStateChanged}
                 // Only effective on native; web PagerView ignores this and uses "none"
                 // to avoid globally blurring focused inputs via dismissKeyboard().
                 keyboardDismissMode="on-drag"

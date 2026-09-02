@@ -10,6 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useCarouselPressSuppressor,
 } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
@@ -78,8 +79,12 @@ const BANNER_DEFAULT_COLORS = {
 } as const;
 
 function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
+  // The pager owns the horizontal gesture natively, so this Pressable never
+  // sees the move that would cancel it — a swipe ends in a press. The carousel
+  // reports when one just happened so the navigation can be skipped.
+  const shouldSuppressPress = useCarouselPressSuppressor();
   const handlePress = useCallback(async () => {
-    if (!item.href) {
+    if (!item.href || shouldSuppressPress()) {
       return;
     }
     // Official universal links (e.g. earn detail page URLs) should navigate
@@ -93,7 +98,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
       return;
     }
     handleDeepLinkUrl({ url: item.href });
-  }, [item.href, item.hrefType]);
+  }, [item.href, item.hrefType, shouldSuppressPress]);
 
   const hasImageCopy = Boolean(item.imageTitle || item.imageSubtitle);
 

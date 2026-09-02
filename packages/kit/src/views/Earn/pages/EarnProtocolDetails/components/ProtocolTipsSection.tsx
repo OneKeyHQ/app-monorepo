@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import {
   Dialog,
   Divider,
+  ScrollView,
   SizableText,
   YStack,
   useDialogInstance,
@@ -13,6 +14,11 @@ import {
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+
+// Tips are dashboard-authored and can run long: several entries, each with a
+// multi-paragraph description. Without a ceiling the dialog grows past the
+// viewport on both phone and desktop and the end of the copy is unreachable.
+const PROTOCOL_TIPS_DIALOG_MAX_HEIGHT = 512;
 
 type IProtocolTips = NonNullable<IStakeEarnDetail['protocolTips']>;
 type IProtocolTipItem = IProtocolTips['tips'][number];
@@ -60,14 +66,16 @@ function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
   }, [dialogInstance]);
 
   return (
-    <YStack gap="$4" pb="$2">
-      {tips.map((tip, index) => (
-        <YStack key={index} gap="$4">
-          {index > 0 ? <Divider /> : null}
-          <ProtocolTipRow tip={tip} onBeforeOpenUrl={handleBeforeOpenUrl} />
-        </YStack>
-      ))}
-    </YStack>
+    <ScrollView maxHeight={PROTOCOL_TIPS_DIALOG_MAX_HEIGHT} nestedScrollEnabled>
+      <YStack gap="$4" pb="$2">
+        {tips.map((tip, index) => (
+          <YStack key={index} gap="$4">
+            {index > 0 ? <Divider /> : null}
+            <ProtocolTipRow tip={tip} onBeforeOpenUrl={handleBeforeOpenUrl} />
+          </YStack>
+        ))}
+      </YStack>
+    </ScrollView>
   );
 }
 
@@ -93,6 +101,10 @@ export function ProtocolTipsSection({
     Dialog.show({
       title: protocolTipsHeader,
       showFooter: false,
+      // The tips scroll internally, and on phones the sheet's own drag-to-close
+      // competes with that scroll for the same vertical gesture. Overlay press
+      // and the system back button still close it.
+      disableDrag: true,
       renderContent: <ProtocolTipsDialogContent tips={tips} />,
     });
   }, [protocolTipsHeader, tips]);
