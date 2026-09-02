@@ -3256,6 +3256,107 @@ describe('useAccountSelectorActions', () => {
     expect(mockSaveGlobalDeriveType).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['global-derive', 'home-sync', 'event'] as const)(
+    'replays every side effect after a persisted primary loses the %s stage',
+    async (failureStage) => {
+      const selectedAccount = createHdSelectedAccount('hd-1--0');
+      const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+      store.set(selectedAccountsAtom(), { 0: selectedAccount });
+      store.set(accountSelectorUpdateMetaAtom(), {
+        0: { eventEmitDisabled: false, updatedAt: 1000 },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      const failure = new OneKeyLocalError(`${failureStage} failed`);
+      const emitSpy = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+      let primaryPersisted = false;
+      let homeFailurePending = failureStage === 'home-sync';
+
+      mockShouldSyncWithHomeSource.mockResolvedValue(true);
+      mockGetSelectedAccount.mockImplementation(async ({ sceneName }) => {
+        if (sceneName === EAccountSelectorSceneName.swap) {
+          return primaryPersisted ? selectedAccount : undefined;
+        }
+        return defaultSelectedAccount();
+      });
+      mockSaveSelectedAccount.mockImplementation(async ({ sceneName }) => {
+        if (sceneName === EAccountSelectorSceneName.swap) {
+          primaryPersisted = true;
+          return { persisted: true };
+        }
+        if (homeFailurePending) {
+          homeFailurePending = false;
+          throw failure;
+        }
+        return { persisted: true };
+      });
+      if (failureStage === 'global-derive') {
+        mockSaveGlobalDeriveType.mockRejectedValueOnce(failure);
+      }
+      if (failureStage === 'event') {
+        emitSpy.mockImplementationOnce(() => {
+          throw failure;
+        });
+      }
+
+      await act(async () => {
+        await expect(
+          result.current.saveToStorage({
+            num: 0,
+            sceneName: EAccountSelectorSceneName.swap,
+            selectedAccount,
+            selectedAccountUpdatedAt: 1000,
+            trigger: 'confirm-explicit',
+          }),
+        ).rejects.toThrow(failure);
+      });
+
+      await act(async () => {
+        store.set(accountSelectorUpdateMetaAtom(), {
+          0: { eventEmitDisabled: false, updatedAt: 1001 },
+        });
+        await result.current.saveToStorage({
+          num: 0,
+          sceneName: EAccountSelectorSceneName.swap,
+          selectedAccount,
+          selectedAccountUpdatedAt: 1001,
+          trigger: 'selection-effect',
+        });
+      });
+
+      const primaryWrites = mockSaveSelectedAccount.mock.calls.filter(
+        ([params]) => params.sceneName === EAccountSelectorSceneName.swap,
+      );
+      expect(primaryWrites).toHaveLength(1);
+      expect(mockSaveGlobalDeriveType).toHaveBeenCalledTimes(2);
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+        expect.objectContaining({ selectedAccount }),
+      );
+
+      const deriveCallsAfterRecovery =
+        mockSaveGlobalDeriveType.mock.calls.length;
+      const eventCallsAfterRecovery = emitSpy.mock.calls.length;
+      await act(async () => {
+        store.set(accountSelectorUpdateMetaAtom(), {
+          0: { eventEmitDisabled: false, updatedAt: 1002 },
+        });
+        await result.current.saveToStorage({
+          num: 0,
+          sceneName: EAccountSelectorSceneName.swap,
+          selectedAccount,
+          selectedAccountUpdatedAt: 1002,
+          trigger: 'selection-effect',
+        });
+      });
+      expect(mockSaveGlobalDeriveType).toHaveBeenCalledTimes(
+        deriveCallsAfterRecovery,
+      );
+      expect(emitSpy).toHaveBeenCalledTimes(eventCallsAfterRecovery);
+    },
+  );
+
   it('keeps short circuiting a saved selection that lost no side effects', async () => {
     const selectedAccount = createHdSelectedAccount('hd-1--0');
     const { store, Wrapper } = createWrapper();

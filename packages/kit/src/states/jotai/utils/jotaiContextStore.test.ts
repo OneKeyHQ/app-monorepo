@@ -10,7 +10,11 @@ import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IJotaiContextStoreData,
+  IJotaiContextStoreMap,
+  IJotaiContextStoreRegistrationUpdate,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiSetAtom } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import {
   contextAtomBase,
@@ -34,6 +38,20 @@ import {
   JotaiContextStoreMirrorTracker,
 } from './JotaiContextStoreMirrorTracker';
 import { useJotaiContextRootStore } from './useJotaiContextRootStore';
+
+const mockUpdateJotaiContextStoreRegistration = jest.fn<
+  Promise<{ map: IJotaiContextStoreMap; registrationCount: number }>,
+  [IJotaiContextStoreRegistrationUpdate]
+>();
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    updateJotaiContextStoreRegistration: (
+      update: IJotaiContextStoreRegistrationUpdate,
+    ) => mockUpdateJotaiContextStoreRegistration(update),
+  },
+}));
 
 jest.mock(
   '../../../components/AccountSelector/AccountSelectorRootProvider',
@@ -177,11 +195,16 @@ describe('jotaiContextStore reset flow', () => {
     jest.spyOn(console, 'log').mockImplementation(jest.fn());
     jest.spyOn(console, 'error').mockImplementation(jest.fn());
     jest.clearAllMocks();
+    mockUpdateJotaiContextStoreRegistration.mockResolvedValue({
+      map: {},
+      registrationCount: 0,
+    });
     const globalCache = globalThis as IGlobalColdStartSnapshot;
     delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
     platformEnv.isNative = false;
     platformEnv.isDesktop = false;
     platformEnv.isExtension = false;
+    platformEnv.isExtensionUi = false;
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
@@ -357,75 +380,46 @@ describe('jotaiContextStore reset flow', () => {
     expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toBeUndefined();
   });
 
-  it('keeps published enabled numbers on extension after a local mirror unmount', () => {
-    // On extension several UI runtimes (popup, side panel, expand tab) share
-    // the tracker map, so a runtime's local counts must never shrink the
-    // published enabledNum: after the wide mirror unmounts locally, a later
-    // local mount must not erase num 1 for the other runtimes.
+  it('registers extension mirrors through the background-owned registry', async () => {
     platformEnv.isExtension = true;
-    const buildAccountSelectorData = (
-      enabledNum: number[],
-    ): IJotaiContextStoreData => ({
+    platformEnv.isExtensionUi = true;
+    mockUpdateJotaiContextStoreRegistration
+      .mockResolvedValueOnce({ map: {}, registrationCount: 1 })
+      .mockResolvedValueOnce({ map: {}, registrationCount: 0 });
+    const extensionData: IJotaiContextStoreData = {
       storeName: EJotaiContextStoreNames.accountSelector,
       accountSelectorInfo: {
         sceneName: EAccountSelectorSceneName.swap,
-        sceneUrl: '',
-        enabledNum,
+        enabledNum: [0, 1],
       },
-    });
-    // Stable data identities so rerenders do not re-run the still-mounted
-    // mirrors' registration effects.
-    const narrowData = buildAccountSelectorData([0]);
-    const wideData = buildAccountSelectorData([0, 1]);
-    const lateData = buildAccountSelectorData([0]);
-    const accountSelectorStoreId = buildJotaiContextStoreId(narrowData);
-    const renderTrackers = ({
-      showWideMirror,
-      showLateMirror,
-    }: {
-      showWideMirror: boolean;
-      showLateMirror: boolean;
-    }) =>
-      createElement(
-        'div',
-        undefined,
-        createElement(JotaiContextStoreMirrorTracker, {
-          ...narrowData,
-          key: 'narrow',
-        }),
-        showWideMirror
-          ? createElement(JotaiContextStoreMirrorTracker, {
-              ...wideData,
-              key: 'wide',
-            })
-          : undefined,
-        showLateMirror
-          ? createElement(JotaiContextStoreMirrorTracker, {
-              ...lateData,
-              key: 'late',
-            })
-          : undefined,
-      );
+    };
 
-    const { rerender, unmount } = render(
-      renderTrackers({ showWideMirror: true, showLateMirror: false }),
+    const { unmount } = render(
+      createElement(JotaiContextStoreMirrorTracker, extensionData),
     );
-
-    expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toMatchObject({
-      count: 2,
-      accountSelectorInfo: { enabledNum: [0, 1] },
-    });
-
-    rerender(renderTrackers({ showWideMirror: false, showLateMirror: false }));
-    rerender(renderTrackers({ showWideMirror: false, showLateMirror: true }));
-
-    expect(
-      getJotaiContextTrackerMap()[accountSelectorStoreId]?.accountSelectorInfo
-        ?.enabledNum,
-    ).toEqual([0, 1]);
+    await waitFor(() =>
+      expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'add',
+          data: extensionData,
+          revision: 1,
+          storeId: buildJotaiContextStoreId(extensionData),
+        }),
+      ),
+    );
+    const registrationId =
+      mockUpdateJotaiContextStoreRegistration.mock.calls[0][0].registrationId;
 
     unmount();
-    expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toBeUndefined();
+    await waitFor(() =>
+      expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'remove',
+          registrationId,
+          revision: 2,
+        }),
+      ),
+    );
   });
 
   it('drops the per-num effects host once no mounted mirror enables that num', async () => {

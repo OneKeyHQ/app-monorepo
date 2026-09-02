@@ -5262,6 +5262,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 return;
               }
               primaryPersisted = Boolean(primarySaveResult?.persisted);
+              if (primaryPersisted) {
+                // The primary record is durable now, but every operation below
+                // can still fail independently. Arm replay before starting
+                // those side effects so a retry cannot short-circuit on the
+                // already-saved primary and permanently skip the remaining
+                // derive/home/event work.
+                this.saveToStoragePendingSideEffectMap.set(
+                  sideEffectScopeKey,
+                  selectedAccount,
+                );
+              }
             }
             if (!isPayloadStillCurrent()) {
               logStorageResult({
