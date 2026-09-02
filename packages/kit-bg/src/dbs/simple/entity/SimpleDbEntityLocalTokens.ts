@@ -5,8 +5,8 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
-  compareAssetSnapshotMeta,
-  normalizeServerDateMs,
+  canApplyAssetSnapshotMeta as canApplySnapshotMeta,
+  normalizeAssetSnapshotMeta as normalizeSnapshotMeta,
 } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -25,51 +25,6 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 // bound it. Entries are pure cache (re-fetched on miss), so dropping the oldest is
 // safe. 5000 covers any realistic multi-chain wallet's working set.
 const LOCAL_TOKENS_METADATA_MAX_ENTRIES = 5000;
-
-function normalizeSnapshotMeta(
-  meta: IAssetSnapshotMeta | undefined,
-): IAssetSnapshotMeta | undefined {
-  if (!meta) {
-    return undefined;
-  }
-  const localSeq = Number(meta.localSeq);
-  if (!Number.isFinite(localSeq)) {
-    return undefined;
-  }
-  const serverDateMs = normalizeServerDateMs(meta.serverDateMs);
-  return serverDateMs === undefined ? { localSeq } : { localSeq, serverDateMs };
-}
-
-/** Compare metadata while tolerating malformed or legacy persisted entries. */
-function compareSnapshotMeta(
-  incoming: IAssetSnapshotMeta | undefined,
-  existing: IAssetSnapshotMeta | undefined,
-): number {
-  const next = normalizeSnapshotMeta(incoming);
-  const previous = normalizeSnapshotMeta(existing);
-  if (!next && !previous) {
-    return 0;
-  }
-  if (!next) {
-    return -1;
-  }
-  if (!previous) {
-    return 1;
-  }
-  return compareAssetSnapshotMeta(next, previous);
-}
-
-/** A legacy write may initialize an unversioned key, but never clobber a
- * versioned snapshot. */
-function canApplySnapshotMeta(
-  incoming: IAssetSnapshotMeta | undefined,
-  existing: IAssetSnapshotMeta | undefined,
-): boolean {
-  if (!normalizeSnapshotMeta(existing)) {
-    return true;
-  }
-  return compareSnapshotMeta(incoming, existing) > 0;
-}
 
 export interface ISimpleDBLocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>

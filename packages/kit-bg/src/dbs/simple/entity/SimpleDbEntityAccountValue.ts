@@ -6,8 +6,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
-  compareAssetSnapshotMeta,
-  normalizeServerDateMs,
+  canApplyAssetSnapshotMeta as canApplySnapshotMeta,
+  getNewestAssetSnapshotMeta,
+  normalizeAssetSnapshotMeta as normalizeSnapshotMeta,
+  sameAssetSnapshotMeta as sameSnapshotMeta,
 } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 
@@ -90,68 +92,14 @@ export interface IAccountValueAllWriteItem {
   assetSnapshotMeta?: IAssetSnapshotMeta;
 }
 
-function normalizeSnapshotMeta(
-  meta: IAssetSnapshotMeta | undefined,
-): IAssetSnapshotMeta | undefined {
-  if (!meta) {
-    return undefined;
-  }
-  const localSeq = Number(meta.localSeq);
-  if (!Number.isFinite(localSeq)) {
-    return undefined;
-  }
-  const serverDateMs = normalizeServerDateMs(meta.serverDateMs);
-  return serverDateMs === undefined ? { localSeq } : { localSeq, serverDateMs };
-}
-
-/** Compare two metadata values after tolerating malformed legacy records. */
-function compareSnapshotMeta(
-  incoming: IAssetSnapshotMeta | undefined,
-  existing: IAssetSnapshotMeta | undefined,
-): number {
-  const next = normalizeSnapshotMeta(incoming);
-  const previous = normalizeSnapshotMeta(existing);
-  if (!next && !previous) {
-    return 0;
-  }
-  if (!next) {
-    return -1;
-  }
-  if (!previous) {
-    return 1;
-  }
-  return compareAssetSnapshotMeta(next, previous);
-}
-
-/** A write without metadata is legacy and must not clobber a versioned value. */
-function canApplySnapshotMeta(
-  incoming: IAssetSnapshotMeta | undefined,
-  existing: IAssetSnapshotMeta | undefined,
-): boolean {
-  if (!normalizeSnapshotMeta(existing)) {
-    return true;
-  }
-  return compareSnapshotMeta(incoming, existing) > 0;
-}
-
-function sameSnapshotMeta(
-  left: IAssetSnapshotMeta | undefined,
-  right: IAssetSnapshotMeta | undefined,
-): boolean {
-  return compareSnapshotMeta(left, right) === 0;
-}
-
+// Freshness admission helpers live in
+// `@onekeyhq/shared/src/utils/assetSnapshotFreshness` so every persistence
+// layer applies the identical comparison. This adapter only bridges the
+// array-shaped call sites in this entity.
 function maxSnapshotMeta(
   values: Array<IAssetSnapshotMeta | undefined>,
 ): IAssetSnapshotMeta | undefined {
-  let result: IAssetSnapshotMeta | undefined;
-  values.forEach((value) => {
-    const normalized = normalizeSnapshotMeta(value);
-    if (normalized && compareSnapshotMeta(normalized, result) > 0) {
-      result = normalized;
-    }
-  });
-  return result;
+  return getNewestAssetSnapshotMeta(...values);
 }
 
 function emptyData(): IAccountValueDb {

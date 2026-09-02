@@ -12,7 +12,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isAssetSnapshotNewer } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
+import {
+  getNewestAssetSnapshotMeta,
+  isAssetSnapshotNewer,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -71,17 +74,6 @@ function emptyAccountBadgeResult(): IAccountBadgeResult {
     interacted: EAddressInteractionStatus.UNKNOWN,
     badges: [],
   };
-}
-
-function getNewestAssetSnapshotMeta(
-  ...metas: Array<IAssetSnapshotMeta | undefined>
-): IAssetSnapshotMeta | undefined {
-  return metas.reduce<IAssetSnapshotMeta | undefined>((newest, meta) => {
-    if (!meta || (newest && !isAssetSnapshotNewer(meta, newest))) {
-      return newest;
-    }
-    return meta;
-  }, undefined);
 }
 
 // Merge multiple /badges responses (one per xpub on merge-derive chains)
@@ -1067,12 +1059,7 @@ class ServiceAccountProfile extends ServiceBase {
     // markers alone cannot prove that an omitted key was observed by the same
     // refresh, so such input is handled as a partial merge below.
     const hasCompleteSnapshotMeta =
-      inputValueKeys.length === 0 ||
-      (updateAll === true &&
-        Boolean(assetSnapshotMeta) &&
-        inputValueKeys.every((key) =>
-          Boolean(assetSnapshotMetaByKey?.[key] ?? assetSnapshotMeta),
-        ));
+      updateAll === true && Boolean(assetSnapshotMeta);
 
     // Atom snapshot stays in the compound-key shape because consumers look
     // entries up via `buildAccountValueKey(accountId, networkId)`.

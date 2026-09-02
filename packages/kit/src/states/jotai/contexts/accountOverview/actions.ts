@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isAssetSnapshotNewer } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
+import {
+  getNewestAssetSnapshotMeta,
+  isAssetSnapshotNewer,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
@@ -47,17 +50,6 @@ function recomputeCreateAtNetworkWorth({
   return Object.values(worth)
     .reduce<BigNumber>((sum, value) => sum.plus(value), new BigNumber(0))
     .toFixed();
-}
-
-function getNewestAssetSnapshotMeta(
-  ...metas: Array<IAssetSnapshotMeta | undefined>
-): IAssetSnapshotMeta | undefined {
-  return metas.reduce<IAssetSnapshotMeta | undefined>((newest, meta) => {
-    if (!meta || (newest && !isAssetSnapshotNewer(meta, newest))) {
-      return newest;
-    }
-    return meta;
-  }, undefined);
 }
 
 class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {

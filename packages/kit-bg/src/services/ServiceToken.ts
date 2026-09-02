@@ -712,6 +712,11 @@ class ServiceToken extends ServiceBase {
         // Preserve failed writes, but let a newer in-memory snapshot win for
         // each key when the pending batch is merged back.
         this.mergeLocalAccountTokensCache(pending);
+        // Reschedule persistence for the recovered batch; without this the
+        // data survives only in memory until another fetch happens to flush.
+        // The debounced wrapper only arms its trailing timer here, so this
+        // neither recurses nor changes how the original error propagates.
+        void this._updateAccountLocalTokensDebounced();
         throw error;
       }
     },

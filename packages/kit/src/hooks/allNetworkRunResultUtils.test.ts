@@ -1,4 +1,7 @@
-import { resolveAllNetworkPublishedResult } from './allNetworkRunResultUtils';
+import {
+  resolveAllNetworkFailedRunRestore,
+  resolveAllNetworkPublishedResult,
+} from './allNetworkRunResultUtils';
 
 describe('resolveAllNetworkPublishedResult', () => {
   const signature = 'account-1|all--networks|wallet-1|0|0';
@@ -83,6 +86,50 @@ describe('resolveAllNetworkPublishedResult', () => {
     ).toEqual({
       publishedResult: null,
       nextLastPublished: { result: null, runSignature: signature },
+    });
+  });
+});
+
+describe('resolveAllNetworkFailedRunRestore', () => {
+  const signature = 'account-1|all--networks|wallet-1|0|0';
+  const previous = {
+    result: [{ networkId: 'evm--1' }],
+    runSignature: signature,
+  };
+
+  test('restores the last-good result when the owner is unchanged', () => {
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: previous,
+        ownerUnchanged: true,
+      }),
+    ).toEqual({
+      nextLastPublished: previous,
+      shouldRestoreResult: true,
+    });
+  });
+
+  test('keeps the ref but does not touch the visible result after an owner switch', () => {
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: previous,
+        ownerUnchanged: false,
+      }),
+    ).toEqual({
+      nextLastPublished: previous,
+      shouldRestoreResult: false,
+    });
+  });
+
+  test('has nothing to restore when no result was ever published', () => {
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: undefined,
+        ownerUnchanged: true,
+      }),
+    ).toEqual({
+      nextLastPublished: undefined,
+      shouldRestoreResult: false,
     });
   });
 });

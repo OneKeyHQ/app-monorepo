@@ -1681,7 +1681,7 @@ function TokenListBlock({
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
     shouldAlwaysFetch,
-    undefinedResultIfReRun: true,
+    clearRetainedResultOnAcceptedRun: true,
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
@@ -2537,7 +2537,11 @@ function TokenListBlock({
   useEffect(() => {
     const fn = () => {
       if (network?.isAllNetworks) {
-        void runAllNetworksRequests({ alwaysSetState: true });
+        // The all-network token refresh for this event is handled inside
+        // useAllNetworkRequests (its wallet-scoped listener also bypasses the
+        // accounts cache). Kicking it again here queued a second forced
+        // fan-out per hardware-account batch; only the LP token list still
+        // needs a dedicated trigger.
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
@@ -2547,12 +2551,7 @@ function TokenListBlock({
     return () => {
       appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
     };
-  }, [
-    network?.isAllNetworks,
-    runAllNetworksRequests,
-    runLpTokenList,
-    showLpTokensOnly,
-  ]);
+  }, [network?.isAllNetworks, runLpTokenList, showLpTokensOnly]);
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {

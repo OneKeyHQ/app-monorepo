@@ -1,7 +1,11 @@
 import {
+  canApplyAssetSnapshotMeta,
   compareAssetSnapshotMeta,
+  createAssetSnapshotMeta,
+  getNewestAssetSnapshotMeta,
   getServerDateMsFromHeaders,
   isAssetSnapshotNewer,
+  normalizeAssetSnapshotMeta,
 } from './assetSnapshotFreshness';
 
 describe('assetSnapshotFreshness', () => {
@@ -58,5 +62,46 @@ describe('assetSnapshotFreshness', () => {
         { serverDateMs: Date.now(), localSeq: 1 },
       ),
     ).toBe(true);
+  });
+
+  it('treats malformed metadata as unversioned', () => {
+    const malformed = { localSeq: Number.NaN };
+    const versioned = { localSeq: 10 };
+    expect(normalizeAssetSnapshotMeta(malformed)).toBeUndefined();
+    expect(compareAssetSnapshotMeta(malformed, versioned)).toBeLessThan(0);
+    expect(getNewestAssetSnapshotMeta(malformed, versioned)).toEqual(
+      versioned,
+    );
+  });
+
+  it('lets a legacy write initialize an unversioned key but never clobber a versioned one', () => {
+    expect(canApplyAssetSnapshotMeta(undefined, undefined)).toBe(true);
+    expect(
+      canApplyAssetSnapshotMeta(undefined, { localSeq: Number.NaN }),
+    ).toBe(true);
+    expect(canApplyAssetSnapshotMeta(undefined, { localSeq: 1 })).toBe(false);
+    expect(canApplyAssetSnapshotMeta({ localSeq: 2 }, { localSeq: 1 })).toBe(
+      true,
+    );
+    expect(canApplyAssetSnapshotMeta({ localSeq: 1 }, { localSeq: 2 })).toBe(
+      false,
+    );
+  });
+
+  it('recovers the mint counter after observing a persisted future sequence (clock rollback)', () => {
+    // Simulate a snapshot persisted by a previous session whose wall clock
+    // was ahead of this session's seed.
+    const futureSeq = Date.now() * 1000 + 10 ** 12;
+    const persistedFutureMeta = { localSeq: futureSeq };
+
+    // A freshly minted meta initially loses to the persisted future one …
+    const before = createAssetSnapshotMeta();
+    expect(isAssetSnapshotNewer(before, persistedFutureMeta)).toBe(false);
+
+    // … but that comparison lifts the watermark, so the next minted meta
+    // orders after the persisted snapshot and refreshes win again.
+    const after = createAssetSnapshotMeta();
+    expect(after.localSeq).toBeGreaterThan(futureSeq);
+    expect(isAssetSnapshotNewer(after, persistedFutureMeta)).toBe(true);
   });
 });

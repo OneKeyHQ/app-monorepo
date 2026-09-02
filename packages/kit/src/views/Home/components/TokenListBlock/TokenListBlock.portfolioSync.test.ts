@@ -30,7 +30,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
     expect(source).toContain('assetStatusCurrency &&');
     expect(source).toContain('if (!snapshot || isStaleOwnerRequest())');
-    expect(source).toContain('undefinedResultIfReRun: true');
+    expect(source).toContain('clearRetainedResultOnAcceptedRun: true');
     expect(source).toContain('totalFiatCurrency: assetStatusCurrency');
     expect(gateIndex).toBeGreaterThan(0);
     expect(gateIndex).toBeLessThan(buildIndex);

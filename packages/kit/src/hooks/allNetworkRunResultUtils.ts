@@ -36,3 +36,28 @@ export function resolveAllNetworkPublishedResult<T>({
     nextLastPublished,
   };
 }
+
+/**
+ * An accepted run invalidates the retained result BEFORE its fan-out starts.
+ * When that fan-out then fails, the previously published result must be
+ * restored — otherwise the consumer stays pinned on `undefined` until the
+ * next successful must-run. The visible result is only restored while the
+ * owner is unchanged: a stale runner from a previous owner must not overwrite
+ * the current owner's state (the ref restore alone is safe, because the
+ * skip path re-checks the run signature before serving it).
+ */
+export function resolveAllNetworkFailedRunRestore<T>({
+  previousPublished,
+  ownerUnchanged,
+}: {
+  previousPublished: IAllNetworkLastPublishedResult<T> | undefined;
+  ownerUnchanged: boolean;
+}): {
+  nextLastPublished: IAllNetworkLastPublishedResult<T> | undefined;
+  shouldRestoreResult: boolean;
+} {
+  return {
+    nextLastPublished: previousPublished,
+    shouldRestoreResult: ownerUnchanged && previousPublished !== undefined,
+  };
+}
