@@ -210,9 +210,6 @@ const CONFIRM_DANGER_INK = '#FF8D84';
 const PIN_SWITCH_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 const PIN_SWITCH_PRESS = { opacity: 0.5 };
 const PIN_SWITCH_HOVER = { color: '$textInteractiveHover' } as const;
-/** The title row's device pill is capped so a long Bluetooth name
- * truncates in the pill instead of squeezing the title. */
-const DEVICE_BADGE_MAX_WIDTH = 132;
 
 /**
  * The scenes the one standing device can play, every one parked built on
@@ -1314,62 +1311,39 @@ export function DeviceStage({
   /* The parked columns, one per arrangement — each element memoized on
    * its own inputs, so a step change re-renders only the seats it
    * touched and every other parked column bails by identity. */
-  // The title row's furniture, trailing the words by the row's own
-  // 8pt gap (the ratified seat — never the card's far edge): the
-  // device pill the device-side steps wear, and, on the payload
-  // card's beat, the count pill.
-  const titleFurniture = useMemo(
-    () =>
-      (deviceName && DEVICE_BADGE_STEPS.has(stageWordsStep)) ||
-      (confirmCount && confirmCardShown) ? (
-        <XStack gap="$2" ai="center" mt="$1">
-          {deviceName && DEVICE_BADGE_STEPS.has(stageWordsStep) ? (
-            <Stack
-              borderRadius="$full"
-              bg="$neutral4"
-              px="$2"
-              py="$1"
-              maxWidth={DEVICE_BADGE_MAX_WIDTH}
-            >
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {deviceName}
-              </SizableText>
-            </Stack>
-          ) : null}
-          {confirmCount && confirmCardShown ? (
-            <Stack
-              borderRadius="$full"
-              borderWidth={1}
-              borderColor="rgba(255,255,255,0.18)"
-              px="$2.5"
-              py="$0.5"
-            >
-              <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
-                {`${confirmCount.current} / ${confirmCount.total}`}
-              </SizableText>
-            </Stack>
-          ) : null}
-        </XStack>
-      ) : null,
-    [confirmCardShown, confirmCount, deviceName, stageWordsStep],
-  );
   const stagePanel = useMemo(() => {
     return (
       <YStack>
         <Animated.View style={spacerFlowStyle} />
         <Animated.View style={wordsStyle}>
           <View onLayout={panelMeasureHandlers.stage.words}>
-            <StepText
-              title={stageText.title}
-              sub={stageText.sub}
-              animated={stageAnimated}
-              subSlot={pinSwitchSlot}
-              titleSlot={titleFurniture}
-            />
+            <XStack ai="flex-start" jc="space-between" gap="$3">
+              <Stack flexShrink={1}>
+                <StepText
+                  title={stageText.title}
+                  sub={stageText.sub}
+                  animated={stageAnimated}
+                  subSlot={pinSwitchSlot}
+                />
+              </Stack>
+              {/* The count pill — this burst's place in a run — rides
+                  the payload card's beat, so the title and its
+                  furniture land together. */}
+              {confirmCount && confirmCardShown ? (
+                <Stack
+                  borderRadius="$full"
+                  borderWidth={1}
+                  borderColor="rgba(255,255,255,0.18)"
+                  px="$2.5"
+                  py="$0.5"
+                  mt="$1"
+                >
+                  <SizableText size="$bodySm" color="rgba(255,255,255,0.85)">
+                    {`${confirmCount.current} / ${confirmCount.total}`}
+                  </SizableText>
+                </Stack>
+              ) : null}
+            </XStack>
           </View>
         </Animated.View>
         {/* Keyed by the drop epoch: exactly the stale-measure drops
@@ -1472,6 +1446,7 @@ export function DeviceStage({
   }, [
     authChecklist,
     confirmCardShown,
+    confirmCount,
     confirmDescription,
     confirmDescriptionDanger,
     confirmDetails,
@@ -1485,7 +1460,6 @@ export function DeviceStage({
     stageChecklistShown,
     stageTailEpoch,
     stageText,
-    titleFurniture,
     wordsStyle,
   ]);
   const pinPanel = useMemo(
@@ -2078,6 +2052,22 @@ export function DeviceStage({
     [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
+  // The card's corner badge: the device's name at the top left, the
+  // close button's mirror — worn only by the device-side steps, where
+  // the person must reach for the physical device the badge names.
+  const cornerBadge = useMemo(() => {
+    if (!deviceName || !DEVICE_BADGE_STEPS.has(shownStep)) {
+      return null;
+    }
+    return (
+      <Stack borderRadius="$full" bg="$neutral4" px="$2.5" py="$1">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {deviceName}
+        </SizableText>
+      </Stack>
+    );
+  }, [deviceName, shownStep]);
+
   return (
     <MorphOverlay
       morph={morph}
@@ -2090,6 +2080,7 @@ export function DeviceStage({
       modal
       capsuleKey={capsuleText.title}
       capsule={capsule}
+      cornerBadge={cornerBadge}
       stageLayer={stageLayer}
       seats={seats}
     />
