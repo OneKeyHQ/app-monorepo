@@ -35,11 +35,11 @@ function parseRoute(value: unknown): IUsdcWithdrawRoute | undefined {
   return value === 'cctp' || value === 'bridge' ? value : undefined;
 }
 
-async function fetchWithdrawRoute({
-  allowFallback,
-}: {
-  allowFallback: boolean;
-}): Promise<IUsdcWithdrawRoute> {
+// Resolves to undefined when Hyperliquid answers with something we cannot read,
+// which callers must not confuse with a genuine switch to the legacy bridge:
+// `requestLoggedHyperLiquidTransport` reports `{ status: 'err' }` bodies but
+// still returns them, and a missing or unknown `withdrawalRoute` lands here too.
+async function fetchWithdrawRoute(): Promise<IUsdcWithdrawRoute | undefined> {
   const response =
     await requestLoggedHyperLiquidTransport<IUsdcRoutingResponse>(
       new HttpTransport(),
@@ -47,11 +47,7 @@ async function fetchWithdrawRoute({
       { type: 'usdcRouting' },
       { action: 'usdcRouting' },
     );
-  const route = parseRoute(response?.withdrawalRoute);
-  if (!route && !allowFallback) {
-    throw new OneKeyLocalError('Unsupported Hyperliquid withdrawal route');
-  }
-  return route ?? FALLBACK_ROUTE;
+  return parseRoute(response?.withdrawalRoute);
 }
 
 export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
@@ -60,8 +56,13 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
     return cachedRoute.route;
   }
   if (!inFlightRequest) {
-    inFlightRequest = fetchWithdrawRoute({ allowFallback: true })
+    inFlightRequest = fetchWithdrawRoute()
       .then((route) => {
+        if (!route) {
+          // Neither cache nor remember an unreadable answer, or one malformed
+          // response would pin the user to the fallback rail for the whole TTL.
+          return lastResolvedRoute ?? FALLBACK_ROUTE;
+        }
         cachedRoute = { route, fetchedAt: Date.now() };
         lastResolvedRoute = route;
         return route;
@@ -81,7 +82,10 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
 // A submission must be bound to the route that Hyperliquid is serving now.
 // Falling back here could silently change both the rail and the charged fee.
 export async function getLiveUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
-  const route = await fetchWithdrawRoute({ allowFallback: false });
+  const route = await fetchWithdrawRoute();
+  if (!route) {
+    throw new OneKeyLocalError('Unsupported Hyperliquid withdrawal route');
+  }
   cachedRoute = { route, fetchedAt: Date.now() };
   lastResolvedRoute = route;
   return route;

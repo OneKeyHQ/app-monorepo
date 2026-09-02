@@ -131,11 +131,6 @@ export function usePerpPortfolioData(
         // CCTP withdrawals leave HyperCore as a `send` to the HyperEVM system
         // address, not as a `withdraw`, so without this they stop counting the
         // moment we switch rails and this stat drifts up on every withdrawal.
-        // Only the outbound leg is matched: the inbound EVM -> Core credit
-        // arrives as a `spotTransfer` from the system address, and counting it
-        // would double up against the `accountClassTransfer` branch below. That
-        // asymmetry, and this reducer's mixed perp-scope / whole-account scope,
-        // predate this change and are tracked separately.
         if (
           delta.type === 'send' &&
           delta.token === 'USDC' &&
@@ -145,13 +140,11 @@ export function usePerpPortfolioData(
         ) {
           return sum.minus(delta.amount);
         }
-        if (
-          delta.type === 'accountClassTransfer' &&
-          delta.usdc &&
-          delta.toPerp !== undefined
-        ) {
-          return delta.toPerp ? sum.plus(delta.usdc) : sum.minus(delta.usdc);
-        }
+        // `accountClassTransfer` moves USDC between the perp and spot balances
+        // of the same account, which is neither a deposit nor a withdrawal.
+        // Counting it contradicted this stat's own definition and, now that a
+        // withdrawal can be sourced from spot, subtracted such a withdrawal
+        // twice: once on the way to spot and again on the way out.
         return sum;
       }, new BigNumber(0))
       .toNumber();

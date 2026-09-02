@@ -105,6 +105,24 @@ describe('usdc withdraw route resolution', () => {
     jest.spyOn(Date, 'now').mockRestore();
   });
 
+  // A 200 we cannot read is not a rail change; treating it as one would pin the
+  // user to the more expensive bridge for the whole cache window.
+  it('keeps the confirmed rail when a later response is unreadable', async () => {
+    requestMock.mockResolvedValue({ withdrawalRoute: 'cctp' });
+    await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
+
+    const nowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(Date.now() + 10 * 60 * 1000);
+    requestMock.mockResolvedValue({ status: 'err', response: 'boom' });
+    await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
+
+    // Still not cached, so the next lookup asks again rather than serving it.
+    requestMock.mockResolvedValue({ withdrawalRoute: 'bridge' });
+    await expect(getUsdcWithdrawRoute()).resolves.toBe('bridge');
+    nowSpy.mockRestore();
+  });
+
   it('shares one in-flight lookup between concurrent callers', async () => {
     requestMock.mockResolvedValue({ withdrawalRoute: 'cctp' });
     const [first, second] = await Promise.all([
