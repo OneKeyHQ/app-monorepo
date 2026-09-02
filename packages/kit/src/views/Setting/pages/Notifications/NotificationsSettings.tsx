@@ -17,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { NotificationPermissionRecoveryAlert } from '@onekeyhq/kit/src/components/NotificationPermissionRecoveryAlert';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -40,6 +41,7 @@ import {
   NotificationHelperCtaButton,
   useNotificationHelperCta,
 } from '../../components/NotificationsTestButton';
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
 
 function NotificationsSettingsHelper() {
   const intl = useIntl();
@@ -184,7 +186,7 @@ export default function NotificationsSettings() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         {!settings ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
@@ -230,6 +232,13 @@ export default function NotificationsSettings() {
                 }}
               />
             </ListItem>
+
+            {settings?.pushEnabled ? (
+              <NotificationPermissionRecoveryAlert
+                scene="settings"
+                pushEnabled={settings.pushEnabled}
+              />
+            ) : null}
 
             {settings?.pushEnabled ? (
               <>

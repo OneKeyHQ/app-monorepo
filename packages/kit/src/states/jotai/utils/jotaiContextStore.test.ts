@@ -23,6 +23,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { swapProSelectTokenAtom } from '../contexts/swap/atoms';
+
 import {
   buildJotaiContextStoreId,
   jotaiContextStore,
@@ -349,6 +351,37 @@ describe('jotaiContextStore reset flow', () => {
 
     await waitFor(() => {
       expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+    });
+  });
+
+  it('hydrates the saved Swap Pro token synchronously for the cold-start root', () => {
+    const selectedToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xtoken',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoURI: 'https://example.com/token.png',
+      balanceParsed: '123',
+      fiatValue: '456',
+      accountAddress: '0xprevious-owner',
+    };
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [`store:${EJotaiContextStoreNames.swap}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProSelectTokenAtom}`]:
+        selectedToken,
+    };
+    platformEnv.isNative = true;
+
+    const store = jotaiContextStore.prepareStoreForImmediateUse({
+      storeName: EJotaiContextStoreNames.swap,
+    });
+
+    expect(store.get(swapProSelectTokenAtom())).toEqual({
+      networkId: 'evm--1',
+      contractAddress: '0xtoken',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoURI: 'https://example.com/token.png',
     });
   });
 

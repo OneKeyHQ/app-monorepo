@@ -1,7 +1,14 @@
 const path = require('path');
 
-const SCHEMA_VERSION = 2;
-const STRATEGY_VERSION = 2;
+const SCHEMA_VERSION = 3;
+const STRATEGY_VERSION = 4;
+const RELEASE_SCHEMA_VERSION = 2;
+const RELEASE_ASSET_PREFIX = 'metro-dev-prebundle';
+const RELEASE_ATTESTATION_BUNDLE_NAME = `${RELEASE_ASSET_PREFIX}-attestations.jsonl`;
+const OCI_ARTIFACT_TYPE = 'application/vnd.onekey.metro-dev-prebundle.v2';
+const OCI_REGISTRY = 'ghcr.io';
+const OCI_REPOSITORY = 'onekeyhq/metro-dev-prebundle';
+const SOURCE_REPOSITORY = 'OneKeyHQ/app-monorepo';
 
 const transformationEnvironment = {
   BABEL_ENV: 'development',
@@ -28,7 +35,6 @@ const fingerprintFiles = [
   '.env.version',
   'apps/mobile/babel-plugin-jest-compat.js',
   'apps/mobile/babel.config.js',
-  'apps/mobile/bundle-registry/module-id-registry.json',
   'apps/mobile/dev-vendor.config.js',
   'apps/mobile/metro.config.js',
   'apps/mobile/package.json',
@@ -73,14 +79,21 @@ function getTransformationEnvironment(env) {
 }
 
 module.exports = {
+  OCI_ARTIFACT_TYPE,
+  OCI_REGISTRY,
+  OCI_REPOSITORY,
+  RELEASE_ASSET_PREFIX,
+  RELEASE_ATTESTATION_BUNDLE_NAME,
+  RELEASE_SCHEMA_VERSION,
   SCHEMA_VERSION,
+  SOURCE_REPOSITORY,
   STRATEGY_VERSION,
   applyTransformationEnvironment,
   commonBytecodeName: 'common.hbc',
   commonSourceName: 'common.js',
   fingerprintDirectories: ['packages/components/colors', 'patches'],
   fingerprintFiles,
-  fingerprintOptionalFiles: ['.env'],
+  fingerprintOptionalFiles: [],
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
     return moduleKey.startsWith('node_modules/');
@@ -88,4 +101,10 @@ module.exports = {
   outputRoot(projectRoot) {
     return path.resolve(projectRoot, 'out-dir-bundle/dev-vendor');
   },
+  releaseFingerprintFiles: [
+    '.github/workflows/metro-dev-prebundle.yml',
+    'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
+    'apps/mobile/scripts/metro-dev-prebundle.js',
+  ],
+  releaseTagPrefix: `${RELEASE_ASSET_PREFIX}-v${RELEASE_SCHEMA_VERSION}`,
 };

@@ -351,7 +351,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_onekey_keytag,
                   }),
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterKeyTag();
                     navigation?.pushModal(EModalRoutes.KeyTagModal, {
                       screen: EModalKeyTagRoutes.UserOptions,
                     });
@@ -372,6 +371,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             !platformEnv.isWeb
               ? {
+                  id: 'notifications',
                   icon: 'BellOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
@@ -552,6 +552,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
                 !platformEnv.isWeb
                   ? {
+                      id: 'account-sync',
                       icon: 'RefreshCcwOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_account_sync_modal_title,
@@ -568,6 +569,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'customize-transaction',
                   icon: 'LabOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
@@ -584,7 +586,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ],
                   settingRoute: EModalSettingRoutes.SettingCustomTransaction,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomizeTransaction();
                     navigation?.push(
                       EModalSettingRoutes.SettingCustomTransaction,
                     );
@@ -604,6 +605,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'account-derivation',
                   icon: 'BranchesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
@@ -690,6 +692,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'protection',
                       icon: 'ShieldCheckDoneOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_protection,
@@ -739,18 +742,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'dApp',
                         'WalletConnect',
                       ],
+                      settingRoute:
+                        EModalSettingRoutes.SettingDAppConnectionList,
                       onPress: (navigation) => {
-                        navigation?.pushModal(
-                          EModalRoutes.DAppConnectionModal,
-                          {
-                            screen: EDAppConnectionModal.ConnectionList,
-                          },
+                        navigation?.push(
+                          EModalSettingRoutes.SettingDAppConnectionList,
                         );
                       },
                     },
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'signature-record',
                       icon: 'NoteOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_signature_record,
@@ -767,6 +770,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 platformEnv.isExtension
                   ? {
+                      id: 'floating-icon',
                       icon: 'MenuCircleHorOutline',
                       title: intl.formatMessage({
                         id: ETranslations.setting_floating_icon,
@@ -798,26 +802,26 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'add-network',
                   icon: 'GlobusOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
                   settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(
                       EModalSettingRoutes.SettingChainListSearch,
                     );
                   },
                 },
                 {
+                  id: 'custom-rpc',
                   icon: 'BezierNodesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_rpc_title,
                   }),
                   settingRoute: EModalSettingRoutes.SettingCustomRPC,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomRPC);
                   },
                 },
@@ -848,6 +852,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'export-network-config',
                   icon: 'FileDownloadOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_network_config_label,
@@ -913,7 +918,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             isMobileLayout
               ? {
-                  id: 'official-channels',
                   icon: 'SpeakerPromoteOutline',
                   title: intl.formatMessage({
                     id: ETranslations.official_channels__title,
@@ -1014,6 +1018,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
+            testID: SettingTestIDs.devModeItem,
             tabBarItemStyle: {
               backgroundColor: '$bgCritical',
             },

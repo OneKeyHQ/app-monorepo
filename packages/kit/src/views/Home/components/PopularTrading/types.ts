@@ -1,3 +1,4 @@
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 interface IFavoriteTokenDisplay {
@@ -16,7 +17,9 @@ interface IFavoriteTokenDisplay {
   maxLeverage?: number;
   perpsSubtitle?: string;
   communityRecognized?: boolean;
+  marketTokenId?: string;
   stock?: IMarketStockInfo;
+  marketAsset?: IMarketAssetListItem;
 }
 
 export type { IFavoriteTokenDisplay };

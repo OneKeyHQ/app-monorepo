@@ -35,7 +35,10 @@ import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
-import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import {
+  getValidDeviceStateVersionKeys,
+  projectLegacyDeviceFeaturesFromState,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -417,6 +420,50 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private async persistFirmwareSnapshot({
+    connectId,
+    state,
+  }: {
+    connectId: string | undefined;
+    state: IOneKeyDeviceState;
+  }) {
+    const changedKeys = getValidDeviceStateVersionKeys(state);
+    if (!connectId || changedKeys.length === 0) {
+      return;
+    }
+    const syncConnectIds = [
+      connectId,
+      state.identity.serialNo,
+      state.identity.deviceId,
+    ];
+    await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+    const event: DeviceStateEvent = {
+      changedKeys,
+      connectId,
+      revision: state.revision,
+      source: 'device-info',
+      state,
+    };
+    try {
+      const persistResult = await localDb.updateDeviceState(event);
+      await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+      serviceHardwareUtils.hardwareLog('firmware read-back', {
+        kind: persistResult.kind,
+        protocol: state.protocol,
+        revision: state.revision,
+        firmwareVersion: state.versions.firmware,
+      });
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'firmware read-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
+    }
+  }
+
   private deviceProtocolByConnectId = new Map<string, 'V1' | 'V2'>();
 
   private connectProtocolMigrationPromise: Promise<void> | undefined;
@@ -585,7 +632,9 @@ class ServiceHardware extends ServiceBase {
     );
     serviceHardwareUtils.hardwareLog(
       'migrated existing device connect protocols',
-      { migratedCount: migrations.length },
+      {
+        migratedCount: migrations.length,
+      },
     );
   }
 
@@ -1344,8 +1393,38 @@ class ServiceHardware extends ServiceBase {
     }
 
     if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-      newPayload.firmwareProgress = originEvent.payload.progress;
-      newPayload.firmwareProgressType = originEvent.payload.progressType;
+      const firmwareProgressPayload =
+        originEvent.payload as typeof originEvent.payload & {
+          installTargetId?: number;
+          installPhase?: 'prepare' | 'install' | 'verify';
+          installPhaseProgress?: number;
+          transferredBytes?: number;
+          totalBytes?: number;
+          rateBytesPerSecond?: number;
+          elapsedMs?: number;
+        };
+      newPayload.firmwareProgress = firmwareProgressPayload.progress;
+      newPayload.firmwareProgressType = firmwareProgressPayload.progressType;
+      newPayload.firmwareInstallTargetId =
+        firmwareProgressPayload.installTargetId;
+      newPayload.firmwareInstallPhase = firmwareProgressPayload.installPhase;
+      newPayload.firmwareInstallPhaseProgress =
+        firmwareProgressPayload.installPhaseProgress;
+      if (
+        [
+          firmwareProgressPayload.transferredBytes,
+          firmwareProgressPayload.totalBytes,
+          firmwareProgressPayload.rateBytesPerSecond,
+          firmwareProgressPayload.elapsedMs,
+        ].some((value) => typeof value === 'number')
+      ) {
+        newPayload.firmwareTransferMetrics = {
+          transferredBytes: firmwareProgressPayload.transferredBytes,
+          totalBytes: firmwareProgressPayload.totalBytes,
+          rateBytesPerSecond: firmwareProgressPayload.rateBytesPerSecond,
+          elapsedMs: firmwareProgressPayload.elapsedMs,
+        };
+      }
     }
 
     if (originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS) {
@@ -1553,12 +1632,15 @@ class ServiceHardware extends ServiceBase {
                     if (
                       isSameFirmwareDevice &&
                       appliedUiRequestType ===
-                        EHardwareUiStateAction.FIRMWARE_PROGRESS &&
-                      previousState?.payload?.firmwareTipData
+                        EHardwareUiStateAction.FIRMWARE_PROGRESS
                     ) {
                       firmwarePayload = {
                         ...appliedPayload,
-                        firmwareTipData: previousState.payload.firmwareTipData,
+                        firmwareTipData:
+                          previousState?.payload?.firmwareTipData,
+                        firmwareTransferMetrics:
+                          appliedPayload.firmwareTransferMetrics ??
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     } else if (
                       isSameFirmwareDevice &&
@@ -1571,6 +1653,14 @@ class ServiceHardware extends ServiceBase {
                           previousState?.payload?.firmwareProgress,
                         firmwareProgressType:
                           previousState?.payload?.firmwareProgressType,
+                        firmwareInstallTargetId:
+                          previousState?.payload?.firmwareInstallTargetId,
+                        firmwareInstallPhase:
+                          previousState?.payload?.firmwareInstallPhase,
+                        firmwareInstallPhaseProgress:
+                          previousState?.payload?.firmwareInstallPhaseProgress,
+                        firmwareTransferMetrics:
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     }
                     return {
@@ -1588,11 +1678,18 @@ class ServiceHardware extends ServiceBase {
             if (!isCurrent()) {
               return;
             }
-            await hardwareUiStateCompletedAtom.set({
+            await hardwareUiStateCompletedAtom.set((previousState) => ({
               action: appliedUiRequestType,
               connectId: appliedConnectId,
-              payload: appliedPayload,
-            });
+              payload: {
+                ...appliedPayload,
+                firmwareTransferMetrics:
+                  appliedPayload.firmwareTransferMetrics ??
+                  (previousState?.connectId === appliedConnectId
+                    ? previousState.payload?.firmwareTransferMetrics
+                    : undefined),
+              },
+            }));
           })
           .catch((error: unknown) => {
             defaultLogger.hardware.sdkLog.log(
@@ -3011,7 +3108,9 @@ class ServiceHardware extends ServiceBase {
       task: () =>
         convertDeviceResponse(
           () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-          { silentMode },
+          {
+            silentMode,
+          },
         ),
     });
     await this.rememberDeviceProtocol({
@@ -3054,11 +3153,18 @@ class ServiceHardware extends ServiceBase {
           hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
-    return this._getDeviceStateWithMutex({
+    const state = await this._getDeviceStateWithMutex({
       ...options,
       connectId: compatibleConnectId,
       hardwareCallContext,
     });
+    if (options.params?.scope === 'firmware') {
+      await this.persistFirmwareSnapshot({
+        connectId: compatibleConnectId,
+        state,
+      });
+    }
+    return state;
   }
 
   @backgroundMethod()
@@ -3751,6 +3857,19 @@ class ServiceHardware extends ServiceBase {
     });
     if (!dbDevice || !connectId) {
       return;
+    }
+    try {
+      await this.getDeviceState({
+        connectId,
+        params: { scope: 'firmware' },
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        silentMode: true,
+      });
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'refresh firmware state after update ERROR',
+        error,
+      );
     }
     const versionInfo: IDeviceVersionCacheInfo = {
       firmwareVersion: undefined,

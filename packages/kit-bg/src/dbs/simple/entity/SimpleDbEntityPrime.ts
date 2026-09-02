@@ -17,6 +17,7 @@ import {
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentCacheKey,
   isSamePrimeInfiniPaymentTransferSnapshot,
+  isValidPrimeInfiniPaymentContract,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
@@ -183,7 +184,8 @@ function isValidInfiniPaymentCacheIdentity(
     identity &&
     isNonEmptyString(identity.paymentId) &&
     isNonEmptyString(identity.networkId) &&
-    isNonEmptyString(identity.contractAddress),
+    (identity.contractAddress === '' ||
+      isNonEmptyString(identity.contractAddress)),
   );
 }
 
@@ -312,7 +314,7 @@ function isValidInfiniPendingPaymentSession(
     !isNonEmptyString(session.asset?.chain) ||
     !isNonEmptyString(session.asset?.token) ||
     !isNonEmptyString(session.asset?.networkId) ||
-    !isNonEmptyString(session.asset?.contractAddress) ||
+    !isValidPrimeInfiniPaymentContract(session.asset) ||
     !isNonEmptyString(session.payment?.paymentId) ||
     !isNonEmptyString(session.payment?.address) ||
     !isNonEmptyString(session.payment?.chain) ||
@@ -320,13 +322,7 @@ function isValidInfiniPendingPaymentSession(
     !isNonEmptyString(session.payment?.amountDue) ||
     !isNonEmptyString(session.payerAccountId) ||
     !isNonEmptyString(session.payerAddress) ||
-    !isNonEmptyString(session.paymentCacheKey?.paymentId) ||
-    !isNonEmptyString(session.paymentCacheKey?.bindingId) ||
-    !isNonEmptyString(session.paymentCacheKey?.networkId) ||
-    !isNonEmptyString(session.paymentCacheKey?.contractAddress) ||
-    !isNonEmptyString(session.paymentCacheKey?.onekeyUserId) ||
-    !isNonEmptyString(session.paymentCacheKey?.payerAccountId) ||
-    !isNonEmptyString(session.paymentCacheKey?.payerAddress) ||
+    !isValidInfiniPaymentCacheKey(session.paymentCacheKey) ||
     !Number.isFinite(session.payment?.expiresAt) ||
     !Number.isFinite(session.updatedAt) ||
     !isOptionalFiniteNumber(session.createdAt) ||

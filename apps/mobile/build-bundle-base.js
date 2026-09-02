@@ -272,6 +272,10 @@ const generateMetadataJson = async (dirPath, extraMetadata = {}) => {
     });
     const isThreeBundleBuild = useUnionBuild || hasSegments;
 
+    // Binds OTA compatibility to the native storage contract. Native startup
+    // rejects older bundles without this marker after AsyncStorage migration.
+    metadata.storageSchemaVersion = 'mmkv-v1';
+
     if (isThreeBundleBuild) {
       metadata.bundleFormat = 'three-bundle';
       metadata.requiresCommonBundle = 'true';

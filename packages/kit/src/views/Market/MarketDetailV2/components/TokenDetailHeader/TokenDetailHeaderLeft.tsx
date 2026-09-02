@@ -226,7 +226,10 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId && address && address !== SUI_TYPE_ARG ? (
+                      {!desktopRedesign &&
+                      networkId &&
+                      address &&
+                      address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}

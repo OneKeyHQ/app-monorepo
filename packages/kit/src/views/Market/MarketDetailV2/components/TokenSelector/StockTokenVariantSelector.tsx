@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,7 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
-  IMarketAccountPortfolioItem,
+  IMarketAccountPortfolioDisplayItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -43,6 +43,10 @@ const ROW_MIN_HEIGHT = 62;
 const TRIGGER_TOKEN_SIZE = 32;
 const VALUE_FALLBACK = '--';
 
+const StockTokenVariantPortfolioContext = createContext<
+  IMarketAccountPortfolioDisplayItem[] | undefined
+>(undefined);
+
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
@@ -63,30 +67,30 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
   return /^7\s*[x×]\s*24$/i.test(variant.tradingHours?.days?.trim() ?? '');
 }
 
-// `portfolioData` is a single-scope response: `usePortfolioData` queries the
-// account portfolio for exactly one (networkId, accountAddress, tokenAddress)
-// triple, the one the detail page is currently showing. Its items carry no
-// `networkId`, so matching a row on `tokenAddress` alone cannot prove the entry
-// belongs to that row's chain — and an issuer deploying the same contract
-// address on two EVM chains is enough to paint one chain's balance onto the
-// other chain's row. Only the variant that IS the fetch scope can be resolved
-// from this payload; every other row honestly shows the `--` fallback.
 function findVariantBalance({
   portfolioData,
   variant,
   isPortfolioScope,
 }: {
-  portfolioData?: IMarketAccountPortfolioItem[];
+  portfolioData?: IMarketAccountPortfolioDisplayItem[];
   variant: IMarketStockTokenVariant;
   isPortfolioScope: boolean;
 }) {
-  if (!isPortfolioScope) return undefined;
-  // The address check still matters inside the scope: the portfolio poll lags a
-  // variant switch, so the payload in hand may still describe the variant the
-  // user just moved away from.
-  const position = portfolioData?.find((item) =>
-    equalsIgnoreCase(item.tokenAddress, variant.contractAddress),
-  );
+  const position = portfolioData?.find((item) => {
+    if (item.tokenId) {
+      return item.tokenId === variant.tokenId;
+    }
+    if (item.networkId) {
+      return (
+        item.networkId === variant.networkId &&
+        equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
+      );
+    }
+    return (
+      isPortfolioScope &&
+      equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
+    );
+  });
   const balance = new BigNumber(position?.amount ?? '');
   return balance.isFinite() ? balance.toFixed() : undefined;
 }
@@ -103,7 +107,7 @@ function StockTokenVariantRow({
   variant: IMarketStockTokenVariant;
   selected: boolean;
   isPortfolioScope: boolean;
-  portfolioData?: IMarketAccountPortfolioItem[];
+  portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
 }) {
   const balance = findVariantBalance({
@@ -202,32 +206,20 @@ function StockTokenVariantRow({
   );
 }
 
-export function StockTokenVariantSelector({
-  portfolioData,
+function StockTokenVariantSelectorContent({
+  closePopover,
 }: {
-  portfolioData?: IMarketAccountPortfolioItem[];
+  closePopover: () => void;
 }) {
   const intl = useIntl();
+  const portfolioData = useContext(StockTokenVariantPortfolioContext);
   const {
     tokenVariants,
-    isTokenVariantsLoading,
     selectedTokenId,
     selectedTokenVariant,
     setSelectedTokenId,
-    isTokenVariantsError,
-    retryTokenVariants,
     portfolioNetworkId,
   } = useStockDetail();
-
-  const selectedIndex = useMemo(
-    () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
-    [selectedTokenId, tokenVariants],
-  );
-
-  // The one variant `portfolioData` can describe: the selected one, and only
-  // while it lives on the network the portfolio was fetched for. Selecting a
-  // variant on another chain does not move the fetch scope (the detail page
-  // keeps the route's network), so that row has no trustworthy balance here.
   const portfolioScopeTokenId = useMemo(() => {
     if (!portfolioNetworkId || !selectedTokenVariant?.networkId) {
       return undefined;
@@ -236,6 +228,96 @@ export function StockTokenVariantSelector({
       ? selectedTokenVariant.tokenId
       : undefined;
   }, [portfolioNetworkId, selectedTokenVariant]);
+
+  return (
+    <YStack
+      testID="stock-token-variant-selector-content"
+      width={POPOVER_WIDTH}
+      p="$1"
+    >
+      <XStack px="$2.5" py="$2" gap="$3" alignItems="center">
+        <SizableText
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {`${intl.formatMessage({
+            id: ETranslations.dexmarket_token_name,
+          })}/${intl.formatMessage({
+            id: ETranslations.global_balance,
+          })}`}
+        </SizableText>
+        <Stack
+          width={AVATAR_SLOT_WIDTH}
+          height={HEADER_SPACER_HEIGHT}
+          pointerEvents="none"
+        />
+        <SizableText
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {intl.formatMessage({
+            id: ETranslations.trade_stocks_token_issuer,
+          })}
+        </SizableText>
+        <SizableText
+          flex={1}
+          flexBasis={0}
+          minWidth={0}
+          size="$bodySmMedium"
+          color="$textSubdued"
+          textDecorationLine="underline"
+          numberOfLines={1}
+        >
+          {intl.formatMessage({ id: ETranslations.global_price })}
+        </SizableText>
+      </XStack>
+      <ScrollView maxHeight={360} showsVerticalScrollIndicator={false}>
+        {tokenVariants.map((variant, index) => (
+          <StockTokenVariantRow
+            key={variant.tokenId}
+            index={index}
+            variant={variant}
+            selected={variant.tokenId === selectedTokenId}
+            isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
+            portfolioData={portfolioData}
+            onSelect={(item) => {
+              setSelectedTokenId(item.tokenId);
+              closePopover();
+            }}
+          />
+        ))}
+      </ScrollView>
+    </YStack>
+  );
+}
+
+export function StockTokenVariantSelector({
+  portfolioData,
+}: {
+  portfolioData?: IMarketAccountPortfolioDisplayItem[];
+}) {
+  const intl = useIntl();
+  const {
+    tokenVariants,
+    isTokenVariantsLoading,
+    selectedTokenId,
+    selectedTokenVariant,
+    isTokenVariantsError,
+    retryTokenVariants,
+  } = useStockDetail();
+
+  const selectedIndex = useMemo(
+    () => tokenVariants.findIndex((item) => item.tokenId === selectedTokenId),
+    [selectedTokenId, tokenVariants],
+  );
 
   if (!selectedTokenVariant) {
     if (isTokenVariantsLoading) {
@@ -262,7 +344,7 @@ export function StockTokenVariantSelector({
     return null;
   }
 
-  return (
+  const popover = (
     <Popover
       title={intl.formatMessage({
         id: ETranslations.trade_stocks_token_details,
@@ -319,74 +401,13 @@ export function StockTokenVariantSelector({
           </XStack>
         </XStack>
       }
-      renderContent={({ closePopover }) => (
-        <YStack
-          testID="stock-token-variant-selector-content"
-          width={POPOVER_WIDTH}
-          p="$1"
-        >
-          <XStack px="$2.5" py="$2" gap="$3" alignItems="center">
-            <SizableText
-              flex={1}
-              flexBasis={0}
-              minWidth={0}
-              size="$bodySmMedium"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              {`${intl.formatMessage({
-                id: ETranslations.dexmarket_token_name,
-              })}/${intl.formatMessage({
-                id: ETranslations.global_balance,
-              })}`}
-            </SizableText>
-            <Stack
-              width={AVATAR_SLOT_WIDTH}
-              height={HEADER_SPACER_HEIGHT}
-              pointerEvents="none"
-            />
-            <SizableText
-              flex={1}
-              flexBasis={0}
-              minWidth={0}
-              size="$bodySmMedium"
-              color="$textSubdued"
-              numberOfLines={1}
-            >
-              {intl.formatMessage({
-                id: ETranslations.trade_stocks_token_issuer,
-              })}
-            </SizableText>
-            <SizableText
-              flex={1}
-              flexBasis={0}
-              minWidth={0}
-              size="$bodySmMedium"
-              color="$textSubdued"
-              textDecorationLine="underline"
-              numberOfLines={1}
-            >
-              {intl.formatMessage({ id: ETranslations.global_price })}
-            </SizableText>
-          </XStack>
-          <ScrollView maxHeight={360} showsVerticalScrollIndicator={false}>
-            {tokenVariants.map((variant, index) => (
-              <StockTokenVariantRow
-                key={variant.tokenId}
-                index={index}
-                variant={variant}
-                selected={variant.tokenId === selectedTokenId}
-                isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
-                portfolioData={portfolioData}
-                onSelect={(item) => {
-                  setSelectedTokenId(item.tokenId);
-                  closePopover();
-                }}
-              />
-            ))}
-          </ScrollView>
-        </YStack>
-      )}
+      renderContent={StockTokenVariantSelectorContent}
     />
+  );
+
+  return (
+    <StockTokenVariantPortfolioContext.Provider value={portfolioData}>
+      {popover}
+    </StockTokenVariantPortfolioContext.Provider>
   );
 }

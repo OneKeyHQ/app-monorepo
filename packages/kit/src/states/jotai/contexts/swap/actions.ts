@@ -6,7 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
-import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import {
+  buildSwapDefaultSelectedTokensForNetwork,
+  resolveSwapTokenNetworkLogoURI,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
   removeSwapNoConnectWalletAlerts,
@@ -23,6 +26,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { getSwapQuoteTokenTaxPercentages } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenTaxUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   currencyPersistAtom,
@@ -101,6 +105,7 @@ import {
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
+  sanitizeSwapProSelectTokenSnapshot,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
@@ -158,7 +163,6 @@ import {
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
-  swapTokenMetadataAtom,
   swapTypeSwitchAtom,
   swapWarningRequestIdAtom,
 } from './atoms';
@@ -734,19 +738,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // If token is not provided: load from db, if db is empty, use defaultToken
   persistSwapProSelectToken = contextAtomMethod(
     async (get, set, token?: ISwapToken, defaultToken?: ISwapToken) => {
-      // Remove realtime properties before saving to db
-      const getTokenForStorage = (t: ISwapToken): ISwapToken => {
-        const {
-          balanceParsed,
-          price,
-          fiatValue,
-          reservationValue,
-          accountAddress,
-          ...rest
-        } = t;
-        return rest;
-      };
-
       const setSelectedToken = (nextToken: ISwapToken) => {
         const currentToken = get(swapProSelectTokenAtom());
         const isSameToken =
@@ -769,17 +760,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (token) {
         setSelectedToken(token);
         await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-          getTokenForStorage(token),
+          sanitizeSwapProSelectTokenSnapshot(token),
         );
       } else {
+        const selectedTokenBeforeLoad = get(swapProSelectTokenAtom());
         const savedToken =
           await backgroundApiProxy.simpleDb.swapProSelectToken.getSwapProSelectToken();
+        if (get(swapProSelectTokenAtom()) !== selectedTokenBeforeLoad) {
+          return;
+        }
         if (savedToken) {
           setSelectedToken(savedToken);
         } else if (defaultToken) {
           setSelectedToken(defaultToken);
           await backgroundApiProxy.simpleDb.swapProSelectToken.setSwapProSelectToken(
-            getTokenForStorage(defaultToken),
+            sanitizeSwapProSelectTokenSnapshot(defaultToken),
           );
         }
       }
@@ -2074,7 +2069,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const networks = get(swapNetworks());
       const swapSupportAllNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
-      const tokenMetadata = get(swapTokenMetadataAtom());
       const quoteLoading =
         get(swapQuoteFetchingAtom()) || get(swapSilenceQuoteLoading());
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
@@ -2488,89 +2482,64 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       }
 
-      if (tokenMetadata?.swapTokenMetadata) {
-        const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
-        const buyTokenBuyTaxBN = new BigNumber(
-          buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
-        );
-        const buyTokenSellTaxBN = new BigNumber(
-          buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
-        );
-        const sellTokenBuyTaxBN = new BigNumber(
-          sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
-        );
-        const sellTokenSellTaxBN = new BigNumber(
-          sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
-        );
-        if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          const actionLabel = appLocale.intl.formatMessage({
-            id: buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_sell
-              : ETranslations.swap_page_alert_tax_detected_buy,
-          });
+      const { buyTaxPercentage, sellTaxPercentage } =
+        getSwapQuoteTokenTaxPercentages(quoteResult);
+      if (buyTaxPercentage) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        const actionLabel = appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_alert_tax_detected_buy,
+        });
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'HandCoinsOutline',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_tax_detected_title,
+              },
+              {
+                percentage: `${buyTaxPercentage}%`,
+                token: toToken?.symbol ?? '',
+                action: actionLabel,
+              },
+            ),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_tax_detected,
+            }),
+            alertLevel: ESwapAlertLevel.INFO,
+          },
+        ];
+      }
 
-          const showTax = BigNumber.maximum(
-            buyTokenSellTaxBN,
-            buyTokenBuyTaxBN,
-          );
-          alertsRes = [
-            ...alertsRes,
-            {
-              icon: 'HandCoinsOutline',
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              title: appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected_title,
-                },
-                {
-                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: toToken?.symbol ?? '',
-                  action: actionLabel,
-                },
-              ),
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_tax_detected,
-              }),
-              alertLevel: ESwapAlertLevel.INFO,
-            },
-          ];
-        }
-        if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
-          // eslint-disable-next-line onekey/no-app-locale-main-thread
-          const actionLabel = appLocale.intl.formatMessage({
-            id: sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_sell
-              : ETranslations.swap_page_alert_tax_detected_buy,
-          });
-          const showTax = BigNumber.maximum(
-            sellTokenBuyTaxBN,
-            sellTokenSellTaxBN,
-          );
-          alertsRes = [
-            ...alertsRes,
-            {
-              icon: 'HandCoinsOutline',
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              title: appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected_title,
-                },
-                {
-                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
-                  token: fromToken?.symbol ?? '',
-                  action: actionLabel,
-                },
-              ),
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.swap_page_alert_tax_detected,
-              }),
-              alertLevel: ESwapAlertLevel.INFO,
-            },
-          ];
-        }
+      if (sellTaxPercentage) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        const actionLabel = appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_alert_tax_detected_sell,
+        });
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'HandCoinsOutline',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_tax_detected_title,
+              },
+              {
+                percentage: `${sellTaxPercentage}%`,
+                token: fromToken?.symbol ?? '',
+                action: actionLabel,
+              },
+            ),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_tax_detected,
+            }),
+            alertLevel: ESwapAlertLevel.INFO,
+          },
+        ];
       }
 
       // check limit native should wrapped
@@ -3443,7 +3412,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken: currentToToken,
         });
         if (carryToken) {
-          void this.persistSwapProSelectToken.call(set, carryToken);
+          const networkLogoURI = resolveSwapTokenNetworkLogoURI({
+            swapNetworks: get(swapNetworks()),
+            token: carryToken,
+          });
+          void this.persistSwapProSelectToken.call(
+            set,
+            networkLogoURI && networkLogoURI !== carryToken.networkLogoURI
+              ? { ...carryToken, networkLogoURI }
+              : carryToken,
+          );
         }
       }
       if (

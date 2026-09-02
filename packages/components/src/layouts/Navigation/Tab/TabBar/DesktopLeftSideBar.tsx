@@ -350,6 +350,7 @@ function OverflowMenuItem({
 
   return (
     <XStack
+      testID={route.name.toLowerCase()}
       px="$3"
       py="$2"
       gap="$2.5"
