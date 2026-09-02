@@ -260,8 +260,16 @@ const ProtocolHeader = ({
               // than an icon — the affordance the design uses.
               <XStack
                 ai="baseline"
+                alignSelf="flex-start"
                 cursor="pointer"
-                borderBottomWidth={1}
+                // borderStyle applies to all four edges, and an edge with no
+                // explicit width falls back to the CSS initial `medium` — which
+                // drew a dotted box instead of a rule. The other three widths
+                // have to be zeroed, same as DeFiPositionHealthFactorRow.
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
                 borderBottomColor="$borderSubdued"
                 borderStyle="dotted"
                 pb="$1"

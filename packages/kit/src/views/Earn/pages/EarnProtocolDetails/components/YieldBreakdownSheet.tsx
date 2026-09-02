@@ -180,18 +180,22 @@ export function YieldBreakdownSheet({
               <SizableText size="$bodyMdMedium">{feeItem.value}</SizableText>
             </XStack>
             {data.bulletList?.length ? (
-              <YStack gap="$2" pl="$7">
+              <YStack gap="$2">
                 {data.bulletList.map((text, index) => (
-                  <XStack key={index} gap="$1" ai="flex-start">
-                    <Stack
-                      h="$1"
-                      w="$1"
-                      my="$1.5"
-                      mx="$2"
-                      borderRadius="$full"
-                      bg="$iconSubdued"
-                      flexShrink={0}
-                    />
+                  // Mirrors the fee row above: an icon-width column then the
+                  // same gap. The dot centres under the icon and the copy lands
+                  // on the label's own offset by construction, so neither
+                  // alignment drifts if the icon size or gap ever changes.
+                  <XStack key={index} gap="$2" ai="flex-start">
+                    <Stack w="$5" ai="center" flexShrink={0}>
+                      <Stack
+                        h="$1"
+                        w="$1"
+                        my="$1.5"
+                        borderRadius="$full"
+                        bg="$iconSubdued"
+                      />
+                    </Stack>
                     <SizableText
                       size={text.size || '$bodySm'}
                       color={text.color || '$textSubdued'}

@@ -328,6 +328,10 @@ const ApyChartComponent = ({
         {isControlsAtBottom ? null : <XStack flex={1} />}
 
         <SegmentControl
+          // Bottom placement spans the chart width with evenly sized segments,
+          // the way the design spaces them; the wide layout keeps the compact
+          // content-sized control it ships today.
+          fullWidth={isControlsAtBottom}
           value={timePeriod}
           options={timePeriodOptions}
           onChange={(nextValue) => setTimePeriod(nextValue as IChartTimePeriod)}
@@ -335,7 +339,6 @@ const ApyChartComponent = ({
           activeBackgroundColor="$bgActive"
           activeTextColor="$text"
         />
-        {isControlsAtBottom ? <XStack flex={1} /> : null}
       </XStack>
 
       {showUnderlyingApyToggle ? (
