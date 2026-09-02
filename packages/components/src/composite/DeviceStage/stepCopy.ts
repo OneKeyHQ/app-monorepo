@@ -331,9 +331,8 @@ export function resolveInstallText(
 }
 
 /**
- * The card steps that wear the device's name as the title row's pill
- * (the ratified seat — it left the card's top-left corner) — the ones
- * where the person acts on the connected device, so the card names
+ * The card steps that wear the device's name as the corner badge — the
+ * ones where the person acts on the connected device, so the card names
  * which device to reach for. The authenticity flow keeps it through its
  * landing: the three beats share one card, and the board keeps the name
  * on Verification successful rather than blinking it out under the ✓.
