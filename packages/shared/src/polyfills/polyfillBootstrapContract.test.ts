@@ -145,6 +145,18 @@ function containsDynamicImport(value: unknown): boolean {
 }
 
 describe('runtime polyfill bootstrap contract', () => {
+  it('captures the startup baseline before installing polyfills', () => {
+    const source = readFileSync(
+      path.join(repoRoot, 'packages/shared/src/polyfills/index.ts'),
+      'utf8',
+    );
+
+    expect(source.indexOf('$$debugT0')).toBeGreaterThanOrEqual(0);
+    expect(source.indexOf('$$debugT0')).toBeLessThan(
+      source.indexOf("require('./polyfillsPlatform')"),
+    );
+  });
+
   it.each(fullRuntimeEntries)(
     '%s loads the complete polyfill bootstrap before any other dependency',
     (relativePath) => {

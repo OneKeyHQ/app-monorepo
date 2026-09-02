@@ -11,7 +11,6 @@ export type IRuntimePolyfillScope = {
       toSorted?: unknown;
     };
   };
-  Buffer?: unknown;
   Intl?: {
     Locale?: unknown;
     PluralRules?: unknown;
@@ -52,7 +51,6 @@ const runtimeCapabilityChecks: readonly ICapabilityCheck[] = [
   ['URL', (scope) => typeof scope.URL === 'function'],
   ['TextEncoder', (scope) => typeof scope.TextEncoder === 'function'],
   ['TextDecoder', (scope) => typeof scope.TextDecoder === 'function'],
-  ['Buffer', (scope) => typeof scope.Buffer === 'function'],
   [
     'crypto.getRandomValues',
     (scope) => typeof scope.crypto?.getRandomValues === 'function',

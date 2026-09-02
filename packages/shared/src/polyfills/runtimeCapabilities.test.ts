@@ -15,7 +15,6 @@ function createCompleteRuntimeScope(): IRuntimePolyfillScope {
         toSorted() {},
       },
     },
-    Buffer() {},
     Intl: {
       Locale() {},
       PluralRules() {},
@@ -39,6 +38,7 @@ describe('runtimeCapabilities', () => {
   it('marks a complete runtime as ready', () => {
     const scope = createCompleteRuntimeScope();
 
+    expect(getMissingRuntimeCapabilities(scope)).not.toContain('Buffer');
     markRuntimePolyfillsReady(scope);
 
     expect(scope.__ONEKEY_RUNTIME_POLYFILLS_READY__).toBe(

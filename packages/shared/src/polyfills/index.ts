@@ -1,6 +1,15 @@
 /* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
 // import { clearIntervalAsync, setIntervalAsync } from 'set-interval-async';
 
+// Capture the startup baseline inside the first imported module so installing
+// synchronous polyfills remains part of cold-start measurements.
+if (process.env.NODE_ENV !== 'production') {
+  const runtimeScope = globalThis as typeof globalThis & {
+    $$debugT0?: number;
+  };
+  runtimeScope.$$debugT0 = runtimeScope.$$debugT0 ?? performance.now();
+}
+
 // Runtime primitives must be installed before compatibility adapters import
 // third-party modules that may execute against those globals at module scope.
 require('./polyfillsPlatform');
