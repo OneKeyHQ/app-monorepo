@@ -87,7 +87,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
           observer.disconnect();
         }
       },
-      { rootMargin: '200px' },
+      {
+        rootMargin: '200px',
+        // Expand nested ScrollView clipping bounds as well as the viewport.
+        scrollMargin: '200px',
+      } as IntersectionObserverInit & { scrollMargin: string },
     );
     observer.observe(element);
     return () => observer.disconnect();
