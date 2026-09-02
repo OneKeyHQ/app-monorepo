@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
@@ -24,43 +22,6 @@ export function calculateMarketStockEstimatedShares({
     stockTokenAmount,
     tokenToAssetRatio,
   });
-}
-
-export function hasValidMarketStockTokenToAssetRatio(
-  tokenToAssetRatio?: string,
-) {
-  const ratioBN = new BigNumber(tokenToAssetRatio ?? '');
-  return ratioBN.isFinite() && ratioBN.gt(0);
-}
-
-export function resolveMarketStockTokenToAssetRatio({
-  tokenPrice,
-  tokenToAssetRatio,
-  underlyingStockPrice,
-}: {
-  tokenPrice?: string;
-  tokenToAssetRatio?: string;
-  underlyingStockPrice?: string;
-}) {
-  const normalizedRatio = tokenToAssetRatio?.trim();
-  if (hasValidMarketStockTokenToAssetRatio(normalizedRatio)) {
-    return normalizedRatio;
-  }
-
-  const tokenPriceBN = new BigNumber(tokenPrice ?? '');
-  const underlyingStockPriceBN = new BigNumber(underlyingStockPrice ?? '');
-  if (
-    !tokenPriceBN.isFinite() ||
-    !tokenPriceBN.gt(0) ||
-    !underlyingStockPriceBN.isFinite() ||
-    !underlyingStockPriceBN.gt(0)
-  ) {
-    return undefined;
-  }
-
-  // Both prices are USD values from the stock endpoints. Their quotient is
-  // the estimated token-to-share ratio when explicit ratio metadata is absent.
-  return tokenPriceBN.dividedBy(underlyingStockPriceBN).toFixed();
 }
 
 export function buildMarketStockQuoteDisplay({

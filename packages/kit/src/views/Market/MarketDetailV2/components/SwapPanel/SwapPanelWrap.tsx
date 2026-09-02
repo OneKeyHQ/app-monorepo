@@ -61,7 +61,6 @@ import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
-import { resolveMarketStockTokenToAssetRatio } from './utils/marketStockQuoteDisplayUtils';
 
 import type {
   IEstimateMarketPresetPriorityFeeFiatValues,
@@ -87,8 +86,7 @@ function SwapPanelWrapContent({
     tokenDetail,
     isReady,
   } = useTokenDetail();
-  const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
-    useStockDetail();
+  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
@@ -275,13 +273,9 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
-  const stockTokenToAssetRatio = resolveMarketStockTokenToAssetRatio({
-    tokenPrice: selectedTokenVariant?.price ?? tokenDetail?.price,
-    tokenToAssetRatio:
-      selectedTokenVariant?.tokenToAssetRatio ??
-      tokenDetail?.stock?.tokenToAssetRatio,
-    underlyingStockPrice: stockDetail?.price,
-  });
+  const stockTokenToAssetRatio =
+    selectedTokenVariant?.tokenToAssetRatio ??
+    tokenDetail?.stock?.tokenToAssetRatio;
   const currentStockInfo =
     isStockRoute && tokenDetail?.stock
       ? {

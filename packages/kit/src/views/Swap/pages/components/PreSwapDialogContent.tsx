@@ -888,9 +888,7 @@ const PreSwapDialogContent = ({
                 gap="$3"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.trade_stocks_equivalent_shares_formula,
-                  })}
+                  Shares
                 </SizableText>
                 <NumberSizeableText
                   size="$bodyMdMedium"
