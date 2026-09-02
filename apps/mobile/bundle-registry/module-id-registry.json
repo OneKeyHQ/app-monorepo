@@ -21613,6 +21613,7 @@
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector/NetworksFilterItem.tsx": 5612,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector/NetworksSearchPanel.tsx": 5613,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector/index.ts": 5614,
+    "packages/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/MarketTopCoinStar.tsx": 7980,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/MobileMarketTopCoinsFlatList.tsx": 7920,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins.ts": 7921,
     "packages/kit/src/views/Market/MarketHomeV2/components/MobileNetworkDropdown/MobileNetworkDropdown.tsx": 5615,
