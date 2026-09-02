@@ -81,22 +81,40 @@ export function usePerpPortfolioData(
     return buildPortfolioChartData({ portfolioData, timePeriod });
   }, [portfolioData, timePeriod]);
 
-  const fillsStats = useMemo(() => {
+  const fillsStatsByType = useMemo(() => {
     const isMatchingAddress = tradesHistoryData?.accountAddress === address;
     const fills = isMatchingAddress ? (tradesHistoryData?.fills ?? []) : [];
-    return buildPerpPortfolioFillsStats({
-      fills,
-      timePeriod,
-      pnlType: activityType,
-    });
-  }, [activityType, address, timePeriod, tradesHistoryData]);
+    return {
+      all: buildPerpPortfolioFillsStats({
+        fills,
+        timePeriod,
+        pnlType: 'all',
+      }),
+      perps: buildPerpPortfolioFillsStats({
+        fills,
+        timePeriod,
+        pnlType: 'perps',
+      }),
+      spot: buildPerpPortfolioFillsStats({
+        fills,
+        timePeriod,
+        pnlType: 'spot',
+      }),
+    };
+  }, [tradesHistoryData, timePeriod, address]);
+  const fillsStats = fillsStatsByType[activityType];
 
-  const selectedPnlTotal = useMemo(() => {
-    let history = chartData?.pnlHistory;
-    if (activityType === 'perps') history = chartData?.perpsPnlHistory;
-    if (activityType === 'spot') history = chartData?.nonPerpsPnlHistory;
-    return history?.at(-1)?.[1] ?? null;
-  }, [activityType, chartData]);
+  const pnlTotals = useMemo(() => {
+    const getLastValue = (history: [number, number][] | undefined) => {
+      if (!history?.length) return null;
+      return history[history.length - 1]?.[1] ?? null;
+    };
+    return {
+      all: getLastValue(chartData?.pnlHistory),
+      perps: getLastValue(chartData?.perpsPnlHistory),
+      spot: getLastValue(chartData?.nonPerpsPnlHistory),
+    };
+  }, [chartData]);
 
   const netDeposits = useMemo(() => {
     if (!netDepositsData) return null;
@@ -126,7 +144,7 @@ export function usePerpPortfolioData(
     fillsStats,
     netDeposits,
     accountSummary,
-    selectedPnlTotal,
+    pnlTotals,
     isLoading: isChartLoading,
   };
 }

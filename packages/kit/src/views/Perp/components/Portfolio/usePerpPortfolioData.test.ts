@@ -102,6 +102,7 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(stats.avgLoss).toBe(-5);
     expect(stats.profitFactor).toBe(4);
     expect(stats.realizedPnl).toBe(15);
+    expect(stats.spotRealizedPnl).toBe(-5);
     expect(stats.feesPaid).toBe(1.5);
     expect(stats.volumeUsd).toBe(5130);
   });
@@ -181,11 +182,13 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(perpsStats.totalTrades).toBe(1);
     expect(perpsStats.volumeUsd).toBe(5000);
     expect(perpsStats.realizedPnl).toBe(20);
+    expect(perpsStats.spotRealizedPnl).toBe(0);
     expect(perpsStats.mostTraded).toBe('BTC');
 
     expect(spotStats.totalTrades).toBe(2);
     expect(spotStats.volumeUsd).toBe(130);
     expect(spotStats.realizedPnl).toBe(-5);
+    expect(spotStats.spotRealizedPnl).toBe(-5);
     expect(spotStats.mostTraded).toBe('@142');
   });
 });

@@ -34,12 +34,109 @@ jest.mock('@onekeyhq/shared/src/utils/lazySdkLoader', () => ({
   createLazySdkLoader: (loader: () => Promise<unknown>) => () => loader(),
 }));
 
-jest.mock('@tamagui/core', () => ({
-  useTheme: () => ({
-    textSubdued: { val: '#666666' },
-    borderSubdued: { val: '#E5E5EA' },
-  }),
-}));
+jest.mock('./hooks/useChartConfig', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const theme = {
+    bgColor: 'transparent',
+    textSubduedColor: '#666666',
+    lineColor: '#00aa00',
+    topColor: 'transparent',
+    bottomColor: 'transparent',
+  };
+  const baselineOptions = {};
+
+  return {
+    useChartConfig: ({
+      data,
+      secondaryLineData,
+      seriesType,
+      lineType,
+      priceScalePosition,
+      showHorzGridLines,
+      horzLineColor,
+      horzLineStyle,
+      histogramOptions,
+      referenceLine,
+    }: {
+      data: IMarketTokenChart;
+      secondaryLineData?: IMarketTokenChart;
+      seriesType?: 'area' | 'baseline' | 'dotted-area' | 'histogram';
+      lineType?: 'simple' | 'steps';
+      priceScalePosition?: 'left' | 'right';
+      showHorzGridLines?: boolean;
+      horzLineColor?: string;
+      horzLineStyle?: number;
+      histogramOptions?: {
+        positiveColor: string;
+        negativeColor: string;
+        base?: number;
+        barWidthRatio?: number;
+        maxBarWidth?: number;
+      };
+      referenceLine?: {
+        price: number;
+        color: string;
+        lineWidth?: 1 | 2 | 3 | 4;
+        lineStyle?: 'solid' | 'dotted' | 'dashed';
+        axisLabelVisible?: boolean;
+      };
+    }) => {
+      // Mirrors the real hook: each source array is mapped on its own, so
+      // replacing only the overlay leaves the primary data referentially stable.
+      const chartData = React.useMemo(
+        () =>
+          data.map(([time, value]) => ({
+            time,
+            value,
+            ...(seriesType === 'histogram'
+              ? {
+                  color:
+                    value >= (histogramOptions?.base ?? 0)
+                      ? histogramOptions?.positiveColor
+                      : histogramOptions?.negativeColor,
+                }
+              : {}),
+          })),
+        [data, histogramOptions, seriesType],
+      );
+      const chartSecondaryLineData = React.useMemo(
+        () => secondaryLineData?.map(([time, value]) => ({ time, value })),
+        [secondaryLineData],
+      );
+      return React.useMemo(
+        () => ({
+          theme,
+          data: chartData,
+          secondaryLineData: chartSecondaryLineData,
+          lineWidth: 2,
+          showPriceScale: true,
+          showHorzGridLines: !!showHorzGridLines,
+          horzLineColor,
+          horzLineStyle,
+          seriesType: seriesType ?? 'area',
+          lineType,
+          priceScalePosition: priceScalePosition ?? 'right',
+          baselineOptions,
+          histogramOptions,
+          referenceLine,
+          showTimeScale: true,
+        }),
+        [
+          chartData,
+          chartSecondaryLineData,
+          histogramOptions,
+          horzLineColor,
+          horzLineStyle,
+          lineType,
+          priceScalePosition,
+          referenceLine,
+          seriesType,
+          showHorzGridLines,
+        ],
+      );
+    },
+  };
+});
 
 jest.mock('./LightweightChartPulseDot', () => ({
   LightweightChartPulseDot: ({ x, y }: { x: number; y: number }) => (

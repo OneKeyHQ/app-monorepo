@@ -53,6 +53,7 @@ export type IPerpPortfolioFillsStats = {
   mostTraded: string | null;
   profitFactor: number | null;
   realizedPnl: number;
+  spotRealizedPnl: number;
   totalTrades: number;
 };
 
@@ -68,6 +69,13 @@ const FUNDING_HISTOGRAM_BUCKET_COUNT_MAP: Record<IPortfolioTimePeriod, number> =
     month: 30,
     allTime: 30,
   };
+
+const COMBINED_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
+  day: 'day',
+  week: 'week',
+  month: 'month',
+  allTime: 'allTime',
+};
 
 const PERP_PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
   day: 'perpDay',
@@ -130,7 +138,10 @@ export function buildPortfolioChartData({
   portfolioData: IPortfolioData;
   timePeriod: IPortfolioTimePeriod;
 }): IPortfolioChartData | null {
-  const combinedMetrics = getPortfolioMetrics(portfolioData, timePeriod);
+  const combinedMetrics = getPortfolioMetrics(
+    portfolioData,
+    COMBINED_PERIOD_KEY_MAP[timePeriod],
+  );
   if (!combinedMetrics) return null;
 
   const perpsMetrics = getPortfolioMetrics(
@@ -398,79 +409,114 @@ export function buildPerpPortfolioFillsStats({
   now?: number;
 }): IPerpPortfolioFillsStats {
   const startMs = getStartTimeForPeriod(timePeriod, now);
-  let totalTrades = 0;
-  let winCount = 0;
-  let lossCount = 0;
-  let totalGain = new BigNumber(0);
-  let totalLoss = new BigNumber(0);
-  let feesPaid = new BigNumber(0);
-  let volumeUsd = new BigNumber(0);
-  const coinCounts = new Map<string, number>();
 
-  fills.forEach((fill) => {
+  const filteredFills = fills.filter((fill) => {
     const isSpotFill = isSpotInstrument(fill.coin);
-    if (
-      (pnlType === 'perps' && isSpotFill) ||
-      (pnlType === 'spot' && !isSpotFill) ||
-      (timePeriod !== 'allTime' && fill.time < startMs)
-    ) {
-      return;
-    }
-
-    const closedPnl = new BigNumber(fill.closedPnl);
-    if (!closedPnl.isFinite()) return;
-
-    totalTrades += 1;
-    const count = (coinCounts.get(fill.coin) ?? 0) + 1;
-    coinCounts.set(fill.coin, count);
-
-    const price = new BigNumber(fill.px);
-    const size = new BigNumber(fill.sz);
-    if (price.isFinite() && size.isFinite()) {
-      volumeUsd = volumeUsd.plus(size.abs().multipliedBy(price));
-    }
-
-    if (isUsdcDenominatedFee(fill.feeToken)) {
-      feesPaid = feesPaid.plus(fill.fee);
-    } else {
-      const fee = new BigNumber(fill.fee);
-      if (price.isFinite() && price.gt(0) && fee.isFinite()) {
-        feesPaid = feesPaid.plus(fee.multipliedBy(price));
-      }
-    }
-
-    if (closedPnl.gt(0)) {
-      winCount += 1;
-      totalGain = totalGain.plus(closedPnl);
-    } else if (closedPnl.lt(0)) {
-      lossCount += 1;
-      totalLoss = totalLoss.plus(closedPnl.abs());
-    }
+    if (pnlType === 'perps' && isSpotFill) return false;
+    if (pnlType === 'spot' && !isSpotFill) return false;
+    if (timePeriod !== 'allTime' && fill.time < startMs) return false;
+    return new BigNumber(fill.closedPnl).isFinite();
   });
 
-  const closedTradeCount = winCount + lossCount;
+  const closedFills = filteredFills.filter((fill) =>
+    new BigNumber(fill.closedPnl).abs().gt(0),
+  );
+
+  const winFills = closedFills.filter((fill) =>
+    new BigNumber(fill.closedPnl).gt(0),
+  );
+  const lossFills = closedFills.filter((fill) =>
+    new BigNumber(fill.closedPnl).lt(0),
+  );
+
+  const winRate =
+    closedFills.length > 0
+      ? (winFills.length / closedFills.length) * 100
+      : null;
+
+  const avgWin =
+    winFills.length > 0
+      ? winFills
+          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
+          .div(winFills.length)
+          .toNumber()
+      : null;
+
+  const avgLoss =
+    lossFills.length > 0
+      ? lossFills
+          .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
+          .div(lossFills.length)
+          .toNumber()
+      : null;
+
+  // Base-token fees (spot buys) are token units, not USD; convert them at the
+  // fill's own price (the same px volumeUsd trusts). A fill without a usable
+  // price is dropped rather than counted as raw token units.
+  const feesPaid = filteredFills
+    .reduce((sum, f) => {
+      if (isUsdcDenominatedFee(f.feeToken)) {
+        return sum.plus(f.fee);
+      }
+      const px = new BigNumber(f.px);
+      const fee = new BigNumber(f.fee);
+      return px.isFinite() && px.gt(0) && fee.isFinite()
+        ? sum.plus(fee.multipliedBy(px))
+        : sum;
+    }, new BigNumber(0))
+    .toNumber();
+
+  const volumeUsd = filteredFills
+    .reduce((sum, f) => {
+      const size = new BigNumber(f.sz);
+      const price = new BigNumber(f.px);
+      if (!size.isFinite() || !price.isFinite()) {
+        return sum;
+      }
+      return sum.plus(size.abs().multipliedBy(price));
+    }, new BigNumber(0))
+    .toNumber();
+
+  const coinCounts: Record<string, number> = {};
+  filteredFills.forEach((fill) => {
+    coinCounts[fill.coin] = (coinCounts[fill.coin] ?? 0) + 1;
+  });
   let mostTraded: string | null = null;
   let maxCount = 0;
-  coinCounts.forEach((count, coin) => {
+  Object.entries(coinCounts).forEach(([coin, count]) => {
     if (count > maxCount) {
       maxCount = count;
       mostTraded = coin;
     }
   });
+
+  const totalGain = winFills.reduce(
+    (sum, f) => sum.plus(f.closedPnl),
+    new BigNumber(0),
+  );
+  const totalLoss = lossFills
+    .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
+    .abs();
   const profitFactor = totalLoss.gt(0)
     ? totalGain.div(totalLoss).toNumber()
     : null;
 
+  const realizedPnl = totalGain.minus(totalLoss).toNumber();
+  const spotRealizedPnl = closedFills
+    .filter((fill) => isSpotInstrument(fill.coin))
+    .reduce((sum, fill) => sum.plus(fill.closedPnl), new BigNumber(0))
+    .toNumber();
+
   return {
-    winRate: closedTradeCount > 0 ? (winCount / closedTradeCount) * 100 : null,
-    avgWin: winCount > 0 ? totalGain.div(winCount).toNumber() : null,
-    avgLoss:
-      lossCount > 0 ? totalLoss.negated().div(lossCount).toNumber() : null,
-    feesPaid: feesPaid.toNumber(),
-    volumeUsd: volumeUsd.toNumber(),
+    winRate,
+    avgWin,
+    avgLoss,
+    feesPaid,
+    volumeUsd,
     mostTraded,
     profitFactor,
-    realizedPnl: totalGain.minus(totalLoss).toNumber(),
-    totalTrades,
+    realizedPnl,
+    spotRealizedPnl,
+    totalTrades: filteredFills.length,
   };
 }
