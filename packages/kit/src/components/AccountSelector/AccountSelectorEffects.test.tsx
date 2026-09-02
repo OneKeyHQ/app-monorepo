@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -638,6 +639,74 @@ describe('AccountSelectorEffects same-scene remote event sync', () => {
       'hd-1--1',
     );
     expect(store.get(accountSelectorUpdateMetaAtom())[0]?.updatedAt).toBe(2000);
+  });
+});
+
+describe('AccountSelectorEffects active account reload recovery', () => {
+  const sceneName = EAccountSelectorSceneName.home;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetGlobalDeriveType.mockResolvedValue('default');
+    mockShouldUseGlobalDeriveType.mockResolvedValue(true);
+    mockIsDeriveTypeAvailableForNetwork.mockResolvedValue(true);
+    mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
+    mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
+      activeAccount: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+    mockGetDBAccount.mockResolvedValue(undefined);
+    mockFixOthersWalletAccountNetworkPair.mockImplementation(
+      async ({ selectedAccount }) => selectedAccount,
+    );
+    mockSaveGlobalDeriveType.mockResolvedValue(undefined);
+    mockShouldSyncWithHomeSource.mockResolvedValue(false);
+    mockSimpleDbGetSelectedAccount.mockResolvedValue(undefined);
+    mockSimpleDbSaveSelectedAccount.mockResolvedValue({ persisted: true });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('retries the current account reload after a transient transfer gate error', async () => {
+    const retryWaitSpy = jest
+      .spyOn(timerUtils, 'wait')
+      .mockResolvedValue(undefined);
+    mockIsInTransferImportOrBackupRestoreFlow
+      .mockRejectedValueOnce(new Error('background unavailable'))
+      .mockResolvedValue(false);
+    const store = createStore();
+    store.set(accountSelectorStorageReadyAtom(), true);
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        deriveType: 'default',
+        focusedWallet: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        networkId: 'evm--1',
+        walletId: 'hd-1',
+      },
+    });
+
+    render(
+      <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
+        <AccountSelectorEffects num={0} />
+      </AccountSelectorJotaiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockIsInTransferImportOrBackupRestoreFlow).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(
+        mockBuildActiveAccountInfoFromSelectedAccount,
+      ).toHaveBeenCalledTimes(1);
+    });
+    expect(retryWaitSpy).toHaveBeenCalledWith(1000);
   });
 });
 
