@@ -356,7 +356,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
-        // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
 
         const currentTokenDetail = get(tokenDetailAtom());
@@ -422,7 +421,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return finalTokenData;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
-        // Only clear atoms if we're still on the same token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (
@@ -492,6 +490,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      const prevKeys = new Set(prev.data.map(uniqByFn));
+      const insertedItems = new Set(
+        params.filter((item) => !prevKeys.has(uniqByFn(item))),
+      );
       const sortedNewData = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: params,
@@ -506,10 +508,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         });
       } catch (error) {
         const current = get(marketWatchListV2Atom());
-        const failedKeys = new Set(params.map(uniqByFn));
         set(marketWatchListV2Atom(), {
           ...current,
-          data: current.data.filter((item) => !failedKeys.has(uniqByFn(item))),
+          data: current.data.filter((item) => !insertedItems.has(item)),
         });
         throw error;
       }
@@ -552,7 +553,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         });
       } catch (error) {
         const current = get(marketWatchListV2Atom());
-        const removed = prev.data.filter((item) => !newData.includes(item));
+        const currentKeys = new Set(current.data.map(uniqByFn));
+        const removed = prev.data.filter(
+          (item) => !newData.includes(item) && !currentKeys.has(uniqByFn(item)),
+        );
         const data = sortUtils.buildSortedList({
           oldList: current.data,
           saveItems: removed,

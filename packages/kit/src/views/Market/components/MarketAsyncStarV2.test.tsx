@@ -12,6 +12,7 @@ import {
   MarketAsyncStarV2,
   createCachedMarketIdentityResolver,
 } from './MarketAsyncStarV2';
+import { MarketStarV2 } from './MarketStarV2';
 
 const mockAddIntoWatchListV2 = jest.fn();
 const mockIsInWatchListV2 = jest.fn(() => false);
@@ -222,6 +223,42 @@ describe('createCachedMarketIdentityResolver', () => {
     activeResolvers[1]('two');
     activeResolvers[2]('three');
     await Promise.all(activeRequests);
+  });
+});
+
+describe('MarketStarV2', () => {
+  it('disables repeated presses while a favorite mutation is pending', async () => {
+    let resolveAdd: (value: boolean) => void = () => undefined;
+    mockWatchListData = [];
+    mockIsMounted = true;
+    mockAddIntoWatchListV2.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveAdd = resolve;
+        }),
+    );
+    render(
+      <MarketStarV2
+        chainId="evm--1"
+        contractAddress="0xbtc"
+        from={EWatchlistFrom.Homepage}
+        tokenSymbol="BTC"
+      />,
+    );
+    const button = screen.getByRole('button');
+
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(mockAddIntoWatchListV2).toHaveBeenCalledTimes(1);
+    expect(mockRemoveFromWatchListV2).not.toHaveBeenCalled();
+    expect(button.hasAttribute('disabled')).toBe(true);
+
+    await act(async () => {
+      resolveAdd(true);
+      await Promise.resolve();
+    });
+    expect(button.hasAttribute('disabled')).toBe(false);
   });
 });
 
