@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -9,13 +7,12 @@ import {
   usePerpsActiveAccountSummaryAtom,
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { HYPEREVM_SYSTEM_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IUserNonFundingLedgerUpdatesResponse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
   getStartTimeForPeriod,
+  sumPerpsNetDeposits,
 } from './portfolioStats';
 
 import type { IPortfolioPnlType, IPortfolioTimePeriod } from './portfolioStats';
@@ -117,50 +114,10 @@ export function usePerpPortfolioData(
     };
   }, [chartData]);
 
-  const netDeposits = useMemo(() => {
-    if (!netDepositsData) return null;
-    return netDepositsData
-      .reduce((sum, update: IUserNonFundingLedgerUpdatesResponse[number]) => {
-        const { delta } = update;
-        if (delta.type === 'deposit' && delta.usdc) {
-          return sum.plus(delta.usdc);
-        }
-        if (delta.type === 'withdraw' && delta.usdc) {
-          return sum.minus(delta.usdc);
-        }
-        // CCTP withdrawals leave HyperCore as a `send` to the HyperEVM system
-        // address, not as a `withdraw`, so without this they stop counting the
-        // moment we switch rails and this stat drifts up on every withdrawal.
-        if (
-          delta.type === 'send' &&
-          delta.token === 'USDC' &&
-          delta.destination?.toLowerCase() ===
-            HYPEREVM_SYSTEM_ADDRESS.toLowerCase() &&
-          delta.amount
-        ) {
-          return sum.minus(delta.amount);
-        }
-        // The matching inbound leg. HyperEVM -> Core credits arrive as a
-        // `spotTransfer` sent by the system address rather than a `send` from
-        // it, so without this a Core/HyperEVM round trip subtracts on the way
-        // out and never adds on the way back.
-        if (
-          delta.type === 'spotTransfer' &&
-          delta.token === 'USDC' &&
-          delta.user?.toLowerCase() === HYPEREVM_SYSTEM_ADDRESS.toLowerCase() &&
-          delta.amount
-        ) {
-          return sum.plus(delta.amount);
-        }
-        // `accountClassTransfer` moves USDC between the perp and spot balances
-        // of the same account, which is neither a deposit nor a withdrawal.
-        // Counting it contradicted this stat's own definition and, now that a
-        // withdrawal can be sourced from spot, subtracted such a withdrawal
-        // twice: once on the way to spot and again on the way out.
-        return sum;
-      }, new BigNumber(0))
-      .toNumber();
-  }, [netDepositsData]);
+  const netDeposits = useMemo(
+    () => sumPerpsNetDeposits(netDepositsData),
+    [netDepositsData],
+  );
 
   return {
     chartData,
