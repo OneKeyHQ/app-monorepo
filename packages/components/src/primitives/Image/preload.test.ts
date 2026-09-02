@@ -1,4 +1,17 @@
 import { preloadImages } from './preload';
+import { preloadImages as preloadNativeImages } from './preload.native';
+
+jest.mock('@onekeyfe/react-native-image', () => ({
+  OneKeyImageCache: {
+    preload: jest.fn(),
+  },
+  OneKeyImageCachePolicy: {
+    DISK: 'disk',
+    MEMORY: 'memory',
+    MEMORY_DISK: 'memory-disk',
+    NONE: 'none',
+  },
+}));
 
 jest.mock('react-native', () => ({
   Image: {
@@ -17,10 +30,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/utils/tosImageResizeUtils', () => ({
-  buildTosImageResizeUrl: ({ uri }: { uri: string }) => ({ uri }),
-}));
-
 const mockPrefetch = (
   jest.requireMock('react-native') as {
     Image: {
@@ -28,6 +37,13 @@ const mockPrefetch = (
     };
   }
 ).Image.prefetch;
+const mockNativePreload = (
+  jest.requireMock('@onekeyfe/react-native-image') as {
+    OneKeyImageCache: {
+      preload: jest.Mock;
+    };
+  }
+).OneKeyImageCache.preload;
 
 describe('preloadImages', () => {
   beforeEach(() => {
@@ -53,5 +69,29 @@ describe('preloadImages', () => {
         { optimize: false, uri: 'https://example.com/b.png' },
       ]),
     ).resolves.toBe(false);
+  });
+});
+
+describe('native preloadImages', () => {
+  beforeEach(() => {
+    mockNativePreload.mockReset();
+    mockNativePreload.mockResolvedValue(true);
+  });
+
+  test('uses the same encoded TOS URL as the render path', async () => {
+    await preloadNativeImages([
+      {
+        uri: 'https://uni.onekey-asset.com/token.png',
+        resizeWidth: 32,
+        pixelRatio: 1,
+      },
+    ]);
+
+    expect(mockNativePreload).toHaveBeenCalledWith([
+      expect.objectContaining({
+        uri: 'https://uni.onekey-asset.com/token.png?x-tos-process=image%2Fresize%2Cw_40',
+        optimizeTos: false,
+      }),
+    ]);
   });
 });

@@ -322,7 +322,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       autoplay={autoplay}
       optimizeTos={!shouldUseRawSourceFallback}
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
-      onError={onError ? handleError : undefined}
+      onError={handleError}
       onLoad={onLoad ? handleLoad : undefined}
       onLoadEnd={onLoadEnd}
       onLoadStart={onLoadStart}
