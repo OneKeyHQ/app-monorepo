@@ -22,6 +22,8 @@ import {
 } from './atoms';
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
+const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
+const UNRESOLVED_TOKEN_DECIMALS = Number.NaN;
 
 function isSameMarketTokenDetail({
   tokenDetail,
@@ -63,7 +65,7 @@ export function buildMarketAssetTokenDetail({
   lastUpdated,
 }: {
   assetDetail: IMarketAssetDetailData;
-  decimals: number;
+  decimals?: number;
   lastUpdated: number;
 }): IMarketTokenDetail {
   const { asset, market, performance, selectedVariant } = assetDetail;
@@ -75,7 +77,7 @@ export function buildMarketAssetTokenDetail({
     logoUrl: asset.logoUrl,
     name: asset.name,
     symbol: asset.symbol.toUpperCase(),
-    decimals,
+    decimals: decimals ?? UNRESOLVED_TOKEN_DECIMALS,
     price: market.price,
     priceChange24hPercent: market.priceChange24hPercent,
     priceChange7dPercent: performance.priceChange7dPercent,
@@ -95,7 +97,6 @@ interface IMarketAssetTokenDetailPayload {
   variantId?: string;
   tokenAddress: string;
   networkId: string;
-  currency: string;
 }
 
 async function fetchMarketAssetTokenDetail(
@@ -103,7 +104,7 @@ async function fetchMarketAssetTokenDetail(
   set: IJotaiSetter,
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
-  const { assetId, variantId, tokenAddress, networkId, currency } = payload;
+  const { assetId, variantId, tokenAddress, networkId } = payload;
   let isStale = false;
   const isCurrentIdentity = () =>
     get(tokenAddressAtom()) === tokenAddress &&
@@ -116,7 +117,7 @@ async function fetchMarketAssetTokenDetail(
       await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
         assetId,
         variantId,
-        currency,
+        currency: MARKET_ASSET_DETAIL_CURRENCY,
       });
 
     if (!isCurrentIdentity()) {
@@ -187,16 +188,10 @@ async function fetchMarketAssetTokenDetail(
       return assetDetail;
     }
 
-    if (!isValidTokenDecimals(decimals)) {
-      throw new OneKeyLocalError(
-        'Unable to resolve token decimals for market asset detail',
-      );
-    }
-
     const lastUpdated = Date.now();
     const tokenData = buildMarketAssetTokenDetail({
       assetDetail,
-      decimals,
+      decimals: isValidTokenDecimals(decimals) ? decimals : undefined,
       lastUpdated,
     });
     const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;

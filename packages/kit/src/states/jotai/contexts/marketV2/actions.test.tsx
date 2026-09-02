@@ -168,7 +168,6 @@ describe('marketV2 asset token detail actions', () => {
         variantId: 'doge-doge--0-1',
         tokenAddress: '',
         networkId: 'doge--0',
-        currency: 'usd',
       });
     });
 
@@ -196,7 +195,7 @@ describe('marketV2 asset token detail actions', () => {
     });
   });
 
-  it('fails safely when token decimals cannot be resolved', async () => {
+  it('keeps asset data when token decimals cannot be resolved', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
       () => {
@@ -216,22 +215,24 @@ describe('marketV2 asset token detail actions', () => {
     });
 
     await act(async () => {
-      await expect(
-        result.current.fetchAssetTokenDetail({
-          assetId: 'doge',
-          variantId: 'doge-doge--0-1',
-          tokenAddress: '',
-          networkId: 'doge--0',
-          currency: 'usd',
-        }),
-      ).rejects.toThrow('Unable to resolve token decimals');
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
     });
 
     expect(mockFetchTokenInfoOnly).toHaveBeenCalledWith({
       networkId: 'doge--0',
       tokenAddress: '',
     });
-    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: '',
+      networkId: 'doge--0',
+      price: '0.25',
+    });
+    expect(Number.isNaN(store.get(tokenDetailAtom())?.decimals)).toBe(true);
     expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
@@ -271,7 +272,6 @@ describe('marketV2 asset token detail actions', () => {
           variantId: 'doge-doge--0-1',
           tokenAddress: '',
           networkId: 'doge--0',
-          currency: 'usd',
         }),
       ).rejects.toThrow('Asset API unavailable');
     });

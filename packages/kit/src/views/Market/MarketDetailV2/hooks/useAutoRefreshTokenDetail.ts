@@ -152,7 +152,6 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
           variantId: data.marketVariantId,
           tokenAddress: data.tokenAddress,
           networkId: data.networkId,
-          currency: currencyInfo.id,
         });
         return { assetId: data.marketTokenId, assetDetail };
       }

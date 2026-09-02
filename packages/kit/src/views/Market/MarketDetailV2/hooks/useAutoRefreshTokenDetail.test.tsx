@@ -105,7 +105,6 @@ describe('useAutoRefreshTokenDetail', () => {
       variantId: 'doge-doge--0-1',
       tokenAddress: '',
       networkId: 'doge--0',
-      currency: 'usd',
     });
     expect(mockFetchTokenDetail).not.toHaveBeenCalled();
     expect(promiseOptions).toMatchObject({
@@ -129,7 +128,7 @@ describe('useAutoRefreshTokenDetail', () => {
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
   });
 
-  it('requests Asset detail in the selected fiat currency', async () => {
+  it('does not forward the display currency to the USD Asset detail owner', async () => {
     mockCurrencyId = 'cny';
     mockFetchAssetTokenDetail.mockResolvedValue({ asset: { assetId: 'doge' } });
 
@@ -145,9 +144,12 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await promiseFactory?.();
 
-    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith(
-      expect.objectContaining({ currency: 'cny' }),
-    );
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith({
+      assetId: 'doge',
+      variantId: undefined,
+      tokenAddress: '',
+      networkId: 'doge--0',
+    });
   });
 
   it('does not expose an asset result from a previous route', () => {
