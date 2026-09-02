@@ -8,6 +8,7 @@ import {
   Button,
   EPageType,
   Icon,
+  Image,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -236,43 +237,50 @@ function normalizeAssetValue(value?: string | number | null) {
 
 // Figma 25713:20533. The percentage and the historical price form one block,
 // so the item gap only separates the label from that pair.
+// Figma 26430:60331: period items show the percentage alone; only the
+// all-time-high item carries its price, inline after the percentage on the
+// same baseline. Items keep their content width as the flex basis (never a
+// zero basis: the wrap algorithm breaks lines by the basis, and a zero basis
+// would keep every item on one line and squeeze the figures into mid-number
+// wraps) with a 112px floor — when the row cannot fit an item's content, the
+// whole item wraps to the next line instead.
+const TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH = 112;
+
 function TopCoinsPerformanceItem({
   label,
   percentage,
-  referencePrice,
+  inlinePrice,
 }: {
   label: string;
   percentage?: string | number;
-  referencePrice?: string;
+  inlinePrice?: string;
 }) {
   return (
     <YStack
       flex={1}
-      flexBasis={0}
-      minWidth={0}
+      minWidth={TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH}
       py="$2"
       justifyContent="center"
       gap="$2.5"
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+      <SizableText size="$bodyMdMedium" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
-      <YStack gap="$0.5">
-        <PriceChangePercentage size="$headingLg">
+      <XStack gap="$2" alignItems="baseline">
+        <PriceChangePercentage size="$headingLg" numberOfLines={1}>
           {percentage ?? '--'}
         </PriceChangePercentage>
-        {referencePrice ? (
+        {inlinePrice ? (
           <NumberSizeableText
-            size="$bodyLg"
+            size="$bodyMd"
             formatter="price"
             formatterOptions={{ currency: '$' }}
+            numberOfLines={1}
           >
-            {referencePrice}
+            {inlinePrice}
           </NumberSizeableText>
-        ) : (
-          <SizableText size="$bodyLg">--</SizableText>
-        )}
-      </YStack>
+        ) : null}
+      </XStack>
     </YStack>
   );
 }
@@ -288,31 +296,34 @@ function TopCoinsOverview({
   const market = assetDetail?.market;
   const performance = assetDetail?.performance;
   const symbol = assetDetail?.asset.symbol ?? tokenDetail?.symbol ?? '';
-  const performanceItems = useMemo(
+  const performanceItems = useMemo<
+    {
+      key: string;
+      label: string;
+      percentage?: string;
+      inlinePrice?: string;
+    }[]
+  >(
     () => [
       {
         key: '7d',
         label: '7D',
         percentage: normalizeAssetValue(performance?.priceChange7dPercent),
-        referencePrice: normalizeAssetValue(performance?.price7dAgo),
       },
       {
         key: '30d',
         label: '30D',
         percentage: normalizeAssetValue(performance?.priceChange30dPercent),
-        referencePrice: normalizeAssetValue(performance?.price30dAgo),
       },
       {
         key: '3m',
         label: '3M',
         percentage: normalizeAssetValue(performance?.priceChange3mPercent),
-        referencePrice: normalizeAssetValue(performance?.price3mAgo),
       },
       {
         key: '1y',
         label: '1Y',
         percentage: normalizeAssetValue(performance?.priceChange1yPercent),
-        referencePrice: normalizeAssetValue(performance?.price1yAgo),
       },
       {
         key: 'ath',
@@ -320,7 +331,7 @@ function TopCoinsOverview({
           id: ETranslations.market_all_time_high,
         }),
         percentage: normalizeAssetValue(performance?.allTimeHighChangePercent),
-        referencePrice: normalizeAssetValue(performance?.allTimeHighPrice),
+        inlinePrice: normalizeAssetValue(performance?.allTimeHighPrice),
       },
     ],
     [intl, performance],
@@ -390,13 +401,13 @@ function TopCoinsOverview({
         <SizableText size="$headingXl">
           {intl.formatMessage({ id: ETranslations.market_performance })}
         </SizableText>
-        <XStack>
+        <XStack flexWrap="wrap">
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
               key={item.key}
               label={item.label}
               percentage={item.percentage}
-              referencePrice={item.referencePrice}
+              inlinePrice={item.inlinePrice}
             />
           ))}
         </XStack>
@@ -405,9 +416,12 @@ function TopCoinsOverview({
   );
 }
 
-// Figma 25713:20673. The 56px leading slot is an illustration that is not in
-// the asset library yet, so it renders as a reserved placeholder box.
+// Figma 25713:20673 / node 25754:19667 — the original transparent source
+// bitmap (160px, ~2.9x of the 56px slot; the node export bakes in a white
+// background). Baked into the bundle by product decision — the artwork is not
+// expected to change often.
 const TOP_COINS_EARN_ARTWORK_SIZE = 56;
+const topCoinsEarnArtwork = require('@onekeyhq/kit/assets/market_earn_growth.png');
 
 // The Earn surface renders APY as "value + one-step-smaller unit", but this row
 // is a single sentence set at one size, so the APY is resolved to plain text
@@ -472,12 +486,10 @@ function TopCoinsEarnSection({
           pressStyle={{ bg: '$bgActive' }}
           onPress={onPress}
         >
-          <Stack
+          <Image
+            source={topCoinsEarnArtwork}
             width={TOP_COINS_EARN_ARTWORK_SIZE}
             height={TOP_COINS_EARN_ARTWORK_SIZE}
-            borderRadius="$2"
-            borderCurve="continuous"
-            bg="$bgSubdued"
           />
           <SizableText
             size="$headingLg"
