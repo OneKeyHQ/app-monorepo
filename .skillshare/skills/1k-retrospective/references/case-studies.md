@@ -269,3 +269,16 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
 **Fix**: Render the badge in `ListItem.Text` primary via an `XStack` with the title.
 **Catchable by**: Section 3: UI changes verified on mobile — trailing children of a two-line ListItem do not vertically align with the title
+## Case: Union-build ownership promotion dropped runtime-divergent modules from every bundle
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (split-bundle union build)
+**Symptom**: CI "Native startup graph budget" failed: 38 `react-native-mmkv/src/*` modules were reachable via sync edges in the background graph but landed in no eager bundle and no segment, which would crash the bg runtime with "Requiring unknown module".
+**Root Cause**: `buildRuntimeOwnership` promoted every sync dep of a shared-startup module into the common-bundle set, but the common bundle is serialized from the MAIN graph only. A dep that resolves differently per runtime (react-native-mmkv → real package in bg, guard shim in main) exists only in the bg graph, so promotion removed it from bg-only ownership while the common bundle could never emit it.
+**Fix**: The shared-startup expansion only promotes deps that are shared-equivalent (present in both graphs with identical signatures); runtime-divergent deps stay runtime-owned so each eager bundle ships its own variant under the same stable module id.
+**Catchable by**: NEW — not covered (build allocator invariants need a cross-runtime completeness gate; the union build's assertBundleCompleteness caught it only in CI)
+
+## Case: Jest suite mocking platformEnv as native crashed the whole shard via WebStorage
+**Date**: 2026-08-26 | **Platforms**: CI unit tests (all shards at risk)
+**Symptom**: Unit Tests shard crashed the Node process: `IndexedDBPromised.open` threw "Cannot read properties of undefined (reading 'open')" inside `new WebStorage()`'s async promise executor, killing jest before any suite result was reported.
+**Root Cause**: A test mocked `platformEnv` with `isNative: true` but without `isJest: true`; after a base-branch merge extended ServiceApp's import graph to `webStorageInstance.ts`, the falsy `isJest` made the module construct real IndexedDB-backed WebStorage singletons in Node, and the unhandled rejection killed the worker process.
+**Fix**: The test mock keeps `isJest: true`; platform-file seams (`nativeSyncStorageParts`, `jotaiStorageNativeMMKV`) are mapped to their `.native` implementations via jest `moduleNameMapper` so native-mocked suites construct jest-safe storage.
+**Catchable by**: Section 6: Tests cover happy path AND edge cases (platformEnv mocks must preserve `isJest`); NEW — a platformEnv test mock omitting `isJest` is a systemic hazard worth a lint/setup guard

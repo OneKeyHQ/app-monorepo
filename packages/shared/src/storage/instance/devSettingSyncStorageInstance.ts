@@ -1,21 +1,55 @@
 import platformEnv from '../../platformEnv';
 
-import mmkvDevSettingStorageInstance from './mmkvDevSettingStorageInstance';
+import {
+  broadcastNativeDevSettingMutation,
+  createNativeDevSettingStorageMirror,
+} from './nativeSyncStorageParts';
 
+import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EDevSettingSyncStorageKeys } from '../syncStorageKeys';
+
+function broadcastMutation(mutation: INativeSyncStorageLocalMutation) {
+  if (platformEnv.isNativeBackgroundThread) {
+    broadcastNativeDevSettingMutation(mutation);
+  }
+}
+
+type IDevSettingStorageInstance = {
+  set(key: string, value: boolean | string | number): void | Promise<void>;
+  getBoolean(key: string): boolean | undefined;
+  remove(key: string): void | Promise<void>;
+  clearAll(): void | Promise<void>;
+};
+
+function getDevSettingStorageInstance(): IDevSettingStorageInstance {
+  if (platformEnv.isNative && !platformEnv.isNativeBackgroundThread) {
+    return createNativeDevSettingStorageMirror();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./mmkvDevSettingStorageInstance')
+    .default as IDevSettingStorageInstance;
+}
+
+const devSettingStorageInstance = getDevSettingStorageInstance();
 
 const devSettingSyncStorageWeb = {
   set(key: EDevSettingSyncStorageKeys, value: boolean | string | number) {
-    mmkvDevSettingStorageInstance.set(key, value);
+    const acknowledgement = devSettingStorageInstance.set(key, value);
+    broadcastMutation({ operation: 'set', key, value });
+    return acknowledgement;
   },
   getBoolean(key: EDevSettingSyncStorageKeys) {
-    return mmkvDevSettingStorageInstance.getBoolean(key);
+    return devSettingStorageInstance.getBoolean(key);
   },
   delete(key: EDevSettingSyncStorageKeys) {
-    mmkvDevSettingStorageInstance.remove(key);
+    const acknowledgement = devSettingStorageInstance.remove(key);
+    broadcastMutation({ operation: 'remove', key });
+    return acknowledgement;
   },
   clearAll() {
-    mmkvDevSettingStorageInstance.clearAll();
+    const acknowledgement = devSettingStorageInstance.clearAll();
+    broadcastMutation({ operation: 'clear' });
+    return acknowledgement;
   },
 };
 

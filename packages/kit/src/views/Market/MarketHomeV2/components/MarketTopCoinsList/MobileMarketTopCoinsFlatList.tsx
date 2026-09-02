@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketToken as ILegacyMarketToken } from '@onekeyhq/shared/types/market';
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
 import { TokenListItem } from '../MarketTokenList/components/TokenListItem';
@@ -28,24 +28,30 @@ type IMobileMarketTopCoinsFlatListProps = {
   shouldSuppressItemPress?: () => boolean;
 };
 
-const EMPTY_DATA: ILegacyMarketToken[] = [];
+const EMPTY_DATA: IMarketAssetListItem[] = [];
 
-function toMobileMarketToken(item: ILegacyMarketToken): IMarketToken {
+function toFiniteNumber(value: string) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function toMobileMarketToken(item: IMarketAssetListItem): IMarketToken {
   return {
-    id: item.coingeckoId,
-    name: item.name,
+    id: item.assetId,
+    name: item.symbol.toUpperCase(),
     symbol: item.symbol.toUpperCase(),
     address: '',
     decimals: 0,
-    price: item.price,
-    change24h: item.priceChangePercentage24H,
-    marketCap: item.marketCap,
+    price: toFiniteNumber(item.price),
+    change24h: toFiniteNumber(item.priceChange24hPercent),
+    priceChangeRaw: item.priceChange24hPercent,
+    marketCap: toFiniteNumber(item.marketCap),
     liquidity: 0,
     transactions: 0,
     uniqueTraders: 0,
     holders: 0,
-    turnover: item.totalVolume,
-    tokenImageUri: item.image || item.iconUrl,
+    turnover: toFiniteNumber(item.volume24h),
+    tokenImageUri: item.logoUrl,
     networkLogoUri: '',
     networkId: '',
   };
@@ -60,7 +66,7 @@ function MobileMarketTopCoinsFlatListBase({
   const tabBarHeight = useScrollContentTabBarOffset();
   const showSkeleton = isLoading && data.length === 0;
 
-  const renderItem: FlatListProps<ILegacyMarketToken>['renderItem'] =
+  const renderItem: FlatListProps<IMarketAssetListItem>['renderItem'] =
     useCallback(
       ({ item }) => (
         <TokenListItem
@@ -90,11 +96,11 @@ function MobileMarketTopCoinsFlatListBase({
   }, [intl, showSkeleton]);
 
   return (
-    <Tabs.FlatList<ILegacyMarketToken>
+    <Tabs.FlatList<IMarketAssetListItem>
       showsVerticalScrollIndicator={false}
       data={showSkeleton ? EMPTY_DATA : data}
       renderItem={renderItem}
-      keyExtractor={(item) => item.coingeckoId}
+      keyExtractor={(item) => item.assetId}
       initialNumToRender={10}
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}

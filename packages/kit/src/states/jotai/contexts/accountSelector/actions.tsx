@@ -305,7 +305,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
-  setRecentAccountSelectorSelectionCache({
+  async setRecentAccountSelectorSelectionCache({
     sceneName,
     sceneUrl,
     num,
@@ -403,7 +403,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
       }
 
-      coldStartCacheStorage.setObject(
+      await coldStartCacheStorage.setObject(
         EAppSyncStorageKeys.onekey_account_selector_recent_selection,
         nextCache,
       );
@@ -1502,7 +1502,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const sceneInfo = get(accountSelectorContextDataAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
 
-      this.setRecentAccountSelectorSelectionCache({
+      await this.setRecentAccountSelectorSelectionCache({
         sceneName: sceneInfo?.sceneName,
         sceneUrl: sceneInfo?.sceneUrl,
         num,
