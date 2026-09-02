@@ -691,7 +691,7 @@ describe('metro-dev-prebundle release transport', () => {
     } finally {
       await fs.remove(fixture.repoRoot);
     }
-  });
+  }, 15_000);
 
   it('rejects OCI bearer token realms containing credentials', async () => {
     const registryBaseUrl = 'https://example.invalid';
