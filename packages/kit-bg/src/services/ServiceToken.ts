@@ -23,6 +23,8 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
@@ -239,6 +241,19 @@ class ServiceToken extends ServiceBase {
       ...rest
     } = params;
     const { networkId } = rest;
+
+    // All-network flows must fan out per real network before reaching this
+    // method; the wallet API always rejects the all-network mock id, so a
+    // direct request with it is a caller bug — drop it before the network layer.
+    if (networkUtils.isAllNetwork({ networkId })) {
+      defaultLogger.token.request.fetchAccountTokensBlockedAllNetworkRequest({
+        params,
+      });
+      return {
+        ...getEmptyTokenData(),
+        networkId,
+      };
+    }
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
@@ -472,6 +487,37 @@ class ServiceToken extends ServiceBase {
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         };
       });
+
+    // Explicit custom contracts may still be returned when the wallet-token
+    // request excludes dApp tokens. Normalize the complete groups before
+    // cache and account-worth consumers see them.
+    const tokenSelectorFilterParams = {
+      withoutDappToken: rest.withoutDappToken,
+      withoutWalletToken: rest.withoutWalletToken,
+    };
+    resp.data.data.tokens = filterTokenSelectorTokenDataByDappTokenFilterParams(
+      {
+        tokenData: resp.data.data.tokens,
+        tokenSelectorFilterParams,
+      },
+    );
+    resp.data.data.riskTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.riskTokens,
+        tokenSelectorFilterParams,
+      });
+    resp.data.data.smallBalanceTokens =
+      filterTokenSelectorTokenDataByDappTokenFilterParams({
+        tokenData: resp.data.data.smallBalanceTokens,
+        tokenSelectorFilterParams,
+      });
+    if (resp.data.data.allTokens) {
+      resp.data.data.allTokens =
+        filterTokenSelectorTokenDataByDappTokenFilterParams({
+          tokenData: resp.data.data.allTokens,
+          tokenSelectorFilterParams,
+        });
+    }
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
@@ -739,16 +785,17 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    return result.map((item) => ({
-      ...item,
-      tokens: item.tokens.map((token) => ({
+    return result.map((item) => {
+      const tokens = item.tokens.map((token) => ({
         ...token,
         info: {
           ...token.info,
           networkId,
         },
-      })),
-    }));
+      }));
+      tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
+      return { ...item, tokens };
+    });
   }
 
   @backgroundMethod()
@@ -817,15 +864,46 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    // The dedupe key and the row `$key` must stay identical, so derive both
+    // from one builder. networkId is part of it because native tokens across
+    // chains share uniqueKey 'native' and an empty address: a bare
+    // `uniqueKey ?? address` collides and downstream $key-keyed maps
+    // (TokenListView tokenByKey) collapse them into one row.
+    const buildSearchTokenKey = (info: IToken) =>
+      `${info.networkId ?? ''}_${info.uniqueKey ?? info.address}`;
+
+    // Defense-in-depth (OK-60860): the backend search index may still return
+    // tokens on delisted networks (dropped from getAllNetworks via status
+    // TRASH) or on networks this app version does not know at all. Such rows
+    // render without a resolvable network and cannot receive funds, so drop
+    // them here. Tokens without their own networkId belong to the request's
+    // scoped networkId and pass through. The catalog lookup itself is
+    // best-effort: a transient catalog failure must not discard the token
+    // queries that already succeeded, so fail open and skip the filter.
+    let availableNetworkIds: Set<string> | undefined;
+    try {
+      const { networks: availableNetworks } =
+        await this.backgroundApi.serviceNetwork.getAllNetworks();
+      availableNetworkIds = new Set(
+        availableNetworks.map((network) => network.id),
+      );
+    } catch {
+      availableNetworkIds = undefined;
+    }
+
     return uniqBy(
-      fulfilledResponses.flatMap((resp) => resp.data.data),
-      (item) =>
-        `${item.info.networkId ?? ''}_${
-          item.info.uniqueKey ?? item.info.address
-        }`,
+      fulfilledResponses
+        .flatMap((resp) => resp.data.data)
+        .filter(
+          (item) =>
+            !item.info.networkId ||
+            !availableNetworkIds ||
+            availableNetworkIds.has(item.info.networkId),
+        ),
+      (item) => buildSearchTokenKey(item.info),
     ).map((item) => ({
       ...item.info,
-      $key: item.info.uniqueKey ?? item.info.address,
+      $key: buildSearchTokenKey(item.info),
     }));
   }
 

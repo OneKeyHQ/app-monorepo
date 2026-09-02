@@ -34,6 +34,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -42,9 +46,11 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useUnifiedNetworkSelectorTrigger } from '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
+import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
@@ -89,6 +95,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -201,19 +208,21 @@ export function HomePageView({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { md: isSmallScreen } = useMedia();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const {
-    activeAccount: {
-      account,
-      accountName,
-      network,
-      deriveInfo,
-      wallet,
-      ready,
-      device,
-      indexedAccount,
-      vaultSettings: cachedVaultSettings,
-    },
-  } = useActiveAccount({ num: 0 });
+    account,
+    accountName,
+    network,
+    deriveInfo,
+    wallet,
+    ready,
+    device,
+    indexedAccount,
+    vaultSettings: cachedVaultSettings,
+  } = activeAccount;
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num: 0,
+  });
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -421,6 +430,15 @@ export function HomePageView({
         autoCreateAddress
         createAllDeriveTypes
         createAllEnabledNetworks
+        onCreateAddress={
+          network?.isAllNetworks
+            ? () =>
+                showUnifiedNetworkSelector({
+                  recordNetworkHistoryEnabled: true,
+                  defaultTab: 'portfolio',
+                })
+            : undefined
+        }
         name={accountName}
         chain={network?.name ?? ''}
         type={
@@ -432,7 +450,15 @@ export function HomePageView({
         }
       />
     ),
-    [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
+    [
+      accountName,
+      deriveInfo?.label,
+      deriveInfo?.labelKey,
+      intl,
+      network?.isAllNetworks,
+      network?.name,
+      showUnifiedNetworkSelector,
+    ],
   );
 
   // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
@@ -545,6 +571,7 @@ export function HomePageView({
   }, [tabConfigs]);
 
   const switchToPerpsWebTab = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.Home);
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 
@@ -662,6 +689,7 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
+            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -830,11 +858,27 @@ export function HomePageView({
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
+    // The remount key resets the pager to the first tab while HomePageView's
+    // activeTab state still points at the previously selected tab, so seed
+    // the remounted container with that tab. But the new pagerTabConfigs and
+    // the stale activeTabName can land in the same render (the reset effect
+    // above runs only after it), and the web Tabs.Container initializes
+    // focusedTab with whatever name it receives without falling back when
+    // the name is missing from the tab set — leaving content, highlight and
+    // active state out of sync. Validate here and fall back to the first tab.
+    const seedTabName = pagerTabConfigs.some(
+      (tab) => tab.name === activeTabName,
+    )
+      ? activeTabName
+      : pagerTabConfigs[0]?.name;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
+        // Both implementations only read this prop at mount.
+        initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
+        disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
@@ -871,6 +915,7 @@ export function HomePageView({
     handleTabChange,
     renderSubHeader,
     pagerTabConfigs,
+    activeTabName,
     activeTabId,
     mountedHomeTabIds,
   ]);
@@ -1006,12 +1051,13 @@ export function HomePageView({
 
     if (
       !account &&
-      !(
-        vaultSettings?.mergeDeriveAssetsEnabled &&
-        networkAccounts &&
-        networkAccounts.networkAccounts &&
-        networkAccounts.networkAccounts.length > 0
-      )
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts &&
+          networkAccounts.networkAccounts &&
+          networkAccounts.networkAccounts.length > 0
+        ))
     ) {
       return (
         <YStack flex={1}>
@@ -1047,6 +1093,7 @@ export function HomePageView({
     watchingAccountEnabled,
     emptyAccountView,
     network?.id,
+    network?.isAllNetworks,
     tabs,
   ]);
 
@@ -1119,6 +1166,10 @@ export function HomePageView({
               <RiskApprovalAlert />
               <WatchOnlyAlert />
               <NetworkAlert />
+              <NotificationPermissionRecoveryAlert
+                scene="home"
+                initialDelayMs={6000}
+              />
             </Stack>
             {content}
             {platformEnv.isNative ? (

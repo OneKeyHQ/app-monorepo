@@ -41,6 +41,7 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -67,6 +68,7 @@ import {
   getSwapKLineStableTokenStatusFromMap,
   haveSameSwapKLineTokenSymbol,
   isKnownSwapKLineUnsupportedToken,
+  isSwapKLineStableTokenStatusUnavailable,
 } from './swapKLineTokenUtils';
 import {
   type ISwapKLineTokenMarketInfoRequestResult,
@@ -168,6 +170,10 @@ function useSwapKLineTokenMarketInfo(
         : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      swrKey: tokenKey
+        ? ['swapKLineTokenMarketInfo', 'v1', tokenKey].join(':')
+        : undefined,
+      swrShouldPersist: (value) => value?.status === 'success',
     },
   );
 
@@ -327,6 +333,11 @@ function useSwapKLineStableTokenChecks({
 }) {
   const fromStableTokenKey = getSwapKLineStableTokenKey(fromToken);
   const toStableTokenKey = getSwapKLineStableTokenKey(toToken);
+  const stableTokenChecksScope = `${fromStableTokenKey}|${toStableTokenKey}`;
+  const stableTokenChecksSWRKey =
+    fromToken || toToken
+      ? ['swapKLineStableChecks', 'v1', stableTokenChecksScope].join(':')
+      : undefined;
   const fromStableTokenIdentity = useMemo(
     () =>
       fromStableTokenKey
@@ -361,6 +372,7 @@ function useSwapKLineStableTokenChecks({
   );
   const { result, isLoading } = usePromiseResult<
     | {
+        fromCache?: boolean;
         fromTokenIsStable: boolean;
         toTokenIsStable: boolean;
       }
@@ -371,6 +383,21 @@ function useSwapKLineStableTokenChecks({
         fromStableTokenIdentity,
         toStableTokenIdentity,
       ]);
+      if (
+        isSwapKLineStableTokenStatusUnavailable(
+          stableStatusMap,
+          fromStableTokenKey,
+          toStableTokenKey,
+        )
+      ) {
+        const cachedResult = stableTokenChecksSWRKey
+          ? swrCacheUtils.get<{
+              fromTokenIsStable: boolean;
+              toTokenIsStable: boolean;
+            }>(stableTokenChecksSWRKey)
+          : undefined;
+        return cachedResult ? { ...cachedResult, fromCache: true } : undefined;
+      }
       return {
         fromTokenIsStable: getSwapKLineStableTokenStatusFromMap({
           stableStatusMap,
@@ -385,6 +412,7 @@ function useSwapKLineStableTokenChecks({
     [
       fromStableTokenIdentity,
       fromStableTokenKey,
+      stableTokenChecksSWRKey,
       toStableTokenIdentity,
       toStableTokenKey,
     ],
@@ -392,7 +420,8 @@ function useSwapKLineStableTokenChecks({
       checkIsFocused: false,
       watchLoading: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
+      swrKey: stableTokenChecksSWRKey,
+      swrShouldPersist: (value) => !value?.fromCache,
     },
   );
 
@@ -1187,7 +1216,7 @@ function SwapKLineContentBody({
       flex={1}
       minHeight={chartMinHeight}
       overflow="hidden"
-      bg="$bgApp"
+      bg="$transparent"
       borderTopWidth={showSeparateChartDivider ? undefined : '$px'}
       borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
       testID={SwapTestIDs.kLineChart}

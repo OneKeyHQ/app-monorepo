@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Divider,
+  Page,
   SizableText,
   Skeleton,
   XStack,
@@ -14,10 +15,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -27,6 +30,7 @@ import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
+import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
 import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
@@ -87,10 +91,11 @@ export interface IManagePositionContentProps {
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
-// gray blocks, render the fixed chrome — the tab bar (real labels), the amount
-// input frame, and the token — immediately, and reserve skeletons only for the
-// values that depend on the (slow) getManagePage response. This keeps the
-// layout stable (no jump when data lands) and makes the wait feel smoother.
+// gray blocks, render the fixed chrome — the type switcher when applicable,
+// the amount input frame, and the token — immediately, and reserve skeletons
+// only for the values that depend on the (slow) getManagePage response. This
+// keeps the layout stable (no jump when data lands) and makes the wait feel
+// smoother.
 const ManageSectionShell = ({
   type,
   symbol,
@@ -139,16 +144,31 @@ const ManageSectionShell = ({
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
   const tabLabels = [primaryLabel, secondaryLabel];
   const activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
+  const borrowAction = useMemo(() => {
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return activeIndex === 1 ? 'withdraw' : 'supply';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return activeIndex === 1 ? 'repay' : 'borrow';
+    }
+    return undefined;
+  }, [activeIndex, type]);
 
-  // The loaded layout has gap $1.5 between the tab bar and the content: in the
-  // details panel that comes from ManagePositionPart's <YStack gap="$1.5">
-  // wrapping the (fragment) NormalManageContent; in the modal there is no such
-  // wrapper. Reproduce that gap deterministically here (a single wrapping YStack
-  // means the parent gap can't apply to us), so the tab→input spacing matches
-  // the loaded state exactly and doesn't jump on load.
+  // The loaded layout has gap $1.5 between the type switcher and the content:
+  // in the details panel that comes from
+  // ManagePositionPart's <YStack gap="$1.5"> wrapping the (fragment)
+  // NormalManageContent; in the modal there is no such wrapper. Reproduce that
+  // gap deterministically here (a single wrapping YStack means the parent gap
+  // can't apply to us), so the tab→input spacing matches the loaded state
+  // exactly and doesn't jump on load.
+  const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
+
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      {/* Real tab bar — fixed, renders immediately */}
       <XStack px="$5">
         {tabLabels.map((label, index) => {
           const isFocused = index === activeIndex;
@@ -186,8 +206,24 @@ const ManageSectionShell = ({
           <XStack h="$11" ai="center" jc="space-between">
             <Skeleton h="$6" w="$24" borderRadius="$2" />
             <XStack ai="center" gap="$1.5">
-              <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
-              <SizableText size="$headingXl">{symbol}</SizableText>
+              {/* Everything else in this frame is a Skeleton, but the token
+                  icon was rendered straight away — entries that carry no
+                  tokenImageUri route param (e.g. a banner deep link) then drew
+                  Token's empty placeholder and popped the real logo in once
+                  tokenInfo resolved. Skeleton it at the same size instead so
+                  the swap costs no layout shift (OK-59961). */}
+              {fallbackTokenImageUri ? (
+                <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+              ) : (
+                <Skeleton w="$6" h="$6" radius="round" />
+              )}
+              {/* The symbol is the one real string this frame used to draw, and
+                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
+                  a full-width name sitting among skeleton bars reads worse than
+                  no name at all, and the page title already carries it. Skeleton
+                  it like everything else and let the real symbol land with the
+                  rest of the data. */}
+              <Skeleton h="$6" w="$20" borderRadius="$2" />
             </XStack>
           </XStack>
           <XStack jc="space-between" ai="center">
@@ -254,7 +290,13 @@ const ManageSectionShell = ({
               </XStack>
             </YStack>
           </>
-        ) : (
+        ) : null}
+
+        {!hasProtocolSwitch && borrowAction ? (
+          <BorrowInfoSectionSkeleton action={borrowAction} />
+        ) : null}
+
+        {!hasProtocolSwitch && !borrowAction ? (
           /* Summary card — single bordered box (details entry): est. rewards +
              provider + trade/buy. Interior spacing mirrors the real card
              (Divider my $5, inner gap $5) so nothing shifts on load. */
@@ -304,7 +346,7 @@ const ManageSectionShell = ({
               </XStack>
             </YStack>
           </YStack>
-        )}
+        ) : null}
 
         {/* Inline action button only for the non-modal (details) layout. In the
             modal the real button sits in Page.Footer, so we render nothing here
@@ -321,6 +363,17 @@ const ManageSectionShell = ({
           </Button>
         )}
       </YStack>
+      {isInModalContext ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirmText={activeLabel}
+            confirmButtonProps={{ disabled: true }}
+          />
+          <PercentageStageOnKeyboard
+            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+          />
+        </Page.Footer>
+      ) : null}
     </YStack>
   );
 };
@@ -417,16 +470,43 @@ export function ManagePositionContent({
     await refreshManageData();
   }, [onCreateAddress, refreshManageData]);
 
+  const networkSupportCheckTarget = useMemo(
+    () => ({
+      accountId: accountId || earnAccount?.accountId || '',
+      walletId: earnAccount?.walletId || '',
+      accountImpl: earnAccount?.account?.impl,
+    }),
+    [
+      accountId,
+      earnAccount?.account?.impl,
+      earnAccount?.accountId,
+      earnAccount?.walletId,
+    ],
+  );
+
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
+      if (
+        !networkSupportCheckTarget.accountId &&
+        !networkSupportCheckTarget.walletId
+      ) {
+        return undefined;
+      }
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: accountId?.length > 0 ? accountId : (indexedAccountId ?? ''),
+        accountId: networkSupportCheckTarget.accountId || undefined,
+        walletId: networkSupportCheckTarget.walletId || undefined,
+        accountImpl: networkSupportCheckTarget.accountImpl,
         activeNetworkId: networkId,
       });
     },
-    [accountId, networkId, indexedAccountId],
-    { initResult: undefined },
+    [
+      networkId,
+      networkSupportCheckTarget.accountId,
+      networkSupportCheckTarget.accountImpl,
+      networkSupportCheckTarget.walletId,
+    ],
+    { initResult: undefined, undefinedResultIfError: true },
   );
 
   const noAddressOrAccount = useMemo(
@@ -481,16 +561,15 @@ export function ManagePositionContent({
     });
   }, [intl, type, defaultTab]);
 
-  // When switching protocols, useManagePage re-fetches while keeping the
-  // previous (stale) data on screen. Surface that whole refetch as one loading
-  // on the confirm button — instead of letting it surface late/scattered on a
-  // downstream request — and disable the button so stale data can't be acted on.
-  // isStaleData flips synchronously on the very render the params change (before
-  // any effect runs), so downstream fetch gates see it in time; isLoading covers
-  // any same-key refresh tail.
-  const isSwitchingProtocol = Boolean(
-    stakeProtocolSwitchConfig && (isStaleData || isLoading) && managePageData,
-  );
+  // Stale request identity must always block actions, including account
+  // switches on pages without a protocol switcher. The loading tail remains
+  // specific to protocol switching so ordinary same-scope refreshes stay usable.
+  const isSwitchingProtocol = shouldBlockManagePageAction({
+    hasManagePageData: !!managePageData,
+    isStaleData,
+    isLoading,
+    hasProtocolSwitch: !!stakeProtocolSwitchConfig,
+  });
   const switchingFooterAction = useMemo<
     IManagePositionFooterAction | undefined
   >(

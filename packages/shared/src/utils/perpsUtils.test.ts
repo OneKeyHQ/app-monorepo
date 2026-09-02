@@ -27,14 +27,17 @@ import {
   formatWithPrecision,
   getDisplayPriceScaleDecimals,
   getHlPriceTick,
+  getHyperliquidTokenImageUris,
   getHyperliquidTokenImageUrl,
   getMostFrequentDecimalPlaces,
   getOrderBookSizeDisplaySymbol,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getValidPriceDecimals,
+  getValidSpotPriceDecimals,
   isHyperLiquidAbstractionModeEnabled,
   isPredictionMarketInstrument,
+  isSpotInstrument,
   resolveBboOrderPrice,
   resolveOrderBookSizeDecimals,
   resolveTradingSizeBN,
@@ -86,6 +89,13 @@ describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
   test('edge cases', () => {
     expect(getValidPriceDecimals('0.01234')).toBe(5); // 5 significant figures
     expect(getValidPriceDecimals('0.012345')).toBe(6); // 6 decimals (within MAX_DECIMALS)
+  });
+
+  // Spot allows MAX_DECIMALS_SPOT (8): a 7-decimal spot fill price must not be
+  // rounded through the perp rule (0.0000006 → 0.000001).
+  test('spot keeps decimals beyond the perp cap', () => {
+    expect(getValidPriceDecimals('0.0000006')).toBe(6); // perp rule rounds it
+    expect(getValidSpotPriceDecimals('0.0000006', 0)).toBe(7);
   });
 });
 
@@ -610,6 +620,31 @@ describe('HyperLiquid BBO price ticks', () => {
     ).toBe(expected);
   });
 
+  test('applies spot tick rules for spot assets on low-priced pairs', () => {
+    const args = {
+      bid: '0.0014',
+      ask: '0.0015',
+      side: 'long',
+      type: 'counterparty',
+      offsetTicks: 5,
+      szDecimals: 2,
+    } as const;
+    // Perp rule: tick = 10^-(6-2) = 1e-4 — far too coarse for a spot pair.
+    expect(resolveBboOrderPrice(args)?.toFixed()).toBe('0.002');
+    // Spot rule: tick = 10^-(8-2) = 1e-6.
+    expect(
+      resolveBboOrderPrice({ ...args, assetType: 'spot' })?.toFixed(),
+    ).toBe('0.001505');
+    // Queue-side offset must not zero out low-priced spot books either.
+    expect(
+      resolveBboOrderPrice({
+        ...args,
+        type: 'queue',
+        assetType: 'spot',
+      })?.toFixed(),
+    ).toBe('0.001395');
+  });
+
   test.each([
     ['1', '0.99995'],
     ['10', '9.9995'],
@@ -640,6 +675,18 @@ describe('HyperLiquid BBO price ticks', () => {
   test('snaps upward and downward without moving toward the market', () => {
     expect(snapHlPriceToGrid('1.23456', 'up', 2)?.toFixed()).toBe('1.2346');
     expect(snapHlPriceToGrid('1.23456', 'down', 2)?.toFixed()).toBe('1.2345');
+  });
+
+  test('snaps to the closest tick in nearest mode', () => {
+    expect(snapHlPriceToGrid('1.23456', 'nearest', 2)?.toFixed()).toBe(
+      '1.2346',
+    );
+    expect(snapHlPriceToGrid('1.23454', 'nearest', 2)?.toFixed()).toBe(
+      '1.2345',
+    );
+    expect(snapHlPriceToGrid('3.4739835', 'nearest', 1)?.toFixed()).toBe(
+      '3.474',
+    );
   });
 });
 
@@ -847,5 +894,49 @@ describe('isHyperLiquidAbstractionModeEnabled', () => {
       ),
     ).toBe(false);
     expect(isHyperLiquidAbstractionModeEnabled(undefined)).toBe(false);
+  });
+});
+
+describe('getHyperliquidTokenImageUris', () => {
+  // The bare path is the main dex namespace, so `STX.png` is Stacks while
+  // `para:STX` is Seagate. Falling back to it would assert a wrong identity.
+  it('resolves a sub dex coin to its prefixed file only', () => {
+    expect(getHyperliquidTokenImageUris('para:STX')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/paraSTX.png',
+    ]);
+    expect(getHyperliquidTokenImageUris('xyz:NVDA')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/xyzNVDA.png',
+    ]);
+  });
+
+  it('keeps a single source for main dex coins', () => {
+    expect(getHyperliquidTokenImageUris('BTC')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/BTC.png',
+    ]);
+  });
+
+  it('does not treat spot raw coin forms as a sub dex', () => {
+    expect(getHyperliquidTokenImageUris('@149')).toHaveLength(1);
+    expect(getHyperliquidTokenImageUris('PURR/USDC')).toHaveLength(1);
+    expect(getHyperliquidTokenImageUris('UETH')).toHaveLength(1);
+  });
+
+  // The guard every caller uses before reaching for the dex-scoped helper.
+  it('flags the raw spot forms that must not reach the dex helper', () => {
+    expect(isSpotInstrument('@149')).toBe(true);
+    expect(isSpotInstrument('PURR/USDC')).toBe(true);
+    expect(isSpotInstrument('para:STX')).toBe(false);
+    expect(isSpotInstrument('BTC')).toBe(false);
+  });
+
+  it('produces an unusable path for a raw spot coin, so callers must resolve it', () => {
+    const [rawIdUri] = getHyperliquidTokenImageUris('@149');
+    const [rawPairUri] = getHyperliquidTokenImageUris('PURR/USDC');
+    expect(rawIdUri).toContain('@149');
+    expect(rawPairUri).toContain('PURR/USDC');
+
+    expect(getHyperliquidTokenImageUris('PURR')).toEqual([
+      'https://uni.onekey-asset.com/static/hyperliquid/PURR.png',
+    ]);
   });
 });

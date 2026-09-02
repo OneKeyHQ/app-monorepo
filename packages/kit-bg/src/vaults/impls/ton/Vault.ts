@@ -22,6 +22,7 @@ import {
   OneKeyWeb3RpcError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -203,6 +204,12 @@ export default class Vault extends VaultBase {
           let tokenAddress = message.jetton?.jettonMasterAddress ?? '';
           let to = message.address;
           let amount = message.amount.toString();
+          // Determine native by transfer structure, not by symbol equality:
+          // the native-coin symbol is mutable (renamed TON -> GRAM) and can
+          // diverge from network.symbol; a token.symbol === network.symbol
+          // check would wrongly flip isNative and drop the max-send fee
+          // reservation. A native TON transfer never carries a jetton.
+          const isNativeTransfer = !message.jetton && !decodedPayload.jetton;
           if (decodedPayload.jetton) {
             to = message.jetton?.toAddress ?? decodedPayload.jetton.toAddress;
             amount = decodedPayload.jetton.amount;
@@ -225,7 +232,34 @@ export default class Vault extends VaultBase {
             tokenIdOnNetwork: tokenAddress,
           });
           if (token) {
-            amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
+            // For a jetton transfer, prefer the multiplier from the send-page
+            // snapshot (transferPayload.tokenInfo) over a fresh getToken()
+            // lookup: the tokenRebaseUtils contract requires the multiplier
+            // to come from the same snapshot that rendered the confirmed
+            // amount, and the local tokens cache can drift between showing
+            // and decoding. Addresses are compared case-insensitively because
+            // the getJettonData() fallback above can yield a differently
+            // cased raw "0:<hex>" address than the snapshot's `token.address`.
+            // Fall back to the fresh `token` for dApp/external txs that never
+            // populated transferPayload. Native transfers must never carry a
+            // multiplier at all (native coins are never scaled-UI assets).
+            const snapshotTokenInfo = params.transferPayload?.tokenInfo;
+            const snapshotMatchesToken =
+              !!snapshotTokenInfo?.address &&
+              snapshotTokenInfo.address.toLowerCase() ===
+                tokenAddress.toLowerCase();
+            let balanceMultiplier: string | undefined;
+            if (!isNativeTransfer) {
+              balanceMultiplier = snapshotMatchesToken
+                ? snapshotTokenInfo?.balanceMultiplier
+                : token.balanceMultiplier;
+            }
+            amount = tokenRebaseUtils.applyBalanceMultiplier({
+              amount: new BigNumber(amount)
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              balanceMultiplier,
+            });
           }
           toAddress = to;
           return this.buildTxTransferAssetAction({
@@ -240,12 +274,7 @@ export default class Vault extends VaultBase {
                 symbol: token?.symbol ?? '',
                 name: token?.name ?? '',
                 tokenIdOnNetwork: token?.address ?? '',
-                // Determine native by transfer structure, not by symbol equality:
-                // the native-coin symbol is mutable (renamed TON -> GRAM) and can
-                // diverge from network.symbol; a token.symbol === network.symbol
-                // check would wrongly flip isNative and drop the max-send fee
-                // reservation. A native TON transfer never carries a jetton.
-                isNative: !message.jetton && !decodedPayload.jetton,
+                isNative: isNativeTransfer,
               },
             ],
           });
@@ -353,7 +382,19 @@ export default class Vault extends VaultBase {
         accountId: this.accountId,
         tokenIdOnNetwork: jetton ? jetton.jettonMasterAddress : '',
       });
-      const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+      // nativeAmountInfo.maxSendAmount is only ever produced for native-only
+      // max-sends (see usePreCheckTokenBalance's isSendNativeTokenOnly gate),
+      // so the reachable case here is native and must NEVER be divided by a
+      // multiplier — native coins are never scaled-UI assets. The jetton arm
+      // is defensive only, covering a hypothetical future/dApp jetton
+      // max-send path that does not exist today.
+      const amount = new BigNumber(
+        tokenRebaseUtils.removeBalanceMultiplier({
+          amount: params.nativeAmountInfo.maxSendAmount,
+          balanceMultiplier: jetton ? token?.balanceMultiplier : undefined,
+          decimals: token?.decimals ?? 0,
+        }),
+      )
         .shiftedBy(token?.decimals ?? 0)
         .toFixed(0, BigNumber.ROUND_FLOOR);
       if (encodedTx.messages[0].jetton) {

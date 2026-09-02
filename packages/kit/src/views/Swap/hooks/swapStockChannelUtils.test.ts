@@ -3,9 +3,14 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
+  SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
   backfillSwapProTokenStockIdentity,
+  buildStockPayTokenDisplaySeed,
   buildStockSwapTokenFromMarketListToken,
+  buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
+  hasValidStockBalanceForTrade,
+  isStockBalanceActionReady,
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
@@ -13,12 +18,18 @@ import {
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
   resolveStockChannelSwapPair,
+  resolveStockExecutionTokenMetadata,
+  resolveStockExecutionTokensForTradeSideSwitch,
+  resolveStockExecutionTokensToSync,
   resolveStockKLineToken,
   resolveStockPayTokenDisplaySeed,
+  resolveStockPayTokenState,
+  resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -194,6 +205,68 @@ describe('swapStockChannelUtils', () => {
     ).toBe(usdtPayToken);
   });
 
+  it('restores a full persisted pay-token seed while live candidates are unavailable', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtToken);
+  });
+
+  it('reconciles a persisted display seed to the live pay-token candidate', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        candidates: [usdcPayToken, usdtPayToken],
+        persistedToken: usdtToken,
+      }),
+    ).toBe(usdtPayToken);
+  });
+
+  it('ignores an unsupported persisted display seed', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: true,
+        candidates: [],
+        persistedToken: ethToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('drops the persisted display seed after live candidates settle empty', () => {
+    expect(
+      resolveStockPayTokenDisplaySeed({
+        allowPersistedTokenFallback: false,
+        candidates: [],
+        persistedToken: usdtToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('stores only presentation fields in the persisted pay-token seed', () => {
+    expect(
+      buildStockPayTokenDisplaySeed({
+        ...usdtToken,
+        accountAddress: '0xaccount',
+        balanceParsed: '10',
+        fiatValue: '10',
+        logoURI: 'https://example.com/usdt.png',
+        networkLogoURI: 'https://example.com/bsc.png',
+        price: '1',
+      }),
+    ).toEqual({
+      networkId: 'evm--56',
+      contractAddress: '0xusdt',
+      decimals: 6,
+      isNative: undefined,
+      symbol: 'USDT',
+      name: undefined,
+      logoURI: 'https://example.com/usdt.png',
+      networkLogoURI: 'https://example.com/bsc.png',
+    });
+  });
+
   it('keeps the selected pay token ahead of the persisted display preference', () => {
     expect(
       resolveStockPayTokenDisplaySeed({
@@ -359,17 +432,18 @@ describe('swapStockChannelUtils', () => {
     ).toBe(true);
   });
 
-  it('blocks Stock quote execution only when the market is explicitly closed', () => {
+  it('keeps Stock quote execution ready while the market is closed (OK-58986)', () => {
+    // Providers may still fill from on-chain liquidity outside US sessions —
+    // the quote response, not the market status, decides whether it trades.
     expect(
       isStockTradeReadyForQuote({
         currentStockToken: appleStockToken,
-        marketOpen: false,
         marketStatusStatus: ESwapStockChannelAsyncStatus.Ready,
         payToken: usdcToken,
         payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('waits for the initial Stock market detail request to settle', () => {
@@ -382,6 +456,213 @@ describe('swapStockChannelUtils', () => {
         stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
       }),
     ).toBe(false);
+  });
+
+  it('keeps a display-only cached pay token out of execution until live readiness', () => {
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdtToken,
+        currentToToken: appleStockToken,
+        payToken: usdcToken,
+        readyForQuote: false,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBeUndefined();
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: usdcToken,
+        currentToToken: appleStockToken,
+        payToken: usdtToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toEqual({
+      fromToken: usdtToken,
+      toToken: appleStockToken,
+    });
+  });
+
+  it('refreshes Stock execution metadata from an identity-matched token detail', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+    const tokenDetail = {
+      ...appleStockToken,
+      balanceParsed: '0.168058487842240859',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail,
+      }),
+    ).toEqual(appleStockToken);
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedStockToken,
+        tokenDetail: {
+          ...tokenDetail,
+          contractAddress: micronStockToken.contractAddress,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('backfills incomplete Stock metadata from an identity-matched token detail', () => {
+    const stock = {
+      subtitle: '苹果',
+      sourceLogoUri: '',
+      underlyingAssetTicker: 'AAPL',
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: {
+          ...appleStockToken,
+          stock: {
+            ...stock,
+            subtitle: '',
+          },
+        },
+        tokenDetail: {
+          ...appleStockToken,
+          stock,
+        },
+      }),
+    ).toEqual({
+      ...appleStockToken,
+      stock,
+    });
+  });
+
+  it('preserves cached Stock labels when token detail metadata is partial', () => {
+    const cachedStock = {
+      subtitle: '苹果',
+      sourceLogoUri: 'https://example.com/source.png',
+      underlyingAssetName: 'Apple Inc.',
+      underlyingAssetTicker: 'AAPL',
+      isOpen: true,
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: {
+          ...appleStockToken,
+          stock: cachedStock,
+        },
+        tokenDetail: {
+          ...appleStockToken,
+          stock: {
+            subtitle: ' ',
+            sourceLogoUri: '',
+            isOpen: false,
+          },
+        },
+      }),
+    ).toEqual({
+      ...appleStockToken,
+      stock: {
+        ...cachedStock,
+        isOpen: false,
+      },
+    });
+  });
+
+  it('keeps the current token reference when partial Stock detail adds no data', () => {
+    const cachedToken = {
+      ...appleStockToken,
+      stock: {
+        subtitle: '苹果',
+        sourceLogoUri: 'https://example.com/source.png',
+      },
+    };
+
+    expect(
+      resolveStockExecutionTokenMetadata({
+        token: cachedToken,
+        tokenDetail: {
+          ...appleStockToken,
+          stock: {
+            subtitle: '',
+            sourceLogoUri: '',
+          },
+        },
+      }),
+    ).toBe(cachedToken);
+  });
+
+  it('resyncs Stock execution tokens when only authoritative metadata changes', () => {
+    const cachedStockToken = {
+      ...appleStockToken,
+      decimals: 0,
+    };
+
+    expect(
+      resolveStockExecutionTokensToSync({
+        currentFromToken: cachedStockToken,
+        currentToToken: usdcToken,
+        payToken: usdcToken,
+        readyForQuote: true,
+        stockToken: appleStockToken,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toEqual({
+      fromToken: appleStockToken,
+      toToken: usdcToken,
+    });
+  });
+
+  it('does not build trade-side execution tokens without a live pay token', () => {
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        stockToken: appleStockToken,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockExecutionTokensForTradeSideSwitch({
+        payToken: usdcPayToken,
+        stockToken: appleStockToken,
+      }),
+    ).toEqual({
+      payToken: usdcPayToken,
+      stockToken: appleStockToken,
+    });
+  });
+
+  it('bounds account-scoped pay-token caches and retains recent writes', () => {
+    let cache: Record<string, string> = {};
+    for (
+      let index = 0;
+      index <= SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES;
+      index += 1
+    ) {
+      cache = upsertSwapStockPayTokenScopeCache({
+        cache,
+        scope: `scope-${index}`,
+        value: `token-${index}`,
+      });
+    }
+
+    expect(Object.keys(cache)).toHaveLength(
+      SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES,
+    );
+    expect(cache['scope-0']).toBeUndefined();
+    expect(cache['scope-1']).toBe('token-1');
+    expect(cache[`scope-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`]).toBe(
+      `token-${SWAP_STOCK_PAY_TOKEN_SCOPE_CACHE_MAX_ENTRIES}`,
+    );
+
+    cache = upsertSwapStockPayTokenScopeCache({
+      cache,
+      scope: 'scope-1',
+      value: 'token-1-updated',
+    });
+    expect(Object.keys(cache).at(-1)).toBe('scope-1');
+    expect(cache['scope-1']).toBe('token-1-updated');
   });
 
   it('keeps the buy-side pay token visible during non-initial readiness refreshes', () => {
@@ -404,6 +685,87 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it('uses an ordinary Swap pay token only as a selection hint until Stock confirms it', () => {
+    const initializingState = resolveStockPayTokenState({
+      swapPairToken: usdcToken,
+    });
+    expect(initializingState).toEqual({
+      displayToken: undefined,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        liveToken: usdcPayToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdcPayToken,
+      selectionToken: usdcToken,
+    });
+
+    expect(
+      resolveStockPayTokenState({
+        coldStartToken: usdtToken,
+        swapPairToken: usdcToken,
+      }),
+    ).toEqual({
+      displayToken: usdtToken,
+      selectionToken: usdtToken,
+    });
+  });
+
+  it('keeps the buy-side input initializing until the stock identity is ready', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+  });
+
+  it('settles the buy-side input only after its owning state settles', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Idle,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Empty,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Empty);
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: true,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Ready);
+  });
+
+  it('keeps the sell-side input owned by the stock-token status', () => {
+    expect(
+      resolveStockTradeInputTokenStatus({
+        isBuySide: false,
+        payTokenStatus: ESwapStockChannelAsyncStatus.Ready,
+        stockTokenStatus: ESwapStockChannelAsyncStatus.Initializing,
+      }),
+    ).toBe(ESwapStockChannelAsyncStatus.Initializing);
+  });
+
   it('shows Stock balance loading only before the first scoped balance lands', () => {
     expect(
       isStockBalanceInitializing({
@@ -423,6 +785,15 @@ describe('swapStockChannelUtils', () => {
         requestPending: true,
       }),
     ).toBe(false);
+  });
+
+  it('accepts only finite non-negative live balances for Stock trading', () => {
+    expect(hasValidStockBalanceForTrade('0')).toBe(true);
+    expect(hasValidStockBalanceForTrade('1.25')).toBe(true);
+    expect(hasValidStockBalanceForTrade(undefined)).toBe(false);
+    expect(hasValidStockBalanceForTrade('')).toBe(false);
+    expect(hasValidStockBalanceForTrade('invalid')).toBe(false);
+    expect(hasValidStockBalanceForTrade('-1')).toBe(false);
   });
 
   it('uses a Stock balance seed only when it belongs to the active account', () => {
@@ -523,19 +894,25 @@ describe('swapStockChannelUtils', () => {
     ).toBeUndefined();
   });
 
-  it('keeps a persisted balance display-only until live balance is ready', () => {
+  it('keeps cached and seeded balances display-only until live balance is ready', () => {
     expect(
       resolveStockBalanceViewState({
+        balanceSnapshot: {
+          ownerScope: 'account-1:usdc',
+          balance: '0.24',
+          tokenDetail: usdcToken,
+        },
         cachedDisplayBalance: '0.24',
       }),
     ).toEqual({
       balance: undefined,
       displayBalance: '0.24',
-      tokenDetail: undefined,
+      tokenDetail: usdcToken,
     });
 
     expect(
       resolveStockBalanceViewState({
+        authoritativeBalance: '0.25',
         balanceSnapshot: {
           ownerScope: 'account-1:usdc',
           balance: '0.25',
@@ -548,6 +925,35 @@ describe('swapStockChannelUtils', () => {
       displayBalance: '0.25',
       tokenDetail: usdcToken,
     });
+  });
+
+  it('keeps balance actions unavailable until authoritative execution state is ready', () => {
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: undefined,
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        authoritativeStockToken: appleStockToken,
+        isBuySide: false,
+      }),
+    ).toBe(true);
+    expect(
+      isStockBalanceActionReady({
+        authoritativeBalance: '0.24',
+        isBuySide: true,
+      }),
+    ).toBe(true);
   });
 
   it('keeps sell-side stock input skeleton tied to full readiness', () => {
@@ -581,6 +987,11 @@ describe('swapStockChannelUtils', () => {
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {
+    const stock = {
+      subtitle: 'Stock',
+      sourceLogoUri: '',
+      underlyingAssetTicker: 'AAPL',
+    };
     const stockToken = buildStockSwapTokenFromMarketListToken({
       address: '0xaapl',
       networkId: 'evm--56',
@@ -588,18 +999,37 @@ describe('swapStockChannelUtils', () => {
       name: 'Apple',
       decimals: 18,
       price: '100',
-      stock: {
-        subtitle: 'Stock',
-        sourceLogoUri: '',
-        underlyingAssetTicker: 'AAPL',
-      },
+      stock,
     });
 
     expect(stockToken?.isStock).toBe(true);
     expect(stockToken).toMatchObject({
       price: '100',
       currency: 'usd',
+      stock,
     });
+
+    expect(
+      buildStockSwapTokenFromMarketToken({
+        id: 'aapl',
+        address: '0xaapl',
+        networkId: 'evm--56',
+        symbol: 'AAPL',
+        name: 'Apple',
+        decimals: 18,
+        price: 100,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        stock,
+      }),
+    ).toMatchObject({ isStock: true, stock });
 
     expect(
       buildStockSwapTokenFromMarketListToken({

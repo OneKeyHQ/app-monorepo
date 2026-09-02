@@ -1,26 +1,45 @@
 import {
+  formatTradingViewNativePriceChange,
   formatTradingViewNativeVolume,
   getTradingViewNativeChartLegend,
+  getTradingViewNativeChartLegendRowLayout,
+  getTradingViewNativeChartLegendRowLayouts,
+  getTradingViewNativeVolumeAxisLabel,
 } from './chartLegend';
+
+const CANDLE_LABELS = {
+  close: '收',
+  high: '高',
+  low: '低',
+  open: '开',
+};
 
 describe('TradingViewNative chart legend', () => {
   it('builds colored price and volume values from an up candle', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 123.456_789,
-        h: 125,
-        l: 119.5,
-        o: 120,
-        t: 1,
-        v: 1_250_000,
-      }),
+      getTradingViewNativeChartLegend(
+        {
+          c: 123.456_789,
+          h: 125,
+          l: 119.5,
+          o: 120,
+          t: 1,
+          v: 1_250_000,
+        },
+        CANDLE_LABELS,
+      ),
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: 'O', value: '120' },
-        { label: 'H', value: '125' },
-        { label: 'L', value: '119.5' },
-        { label: 'C', value: '123.457' },
+        { label: '开', value: '120.00' },
+        { label: '高', value: '125.00' },
+        { label: '低', value: '119.50' },
+        { label: '收', value: '123.46' },
+        {
+          label: '',
+          value: '+3.45679 (+2.88%)',
+          valueColorRole: 'trend',
+        },
       ],
       volumeItem: { label: 'Volume', value: '1.25M' },
     });
@@ -28,15 +47,117 @@ describe('TradingViewNative chart legend', () => {
 
   it('uses the down direction when the candle closes below its open', () => {
     expect(
-      getTradingViewNativeChartLegend({
-        c: 9,
-        h: 11,
-        l: 8,
-        o: 10,
-        t: 1,
-        v: 500,
-      }).isUp,
+      getTradingViewNativeChartLegend(
+        {
+          c: 9,
+          h: 11,
+          l: 8,
+          o: 10,
+          t: 1,
+          v: 500,
+        },
+        CANDLE_LABELS,
+      ).isUp,
     ).toBe(false);
+  });
+
+  it('shows close price and price change for a line series', () => {
+    const buildLegend = (chartType: 'area' | 'line') =>
+      getTradingViewNativeChartLegend(
+        {
+          c: 9,
+          h: 20,
+          l: 1,
+          o: 10,
+          t: 1,
+          v: 500,
+        },
+        CANDLE_LABELS,
+        chartType,
+      );
+    const expectedLegend = {
+      isUp: false,
+      priceItems: [
+        { label: 'Price', value: '9.00' },
+        { label: '', value: '-1 (-10%)', valueColorRole: 'trend' },
+      ],
+      volumeItem: { label: 'Volume', value: '500' },
+    };
+
+    expect(buildLegend('line')).toEqual(expectedLegend);
+    expect(buildLegend('area')).toEqual(expectedLegend);
+  });
+
+  it('uses the previous close for the TradingView bar-change value and color', () => {
+    const legend = getTradingViewNativeChartLegend(
+      {
+        c: 101,
+        h: 103,
+        l: 99,
+        o: 102,
+        t: 1,
+        v: 10,
+      },
+      CANDLE_LABELS,
+      'candlestick',
+      100,
+    );
+
+    expect(legend.isUp).toBe(true);
+    expect(legend.priceItems.at(-1)).toEqual({
+      label: '',
+      value: '+1 (+1%)',
+      valueColorRole: 'trend',
+    });
+  });
+
+  it('formats signed candle price and percentage changes', () => {
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 22_866,
+        open: 22_200,
+      }),
+    ).toBe('+666 (+3%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 95,
+        open: 100,
+      }),
+    ).toBe('-5 (-5%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100,
+        open: 100,
+      }),
+    ).toBe('0 (0%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 101,
+        open: 102,
+        previousClose: 100,
+      }),
+    ).toBe('+1 (+1%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 0.000_012_39,
+        open: 0.000_012_34,
+      }),
+    ).toBe('+0.00000005 (+0.41%)');
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100 + 1e-7,
+        open: 100,
+      }),
+    ).toBe('+0.0000001 (0%)');
+  });
+
+  it('rejects a price change with an invalid open', () => {
+    expect(
+      formatTradingViewNativePriceChange({
+        close: 100,
+        open: 0,
+      }),
+    ).toBe('--');
   });
 
   it('formats volume compactly and rejects invalid values', () => {
@@ -46,4 +167,132 @@ describe('TradingViewNative chart legend', () => {
     expect(formatTradingViewNativeVolume(Number.NaN)).toBe('--');
     expect(formatTradingViewNativeVolume(-1)).toBe('--');
   });
+
+  it('reserves a stable volume-axis label across compact units', () => {
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 1500 },
+      ]),
+    ).toBe('888.888');
+    expect(
+      getTradingViewNativeVolumeAxisLabel([
+        { c: 1, h: 1, l: 1, o: 1, t: 1, v: 0 },
+      ]),
+    ).toBe('');
+  });
+
+  it('lays out a renderer-independent legend row', () => {
+    expect(
+      getTradingViewNativeChartLegendRowLayout({
+        items: [
+          { label: 'O', value: '1' },
+          { label: 'H', value: '2' },
+        ],
+        maxX: 100,
+        measureTextWidth: (text) => text.length * 5,
+        top: 2,
+      }),
+    ).toEqual({
+      backgroundRect: {
+        height: 15,
+        width: 42,
+        x: 4,
+        y: 0,
+      },
+      clipRect: {
+        height: 15,
+        width: 96,
+        x: 4,
+        y: 0,
+      },
+      segments: [
+        { label: 'O', labelX: 8, value: '1', valueX: 16 },
+        { label: 'H', labelX: 29, value: '2', valueX: 37 },
+      ],
+      textBaselineY: 13,
+    });
+  });
+
+  it('wraps overflowing legend items into bounded rows', () => {
+    const rows = getTradingViewNativeChartLegendRowLayouts({
+      items: [
+        { label: 'O', value: '123456' },
+        { label: 'H', value: '234567' },
+        { label: 'L', value: '123456' },
+        { label: 'C', value: '234567' },
+        { label: '', value: '+111111 (+12.34%)' },
+      ],
+      maxX: 150,
+      measureTextWidth: (text) => text.length * 6,
+      top: 2,
+    });
+
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      const right = row.clipRect.x + row.clipRect.width;
+      for (const segment of row.segments) {
+        expect(segment.valueX + segment.value.length * 6).toBeLessThanOrEqual(
+          right,
+        );
+      }
+    }
+    expect(rows.at(-1)?.segments).toEqual([
+      { label: '', value: '+111111 (+12.34%)', labelX: 8, valueX: 11 },
+    ]);
+  });
+
+  it('moves overflowing legend items to a visible second row', () => {
+    const layout = getTradingViewNativeChartLegendRowLayout({
+      items: [
+        { label: 'O', value: '123456' },
+        { label: 'H', value: '123457' },
+        { label: 'L', value: '123455' },
+        { label: 'C', value: '123456' },
+        { label: '', value: '+0.00000005 (+0.41%)' },
+      ],
+      maxX: 210,
+      measureTextWidth: (text) => text.length * 5,
+      top: 2,
+    });
+
+    expect(layout).not.toBeNull();
+    expect(layout?.backgroundRect.height).toBe(30);
+    expect(layout?.clipRect.height).toBe(30);
+    const priceChangeSegment = layout?.segments.at(-1);
+    expect(priceChangeSegment?.textBaselineY).toBe(28);
+    expect(
+      (priceChangeSegment?.valueX ?? 0) +
+        (priceChangeSegment ? priceChangeSegment.value.length * 5 : 0),
+    ).toBeLessThanOrEqual(
+      (layout?.clipRect.x ?? 0) + (layout?.clipRect.width ?? 0),
+    );
+  });
+
+  it.each([320, 360])(
+    'keeps a long price-change segment visible at %ipx',
+    (width) => {
+      const layout = getTradingViewNativeChartLegendRowLayout({
+        items: [
+          { label: 'O', value: '123456' },
+          { label: 'H', value: '123457' },
+          { label: 'L', value: '123455' },
+          { label: 'C', value: '123456' },
+          { label: '', value: '+0.00000005 (+0.41%)' },
+        ],
+        maxX: width - 64,
+        measureTextWidth: (text) => text.length * 6,
+        top: 2,
+      });
+
+      expect(layout).not.toBeNull();
+      const priceChangeSegment = layout?.segments.at(-1);
+      expect(priceChangeSegment?.textBaselineY).toBe(28);
+      expect(
+        (priceChangeSegment?.valueX ?? 0) +
+          (priceChangeSegment ? priceChangeSegment.value.length * 6 : 0),
+      ).toBeLessThanOrEqual(
+        (layout?.clipRect.x ?? 0) + (layout?.clipRect.width ?? 0),
+      );
+    },
+  );
 });

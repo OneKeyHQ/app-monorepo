@@ -1,4 +1,34 @@
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  type IFetchBuildTxParams,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
+
+export function shouldAttachSwapReferralBuildTxParams(
+  protocol: EProtocolOfExchange,
+) {
+  return protocol === EProtocolOfExchange.SWAP;
+}
+
+export function buildSwapReferralBuildTxParams(referralInfo?: {
+  address: string;
+  networkId: string;
+  rebateAddress?: string;
+}): Pick<
+  IFetchBuildTxParams,
+  'bindedAccountAddress' | 'bindedNetworkId' | 'rebateAddress'
+> {
+  if (!referralInfo) {
+    return {};
+  }
+  return {
+    bindedAccountAddress: referralInfo.address,
+    bindedNetworkId: referralInfo.networkId,
+    ...(referralInfo.rebateAddress
+      ? { rebateAddress: referralInfo.rebateAddress }
+      : {}),
+  };
+}
 
 export function buildPerpDepositOrderStatusRequestParams(params: {
   networkId: string;
@@ -49,4 +79,18 @@ export function normalizeSwapTokenListCurrency({
       currency,
     };
   });
+}
+
+export function mergeSwapTokenLists(tokenLists: ISwapToken[][]) {
+  const seen = new Set<string>();
+  return tokenLists.flatMap((tokens) =>
+    tokens.filter((token) => {
+      const key = `${token.networkId}:${token.contractAddress.toLowerCase()}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    }),
+  );
 }

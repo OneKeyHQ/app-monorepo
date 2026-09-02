@@ -39,6 +39,7 @@ import type {
 } from '@onekeyhq/shared/types/search';
 import {
   ESearchStatus,
+  EUniversalSearchSource,
   EUniversalSearchType,
 } from '@onekeyhq/shared/types/search';
 
@@ -166,9 +167,11 @@ const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
 export function UniversalSearch({
   filterTypes,
   initialTab,
+  source,
 }: {
   filterTypes?: EUniversalSearchType[];
   initialTab?: 'market' | 'dapp';
+  source: EUniversalSearchSource;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -609,12 +612,13 @@ export function UniversalSearch({
         .map((s) => `${getSearchTypeTrackingName(s.type)}:${s.count}`)
         .join(',');
       defaultLogger.universalSearch.search.universalSearchQuery({
+        source,
         searchText: input,
         resultCount,
         exposedTypes,
       });
     },
-    [],
+    [source],
   );
 
   const isSearchResultStale = useCallback((input: string) => {
@@ -827,6 +831,7 @@ export function UniversalSearch({
               item={item}
               contextNetworkId={activeAccount?.network?.id}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.V2MarketToken:
@@ -841,6 +846,7 @@ export function UniversalSearch({
                 item={item}
                 isTrending={searchStatus === ESearchStatus.init}
                 getSearchInput={getSearchInput}
+                source={source}
               />
             </>
           );
@@ -850,6 +856,7 @@ export function UniversalSearch({
               item={item}
               allAggregateTokenMap={allAggregateTokenMap}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Dapp:
@@ -857,6 +864,7 @@ export function UniversalSearch({
             <UniversalSearchDappItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Perp:
@@ -864,6 +872,7 @@ export function UniversalSearch({
             <UniversalSearchPerpItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         case EUniversalSearchType.Settings:
@@ -871,6 +880,7 @@ export function UniversalSearch({
             <UniversalSearchSettingsItem
               item={item}
               getSearchInput={getSearchInput}
+              source={source}
             />
           );
         default:
@@ -882,6 +892,7 @@ export function UniversalSearch({
       searchStatus,
       allAggregateTokenMap,
       getSearchInput,
+      source,
     ],
   );
 
@@ -1091,6 +1102,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
   // array, so computing it inline in the prop would rebuild the downstream
   // allowedSearchTypeSet memo (and its dependents) on every wrapper re-render.
   const routeFilterTypes = route?.params?.filterTypes;
+  const source = route?.params?.source ?? EUniversalSearchSource.Unknown;
   const filterTypes = useMemo(
     () => routeFilterTypes || getDefaultFilterTypes(),
     [routeFilterTypes],
@@ -1103,6 +1115,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
       <UniversalSearch
         filterTypes={filterTypes}
         initialTab={route?.params?.initialTab}
+        source={source}
       />
     </HomeTokenListProviderMirrorWrapper>
   );

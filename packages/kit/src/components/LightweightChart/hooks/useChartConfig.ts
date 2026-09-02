@@ -10,7 +10,12 @@ import {
   resolveSerializablePriceFormatterType,
 } from '../utils/priceFormatterType';
 
-import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
+import type {
+  ILightweightChartConfig,
+  ILightweightChartLineType,
+  ILightweightChartPriceScalePosition,
+  ILightweightChartTime,
+} from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IUseChartConfigProps {
@@ -25,17 +30,26 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
+  crosshairVertLineColor?: string;
+  crosshairVertLineStyle?: number;
+  patternColor?: string;
+  pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
+  lineType?: ILightweightChartLineType;
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   useTimeScaleTickMarkWithoutUnit?: boolean;
+  timeZone?: string;
+  locale?: string;
 }
 
 export function useChartConfig({
@@ -50,17 +64,26 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  priceScalePosition = 'right',
   priceScaleMargins,
   priceScaleEntireTextOnly,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
   priceFormatter,
+  priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
   showTimeScale = true,
   useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
   const resolvedSeriesType = seriesType ?? 'area';
@@ -72,6 +95,26 @@ export function useChartConfig({
     seriesType: resolvedSeriesType,
     priceFormatterTickStep: priceFormatterTickStepProp,
   });
+
+  // Mapped once per source array so that replacing only one of them (charts
+  // that re-cut their overlay on every crosshair step) leaves the other one
+  // referentially stable, and the consumer can tell the two updates apart.
+  const chartData = useMemo(
+    () =>
+      data.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [data],
+  );
+  const chartSecondaryLineData = useMemo(
+    () =>
+      secondaryLineData?.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [secondaryLineData],
+  );
 
   return useMemo(
     () => ({
@@ -86,36 +129,37 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
-      data: data.map(([time, value]: [number, number]) => ({
-        time: time as ILightweightChartTime,
-        value,
-      })),
-      secondaryLineData: secondaryLineData?.map(
-        ([time, value]: [number, number]) => ({
-          time: time as ILightweightChartTime,
-          value,
-        }),
-      ),
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
+      data: chartData,
+      secondaryLineData: chartSecondaryLineData,
       secondaryLineColor,
       secondaryLineWidth,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       seriesType: resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeZone,
+      locale,
     }),
     [
-      data,
-      secondaryLineData,
+      chartData,
+      chartSecondaryLineData,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
@@ -127,18 +171,27 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScalePosition,
       priceScaleMargins,
       priceScaleEntireTextOnly,
+      crosshairVertLineColor,
+      crosshairVertLineStyle,
+      patternColor,
+      pulseLastPointColor,
       priceFormatter,
       priceFormatterType,
+      priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
       resolvedSeriesType,
+      lineType,
       baselineOptions,
       showLastValue,
       showLastPointMarker,
       showTimeScale,
       useTimeScaleTickMarkWithoutUnit,
+      timeZone,
+      locale,
     ],
   );
 }

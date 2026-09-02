@@ -1,12 +1,15 @@
 package so.onekey.app.wallet;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
-import android.net.Uri;
 import android.content.SharedPreferences;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
-import android.database.CursorWindow;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -25,18 +28,29 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
+import com.tencent.mmkv.MMKV;
 
 import cn.jiguang.plugins.push.JPushModule;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
-import expo.modules.ReactNativeHostWrapper;
+import expo.modules.ExpoReactHostFactory;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
-import java.lang.reflect.Field;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
+import java.util.regex.Pattern;
+
+import org.json.JSONObject;
+
+import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 
 public class MainApplication extends Application implements ReactApplication {
 
@@ -46,8 +60,8 @@ public class MainApplication extends Application implements ReactApplication {
   // ReactContext listener to compute "+Xms from app launch" deltas.
   public static long appLaunchMs = 0L;
 
-  private final ReactNativeHost mReactNativeHost =
-    new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
+  private final CustomReactNativeHost mReactNativeHost =
+    new CustomReactNativeHost(this) {
       @Override
       public boolean getUseDeveloperSupport() {
         return BuildConfig.DEBUG;
@@ -75,9 +89,46 @@ public class MainApplication extends Application implements ReactApplication {
       protected boolean isHermesEnabled() {
         return BuildConfig.IS_HERMES_ENABLED;
       }
-  });
+  };
   @Nullable
   private ReactHost mReactHost;
+  private boolean isDefaultMainProcess = true;
+  @Nullable
+  private DevVendorBundleInfo devVendorBundleInfo;
+
+  private static final String DEV_VENDOR_ASSET_ROOT = "onekey-dev-vendor";
+  private static final String DEV_VENDOR_COMMON_ASSET = DEV_VENDOR_ASSET_ROOT + "/common.hbc";
+  private static final String DEV_VENDOR_MANIFEST_ASSET = DEV_VENDOR_ASSET_ROOT + "/manifest.json";
+  private static final Pattern DEV_VENDOR_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+
+  @NonNull
+  private String sha256Asset(@NonNull String assetName) throws Exception {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] buffer = new byte[8192];
+    try (InputStream input = getAssets().open(assetName)) {
+      int count;
+      while ((count = input.read(buffer)) != -1) {
+        digest.update(buffer, 0, count);
+      }
+    }
+    char[] hex = new char[64];
+    char[] digits = "0123456789abcdef".toCharArray();
+    byte[] hash = digest.digest();
+    for (int index = 0; index < hash.length; index += 1) {
+      int value = hash[index] & 0xff;
+      hex[index * 2] = digits[value >>> 4];
+      hex[index * 2 + 1] = digits[value & 0x0f];
+    }
+    return new String(hex);
+  }
+
+  private static final class DevVendorBundleInfo {
+    private final String fingerprint;
+
+    private DevVendorBundleInfo(@NonNull String fingerprint) {
+      this.fingerprint = fingerprint;
+    }
+  }
 
   @Override
   public ReactNativeHost getReactNativeHost() {
@@ -87,14 +138,127 @@ public class MainApplication extends Application implements ReactApplication {
     @Nullable
     @Override
     public synchronized ReactHost getReactHost() {
+        if (!isDefaultMainProcess) {
+          Log.w("MainApplication", "Ignoring ReactHost access outside the default main process");
+          return null;
+        }
         if (mReactHost == null) {
+          DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
           mReactHost =
-            ReactNativeHostWrapper.createReactHost(
+            ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
-              this.getReactNativeHost()
+              new PackageList(this).getPackages(),
+              ".expo/.virtual-metro-entry",
+              "index.android.bundle",
+              mReactNativeHost.getJSBundleFile(),
+              null,
+              BuildConfig.DEBUG,
+              null,
+              devVendor == null ? null : DEV_VENDOR_COMMON_ASSET,
+              devVendor == null ? null : buildDevVendorEntryUrl("main", devVendor.fingerprint),
+              devVendor == null ? null : devVendor.fingerprint
             );
         }
         return mReactHost;
+    }
+
+    @Nullable
+    private synchronized DevVendorBundleInfo getDevVendorBundleInfo() {
+      if (!BuildConfig.DEBUG || !BuildConfig.ONEKEY_DEV_VENDOR) {
+        return null;
+      }
+      if (devVendorBundleInfo != null) {
+        return devVendorBundleInfo;
+      }
+
+      try {
+        String manifestText;
+        try (InputStream input = getAssets().open(DEV_VENDOR_MANIFEST_ASSET)) {
+          BufferedReader reader = new BufferedReader(
+            new InputStreamReader(input, StandardCharsets.UTF_8)
+          );
+          StringBuilder manifestBuilder = new StringBuilder();
+          String line;
+          while ((line = reader.readLine()) != null) {
+            manifestBuilder.append(line);
+          }
+          manifestText = manifestBuilder.toString();
+        }
+        JSONObject manifest = new JSONObject(manifestText);
+        if (manifest.optInt("schemaVersion", -1) != 3) {
+          throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
+        }
+        if (manifest.optInt("strategyVersion", -1) != 4) {
+          throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
+        }
+        if (!"android".equals(manifest.optString("platform"))) {
+          throw new IllegalStateException("Dev-vendor manifest platform is not android");
+        }
+        String fingerprint = manifest.optString("fingerprint");
+        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(fingerprint).matches()) {
+          throw new IllegalStateException("Dev-vendor manifest fingerprint is invalid");
+        }
+        JSONObject bytecode = manifest.getJSONObject("common").getJSONObject("bytecode");
+        if (!"common.hbc".equals(bytecode.optString("file"))) {
+          throw new IllegalStateException("Dev-vendor manifest bytecode name is invalid");
+        }
+        long expectedBytes = bytecode.optLong("bytes", -1L);
+        String expectedSha256 = bytecode.optString("sha256");
+        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(expectedSha256).matches()) {
+          throw new IllegalStateException("Dev-vendor common.hbc sha256 is invalid");
+        }
+        try (AssetFileDescriptor descriptor = getAssets().openFd(DEV_VENDOR_COMMON_ASSET)) {
+          if (expectedBytes <= 0 || descriptor.getLength() != expectedBytes) {
+            throw new IllegalStateException("Dev-vendor common.hbc size does not match manifest");
+          }
+        }
+        if (!expectedSha256.equals(sha256Asset(DEV_VENDOR_COMMON_ASSET))) {
+          throw new IllegalStateException("Dev-vendor common.hbc sha256 does not match manifest");
+        }
+        devVendorBundleInfo = new DevVendorBundleInfo(fingerprint);
+        OneKeyLog.info(
+          "DevVendor",
+          "native cache enabled platform=android fingerprint=" + fingerprint
+        );
+        return devVendorBundleInfo;
+      } catch (Exception error) {
+        throw new IllegalStateException(
+          "ONEKEY_DEV_VENDOR=true but Android common.hbc/manifest is invalid. "
+            + "Rebuild the dev-vendor cache and native app.",
+          error
+        );
+      }
+    }
+
+    @NonNull
+    private String buildDevVendorEntryUrl(
+      @NonNull String runtimeTarget,
+      @NonNull String fingerprint
+    ) {
+      String host = AndroidInfoHelpers.getServerHost(this);
+      String bundlePath = "background".equals(runtimeTarget)
+        ? "background.bundle"
+        : ".expo/.virtual-metro-entry.bundle";
+      Uri.Builder builder = new Uri.Builder()
+        .scheme("http")
+        .encodedAuthority(host)
+        .path(bundlePath)
+        .appendQueryParameter("platform", "android")
+        .appendQueryParameter("dev", "true")
+        .appendQueryParameter("lazy", "false")
+        .appendQueryParameter("minify", "false")
+        .appendQueryParameter("inlineSourceMap", "false")
+        .appendQueryParameter("modulesOnly", "true")
+        .appendQueryParameter("runModule", "true")
+        .appendQueryParameter("resolver.devVendor", "true")
+        .appendQueryParameter("resolver.devVendorNative", "true")
+        .appendQueryParameter("resolver.devVendorFingerprint", fingerprint)
+        .appendQueryParameter("resolver.runtimeTarget", runtimeTarget)
+        .appendQueryParameter("unstable_transformProfile", "hermes-stable");
+      if ("background".equals(runtimeTarget) && BuildConfig.ONEKEY_DEV_BG_HMR) {
+        builder.appendQueryParameter("resolver.devVendorBackgroundHMR", "true");
+      }
+      return builder.build().toString();
     }
 
     @Nullable
@@ -116,6 +280,12 @@ public class MainApplication extends Application implements ReactApplication {
     @NonNull
     private String getBackgroundRunnerEntryUrl() {
       if (BuildConfig.DEBUG) {
+        DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
+        if (devVendor != null) {
+          String entryUrl = buildDevVendorEntryUrl("background", devVendor.fingerprint);
+          OneKeyLog.info("BackgroundThread", "getBackgroundRunnerEntryUrl(DEV_VENDOR): " + entryUrl);
+          return entryUrl;
+        }
         String host = AndroidInfoHelpers.getServerHost(this);
         String entryUrl =
           "http://" + host
@@ -145,6 +315,96 @@ public class MainApplication extends Application implements ReactApplication {
 
     private boolean isNativeBackgroundThreadEnabled() {
       return BuildConfig.ENABLE_NATIVE_BACKGROUND_THREAD;
+    }
+
+    @Nullable
+    private String getCurrentProcessNameCompat() {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        return Application.getProcessName();
+      }
+
+      ActivityManager activityManager =
+        (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+      int currentPid = android.os.Process.myPid();
+      if (activityManager != null) {
+        List<ActivityManager.RunningAppProcessInfo> runningProcesses =
+          activityManager.getRunningAppProcesses();
+        if (runningProcesses != null) {
+          for (ActivityManager.RunningAppProcessInfo processInfo : runningProcesses) {
+            if (processInfo.pid == currentPid) {
+              return processInfo.processName;
+            }
+          }
+        }
+      }
+
+      try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/cmdline"))) {
+        String processName = reader.readLine();
+        if (processName != null) {
+          processName = processName.replace("\u0000", "").trim();
+          if (!processName.isEmpty()) {
+            return processName;
+          }
+        }
+      } catch (IOException error) {
+        Log.w("MainApplication", "Unable to read /proc/self/cmdline", error);
+      }
+      return null;
+    }
+
+    private boolean resolveIsDefaultMainProcess() {
+      String processName = getCurrentProcessNameCompat();
+      if (processName == null || processName.isEmpty()) {
+        Log.w(
+          "MainApplication",
+          "Unable to resolve process name; conservatively enabling main-process initialization"
+        );
+        return true;
+      }
+      boolean isMainProcess = getPackageName().equals(processName);
+      Log.i(
+        "MainApplication",
+        "process=" + processName + ", mainProcess=" + isMainProcess
+      );
+      return isMainProcess;
+    }
+
+    public void startBackgroundThreadIfNeeded(@NonNull String trigger) {
+      if (
+        !isDefaultMainProcess ||
+        shouldShowRecovery ||
+        !isNativeBackgroundThreadEnabled()
+      ) {
+        return;
+      }
+
+      BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+      String entryUrl = getBackgroundRunnerEntryUrl();
+      DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
+      long startTime = System.currentTimeMillis();
+      boolean startScheduled = devVendor == null
+        ? manager.ensureBackgroundRunnerWithEntryURL(getApplicationContext(), entryUrl)
+        : manager.ensureBackgroundRunnerWithDevVendor(
+            getApplicationContext(),
+            entryUrl,
+            DEV_VENDOR_COMMON_ASSET,
+            devVendor.fingerprint,
+            BuildConfig.ONEKEY_DEV_BG_HMR
+          );
+      OneKeyLog.info(
+        "BackgroundThread",
+        "ensure background runner: trigger=" + trigger
+          + ", scheduled=" + startScheduled
+          + ", state=" + manager.getBackgroundRunnerState()
+          + ", failure=" + manager.getBackgroundRunnerFailureMessage()
+          + ", entryURL=" + entryUrl
+      );
+      OneKeyLog.info(
+        "StartupTiming",
+        "bg_runner.ensure: " + (System.currentTimeMillis() - startTime)
+          + "ms (+" + (System.currentTimeMillis() - appLaunchMs)
+          + "ms from launch, trigger=" + trigger + ") (android)"
+      );
     }
 
     /**
@@ -198,6 +458,11 @@ public class MainApplication extends Application implements ReactApplication {
         return;
       }
 
+      BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+      List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
+      backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
+      manager.setReactPackages(backgroundPackages);
+
       ReactHost reactHost = getReactHost();
       if (reactHost == null) {
         OneKeyLog.warn("BackgroundThread", "setupBackgroundThreadBootstrap: ReactHost is null");
@@ -222,20 +487,8 @@ public class MainApplication extends Application implements ReactApplication {
           ReactApplicationContext reactApplicationContext =
             (ReactApplicationContext) context;
           BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
-          long tBeforeBgStart = System.currentTimeMillis();
-          manager.setReactPackages(new PackageList(MainApplication.this).getPackages());
           manager.installSharedBridgeInMainRuntime(reactApplicationContext);
-
-          String entryUrl = getBackgroundRunnerEntryUrl();
-          OneKeyLog.info(
-            "BackgroundThread",
-            "onReactContextInitialized: start background runner with entryURL=" + entryUrl
-          );
-          manager.startBackgroundRunnerWithEntryURL(reactApplicationContext, entryUrl);
-          OneKeyLog.info(
-            "StartupTiming",
-            "bg_runner.start: " + (System.currentTimeMillis() - tBeforeBgStart) + "ms (+" + (System.currentTimeMillis() - appLaunchMs) + "ms from launch) (android)"
-          );
+          startBackgroundThreadIfNeeded("main_react_context_fallback");
         }
       });
     }
@@ -256,9 +509,23 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
-    OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
 
-    // Log zygote→onCreate delay (API 24+, minSdk=24). This is the window
+    long tBeforeSuper = System.currentTimeMillis();
+    super.onCreate();
+    long tAfterSuper = System.currentTimeMillis();
+
+    isDefaultMainProcess = resolveIsDefaultMainProcess();
+    if (!isDefaultMainProcess) {
+      return;
+    }
+
+    OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
+    OneKeyLog.info(
+      "StartupTiming",
+      "android.app.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms"
+    );
+
+    // Log zygote→onCreate delay (API 26+, minSdk=26). This is the window
     // between process fork and our first Java code running: ART/dex2oat,
     // class loading, Application allocation.
     try {
@@ -306,18 +573,11 @@ public class MainApplication extends Application implements ReactApplication {
     shouldShowRecovery = !isHarnessMode
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
-    long tBeforeSuper = System.currentTimeMillis();
-    super.onCreate();
-    long tAfterSuper = System.currentTimeMillis();
-    OneKeyLog.info(
-      "StartupTiming",
-      "android.app.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms"
-    );
-
     // SoLoader and new architecture entry point must be initialized before
     // the recovery early-return because MainActivity extends ReactActivity,
     // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
     // TurboModules initialization. Without these, recovery mode itself crashes.
+    long tBeforeSoLoader = System.currentTimeMillis();
     try {
         SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
     } catch (IOException e) {
@@ -326,7 +586,7 @@ public class MainApplication extends Application implements ReactApplication {
     long tAfterSoLoader = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",
-      "android.app.so_loader_init: " + (tAfterSoLoader - tAfterSuper) + "ms"
+      "android.app.so_loader_init: " + (tAfterSoLoader - tBeforeSoLoader) + "ms"
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
@@ -350,6 +610,10 @@ public class MainApplication extends Application implements ReactApplication {
         return;
     }
 
+    // The migration bridge uses MMKV's Java wrapper, whose initialization
+    // state is separate from the Nitro C++ factory used by react-native-mmkv.
+    MMKV.initialize(this);
+
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");
@@ -366,14 +630,6 @@ public class MainApplication extends Application implements ReactApplication {
       }
     } catch (Exception ignored) {}
     OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
-
-    try {
-      Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
-      field.setAccessible(true);
-      field.set(null, 20 * 1024 * 1024);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
 
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
@@ -441,6 +697,8 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onConfigurationChanged(@NonNull Configuration newConfig) {
     super.onConfigurationChanged(newConfig);
-    ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig);
+    if (isDefaultMainProcess && !shouldShowRecovery) {
+      ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig);
+    }
   }
 }

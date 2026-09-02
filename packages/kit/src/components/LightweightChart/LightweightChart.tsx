@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { useChartConfig } from './hooks/useChartConfig';
@@ -63,17 +65,25 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
   priceFormatter,
   fontSize,
   seriesType,
+  lineType,
   baselineOptions,
   showLastValue,
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeZone,
+  locale,
   pulseLastPoint,
   preserveChartInstanceOnDataChange,
   onHover,
@@ -101,16 +111,24 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
+    crosshairVertLineColor,
+    crosshairVertLineStyle,
+    patternColor,
+    pulseLastPointColor,
     priceFormatter,
     fontSize,
     seriesType,
+    lineType,
     baselineOptions,
     showLastValue,
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeZone,
+    locale,
   });
   const chartConfigRef = useRef(chartConfig);
   chartConfigRef.current = chartConfig;
@@ -148,7 +166,7 @@ export function LightweightChart({
     setLastPointPosition(null);
 
     void getChartLib().then(
-      ({ AreaSeries, BaselineSeries, LineSeries, createChart }) => {
+      ({ AreaSeries, BaselineSeries, LineSeries, LineType, createChart }) => {
         if (cancelled) return;
 
         const currentChartConfig = chartConfigRef.current;
@@ -161,6 +179,13 @@ export function LightweightChart({
           currentChartConfig.priceScaleEntireTextOnly,
           currentChartConfig.useTimeScaleTickMarkWithoutUnit,
           priceScaleMinimumWidth,
+          currentChartConfig.priceScalePosition,
+          currentChartConfig.timeZone,
+          currentChartConfig.locale,
+          {
+            color: currentChartConfig.crosshairVertLineColor,
+            style: currentChartConfig.crosshairVertLineStyle,
+          },
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -191,12 +216,21 @@ export function LightweightChart({
               lineWidth: currentChartConfig.lineWidth,
               showLastValue,
               showLastPointMarker: currentChartConfig.showLastPointMarker,
+              patternColor: currentChartConfig.patternColor,
               priceFormatter: currentChartConfig.priceFormatter,
             }),
           );
+          series.applyOptions({
+            priceScaleId: currentChartConfig.priceScalePosition,
+          });
         } else if (isBaseline) {
           series = chart.addSeries(BaselineSeries, {
             ...currentChartConfig.baselineOptions,
+            priceScaleId: currentChartConfig.priceScalePosition,
+            lineType:
+              currentChartConfig.lineType === 'steps'
+                ? LineType.WithSteps
+                : LineType.Simple,
             lineWidth: Math.min(
               4,
               Math.max(1, Math.round(currentChartConfig.lineWidth)),
@@ -213,6 +247,7 @@ export function LightweightChart({
           });
         } else {
           series = chart.addSeries(AreaSeries, {
+            priceScaleId: currentChartConfig.priceScalePosition,
             ...createAreaSeriesOptions(
               currentChartConfig.theme,
               currentChartConfig.lineWidth,
@@ -235,6 +270,7 @@ export function LightweightChart({
             Math.max(1, Math.round(currentChartConfig.secondaryLineWidth ?? 2)),
           ) as 1 | 2 | 3 | 4;
           const secondarySeries = chart.addSeries(LineSeries, {
+            priceScaleId: currentChartConfig.priceScalePosition,
             color: currentChartConfig.secondaryLineColor ?? '#0177E5',
             lineWidth: normalizedSecondaryLineWidth,
             priceLineVisible: false,
@@ -390,11 +426,16 @@ export function LightweightChart({
     };
   }, [
     chartConfig.baselineOptions,
+    chartConfig.crosshairVertLineColor,
+    chartConfig.crosshairVertLineStyle,
     chartConfig.fontSize,
     chartConfig.horzLineColor,
     chartConfig.horzLineStyle,
     chartConfig.lineWidth,
+    chartConfig.lineType,
+    chartConfig.patternColor,
     chartConfig.priceFormatter,
+    chartConfig.priceScalePosition,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
     chartConfig.secondaryLineColor,
@@ -409,7 +450,9 @@ export function LightweightChart({
     chartConfig.theme.lineColor,
     chartConfig.theme.textSubduedColor,
     chartConfig.theme.topColor,
+    chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
+    chartConfig.locale,
     chartDataCreateDependency,
     hasSecondaryLineData,
     height,
@@ -438,7 +481,6 @@ export function LightweightChart({
     setLastPointPosition(null);
 
     currentSeries.setData(chartConfig.data);
-    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -460,20 +502,31 @@ export function LightweightChart({
         canPublishLastPointPositionRef.current = false;
       }
     };
-  }, [
-    chartConfig.data,
-    chartConfig.secondaryLineData,
-    preserveChartInstanceOnDataChange,
-  ]);
+  }, [chartConfig.data, preserveChartInstanceOnDataChange]);
+
+  // The overlay series is re-cut on every crosshair step by charts that dim the
+  // part of the line past the cursor, so it gets its own update path: replacing
+  // its data must not re-fit the time scale or drop the pulse-dot anchor, or
+  // scrubbing would make the chart strobe.
+  useEffect(() => {
+    if (!preserveChartInstanceOnDataChange) {
+      return;
+    }
+    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
+  }, [chartConfig.secondaryLineData, preserveChartInstanceOnDataChange]);
 
   return (
     <Stack position="relative" width="100%" height={height}>
-      <Stack ref={chartContainerRef} position="absolute" inset={0} />
+      <Stack
+        ref={chartContainerRef as unknown as Ref<IElement>}
+        position="absolute"
+        inset={0}
+      />
       {pulseLastPoint && lastPointPosition ? (
         <LightweightChartPulseDot
           x={lastPointPosition.x}
           y={lastPointPosition.y}
-          color={chartConfig.theme.lineColor}
+          color={chartConfig.pulseLastPointColor ?? chartConfig.theme.lineColor}
         />
       ) : null}
     </Stack>

@@ -30,6 +30,19 @@ export {
 export const SWAP_COLD_START_HOME_SCENE_NAME =
   'home' as EAccountSelectorSceneName;
 
+export function resolveSwapTokenNetworkLogoURI({
+  swapNetworks,
+  token,
+}: {
+  swapNetworks: ISwapNetwork[];
+  token?: ISwapToken;
+}) {
+  return (
+    swapNetworks.find((network) => network.networkId === token?.networkId)
+      ?.logoURI ?? token?.networkLogoURI
+  );
+}
+
 type ISwapSelectedAccountKeySource = {
   walletId?: string;
   indexedAccountId?: string;
@@ -302,16 +315,6 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
 
   if (
     hasSelectedTokens &&
-    shouldResetSelectedTokensForAllNetworkHome({
-      cachedContext,
-      selectedAccount: eventPayload.selectedAccount,
-    })
-  ) {
-    return true;
-  }
-
-  if (
-    hasSelectedTokens &&
     isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
       {
         cachedContext,
@@ -320,6 +323,16 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
     )
   ) {
     return false;
+  }
+
+  if (
+    hasSelectedTokens &&
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+    })
+  ) {
+    return true;
   }
 
   return shouldClearSwapSelectedTokensOnHomeAccountUpdate({
@@ -690,6 +703,17 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   }
 
   if (
+    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+      {
+        cachedContext,
+        selectedAccount: homeSelectedAccount,
+      },
+    )
+  ) {
+    return false;
+  }
+
+  if (
     shouldResetSelectedTokensForAllNetworkHome({
       cachedContext,
       selectedAccount: homeSelectedAccount,
@@ -726,6 +750,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
 
 export function getSwapSelectedTokensHomeAccountSyncAction({
   cachedContext,
+  deferSelectedTokenSync,
   hasSelectedTokens,
   homeSelectedAccount,
   initialSelectedTokensSynced,
@@ -735,6 +760,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   now,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  deferSelectedTokenSync?: boolean;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
   initialSelectedTokensSynced?: boolean;
@@ -755,7 +781,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   | {
       type: 'clear';
     } {
-  if (swapType === ESwapTabSwitchType.STOCK) {
+  if (deferSelectedTokenSync || swapType === ESwapTabSwitchType.STOCK) {
     return { type: 'preserve' };
   }
 
@@ -794,6 +820,16 @@ export function shouldSkipSwapDefaultSelectedTokenSync({
   initialSelectedTokensSynced: boolean;
 }) {
   return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
+}
+
+export function shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
+  isNative,
+  swapType,
+}: {
+  isNative: boolean;
+  swapType: ESwapTabSwitchType;
+}) {
+  return isNative && swapType === ESwapTabSwitchType.LIMIT;
 }
 
 function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
@@ -915,6 +951,20 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   }
 
   if (hasSelectedTokens) {
+    if (
+      isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+        {
+          cachedContext,
+          selectedAccount: eventPayload.selectedAccount,
+        },
+      )
+    ) {
+      return !isSelectedAccountOwnerMatchedIgnoringDeriveType(
+        eventPayload.selectedAccount,
+        swapSelectedAccount,
+      );
+    }
+
     if (
       initialSelectedTokensSynced &&
       isSelectedAccountOwnerMatchedIgnoringDeriveType(

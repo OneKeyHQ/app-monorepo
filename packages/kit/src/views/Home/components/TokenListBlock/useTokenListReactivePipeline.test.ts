@@ -18,6 +18,8 @@ import type { MutableRefObject } from 'react';
 
 import { act, renderHook } from '@testing-library/react';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 const mockIngestRound = jest.fn();
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
@@ -152,6 +154,35 @@ describe('useTokenListReactivePipeline', () => {
   beforeEach(() => {
     mockIngestRound.mockClear();
     mockGetVaultSettings.mockClear();
+  });
+
+  it('does not build an authoritative empty snapshot before any round materializes', async () => {
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+    });
+
+    await expect(
+      result.current.buildAuthoritativeSnapshot(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('builds a legitimate empty snapshot after an empty live round materializes', async () => {
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+      result.current.ingestLiveRound(
+        makeLiveRound({
+          tokens: { data: [], keys: '', map: {} },
+        }),
+        1,
+      );
+    });
+
+    const snapshot = await result.current.buildAuthoritativeSnapshot();
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.orderedTokens).toEqual([]);
+    expect(snapshot?.createAtNetworkWorth).toBe('0');
   });
 
   it('kill-switch: enabled:false → seedAndFlushCache does not ingest', async () => {
@@ -344,12 +375,74 @@ describe('useTokenListReactivePipeline', () => {
 
     await act(async () => {
       const snap = await result.current.buildAuthoritativeSnapshot();
-      result.current.commitAuthoritativeIngest(snap);
+      expect(snap).toBeDefined();
+      if (snap) {
+        result.current.commitAuthoritativeIngest(snap);
+      }
     });
     expect(mockIngestRound).toHaveBeenCalledTimes(1);
     expect(
       (mockIngestRound.mock.calls[0][0] as { source: string }).source,
     ).toBe('authoritative');
+  });
+
+  it('cache seed: explicit tokenListValue keeps risk-only map keys out of the worth', async () => {
+    // The cache stores ONE full tokenListMap (normal + small + risk entries)
+    // that seedAndFlushCache reuses for all three group maps. The cached
+    // tokenListValue counts tokens + smallBalanceTokens only, so it must be
+    // carried as the round's explicit accountWorth — a map-derived sum would
+    // add risk-only keys and write the authoritative worth too high.
+    const { result } = render(true);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+    });
+    let worth: string | undefined;
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [
+          makeCacheItem({
+            riskyTokenList: [
+              {
+                $key: 'scam',
+                name: 'Scam',
+                symbol: 'SCAM',
+                decimals: 18,
+                address: '0xscam',
+                isNative: false,
+              },
+            ] as ICacheSeedItem['riskyTokenList'],
+            tokenListMap: {
+              a1: {
+                balance: '1',
+                balanceParsed: '1',
+                fiatValue: '10',
+                price: 1,
+              },
+              scam: {
+                balance: '1',
+                balanceParsed: '1',
+                fiatValue: '999',
+                price: 1,
+              },
+            },
+            tokenListValue: '10',
+          }),
+        ],
+        accountId: OWNER.accountId,
+        networkId: OWNER.networkId,
+        generation: 1,
+      });
+      const snap = await result.current.buildAuthoritativeSnapshot();
+      expect(snap).toBeDefined();
+      worth =
+        snap?.accountsWorth[
+          accountUtils.buildAccountValueKey({
+            accountId: OWNER.accountId,
+            networkId: OWNER.networkId,
+          })
+        ];
+    });
+    expect(worth).toBe('10');
   });
 
   it('P1-g: a throttled live flush is SUPERSEDED by an authoritative commit (epoch bump)', async () => {
@@ -377,7 +470,10 @@ describe('useTokenListReactivePipeline', () => {
       // authoritative commit lands first (bumps the epoch)
       await act(async () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        expect(snap).toBeDefined();
+        if (snap) {
+          result.current.commitAuthoritativeIngest(snap);
+        }
       });
       mockIngestRound.mockClear();
       // now let the throttled flush fire — it must abort (epoch superseded)
@@ -450,7 +546,10 @@ describe('useTokenListReactivePipeline', () => {
           generation: 1,
         });
         const snap = await result.current.buildAuthoritativeSnapshot();
-        result.current.commitAuthoritativeIngest(snap);
+        expect(snap).toBeDefined();
+        if (snap) {
+          result.current.commitAuthoritativeIngest(snap);
+        }
       });
       mockIngestRound.mockClear();
 

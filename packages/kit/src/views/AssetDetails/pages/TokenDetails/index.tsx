@@ -608,31 +608,38 @@ function TokenDetailsView() {
     [uniqueTabNames],
   );
 
+  // The Overview descriptor has no token; fall back to the largest member
+  // for its market data (tokens are fiat-sorted, tokens[0] is the largest
+  // holding).
+  const activeFooterToken = useMemo(
+    () =>
+      (aggregateTabs
+        ? aggregateTabs[activeTabIndex]?.token
+        : tokens[activeTabIndex]) ?? tokens[0],
+    [activeTabIndex, aggregateTabs, tokens],
+  );
+  const activeFooterNetworkId = activeFooterToken?.networkId ?? networkId;
+
   // Updating the context from the hook result (not inside the promise body)
   // keeps usePromiseResult's stale-run protection: a slow response for a
   // previously active tab can no longer overwrite the current tab's market
   // data during fast tab switches.
   const { result: footerTokenMetadata } = usePromiseResult(async () => {
-    // The Overview descriptor has no token; fall back to the largest member
-    // for its market data (tokens are fiat-sorted, tokens[0] is the largest
-    // holding).
-    const activeToken =
-      (aggregateTabs
-        ? aggregateTabs[activeTabIndex]?.token
-        : tokens[activeTabIndex]) ?? tokens[0];
-    if (!activeToken) return undefined;
+    if (!activeFooterToken) return undefined;
 
     const resp = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-      networkId: activeToken.networkId ?? '',
-      tokenAddress: activeToken.address,
+      networkId: activeFooterNetworkId,
+      tokenAddress: activeFooterToken.address,
     });
     return {
       price: resp?.price ?? 0,
       priceChange24h: resp?.price24h ?? 0,
       coingeckoId: resp?.info?.coingeckoId ?? '',
+      networkId: activeFooterNetworkId,
+      tokenAddress: activeFooterToken.address,
       currency: resp?.currency,
     };
-  }, [activeTabIndex, tokens, aggregateTabs]);
+  }, [activeFooterNetworkId, activeFooterToken]);
 
   useEffect(() => {
     if (footerTokenMetadata) {
@@ -748,6 +755,8 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
+      setActiveTabIndex(index);
+
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
       const activeToken = aggregateTabs?.[index]?.token;
@@ -773,8 +782,6 @@ function TokenDetailsView() {
         });
         void refreshAllNetworkState();
       }
-
-      setActiveTabIndex(index);
     },
     [
       isAllNetworks,
@@ -953,7 +960,14 @@ function TokenDetailsView() {
     <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
-      <TokenDetailsFooter networkId={networkId} />
+      <TokenDetailsFooter
+        isNative={activeFooterToken?.isNative}
+        networkId={activeFooterNetworkId}
+        networkName={activeFooterToken?.networkName}
+        symbol={activeFooterToken?.symbol}
+        tokenAddress={activeFooterToken?.address}
+        tokenImageUri={activeFooterToken?.logoURI}
+      />
     </Page>
   );
 }

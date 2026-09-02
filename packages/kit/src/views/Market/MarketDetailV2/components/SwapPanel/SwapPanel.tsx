@@ -31,7 +31,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
@@ -97,19 +97,23 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   onShowSwapDialog,
+  stockDetailDesktopLayout,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
-  portfolioData?: IMarketAccountPortfolioItem[];
+  portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  stockDetailDesktopLayout?: boolean;
 }) {
   const intl = useIntl();
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
-    const positionInfo = portfolioData?.find((item) =>
-      equalsIgnoreCase(item.tokenAddress, swapToken.contractAddress),
+    const positionInfo = portfolioData?.find(
+      (item) =>
+        (!item.networkId || item.networkId === swapToken.networkId) &&
+        equalsIgnoreCase(item.tokenAddress, swapToken.contractAddress),
     );
     if (!positionInfo) {
       return {
@@ -134,7 +138,7 @@ export function SwapPanel({
       isZero,
       pnl: positionInfo.pnl,
     };
-  }, [portfolioData, swapToken.contractAddress]);
+  }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
@@ -268,7 +272,7 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        {media.lg ? (
+        {media.lg && !stockDetailDesktopLayout ? (
           <LgTradeButton
             swapToken={swapToken}
             onShowSwapDialog={onShowSwapDialog}
@@ -277,7 +281,10 @@ export function SwapPanel({
           <MarketWatchListProviderMirrorV2
             storeName={EJotaiContextStoreNames.marketWatchListV2}
           >
-            <SwapPanelWrap />
+            <SwapPanelWrap
+              stockDetailDesktopLayout={stockDetailDesktopLayout}
+              portfolioData={portfolioData}
+            />
           </MarketWatchListProviderMirrorV2>
         )}
       </AccountSelectorProviderMirror>

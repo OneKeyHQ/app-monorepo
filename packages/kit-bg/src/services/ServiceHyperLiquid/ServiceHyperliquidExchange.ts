@@ -36,6 +36,7 @@ import {
   assertValidScaleOrderLegs,
   buildScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   MAX_DECIMALS_PERP,
   formatHlPrice,
@@ -108,6 +109,11 @@ import type {
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
+type IHyperLiquidAgentCredentialInfo = Omit<
+  ICoreHyperLiquidAgentCredential,
+  'privateKey'
+>;
+
 interface IOrderLogOptions {
   action?: IHyperLiquidOrderAction;
   originalParams?: unknown;
@@ -132,16 +138,6 @@ type IOrderAssetId = IOrderParams['a'];
 interface IOrderLogContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
-}
-
-// TV lowercases everything; HL universe keys perps as `BTC`, spot as `@N`,
-// and sub-DEX as `xyz:<TICKER>` (lowercase prefix, uppercase ticker).
-function normalizePerpsCoin(coin: string): string {
-  if (!coin) return coin;
-  if (coin.startsWith('@')) return coin;
-  const xyzMatch = coin.match(/^xyz:(.*)$/i);
-  if (xyzMatch) return `xyz:${xyzMatch[1].toUpperCase()}`;
-  return coin.toUpperCase();
 }
 
 @backgroundClass()
@@ -365,7 +361,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setup(params: {
     userAddress: IHex | undefined;
     userAccountId?: string;
-    agentCredential?: ICoreHyperLiquidAgentCredential;
+    agentCredential?: IHyperLiquidAgentCredentialInfo;
   }): Promise<void> {
     try {
       const { hyperliquidBuilderAddress, hyperliquidMaxBuilderFee } =
@@ -1561,7 +1557,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<IOrderResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: normalizePerpsCoin(params.coin),
+        coin: normalizeDexCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
@@ -1604,19 +1600,27 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         params.expectedAccountAddress.toLowerCase()
     ) {
       throw new OneKeyLocalError(
-        'The active trading account changed before position increase',
+        appLocale.intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
       );
     }
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: normalizePerpsCoin(params.coin),
+        coin: normalizeDexCoin(params.coin),
       });
     if (!symbolMeta) {
-      throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.perp_token_info_not_found__msg,
+        }),
+      );
     }
     if (symbolMeta.isSpot) {
       throw new OneKeyLocalError(
-        `Position increase is not available for spot asset: ${params.coin}`,
+        appLocale.intl.formatMessage({
+          id: ETranslations.add_position_perpetuals_only__msg,
+        }),
       );
     }
 
@@ -1643,7 +1647,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
-        coin: normalizePerpsCoin(params.coin),
+        coin: normalizeDexCoin(params.coin),
       });
     if (!symbolMeta) {
       throw new OneKeyLocalError(`Unknown coin: ${params.coin}`);
@@ -1715,7 +1719,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           params.expectedAccountAddress.toLowerCase()
       ) {
         throw new OneKeyLocalError(
-          'The active trading account changed before setting position TP/SL',
+          appLocale.intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          }),
         );
       }
       const {

@@ -19,9 +19,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -135,11 +137,20 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-    // Sync instanceId to RevenueCat so server-side events (renewal, cancellation, etc.)
-    // are sent to Mixpanel with the same distinct_id as client-side analytics.
+    // Sync instanceId to RevenueCat so server-side subscription lifecycle
+    // events (renewal, cancellation, etc.) land on the same analytics person
+    // as client-side events. Mixpanel reads $mixpanelDistinctId; the PostHog
+    // integration reads the $posthogUserId subscriber attribute instead.
     if (instanceId) {
       try {
         await PurchasesReactNative.setMixpanelDistinctID(instanceId);
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        await PurchasesReactNative.setAttributes({
+          '$posthogUserId': instanceId,
+        });
       } catch (e) {
         console.error(e);
       }
@@ -159,13 +170,27 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       console.log('restorePurchases >>>>>> customerInfo', customerInfo);
       const localIsActive = customerInfo?.entitlements?.active?.Prime?.isActive;
       if (localIsActive) {
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        defaultLogger.prime.subscription.primeRestorePurchaseResult({
+          result: 'success',
+        });
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.prime_restore_successful,
           }),
         });
+        try {
+          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+        } catch (error) {
+          defaultLogger.prime.subscription.onekeyIdStateTrace({
+            reason: `restorePurchases user-info refresh failed: ${getSanitizedErrorLogText(
+              error,
+            )}`,
+          });
+        }
       } else {
+        defaultLogger.prime.subscription.primeRestorePurchaseResult({
+          result: 'noPurchases',
+        });
         Toast.message({
           title: intl.formatMessage({
             id: ETranslations.prime_no_purchases_found,
@@ -174,6 +199,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       }
     } catch (e) {
       console.error('restorePurchases >>>>>> error', e);
+      defaultLogger.prime.subscription.primeRestorePurchaseResult({
+        result: 'failed',
+      });
       Toast.message({
         title: (e as Error)?.message || 'Restore purchases failed',
       });
@@ -345,6 +373,8 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             currency: offering.product.currencyCode,
             subscriptionPeriod,
             featureName,
+            // react-native-purchases = StoreKit / Play Billing in-app purchase
+            paymentMethod: 'iap',
           });
 
           void Dialog.confirm({
@@ -367,8 +397,13 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         }
         return makePurchaseResult;
       } catch (error) {
-        const e = error as Error | undefined;
-        if (e?.message && !['Purchase was cancelled.'].includes(e?.message)) {
+        const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
+          error,
+          paymentMethod: 'iap',
+          subscriptionPeriod,
+          featureName,
+        });
+        if (reason !== 'userCancelled') {
           errorToastUtils.toastIfError(error);
         }
         throw error;

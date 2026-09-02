@@ -1,7 +1,61 @@
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+
 import {
   buildPerpDepositOrderStatusRequestParams,
+  buildSwapReferralBuildTxParams,
   buildSwapRequestErrorToastPayload,
+  mergeSwapTokenLists,
+  shouldAttachSwapReferralBuildTxParams,
 } from './ServiceSwap.utils';
+
+describe('shouldAttachSwapReferralBuildTxParams', () => {
+  it('enables attribution for Swap and Bridge builds', () => {
+    expect(
+      shouldAttachSwapReferralBuildTxParams(EProtocolOfExchange.SWAP),
+    ).toBe(true);
+  });
+
+  it.each([
+    EProtocolOfExchange.LIMIT,
+    EProtocolOfExchange.PRIVATE_SEND,
+    EProtocolOfExchange.STOCK,
+    EProtocolOfExchange.ALL,
+  ])('excludes %s builds from referral attribution', (protocol) => {
+    expect(shouldAttachSwapReferralBuildTxParams(protocol)).toBe(false);
+  });
+});
+
+describe('buildSwapReferralBuildTxParams', () => {
+  it('maps a bound EVM wallet to the swap build contract', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+        rebateAddress: '0xcurrent',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+      rebateAddress: '0xcurrent',
+    });
+  });
+
+  it('keeps bound attribution when the current EVM address is unavailable', () => {
+    expect(
+      buildSwapReferralBuildTxParams({
+        address: '0xabc',
+        networkId: 'evm--1',
+      }),
+    ).toEqual({
+      bindedAccountAddress: '0xabc',
+      bindedNetworkId: 'evm--1',
+    });
+  });
+
+  it('omits referral attribution for an unbound wallet', () => {
+    expect(buildSwapReferralBuildTxParams()).toEqual({});
+  });
+});
 
 describe('buildPerpDepositOrderStatusRequestParams', () => {
   it('maps the quote order ID to the status request', () => {
@@ -60,5 +114,30 @@ describe('buildSwapRequestErrorToastPayload', () => {
       requestId: undefined,
       title: 'Request failed',
     });
+  });
+});
+
+describe('mergeSwapTokenLists', () => {
+  it('keeps search results first and deduplicates support-list tokens case-insensitively', () => {
+    const searchToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xAbC',
+      symbol: 'SEARCH',
+      decimals: 18,
+    };
+    const supportToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xabc',
+      symbol: 'SUPPORT',
+      decimals: 18,
+    };
+    const anotherNetworkToken = {
+      ...supportToken,
+      networkId: 'evm--137',
+    };
+
+    expect(
+      mergeSwapTokenLists([[searchToken], [supportToken, anotherNetworkToken]]),
+    ).toEqual([searchToken, anotherNetworkToken]);
   });
 });

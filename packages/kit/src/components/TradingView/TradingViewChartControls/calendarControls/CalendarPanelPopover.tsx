@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,6 +18,11 @@ import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShar
 
 import {
   buildChartTimestamp,
+  clampCalendarDateToRange,
+  getCalendarMaximumTimestamp,
+  getChartDateFromTimestamp,
+  isCalendarDateInRange,
+  isCalendarMonthInRange,
   normalizeRangeEndSelection,
 } from './CalendarPanelUtils';
 
@@ -33,6 +38,27 @@ export type ICalendarPanelSubmitPayload =
       from: number;
       to: number;
     };
+
+export interface ICalendarPanelAvailableTimeRange {
+  from?: number;
+  to?: number;
+}
+
+type ICalendarDateContext = {
+  maximumDate?: Date;
+  minimumDate?: Date;
+  today: Date;
+};
+
+function clampTimestampToAvailableRange(
+  timestamp: number,
+  availableTimeRange?: ICalendarPanelAvailableTimeRange,
+) {
+  return Math.min(
+    availableTimeRange?.to ?? timestamp,
+    Math.max(availableTimeRange?.from ?? timestamp, timestamp),
+  );
+}
 
 const WEEKDAY_REFERENCE_DATES = [
   new Date(Date.UTC(2020, 5, 7)),
@@ -81,6 +107,47 @@ function compareDay(a: Date, b: Date) {
   return startOfDay(a).getTime() - startOfDay(b).getTime();
 }
 
+function getCalendarDateContext({
+  chartTimezone,
+  nowTimestamp,
+  rangeMaximumTimestamp,
+  rangeMinimumTimestamp,
+}: {
+  chartTimezone: string;
+  nowTimestamp: number;
+  rangeMaximumTimestamp?: number;
+  rangeMinimumTimestamp?: number;
+}): ICalendarDateContext {
+  const today =
+    getChartDateFromTimestamp({
+      timeZone: chartTimezone,
+      timestamp: nowTimestamp,
+    }) ?? startOfDay(new Date(nowTimestamp * 1000));
+  const maximumTimestamp = getCalendarMaximumTimestamp({
+    nowTimestamp,
+    rangeMaximumTimestamp,
+  });
+  const maximumDate = getChartDateFromTimestamp({
+    timeZone: chartTimezone,
+    timestamp: maximumTimestamp,
+  });
+  const rangeMinimumDate = getChartDateFromTimestamp({
+    timeZone: chartTimezone,
+    timestamp: rangeMinimumTimestamp ?? Number.NaN,
+  });
+
+  return {
+    maximumDate,
+    minimumDate:
+      rangeMinimumDate &&
+      (maximumDate === undefined ||
+        compareDay(rangeMinimumDate, maximumDate) <= 0)
+        ? rangeMinimumDate
+        : undefined,
+    today,
+  };
+}
+
 function formatTime(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -88,6 +155,12 @@ function formatTime(totalMinutes: number) {
     2,
     '0',
   )}`;
+}
+
+function getCalendarDayTestId(date: Date) {
+  return `trading-view-calendar-day-${date.getFullYear()}-${String(
+    date.getMonth() + 1,
+  ).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function buildCalendarDays(monthDate: Date) {
@@ -103,12 +176,17 @@ function buildCalendarDays(monthDate: Date) {
 }
 
 function getCalendarDayTextColor({
+  isDisabled,
   isCurrentMonth,
   isSelected,
 }: {
+  isDisabled: boolean;
   isCurrentMonth: boolean;
   isSelected: boolean;
 }) {
+  if (isDisabled) {
+    return '$textDisabled';
+  }
   if (isSelected) {
     return '$textInverse';
   }
@@ -123,11 +201,13 @@ function DateField({
   dateFormatter,
   isActive,
   onPress,
+  testID,
 }: {
   value: Date;
   dateFormatter: Intl.DateTimeFormat;
   isActive?: boolean;
   onPress?: () => void;
+  testID: string;
 }) {
   const formattedDate = useMemo(
     () => dateFormatter.format(value),
@@ -136,6 +216,7 @@ function DateField({
 
   return (
     <XStack
+      testID={testID}
       flex={1}
       h={38}
       px="$3"
@@ -229,6 +310,8 @@ function TimeField({
 }
 
 function CalendarGrid({
+  maximumDate,
+  minimumDate,
   panel,
   monthDate,
   goToDate,
@@ -239,6 +322,8 @@ function CalendarGrid({
   onDatePress,
   onMonthChange,
 }: {
+  maximumDate?: Date;
+  minimumDate?: Date;
   panel: ICalendarPanel;
   monthDate: Date;
   goToDate: Date;
@@ -256,6 +341,18 @@ function CalendarGrid({
     () => monthYearFormatter.format(monthDate),
     [monthDate, monthYearFormatter],
   );
+  const previousMonthDate = addMonths(monthDate, -1);
+  const nextMonthDate = addMonths(monthDate, 1);
+  const canNavigateToPreviousMonth = isCalendarMonthInRange({
+    maximumDate,
+    minimumDate,
+    monthDate: previousMonthDate,
+  });
+  const canNavigateToNextMonth = isCalendarMonthInRange({
+    maximumDate,
+    minimumDate,
+    monthDate: nextMonthDate,
+  });
 
   return (
     <YStack gap="$3">
@@ -266,7 +363,8 @@ function CalendarGrid({
           variant="tertiary"
           icon="ChevronLeftOutline"
           iconSize="$5"
-          onPress={() => onMonthChange(addMonths(monthDate, -1))}
+          disabled={!canNavigateToPreviousMonth}
+          onPress={() => onMonthChange(previousMonthDate)}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
         <XStack gap="$3" alignItems="center">
@@ -280,7 +378,8 @@ function CalendarGrid({
           variant="tertiary"
           icon="ChevronRightOutline"
           iconSize="$5"
-          onPress={() => onMonthChange(addMonths(monthDate, 1))}
+          disabled={!canNavigateToNextMonth}
+          onPress={() => onMonthChange(nextMonthDate)}
           {...HEADER_ICON_BUTTON_STYLE_PROPS}
         />
       </XStack>
@@ -302,6 +401,11 @@ function CalendarGrid({
           <XStack key={rowIndex}>
             {calendarDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((date) => {
               const dayTime = startOfDay(date).getTime();
+              const isDisabled = !isCalendarDateInRange({
+                date,
+                maximumDate,
+                minimumDate,
+              });
               const isCurrentMonth = date.getMonth() === monthDate.getMonth();
               const isGoToSelected =
                 panel === 'goToDate' && isSameDay(date, goToDate);
@@ -316,6 +420,7 @@ function CalendarGrid({
               const isEndpoint = isRangeStart || isRangeEnd;
               const isSelected = isGoToSelected || isEndpoint;
               const dayTextColor = getCalendarDayTextColor({
+                isDisabled,
                 isCurrentMonth,
                 isSelected,
               });
@@ -323,6 +428,7 @@ function CalendarGrid({
               return (
                 <XStack
                   key={date.toISOString()}
+                  testID={getCalendarDayTestId(date)}
                   flex={1}
                   h={40}
                   alignItems="center"
@@ -332,8 +438,8 @@ function CalendarGrid({
                   borderBottomLeftRadius={isRangeStart ? '$3' : undefined}
                   borderTopRightRadius={isRangeEnd ? '$3' : undefined}
                   borderBottomRightRadius={isRangeEnd ? '$3' : undefined}
-                  cursor="pointer"
-                  onPress={() => onDatePress(date)}
+                  cursor={isDisabled ? 'not-allowed' : 'pointer'}
+                  onPress={isDisabled ? undefined : () => onDatePress(date)}
                 >
                   <XStack
                     w={40}
@@ -358,16 +464,39 @@ function CalendarGrid({
 }
 
 export function CalendarPanelPopover({
+  availableTimeRange,
   chartTimezone,
   onSubmit,
+  onOpen,
   onControlInteraction,
 }: {
+  availableTimeRange?: ICalendarPanelAvailableTimeRange;
   chartTimezone: string;
   onSubmit: (payload: ICalendarPanelSubmitPayload) => void;
+  onOpen?: () => void;
   onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const rangeMaximumTimestamp = availableTimeRange?.to;
+  const rangeMinimumTimestamp = availableTimeRange?.from;
+  const [calendarNowTimestamp, setCalendarNowTimestamp] = useState(() =>
+    Math.floor(Date.now() / 1000),
+  );
+  const { maximumDate, minimumDate, today } = useMemo(
+    () =>
+      getCalendarDateContext({
+        chartTimezone,
+        nowTimestamp: calendarNowTimestamp,
+        rangeMaximumTimestamp,
+        rangeMinimumTimestamp,
+      }),
+    [
+      calendarNowTimestamp,
+      chartTimezone,
+      rangeMaximumTimestamp,
+      rangeMinimumTimestamp,
+    ],
+  );
   const dateFormatters = useMemo(
     () => ({
       date: createDateTimeFormatter(intl.locale, {
@@ -415,7 +544,7 @@ export function CalendarPanelPopover({
   );
   const [isOpen, setIsOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<ICalendarPanel>('goToDate');
-  const [monthDate, setMonthDate] = useState(() => startOfDay(new Date()));
+  const [monthDate, setMonthDate] = useState(today);
   const [goToDate, setGoToDate] = useState(today);
   const [goToTime, setGoToTime] = useState(0);
   const [rangeStartDate, setRangeStartDate] = useState(today);
@@ -426,32 +555,96 @@ export function CalendarPanelPopover({
     'from',
   );
 
-  const resetPanelState = useCallback(() => {
-    const nextToday = startOfDay(new Date());
-    setActivePanel('goToDate');
-    setMonthDate(nextToday);
-    setGoToDate(nextToday);
-    setGoToTime(0);
-    setRangeStartDate(nextToday);
-    setRangeEndDate(nextToday);
-    setRangeStartTime(0);
-    setRangeEndTime(0);
-    setActiveRangeField('from');
-  }, []);
+  const resetPanelState = useCallback(
+    ({
+      maximumDate: nextMaximumDate,
+      minimumDate: nextMinimumDate,
+      today: nextCalendarToday,
+    }: ICalendarDateContext) => {
+      const nextToday = clampCalendarDateToRange({
+        date: nextCalendarToday,
+        maximumDate: nextMaximumDate,
+        minimumDate: nextMinimumDate,
+      });
+      setActivePanel('goToDate');
+      setMonthDate(nextToday);
+      setGoToDate(nextToday);
+      setGoToTime(0);
+      setRangeStartDate(nextToday);
+      setRangeEndDate(nextToday);
+      setRangeStartTime(0);
+      setRangeEndTime(0);
+      setActiveRangeField('from');
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const clampDate = (date: Date) =>
+      clampCalendarDateToRange({
+        date,
+        maximumDate,
+        minimumDate,
+      });
+    setGoToDate(clampDate);
+    setRangeStartDate(clampDate);
+    setRangeEndDate(clampDate);
+    setMonthDate((currentDate) => {
+      if (
+        isCalendarMonthInRange({
+          maximumDate,
+          minimumDate,
+          monthDate: currentDate,
+        })
+      ) {
+        return currentDate;
+      }
+      const nextDate = clampDate(currentDate);
+      return new Date(nextDate.getFullYear(), nextDate.getMonth(), 1);
+    });
+  }, [isOpen, maximumDate, minimumDate]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (open) {
+        const nextNowTimestamp = Math.floor(Date.now() / 1000);
+        const nextDateContext = getCalendarDateContext({
+          chartTimezone,
+          nowTimestamp: nextNowTimestamp,
+          rangeMaximumTimestamp,
+          rangeMinimumTimestamp,
+        });
+        setCalendarNowTimestamp(nextNowTimestamp);
         onControlInteraction?.();
-        resetPanelState();
+        onOpen?.();
+        resetPanelState(nextDateContext);
       }
       setIsOpen(open);
     },
-    [onControlInteraction, resetPanelState],
+    [
+      chartTimezone,
+      onControlInteraction,
+      onOpen,
+      rangeMaximumTimestamp,
+      rangeMinimumTimestamp,
+      resetPanelState,
+    ],
   );
 
   const handleDatePress = useCallback(
     (date: Date) => {
+      if (
+        !isCalendarDateInRange({
+          date,
+          maximumDate,
+          minimumDate,
+        })
+      ) {
+        return;
+      }
       const nextDate = startOfDay(date);
       if (activePanel === 'goToDate') {
         setGoToDate(nextDate);
@@ -475,18 +668,37 @@ export function CalendarPanelPopover({
       setRangeEndDate(nextRange.rangeEndDate);
       setActiveRangeField('from');
     },
-    [activePanel, activeRangeField, rangeEndDate, rangeStartDate],
+    [
+      activePanel,
+      activeRangeField,
+      maximumDate,
+      minimumDate,
+      rangeEndDate,
+      rangeStartDate,
+    ],
   );
 
   const submit = useCallback((): ICalendarPanelSubmitPayload => {
+    const effectiveAvailableTimeRange = {
+      ...(availableTimeRange?.from === undefined
+        ? {}
+        : { from: availableTimeRange.from }),
+      to: getCalendarMaximumTimestamp({
+        nowTimestamp: Math.floor(Date.now() / 1000),
+        rangeMaximumTimestamp: availableTimeRange?.to,
+      }),
+    };
     if (activePanel === 'goToDate') {
       return {
         panel: 'goToDate',
-        timestamp: buildChartTimestamp({
-          date: goToDate,
-          totalMinutes: goToTime,
-          timeZone: chartTimezone,
-        }),
+        timestamp: clampTimestampToAvailableRange(
+          buildChartTimestamp({
+            date: goToDate,
+            totalMinutes: goToTime,
+            timeZone: chartTimezone,
+          }),
+          effectiveAvailableTimeRange,
+        ),
       };
     }
 
@@ -502,16 +714,30 @@ export function CalendarPanelPopover({
     });
     const normalizedFrom = Math.min(from, to);
     const normalizedTo = Math.max(from, to);
+    let boundedFrom = clampTimestampToAvailableRange(
+      normalizedFrom,
+      effectiveAvailableTimeRange,
+    );
+    const boundedTo = clampTimestampToAvailableRange(
+      normalizedTo > normalizedFrom
+        ? normalizedTo
+        : normalizedFrom + DEFAULT_TIME_RANGE_SECONDS,
+      effectiveAvailableTimeRange,
+    );
+    if (boundedTo <= boundedFrom) {
+      boundedFrom = Math.max(
+        effectiveAvailableTimeRange.from ?? 0,
+        boundedTo - DEFAULT_TIME_RANGE_SECONDS,
+      );
+    }
     return {
       panel: 'timeRange',
-      from: normalizedFrom,
-      to:
-        normalizedTo > normalizedFrom
-          ? normalizedTo
-          : normalizedFrom + DEFAULT_TIME_RANGE_SECONDS,
+      from: boundedFrom,
+      to: boundedTo,
     };
   }, [
     activePanel,
+    availableTimeRange,
     chartTimezone,
     goToDate,
     goToTime,
@@ -530,6 +756,7 @@ export function CalendarPanelPopover({
             return (
               <YStack
                 key={value}
+                testID={`trading-view-calendar-panel-${value}`}
                 px="$5"
                 pt="$3"
                 gap="$2"
@@ -553,7 +780,11 @@ export function CalendarPanelPopover({
         <YStack p="$5" gap="$5">
           {activePanel === 'goToDate' ? (
             <XStack gap="$3">
-              <DateField value={goToDate} dateFormatter={dateFormatters.date} />
+              <DateField
+                value={goToDate}
+                dateFormatter={dateFormatters.date}
+                testID="trading-view-calendar-go-to-date"
+              />
               <TimeField value={goToTime} onChange={setGoToTime} />
             </XStack>
           ) : (
@@ -564,6 +795,7 @@ export function CalendarPanelPopover({
                   dateFormatter={dateFormatters.date}
                   isActive={activeRangeField === 'from'}
                   onPress={() => setActiveRangeField('from')}
+                  testID="trading-view-calendar-range-start-date"
                 />
                 <TimeField
                   value={rangeStartTime}
@@ -576,6 +808,7 @@ export function CalendarPanelPopover({
                   dateFormatter={dateFormatters.date}
                   isActive={activeRangeField === 'to'}
                   onPress={() => setActiveRangeField('to')}
+                  testID="trading-view-calendar-range-end-date"
                 />
                 <TimeField value={rangeEndTime} onChange={setRangeEndTime} />
               </XStack>
@@ -583,6 +816,8 @@ export function CalendarPanelPopover({
           )}
 
           <CalendarGrid
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
             panel={activePanel}
             monthDate={monthDate}
             goToDate={goToDate}
@@ -630,6 +865,8 @@ export function CalendarPanelPopover({
       goToDate,
       goToTime,
       handleDatePress,
+      maximumDate,
+      minimumDate,
       monthDate,
       onSubmit,
       panelOptions,
@@ -649,7 +886,7 @@ export function CalendarPanelPopover({
       onOpenChange={handleOpenChange}
       showHeader={false}
       usingSheet={false}
-      placement="bottom-end"
+      placement="bottom-start"
       floatingPanelProps={{
         width: 328,
       }}

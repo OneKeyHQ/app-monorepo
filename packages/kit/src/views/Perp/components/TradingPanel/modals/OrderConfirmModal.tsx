@@ -55,7 +55,10 @@ import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { formatBboModeLabel } from '../selectors/bboDisplay';
 
+import { AggressiveLimitPriceWarning } from './AggressiveLimitPriceWarning';
+
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
+import type { IAggressiveLimitPriceWarning } from '../../../utils/aggressiveLimitPrice';
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
@@ -89,6 +92,7 @@ interface IOrderConfirmContentProps {
   // Coin the override ticket was built for; submit aborts if the live active
   // instrument no longer matches (active-asset switch between press and confirm).
   expectedCoin?: string;
+  aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }
@@ -120,6 +124,7 @@ function OrderConfirmContent({
   formDataOverride,
   priceOverride,
   expectedCoin,
+  aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: IOrderConfirmContentProps) {
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
@@ -571,6 +576,10 @@ function OrderConfirmContent({
 
   return (
     <YStack gap="$4" p="$1">
+      {aggressiveLimitPriceWarning ? (
+        <AggressiveLimitPriceWarning warning={aggressiveLimitPriceWarning} />
+      ) : null}
+
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
@@ -850,20 +859,22 @@ function OrderConfirmContent({
         ) : null}
 
         {/* skip order confirm checkbox */}
-        <XStack justifyContent="space-between" alignItems="center" gap="$2">
-          <Checkbox
-            testID="perp-checkbox"
-            labelProps={{
-              fontSize: '$bodyMdMedium',
-              color: '$textSubdued',
-            }}
-            label={intl.formatMessage({
-              id: ETranslations.perp_confirm_not_show,
-            })}
-            value={perpsCustomSettings.skipOrderConfirm}
-            onChange={(checked) => setSkipOrderConfirm(!!checked)}
-          />
-        </XStack>
+        {!aggressiveLimitPriceWarning ? (
+          <XStack justifyContent="space-between" alignItems="center" gap="$2">
+            <Checkbox
+              testID="perp-checkbox"
+              labelProps={{
+                fontSize: '$bodyMdMedium',
+                color: '$textSubdued',
+              }}
+              label={intl.formatMessage({
+                id: ETranslations.perp_confirm_not_show,
+              })}
+              value={perpsCustomSettings.skipOrderConfirm}
+              onChange={(checked) => setSkipOrderConfirm(!!checked)}
+            />
+          </XStack>
+        ) : null}
       </YStack>
 
       <TradingGuardWrapper
@@ -897,6 +908,7 @@ export function showOrderConfirmDialog({
   formData,
   price,
   expectedCoin,
+  aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: {
   overrideSide?: 'long' | 'short';
@@ -911,6 +923,7 @@ export function showOrderConfirmDialog({
   price?: string;
   // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
   expectedCoin?: string;
+  aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }) {
@@ -931,6 +944,7 @@ export function showOrderConfirmDialog({
             formDataOverride={formData}
             priceOverride={price}
             expectedCoin={expectedCoin}
+            aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
             onConfirmSuccess={onConfirmSuccess}
           />
         </PerpsProviderMirror>

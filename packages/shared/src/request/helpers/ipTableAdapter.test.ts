@@ -1,11 +1,13 @@
 import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
   testIpSpeed,
@@ -148,6 +150,87 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
   });
 
+  test('does no preflight work for an already aborted request', async () => {
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+    controller.abort();
+
+    await expect(adapter(config)).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+
+    expect(mockedIsSniSupported).not.toHaveBeenCalled();
+    expect(mockedIsProxyActiveForUrl).not.toHaveBeenCalled();
+    expect(
+      mockedRequestHelper.getDevSettingsPersistAtom,
+    ).not.toHaveBeenCalled();
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('aborts immediately while proxy preflight is pending', async () => {
+    let resolvePreflight: ((value: boolean) => void) | undefined;
+    mockedIsProxyActiveForUrl.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreflight = resolve;
+        }),
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolvePreflight?.(false);
+  });
+
+  test('aborts immediately while IP selection is pending', async () => {
+    let resolveDevSettings:
+      | ((value: { settings: Record<string, never> }) => void)
+      | undefined;
+    mockedRequestHelper.getDevSettingsPersistAtom.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDevSettings = resolve;
+        }) as never,
+    );
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://pending.example.com/v1');
+    config.signal = controller.signal;
+
+    const responsePromise = adapter(config);
+    for (let index = 0; index < 4; index += 1) {
+      // Allow the resolved proxy preflight to advance into IP selection.
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    expect(mockedRequestHelper.getDevSettingsPersistAtom).toHaveBeenCalled();
+    controller.abort();
+
+    await expect(responsePromise).rejects.toMatchObject({
+      code: 'SNI_CANCELLED',
+    });
+    expect(mockedRequestHelper.getIpTableConfig).not.toHaveBeenCalled();
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+    resolveDevSettings?.({ settings: {} });
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   test('keeps legacy SNI path when proxy preflight capability is missing', async () => {
     mockedIsProxyActiveForUrl.mockResolvedValue(null);
     mockedSniRequest.mockResolvedValue({
@@ -157,10 +240,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       body: '{"ok":true}',
     });
     const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
 
-    await expect(
-      adapter(buildConfig('https://api.example.com/v1')),
-    ).resolves.toMatchObject({
+    await expect(adapter(config)).resolves.toMatchObject({
       status: 200,
       data: { ok: true },
     });
@@ -171,6 +255,7 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         ip: '93.184.216.34',
         hostname: 'api.example.com',
       }),
+      { signal: controller.signal },
     );
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
@@ -237,6 +322,27 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'wallet.example.com',
       }),
     );
+  });
+});
+
+describe('isIpTableTransportError', () => {
+  test('recognizes the normalized Axios network error used by the global interceptor', () => {
+    expect(
+      isIpTableTransportError({
+        code: -99_999,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        message: 'Network error',
+      }),
+    ).toBe(true);
+  });
+
+  test('does not treat an HTTP response as a transport failure', () => {
+    expect(
+      isIpTableTransportError({
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        response: { status: 503 },
+      }),
+    ).toBe(false);
   });
 });
 
@@ -339,8 +445,41 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
       ip: string;
       hostname: string;
     };
-    expect(BUILTIN_CN_IPS).toContain(sniArgs.ip);
+    expect(sniArgs.ip).toBe(BUILTIN_CN_IPS[0]);
     expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {
+    fallbackAdapter.mockImplementation(async () => {
+      throw networkError();
+    });
+    for (let i = 0; i < 3; i += 1) {
+      await expect(
+        createIpTableAdapter({})(
+          buildConfig('https://data.onekey.so/config.json'),
+        ),
+      ).rejects.toMatchObject({ code: 'ECONNABORTED' });
+    }
+
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+
+    await expect(
+      createIpTableAdapter({})(
+        buildConfig('https://data.onekey.so/config.json'),
+      ),
+    ).resolves.toMatchObject({ status: 200, data: { ok: true } });
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: BUILTIN_CN_IPS[0],
+        hostname: 'data.onekey.so',
+      }),
+      { signal: undefined },
+    );
   });
 
   test('does not replay the failing request itself', async () => {
@@ -994,6 +1133,7 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     expect(mockedSniRequest).toHaveBeenCalledTimes(1);
     expect(mockedSniRequest).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: 'utility.onekeycn.com' }),
+      { signal: undefined },
     );
   });
 });

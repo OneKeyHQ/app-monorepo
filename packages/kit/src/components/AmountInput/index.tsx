@@ -70,6 +70,14 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
+      /**
+       * Skeleton just the token image while its URI is still being resolved,
+       * keeping the symbol readable. `loading` above blanks the whole trigger;
+       * this is for callers that already know the symbol but not the logo
+       * (e.g. Earn entered from a deep link without a tokenImageUri param) and
+       * would otherwise flash Image.Fallback's placeholder coin (OK-59961).
+       */
+      selectedTokenImageLoading?: boolean;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
       selectedNetworkName?: string;
@@ -80,7 +88,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
-  } & IStackProps
+  } & Omit<IStackProps, 'onChange'>
 >;
 
 export function AmountInput({
@@ -203,6 +211,7 @@ export function AmountInput({
     const {
       popover: popoverProps,
       selectedTokenImageUri,
+      selectedTokenImageLoading,
       selectedNetworkImageUri,
       selectedTokenSymbol,
       selectedNetworkName,
@@ -253,28 +262,32 @@ export function AmountInput({
         onPress={hasPopover ? undefined : onPress}
       >
         <Stack mr="$2">
-          <Image
-            size="$7"
-            borderRadius="$full"
-            source={{
-              uri: selectedTokenImageUri,
-            }}
-            fallback={
-              <Image.Fallback
-                borderRadius="$full"
-                alignItems="center"
-                justifyContent="center"
-                bg="$gray5"
-              >
-                <Icon
-                  size="$6"
-                  m="$1"
-                  name="CryptoCoinOutline"
-                  color="$iconSubdued"
-                />
-              </Image.Fallback>
-            }
-          />
+          {selectedTokenImageLoading ? (
+            <Skeleton w="$7" h="$7" radius="round" />
+          ) : (
+            <Image
+              size="$7"
+              borderRadius="$full"
+              source={{
+                uri: selectedTokenImageUri,
+              }}
+              fallback={
+                <Image.Fallback
+                  borderRadius="$full"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$gray5"
+                >
+                  <Icon
+                    size="$6"
+                    m="$1"
+                    name="CryptoCoinOutline"
+                    color="$iconSubdued"
+                  />
+                </Image.Fallback>
+              }
+            />
+          )}
           {selectedNetworkImageUri ? (
             <Stack
               position="absolute"
@@ -356,9 +369,15 @@ export function AmountInput({
     }
     if (balanceProps.loading) {
       return (
-        <Stack m="$1" px="$2.5" py="$1">
+        <XStack m="$1" px="$2.5" py="$1" alignItems="center">
           <Skeleton h="$4" w="$16" />
-        </Stack>
+          {enableMaxAmount ? (
+            <SizableText pl="$1" size="$bodySmMedium" color="$textPlaceholder">
+              {maxAmountText ??
+                intl.formatMessage({ id: ETranslations.send_max })}
+            </SizableText>
+          ) : null}
+        </XStack>
       );
     }
     if (balanceProps.value) {
@@ -383,15 +402,17 @@ export function AmountInput({
           borderRadius={6}
           onPress={balanceProps.onPress}
           testID={balanceProps.testID}
-          {...(enableMaxAmount && {
-            userSelect: 'none',
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
+          {...(enableMaxAmount && balanceProps.onPress
+            ? {
+                userSelect: 'none',
+                hoverStyle: {
+                  bg: '$bgHover',
+                },
+                pressStyle: {
+                  bg: '$bgActive',
+                },
+              }
+            : undefined)}
           {...(balanceHelperProps && {
             px: '$1.5',
             mr: '$-2',
@@ -413,7 +434,13 @@ export function AmountInput({
             </SizableText>
           ) : null}
           {enableMaxAmount ? (
-            <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
+            <SizableText
+              pl="$1"
+              size="$bodySmMedium"
+              color={
+                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
+              }
+            >
               {maxAmountText ??
                 intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>

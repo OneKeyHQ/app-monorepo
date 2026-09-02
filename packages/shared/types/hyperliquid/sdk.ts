@@ -16,6 +16,7 @@ export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
+export type IWsTrades = HL.TradesWsEvent;
 export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
@@ -187,6 +188,7 @@ export type IEventFastL2Parameters = {
   m?: IEventL2BookParameters['mantissa'];
 };
 export type IEventBboParameters = HL.BboWsParameters;
+export type IEventTradesParameters = HL.TradesWsParameters;
 export type IEventWebData2Parameters = HL.WebData2WsParameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
@@ -213,6 +215,7 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.L2]: IEventFastL2Parameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
+  [ESubscriptionType.TRADES]: IEventTradesParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 

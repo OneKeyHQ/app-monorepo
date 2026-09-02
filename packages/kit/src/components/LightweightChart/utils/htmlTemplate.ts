@@ -21,10 +21,85 @@ function getChartInitScript(): string {
             return numberPriceFormatter(price, nextConfig);
           };
         }
-        return pctPriceFormatter;
+        return function(price) {
+          return pctPriceFormatter(price, nextConfig);
+        };
       }
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
+      }
+      function getPriceScalePosition(nextConfig) {
+        return nextConfig.priceScalePosition === 'left' ? 'left' : 'right';
+      }
+      function getPriceScaleOptions(nextConfig, position) {
+        if (getPriceScalePosition(nextConfig) !== position) {
+          return { visible: false };
+        }
+        return Object.assign(
+          {
+            visible: Boolean(nextConfig.showPriceScale),
+            borderVisible: false,
+            entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
+          },
+          nextConfig.priceScaleMargins
+            ? { scaleMargins: nextConfig.priceScaleMargins }
+            : {}
+        );
+      }
+      var timeScaleFormatterCache = new Map();
+      function getTimeScaleFormatOptions(tickMarkType) {
+        if (tickMarkType === 0) return { year: 'numeric' };
+        if (tickMarkType === 1) return { month: 'short' };
+        if (tickMarkType === 2) return { day: 'numeric' };
+        if (tickMarkType === 3) {
+          return { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+        }
+        if (tickMarkType === 4) {
+          return {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+          };
+        }
+        return { month: 'short', day: 'numeric' };
+      }
+      function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
+        var date = new Date(time * 1000);
+        var formatterKey = [
+          nextConfig.locale || '',
+          nextConfig.timeZone,
+          tickMarkType,
+        ].join('|');
+        var formatter = timeScaleFormatterCache.get(formatterKey);
+        if (!formatter) {
+          formatter = new Intl.DateTimeFormat(
+            nextConfig.locale || undefined,
+            Object.assign(
+              { timeZone: nextConfig.timeZone },
+              getTimeScaleFormatOptions(tickMarkType)
+            )
+          );
+          timeScaleFormatterCache.set(formatterKey, formatter);
+        }
+        return formatter.format(date);
+      }
+      function getTimeScaleOptions(nextConfig) {
+        var options = {
+          visible: nextConfig.showTimeScale !== false,
+          borderVisible: false,
+          timeVisible: true,
+          secondsVisible: false,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          lockVisibleTimeRangeOnResize: true,
+        };
+        if (nextConfig.timeZone) {
+          options.tickMarkFormatter = function(time, tickMarkType) {
+            return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
+          };
+        }
+        return options;
       }
       function getChartOptions(nextConfig) {
         return {
@@ -44,25 +119,9 @@ function getChartInitScript(): string {
                 }
               : { visible: false },
           },
-          timeScale: {
-            visible: nextConfig.showTimeScale !== false,
-            borderVisible: false,
-            timeVisible: true,
-            secondsVisible: false,
-            fixLeftEdge: true,
-            fixRightEdge: true,
-            lockVisibleTimeRangeOnResize: true,
-          },
-          rightPriceScale: Object.assign(
-            {
-              visible: Boolean(nextConfig.showPriceScale),
-              borderVisible: false,
-              entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
-            },
-            nextConfig.priceScaleMargins
-              ? { scaleMargins: nextConfig.priceScaleMargins }
-              : {}
-          ),
+          timeScale: getTimeScaleOptions(nextConfig),
+          rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
+          leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
       }
       function getPrimarySeriesType(nextConfig) {
@@ -188,21 +247,28 @@ function getChartInitScript(): string {
       function getDottedAreaSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
+        var patternColor = nextConfig.patternColor || nextConfig.theme.lineColor;
         return {
           color: nextConfig.theme.lineColor,
           lineColor: nextConfig.theme.lineColor,
           lineWidth: getNormalizedLineWidth(nextConfig.lineWidth, 3),
-          patternColor: nextConfig.theme.lineColor,
+          patternColor: patternColor,
           patternOpacity: 0.28,
           patternRadius: 0.9,
           patternSpacing: 10,
           showLastPointMarker: nextConfig.showLastPointMarker !== false,
-          lastPointMarkerColor: nextConfig.theme.lineColor,
+          lastPointMarkerColor: patternColor,
           lastPointMarkerRadius: 5.5,
+          priceScaleId: getPriceScalePosition(nextConfig),
           lastValueVisible: showLast,
           priceLineVisible: showLast,
           priceFormat: { type: 'custom', formatter: priceFormatter },
         };
+      }
+      function getLineType(nextConfig) {
+        return nextConfig.lineType === 'steps'
+          ? LightweightCharts.LineType.WithSteps
+          : LightweightCharts.LineType.Simple;
       }
       function createPrimarySeries(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
@@ -216,6 +282,8 @@ function getChartInitScript(): string {
         }
         if (getPrimarySeriesType(nextConfig) === 'baseline') {
           return chart.addSeries(LightweightCharts.BaselineSeries, Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -224,6 +292,7 @@ function getChartInitScript(): string {
           }));
         }
         return chart.addSeries(LightweightCharts.AreaSeries, {
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -247,6 +316,8 @@ function getChartInitScript(): string {
         }
         if (window.seriesType === 'baseline') {
           window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
+            priceScaleId: getPriceScalePosition(nextConfig),
+            lineType: getLineType(nextConfig),
             lineWidth: normalizedLineWidth,
             lastValueVisible: showLast,
             priceLineVisible: showLast,
@@ -256,6 +327,7 @@ function getChartInitScript(): string {
           return;
         }
         window.series.applyOptions({
+          priceScaleId: getPriceScalePosition(nextConfig),
           topColor: nextConfig.theme.topColor,
           bottomColor: nextConfig.theme.bottomColor,
           lineColor: nextConfig.theme.lineColor,
@@ -283,6 +355,7 @@ function getChartInitScript(): string {
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {
+          priceScaleId: getPriceScalePosition(nextConfig),
           color: nextConfig.secondaryLineColor || '#0177E5',
           lineWidth: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2),
           priceLineVisible: false,
@@ -321,8 +394,12 @@ function getChartInitScript(): string {
         if (Number.isInteger(abs)) return sign + '$' + abs.toFixed(0);
         return sign + '$' + abs.toFixed(2);
       }
-      function pctPriceFormatter(price) {
-        return price.toFixed(2) + '%';
+      function pctPriceFormatter(price, nextConfig) {
+        var precision = Number(nextConfig && nextConfig.priceFormatterPrecision);
+        if (!Number.isInteger(precision) || precision < 0 || precision > 10) {
+          precision = 2;
+        }
+        return price.toFixed(precision) + '%';
       }
       function numberPriceFormatter(price, nextConfig) {
         var tickStep = Number(nextConfig && nextConfig.priceFormatterTickStep);
@@ -356,37 +433,19 @@ function getChartInitScript(): string {
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: {
-            color: 'rgba(150, 150, 150, 0.4)',
+            color: config.crosshairVertLineColor || 'rgba(150, 150, 150, 0.4)',
             width: 1,
-            style: 3,
+            style: config.crosshairVertLineStyle ?? 3,
             labelVisible: false,
           },
-          horzLine: { visible: false },
-        },
-        timeScale: {
-          visible: config.showTimeScale !== false,
-          borderVisible: false,
-          timeVisible: true,
-          secondsVisible: false,
-          fixLeftEdge: true,
-          fixRightEdge: true,
-          lockVisibleTimeRangeOnResize: true,
-          tickMarkFormatter: (time) => {
-            const date = new Date(time * 1000);
-            const month = date.toLocaleDateString('en-US', { month: 'short' });
-            const day = date.getDate().toString().padStart(2, '0');
-            return month + ' ' + day;
+          horzLine: {
+            visible: false,
+            labelVisible: !config.hideCrosshairPriceLabel,
           },
         },
-        rightPriceScale: Object.assign(
-          {
-            visible: Boolean(config.showPriceScale),
-            borderVisible: false,
-            entireTextOnly: Boolean(config.priceScaleEntireTextOnly),
-          },
-          config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
-        ),
-        leftPriceScale: { visible: false },
+        timeScale: getTimeScaleOptions(config),
+        rightPriceScale: getPriceScaleOptions(config, 'right'),
+        leftPriceScale: getPriceScaleOptions(config, 'left'),
         handleScroll: {
           mouseWheel: false,
           pressedMouseMove: false,

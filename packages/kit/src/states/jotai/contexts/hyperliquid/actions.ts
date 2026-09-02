@@ -7,8 +7,9 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
+import { buildPerpsAssetCtxsByDexFromAllDexsSnapshot } from '@onekeyhq/kit/src/views/Perp/utils/tokenSelectorInitialListCache';
 import {
+  appIsLocked,
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
   perpsActiveAssetAtom,
@@ -29,9 +30,9 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import {
-  PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
   PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+  PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,6 +45,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   SCALE_ORDER_MIN_NOTIONAL,
@@ -81,6 +83,7 @@ import type {
   IPerpsAssetPosition,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -125,7 +128,18 @@ import {
   shouldResetOpenOrdersForAccount,
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
-import { publishLatestOrderBookOptions } from './utils/instrumentSwitch';
+import {
+  getPerpsOrderChangedMessage,
+  getPerpsOrderNoLongerEligibleForChaseMessage,
+  getPerpsTokenInfoNotFoundMessage,
+  getPerpsTradingNotEnabledMessage,
+} from './utils/config';
+import {
+  captureSubscriptionRecoveryProof,
+  publishLatestOrderBookOptions,
+  recoverSubscriptionsWithProof,
+  shouldSyncSubscriptionsAfterInstrumentChange,
+} from './utils/instrumentSwitch';
 import {
   shouldClearPerpsMarketDataForInstrument,
   shouldUpdatePerpsBbo,
@@ -143,6 +157,10 @@ import type {
   ITradeRouteViewState,
   ITradingFormData,
 } from './atoms';
+import type {
+  ISubscriptionRecoveryProof,
+  ISubscriptionRecoveryProofSource,
+} from './utils/instrumentSwitch';
 
 type IChStateLite = {
   assetPositions?: HL.IPerpsAssetPosition[];
@@ -150,6 +168,7 @@ type IChStateLite = {
 
 type IChPositionLite = HL.IPerpsAssetPosition;
 type IAccountModeAbstraction = 'unifiedAccount' | 'portfolioMargin';
+type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
@@ -219,54 +238,8 @@ function resolveSubmitOrderTradeInstrument({
   return undefined;
 }
 
-function buildAllDexsAssetCtxsByDex(data: HL.IWsAllDexsAssetCtxs) {
-  const incoming = data?.ctxs || [];
-  const ctxMap = new Map<string, HL.IPerpsAssetCtx[]>();
-  incoming.forEach(([dexName, ctxList]) => {
-    ctxMap.set(dexName, ctxList || []);
-  });
-
-  const ctxsByDex: HL.IPerpsAssetCtx[][] = [];
-  const perpsCtx = ctxMap.get('') ?? ctxMap.get('perps') ?? [];
-  const xyzCtx = ctxMap.get('xyz') ?? [];
-  ctxsByDex[0] = perpsCtx;
-  ctxsByDex[1] = xyzCtx;
-
-  return {
-    ctxsByDex,
-    perpsCtxCount: perpsCtx.length,
-    xyzCtxCount: xyzCtx.length,
-  };
-}
-
 function hasAnyAssetCtxs(ctxsByDex: HL.IPerpsAssetCtx[][] | undefined) {
   return Boolean(ctxsByDex?.some((ctxs) => ctxs?.length > 0));
-}
-
-function getFreshL2BookSnapshotFromSwr({
-  coin,
-  nSigFigs,
-  mantissa,
-}: {
-  coin: string;
-  nSigFigs?: number | null;
-  mantissa?: number | null;
-}) {
-  const keys = getPerpsL2BookSnapshotCacheKeys({
-    coin,
-    nSigFigs,
-    mantissa,
-  });
-  for (const key of keys) {
-    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
-    if (
-      entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS
-    ) {
-      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt, true);
-    }
-  }
-  return undefined;
 }
 
 function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
@@ -506,29 +479,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return this.isLatestActiveInstrumentChange(requestId);
   }
 
-  private shouldSyncSubscriptionsAfterInstrumentChange(
-    viewState: ITradeRouteViewState,
-  ): boolean {
-    return (
-      viewState.routeFocused ||
-      viewState.tokenSelectorOpen ||
-      viewState.favoritesBarSpotActive
-    );
-  }
-
   private async syncSubscriptionsAfterInstrumentChange(params: {
     instrument: IActiveTradeInstrument;
     orderBookTickOptions: Record<string, IPerpOrderBookTickOptionPersist>;
     requestId: number;
     viewState: ITradeRouteViewState;
+    subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
   }): Promise<void> {
-    if (
-      !this.isLatestActiveInstrumentChange(params.requestId) ||
-      !this.shouldSyncSubscriptionsAfterInstrumentChange(params.viewState)
-    ) {
+    if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
     }
 
+    // Unconditional: the BG reconcile aborts every channel while this atom
+    // still names the previous coin, so gating the publish on route focus
+    // stranded context-less switches (notification / banner / tray).
     const stored = getPerpsOrderBookTickOptionsWithCache(
       params.orderBookTickOptions,
     )[params.instrument.coin];
@@ -548,7 +512,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
+    // Best-effort saving only: extension and native reconcile off the atom
+    // watcher regardless. Desktop and web have no watcher, so this is their
+    // only gate.
+    if (
+      !shouldSyncSubscriptionsAfterInstrumentChange({
+        viewState: params.viewState,
+        recoveryProof: params.subscriptionRecoveryProof,
+      })
+    ) {
+      return;
+    }
+
     try {
+      if (params.subscriptionRecoveryProof) {
+        const recovered =
+          await backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+            {
+              disabledCount: params.subscriptionRecoveryProof.disabledCount,
+            },
+          );
+        if (recovered) {
+          return;
+        }
+        // A rejected proof only means it went stale; the handler may have
+        // been re-enabled meanwhile, so fall back to the normal reconcile.
+      }
       await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
     } catch (error) {
       console.error(
@@ -924,14 +913,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       const primaryState =
         stateMap.get('') ?? stateMap.get('perps') ?? states[0]?.[1];
-      const xyzState = stateMap.get('xyz');
-
       const getPositions = (state?: IChStateLite): IChPositionLite[] =>
         state?.assetPositions || [];
 
       const combinedPositions: IChPositionLite[] = [
         ...getPositions(primaryState),
-        ...getPositions(xyzState),
+        ...SUB_DEX_LIST.flatMap((item) =>
+          getPositions(stateMap.get(item.prefix)),
+        ),
       ];
 
       const activePositions = getActivePerpsPositions(
@@ -1047,14 +1036,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return false;
     }
 
-    const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
-      buildAllDexsAssetCtxsByDex(entry.data);
+    const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot(entry.data);
     if (!hasAnyAssetCtxs(ctxsByDex)) {
       markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_miss', {
         reason: 'empty_snapshot',
       });
       return false;
     }
+    const ctxCountsByDex = ctxsByDex.map((ctxs) => ctxs.length);
 
     set(perpsAllAssetCtxsAtom(), {
       assetCtxsByDex: ctxsByDex,
@@ -1062,13 +1051,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
     markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
       source: 'cache',
-      perpsCtxCount,
-      xyzCtxCount,
+      ctxCountsByDex,
     });
     markPerpsColdStartPerf('favorites_bar_all_dexs_asset_ctxs_cache_hit', {
       ageMs: Date.now() - entry.updatedAt,
-      perpsCtxCount,
-      xyzCtxCount,
+      ctxCountsByDex,
     });
     return true;
   });
@@ -1187,12 +1174,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateAllDexsAssetCtxs = contextAtomMethod(
     (_, set, data: HL.IWsAllDexsAssetCtxs) => {
-      const { ctxsByDex, perpsCtxCount, xyzCtxCount } =
-        buildAllDexsAssetCtxsByDex(data);
+      const ctxsByDex = buildPerpsAssetCtxsByDexFromAllDexsSnapshot(data);
       markPerpsColdStartPerfOnce('atom_set_all_dexs_asset_ctxs_first', {
         source: 'ws',
-        perpsCtxCount,
-        xyzCtxCount,
+        ctxCountsByDex: ctxsByDex.map((ctxs) => ctxs.length),
       });
       set(perpsAllAssetCtxsAtom(), {
         assetCtxsByDex: ctxsByDex,
@@ -1366,6 +1351,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     if (!data) {
       return;
     }
+    if (activeCoin !== data.coin) {
+      // Diagnostic only: a book dropped here never reaches the order book, and
+      // the two coin spellings are the only way to tell a genuine mismatch from
+      // a representation difference.
+      markPerpsColdStartPerfOnce('action_l2_book_dropped_coin_mismatch', {
+        activeCoin,
+        dataCoin: data.coin,
+        instrumentMode: activeInstrument.mode,
+      });
+    }
     if (activeCoin === data.coin) {
       const currentBook = get(l2BookAtom());
       if (
@@ -1374,6 +1369,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           nextBook: data,
         })
       ) {
+        markPerpsColdStartPerfOnce('action_l2_book_dropped_not_fresher', {
+          coin: data.coin,
+          instrumentMode: activeInstrument.mode,
+          currentIsCached: Boolean(
+            (currentBook as { isCachedSnapshot?: boolean } | null)
+              ?.isCachedSnapshot,
+          ),
+        });
         return;
       }
       markPerpsColdStartPerfOnce('atom_set_l2_book_first', {
@@ -1504,11 +1507,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: null | {
         symbol: string;
         option: IPerpOrderBookTickOptionPersist | null;
+        source?: 'seed';
       },
     ) => {
       if (!payload?.symbol) return;
-      const { symbol, option } = payload;
-      const prev = get(orderBookTickOptionsAtom());
+      const { symbol, option, source } = payload;
+      const prev = getPerpsOrderBookTickOptionsWithCache(
+        get(orderBookTickOptionsAtom()),
+      );
+      if (source === 'seed' && option && prev[symbol]) {
+        return;
+      }
       const next: Record<string, IPerpOrderBookTickOptionPersist> = {
         ...prev,
       };
@@ -1556,7 +1565,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin,
         force,
         requestId: existingRequestId,
-      }: { coin: string; force?: boolean; requestId?: number },
+        subscriptionRecoveryProof,
+      }: {
+        coin: string;
+        force?: boolean;
+        requestId?: number;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+      },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
       const optimisticInstrument: IActiveTradeInstrument = {
@@ -1570,15 +1585,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           coin: targetCoin,
           options: get(orderBookTickOptionsAtom()),
         });
-        const cachedBook = getFreshL2BookSnapshotFromSwr({
+        const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
           coin: targetCoin,
           nSigFigs: storedTickOptions?.nSigFigs ?? null,
           mantissa:
             storedTickOptions?.mantissa === undefined
               ? undefined
               : storedTickOptions.mantissa,
+          maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+          reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
         });
-        if (cachedBook) {
+        const cachedBook = cachedEntry
+          ? withPerpsL2BookLocalReceivedAt(
+              cachedEntry.data,
+              cachedEntry.updatedAt,
+              true,
+            )
+          : undefined;
+        // Cache is a first-frame fallback only; a late read must never replace
+        // a live snapshot for the same coin and precision.
+        if (
+          cachedBook &&
+          shouldUpdatePerpsL2Book({
+            currentBook: get(l2BookAtom()),
+            nextBook: cachedBook,
+          })
+        ) {
           set(l2BookAtom(), cachedBook);
           markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
             coin: cachedBook.coin,
@@ -1620,6 +1652,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          // This branch skips syncSubscriptionsAfterInstrumentChange, so
+          // consume the proof here or the stale disable survives.
+          await recoverSubscriptionsWithProof({
+            recoveryProof: subscriptionRecoveryProof,
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
           return true;
         }
       }
@@ -1681,6 +1722,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
+        subscriptionRecoveryProof,
       });
       hydrateL2BookFromSwr(nextInstrument.coin);
       return true;
@@ -1696,11 +1738,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         spotUniverse,
         force,
         requestId: existingRequestId,
+        subscriptionRecoveryProof,
       }: {
         coin: string;
         spotUniverse: ISpotUniverse | undefined;
         force?: boolean;
         requestId?: number;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
       const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
@@ -1739,6 +1783,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
+          // This branch skips syncSubscriptionsAfterInstrumentChange, so
+          // consume the proof here or the stale disable survives.
+          await recoverSubscriptionsWithProof({
+            recoveryProof: subscriptionRecoveryProof,
+            recover: (disabledCount) =>
+              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                { disabledCount },
+              ),
+          });
           return true;
         }
       }
@@ -1769,6 +1822,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
+        subscriptionRecoveryProof,
       });
       await this.clearActiveAssetData.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
@@ -1849,6 +1903,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: string;
         force?: boolean;
         spotUniverse?: ISpotUniverse;
+        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
       markPerpsColdStartPerf('action_switch_trade_instrument_start', {
@@ -1872,6 +1927,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           spotUniverse,
           force: params.force,
           requestId,
+          subscriptionRecoveryProof: params.subscriptionRecoveryProof,
         });
         markPerpsColdStartPerf('action_switch_trade_instrument_end', {
           mode: params.mode,
@@ -1885,6 +1941,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: params.coin,
         force: params.force,
         requestId,
+        subscriptionRecoveryProof: params.subscriptionRecoveryProof,
       });
       markPerpsColdStartPerf('action_switch_trade_instrument_end', {
         mode: params.mode,
@@ -1893,6 +1950,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
       return result;
     },
+  );
+
+  captureInstrumentSwitchSubscriptionProof = contextAtomMethod(
+    (
+      get,
+      _set,
+      params: {
+        source: Extract<
+          ISubscriptionRecoveryProofSource,
+          'route-focused' | 'token-selector'
+        >;
+      },
+    ) =>
+      captureSubscriptionRecoveryProof({
+        source: params.source,
+        isSourceLive: () => {
+          const state = get(tradeRouteViewStateAtom());
+          return params.source === 'token-selector'
+            ? state.tokenSelectorOpen
+            : state.routeFocused;
+        },
+        isAppVisible: getCurrentVisibilityState,
+        isAppLocked: () => appIsLocked.get(),
+        readDisabledCount: () =>
+          backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
+      }),
   );
 
   setTradeRouteViewState = contextAtomMethod(
@@ -3196,18 +3279,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           if (existing.coin !== params.coin) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} does not belong to ${params.coin}`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsOrderAmendKind(existing);
           if (!amendKind) {
-            throw new OneKeyLocalError(
-              `Order ${params.oid} cannot be modified safely`,
-            );
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
@@ -3241,7 +3320,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           const existing = await this.findChartOrder(get, params.oid);
           if (!existing) {
-            throw new OneKeyLocalError(`Order ${params.oid} not found`);
+            throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
           const amendKind = getPerpsChaseOrderAmendKind(existing);
           const remainingSize = new BigNumber(existing.sz);
@@ -3253,7 +3332,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             remainingSize.lte(0)
           ) {
             throw new OneKeyLocalError(
-              `Order ${params.oid} is no longer eligible for chase`,
+              getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
@@ -3287,7 +3366,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // error toast for pre-network validation so failures aren't silent.
       const existing = await this.findChartOrder(get, params.oid);
       if (!existing) {
-        Toast.error({ title: `Order ${params.oid} not found` });
+        Toast.error({
+          title: getPerpsOrderChangedMessage(),
+        });
         return undefined;
       }
       const symbolMeta =
@@ -3295,7 +3376,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           coin: existing.coin,
         });
       if (!symbolMeta) {
-        Toast.error({ title: `Unknown coin: ${existing.coin}` });
+        Toast.error({
+          title: getPerpsTokenInfoNotFoundMessage(),
+        });
         return undefined;
       }
       return this.cancelOrder.call(set, {
@@ -3471,13 +3554,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod(async (_get, _set) => {
-    const info = await perpsActiveAccountIsAgentReadyAtom.get();
-    if (info.isAgentReady === false) {
-      showEnableTradingDialog();
-      throw new OneKeyLocalError('Trading not enabled');
-    }
-  });
+  ensureTradingEnabled = contextAtomMethod(
+    async (_get, _set, runEnableTradingFlow: IRunEnableTradingFlow) => {
+      const info = await perpsActiveAccountIsAgentReadyAtom.get();
+      if (info.isAgentReady === false) {
+        await runEnableTradingFlow();
+        throw new OneKeyLocalError(getPerpsTradingNotEnabledMessage());
+      }
+    },
+  );
 
   tokenSzDecimalsCache: {
     [coin: string]: number | null | undefined;
@@ -3543,7 +3628,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          await this.ensureTradingEnabled.call(set);
           const { activePositions: positions } = get(perpsActivePositionAtom());
 
           // Apply filter if specified
@@ -3764,6 +3848,8 @@ export function useHyperliquidActions() {
   const changeActiveAsset = actions.changeActiveAsset.use();
   const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
   const switchTradeInstrument = actions.switchTradeInstrument.use();
+  const captureInstrumentSwitchSubscriptionProof =
+    actions.captureInstrumentSwitchSubscriptionProof.use();
   const setTradeRouteViewState = actions.setTradeRouteViewState.use();
   const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
@@ -3840,6 +3926,7 @@ export function useHyperliquidActions() {
     getTokenSzDecimals,
     getMidPrice,
     switchTradeInstrument,
+    captureInstrumentSwitchSubscriptionProof,
     setTradeRouteViewState,
     updateTwapStates,
     updateTwapHistory,

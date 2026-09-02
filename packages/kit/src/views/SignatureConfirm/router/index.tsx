@@ -56,6 +56,16 @@ const TxConfirm = LazyLoadPage(
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'),
 );
 
+const BatchTxConfirm = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/BatchTxConfirm/BatchTxConfirm'),
+);
+
+const BatchTxConfirmFromDApp = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/SignatureConfirm/pages/BatchTxConfirm/BatchTxConfirmFromDApp'),
+);
+
 const MessageConfirm = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'),
@@ -88,6 +98,14 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
     component: TxConfirm,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.BatchTxConfirm,
+    component: BatchTxConfirm,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp,
+    component: BatchTxConfirmFromDApp,
   },
   {
     name: EModalSignatureConfirmRoutes.MessageConfirm,

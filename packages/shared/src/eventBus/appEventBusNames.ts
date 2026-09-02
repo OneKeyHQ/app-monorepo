@@ -29,6 +29,7 @@ export enum EAppEventBusNames {
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
+  NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
@@ -44,6 +45,7 @@ export enum EAppEventBusNames {
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
+  FirmwareUpdateDetectStatusChanged = 'FirmwareUpdateDetectStatusChanged',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
@@ -71,6 +73,8 @@ export enum EAppEventBusNames {
   // risky-token snapshot for an owner with its OWN monotonic version (independent
   // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
   TokenListRiskyFrame = 'TokenListRiskyFrame',
+  TokenListUpdate = 'TokenListUpdate',
+  AllNetworksTokenListSettled = 'AllNetworksTokenListSettled',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
@@ -113,6 +117,7 @@ export enum EAppEventBusNames {
   // main-runtime holders (SupabaseAuthProvider) must re-resolve the source
   // and re-read both persisted session slots when this arrives.
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
+  IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
   PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
@@ -131,6 +136,8 @@ export enum EAppEventBusNames {
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
+  HardwareDeviceStateUpdate = 'HardwareDeviceStateUpdate',
+  HardwareConnectionStateUpdate = 'HardwareConnectionStateUpdate',
   UnlockApp = 'UnlockApp',
   LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
@@ -159,6 +166,7 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
   ModalNavigatorMounted = 'ModalNavigatorMounted',
@@ -170,13 +178,20 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
+  PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
+  PerpsUnifoldDepositTerminalDelivery = 'PerpsUnifoldDepositTerminalDelivery',
+  PerpsSubscriptionsRecovered = 'PerpsSubscriptionsRecovered',
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   PerpSwitchInfoPanelTab = 'PerpSwitchInfoPanelTab',
+  PerpShowFundingHistory = 'PerpShowFundingHistory',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
+  // OK-59246: earn home banner drag state, used to pause the outer
+  // Discovery pager so nested horizontal swipes don't switch top tabs
+  EarnHomeBannerDragStateChanged = 'EarnHomeBannerDragStateChanged',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',

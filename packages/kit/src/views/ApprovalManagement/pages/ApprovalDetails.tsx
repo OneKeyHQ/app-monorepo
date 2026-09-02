@@ -476,19 +476,27 @@ function ApprovalDetails() {
             <XStack
               justifyContent="space-between"
               alignItems="center"
+              gap="$3"
               mt="$3"
               px="$5"
               py="$2"
             >
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+                flex={1}
+                minWidth={0}
+              >
                 {intl.formatMessage({
-                  id: ETranslations.wallet_approval_approved_token,
+                  id: ETranslations.tokens__title,
                 })}
               </SizableText>
               <Button
                 testID={ApprovalManagementTestIDs.bulkRevokeToggleBtn}
                 variant="tertiary"
                 size="small"
+                flexShrink={0}
                 onPress={() => {
                   if (
                     accountUtils.isWatchingAccount({

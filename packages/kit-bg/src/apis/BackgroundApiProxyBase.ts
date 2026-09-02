@@ -14,6 +14,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -23,11 +24,13 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
+import { getLocalBackgroundServiceMethod } from './lazyServiceProxy';
 
 import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 // NOTE: `waitForDataLoaded`, `timerUtils`, `isWebEmbedApiAllowedOrigin`
 // and `IBackgroundApiWebembedCallMessage` used to be imported here for the
@@ -70,6 +73,7 @@ export class BackgroundApiProxyBase
           sync: boolean;
         },
         localFallback: () => Promise<any>,
+        options?: { signal?: AbortSignal },
       ) => Promise<any>;
       emitAppEventRequest: (
         request: {
@@ -217,11 +221,13 @@ export class BackgroundApiProxyBase
         backgroundApi,
       });
 
-      if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(
-          serviceApi,
-          ...params,
-        );
+      const serviceMethod = getLocalBackgroundServiceMethod({
+        serviceApi,
+        methodName,
+        backgroundMethodName: backgroundMethodNameLocal,
+      });
+      if (serviceMethod) {
+        const resultPromise = Reflect.apply(serviceMethod, serviceApi, params);
         ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,
@@ -241,19 +247,46 @@ export class BackgroundApiProxyBase
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
-        await transport.ensureReady?.();
         const backgroundMethod =
           serviceName && serviceName !== 'ROOT'
             ? `${serviceName}.${methodName}`
             : methodName;
+        const abortSignal = params
+          .map((param) =>
+            param && typeof param === 'object'
+              ? (param as { signal?: AbortSignal }).signal
+              : undefined,
+          )
+          .find(
+            (signal) =>
+              typeof signal?.aborted === 'boolean' &&
+              typeof signal.addEventListener === 'function',
+          );
+        const remoteParams = abortSignal
+          ? params.map((param) => {
+              if (
+                !param ||
+                typeof param !== 'object' ||
+                (param as { signal?: AbortSignal }).signal !== abortSignal
+              ) {
+                return param;
+              }
+              const { signal: _signal, ...serializableParam } = param as Record<
+                string,
+                unknown
+              >;
+              return serializableParam;
+            })
+          : params;
         return transport.callServiceRequest(
           {
             type: 'service-call',
             method: backgroundMethod,
-            params,
+            params: remoteParams,
             sync,
           },
           callLocalBackgroundMethod,
+          abortSignal ? { signal: abortSignal } : undefined,
         );
       }
     }
@@ -299,9 +332,16 @@ export class BackgroundApiProxyBase
     }
     this.backgroundApiFactory = getBackgroundApi;
     jotaiBgSync.setBackgroundApi(this as any);
-    void jotaiBgSync.jotaiInitFromUi().catch((err: unknown) => {
-      console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
-    });
+    // Native main awaits this initialization in NativeStorageBootstrapRoot so
+    // startup failures can use the existing Retry/Restart recovery surface.
+    if (
+      !platformEnv.isNativeMainThread ||
+      !platformEnv.enableNativeBackgroundThread
+    ) {
+      void this.initializeJotaiFromBackground().catch((err: unknown) => {
+        console.error('[JOTAI_INIT_ERROR] jotaiInitFromUi failed', err);
+      });
+    }
     // Register the 'main' role transport: forward ui-emitted events to the
     // singleton background, which will fan-out to every foreground. The
     // sender's `originNodeId` travels with the message so it can skip its
@@ -314,7 +354,6 @@ export class BackgroundApiProxyBase
         ) {
           const transport = this.getNativeBackgroundThreadTransport();
           if (transport) {
-            await transport.ensureReady?.();
             await transport
               .emitAppEventRequest(
                 {
@@ -341,7 +380,12 @@ export class BackgroundApiProxyBase
     globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
+    if (atomNames) {
+      return this.callBackground('getAtomStates', atomNames);
+    }
     return this.callBackground('getAtomStates');
   }
 
@@ -362,6 +406,10 @@ export class BackgroundApiProxyBase
     return this.callBackground('writeAsyncStorage', request);
   }
 
+  async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    return this.callBackground('nativeStorage', request);
+  }
+
   bridge = {} as JsBridgeBase;
 
   bridgeExtBg = {} as JsBridgeExtBackground;
@@ -380,7 +428,6 @@ export class BackgroundApiProxyBase
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
         void Promise.resolve()
-          .then(() => transport.ensureReady?.())
           .then(() =>
             transport.syncBridgeConnection(
               {
@@ -449,17 +496,14 @@ export class BackgroundApiProxyBase
         void Promise.resolve()
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeTransportReady();
-            return transport.ensureReady?.();
-          })
-          .then(() =>
-            transport.syncBridgeConnection(
+            return transport.syncBridgeConnection(
               {
                 channel: 'webEmbed',
                 bridge,
               },
               () => this.connectLocalBackgroundBridge('webEmbed', bridge),
-            ),
-          )
+            );
+          })
           .then(() => {
             defaultLogger.app.webembed.connectWebEmbedBridgeSyncDone();
           })
@@ -563,17 +607,15 @@ export class BackgroundApiProxyBase
     ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport) {
-        return Promise.resolve()
-          .then(() => transport.ensureReady?.())
-          .then(() =>
-            transport.callBridgeRequest(
-              {
-                type: 'bridge-call',
-                payload,
-              },
-              () => this.callLocalBridgeReceiveHandler(payload),
-            ),
-          );
+        return Promise.resolve().then(() =>
+          transport.callBridgeRequest(
+            {
+              type: 'bridge-call',
+              payload,
+            },
+            () => this.callLocalBridgeReceiveHandler(payload),
+          ),
+        );
       }
     }
     // Use async fallback if backgroundApi is not yet available (native-ui stub)
@@ -635,6 +677,10 @@ export class BackgroundApiProxyBase
       backgroundMethodName,
       params,
     });
+  }
+
+  initializeJotaiFromBackground() {
+    return jotaiBgSync.jotaiInitFromUi();
   }
 
   callBackgroundSync(method: string, ...params: Array<any>): any {

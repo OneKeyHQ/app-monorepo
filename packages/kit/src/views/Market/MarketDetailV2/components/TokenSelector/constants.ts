@@ -8,7 +8,11 @@ export const TOKEN_SELECTOR_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 15,
 });
 
+export const TOKEN_SELECTOR_HEADER_HEIGHT = 40;
+export const TOKEN_SELECTOR_ROW_HEIGHT = 56;
+
 export const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
+  'liquidity',
   'transactions',
   'uniqueTraders',
   'holders',
@@ -20,7 +24,6 @@ export const COLUMN_WIDTH_NAME = 240;
 export const COLUMN_WIDTH_PRICE = 110;
 export const COLUMN_WIDTH_CHANGE = 90;
 export const COLUMN_WIDTH_MARKET_CAP = 100;
-export const COLUMN_WIDTH_LIQUIDITY = 100;
 export const COLUMN_WIDTH_TURNOVER = 100;
 
 // Default all-networks ID (constant, never changes)

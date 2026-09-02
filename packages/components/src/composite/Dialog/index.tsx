@@ -64,8 +64,9 @@ import {
 } from '../../utils/animationConstants';
 
 import { Content } from './Content';
-import { DialogContext } from './context';
+import { DialogContext, DialogSheetContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
+import { DialogScrollView } from './DialogScrollView';
 import { Footer, FooterAction } from './Footer';
 import {
   DialogDescription,
@@ -149,9 +150,9 @@ export type {
   IDialogShowProps,
 } from './type';
 
-export const FIX_SHEET_PROPS: IYStackProps = {
+export const FIX_SHEET_PROPS = {
   display: 'block',
-};
+} satisfies IYStackProps;
 
 const MAX_CONTENT_WIDTH = 400;
 
@@ -389,7 +390,7 @@ function DialogFrame({
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
-        animation="quick"
+        transition="quick"
         zIndex={zIndex}
         // OK-36893 OK-38624
         // When modal is false, multiple Tamagui sheets may collapse into position:relative
@@ -399,7 +400,7 @@ function DialogFrame({
       >
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={DIALOG_ENTER_STYLE_OPACITY}
           exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -425,10 +426,12 @@ function DialogFrame({
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
-            <Stack>
-              {!disableDrag ? <SheetGrabber /> : null}
-              {renderDialogContent}
-            </Stack>
+            <DialogSheetContext.Provider value>
+              <Stack>
+                {!disableDrag ? <SheetGrabber /> : null}
+                {renderDialogContent}
+              </Stack>
+            </DialogSheetContext.Provider>
           </FocusScope>
         </Sheet.Frame>
       </Sheet>
@@ -461,7 +464,7 @@ function DialogFrame({
               key="overlay"
               backgroundColor="$bgBackdrop"
               animateOnly={ANIMATE_ONLY_OPACITY}
-              animation="quick"
+              transition="quick"
               forceMount={forceMount || undefined}
               enterStyle={DIALOG_ENTER_STYLE_OPACITY}
               exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -482,7 +485,7 @@ function DialogFrame({
               key="content"
               testID={testID}
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              animation={DIALOG_CONTENT_ANIMATION}
+              transition={DIALOG_CONTENT_ANIMATION}
               enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               borderRadius="$4"
@@ -848,6 +851,7 @@ function dialogLoading(props: IDialogLoadingProps) {
 
 export const Dialog = {
   Header: SetDialogHeader,
+  ScrollView: DialogScrollView,
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,

@@ -16,7 +16,7 @@ import {
   resetToRoute,
   useMedia,
 } from '@onekeyhq/components';
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IInputRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -26,9 +26,11 @@ import {
   type ITradingFormData,
   useActiveTradeInstrumentAtom,
   useBboForOrderPrice,
+  useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAccountStatusAtom,
+  usePerpsAccountDisplayReadyAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
@@ -39,6 +41,9 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
+  usePerpsCustomSettingsAtom,
+  usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -60,6 +65,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
   getSpotTokenDisplayName,
   parseDexCoin,
   resolveTradingSizeBN,
@@ -67,30 +73,47 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { useGetAggressiveLimitPriceWarning } from '../../../hooks/useAggressiveLimitPriceWarning';
 import {
   useConfirmHyperliquidTerms,
+  useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import {
+  usePreloadPerpsUnifoldDepositModals,
+  useShowDepositWithdrawModal,
+} from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
-import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
+import { getPerpsAccountKey } from '../../../utils/accountScopedData';
+import { shouldShowOrderConfirm } from '../../../utils/aggressiveLimitPrice';
+import {
+  getEnableTradingDialogConfirmDecision,
+  shouldShowPerpsFirstDepositPrompt,
+} from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
+import { shouldDisablePerpsOrderPanelTradingButtonForAccountLoading } from '../../../utils/perpsOrderPanelEnableTrading';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import {
   getTradingButtonStyleValues,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { buildDefaultTpSlPercent } from '../../../utils/tpslSeed';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
+import { PerpsFirstDepositPromptCard } from '../components/PerpsFirstDepositPromptCard';
 import { PriceInput } from '../inputs/PriceInput';
-import { SizeInput } from '../inputs/SizeInput';
+import {
+  type ISizeInputMinimumOrderAction,
+  SizeInput,
+  getMinimumOrderToastActionProps,
+} from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { showEnableTradingStepsDialog } from '../modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from '../modals/OrderConfirmModal';
@@ -158,8 +181,10 @@ export function LimitOrderForm({
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [isAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccountDisplayReady] = usePerpsAccountDisplayReadyAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
@@ -167,12 +192,27 @@ export function LimitOrderForm({
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const requestFirstDepositAction = useFirstDepositAction();
+  const { showDepositWithdrawModal } =
+    useShowDepositWithdrawModal('tradingPanel');
 
   // Spot has its own asset/balance atoms; perpsActiveAssetAtom is stale-perp
   // when the active instrument is spot.
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
+  const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const hyperliquidActions = useHyperliquidActions();
+  // Prevents a double press from double-submitting on the direct (skip-confirm)
+  // path; the dialog path is already serialized by the dialog itself.
+  const isDirectPlacingRef = useRef(false);
   const isSpot = activeTradeInstrument.mode === 'spot';
+  const firstDepositAccountKey = getPerpsAccountKey(perpsAccount);
+  const firstDepositAccountKeyRef = useRef(firstDepositAccountKey);
+  firstDepositAccountKeyRef.current = firstDepositAccountKey;
+  const resolvedSizeInputUnit =
+    isSpot && tradingPreferences.sizeInputUnit === 'margin'
+      ? 'usd'
+      : tradingPreferences.sizeInputUnit;
   const [spotActiveAsset] = useSpotActiveAssetAtom();
   const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
@@ -203,8 +243,12 @@ export function LimitOrderForm({
   const [tpValue, setTpValue] = useState('');
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
   const [slValue, setSlValue] = useState('');
+  const sizeInputRef = useRef<IInputRef>(null);
+  const minimumOrderActionRef = useRef<
+    ISizeInputMinimumOrderAction | undefined
+  >(undefined);
 
-  const isBBOActive = !isSpot && Boolean(bboPriceMode);
+  const isBBOActive = Boolean(bboPriceMode);
 
   const szDecimals = isSpot
     ? (spotUniverse?.baseSzDecimals ?? 2)
@@ -260,6 +304,7 @@ export function LimitOrderForm({
   bboRef.current = bbo;
   const midPriceBNRef = useRef(midPriceBN);
   midPriceBNRef.current = midPriceBN;
+  const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
 
   // With a BBO mode the price comes from the live orderbook; otherwise the typed input.
   const resolvePriceForSide = useCallback(
@@ -267,7 +312,7 @@ export function LimitOrderForm({
       calculateOrderPrice(
         'limit',
         price,
-        isSpot ? undefined : (bboPriceMode ?? undefined),
+        bboPriceMode ?? undefined,
         bboRef.current,
         midPriceBNRef.current,
         forSide,
@@ -278,6 +323,8 @@ export function LimitOrderForm({
         undefined,
         undefined,
         szDecimals,
+        undefined,
+        isSpot ? 'spot' : 'perp',
       ),
     [bboPriceMode, isSpot, price, szDecimals],
   );
@@ -428,22 +475,28 @@ export function LimitOrderForm({
   }, [isSpot, spotHoldingBaseBN, spotUniverse?.baseName]);
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
-      if (isSpot) {
-        return {
-          liquidationPriceBN: null,
-          marginRequiredBN: new BigNumber(0),
-        };
-      }
-
       const sidePriceBN = resolvePriceForSide(targetSide).price;
       const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
-      const sideMarginRequiredBN =
+      const sideOrderValueBN =
         !sideSizeBN.isFinite() ||
         sideSizeBN.lte(0) ||
         !sidePriceBN.isFinite() ||
         sidePriceBN.lte(0)
           ? new BigNumber(0)
-          : sideSizeBN.multipliedBy(sidePriceBN).dividedBy(leverage || 1);
+          : sideSizeBN.multipliedBy(sidePriceBN);
+
+      if (isSpot) {
+        return {
+          liquidationPriceBN: null,
+          marginRequiredBN: new BigNumber(0),
+          orderValueBN: sideOrderValueBN,
+          sizeBN: sideSizeBN,
+        };
+      }
+
+      const sideMarginRequiredBN = sideOrderValueBN.isZero()
+        ? new BigNumber(0)
+        : sideOrderValueBN.dividedBy(leverage || 1);
 
       const sideLiquidationPriceBN =
         !activeAssetData?.leverage?.type ||
@@ -485,6 +538,8 @@ export function LimitOrderForm({
           ? sideLiquidationPriceBN
           : null,
         marginRequiredBN: sideMarginRequiredBN,
+        orderValueBN: sideOrderValueBN,
+        sizeBN: sideSizeBN,
       };
     };
 
@@ -506,6 +561,29 @@ export function LimitOrderForm({
     resolvePriceForSide,
   ]);
 
+  const buttonSecondaryText = useMemo(() => {
+    const formatSecondaryText = (stats: (typeof sideStats)[ITradeSide]) => {
+      if (stats.orderValueBN.isZero() || !stats.orderValueBN.isFinite()) {
+        return null;
+      }
+
+      if (resolvedSizeInputUnit === 'usd') {
+        return `≈ $${stats.orderValueBN
+          .decimalPlaces(2, BigNumber.ROUND_DOWN)
+          .toFixed(2)}`;
+      }
+
+      return `${stats.sizeBN
+        .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
+        .toFixed(szDecimals)} ${displayName}`;
+    };
+
+    return {
+      long: formatSecondaryText(sideStats.long),
+      short: formatSecondaryText(sideStats.short),
+    };
+  }, [displayName, resolvedSizeInputUnit, sideStats, szDecimals]);
+
   const shouldShowEnableTrading = useMemo(
     () => isAgentReady === false || !perpsAccountStatus.canTrade,
     [isAgentReady, perpsAccountStatus.canTrade],
@@ -514,8 +592,22 @@ export function LimitOrderForm({
     perpsAccountLoading.selectAccountLoading ||
     perpsAccountLoading.enableTradingLoading,
   );
+  const shouldDisableForAccountLoading =
+    shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+      selectAccountLoading: perpsAccountLoading.selectAccountLoading,
+      enableTradingLoading: perpsAccountLoading.enableTradingLoading,
+      enableTradingTriggered: perpsAccountLoading.enableTradingTriggered,
+      enableTradingStatusPending:
+        perpsAccountLoading.enableTradingStatusPending,
+      isLiveStatusPending: false,
+    });
+  const isPerpActionDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
   const shouldDisableActionButtons = Boolean(
-    isTradingActionLoading || perpsAccountStatus.accountNotSupport,
+    shouldDisableForAccountLoading ||
+    perpsAccountStatus.accountNotSupport ||
+    isPerpActionDisabled,
   );
   const accountActionType = useMemo(
     () =>
@@ -531,6 +623,24 @@ export function LimitOrderForm({
     ],
   );
   const shouldDisableAccountActionButtons = isTradingActionLoading;
+  const shouldShowFirstDepositAction = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
+    isPerpActionDisabled,
+  });
+  usePreloadPerpsUnifoldDepositModals(
+    shouldShowFirstDepositAction &&
+      perpConfigCommon?.unifoldDepositEnabled === true,
+  );
+
+  const handleFirstDepositPress = useCallback(() => {
+    const accountKey = firstDepositAccountKey;
+    void requestFirstDepositAction({
+      beforeDeposit: onClose,
+      shouldIgnoreResult: () =>
+        Boolean(accountKey && firstDepositAccountKeyRef.current !== accountKey),
+    });
+  }, [firstDepositAccountKey, onClose, requestFirstDepositAction]);
 
   const handleConnectWallet = useCallback(async () => {
     onClose();
@@ -705,35 +815,61 @@ export function LimitOrderForm({
     return referencePriceBN.gt(0) && maxBN.isFinite();
   }, [computeSizeBN, referencePriceBN, side]);
 
-  const handleUseMidPrice = useCallback(() => {
-    if (!midPrice) {
-      return;
-    }
-    setPrice(formatPriceToSignificantDigits(midPrice, szDecimals));
-  }, [midPrice, szDecimals]);
-
   const handleBBOToggle = useCallback(() => {
     setBboPriceMode((prev) =>
       prev ? null : { type: 'counterparty', offsetTicks: 0 },
     );
   }, []);
 
-  useEffect(() => {
-    if (isSpot && bboPriceMode) {
-      setBboPriceMode(null);
-    }
-  }, [bboPriceMode, isSpot]);
+  const handleTpslCheckboxChange = useCallback(
+    (checked: boolean) => {
+      setHasTpsl(checked);
+      if (!checked) {
+        setTpValue('');
+        setSlValue('');
+        return;
+      }
+      // Seed the same 10% ROE default the main panel applies, so the chart
+      // ticket does not open its TP/SL legs empty.
+      const seeded = buildDefaultTpSlPercent({
+        tpType,
+        tpValue,
+        slType,
+        slValue,
+      });
+      setTpType(seeded.tpType);
+      setTpValue(seeded.tpValue);
+      setSlType(seeded.slType);
+      setSlValue(seeded.slValue);
+    },
+    [slType, slValue, tpType, tpValue],
+  );
 
-  const handleTpslCheckboxChange = useCallback((checked: boolean) => {
-    setHasTpsl(checked);
-    if (!checked) {
-      setTpValue('');
-      setSlValue('');
-    }
+  const requestSizeInputFocus = useCallback(() => {
+    if (!platformEnv.isNative) return;
+    requestAnimationFrame(() => sizeInputRef.current?.focus());
   }, []);
+
+  const showMinimumOrderToast = useCallback(() => {
+    const minimumOrderAction = minimumOrderActionRef.current;
+    Toast.message({
+      title: intl.formatMessage(
+        { id: ETranslations.perp_size_least },
+        { amount: minimumOrderAction?.amountLabel ?? '$10' },
+      ),
+      ...getMinimumOrderToastActionProps(
+        minimumOrderAction,
+        intl.formatMessage({
+          id: ETranslations.fill_minimum_amount__action,
+        }),
+      ),
+    });
+    requestSizeInputFocus();
+  }, [intl, requestSizeInputFocus]);
 
   const handlePlace = useCallback(
     async (pressedSide: ITradeSide) => {
+      setSide(pressedSide);
       const isTradingReady = await ensureEnableTrading();
       if (!isTradingReady) {
         return;
@@ -748,8 +884,6 @@ export function LimitOrderForm({
         onClose();
         return;
       }
-
-      setSide(pressedSide);
 
       // Same blocks as the main panel (validateOrderPanelState): the order
       // ticket holds independent state, so it must enforce them itself instead
@@ -774,10 +908,11 @@ export function LimitOrderForm({
         return;
       }
       const resolvedPriceBN = orderPrice.price;
-      const resolvedPrice = formatPriceToSignificantDigits(
-        resolvedPriceBN,
-        szDecimals,
-      );
+      // Spot prices validate against MAX_DECIMALS_SPOT; the perp significant-
+      // digits rule truncates them, mirroring the main panel (useOrderConfirm).
+      const resolvedPrice = isSpot
+        ? formatSpotPriceToValid(resolvedPriceBN.toFixed(), szDecimals)
+        : formatPriceToSignificantDigits(resolvedPriceBN, szDecimals);
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
@@ -808,12 +943,7 @@ export function LimitOrderForm({
         orderValueBN.gt(0) &&
         orderValueBN.lt(10)
       ) {
-        Toast.message({
-          title: intl.formatMessage(
-            { id: ETranslations.perp_size_least },
-            { amount: '$10' },
-          ),
-        });
+        showMinimumOrderToast();
         return;
       }
 
@@ -857,6 +987,7 @@ export function LimitOrderForm({
         referencePrice: resolvedPriceBN,
         side: pressedSide,
         leverage,
+        szDecimals: isSpot ? undefined : szDecimals,
       });
 
       // Normalize to a concrete manual token size so the confirm dialog display
@@ -885,31 +1016,83 @@ export function LimitOrderForm({
         slValue,
         orderMode: 'standard',
       };
+      const aggressiveLimitPriceWarning = isSpot
+        ? undefined
+        : getAggressiveLimitPriceWarning({
+            coin: symbol,
+            formData: builtFormData,
+            side: pressedSide,
+            price: resolvedPrice,
+          });
 
-      showOrderConfirmDialog({
-        overrideSide: pressedSide,
-        formData: builtFormData,
-        price: resolvedPrice,
-        expectedCoin: symbol,
-        intl,
-        onConfirmSuccess: onClose,
-      });
+      // Same gate as the main panel: honour "skip order confirmation", except
+      // an aggressive limit price still forces the dialog so its warning is
+      // seen before submitting.
+      if (
+        shouldShowOrderConfirm({
+          skipOrderConfirm: perpsCustomSettings.skipOrderConfirm,
+          aggressiveLimitPriceWarning,
+        })
+      ) {
+        showOrderConfirmDialog({
+          overrideSide: pressedSide,
+          formData: builtFormData,
+          price: resolvedPrice,
+          expectedCoin: symbol,
+          intl,
+          aggressiveLimitPriceWarning,
+          onConfirmSuccess: onClose,
+        });
+        return;
+      }
+
+      // Mirrors the confirm dialog's override submit path, minus the dialog.
+      if (activeTradeInstrument.assetId === undefined) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perp_token_info_not_found__msg,
+          }),
+        });
+        return;
+      }
+      if (isDirectPlacingRef.current) {
+        return;
+      }
+      isDirectPlacingRef.current = true;
+      try {
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeTradeInstrument.assetId,
+          formData: builtFormData,
+          price: resolvedPrice,
+        });
+        onClose();
+      } catch {
+        // Errors surface via withToast inside submitOrder; keep the ticket
+        // open so the inputs can be corrected.
+      } finally {
+        isDirectPlacingRef.current = false;
+      }
     },
     [
       activeTradeInstrument?.coin,
+      activeTradeInstrument?.assetId,
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
       ensureEnableTrading,
       hasTpsl,
+      hyperliquidActions,
       intl,
       isSpot,
+      getAggressiveLimitPriceWarning,
       leverage,
       limitTif,
       marketDataFreshness,
       onClose,
+      perpsCustomSettings.skipOrderConfirm,
       reduceOnly,
       resolvePriceForSide,
+      showMinimumOrderToast,
       sizeInputMode,
       sizePercent,
       slType,
@@ -947,6 +1130,7 @@ export function LimitOrderForm({
       pressBg,
       textColor,
       defaultText,
+      secondaryText,
       onDefaultPress,
     }: {
       sideKey: ITradeSide;
@@ -955,6 +1139,7 @@ export function LimitOrderForm({
       pressBg: ColorTokens;
       textColor: ColorTokens;
       defaultText: string;
+      secondaryText: string | null;
       onDefaultPress: () => void;
     }) => {
       return (
@@ -968,13 +1153,34 @@ export function LimitOrderForm({
           pressStyle={shouldDisableActionButtons ? undefined : { bg: pressBg }}
           onPress={onDefaultPress}
           disabled={shouldDisableActionButtons}
-          disabledStyle={{ opacity: 1, bg }}
+          disabledStyle={
+            shouldDisableActionButtons ? { opacity: 1, bg } : undefined
+          }
           opacity={shouldDisableActionButtons ? 1 : undefined}
           h={36}
+          py={secondaryText ? '$0.5' : undefined}
         >
-          <SizableText size="$bodyMdMedium" color={textColor}>
-            {defaultText}
-          </SizableText>
+          <YStack alignItems="center" gap={2} minWidth={0}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color={textColor}
+              numberOfLines={1}
+            >
+              {defaultText}
+            </SizableText>
+            {secondaryText ? (
+              <SizableText
+                fontSize={11}
+                lineHeight={11}
+                color={textColor}
+                opacity={0.8}
+                numberOfLines={1}
+              >
+                {secondaryText}
+              </SizableText>
+            ) : null}
+          </YStack>
         </Button>
       );
     },
@@ -1086,36 +1292,29 @@ export function LimitOrderForm({
             <PriceInput
               value={price}
               onChange={setPrice}
-              onUseMidPrice={midPrice ? handleUseMidPrice : undefined}
               szDecimals={szDecimals}
             />
           </YStack>
         )}
-        {isSpot ? null : (
-          <XStack
-            borderRadius="$2"
-            bg="$bgStrong"
-            borderWidth="$px"
-            borderColor="$transparent"
-            px="$3"
-            h={40}
-            alignItems="center"
-            cursor="pointer"
-            hoverStyle={{ bg: '$bgStrong' }}
-            pressStyle={{ bg: '$bgStrong' }}
-            onPress={handleBBOToggle}
-          >
-            <DashText
-              size="$bodyMdMedium"
-              dashColor="$text"
-              dashThickness={0.5}
-            >
-              {intl.formatMessage({
-                id: ETranslations.Perps_BBO_button_title,
-              })}
-            </DashText>
-          </XStack>
-        )}
+        <XStack
+          borderRadius="$2"
+          bg="$bgStrong"
+          borderWidth="$px"
+          borderColor="$transparent"
+          px="$3"
+          h={40}
+          alignItems="center"
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgStrong' }}
+          pressStyle={{ bg: '$bgStrong' }}
+          onPress={handleBBOToggle}
+        >
+          <DashText size="$bodyMdMedium" dashColor="$text" dashThickness={0.5}>
+            {intl.formatMessage({
+              id: ETranslations.Perps_BBO_button_title,
+            })}
+          </DashText>
+        </XStack>
       </XStack>
 
       {/* Size + slider */}
@@ -1132,6 +1331,8 @@ export function LimitOrderForm({
         onRequestManualMode={switchToManual}
         allowMarginInput={!isSpot}
         leverage={leverage}
+        inputRef={sizeInputRef}
+        minimumOrderActionRef={minimumOrderActionRef}
       />
       <PerpsSlider
         min={0}
@@ -1265,9 +1466,36 @@ export function LimitOrderForm({
         <YStack gap="$2" {...(!isSpot && { mt: '$1.5' })}>
           {sharedAccountActionButton}
         </YStack>
-      ) : (
+      ) : null}
+      {!sharedAccountActionButton && shouldShowFirstDepositAction ? (
+        <YStack gap="$3" {...(!isSpot && { mt: '$1.5' })}>
+          <PerpsFirstDepositPromptCard backgroundColor="$bgStrong" />
+          <Button
+            width="100%"
+            size="medium"
+            childrenAsText={false}
+            borderRadius="$full"
+            variant="primary"
+            onPress={handleFirstDepositPress}
+            testID="chart-limit-deposit-to-trade"
+            h={36}
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textInverse"
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_top_up,
+              })}
+            </SizableText>
+          </Button>
+        </YStack>
+      ) : null}
+      {!sharedAccountActionButton && !shouldShowFirstDepositAction ? (
         <XStack gap="$2.5" {...(!isSpot && { mt: '$1.5' })}>
-          <YStack flex={1} gap="$2">
+          <YStack flex={1} flexBasis={0} minWidth={0} gap="$2">
             {renderActionButton({
               sideKey: 'long',
               bg: longButtonStyles.bg,
@@ -1279,6 +1507,7 @@ export function LimitOrderForm({
                   ? ETranslations.dexmarket_details_transactions_buy
                   : ETranslations.perp_trade_long,
               }),
+              secondaryText: buttonSecondaryText.long,
               onDefaultPress: () => void handlePlace('long'),
             })}
             {!isSpot ? (
@@ -1336,7 +1565,7 @@ export function LimitOrderForm({
               </YStack>
             ) : null}
           </YStack>
-          <YStack flex={1} gap="$2">
+          <YStack flex={1} flexBasis={0} minWidth={0} gap="$2">
             {renderActionButton({
               sideKey: 'short',
               bg: shortButtonStyles.bg,
@@ -1348,6 +1577,7 @@ export function LimitOrderForm({
                   ? ETranslations.dexmarket_details_transactions_sell
                   : ETranslations.perp_trade_short,
               }),
+              secondaryText: buttonSecondaryText.short,
               onDefaultPress: () => void handlePlace('short'),
             })}
             {!isSpot ? (
@@ -1406,7 +1636,7 @@ export function LimitOrderForm({
             ) : null}
           </YStack>
         </XStack>
-      )}
+      ) : null}
     </YStack>
   );
 }

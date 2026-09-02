@@ -1,18 +1,18 @@
-import { memo, useMemo } from 'react';
+import { type ReactNode, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   Checkbox,
+  DashText,
   Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -63,9 +63,10 @@ function ApprovedTokenItem(props: IProps) {
   const { isBuildingRevokeTxs, selectedTokens } =
     useApprovalManagementContext();
   const intl = useIntl();
-  const { sm } = useMedia();
   const isPermit2Approval = approvalUtils.isPermit2Approval({ approval });
-  const isCompactPermit2Layout = isPermit2Approval && sm;
+  const permit2Description = intl.formatMessage({
+    id: ETranslations.permit2_approval__desc,
+  });
 
   const isSelected =
     !!selectedTokens[
@@ -87,7 +88,7 @@ function ApprovedTokenItem(props: IProps) {
     ];
 
   const approvalDate = formatDate(new Date(approval.time), {
-    hideTimeForever: true,
+    formatTemplate: 'PP',
   });
   const permit2ExpirationText = useMemo(() => {
     if (!isPermit2Approval) {
@@ -113,7 +114,7 @@ function ApprovedTokenItem(props: IProps) {
       return '--';
     }
     const formattedExpiration = formatDate(expirationDate, {
-      hideSeconds: true,
+      formatTemplate: 'PP, HH:mm',
     });
     if (!formattedExpiration || formattedExpiration === '-') {
       return '--';
@@ -132,88 +133,189 @@ function ApprovedTokenItem(props: IProps) {
   }
 
   const allowanceContent = approval.isInfiniteAmount ? (
-    intl.formatMessage({
-      id: ETranslations.swap_page_provider_approve_amount_un_limit,
-    })
+    <SizableText
+      size="$bodyMdMedium"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      flexShrink={1}
+      minWidth={0}
+    >
+      {intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      })}
+    </SizableText>
   ) : (
     <NumberSizeableText
       numberOfLines={1}
-      textAlign="right"
-      size="$bodyLgMedium"
+      ellipsizeMode="tail"
+      size="$bodyMdMedium"
       autoFormatter="balance-marketCap"
+      flexShrink={1}
+      minWidth={0}
     >
       {approval.allowanceParsed}
     </NumberSizeableText>
   );
 
-  const revokeButton = isSelectMode ? null : (
-    <Button
-      testID={ApprovalManagementTestIDs.tokenRevokeBtn}
-      size="small"
-      loading={isBuildingRevokeTxs ? isSelected : null}
-      disabled={isBuildingRevokeTxs}
-      onPress={() => {
-        void onRevoke({ approval, tokenInfo: token.info });
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.global_revoke })}
-    </Button>
+  const revokeAccessibilityLabel = intl.formatMessage(
+    { id: ETranslations.global_revoke_approve },
+    { symbol: token.info.symbol },
   );
+  const isRevokeLoading = isBuildingRevokeTxs && isSelected;
+  const handleRevokePress = () => {
+    void onRevoke({ approval, tokenInfo: token.info });
+  };
+  let revokeAction: ReactNode;
+  if (isSelectMode) {
+    revokeAction = (
+      <Checkbox
+        testID={ApprovalManagementTestIDs.tokenItemCheckbox}
+        value={isSelected}
+        shouldStopPropagation
+        containerProps={{ py: '$0', flexShrink: 0 }}
+        accessibilityLabel={token.info.symbol}
+        onChange={(value) => {
+          void onSelect({
+            approval,
+            isSelected: value === true,
+          });
+        }}
+      />
+    );
+  } else {
+    revokeAction = (
+      <Button
+        testID={ApprovalManagementTestIDs.tokenRevokeBtn}
+        size="small"
+        accessibilityLabel={revokeAccessibilityLabel}
+        loading={isRevokeLoading}
+        disabled={isBuildingRevokeTxs}
+        onPress={handleRevokePress}
+      >
+        {intl.formatMessage({ id: ETranslations.global_revoke })}
+      </Button>
+    );
+  }
 
   return (
     <ListItem
+      alignItems="center"
+      py="$2.5"
       renderItemText={
-        <ListItem.Text
-          flex={1}
-          minWidth={0}
-          primary={
-            <XStack alignItems="center" gap="$1.5" minWidth={0}>
-              <SizableText
-                size="$bodyLgMedium"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                flexShrink={1}
-                minWidth={0}
-              >
-                {token.info.symbol}
-              </SizableText>
-              {isPermit2Approval ? (
-                <Badge
-                  badgeSize="sm"
-                  bg="$transparent"
-                  borderWidth={1}
-                  borderColor="$borderSubdued"
-                  flexShrink={0}
-                >
-                  <Badge.Text>Permit2</Badge.Text>
-                </Badge>
-              ) : null}
-            </XStack>
-          }
-          secondary={
-            <YStack>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {approvalDate}
-              </SizableText>
-              {permit2ExpirationText ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {permit2ExpirationText}
+        <YStack flex={1} minWidth={0} maxWidth="100%" gap="$0.5">
+          <XStack
+            alignItems="baseline"
+            gap="$1"
+            minWidth={0}
+            maxWidth="100%"
+            overflow="hidden"
+          >
+            {allowanceContent}
+            <SizableText
+              size="$bodyMdMedium"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              flexShrink={0}
+              minWidth={0}
+              maxWidth="45%"
+            >
+              {token.info.symbol}
+            </SizableText>
+          </XStack>
+
+          <XStack
+            alignItems="center"
+            columnGap="$1.5"
+            minWidth={0}
+            maxWidth="100%"
+            overflow="hidden"
+          >
+            {isPermit2Approval ? (
+              <XStack alignItems="center" gap="$1" flexShrink={0}>
+                <Popover
+                  title="Permit2"
+                  placement="top-start"
+                  renderTrigger={
+                    <Button
+                      testID={ApprovalManagementTestIDs.permit2InfoBtn}
+                      variant="tertiary"
+                      size="small"
+                      childrenAsText={false}
+                      accessibilityLabel="Permit2"
+                      px="$0"
+                      py="$0"
+                      mx="$0"
+                      my="$0"
+                      borderWidth={0}
+                      hoverStyle={{ bg: '$transparent' }}
+                      pressStyle={{ bg: '$transparent' }}
+                    >
+                      <DashText
+                        size="$bodySmMedium"
+                        color="$textSubdued"
+                        dashColor="$textSubdued"
+                        dashThickness={0.5}
+                        numberOfLines={1}
+                      >
+                        Permit2
+                      </DashText>
+                    </Button>
+                  }
+                  renderContent={
+                    <YStack px="$5" pt="$2" pb="$5">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {permit2Description}
+                      </SizableText>
+                    </YStack>
+                  }
+                />
+                <SizableText size="$bodySm" color="$textSubdued">
+                  ·
                 </SizableText>
-              ) : null}
-            </YStack>
-          }
-        />
+              </XStack>
+            ) : null}
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              flex={1}
+              minWidth={0}
+            >
+              {intl.formatMessage(
+                {
+                  id: ETranslations.approved_on_date__desc,
+                },
+                { date: approvalDate },
+              )}
+            </SizableText>
+          </XStack>
+          {permit2ExpirationText !== undefined ? (
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              minWidth={0}
+              maxWidth="100%"
+              accessibilityLabel={permit2ExpirationText}
+            >
+              {permit2ExpirationText}
+            </SizableText>
+          ) : null}
+        </YStack>
       }
       avatarProps={{
         src: token.info.logoURI,
+        size: '$8',
         borderRadius: '$full',
         fallbackProps: {
           bg: '$gray5',
-          width: '$10',
-          height: '$10',
+          width: '$8',
+          height: '$8',
           justifyContent: 'center',
           alignItems: 'center',
-          children: <Icon size="$7" name="CryptoCoinOutline" />,
+          children: <Icon size="$5" name="CryptoCoinOutline" />,
         },
       }}
       onPress={
@@ -226,49 +328,15 @@ function ApprovedTokenItem(props: IProps) {
             }
           : undefined
       }
-      childrenBefore={
-        isSelectMode ? (
-          <Stack>
-            <Checkbox
-              testID={ApprovalManagementTestIDs.tokenItemCheckbox}
-              value={isSelected}
-              onChange={() => {
-                void onSelect({
-                  approval,
-                  isSelected: !isSelected,
-                });
-              }}
-            />
-          </Stack>
-        ) : null
-      }
     >
-      {isCompactPermit2Layout ? (
-        <YStack
-          alignItems="flex-end"
-          justifyContent="center"
-          gap="$1"
-          flexShrink={0}
-        >
-          <ListItem.Text
-            align="right"
-            primaryTextProps={{ numberOfLines: 1 }}
-            primary={allowanceContent}
-          />
-          {revokeButton}
-        </YStack>
-      ) : (
-        <>
-          <ListItem.Text
-            align="right"
-            flex={1}
-            minWidth={0}
-            primaryTextProps={{ numberOfLines: 1 }}
-            primary={allowanceContent}
-          />
-          {revokeButton}
-        </>
-      )}
+      <Stack
+        height="$8"
+        flexShrink={0}
+        alignItems="flex-end"
+        justifyContent="center"
+      >
+        {revokeAction}
+      </Stack>
     </ListItem>
   );
 }

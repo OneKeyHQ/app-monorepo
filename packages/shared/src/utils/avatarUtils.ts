@@ -1,6 +1,9 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
-import { MOCK_PRO2_DEVICE_TYPE } from './devicePro2Mock';
+import { EHardwareVendor } from '../../types/device';
+
+import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
+import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -28,17 +31,7 @@ export const HdWalletAvatarImageNames = Object.keys(
 ) as IHdWalletAvatarImageNames[];
 
 export const HwWalletAvatarImages: Record<
-  | IDeviceType
-  | `${EDeviceType.Pro}Black`
-  | `${EDeviceType.Pro}White`
-  // MOCK(pro2): literal keys until EDeviceType.Pro2 ships. `pro2` is the base
-  // (default avatar); Black/Orange/Silver are the color variants. These equal
-  // the future `${EDeviceType.Pro2}` template forms (Pro2 = 'pro2'), so
-  // convergence is a literal -> template swap. See devicePro2Mock.ts.
-  | 'pro2'
-  | 'pro2Black'
-  | 'pro2Orange'
-  | 'pro2Silver',
+  IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White`,
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
@@ -48,12 +41,10 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
+  [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
+  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
-  pro2: require('../assets/wallet/avatar/Pro2Black.png'),
-  pro2Black: require('../assets/wallet/avatar/Pro2Black.png'),
-  pro2Orange: require('../assets/wallet/avatar/Pro2Orange.png'),
-  pro2Silver: require('../assets/wallet/avatar/Pro2Silver.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -63,18 +54,21 @@ export const OthersWalletAvatarImages = {
 };
 
 export const ThirdPartyWalletAvatarImages = {
+  // Neutral vendor fallback for unrecognized/metadata-less devices — kept
+  // distinct from any specific-model asset so an unknown device never
+  // presents as a particular physical model.
   ledger: require('../assets/wallet/avatar/Ledger.png'),
   trezor: require('../assets/wallet/avatar/Trezor.png'),
-  'Safe 3': require('../assets/wallet/avatar/Trezor.png'),
-  'Safe 5': require('../assets/wallet/avatar/Trezor.png'),
-  'Safe 7': require('../assets/wallet/avatar/Trezor.png'),
-  'Trezor Safe 3': require('../assets/wallet/avatar/Trezor.png'),
-  'Trezor Safe 5': require('../assets/wallet/avatar/Trezor.png'),
-  'Trezor Safe 7': require('../assets/wallet/avatar/Trezor.png'),
-  'Model One': require('../assets/wallet/avatar/Trezor.png'),
-  'Model T': require('../assets/wallet/avatar/Trezor.png'),
-  'Trezor Model One': require('../assets/wallet/avatar/Trezor.png'),
-  'Trezor Model T': require('../assets/wallet/avatar/Trezor.png'),
+  TrezorModelOne: require('../assets/wallet/avatar/TrezorModelOne.png'),
+  TrezorModelT: require('../assets/wallet/avatar/TrezorModelT.png'),
+  TrezorSafe3: require('../assets/wallet/avatar/TrezorSafe3.png'),
+  TrezorSafe5: require('../assets/wallet/avatar/TrezorSafe5.png'),
+  TrezorSafe7: require('../assets/wallet/avatar/TrezorSafe7.png'),
+  LedgerNanoS: require('../assets/wallet/avatar/LedgerNanoS.png'),
+  LedgerNanoX: require('../assets/wallet/avatar/LedgerNanoX.png'),
+  LedgerStax: require('../assets/wallet/avatar/LedgerStax.png'),
+  LedgerFlex: require('../assets/wallet/avatar/LedgerFlex.png'),
+  LedgerNanoGen5: require('../assets/wallet/avatar/LedgerNanoGen5.png'),
 };
 
 export const AllWalletAvatarImages = {
@@ -85,7 +79,6 @@ export const AllWalletAvatarImages = {
   ...ThirdPartyWalletAvatarImages,
 };
 
-export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;
 export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
 export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;
 export type IOthersWalletAvatarImageNames =
@@ -98,35 +91,90 @@ export type IAllWalletAvatarImageNamesWithoutDividers =
   | IHwWalletAvatarImageNames
   | IOthersWalletAvatarImageNames
   | IThirdPartyWalletAvatarImageNames;
+export type IAllWalletAvatarImageNames =
+  | 'cardDividers'
+  | IAllWalletAvatarImageNamesWithoutDividers;
 
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
-):
-  | IDeviceType
-  | `${EDeviceType.Pro}Black`
-  | `${EDeviceType.Pro}White`
-  | 'pro2Black'
-  | 'pro2Orange'
-  | 'pro2Silver' {
+): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;
   }
-  // MOCK(pro2): provisional serial_no -> color rule from the SDK dev (not yet
-  // finalized). Last char of serial_no: B = Black, O = Orange, S = Silver
-  // (e.g. PRT41B0225O -> Orange). Falls back to Black when unknown/missing.
-  // Keyed off the shared mock device type until EDeviceType.Pro2 ships.
-  if (deviceType === MOCK_PRO2_DEVICE_TYPE) {
-    if (serialNo?.endsWith('O')) {
-      return 'pro2Orange';
-    }
-    if (serialNo?.endsWith('S')) {
-      return 'pro2Silver';
-    }
-    return 'pro2Black';
-  }
   return deviceType;
+}
+
+const TREZOR_MODEL_CODE_TO_AVATAR_KEY = new Map<
+  string,
+  IThirdPartyWalletAvatarImageNames
+>([
+  ['T1B1', 'TrezorModelOne'],
+  ['T2T1', 'TrezorModelT'],
+  ['T2B1', 'TrezorSafe3'],
+  ['T3B1', 'TrezorSafe3'],
+  ['T3T1', 'TrezorSafe5'],
+  ['T3W1', 'TrezorSafe7'],
+  // Legacy pre-internal_model firmware (Trezor One).
+  ['1', 'TrezorModelOne'],
+]);
+
+// Fallback when vendorModel is unavailable; Ledger never needs this since its
+// vendorModel is always the DMK code, never a human string.
+const TREZOR_MODEL_NAME_ALIAS_TO_AVATAR_KEY = new Map<
+  string,
+  IThirdPartyWalletAvatarImageNames
+>([
+  ['model one', 'TrezorModelOne'],
+  ['model t', 'TrezorModelT'],
+  ['safe 3', 'TrezorSafe3'],
+  ['safe 5', 'TrezorSafe5'],
+  ['safe 7', 'TrezorSafe7'],
+]);
+
+const LEDGER_MODEL_CODE_TO_AVATAR_KEY = new Map<
+  string,
+  IThirdPartyWalletAvatarImageNames
+>([
+  ['nanoS', 'LedgerNanoS'],
+  ['nanoSP', 'LedgerNanoS'],
+  ['nanoX', 'LedgerNanoX'],
+  ['stax', 'LedgerStax'],
+  ['flex', 'LedgerFlex'],
+  ['apexp', 'LedgerNanoGen5'],
+]);
+
+export function getThirdPartyDeviceAvatarImage({
+  vendor,
+  vendorModel,
+  vendorModelName,
+  fallback,
+}: {
+  vendor: EHardwareVendor;
+  vendorModel?: string;
+  vendorModelName?: string;
+  fallback: IThirdPartyWalletAvatarImageNames;
+}): IThirdPartyWalletAvatarImageNames {
+  if (vendor === EHardwareVendor.trezor) {
+    // Exact-case lookup — normalizing this branch stops 'T3W1' from matching.
+    const byCode =
+      vendorModel && TREZOR_MODEL_CODE_TO_AVATAR_KEY.get(vendorModel);
+    if (byCode) return byCode;
+    const normalizedName = thirdPartyDeviceUtils
+      .normalizeThirdPartyModelName(vendorModelName)
+      .replace(/^trezor /, '');
+    const byName = TREZOR_MODEL_NAME_ALIAS_TO_AVATAR_KEY.get(normalizedName);
+    if (byName) return byName;
+    return fallback;
+  }
+  if (vendor === EHardwareVendor.ledger) {
+    const byCode =
+      vendorModel && LEDGER_MODEL_CODE_TO_AVATAR_KEY.get(vendorModel);
+    if (byCode) return byCode;
+    return fallback;
+  }
+  return fallback;
 }

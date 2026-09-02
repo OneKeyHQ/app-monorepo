@@ -2,9 +2,12 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   type ISwapKLineToken,
+  fetchSwapKLineTokenAddressesStableStatus,
   getDefaultSwapKLineSide,
   getResolvableDefaultSwapKLineSide,
+  getSwapKLineStableTokenKey,
   haveSameSwapKLineTokenSymbol,
+  isSwapKLineStableTokenStatusUnavailable,
   prefetchSwapKLineMetadata,
   prefetchSwapKLineTokenInfo,
 } from './swapKLineTokenUtils';
@@ -78,6 +81,67 @@ describe('swapKLineTokenUtils', () => {
         }),
       ).toBe(false);
     });
+  });
+
+  it('normalizes stable-token identities returned by the service', async () => {
+    mockCheckStableCoinsList.mockResolvedValue([
+      {
+        networkId: 'evm--1',
+        results: [
+          {
+            contractAddress: '0xABC',
+            isStableCoin: true,
+          },
+        ],
+      },
+    ]);
+    const token = buildToken('USDC', {
+      contractAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+
+    const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
+      token,
+      { ...token },
+    ]);
+
+    expect(mockCheckStableCoinsList).toHaveBeenCalledWith({
+      list: [
+        {
+          networkId: 'evm--1',
+          contractAddressList: ['0xabc'],
+        },
+      ],
+    });
+    expect(stableStatusMap.get(getSwapKLineStableTokenKey(token))).toBe(true);
+  });
+
+  it('falls back to non-stable status when classification fails', async () => {
+    mockCheckStableCoinsList.mockRejectedValueOnce(new Error('unavailable'));
+
+    const token = buildToken('USDC', {
+      contractAddress: '0xabc',
+      networkId: 'evm--1',
+    });
+    const stableStatusMap = await fetchSwapKLineTokenAddressesStableStatus([
+      token,
+    ]);
+
+    expect(
+      isSwapKLineStableTokenStatusUnavailable(
+        stableStatusMap,
+        getSwapKLineStableTokenKey(token),
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts an explicit non-stable classification as a valid response', () => {
+    expect(
+      isSwapKLineStableTokenStatusUnavailable(
+        new Map([['evm--1:0xabc', false]]),
+        'evm--1:0xabc',
+      ),
+    ).toBe(false);
   });
 
   it('selects the to token when both token symbols are the same', () => {

@@ -1,0 +1,225 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useUniversalBorrowSetEMode } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowEModeSwitchCheck,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
+
+export function useEModeSwitch({
+  networkId,
+  accountId,
+  provider,
+  marketAddress,
+  onSwitched,
+  getCategoryLabel,
+}: {
+  networkId: string;
+  accountId: string;
+  provider: string;
+  marketAddress: string;
+  onSwitched: () => void;
+  // Resolves the category name for the success toast; the hook only knows the
+  // eModeId, the label lives in the page's rows / route params.
+  getCategoryLabel?: (eModeId: number) => string | undefined;
+}) {
+  const intl = useIntl();
+  const mountedRef = useRef(true);
+  const [targetEModeId, setTargetEModeId] = useState<number | null>(null);
+  const [check, setCheck] = useState<IBorrowEModeSwitchCheck | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  // One in-flight tx at a time: guards the async build-tx window (before the
+  // confirm modal opens) against a double-tap firing two builds / two modals.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  // Sequence id so an out-of-order (stale) switch-check response can never
+  // overwrite the latest one; only the newest runCheck call applies state.
+  const checkSeqRef = useRef(0);
+  const targetEModeIdRef = useRef<number | null>(null);
+  const setEMode = useUniversalBorrowSetEMode({ networkId, accountId });
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      submittingRef.current = false;
+      checkSeqRef.current += 1;
+    };
+  }, []);
+
+  const stakingInfo = useCallback(
+    (): IStakingInfo => ({
+      label: EEarnLabels.Borrow,
+      protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+      tags: [
+        EEarnLabels.Borrow,
+        buildBorrowTag({ provider, action: 'setEMode' }),
+      ],
+    }),
+    [provider],
+  );
+
+  const runCheck = useCallback(
+    async (eModeId: number) => {
+      const seq = checkSeqRef.current + 1;
+      checkSeqRef.current = seq;
+      targetEModeIdRef.current = eModeId;
+      setTargetEModeId(eModeId);
+      setCheck(null);
+      setIsChecking(true);
+      try {
+        const resp =
+          await backgroundApiProxy.serviceStaking.borrowSwitchCheckEMode({
+            networkId,
+            accountId,
+            provider,
+            marketAddress,
+            targetEModeId: eModeId,
+          });
+        const nextCheck = resp.code === 0 ? resp.data : null;
+        if (mountedRef.current && checkSeqRef.current === seq) {
+          setCheck(nextCheck);
+          return nextCheck;
+        }
+        return null;
+      } catch (error) {
+        if (mountedRef.current && checkSeqRef.current === seq) {
+          setCheck(null);
+          Toast.error({
+            title:
+              error instanceof Error && error.message
+                ? error.message
+                : intl.formatMessage({ id: ETranslations.global_failed }),
+          });
+        }
+        return null;
+      } finally {
+        if (mountedRef.current && checkSeqRef.current === seq) {
+          setIsChecking(false);
+        }
+      }
+    },
+    [networkId, accountId, provider, marketAddress, intl],
+  );
+
+  const applyAuthoritativeCheck = useCallback(
+    ({
+      eModeId,
+      nextCheck,
+      expectedGeneration,
+    }: {
+      eModeId: number;
+      nextCheck: IBorrowEModeSwitchCheck;
+      expectedGeneration: number;
+    }) => {
+      if (
+        !mountedRef.current ||
+        targetEModeIdRef.current !== eModeId ||
+        checkSeqRef.current !== expectedGeneration
+      ) {
+        return;
+      }
+      checkSeqRef.current += 1;
+      setCheck(nextCheck);
+      setIsChecking(false);
+    },
+    [],
+  );
+
+  const getCheckGeneration = useCallback(() => checkSeqRef.current, []);
+
+  // Clear the selected target and its check. Bump the sequence so an in-flight
+  // response cannot apply after the target becomes current or disappears.
+  const resetTarget = useCallback(() => {
+    checkSeqRef.current += 1;
+    targetEModeIdRef.current = null;
+    setTargetEModeId(null);
+    setCheck(null);
+    setIsChecking(false);
+  }, []);
+
+  const confirmSwitch = useCallback(async () => {
+    if (targetEModeId === null || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const expectedGeneration = getCheckGeneration();
+      const latestCheck = await setEMode({
+        provider,
+        marketAddress,
+        eModeId: targetEModeId,
+        stakingInfo: stakingInfo(),
+        onSuccess: () => {
+          if (!mountedRef.current) {
+            return;
+          }
+          Toast.success({
+            title:
+              targetEModeId === 0
+                ? intl.formatMessage({
+                    id: ETranslations.defi_emode_turned_off,
+                  })
+                : intl.formatMessage(
+                    { id: ETranslations.defi_emode_switched_success },
+                    { category: getCategoryLabel?.(targetEModeId) ?? '' },
+                  ),
+          });
+          onSwitched();
+        },
+      });
+      // undefined = the flow never started (risk disclaimer declined); leave the
+      // switch state exactly as it was, the finally below releases the lock.
+      if (!latestCheck) {
+        return;
+      }
+      if (!latestCheck.canSwitch) {
+        applyAuthoritativeCheck({
+          eModeId: targetEModeId,
+          nextCheck: latestCheck,
+          expectedGeneration,
+        });
+      }
+    } catch {
+      // The final check owns its fallback toast, while build errors retain the
+      // API interceptor toast. Catch here only releases the submit lock.
+    } finally {
+      submittingRef.current = false;
+      if (mountedRef.current) {
+        setIsSubmitting(false);
+      }
+    }
+  }, [
+    targetEModeId,
+    applyAuthoritativeCheck,
+    getCheckGeneration,
+    setEMode,
+    provider,
+    marketAddress,
+    stakingInfo,
+    onSwitched,
+    getCategoryLabel,
+    intl,
+  ]);
+
+  return {
+    targetEModeId,
+    check,
+    isChecking,
+    isSubmitting,
+    runCheck,
+    applyAuthoritativeCheck,
+    getCheckGeneration,
+    resetTarget,
+    confirmSwitch,
+  };
+}

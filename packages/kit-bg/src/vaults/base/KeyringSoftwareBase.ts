@@ -135,7 +135,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new OneKeyLocalError('coreApi is not defined');
     }
-    const { password, messages } = params;
+    const { password, messages, kdfBackend, enablePbkdf2Cache } = params;
     const account = await this.vault.getAccount();
 
     const credentials = await this.baseGetCredentialsInfo(params);
@@ -149,6 +149,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
           account,
           password,
           credentials,
+          kdfBackend,
+          enablePbkdf2Cache,
         }),
       ),
     );

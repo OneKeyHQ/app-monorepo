@@ -6,9 +6,14 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 export function MarketDetailResponsiveLayout({
   isDesktopLayout,
   isChartFullscreen,
+  isTradingViewNative,
+  onChartSwitch,
   onChartFullscreenChange,
+  isNative,
   networkId,
   tokenAddress,
+  marketTokenId,
+  marketTokenCategory,
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
@@ -16,9 +21,15 @@ export function MarketDetailResponsiveLayout({
     return (
       <DesktopLayout
         isChartFullscreen={isChartFullscreen}
+        isTradingViewNative={isTradingViewNative}
+        onChartSwitch={onChartSwitch}
         onChartFullscreenChange={onChartFullscreenChange}
+        isNative={isNative}
         networkId={networkId}
         tokenAddress={tokenAddress}
+        marketTokenId={marketTokenId}
+        marketTokenCategory={marketTokenCategory}
+        disableTrade={disableTrade}
         showFavoriteButton={showFavoriteButton}
       />
     );
@@ -27,6 +38,11 @@ export function MarketDetailResponsiveLayout({
   return (
     <MobileLayout
       disableTrade={disableTrade}
+      isChartFullscreen={isChartFullscreen}
+      isTradingViewNative={isTradingViewNative}
+      onChartFullscreenChange={onChartFullscreenChange}
+      onChartSwitch={onChartSwitch}
+      isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
     />

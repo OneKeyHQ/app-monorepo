@@ -1,4 +1,7 @@
-import type { ILightweightChartTheme } from '../types';
+import type {
+  ILightweightChartPriceScalePosition,
+  ILightweightChartTheme,
+} from '../types';
 import type {
   AreaSeriesPartialOptions,
   ChartOptions,
@@ -9,6 +12,12 @@ import type {
 const CHART_FONT_FAMILY =
   'Roobert, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
+// Shared crosshair defaults. Every chart that does not opt into an override
+// keeps exactly these values.
+const DEFAULT_CROSSHAIR_VERT_LINE_COLOR = 'rgba(150, 150, 150, 0.4)';
+// lightweight-charts `LineStyle.LargeDashed`.
+const DEFAULT_CROSSHAIR_VERT_LINE_STYLE = 3;
+
 const CHART_TICK_MARK_TYPE = {
   Year: 0,
   Month: 1,
@@ -16,6 +25,8 @@ const CHART_TICK_MARK_TYPE = {
   Time: 3,
   TimeWithSeconds: 4,
 } as const;
+
+const timeScaleFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
 function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
@@ -100,6 +111,85 @@ const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
   }
 };
 
+function getTimeScaleFormatOptions(
+  tickMarkType: Parameters<TickMarkFormatter>[1],
+): Intl.DateTimeFormatOptions {
+  switch (tickMarkType) {
+    case CHART_TICK_MARK_TYPE.Year:
+      return { year: 'numeric' };
+    case CHART_TICK_MARK_TYPE.Month:
+      return { month: 'short' };
+    case CHART_TICK_MARK_TYPE.DayOfMonth:
+      return { day: 'numeric' };
+    case CHART_TICK_MARK_TYPE.Time:
+      return {
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      };
+    case CHART_TICK_MARK_TYPE.TimeWithSeconds:
+      return {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      };
+    default:
+      return { month: 'short', day: 'numeric' };
+  }
+}
+
+export function formatChartTickMarkInTimeZone({
+  time,
+  tickMarkType,
+  timeZone,
+  locale,
+}: {
+  time: Parameters<TickMarkFormatter>[0];
+  tickMarkType: Parameters<TickMarkFormatter>[1];
+  timeZone: string;
+  locale?: string;
+}) {
+  let date: Date;
+  let formatterTimeZone = timeZone;
+
+  if (typeof time === 'number') {
+    date = new Date(time * 1000);
+  } else if (typeof time === 'string') {
+    const businessDayParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(time);
+    if (businessDayParts) {
+      date = new Date(
+        Date.UTC(
+          Number(businessDayParts[1]),
+          Number(businessDayParts[2]) - 1,
+          Number(businessDayParts[3]),
+        ),
+      );
+      formatterTimeZone = 'UTC';
+    } else {
+      date = new Date(time);
+    }
+  } else {
+    date = new Date(Date.UTC(time.year, time.month - 1, time.day));
+    formatterTimeZone = 'UTC';
+  }
+
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+
+  const formatterKey = `${locale ?? ''}|${formatterTimeZone}|${tickMarkType}`;
+  let formatter = timeScaleFormatterCache.get(formatterKey);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, {
+      ...getTimeScaleFormatOptions(tickMarkType),
+      timeZone: formatterTimeZone,
+    });
+    timeScaleFormatterCache.set(formatterKey, formatter);
+  }
+  return formatter.format(date);
+}
+
 export function createChartOptions(
   theme: ILightweightChartTheme,
   showPriceScale = false,
@@ -109,7 +199,35 @@ export function createChartOptions(
   priceScaleEntireTextOnly = false,
   useTimeScaleTickMarkWithoutUnit = false,
   priceScaleMinimumWidth?: number,
+  priceScalePosition: ILightweightChartPriceScalePosition = 'right',
+  timeZone?: string,
+  locale?: string,
+  // Opt-in crosshair overrides. Charts that pass nothing keep the faint default
+  // line below.
+  crosshairVertLine?: { color?: string; style?: number },
 ): DeepPartial<ChartOptions> {
+  const priceScaleOptions = {
+    visible: showPriceScale,
+    borderVisible: false,
+    entireTextOnly: priceScaleEntireTextOnly,
+    ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
+    ...(priceScaleMinimumWidth !== undefined && {
+      minimumWidth: priceScaleMinimumWidth,
+    }),
+  };
+  let tickMarkFormatter: TickMarkFormatter | undefined;
+  if (timeZone) {
+    tickMarkFormatter = (time, tickMarkType) =>
+      formatChartTickMarkInTimeZone({
+        time,
+        tickMarkType,
+        timeZone,
+        locale,
+      });
+  } else if (useTimeScaleTickMarkWithoutUnit) {
+    tickMarkFormatter = formatChartTickMarkWithoutUnit;
+  }
+
   return {
     layout: {
       background: { color: theme.bgColor },
@@ -121,9 +239,9 @@ export function createChartOptions(
     crosshair: {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
-        color: 'rgba(150, 150, 150, 0.4)',
+        color: crosshairVertLine?.color ?? DEFAULT_CROSSHAIR_VERT_LINE_COLOR,
         width: 1,
-        style: 3,
+        style: crosshairVertLine?.style ?? DEFAULT_CROSSHAIR_VERT_LINE_STYLE,
         labelVisible: false,
       },
       horzLine: {
@@ -141,21 +259,17 @@ export function createChartOptions(
       fixLeftEdge: true,
       fixRightEdge: true,
       lockVisibleTimeRangeOnResize: true,
-      ...(useTimeScaleTickMarkWithoutUnit
-        ? { tickMarkFormatter: formatChartTickMarkWithoutUnit }
-        : {}),
+      ...(tickMarkFormatter ? { tickMarkFormatter } : {}),
     },
     rightPriceScale: {
-      visible: showPriceScale,
-      borderVisible: false,
-      entireTextOnly: priceScaleEntireTextOnly,
-      ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
-      ...(priceScaleMinimumWidth !== undefined && {
-        minimumWidth: priceScaleMinimumWidth,
-      }),
+      ...(priceScalePosition === 'right'
+        ? priceScaleOptions
+        : { visible: false }),
     },
     leftPriceScale: {
-      visible: false,
+      ...(priceScalePosition === 'left'
+        ? priceScaleOptions
+        : { visible: false }),
     },
     handleScroll: {
       mouseWheel: false,

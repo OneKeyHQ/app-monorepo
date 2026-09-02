@@ -1,5 +1,11 @@
 /* eslint-disable import/first */
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const serviceStaking = {
     getBorrowTransactionConfirmation: jest.fn(),
@@ -19,7 +25,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   };
 });
 
-import { useUniversalBorrowAction } from '.';
+import {
+  resolveBorrowCheckAmountStateForRequest,
+  resolveBorrowTransactionConfirmationStateForRequest,
+  useUniversalBorrowAction,
+} from '.';
 
 import { act, renderHook } from '@testing-library/react-native';
 
@@ -142,5 +152,50 @@ describe('useUniversalBorrowAction', () => {
     expect(result.current.checkAmountLoading).toBe(false);
     expect(result.current.checkAmountMessage).toBe('');
     expect(result.current.checkAmountResult).toBe(true);
+  });
+
+  it('fails closed when rendered params do not own the visible check result', () => {
+    expect(
+      resolveBorrowCheckAmountStateForRequest({
+        requestKey: 'reserve-b',
+        shouldCheckAmount: true,
+        state: {
+          requestKey: 'reserve-a',
+          checkAmountMessage: '',
+          checkAmountAlerts: [],
+          checkAmountLoading: false,
+          checkAmountResult: true,
+          riskOfLiquidationAlert: false,
+        },
+      }),
+    ).toEqual({
+      requestKey: 'reserve-b',
+      checkAmountMessage: '',
+      checkAmountAlerts: [],
+      checkAmountLoading: true,
+      checkAmountResult: undefined,
+      riskOfLiquidationAlert: undefined,
+    });
+  });
+
+  it('clears confirmation content when the request changes', () => {
+    const currentConfirmation = { canBeCollateral: true };
+    const currentState = {
+      requestKey: 'reserve-a:1',
+      transactionConfirmation: currentConfirmation,
+      transactionConfirmationLoading: false,
+    };
+
+    expect(
+      resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: 'reserve-a:2',
+        shouldFetch: true,
+        state: currentState,
+      }),
+    ).toEqual({
+      requestKey: 'reserve-a:2',
+      transactionConfirmation: undefined,
+      transactionConfirmationLoading: true,
+    });
   });
 });

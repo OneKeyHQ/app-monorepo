@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpTestIDs } from '../../../testIDs';
 import {
@@ -41,10 +43,12 @@ import {
 } from '../../../utils/accountScopedData';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
+import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { useChasingOrderTask } from '../hooks/useChasingOrderTask';
 import { canChasePerpsOrder } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -187,7 +191,7 @@ function useOpenOrdersColumnsConfig({
         }),
         minWidth: 140,
         flex: 1,
-        align: 'center',
+        align: 'left',
       },
       {
         key: 'cancel',
@@ -222,15 +226,15 @@ function PerpOpenOrdersList({
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const [currentListPage, setCurrentListPage] = useState(1);
-  const [chasingOrderIds, setChasingOrderIds] = useState<Set<number>>(
-    () => new Set(),
-  );
-  const chasingOrderIdsRef = useRef(new Set<number>());
+  const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
+    useChasingOrderTask();
   const activeAccountAddressRef = useRef(currentUser?.accountAddress);
   const scopedAccountAddressRef = useRef(accountScopedAddress);
   activeAccountAddressRef.current = currentUser?.accountAddress;
@@ -411,7 +415,7 @@ function PerpOpenOrdersList({
   const handleCancelOrder = useCallback(
     async (order: IPerpsFrontendOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.coin,
@@ -442,13 +446,13 @@ function PerpOpenOrdersList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
   );
 
   const handleCancelTwapOrder = useCallback(
     async (order: IPerpsActiveTwapOrder) => {
       try {
-        await actions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.state.coin,
@@ -478,15 +482,63 @@ function PerpOpenOrdersList({
         });
       }
     },
-    [actions, intl],
+    [actions, ensureTradingEnabled, intl],
+  );
+
+  const resolveChaseTargetPrice = useCallback(
+    async (order: IPerpsFrontendOrder) => {
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: order.coin,
+        });
+      const szDecimals = symbolMeta?.universe?.szDecimals;
+      if (!symbolMeta || symbolMeta.isSpot || szDecimals === undefined) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.perp_token_info_not_found__msg,
+          }),
+        );
+      }
+
+      const book =
+        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+          coin: order.coin,
+        });
+      const bid = book?.levels[0]?.[0]?.px;
+      const ask = book?.levels[1]?.[0]?.px;
+      const nextPrice =
+        bid && ask
+          ? resolveBboOrderPrice({
+              bid,
+              ask,
+              side: order.side === 'B' ? 'long' : 'short',
+              type: 'counterparty',
+              offsetTicks: 0,
+              szDecimals,
+            })
+          : null;
+      if (!nextPrice) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.current_best_price_unavailable__msg,
+          }),
+        );
+      }
+
+      return {
+        price: nextPrice.toFixed(),
+        szDecimals,
+      };
+    },
+    [intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder) => {
+    async (order: IPerpsFrontendOrder, preparedTargetPrice?: string) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
-        chasingOrderIdsRef.current.has(order.oid)
+        isChasingOrder(order.oid)
       ) {
         return;
       }
@@ -503,91 +555,138 @@ function PerpOpenOrdersList({
         return;
       }
 
-      chasingOrderIdsRef.current.add(order.oid);
-      setChasingOrderIds((previous) => new Set(previous).add(order.oid));
-      try {
-        await actions.current.ensureTradingEnabled();
-        const symbolMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-            coin: order.coin,
-          });
-        const szDecimals = symbolMeta?.universe?.szDecimals;
-        if (!symbolMeta || symbolMeta.isSpot || szDecimals === undefined) {
-          throw new OneKeyLocalError(
-            intl.formatMessage({
-              id: ETranslations.perp_token_info_not_found__msg,
-            }),
+      await runChasingOrderTask(order.oid, async () => {
+        try {
+          await ensureTradingEnabled();
+          const targetPrice =
+            preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
+
+          const latestAccountAddress = normalizePerpsAccountAddress(
+            activeAccountAddressRef.current,
           );
-        }
-
-        const book =
-          await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-            coin: order.coin,
-          });
-        const bid = book?.levels[0]?.[0]?.px;
-        const ask = book?.levels[1]?.[0]?.px;
-        const nextPrice =
-          bid && ask
-            ? resolveBboOrderPrice({
-                bid,
-                ask,
-                side: order.side === 'B' ? 'long' : 'short',
-                type: 'counterparty',
-                offsetTicks: 0,
-                szDecimals,
-              })
-            : null;
-        if (!nextPrice) {
-          throw new OneKeyLocalError(
-            'No BBO price is available for this order',
+          const latestScopedAddress = normalizePerpsAccountAddress(
+            scopedAccountAddressRef.current,
           );
-        }
+          if (
+            latestAccountAddress !== requestAccountAddress ||
+            latestScopedAddress !== requestScopedAddress ||
+            latestAccountAddress !== latestScopedAddress
+          ) {
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.active_trading_account_changed__msg,
+              }),
+            );
+          }
 
-        const latestAccountAddress = normalizePerpsAccountAddress(
-          activeAccountAddressRef.current,
-        );
-        const latestScopedAddress = normalizePerpsAccountAddress(
-          scopedAccountAddressRef.current,
-        );
-        if (
-          latestAccountAddress !== requestAccountAddress ||
-          latestScopedAddress !== requestScopedAddress ||
-          latestAccountAddress !== latestScopedAddress
-        ) {
-          throw new OneKeyLocalError('The active trading account changed');
+          await actions.current
+            .chaseOrder({
+              coin: order.coin,
+              oid: order.oid,
+              newPrice: targetPrice,
+            })
+            .catch(() => undefined);
+        } catch (error) {
+          Toast.error({
+            title:
+              error instanceof Error
+                ? error.message
+                : intl.formatMessage({
+                    id: ETranslations.perp_toast_modifying_order,
+                  }),
+          });
         }
-
-        await actions.current
-          .chaseOrder({
-            coin: order.coin,
-            oid: order.oid,
-            newPrice: nextPrice.toFixed(),
-          })
-          .catch(() => undefined);
-      } catch (error) {
-        Toast.error({
-          title:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({
-                  id: ETranslations.perp_toast_modifying_order,
-                }),
-        });
-      } finally {
-        chasingOrderIdsRef.current.delete(order.oid);
-        setChasingOrderIds((previous) => {
-          const next = new Set(previous);
-          next.delete(order.oid);
-          return next;
-        });
-      }
+      });
     },
     [
       accountScopedAddress,
       actions,
       canMutateScopedOrders,
       currentUser?.accountAddress,
+      ensureTradingEnabled,
       intl,
+      isChasingOrder,
+      resolveChaseTargetPrice,
+      runChasingOrderTask,
+    ],
+  );
+
+  const handleChaseOrderPress = useCallback(
+    async (order: IPerpsFrontendOrder) => {
+      if (perpsCustomSettings.skipOrderConfirm) {
+        void handleChaseOrder(order);
+        return;
+      }
+
+      if (
+        !canMutateScopedOrders ||
+        !canChasePerpsOrder(order) ||
+        isChasingOrder(order.oid)
+      ) {
+        return;
+      }
+
+      const requestAccountAddress = normalizePerpsAccountAddress(
+        currentUser?.accountAddress,
+      );
+      const requestScopedAddress =
+        normalizePerpsAccountAddress(accountScopedAddress);
+      if (
+        !requestAccountAddress ||
+        requestAccountAddress !== requestScopedAddress
+      ) {
+        return;
+      }
+
+      await runChasingOrderTask(order.oid, async () => {
+        try {
+          const { price, szDecimals } = await resolveChaseTargetPrice(order);
+          const latestAccountAddress = normalizePerpsAccountAddress(
+            activeAccountAddressRef.current,
+          );
+          const latestScopedAddress = normalizePerpsAccountAddress(
+            scopedAccountAddressRef.current,
+          );
+          if (
+            latestAccountAddress !== requestAccountAddress ||
+            latestScopedAddress !== requestScopedAddress ||
+            latestAccountAddress !== latestScopedAddress
+          ) {
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.active_trading_account_changed__msg,
+              }),
+            );
+          }
+          showChaseOrderConfirmDialog({
+            order,
+            targetPrice: price,
+            szDecimals,
+            intl,
+            onConfirm: () => handleChaseOrder(order, price),
+          });
+        } catch (error) {
+          Toast.error({
+            title:
+              error instanceof Error
+                ? error.message
+                : intl.formatMessage({
+                    id: ETranslations.perp_toast_modifying_order,
+                  }),
+          });
+        }
+      });
+    },
+    [
+      accountScopedAddress,
+      canMutateScopedOrders,
+      currentUser?.accountAddress,
+      handleChaseOrder,
+      intl,
+      isChasingOrder,
+      perpsCustomSettings.skipOrderConfirm,
+      resolveChaseTargetPrice,
+      runChasingOrderTask,
     ],
   );
 
@@ -621,7 +720,7 @@ function PerpOpenOrdersList({
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
         handleCancelOrder={() => void handleCancelOrder(item.order)}
-        handleChaseOrder={() => void handleChaseOrder(item.order)}
+        handleChaseOrder={() => void handleChaseOrderPress(item.order)}
         canChaseOrder={canMutateScopedOrders && canChasePerpsOrder(item.order)}
         isChasingOrder={chasingOrderIds.has(item.order.oid)}
         index={_index}

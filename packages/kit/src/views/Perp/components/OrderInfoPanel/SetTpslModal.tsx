@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
@@ -43,6 +44,7 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { isPerpsAccountAddressMatched } from '../../utils/accountScopedData';
 import { resolveTpSlTriggerPx } from '../../utils/resolveTpSlTriggerPx';
 import {
+  DEFAULT_TPSL_ROE_PERCENT,
   buildDefaultTpSlPercent,
   shouldSeedPositionTpSlLeg,
 } from '../../utils/tpslSeed';
@@ -66,6 +68,13 @@ import {
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
+
+// The position TP/SL seed defaults each empty leg to a 10% ROE; a stable
+// reference lets TpslInput display "10" verbatim on the seeded price.
+const POSITION_TPSL_SEED_PERCENT = {
+  tp: DEFAULT_TPSL_ROE_PERCENT,
+  sl: DEFAULT_TPSL_ROE_PERCENT,
+};
 
 export interface ISetTpslParams {
   coin: string;
@@ -185,6 +194,7 @@ const SetTpslForm = memo(
   }: ISetTpslFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
+    const ensureTradingEnabled = useEnsureTradingEnabled();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
     const activePositions = usePerpsAccountScopedActivePositions();
@@ -304,7 +314,7 @@ const SetTpslForm = memo(
         }
 
         try {
-          await hyperliquidActions.current.ensureTradingEnabled();
+          await ensureTradingEnabled();
           const symbolMeta =
             await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
               coin: order.coin,
@@ -325,7 +335,7 @@ const SetTpslForm = memo(
           console.error('SetTpslModal handleCancelOrder error:', error);
         }
       },
-      [canSubmitForScopedAccount, hyperliquidActions],
+      [canSubmitForScopedAccount, ensureTradingEnabled, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -353,6 +363,7 @@ const SetTpslForm = memo(
         referencePrice: new BigNumber(entryPrice),
         side: isLongPosition ? 'long' : 'short',
         leverage,
+        szDecimals,
       });
       setFormData((previous) => {
         const shouldSeedTp = shouldSeedPositionTpSlLeg({
@@ -395,6 +406,7 @@ const SetTpslForm = memo(
       presetTpsl,
       presetTriggerPrice,
       slOrder,
+      szDecimals,
       tpOrder,
     ]);
 
@@ -500,10 +512,13 @@ const SetTpslForm = memo(
         }
         setIsSubmitting(true);
 
-        await hyperliquidActions.current.ensureTradingEnabled();
+        await ensureTradingEnabled();
         const scopeChangeErrorTitle = getPositionTpslScopeChangeErrorTitle({
           initialScopeKey: initialScopeKeyRef.current,
           currentScopeKey: latestScopeKeyRef.current,
+          errorTitle: intl.formatMessage({
+            id: ETranslations.position_changed_review_submit_again__msg,
+          }),
         });
         if (scopeChangeErrorTitle) {
           Toast.error({ title: scopeChangeErrorTitle });
@@ -651,6 +666,7 @@ const SetTpslForm = memo(
       positionSize,
       assetId,
       isLongPosition,
+      ensureTradingEnabled,
       hyperliquidActions,
       onClose,
       midPrice,
@@ -736,6 +752,7 @@ const SetTpslForm = memo(
             side={isLongPosition ? 'long' : 'short'}
             szDecimals={szDecimals}
             leverage={leverage}
+            seedPercent={POSITION_TPSL_SEED_PERCENT}
             tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
             onChange={handleTpslChange}
             amount={

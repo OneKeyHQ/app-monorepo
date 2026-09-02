@@ -24,10 +24,10 @@ export enum ESubscriptionType {
   USER_TWAP_HISTORY = 'userTwapHistory',
   USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
+  TRADES = 'trades',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
   ACTIVE_SPOT_ASSET_CTX = 'activeSpotAssetCtx',
-  // TRADES = 'trades',
   // USER_EVENTS = 'userEvents',
   // USER_NOTIFICATIONS = 'userNotifications',
 }
@@ -343,7 +343,7 @@ export interface IPerpActivityCard {
   url: string;
 }
 
-export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko';
+export type IPerpAssetMetaAssetType = 'coingecko' | 'non_coingecko' | 'stock';
 
 export interface IPerpAssetMeta {
   assetId: string;
@@ -383,6 +383,9 @@ export interface IPerpCommonConfig {
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
   activityCards?: IPerpActivityCard[];
+  // Unifold deposit entry. Fail-closed: the entry shows only when the server
+  // explicitly sends true (server side gates deposit-address with code 14101).
+  unifoldDepositEnabled?: boolean;
 }
 
 export enum EPerpUserType {

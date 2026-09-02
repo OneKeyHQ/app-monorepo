@@ -172,7 +172,9 @@ function FirmwareChangeDialogContentBase({
         // get device version information
         const versions = await deviceUtils.getDeviceVersion({
           device,
-          features: checkAllResultInfo?.features,
+          features: checkAllResultInfo?.features as
+            | import('@onekeyhq/shared/types/device').IOneKeyDeviceFeatures
+            | undefined,
         });
 
         // check bootloader version
@@ -347,7 +349,7 @@ export function useFirmwareChangeDialog({
   const fromFirmwareTypeRef = useRef<EFirmwareType | null>(null);
 
   const handleStateChange = useCallback(
-    (
+    async (
       newState: IFirmwareChangeDialogState,
       baseReleaseInfo?: AllFirmwareRelease,
     ) => {
@@ -355,7 +357,7 @@ export function useFirmwareChangeDialog({
 
       // success: close dialog and execute callback
       if (newState.type === 'success' && targetFirmwareTypeRef.current) {
-        void dialogRef.current?.close();
+        await dialogRef.current?.close();
         onSuccess(
           targetFirmwareTypeRef.current ?? EFirmwareType.Universal,
           fromFirmwareTypeRef.current ?? EFirmwareType.Universal,
@@ -365,7 +367,7 @@ export function useFirmwareChangeDialog({
 
       // upgrade firmware: close dialog and execute callback
       if (newState.type === 'upgrade-firmware') {
-        void dialogRef.current?.close();
+        await dialogRef.current?.close();
         onUpgradeFirmware();
       }
     },

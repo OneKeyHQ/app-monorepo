@@ -35,6 +35,10 @@ import {
   getColumnStyle,
   getOrderAssetDisplayName,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -55,8 +59,6 @@ const priceFormatter: INumberFormatProps = {
     currency: '$',
   },
 };
-
-const CHASE_ORDER_LABEL = 'Chase';
 
 interface IOpenOrdersRowProps {
   order: IPerpsFrontendOrder;
@@ -308,7 +310,11 @@ const OpenOrdersRow = memo(
                   onPress={handleChaseOrder}
                   childrenAsText={false}
                 >
-                  <SizableText size="$bodySm">{CHASE_ORDER_LABEL}</SizableText>
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
+                  </SizableText>
                 </Button>
               ) : null}
               <Button
@@ -408,8 +414,8 @@ const OpenOrdersRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}
@@ -623,7 +629,9 @@ const OpenOrdersRow = memo(
                     }
                     size="$bodySmMedium"
                   >
-                    {CHASE_ORDER_LABEL}
+                    {intl.formatMessage({
+                      id: ETranslations.chase__action,
+                    })}
                   </SizableText>
                 </XStack>
               ) : null}

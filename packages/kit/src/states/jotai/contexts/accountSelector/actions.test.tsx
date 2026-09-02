@@ -477,6 +477,46 @@ describe('useAccountSelectorActions', () => {
     jest.restoreAllMocks();
   });
 
+  it('selects deprecated wallets but rejects unavailable wallets', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    const confirm = async (wallet: IWallet | undefined, walletId: string) => {
+      mockGetWalletSafe.mockResolvedValueOnce(wallet);
+      let confirmed = true;
+      await act(async () => {
+        confirmed = await result.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: {
+            id: `${walletId}--0`,
+            walletId,
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+        });
+      });
+      return confirmed;
+    };
+
+    expect(
+      await confirm(
+        { id: 'hw-deprecated', deprecated: true } as IWallet,
+        'hw-deprecated',
+      ),
+    ).toBe(true);
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hw-deprecated',
+      indexedAccountId: 'hw-deprecated--0',
+    });
+    expect(
+      await confirm(
+        { id: 'hw-mocked', isMocked: true } as IWallet,
+        'hw-mocked',
+      ),
+    ).toBe(false);
+    expect(await confirm(undefined, 'hw-missing')).toBe(false);
+  });
+
   it('marks active account init done when reload finishes before storage init', async () => {
     const selectedAccountsMapDeferred = createDeferred<
       ISelectedAccountsMap | undefined
@@ -861,6 +901,7 @@ describe('useAccountSelectorActions', () => {
           othersWalletAccount: undefined,
           num: 0,
         });
+        await Promise.resolve();
         // The later selection resolves first...
         resolvers.get('qr-1')?.('btc--0');
         await latestSelect;
@@ -1427,6 +1468,49 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
+  it('preserves a deprecated wallet during init and auto-select', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const deprecatedWallet = { id: 'hd-1', deprecated: true } as IWallet;
+    const indexedAccount = {
+      id: 'hd-1--0',
+      walletId: 'hd-1',
+    } as IIndexedAccount;
+    mockGetSelectedAccountsMap.mockResolvedValue({ 0: selectedAccount });
+    mockGetWalletSafe.mockResolvedValue(deprecatedWallet);
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: deprecatedWallet,
+        indexedAccount,
+        network: { id: selectedAccount.networkId } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject(selectedAccount);
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockGetAllHdHwQrWallets).not.toHaveBeenCalled();
+  });
+
   it('syncs home when storage init clears an unavailable home-sync source wallet', async () => {
     const staleHomeSelection = {
       ...defaultSelectedAccount(),
@@ -1503,7 +1587,7 @@ describe('useAccountSelectorActions', () => {
       1: selectedAccount,
     });
 
-    getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+    await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
       sceneName: EAccountSelectorSceneName.swap,
       selectedAccountsMap: {
         0: selectedAccount,
@@ -1993,6 +2077,314 @@ describe('useAccountSelectorActions', () => {
           networkId: 'onekeyall',
         }),
       }),
+    );
+  });
+
+  it('selects another wallet when removal arrives before the active account refreshes', async () => {
+    const removedWallet = {
+      id: 'hd-keyless-1',
+      name: 'Removed Keyless wallet',
+    } as IWallet;
+    const nextWallet = {
+      id: 'hd-2',
+      name: 'Next wallet',
+    } as IWallet;
+    const nextIndexedAccount = {
+      id: 'hd-2--0',
+      walletId: nextWallet.id,
+    } as IIndexedAccount;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [nextWallet] });
+    mockIsWalletHasIndexedAccounts.mockImplementation(
+      async ({ walletId }) => walletId === nextWallet.id,
+    );
+    mockGetIndexedAccountsOfWallet.mockImplementation(async ({ walletId }) => ({
+      accounts: walletId === nextWallet.id ? [nextIndexedAccount] : [],
+    }));
+    mockGetWalletSafe.mockImplementation(async ({ walletId }) =>
+      walletId === nextWallet.id ? nextWallet : undefined,
+    );
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: removedWallet.id,
+        indexedAccountId: 'hd-keyless-1--0',
+        networkId: 'evm--1',
+        deriveType: 'default',
+        focusedWallet: removedWallet.id,
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: removedWallet,
+        indexedAccount: {
+          id: 'hd-keyless-1--0',
+          walletId: removedWallet.id,
+        } as IIndexedAccount,
+        account: {
+          id: 'hd-keyless-1--evm-account',
+          indexedAccountId: 'hd-keyless-1--0',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        network: { id: 'evm--1' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: removedWallet.id,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: nextWallet.id,
+      indexedAccountId: nextIndexedAccount.id,
+      focusedWallet: nextWallet.id,
+    });
+  });
+
+  it('clears the removed keyless wallet when no fallback wallet exists', async () => {
+    const removedWallet = {
+      id: 'hd-keyless-1',
+      name: 'Removed Keyless wallet',
+      isKeyless: true,
+    } as IWallet;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
+    mockGetWalletSafe.mockResolvedValue(undefined);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(accountSelectorStorageInitDoneAtom(), true);
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: removedWallet.id,
+        indexedAccountId: 'hd-keyless-1--0',
+        networkId: 'evm--1',
+        deriveType: 'default',
+        focusedWallet: removedWallet.id,
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: removedWallet,
+        indexedAccount: {
+          id: 'hd-keyless-1--0',
+          walletId: removedWallet.id,
+        } as IIndexedAccount,
+        account: {
+          id: 'hd-keyless-1--evm-account',
+          indexedAccountId: 'hd-keyless-1--0',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        network: { id: 'evm--1' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: removedWallet.id,
+      });
+    });
+
+    const clearedSelectedAccount =
+      store.get(selectedAccountsAtom())[0] ?? defaultSelectedAccount();
+    await act(async () => {
+      await result.current.reloadActiveAccountInfo({
+        num: 0,
+        selectedAccount: clearedSelectedAccount,
+      });
+    });
+
+    expect(clearedSelectedAccount).toMatchObject({
+      walletId: undefined,
+      focusedWallet: undefined,
+      indexedAccountId: undefined,
+      othersWalletAccountId: undefined,
+      networkId: 'evm--1',
+    });
+    expect(mockBuildActiveAccountInfoFromSelectedAccount).toHaveBeenCalled();
+    expect(store.get(activeAccountsAtom())[0]).toMatchObject({
+      ready: true,
+      wallet: undefined,
+      indexedAccount: undefined,
+      account: undefined,
+    });
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: undefined,
+          focusedWallet: undefined,
+          indexedAccountId: undefined,
+          othersWalletAccountId: undefined,
+          networkId: 'evm--1',
+        }),
+      }),
+    );
+  });
+
+  it('selects another wallet when parent removal cascades to the selected hidden wallet', async () => {
+    const removedParentWalletId = 'hw-standard';
+    const removedHiddenWallet = {
+      id: 'hw-standard--hidden',
+      name: 'Removed hidden wallet',
+    } as IWallet;
+    const nextWallet = {
+      id: 'hd-2',
+      name: 'Next wallet',
+    } as IWallet;
+    const nextIndexedAccount = {
+      id: 'hd-2--0',
+      walletId: nextWallet.id,
+    } as IIndexedAccount;
+
+    mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [nextWallet] });
+    mockIsWalletHasIndexedAccounts.mockImplementation(
+      async ({ walletId }) => walletId === nextWallet.id,
+    );
+    mockGetIndexedAccountsOfWallet.mockImplementation(async ({ walletId }) => ({
+      accounts: walletId === nextWallet.id ? [nextIndexedAccount] : [],
+    }));
+    mockGetWalletSafe.mockImplementation(async ({ walletId }) =>
+      walletId === nextWallet.id ? nextWallet : undefined,
+    );
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: removedHiddenWallet.id,
+        indexedAccountId: 'hw-standard--hidden--0',
+        networkId: 'evm--1',
+        deriveType: 'default',
+        focusedWallet: removedHiddenWallet.id,
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: removedHiddenWallet,
+        indexedAccount: {
+          id: 'hw-standard--hidden--0',
+          walletId: removedHiddenWallet.id,
+        } as IIndexedAccount,
+        account: {
+          id: 'hw-standard--hidden--evm-account',
+          indexedAccountId: 'hw-standard--hidden--0',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        network: { id: 'evm--1' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: removedParentWalletId,
+      });
+    });
+
+    expect(mockGetWalletSafe).toHaveBeenCalledWith({
+      walletId: removedHiddenWallet.id,
+    });
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: nextWallet.id,
+      indexedAccountId: nextIndexedAccount.id,
+      focusedWallet: nextWallet.id,
+    });
+  });
+
+  it('repairs focus only when the removed wallet was focused', async () => {
+    const currentWallet = { id: 'hd-1' } as IWallet;
+    const selectedAccount = {
+      ...createHdSelectedAccount('hd-1--0'),
+      focusedWallet: 'hd-focused',
+    };
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), { 0: selectedAccount });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        // The active account can lag behind a newer selectedAccount update.
+        wallet: { id: 'hd-unrelated' } as IWallet,
+        indexedAccount: {
+          id: 'hd-1--0',
+          walletId: currentWallet.id,
+        } as IIndexedAccount,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: 'hd-unrelated',
+      });
+    });
+    expect(store.get(selectedAccountsAtom())[0]?.focusedWallet).toBe(
+      'hd-focused',
+    );
+    expect(store.get(selectedAccountsAtom())[0]?.walletId).toBe(
+      currentWallet.id,
+    );
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+        removedWalletId: 'hd-focused',
+      });
+    });
+    expect(store.get(selectedAccountsAtom())[0]?.focusedWallet).toBe(
+      currentWallet.id,
     );
   });
 

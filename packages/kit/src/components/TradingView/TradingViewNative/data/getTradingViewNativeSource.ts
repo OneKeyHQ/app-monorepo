@@ -1,3 +1,6 @@
+import { getTradingViewNativeWhitelistedHyperliquidSource } from './tradingViewNativeHyperliquidWhitelist';
+
+import type { ITradingViewNativeHyperliquidWhitelistBranch } from './tradingViewNativeHyperliquidWhitelist';
 import type { ITradingViewNativeSource } from '../types';
 
 function normalizeMarketTokenAddress(tokenAddress: string) {
@@ -29,9 +32,16 @@ export function getTradingViewNativeSourceKey(
   if (source.kind === 'hyperliquid') {
     return `hyperliquid:${source.environment}:${source.coin.trim()}`;
   }
-  const marketSourceKey = `${getTradingViewNativeMarketTokenKey(
-    source,
-  )}:${normalizeMarketSymbol(source.symbol)}`;
+  if (source.kind === 'stock') {
+    return `stock:${source.stockId.trim().toUpperCase()}`;
+  }
+  const marketTokenKey = getTradingViewNativeMarketTokenKey(source);
+  const hasTokenAddress = Boolean(
+    normalizeMarketTokenAddress(source.tokenAddress),
+  );
+  const marketSourceKey = `${marketTokenKey}${
+    hasTokenAddress ? '' : `:${normalizeMarketSymbol(source.symbol)}`
+  }${source.isNative ? ':native' : ''}`;
   const normalizedFallbackCoinGeckoId = source.fallbackCoinGeckoId?.trim();
   return normalizedFallbackCoinGeckoId
     ? `${marketSourceKey}:coingecko:${normalizedFallbackCoinGeckoId}`
@@ -41,6 +51,8 @@ export function getTradingViewNativeSourceKey(
 export function getTradingViewNativeSource({
   fallbackCoinGeckoId,
   hyperliquidCoin,
+  hyperliquidWhitelistBranch,
+  isNative,
   marketDataSource,
   networkId,
   symbol,
@@ -48,12 +60,22 @@ export function getTradingViewNativeSource({
 }: {
   fallbackCoinGeckoId?: string;
   hyperliquidCoin: string;
+  hyperliquidWhitelistBranch?: ITradingViewNativeHyperliquidWhitelistBranch;
+  isNative?: boolean;
   marketDataSource: 'polling' | 'websocket' | undefined;
   networkId: string;
   symbol: string;
   tokenAddress: string;
 }): ITradingViewNativeSource {
-  const normalizedHyperliquidCoin = hyperliquidCoin.trim();
+  const whitelistedSource = hyperliquidWhitelistBranch
+    ? getTradingViewNativeWhitelistedHyperliquidSource({
+        branch: hyperliquidWhitelistBranch,
+        token: { isNative, networkId, tokenAddress },
+      })
+    : undefined;
+  const normalizedHyperliquidCoin = (
+    whitelistedSource?.coin ?? hyperliquidCoin
+  ).trim();
   if (normalizedHyperliquidCoin) {
     return {
       kind: 'hyperliquid',
@@ -64,6 +86,7 @@ export function getTradingViewNativeSource({
 
   const marketSource: Extract<ITradingViewNativeSource, { kind: 'market' }> = {
     kind: 'market',
+    ...(isNative ? { isNative: true } : {}),
     networkId,
     tokenAddress,
     symbol,

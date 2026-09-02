@@ -35,7 +35,6 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
-export const CREATOR_PROGRAM_URL = 'https://creator.onekey.so/';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
@@ -45,7 +44,7 @@ export const HARDWARE_TROUBLESHOOTING_URL =
 export const LINUX_UDEV_HELP_URL = 'https://help.onekey.so/articles/11461181';
 export const TREZOR_TROUBLESHOOTING_URL = 'https://trezor.io/support';
 export const RECEIVE_RISK_MONITORING_HELP_LINK =
-  'https://help.onekey.so/articles/15338240-how-to-use-onekey-incoming-transfer-risk-monitoring-kyt';
+  'https://help.onekey.so/articles/15338240';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';
@@ -61,6 +60,8 @@ export const TWITTER_FOLLOW_URL =
 export const TWITTER_FOLLOW_URL_CN =
   'https://x.com/intent/follow?screen_name=OneKeyCN';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
+export const INSTAGRAM_URL = 'https://www.instagram.com/onekeyhq/';
+export const REDDIT_URL = 'https://www.reddit.com/r/OneKeyHQ/';
 export const ONEKEY_URL = 'https://onekey.so';
 export const ONEKEY_TEST_URL = 'https://onekeytest.com';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
@@ -85,18 +86,25 @@ export function getOneKeyWebUrl(env: IEndpointEnv): string {
   return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
+export type IReferralShareSource = 'Earn' | 'Perps' | 'Swap';
+
+const REFERRAL_LANDING_PATH: Record<IReferralShareSource, string> = {
+  Earn: '/app/defi',
+  Perps: '/app/perps',
+  Swap: '/app/swap',
+};
+
 export function buildReferralUrl({
   code,
   source,
   env = 'prod',
 }: {
   code: string;
-  source: 'Perps' | 'Earn';
+  source: IReferralShareSource;
   env?: IEndpointEnv;
 }): string {
-  const path = source === 'Perps' ? '/app/perps' : '/app/defi';
   const baseUrl = getWebAppUrl(env);
-  return `${baseUrl}/r/${code}${path}`;
+  return `${baseUrl}/r/${code}${REFERRAL_LANDING_PATH[source]}`;
 }
 
 export const EXT_RATE_URL = {

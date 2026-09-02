@@ -74,6 +74,61 @@ describe('thirdPartyDeviceUtils', () => {
     });
   });
 
+  it('reads persisted Trezor identity and settings from snake_case features', () => {
+    const utils = thirdPartyDeviceUtils as unknown as {
+      getDeviceId?: (features: Record<string, unknown>) => string | undefined;
+      getDeviceState?: (params: {
+        features: Record<string, unknown>;
+      }) => Record<string, unknown>;
+    };
+    const features = {
+      device_id: 'TREZOR-DEVICE-ID',
+      auto_lock_delay_ms: 600_000,
+      haptic_feedback: true,
+      initialized: true,
+      passphrase_protection: true,
+      unlocked: false,
+    };
+
+    expect(utils.getDeviceId?.(features)).toBe('TREZOR-DEVICE-ID');
+    expect(utils.getDeviceState?.({ features })).toEqual({
+      autoLockDelayMs: 600_000,
+      autoShutDownDelayMs: 600_000,
+      hapticFeedback: true,
+      initialized: true,
+      passphraseProtection: true,
+      unlocked: false,
+    });
+  });
+
+  it('keeps camelCase compatibility for already-normalized features', () => {
+    const utils = thirdPartyDeviceUtils as unknown as {
+      getDeviceId?: (features: Record<string, unknown>) => string | undefined;
+      getDeviceState?: (params: {
+        features: Record<string, unknown>;
+      }) => Record<string, unknown>;
+    };
+    const features = {
+      deviceId: 'NORMALIZED-DEVICE-ID',
+      autoLockDelayMs: 30_000,
+      autoShutdownDelayMs: 60_000,
+      hapticFeedback: false,
+      initialized: false,
+      passphraseProtection: false,
+      unlocked: true,
+    };
+
+    expect(utils.getDeviceId?.(features)).toBe('NORMALIZED-DEVICE-ID');
+    expect(utils.getDeviceState?.({ features })).toEqual({
+      autoLockDelayMs: 30_000,
+      autoShutDownDelayMs: 60_000,
+      hapticFeedback: false,
+      initialized: false,
+      passphraseProtection: false,
+      unlocked: true,
+    });
+  });
+
   it('reads third-party firmware versions from settings before features', () => {
     expect(
       thirdPartyDeviceUtils.getDeviceVersion({

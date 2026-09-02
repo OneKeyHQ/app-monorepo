@@ -1,10 +1,11 @@
-import { Suspense, lazy, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { HeaderIconButton, Page, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -14,6 +15,7 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector/atoms';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
 import {
@@ -27,11 +29,9 @@ import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
-const LazyPerpsActivityCenterAction = lazy(async () => {
-  const { PerpsActivityCenterAction } =
-    await import('../../views/Perp/components/PerpsActivityCenterAction');
-  return { default: PerpsActivityCenterAction };
-});
+// Reference-stable: PageHeader diffs options shallowly before setOptions, so
+// a fresh style object every render would re-trigger navigation updates.
+const transparentHeaderStyle = { backgroundColor: 'transparent' };
 
 function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const intl = useIntl();
@@ -43,17 +43,14 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   });
 
   const isWalletConnected = !!wallet && !!account;
-  // The remote perps config can serve /perps as the webview impl, which the tab
-  // router exposes as WebviewPerpTrade (hiding ETabRoutes.Perp). Match both so
-  // the relocated Activity Hub stays in the header in either configuration.
-  const isPerpsTab =
-    tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
-
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: getUniversalSearchSource(tabRoute),
+      },
     });
-  }, [navigation]);
+  }, [navigation, tabRoute]);
 
   return (
     <XStack ai="center" gap="$3" $gtMd={{ gap: '$5' }}>
@@ -70,11 +67,6 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
         testID="header-right-notification"
         size="medium"
       />
-      {isPerpsTab && isWalletConnected ? (
-        <Suspense fallback={null}>
-          <LazyPerpsActivityCenterAction copyAsUrl size="medium" />
-        </Suspense>
-      ) : null}
       <KeylessWebConnectAlertContainer />
       {isWalletConnected ? (
         <WebAccountSelectorTrigger tabRoute={tabRoute} />
@@ -116,9 +108,7 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
         headerShown
         headerTitleAlign="center"
         headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
+        headerStyle={transparentHeaderStyle}
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}

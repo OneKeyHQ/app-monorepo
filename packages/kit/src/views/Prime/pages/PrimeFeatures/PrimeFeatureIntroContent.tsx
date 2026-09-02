@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -74,7 +75,11 @@ type IPrimeFeatureIntroContentProps = {
 
 const styles = StyleSheet.create({
   featureMediaFill: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     width: '100%',
     height: '100%',
     transform: [{ scale: 1.01 }],
@@ -483,7 +488,15 @@ export function PrimeFeatureIntroContent({
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
   const navigateToApprovalList = useNavigateToApprovalList();
-  const { ensurePrimeSubscriptionActive } = usePrimeRequirements();
+  const handlePurchaseStart = useCallback(async () => {
+    if (mode === 'dialog') {
+      await onClose?.();
+    }
+  }, [mode, onClose]);
+  const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
+    onPurchase: handlePurchaseStart,
+    networkId: networkId ?? network?.id,
+  });
 
   const features = PRIME_FEATURE_INTROS;
 
@@ -720,12 +733,14 @@ export function PrimeFeatureIntroContent({
       skipDialogConfirm: true,
       selectedSubscriptionPeriod: subscriptionPeriod,
       featureName: activeFeature.id,
+      freeTrial: selectedPackage?.freeTrial,
     });
   }, [
     activeFeature,
     ensurePrimeSubscriptionActive,
     isLoggedIn,
     isPackagesLoading,
+    selectedPackage?.freeTrial,
     subscriptionPeriod,
   ]);
 
@@ -1087,7 +1102,7 @@ export function PrimeFeatureIntroContent({
               height={MEDIA_HEIGHT}
               index={activeIndex}
               data={features}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: IPrimeFeatureIntro) => item.id}
               onChangeIndex={({ index }) => setActiveIndex(index)}
               renderItem={renderMedia}
               renderPagination={renderPagination}

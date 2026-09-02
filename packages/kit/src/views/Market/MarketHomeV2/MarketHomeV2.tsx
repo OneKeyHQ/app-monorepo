@@ -31,11 +31,12 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
+import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { isMarketStockCategory } from './utils';
+import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -121,7 +122,7 @@ const useMarketHomeLayoutProps = () => {
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => {
+      const mappedCategories = apiSpotCategories.map((c) => {
         const category = {
           id: c.type,
           name: c.name,
@@ -132,15 +133,20 @@ const useMarketHomeLayoutProps = () => {
           isStockCategory: isMarketStockCategory(category),
         };
       });
+
+      return ensureMarketTopCoinsCategory(mappedCategories, 'Top Coins');
     }
 
     // Fallback before API responds
-    return [
-      {
-        id: 'trending',
-        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-      },
-    ];
+    return ensureMarketTopCoinsCategory(
+      [
+        {
+          id: 'trending',
+          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+        },
+      ],
+      'Top Coins',
+    );
   }, [apiSpotCategories, intl]);
 
   const stockCategories: IMarketCategoryItem[] = useMemo(
@@ -310,7 +316,9 @@ function BaseMarketHomeLayout() {
 
   if (shouldWaitForSpotCategoryReady) {
     return (
-      <LazyPageContainer eager={platformEnv.isWeb}>{null}</LazyPageContainer>
+      <LazyPageContainer eager={platformEnv.isWeb}>
+        {md && !platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+      </LazyPageContainer>
     );
   }
 

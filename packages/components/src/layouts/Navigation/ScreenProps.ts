@@ -107,6 +107,8 @@ export type IStackNavigationOptions = Omit<
   NativeStackNavigationOptions,
   'headerRight' | 'headerSearchBarOptions'
 > & {
+  /** Fill for the area surrounding the padded Web and Android header. */
+  headerContainerBackgroundColor?: string;
   headerSearchBarOptions?: INavSearchBarProps;
   modalContentMaxHeight?: number;
   modalContentMaxWidth?: number;

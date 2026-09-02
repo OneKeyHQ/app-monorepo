@@ -1,16 +1,15 @@
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IVideoSource } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import type { ImageSourcePropType } from 'react-native';
-import type { ReactVideoSource } from 'react-native-video';
 
 export type IPrimeFeatureIntroPosterSource = ImageSourcePropType | string;
 
 export type IPrimeFeatureIntroMedia =
   | {
       type: 'video';
-      getSource: () => ReactVideoSource;
+      getSource: () => IVideoSource;
       getPosterSource: () => IPrimeFeatureIntroPosterSource;
     }
   | {
@@ -54,7 +53,7 @@ export type IPrimeFeatureIntroCtaKind =
 const PRIME_FEATURE_VIDEO_CDN_BASE_URL =
   'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media';
 
-function getPrimeFeatureVideoSource(fileName: string): ReactVideoSource {
+function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
   return {
     uri: `${PRIME_FEATURE_VIDEO_CDN_BASE_URL}/${fileName}`,
   };

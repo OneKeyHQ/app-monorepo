@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 
@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -36,14 +37,28 @@ import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
 import {
-  MOCK_INITIAL_STATUS,
-  Pro2MockDevPanel,
   Pro2OnboardingStepper,
-  mockStatusToPhase,
+  onboardingStatusToPhase,
   supportsDeviceDrivenOnboarding,
-} from './deviceSetupPro2Mock';
+} from './deviceSetupPro2';
 
+import type { IPro2OnboardingStatus } from './pro2OnboardingStatus';
 import type { SearchDevice } from '@onekeyfe/hd-core';
+
+const deviceSetupMessages = defineMessages({
+  checking: {
+    id: ETranslations.global_checking,
+    defaultMessage: 'Checking',
+  },
+  ready: {
+    id: ETranslations.your_device_is_ready,
+    defaultMessage: 'Your device is ready',
+  },
+  title: {
+    id: ETranslations.set_up_your_device,
+    defaultMessage: 'Set up your device',
+  },
+});
 
 // The real-device check states. Maps onto the same three macro phases
 // (checking / needsSetup / ready) the device-driven (Pro 2) path uses.
@@ -67,17 +82,16 @@ function DeviceSetupPage({
   route,
 }: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.DeviceSetup>) {
   const intl = useIntl();
-  const { deviceData, tabValue, isFirmwareVerified } = route?.params ?? {};
+  const { connectProtocol, deviceData, tabValue, isFirmwareVerified } =
+    route?.params ?? {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
 
-  // Device-driven onboarding (Pro 2 today; Pro after its firmware migrates).
-  // MOCK: the device can't connect, so this path runs a local mock status
-  // machine driven by a dev panel instead of the real check below.
   const isDeviceDriven = supportsDeviceDrivenOnboarding(
     deviceData?.device as SearchDevice | undefined,
   );
-  const [mockStatus, setMockStatus] = useState(MOCK_INITIAL_STATUS);
+  const [onboardingStatus, setOnboardingStatus] =
+    useState<IPro2OnboardingStatus>();
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData?.device as SearchDevice | undefined,
@@ -92,15 +106,13 @@ function DeviceSetupPage({
   // path; cleared on unmount so a back-press mid-flash cannot navigate after
   // this page is gone.
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Clearing the timer above only covers a back-press AFTER it was scheduled.
-  // The device read takes at least 1.2s, so the far more likely case is a
-  // back-press while it is still in flight — the continuation would then resume
-  // on a dead page and schedule a fresh jump into FinalizeWalletSetup, which
-  // starts real wallet creation on mount. These two guards stop a run that has
-  // lost its claim: the page unmounted, or a newer run (Done/retry) superseded
-  // it. Nothing can cancel the in-flight SDK call itself.
-  const isMountedRef = useRef(true);
-  const checkRunIdRef = useRef(0);
+  const onboardingPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const onboardingRequestInFlightRef = useRef(false);
+  const hasNavigatedToFinalizeRef = useRef(false);
+  const isPageActiveRef = useRef(true);
+  const checkDeviceRunIdRef = useRef(0);
 
   const { getActiveDevice } = useDeviceConnect({ setCurrentDevice });
 
@@ -108,13 +120,92 @@ function DeviceSetupPage({
     if (!tabValue) {
       return;
     }
-    const forceTransportType = await getForceTransportType(tabValue);
+    const forceTransportType = await getForceTransportType(tabValue, {
+      connectProtocol,
+    });
     if (forceTransportType) {
       await backgroundApiProxy.serviceHardware.setForceTransportType({
         forceTransportType,
       });
     }
-  }, [tabValue]);
+  }, [connectProtocol, tabValue]);
+
+  const navigateToFinalize = useCallback(
+    (device: SearchDevice) => {
+      if (!isPageActiveRef.current || hasNavigatedToFinalizeRef.current) {
+        return;
+      }
+      hasNavigatedToFinalizeRef.current = true;
+      navigateTimeoutRef.current = setTimeout(() => {
+        if (!isPageActiveRef.current) {
+          return;
+        }
+        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+          connectProtocol,
+          deviceData: {
+            ...deviceData,
+            device,
+          },
+          isFirmwareVerified,
+        });
+      }, 1200);
+    },
+    [connectProtocol, deviceData, isFirmwareVerified, navigation],
+  );
+
+  const pollPro2OnboardingStatus = useCallback(async () => {
+    if (onboardingRequestInFlightRef.current) {
+      return;
+    }
+    onboardingRequestInFlightRef.current = true;
+    try {
+      await ensureTransportType();
+      const device =
+        getActiveDevice() ??
+        currentDevice ??
+        (deviceData?.device as SearchDevice | undefined);
+      if (!device?.connectId) {
+        throw new OneKeyLocalError(
+          'Pro 2 onboarding requires an active connection',
+        );
+      }
+      setCurrentDevice(device);
+      const status =
+        await backgroundApiProxy.serviceHardware.getPro2OnboardingStatus({
+          connectId: device.connectId,
+        });
+      if (!isPageActiveRef.current) {
+        return;
+      }
+      setErrorMessage(undefined);
+      setSetupState(EDeviceSetupState.Checking);
+      setOnboardingStatus(status);
+      if (onboardingStatusToPhase(status) === 'ready') {
+        navigateToFinalize(device);
+        return;
+      }
+      onboardingPollTimeoutRef.current = setTimeout(() => {
+        void pollPro2OnboardingStatus();
+      }, 1200);
+    } catch {
+      if (!isPageActiveRef.current) {
+        return;
+      }
+      setErrorMessage(
+        intl.formatMessage({ id: ETranslations.device_not_connected }),
+      );
+      setSetupState(EDeviceSetupState.Error);
+    } finally {
+      onboardingRequestInFlightRef.current = false;
+    }
+  }, [
+    currentDevice,
+    deviceData?.device,
+    ensureTransportType,
+    getActiveDevice,
+    intl,
+    navigateToFinalize,
+  ]);
 
   // Legacy fallback instructions, shown for devices without the device-driven
   // onboarding protocol (Pro / Classic / Mini / Touch).
@@ -171,12 +262,24 @@ function DeviceSetupPage({
       details: [] as string[],
     };
 
-    // For Classic or Mini devices, swap the order of PIN and recovery phrase
+    // The order follows each device's own setup wizard, so there is no single
+    // house order — Pro's matches the device onboarding protocol
+    // (personalization → PIN → setup). Touch keeps the legacy order until it
+    // is checked against a real device.
     if (isClassicOrMini) {
       return [
         chooseOptionStep,
         recoveryPhraseStep,
         pinStep,
+        finishOnboardingOnDevice,
+      ];
+    }
+
+    if (deviceType === EDeviceType.Pro) {
+      return [
+        pinStep,
+        chooseOptionStep,
+        recoveryPhraseStep,
         finishOnboardingOnDevice,
       ];
     }
@@ -190,28 +293,16 @@ function DeviceSetupPage({
   }, [intl, currentDevice]);
 
   const checkDeviceInitialized = useCallback(async () => {
-    const runId = checkRunIdRef.current + 1;
-    checkRunIdRef.current = runId;
-    // This run has lost its claim once the page is gone or a later run (Done /
-    // retry) started. Re-checked after every await so a resumed continuation
-    // cannot update state or navigate on the page's behalf.
-    const isStale = () =>
-      !isMountedRef.current || checkRunIdRef.current !== runId;
-
-    // An earlier run may already have a navigation timer pending: it succeeded,
-    // then an error event flipped the card and the user hit retry inside the
-    // 1.2s window. Drop it now, otherwise it fires against this run — and
-    // overwriting the ref below would lose its id, leaving two pending pushes.
-    if (navigateTimeoutRef.current) {
-      clearTimeout(navigateTimeoutRef.current);
-      navigateTimeoutRef.current = null;
-    }
-
+    checkDeviceRunIdRef.current += 1;
+    const checkDeviceRunId = checkDeviceRunIdRef.current;
+    const isDeviceCheckStale = () =>
+      !isPageActiveRef.current ||
+      checkDeviceRunIdRef.current !== checkDeviceRunId;
     setErrorMessage(undefined);
     setSetupState(EDeviceSetupState.Checking);
     try {
       await ensureTransportType();
-      if (isStale()) {
+      if (isDeviceCheckStale()) {
         return;
       }
       const baseDevice =
@@ -228,18 +319,19 @@ function DeviceSetupPage({
         const [features] = await Promise.all([
           backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
             connectId: latestDevice.connectId,
+            params: connectProtocol ? { connectProtocol } : undefined,
           }),
           new Promise<void>((resolve) => {
             setTimeout(resolve, 1200);
           }),
         ]);
-        if (isStale()) {
+        if (isDeviceCheckStale()) {
           return;
         }
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
-        if (isStale()) {
+        if (isDeviceCheckStale()) {
           return;
         }
         if (deviceMode === EOneKeyDeviceMode.notInitialized) {
@@ -251,16 +343,16 @@ function DeviceSetupPage({
         return;
       }
     } catch {
+      if (isDeviceCheckStale()) {
+        return;
+      }
       // A failed status read falls back to the on-device setup instructions
       // (the user can re-trigger via Done once the device responds). Hard
       // connection/permission errors surface separately via useConnectDeviceError.
-      if (isStale()) {
-        return;
-      }
       setSetupState(EDeviceSetupState.NeedSetup);
       return;
     }
-    if (isStale()) {
+    if (isDeviceCheckStale()) {
       return;
     }
     setSetupState(EDeviceSetupState.Success);
@@ -268,53 +360,40 @@ function DeviceSetupPage({
       getActiveDevice() ??
       currentDevice ??
       (deviceData?.device as SearchDevice | undefined);
-    navigateTimeoutRef.current = setTimeout(() => {
-      // Re-check at fire time, not just at schedule time: the card can flip to
-      // Error (a hardware UI event) and be retried inside this 1.2s window.
-      if (isStale()) {
-        return;
-      }
-      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-        deviceData: {
-          ...deviceData,
-          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
-        },
-        isFirmwareVerified,
-      });
-    }, 1200);
+    navigateToFinalize((deviceForFinalize ?? currentDevice) as SearchDevice);
   }, [
+    connectProtocol,
     ensureTransportType,
     getActiveDevice,
     currentDevice,
     deviceData,
-    navigation,
-    isFirmwareVerified,
+    navigateToFinalize,
   ]);
 
   const handleDeviceSetupDone = useCallback(() => {
-    void checkDeviceInitialized();
-  }, [checkDeviceInitialized]);
-
-  // Owns the mounted flag on its own so it is registered on every path — the
-  // check effect below returns early for the device-driven mock and would
-  // otherwise never install a cleanup.
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Run the real device-status check on mount — only for the real-device path.
-  // The device-driven (mock Pro 2) path is driven by the dev panel instead.
-  useEffect(() => {
     if (isDeviceDriven) {
-      return undefined;
+      setSetupState(EDeviceSetupState.Checking);
+      void pollPro2OnboardingStatus();
+      return;
     }
     void checkDeviceInitialized();
+  }, [checkDeviceInitialized, isDeviceDriven, pollPro2OnboardingStatus]);
+
+  useEffect(() => {
+    isPageActiveRef.current = true;
+    if (isDeviceDriven) {
+      void pollPro2OnboardingStatus();
+    } else {
+      void checkDeviceInitialized();
+    }
     return () => {
+      isPageActiveRef.current = false;
+      checkDeviceRunIdRef.current += 1;
       if (navigateTimeoutRef.current) {
         clearTimeout(navigateTimeoutRef.current);
+      }
+      if (onboardingPollTimeoutRef.current) {
+        clearTimeout(onboardingPollTimeoutRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,13 +419,10 @@ function DeviceSetupPage({
     ),
   );
 
-  const mockPhase = mockStatusToPhase(mockStatus);
+  const onboardingPhase = onboardingStatusToPhase(onboardingStatus);
 
   const fallbackCard = (
-    <SetupCard
-      elevated
-      title={intl.formatMessage({ id: ETranslations.set_up_your_device })}
-    >
+    <SetupCard elevated title={intl.formatMessage(deviceSetupMessages.title)}>
       <SetupCardBody gap="$5">
         <SizableText size="$bodyMdMedium" color="$textInfo">
           {intl.formatMessage({ id: ETranslations.setup_device_prompt })}
@@ -409,7 +485,7 @@ function DeviceSetupPage({
   return (
     <OnboardingPage
       testID={OnboardingTestIDs.deviceSetupPage}
-      headerTitle={intl.formatMessage({ id: ETranslations.set_up_your_device })}
+      headerTitle={intl.formatMessage(deviceSetupMessages.title)}
       scrollable
       alignTop
       narrow
@@ -417,34 +493,62 @@ function DeviceSetupPage({
     >
       {isDeviceDriven ? (
         <YStack>
-          {/* Keyed on the phase so checking → stepper → ready cross-fades when
-              the phase changes; the dev panel stays mounted (not faded). */}
           <Animated.View
-            key={mockPhase}
+            key={
+              setupState === EDeviceSetupState.Error
+                ? EDeviceSetupState.Error
+                : onboardingPhase
+            }
             entering={PHASE_ENTER}
             exiting={PHASE_EXIT}
           >
-            {mockPhase === 'checking' ? (
+            {setupState !== EDeviceSetupState.Error &&
+            onboardingPhase === 'checking' ? (
               <SetupStatusCard
                 tone="checking"
-                label={intl.formatMessage({
-                  id: ETranslations.global_checking,
-                })}
+                label={intl.formatMessage(deviceSetupMessages.checking)}
               />
             ) : null}
-            {mockPhase === 'needsSetup' ? (
-              <Pro2OnboardingStepper status={mockStatus} />
+            {setupState !== EDeviceSetupState.Error &&
+            onboardingPhase === 'needsSetup' &&
+            onboardingStatus ? (
+              <Pro2OnboardingStepper status={onboardingStatus} />
             ) : null}
-            {mockPhase === 'ready' ? (
+            {setupState !== EDeviceSetupState.Error &&
+            onboardingPhase === 'ready' ? (
               <SetupStatusCard
                 tone="ready"
-                label={intl.formatMessage({
-                  id: ETranslations.your_device_is_ready,
-                })}
+                label={intl.formatMessage(deviceSetupMessages.ready)}
               />
             ) : null}
+            {setupState === EDeviceSetupState.Error ? (
+              <XStack
+                gap="$2"
+                pt="$4"
+                borderTopWidth={StyleSheet.hairlineWidth}
+                borderTopColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textCritical"
+                  flex={1}
+                >
+                  {errorMessage ??
+                    intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    })}
+                </SizableText>
+                <Button
+                  testID={OnboardingTestIDs.deviceSetupRetryBtn}
+                  variant="primary"
+                  onPress={handleDeviceSetupDone}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              </XStack>
+            ) : null}
           </Animated.View>
-          <Pro2MockDevPanel status={mockStatus} onChange={setMockStatus} />
         </YStack>
       ) : (
         <YStack>
@@ -457,18 +561,14 @@ function DeviceSetupPage({
             {setupState === EDeviceSetupState.Checking ? (
               <SetupStatusCard
                 tone="checking"
-                label={intl.formatMessage({
-                  id: ETranslations.global_checking,
-                })}
+                label={intl.formatMessage(deviceSetupMessages.checking)}
               />
             ) : null}
             {setupState === EDeviceSetupState.NeedSetup ? fallbackCard : null}
             {setupState === EDeviceSetupState.Success ? (
               <SetupStatusCard
                 tone="ready"
-                label={intl.formatMessage({
-                  id: ETranslations.your_device_is_ready,
-                })}
+                label={intl.formatMessage(deviceSetupMessages.ready)}
               />
             ) : null}
             {setupState === EDeviceSetupState.Error ? (
