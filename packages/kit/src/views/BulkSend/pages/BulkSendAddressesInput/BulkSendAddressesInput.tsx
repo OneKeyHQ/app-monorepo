@@ -56,6 +56,7 @@ import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
 } from './components/Context';
+import { buildBulkSendHomeAccountSeedKey } from './homeAccountSeedUtils';
 
 import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
 import type { IResolvedSenderAccount } from './components/Context';
@@ -68,6 +69,29 @@ function BaseBulkSendAddressesInput() {
   >();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const homeAccountSeedKey = buildBulkSendHomeAccountSeedKey({
+    networkId: activeAccount?.network?.id,
+    accountId: activeAccount?.account?.id,
+    indexedAccountId:
+      activeAccount?.account?.indexedAccountId ??
+      activeAccount?.indexedAccount?.id,
+  });
+  // Snapshot of the home-scene account used to (re)seed this page. It only
+  // refreshes when the account identity changes: a derive-type-only switch
+  // (e.g. from the recipient picker's address-type menu) must not discard the
+  // sender the user already chose (OK-61627).
+  const homeSeedAccount = useMemo(
+    () => ({
+      accountId: activeAccount?.account?.id,
+      indexedAccountId:
+        activeAccount?.account?.indexedAccountId ??
+        activeAccount?.indexedAccount?.id,
+      networkId: activeAccount?.network?.id,
+    }),
+    // The seed key is the intentional invalidation signal.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [homeAccountSeedKey],
+  );
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const { accountId, networkId, indexedAccountId, tokenInfo, isInModal } =
@@ -161,13 +185,13 @@ function BaseBulkSendAddressesInput() {
     if (networkId) {
       _selectedNetworkId = networkId;
     } else {
-      _selectedNetworkId = activeAccount?.network?.id;
+      _selectedNetworkId = homeSeedAccount.networkId;
     }
 
     if (accountId) {
       _selectedAccountId = accountId;
-    } else if (activeAccount?.account?.id) {
-      _selectedAccountId = activeAccount?.account?.id;
+    } else if (homeSeedAccount.accountId) {
+      _selectedAccountId = homeSeedAccount.accountId;
     }
 
     if (
@@ -187,8 +211,8 @@ function BaseBulkSendAddressesInput() {
 
     if (indexedAccountId) {
       _selectedIndexedAccountId = indexedAccountId;
-    } else if (activeAccount?.account?.indexedAccountId) {
-      _selectedIndexedAccountId = activeAccount?.account?.indexedAccountId;
+    } else if (homeSeedAccount.indexedAccountId) {
+      _selectedIndexedAccountId = homeSeedAccount.indexedAccountId;
     }
 
     if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
@@ -238,9 +262,7 @@ function BaseBulkSendAddressesInput() {
     setHasUserSelectedAsset(false);
   }, [
     accountId,
-    activeAccount?.account?.id,
-    activeAccount?.account?.indexedAccountId,
-    activeAccount?.network?.id,
+    homeSeedAccount,
     networkId,
     indexedAccountId,
     tokenInfo,
@@ -411,17 +433,48 @@ function BaseBulkSendAddressesInput() {
     void initBulkSendInfo();
   }, [initBulkSendInfo]);
 
+  // The sender address-type chip follows the resolved sender account (picked,
+  // pasted or seeded), falling back to the network default only when there is
+  // no account yet. Reading the default alone left the chip stale once the
+  // sender changed (OK-61627).
   useEffect(() => {
-    if (selectedNetworkId && networkUtils.isBTCNetwork(selectedNetworkId)) {
-      void backgroundApiProxy.serviceNetwork
-        .getGlobalDeriveTypeOfNetwork({ networkId: selectedNetworkId })
-        .then((deriveType) => {
-          setSelectedDeriveType(deriveType);
-        });
-    } else {
+    if (!selectedNetworkId || !networkUtils.isBTCNetwork(selectedNetworkId)) {
       setSelectedDeriveType(undefined);
+      return;
     }
-  }, [selectedNetworkId, setSelectedDeriveType]);
+    let cancelled = false;
+    void (async () => {
+      let deriveType: IAccountDeriveTypes | undefined;
+      if (selectedAccountId) {
+        try {
+          const dbAccount =
+            await backgroundApiProxy.serviceAccount.getDBAccount({
+              accountId: selectedAccountId,
+            });
+          deriveType = (
+            await backgroundApiProxy.serviceNetwork.getDeriveTypeByDBAccount({
+              networkId: selectedNetworkId,
+              account: dbAccount,
+            })
+          ).deriveType;
+        } catch {
+          // fall through to the network default
+        }
+      }
+      if (!deriveType) {
+        deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: selectedNetworkId,
+          });
+      }
+      if (!cancelled) {
+        setSelectedDeriveType(deriveType);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccountId, selectedNetworkId, setSelectedDeriveType]);
 
   useEffect(() => {
     if (isOneToMany && selectedAccountId && selectedNetworkId) {
