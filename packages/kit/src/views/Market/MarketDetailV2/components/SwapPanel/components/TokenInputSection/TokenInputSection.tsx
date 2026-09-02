@@ -16,6 +16,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import SwapInputActions from '@onekeyhq/kit/src/views/Swap/pages/components/SwapInputActions';
 import {
   EAppEventBusNames,
@@ -344,6 +345,7 @@ function TokenInputSectionComponent(
                   gap="$1"
                   px="$2"
                   {...(isTokenSelectorVisible && {
+                    testID: MarketTestIDs.swapPanelPaymentTokenTrigger,
                     onPress: () => setIsPopoverOpen(true),
                     userSelect: 'none',
                     hoverStyle: { bg: '$bgHover' },

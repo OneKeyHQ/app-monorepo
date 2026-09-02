@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback } from 'react';
 
+import { useSetAtom } from 'jotai';
+
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EAtomNames } from '../atomNames';
@@ -51,7 +53,7 @@ export const {
 let memoMap: IJotaiContextStoreMap = {};
 
 export function useJotaiContextTrackerMap() {
-  const [, setMap] = useJotaiContextStoreMapAtom();
+  const setMap = useSetAtom(jotaiContextStoreMapAtom.atom());
 
   const setMapFinal = useCallback(
     (mapUpdate: IJotaiContextStoreMap) => {

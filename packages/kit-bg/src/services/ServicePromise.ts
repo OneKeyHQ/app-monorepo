@@ -79,6 +79,10 @@ class ServicePromise extends ServiceBase {
     return latestId;
   }
 
+  hasCallback(id: number | string) {
+    return Boolean(this.callbacks[id as number]);
+  }
+
   @backgroundMethod()
   async rejectCallback({ id, error }: IPromiseContainerReject) {
     this._processCallback({
@@ -90,7 +94,11 @@ class ServicePromise extends ServiceBase {
 
   @backgroundMethod()
   async resolveCallback({ id, data }: IPromiseContainerResolve) {
-    this._processCallback({
+    this.resolveCallbackSync({ id, data });
+  }
+
+  resolveCallbackSync({ id, data }: IPromiseContainerResolve) {
+    return this._processCallback({
       method: 'resolve',
       id,
       data,
@@ -130,7 +138,9 @@ class ServicePromise extends ServiceBase {
         }
       }
       this.removeCallback(id);
+      return true;
     }
+    return false;
   }
 
   removeCallback(id: number | string) {

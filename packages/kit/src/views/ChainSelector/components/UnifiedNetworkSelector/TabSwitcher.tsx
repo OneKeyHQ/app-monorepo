@@ -27,10 +27,12 @@ export function TabSwitcher({ activeTab, onTabChange }: ITabSwitcherProps) {
       {
         label: intl.formatMessage({ id: ETranslations.global_all_networks }),
         value: 'portfolio',
+        testID: 'unified-network-selector-portfolio-tab',
       },
       {
         label: intl.formatMessage({ id: ETranslations.global_single_network }),
         value: 'network',
+        testID: 'unified-network-selector-network-tab',
       },
     ],
     [intl],

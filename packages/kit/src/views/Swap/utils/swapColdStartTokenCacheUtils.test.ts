@@ -1,4 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   ISwapNetwork,
@@ -20,6 +22,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  prepareSwapSelectedAccountSyncedFromHome,
   resolveSwapTokenNetworkLogoURI,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
@@ -1824,5 +1827,154 @@ describe('swap cold-start selected token context', () => {
         focusedWallet: 'wallet-1',
       }),
     );
+  });
+});
+
+describe('prepareSwapSelectedAccountSyncedFromHome', () => {
+  it('returns the merged candidate without the pair-fix RPC for non-others wallets', async () => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('should not call fix RPC');
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'hd-1',
+      networkId: 'btc--0',
+      deriveType: 'BIP44',
+      // A contrived leftover others-account id isolates the wallet-type gate:
+      // every other early-exit field is present.
+      othersWalletAccountId: 'stale-others-account-1',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'evm--1' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).not.toHaveBeenCalled();
+  });
+
+  it('runs the pair fix on a complete others-wallet candidate and adopts its result', async () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: 'imported-account-1',
+      networkId: 'evm--1',
+      focusedWallet: 'imported',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+    const mergedCandidate = buildSwapSelectedAccountSyncedFromHome({
+      homeSelectedAccount,
+      swapSelectedAccount,
+    });
+    const fixedSelectedAccount = {
+      ...mergedCandidate,
+      networkId: 'evm--56',
+    };
+    const fixOthersWalletAccountNetworkPair = jest.fn(
+      async () => fixedSelectedAccount,
+    );
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toBe(fixedSelectedAccount);
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledTimes(1);
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledWith({
+      selectedAccount: mergedCandidate,
+      source: 'syncSwapSelectedAccountFromHome',
+    });
+  });
+
+  it.each([
+    {
+      caseName: 'the others-wallet account id is missing',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: undefined,
+      },
+    },
+    {
+      caseName: 'the network id is missing',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+        networkId: undefined,
+      },
+    },
+    {
+      caseName: 'the wallet id is missing',
+      homeOverrides: {
+        walletId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+      },
+    },
+    {
+      caseName: 'the candidate targets the all-network entry',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+      },
+    },
+  ])('skips the pair-fix RPC when $caseName', async ({ homeOverrides }) => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('should not call fix RPC');
+    });
+    const homeSelectedAccount = buildSelectedAccount(homeOverrides);
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the unfixed merged candidate when the fix RPC rejects', async () => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('background unreachable');
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: 'imported-account-1',
+      networkId: 'evm--1',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledTimes(1);
   });
 });

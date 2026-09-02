@@ -20,6 +20,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
+import { getLatestHomeSelectedAccount } from '../hooks/useSwapGlobal';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensFromHomeAccount,
@@ -154,6 +155,26 @@ function SwapColdStartCacheSync() {
       EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
       handleHomeSelectedAccountUpdate,
     );
+
+    // The event is not guaranteed to arrive. saveToStorage short circuits when
+    // the record on disk already matches, which is the normal case whenever
+    // another runtime or scene wrote it first - on extension the popup and the
+    // side panel are separate runtimes, and the popup dies without a
+    // beforeunload. Read the home selection once on mount so a cold start that
+    // never sees an event still leaves the placeholder tokens behind.
+    void getLatestHomeSelectedAccount()
+      .then((homeSelectedAccount) => {
+        if (initialSelectedTokensSyncedRef.current) {
+          return;
+        }
+        handleHomeSelectedAccountUpdate({
+          num: 0,
+          sceneName: SWAP_COLD_START_HOME_SCENE_NAME,
+          selectedAccount: homeSelectedAccount,
+        });
+      })
+      .catch(() => undefined);
+
     return () => {
       appEventBus.off(
         EAppEventBusNames.AccountSelectorSelectedAccountUpdate,

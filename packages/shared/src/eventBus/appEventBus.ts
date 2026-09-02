@@ -194,7 +194,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
-  [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.GlobalDeriveTypeUpdate]: {
+    networkImpl: string;
+  };
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -202,6 +204,10 @@ export interface IAppEventBusPayload {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+    sourceOperationId?: number;
+    sourceRuntimeId?: string;
+    sourceTransitionId?: number;
+    trigger?: string;
   };
   [EAppEventBusNames.OnSwitchDAppNetwork]: {
     state: 'switching' | 'completed';

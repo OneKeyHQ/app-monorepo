@@ -8,6 +8,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -73,23 +74,41 @@ export function WebAccountPanelAccountList({
 
   const handleSelect = useCallback(
     async (item: IDBAccount | IDBIndexedAccount, isOthers: boolean) => {
-      if (isOthers) {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: item as IDBAccount,
-          autoChangeToAccountMatchedNetworkId: networkId,
+      try {
+        if (isOthers) {
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: item as IDBAccount,
+            autoChangeToAccountMatchedNetworkId: networkId,
+            entry: 'webAccountPanel:othersWallet',
+          });
+        } else {
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: item as IDBIndexedAccount,
+            othersWalletAccount: undefined,
+            entry: 'webAccountPanel:indexedAccount',
+          });
+        }
+      } catch {
+        // confirmAccountSelect rejects when persisting the selection fails.
+        // Without this the panel just stayed open with no explanation, because
+        // onRequestClose() below was skipped. Keep it open on purpose so the
+        // user can retry the row, but say why nothing happened.
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
         });
-      } else {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: item as IDBIndexedAccount,
-          othersWalletAccount: undefined,
-        });
+        return;
       }
       onRequestClose();
     },
-    [actions, networkId, onRequestClose],
+    [actions, intl, networkId, onRequestClose],
   );
 
   // "Add external wallet" must open the connect-options flow (Continue with

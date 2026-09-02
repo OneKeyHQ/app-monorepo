@@ -51,6 +51,8 @@ abstract class SimpleDbEntityBase<T> {
     | undefined
     | null = null;
 
+  private transactionReadSnapshot: { data: T | undefined | null } | undefined;
+
   updatedAt = 0;
 
   // Bumped when a persisted write starts so a failing read can tell whether a
@@ -94,6 +96,9 @@ abstract class SimpleDbEntityBase<T> {
 
   @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
+    if (this.transactionReadSnapshot) {
+      return Promise.resolve(this.transactionReadSnapshot.data);
+    }
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
@@ -228,6 +233,140 @@ abstract class SimpleDbEntityBase<T> {
 
       this.updatedAt = updatedAt;
       return data;
+    });
+  }
+
+  protected async setRawDataTransaction({
+    afterPublish,
+    beforePublish,
+    build,
+    shouldCommit,
+  }: {
+    afterPublish?: (data: T) => boolean;
+    beforePublish?: (data: T) => Promise<boolean> | boolean;
+    build: (
+      rawData: T | null | undefined,
+    ) => Promise<{ data: T } | undefined> | { data: T } | undefined;
+    shouldCommit: () => boolean;
+  }): Promise<{
+    committed: boolean;
+    data: T | null | undefined;
+    previousData: T | null | undefined;
+  }> {
+    return this.mutex.runExclusive(async () => {
+      const previousData = await this.getRawData();
+      const previousUpdatedAt = this.updatedAt;
+      const next = await build(previousData);
+      if (!next || !shouldCommit()) {
+        return {
+          committed: false,
+          data: previousData,
+          previousData,
+        };
+      }
+
+      const updatedAt = Date.now();
+      const savedData: ISimpleDbEntitySavedData<T> = {
+        data: next.data,
+        updatedAt,
+      };
+      const previousSavedData: ISimpleDbEntitySavedData<T> | undefined =
+        previousUpdatedAt
+          ? {
+              data: previousData as T,
+              updatedAt: previousUpdatedAt,
+            }
+          : undefined;
+      const serializeSavedData = (value: ISimpleDbEntitySavedData<T>): string =>
+        appStorageUtils.canSaveAsObject() && !isString(value)
+          ? (value as unknown as string)
+          : JSON.stringify(value);
+      let restoreAttempted = false;
+      let writeAttempted = false;
+      const restorePreviousData = async () => {
+        restoreAttempted = true;
+        this.transactionReadSnapshot = { data: previousData };
+        if (this.enableCache) {
+          this.cachedRawData = previousData;
+        }
+        this.cachedRawDataPromise = null;
+        this.updatedAt = previousUpdatedAt;
+        this.writeSeq += 1;
+        this.readGeneration += 1;
+        if (previousSavedData) {
+          await this.appStorage.setItem(
+            this.entityKey,
+            serializeSavedData(previousSavedData),
+          );
+        } else {
+          await this.appStorage.removeItem(this.entityKey);
+        }
+      };
+      const buildRejectedResult = () => ({
+        committed: false,
+        data: previousData,
+        previousData,
+      });
+
+      // Keep readers on the pre-transaction snapshot until both persistence
+      // and the caller's cancellation check have completed.
+      this.transactionReadSnapshot = { data: previousData };
+      this.cachedRawDataPromise = null;
+      dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
+      this.writeSeq += 1;
+      this.readGeneration += 1;
+      this.pendingWrites += 1;
+      try {
+        writeAttempted = true;
+        await this.appStorage.setItem(
+          this.entityKey,
+          serializeSavedData(savedData),
+        );
+
+        // A background RPC that arrived while setItem was pending runs on a
+        // task, not a promise microtask. Yield one task before the final guard
+        // so its synchronous cancellation intent is observable here.
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+
+        if (!shouldCommit()) {
+          await restorePreviousData();
+          return buildRejectedResult();
+        }
+        if (beforePublish && !(await beforePublish(next.data))) {
+          await restorePreviousData();
+          return buildRejectedResult();
+        }
+        if (!shouldCommit()) {
+          await restorePreviousData();
+          return buildRejectedResult();
+        }
+
+        if (this.enableCache) {
+          this.cachedRawData = next.data;
+        }
+        this.cachedRawDataPromise = null;
+        this.updatedAt = updatedAt;
+        this.transactionReadSnapshot = undefined;
+        if (afterPublish && !afterPublish(next.data)) {
+          await restorePreviousData();
+          return buildRejectedResult();
+        }
+        return {
+          committed: true,
+          data: next.data,
+          previousData,
+        };
+      } catch (error) {
+        if (writeAttempted && !restoreAttempted) {
+          await restorePreviousData();
+        }
+        throw error;
+      } finally {
+        this.pendingWrites -= 1;
+        this.transactionReadSnapshot = undefined;
+      }
     });
   }
 
