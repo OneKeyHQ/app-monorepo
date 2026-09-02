@@ -459,19 +459,31 @@ function HomeOverviewContainer() {
         // accountValue SimpleDB.
         const accountWorthCurrency =
           accountWorth.currency ?? settings.currencyInfo.id;
+        const createAtNetworkValueKey = accountUtils.buildAccountValueKey({
+          accountId: account.id,
+          networkId: account.createAtNetwork ?? '',
+        });
         if (isOthers) {
           if (
             account.createAtNetwork &&
             (network.isAllNetworks || account.createAtNetwork === network.id)
           ) {
-            void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-              accountId: accountValueId,
-              networkAccountId: account.id,
-              networkId: account.createAtNetwork,
-              value: accountWorth.createAtNetworkWorth,
-              currency: accountWorthCurrency,
-              shouldUpdateActiveAccountValue: true,
-            });
+            const createAtNetworkValue =
+              accountWorth.worth[createAtNetworkValueKey];
+            if (createAtNetworkValue !== undefined) {
+              void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+                accountId: accountValueId,
+                networkAccountId: account.id,
+                networkId: account.createAtNetwork,
+                // The compound-key map stores the absolute value for this
+                // network. Prefer it over the legacy scalar, which can be
+                // transiently stale while independent network responses
+                // merge.
+                value: createAtNetworkValue,
+                currency: accountWorthCurrency,
+                shouldUpdateActiveAccountValue: true,
+              });
+            }
           }
         } else if (!network.isAllNetworks) {
           const singleNetworkValue =
