@@ -79,6 +79,38 @@ export function getParserAlertDisplay(alert: string) {
   };
 }
 
+export function isTrustedPermitSign({
+  isPermitSignMethod,
+  isSiteVerified,
+}: {
+  isPermitSignMethod: boolean;
+  isSiteVerified: boolean;
+}) {
+  return isPermitSignMethod && isSiteVerified;
+}
+
+export function shouldHideGenericPermitAlert({
+  alert,
+  genericPermitAlert,
+  isPermitSignMethod,
+  isSiteVerified,
+}: {
+  alert: string;
+  genericPermitAlert: string;
+  isPermitSignMethod: boolean;
+  isSiteVerified: boolean;
+}) {
+  const normalize = (text: string) =>
+    text.trim().replace(/\s+/g, ' ').toLowerCase();
+  const normalizedAlert = normalize(alert);
+
+  return (
+    isTrustedPermitSign({ isPermitSignMethod, isSiteVerified }) &&
+    Boolean(normalizedAlert) &&
+    normalizedAlert === normalize(genericPermitAlert)
+  );
+}
+
 export const SIMULATION_GROUP_FALLBACK_ID = 'asset-changes';
 
 // These asset-display helpers are a compact, read-only variant of the canonical

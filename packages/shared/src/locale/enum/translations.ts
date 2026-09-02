@@ -1330,6 +1330,7 @@ export enum ETranslations {
   firmware_update_grant_usb_instruction = 'firmware_update.grant_usb_instruction',
   firmware_update_status_completed = 'firmware_update.status_completed',
   firmware_update_status_validating = 'firmware_update.status_validating',
+  firmware_update_estimated_time__desc = 'firmware_update_estimated_time__desc',
   firmware_update_switch_firmware_reconnect_device = 'firmware_update_switch_firmware_reconnect_device',
   first_deposit_gets_account_ready_to_trade__desc = 'first_deposit_gets_account_ready_to_trade__desc',
   for_reference_only = 'for_reference_only',

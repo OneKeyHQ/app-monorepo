@@ -151,6 +151,9 @@ export enum EAtomNames {
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
   accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
+
+  // batch tx sign
+  batchTxSignAtom = 'batchTxSignAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

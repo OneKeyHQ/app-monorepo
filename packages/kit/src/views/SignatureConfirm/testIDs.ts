@@ -20,6 +20,9 @@ export const SignatureConfirmTestIDs = {
   MessageConfirmRiskCheckbox: 'sig-confirm-msg-risk-checkbox',
   MessageConfirmReferralCheckbox: 'sig-confirm-msg-referral-checkbox',
 
+  // -- BatchTxConfirm page --
+  BatchTxConfirmRiskCheckbox: 'sig-confirm-batch-tx-risk-checkbox',
+
   // -- MessageConfirmFromDapp loading --
   MessageConfirmFromDappPage: 'sig-confirm-msg-dapp-page',
   MessageConfirmFromDappLoading: 'sig-confirm-msg-dapp-loading',

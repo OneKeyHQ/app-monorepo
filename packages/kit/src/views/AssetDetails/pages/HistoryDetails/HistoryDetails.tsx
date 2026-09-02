@@ -53,7 +53,10 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -793,17 +796,40 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
+    // Only let the indexer label win when it actually has one: networks the
+    // indexer cannot parse return an empty label, and overwriting with it
+    // wiped out the title derived above.
     if (
-      !historyTx.isLocalCreated ||
-      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+      label &&
+      (!historyTx.isLocalCreated ||
+        decodedTx.status !== EDecodedTxStatus.Pending)
     ) {
       title = label;
     }
 
-    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+    const action = decodedTx.actions[0];
+
+    // Same fallbacks the history list item uses, so the row and its details
+    // page never disagree on the action type.
+    if (!title && action?.assetTransfer?.isInternalSwap) {
       title = intl.formatMessage({
         id: ETranslations.global_swap,
       });
+    } else if (!title && action?.assetTransfer?.isInternalStaking) {
+      title =
+        action.assetTransfer.internalStakingLabel ||
+        (historyTx.stakingInfo
+          ? getStakingActionLabel({ stakingInfo: historyTx.stakingInfo })
+          : '');
+    }
+
+    if (!title && (action?.functionCall || action?.unknownAction)) {
+      title =
+        action.functionCall?.functionName ||
+        action.unknownAction?.label ||
+        intl.formatMessage({
+          id: ETranslations.transaction__contract_interaction,
+        });
     }
 
     return title;
