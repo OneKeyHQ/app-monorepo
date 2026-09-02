@@ -75,6 +75,7 @@ async function waitForNoVisibleTestID(page, testID) {
 
 const iterations = Number(process.env.ACCOUNT_SELECTOR_E2E_ITERATIONS) || 8;
 const configuredCycles = Number(process.env.ACCOUNT_SELECTOR_E2E_CYCLES ?? 1);
+const inspectMode = readBooleanEnv('ACCOUNT_SELECTOR_E2E_INSPECT', false);
 const walletModeStorageKey = '$onekey_web_dapp_mode';
 const defaultAccountCreationNetworkIds = [
   'btc--0',
@@ -243,6 +244,10 @@ const seenWalletTokenRequests = new Set();
 const walletTokenStubLatencyMs = readPositiveNumberEnv(
   'ACCOUNT_SELECTOR_E2E_STUB_WALLET_TOKENS_LATENCY_MS',
   150,
+);
+const dappEffectsHostCommitLimit = readPositiveNumberEnv(
+  'ACCOUNT_SELECTOR_E2E_DAPP_EFFECTS_HOST_COMMIT_MAX',
+  7,
 );
 
 // The Perps scenario drives real Hyperliquid endpoints, which rate-limit (429)
@@ -1478,6 +1483,31 @@ async function waitForAppReady(page) {
   );
 }
 
+async function configureAccountSelectorMirrorInspector(page) {
+  if (!inspectMode) {
+    assert.equal(
+      await page
+        .locator(
+          visibleTestIDSelector(AccountSelectorTestIDs.mirrorInspectorRoot),
+        )
+        .count(),
+      0,
+      'Account Selector Mirror Inspector must stay hidden by default',
+    );
+    return;
+  }
+  await page.evaluate(async () => {
+    await globalThis.$$appGlobals.$backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'showAccountSelectorMirrorInspector',
+      true,
+    );
+  });
+  await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorRoot,
+  );
+}
+
 async function configurePerfTrace(page, devOnlyPassword) {
   const result = await page.evaluate(
     ({ password }) =>
@@ -1812,6 +1842,7 @@ async function restoreWalletPasswordCache(page, fixture) {
         passwordMode: 'password',
         skipPostVerifyBackgroundTasks: true,
       });
+      await api.servicePassword.unLockApp();
     },
     { rawPassword: fixture.rawPassword },
   );
@@ -1867,6 +1898,334 @@ async function readAccountSelectorStateSnapshot(
   );
 }
 
+async function readAccountSelectorContextComparison(
+  page,
+  { num = 0, probeName, sceneName = 'home', sceneUrl },
+) {
+  return page.evaluate(
+    ({
+      selectionNum,
+      selectionProbeName,
+      selectionSceneName,
+      selectionSceneUrl,
+    }) => {
+      const accessor =
+        globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor;
+      if (!accessor?.getSnapshot || !accessor.getMountedContextSnapshots) {
+        throw new Error(
+          'AccountSelector React Context comparison accessor is unavailable',
+        );
+      }
+      return {
+        canonicalSnapshot: accessor.getSnapshot({
+          num: selectionNum,
+          sceneName: selectionSceneName,
+          sceneUrl: selectionSceneUrl,
+        }),
+        mountedSnapshots: accessor.getMountedContextSnapshots({
+          num: selectionNum,
+          probeName: selectionProbeName,
+        }),
+        validationReports: accessor.getMountedContextReports?.({
+          num: selectionNum,
+          probeName: selectionProbeName,
+        }),
+      };
+    },
+    {
+      selectionNum: num,
+      selectionProbeName: probeName,
+      selectionSceneName: sceneName,
+      selectionSceneUrl: sceneUrl,
+    },
+  );
+}
+
+async function assertMountedAccountSelectorContextMatchesSnapshot(
+  page,
+  {
+    expectedEnabledNum,
+    expectedSnapshot,
+    num = 0,
+    probeName,
+    sceneName = 'home',
+    sceneUrl,
+  },
+) {
+  const expectedSceneUrl = sceneUrl ?? '';
+  try {
+    await page.waitForFunction(
+      ({
+        expected,
+        expectedContextSceneName,
+        expectedContextSceneUrl,
+        selectionNum,
+        selectionProbeName,
+      }) => {
+        const accessor =
+          globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor;
+        const canonical = accessor?.getSnapshot?.({
+          num: selectionNum,
+          sceneName: expectedContextSceneName,
+          sceneUrl: expectedContextSceneUrl,
+        });
+        const mountedSnapshots = accessor?.getMountedContextSnapshots?.({
+          num: selectionNum,
+          probeName: selectionProbeName,
+        });
+        const validationReports = accessor?.getMountedContextReports?.({
+          num: selectionNum,
+          probeName: selectionProbeName,
+        });
+        if (!canonical || mountedSnapshots?.length !== 1) {
+          return false;
+        }
+        const [mounted] = mountedSnapshots;
+        const serializeState = (snapshot) =>
+          JSON.stringify({
+            active: snapshot.active,
+            selected: snapshot.selected,
+          });
+        const matchesCanonical =
+          serializeState(mounted) === serializeState(canonical);
+        const matchesExpected =
+          !expected || serializeState(mounted) === serializeState(expected);
+        return Boolean(
+          mounted.config?.sceneName === expectedContextSceneName &&
+          (mounted.config?.sceneUrl ?? '') === expectedContextSceneUrl &&
+          mounted.enabledNum?.includes(selectionNum) &&
+          matchesCanonical &&
+          matchesExpected &&
+          validationReports?.length === 1 &&
+          validationReports[0]?.contextStatus === 'pass',
+        );
+      },
+      {
+        expected: expectedSnapshot,
+        expectedContextSceneName: sceneName,
+        expectedContextSceneUrl: expectedSceneUrl,
+        selectionNum: num,
+        selectionProbeName: probeName,
+      },
+      { timeout: pageTimeoutMs },
+    );
+  } catch (error) {
+    const comparison = await readAccountSelectorContextComparison(page, {
+      num,
+      probeName,
+      sceneName,
+      sceneUrl,
+    });
+    throw new Error(
+      `${sceneName} mounted React Context did not converge: ${JSON.stringify({
+        ...comparison,
+        expectedSnapshot,
+        num,
+        probeName,
+        sceneUrl: expectedSceneUrl,
+      })}`,
+      { cause: error },
+    );
+  }
+
+  const { canonicalSnapshot, mountedSnapshots, validationReports } =
+    await readAccountSelectorContextComparison(page, {
+      num,
+      probeName,
+      sceneName,
+      sceneUrl,
+    });
+  assert.ok(
+    canonicalSnapshot,
+    `${sceneName} canonical Account Selector snapshot must exist`,
+  );
+  assert.equal(
+    mountedSnapshots.length,
+    1,
+    `${probeName} must identify exactly one mounted React Context for num ${num}`,
+  );
+  assert.equal(
+    validationReports?.length,
+    1,
+    `${probeName} must produce exactly one shared validation report for num ${num}`,
+  );
+  assert.equal(
+    validationReports?.[0]?.contextStatus,
+    'pass',
+    `${probeName} mounted React Context validation must pass`,
+  );
+  const [mountedSnapshot] = mountedSnapshots;
+  assert.deepEqual(
+    {
+      active: mountedSnapshot.active,
+      selected: mountedSnapshot.selected,
+    },
+    {
+      active: canonicalSnapshot.active,
+      selected: canonicalSnapshot.selected,
+    },
+    `${probeName} mounted React Context must expose the canonical ${sceneName} state`,
+  );
+  if (expectedSnapshot) {
+    assert.deepEqual(
+      {
+        active: mountedSnapshot.active,
+        selected: mountedSnapshot.selected,
+      },
+      {
+        active: expectedSnapshot.active,
+        selected: expectedSnapshot.selected,
+      },
+      `${probeName} mounted React Context must keep the expected ${sceneName} state`,
+    );
+  }
+  assert.deepEqual(
+    {
+      sceneName: mountedSnapshot.config.sceneName,
+      sceneUrl: mountedSnapshot.config.sceneUrl ?? '',
+    },
+    {
+      sceneName,
+      sceneUrl: expectedSceneUrl,
+    },
+    `${probeName} mounted React Context must expose the expected scene configuration`,
+  );
+  if (expectedEnabledNum) {
+    assert.deepEqual(
+      mountedSnapshot.enabledNum,
+      expectedEnabledNum,
+      `${probeName} mounted React Context must expose the expected enabledNum`,
+    );
+  } else {
+    assert.ok(
+      mountedSnapshot.enabledNum.includes(num),
+      `${probeName} mounted React Context must enable num ${num}`,
+    );
+  }
+  return mountedSnapshot;
+}
+
+async function assertNoStableAccountSelectorContextFailures(page) {
+  await page.evaluate(() => {
+    globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor?.getInspectorSnapshot?.();
+  });
+  await page.waitForTimeout(2000);
+  const failures = await page.evaluate(
+    () =>
+      globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor
+        ?.getInspectorSnapshot?.()
+        .reports.filter((report) => report.contextStatus === 'fail')
+        .map((report) => ({
+          findings: report.findings.filter(
+            (finding) => finding.status === 'fail',
+          ),
+          instanceId: report.instanceId,
+          num: report.num,
+          probeName: report.probeName,
+          sceneName: report.sceneName,
+          sceneUrl: report.sceneUrl,
+        })) ?? [],
+  );
+  assert.deepEqual(
+    failures,
+    [],
+    'No mounted Account Selector React Context may retain a stable mismatch',
+  );
+}
+
+async function captureAccountSelectorInspectorEvidence(page, cycle) {
+  if (!inspectMode) return;
+  const toggle = await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorToggle,
+  );
+  await toggle.click({ timeout: pageTimeoutMs });
+  await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorList,
+  );
+  const homeReport = await page.waitForFunction(() => {
+    const reports =
+      globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor?.getMountedContextReports?.(
+        { num: 0, probeName: 'home-page' },
+      );
+    const report = reports?.find((item) => item.contextStatus === 'pass');
+    return report
+      ? { instanceId: report.instanceId, num: report.num }
+      : undefined;
+  });
+  const { instanceId, num } = await homeReport.jsonValue();
+  await page.screenshot({
+    path: path.join(artifactDir, `cycle-${cycle}-inspector-expanded.png`),
+  });
+
+  await page.evaluate(
+    ({ targetInstanceId, targetNum }) => {
+      globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor.setInspectorTestOverride(
+        {
+          expected: '__e2e_inspector_mismatch__',
+          field: 'selected.networkId',
+          instanceId: targetInstanceId,
+          num: targetNum,
+        },
+      );
+    },
+    { targetInstanceId: instanceId, targetNum: num },
+  );
+  const slot = await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorSlot(instanceId, num),
+  );
+  await page.waitForFunction(
+    ({ targetTestID }) =>
+      [...document.querySelectorAll('[data-testid]')].some(
+        (element) =>
+          element.getAttribute('data-testid') === targetTestID &&
+          element.getAttribute('data-status') === 'fail',
+      ),
+    {
+      targetTestID: AccountSelectorTestIDs.mirrorInspectorSlot(instanceId, num),
+    },
+    { timeout: pageTimeoutMs },
+  );
+  assert.equal(
+    await slot.getAttribute('data-status'),
+    'fail',
+    'Inspector slot must turn red for a stable E2E mismatch',
+  );
+  await slot.scrollIntoViewIfNeeded();
+  const findingsToggle = await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorFindingsToggle(instanceId, num),
+  );
+  await findingsToggle.click({ timeout: pageTimeoutMs });
+  await getUniqueVisibleByTestID(
+    page,
+    AccountSelectorTestIDs.mirrorInspectorFindings(instanceId, num),
+  );
+  await page.screenshot({
+    path: path.join(artifactDir, `cycle-${cycle}-inspector-mismatch.png`),
+  });
+
+  await page.evaluate(() => {
+    globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor.clearInspectorTestOverrides();
+  });
+  await page.waitForFunction(
+    ({ targetInstanceId, targetNum }) =>
+      globalThis.$$appGlobals.$$accountSelectorE2EStateAccessor
+        ?.getInspectorSnapshot?.()
+        .reports.some(
+          (report) =>
+            report.instanceId === targetInstanceId &&
+            report.num === targetNum &&
+            report.contextStatus === 'pass',
+        ),
+    { targetInstanceId: instanceId, targetNum: num },
+    { timeout: pageTimeoutMs },
+  );
+  await toggle.click({ timeout: pageTimeoutMs });
+}
+
 function getExpectedAccountFixture(target) {
   const walletFixture = accountSelectorE2EWalletFixtures.find(
     (item) => item.fixtureId === target.fixtureId,
@@ -1913,6 +2272,8 @@ async function assertAccountSelectorStateConsistent(
     // all-networks state shape asserted, and every other caller fails loudly
     // if the app drifted into All Networks on its own.
     expectAllNetworks = false,
+    mountedContextEnabledNum,
+    mountedContextProbeName,
     num = 0,
     sceneName = 'home',
     sceneUrl,
@@ -1938,6 +2299,8 @@ async function assertAccountSelectorStateConsistent(
           );
         return Boolean(
           snapshot?.active?.ready &&
+          snapshot.selected?.networkId &&
+          snapshot.selected?.deriveType &&
           snapshot.selected?.walletId === expectedWalletId &&
           snapshot.selected?.indexedAccountId === expectedIndexedAccountId &&
           snapshot.active?.walletId === snapshot.selected?.walletId &&
@@ -2102,6 +2465,16 @@ async function assertAccountSelectorStateConsistent(
     accountName,
     `${sceneName} active account name must match the fixture`,
   );
+  if (mountedContextProbeName) {
+    await assertMountedAccountSelectorContextMatchesSnapshot(page, {
+      expectedEnabledNum: mountedContextEnabledNum,
+      expectedSnapshot: snapshot,
+      num,
+      probeName: mountedContextProbeName,
+      sceneName,
+      sceneUrl,
+    });
+  }
   if (assertUI) {
     const accountNames = await page
       .locator(visibleTestIDSelector(AccountSelectorTestIDs.triggerAccountName))
@@ -2274,7 +2647,8 @@ async function waitForHomeShell(page) {
       '[data-testid="onboarding-icon-btn"]:visible',
   );
   const homeTab = getDesktopSidebarTab(page, 'Wallet');
-  const accountTrigger = page.locator(
+  const homePage = page.locator('[data-testid="home-page"]:visible');
+  const accountTrigger = homePage.locator(
     visibleTestIDSelector(AccountSelectorTestIDs.trigger),
   );
   const deadline = Date.now() + pageTimeoutMs;
@@ -2288,33 +2662,34 @@ async function waitForHomeShell(page) {
         .click({ timeout: 5000 })
         .catch(() => {});
     } else {
-      if (await accountTrigger.count()) {
+      const routeNames = await readActiveRouteNames(page);
+      const isHomeActive =
+        routeNames.includes('Home') && routeNames.includes('TabHome');
+      const homePageCount = await homePage.count();
+      const accountTriggerCount = await accountTrigger.count();
+      if (isHomeActive && homePageCount === 1 && accountTriggerCount === 1) {
         homeStableSince ??= Date.now();
         if (Date.now() - homeStableSince >= 2000) {
-          assert.equal(
-            await accountTrigger.count(),
-            1,
-            `Expected one visible element for testID ${AccountSelectorTestIDs.trigger}`,
-          );
           return;
         }
       } else {
         homeStableSince = undefined;
       }
-      if (await homeTab.count()) {
+      if (!isHomeActive && (await homeTab.count())) {
         await switchDesktopSidebarTab(page, 'Wallet', 'Home').catch(() => {});
       }
     }
     await page.waitForTimeout(250);
   }
-  await getUniqueVisibleByTestID(page, AccountSelectorTestIDs.trigger, {
+  await getUniqueVisibleByTestID(homePage, AccountSelectorTestIDs.trigger, {
     timeout: 1,
   });
 }
 
 async function openAccountSelector(page) {
+  const homePage = await getUniqueVisibleByTestID(page, 'home-page');
   const trigger = await getUniqueVisibleByTestID(
-    page,
+    homePage,
     AccountSelectorTestIDs.trigger,
   );
   await trigger.click({ timeout: pageTimeoutMs });
@@ -2343,8 +2718,9 @@ async function selectWalletAccount(
   }
   await waitForPersistedSelection(page, { indexedAccountId, walletId });
   await waitForNoVisibleTestID(page, AccountManagerTestIDs.walletList);
+  const homePage = await getUniqueVisibleByTestID(page, 'home-page');
   await getUniqueVisibleByTestID(
-    page,
+    homePage,
     AccountSelectorTestIDs.triggerAccountName,
   );
 }
@@ -2853,6 +3229,8 @@ async function assertSwapConsumer(page, target) {
   );
   await assertAccountSelectorStateConsistent(page, target, {
     assertUI: false,
+    mountedContextEnabledNum: [0, 1],
+    mountedContextProbeName: 'swap-route',
     sceneName: 'swap',
   });
   await switchDesktopSidebarTab(page, 'Wallet', 'Home');
@@ -2924,6 +3302,8 @@ async function runPerpsAccountSyncScenario(page, devOnlyPassword, fixture) {
   await switchAppTab(page, 'Perp');
   await assertAccountSelectorStateConsistent(page, initialTarget, {
     assertUI: false,
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'perp-route',
   });
   await assertPerpsAccountConsumer(page, devOnlyPassword, initialTarget);
   const initialTrace = await drainPerfTrace(page, devOnlyPassword);
@@ -2966,6 +3346,8 @@ async function runPerpsAccountSyncScenario(page, devOnlyPassword, fixture) {
   await switchAppTab(page, 'Perp');
   await assertAccountSelectorStateConsistent(page, target, {
     assertUI: false,
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'perp-route',
   });
   await assertPerpsAccountConsumer(page, devOnlyPassword, target);
   const syncedTrace = await drainPerfTrace(page, devOnlyPassword);
@@ -3079,6 +3461,8 @@ async function runMultiNumAndCustomNetworkScenario(
   for (const num of [0, 1]) {
     await assertAccountSelectorStateConsistent(page, target, {
       assertUI: false,
+      mountedContextEnabledNum: [0, 1],
+      mountedContextProbeName: 'swap-route',
       num,
       sceneName: 'swap',
     });
@@ -3160,6 +3544,8 @@ async function runMultiNumAndCustomNetworkScenario(
   for (const num of [0, 1]) {
     await assertAccountSelectorStateConsistent(page, target, {
       assertUI: false,
+      mountedContextEnabledNum: [0, 1],
+      mountedContextProbeName: 'swap-route',
       num,
       sceneName: 'swap',
     });
@@ -3239,10 +3625,10 @@ function assertDAppAccountSelectorInitializationRefreshBudget(trace) {
     'DApp initialization must use one AccountSelectorEffects instance',
   );
   assert.ok(
-    effectsHostCommits.length <= 5,
+    effectsHostCommits.length <= dappEffectsHostCommitLimit,
     `DApp AccountSelectorEffects host committed ${
       effectsHostCommits.length
-    } times during initialization (limit 5): ${JSON.stringify(
+    } times during initialization (limit ${dappEffectsHostCommitLimit}): ${JSON.stringify(
       effectsStateObservations.map((event) => ({
         changedChannels: event.changedChannels,
         observationCount: event.observationCount,
@@ -3689,6 +4075,8 @@ async function openAndApproveSimulatedDAppConnection(
   if (expectedSelection) {
     await assertAccountSelectorStateConsistent(page, expectedSelection, {
       assertPersistence: false,
+      mountedContextEnabledNum: [0],
+      mountedContextProbeName: 'dapp-connection-modal',
       sceneName: 'discover',
       sceneUrl: connectionOrigin,
     });
@@ -4173,6 +4561,8 @@ async function runMultiOriginDAppScenario(page, devOnlyPassword, fixture) {
     for (const [num, target] of scenario.targets.entries()) {
       await assertAccountSelectorStateConsistent(page, target, {
         assertUI: false,
+        mountedContextEnabledNum: [0, 1],
+        mountedContextProbeName: `dapp-connection-list:${scenario.origin}`,
         num,
         sceneName: 'discover',
         sceneUrl: scenario.origin,
@@ -4314,6 +4704,8 @@ async function runMultiOriginDAppScenario(page, devOnlyPassword, fixture) {
     secondaryNumOneUpdatedTarget,
     {
       assertUI: false,
+      mountedContextEnabledNum: [0, 1],
+      mountedContextProbeName: `dapp-connection-list:${simulatedDAppSecondaryOrigin}`,
       num: 1,
       sceneName: 'discover',
       sceneUrl: simulatedDAppSecondaryOrigin,
@@ -4412,6 +4804,8 @@ async function runSimulatedDAppScenario(page, devOnlyPassword, fixture) {
   );
   assertTraceHealth({ ...initializationTrace, phase: 'dapp-initialization' });
   await assertAccountSelectorStateConsistent(page, target, {
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'account-selector-modal',
     sceneName: 'discover',
     sceneUrl: simulatedDAppOrigin,
   });
@@ -4473,6 +4867,8 @@ async function runSimulatedDAppScenario(page, devOnlyPassword, fixture) {
     'Neither a wrong-origin nor a wrong-num DApp network event may change any persisted connection selection',
   );
   await assertAccountSelectorStateConsistent(page, target, {
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'account-selector-modal',
     sceneName: 'discover',
     sceneUrl: simulatedDAppOrigin,
   });
@@ -4543,6 +4939,8 @@ async function runSimulatedDAppScenario(page, devOnlyPassword, fixture) {
     sceneName: 'discover',
   });
   await assertAccountSelectorStateConsistent(page, target, {
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'account-selector-modal',
     sceneName: 'discover',
     sceneUrl: simulatedDAppOrigin,
   });
@@ -4912,14 +5310,7 @@ async function openBulkSendAddressInput(page, target) {
 
 async function closeBulkSendAddressInput(page) {
   await page.evaluate(() => {
-    globalThis.$$appGlobals.$rootAppNavigation.navigate(
-      'main',
-      {
-        screen: 'Home',
-        params: { screen: 'TabHome' },
-      },
-      { pop: true },
-    );
+    globalThis.$$appGlobals.$rootAppNavigation.pop();
   });
   await page.waitForFunction(
     () => {
@@ -5014,7 +5405,10 @@ async function runSendAddressInputScenario(page, devOnlyPassword, fixture) {
     fixture.addressFixtures[fixture.wallets[1].fixtureId][0]['evm--1'].default;
   await selectWalletAccount(page, senderTarget);
   await selectNetwork(page, 'evm--1');
-  await assertAccountSelectorStateConsistent(page, senderTarget);
+  await assertAccountSelectorStateConsistent(page, senderTarget, {
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'home-page',
+  });
   await drainResidualPerfTrace(page, devOnlyPassword);
   await openSendAddressInput(page, senderTarget);
   const initializationTrace = await drainPerfTrace(page, devOnlyPassword);
@@ -5036,10 +5430,24 @@ async function runSendAddressInputScenario(page, devOnlyPassword, fixture) {
     sceneName: 'addressInput',
     sceneUrl: '',
   });
+  assert.ok(snapshot, 'Send addressInput state snapshot must exist');
   assert.equal(
     snapshot?.selected?.indexedAccountId,
     undefined,
     'Send addressInput must not inherit a selected recipient account',
+  );
+  const mountedSnapshot =
+    await assertMountedAccountSelectorContextMatchesSnapshot(page, {
+      expectedEnabledNum: [0],
+      num: 0,
+      probeName: 'send-address-input',
+      sceneName: 'addressInput',
+      sceneUrl: '',
+    });
+  assert.equal(
+    mountedSnapshot.selected?.indexedAccountId,
+    undefined,
+    'Send mounted addressInput Context must not select a recipient account',
   );
 
   await getUniqueVisibleByTestID(page, SendTestIDs.recipientInput, {
@@ -5093,7 +5501,10 @@ async function runBulkSendAccountRemovalScenario(
   };
   await selectWalletAccount(page, removedTarget);
   await selectNetwork(page, 'evm--1');
-  await assertAccountSelectorStateConsistent(page, removedTarget);
+  await assertAccountSelectorStateConsistent(page, removedTarget, {
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'home-page',
+  });
   await drainResidualPerfTrace(page, devOnlyPassword);
   await openBulkSendAddressInput(page, removedTarget);
   const initialTrace = await drainPerfTrace(page, devOnlyPassword);
@@ -5116,10 +5527,27 @@ async function runBulkSendAccountRemovalScenario(
       sceneName: 'addressInput',
       sceneUrl: '',
     });
+    assert.ok(
+      snapshot,
+      `BulkSend addressInput num ${num} state snapshot must exist`,
+    );
     assert.equal(
       snapshot?.selected?.indexedAccountId,
       undefined,
       `BulkSend addressInput num ${num} must start without an account`,
+    );
+    const mountedSnapshot =
+      await assertMountedAccountSelectorContextMatchesSnapshot(page, {
+        expectedEnabledNum: [0, 1],
+        num,
+        probeName: 'bulk-send-address-input',
+        sceneName: 'addressInput',
+        sceneUrl: '',
+      });
+    assert.equal(
+      mountedSnapshot.selected?.indexedAccountId,
+      undefined,
+      `BulkSend mounted addressInput Context num ${num} must start without an account`,
     );
   }
 
@@ -5143,6 +5571,8 @@ async function runBulkSendAccountRemovalScenario(
   await assertAccountSelectorStateConsistent(page, removedTarget, {
     assertPersistence: false,
     assertUI: false,
+    mountedContextEnabledNum: [0, 1],
+    mountedContextProbeName: 'bulk-send-address-input',
     num: 0,
     sceneName: 'addressInput',
     sceneUrl: '',
@@ -5976,6 +6406,8 @@ async function runSwapInlineDeriveTypeScenario(page, devOnlyPassword, fixture) {
   );
   await assertAccountSelectorStateConsistent(page, homeTarget, {
     assertUI: false,
+    mountedContextEnabledNum: [0, 1],
+    mountedContextProbeName: 'swap-main-modal',
     num: 0,
     sceneName: 'swap',
   });
@@ -6011,6 +6443,8 @@ async function runSwapInlineDeriveTypeScenario(page, devOnlyPassword, fixture) {
     });
     await assertAccountSelectorStateConsistent(page, homeTarget, {
       assertUI: false,
+      mountedContextEnabledNum: [0, 1],
+      mountedContextProbeName: 'swap-main-modal',
       num: 0,
       sceneName: 'swap',
     });
@@ -6216,6 +6650,8 @@ async function runMarketSwapPanelScenario(page, devOnlyPassword, fixture) {
   // drift just because the Market page mounted.
   await assertAccountSelectorStateConsistent(page, homeTarget, {
     assertUI: false,
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'market-swap-panel',
   });
   for (const num of [0, 1]) {
     await assertAccountSelectorStateConsistent(page, homeTarget, {
@@ -6372,6 +6808,8 @@ async function runMarketSwapPanelScenario(page, devOnlyPassword, fixture) {
   await getUniqueVisibleByTestID(page, MarketTestIDs.swapPanel);
   await assertAccountSelectorStateConsistent(page, switchTarget, {
     assertUI: false,
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'market-swap-panel',
   });
   for (const num of [0, 1]) {
     await assertAccountSelectorStateConsistent(page, switchTarget, {
@@ -6398,6 +6836,8 @@ async function runMarketSwapPanelScenario(page, devOnlyPassword, fixture) {
   );
   await assertAccountSelectorStateConsistent(page, switchTarget, {
     assertUI: false,
+    mountedContextEnabledNum: [0],
+    mountedContextProbeName: 'market-swap-token-popover',
     num: 0,
     sceneName: 'swap',
   });
@@ -6551,6 +6991,7 @@ async function runCycle({ browser, cycle, rendererUrl }) {
       waitUntil: 'domcontentloaded',
     });
     await waitForAppReady(page);
+    await configureAccountSelectorMirrorInspector(page);
     await configurePerfTrace(page, devOnlyPassword);
     await drainResidualPerfTrace(page, devOnlyPassword);
 
@@ -6572,8 +7013,8 @@ async function runCycle({ browser, cycle, rendererUrl }) {
       waitUntil: 'domcontentloaded',
     });
     await waitForAppReady(page);
-    await waitForHomeShell(page);
     await restoreWalletPasswordCache(page, fixture);
+    await waitForHomeShell(page);
     // The reload replaced the runtime that produced them, and its ids restart.
     takeResidualTrace();
     const initTrace = await collectPerfTraceUntil(
@@ -6595,6 +7036,7 @@ async function runCycle({ browser, cycle, rendererUrl }) {
     await assertAccountSelectorStateConsistent(page, restoredTarget, {
       expectAllNetworks: true,
     });
+    await captureAccountSelectorInspectorEvidence(page, cycle);
 
     log(`cycle#${cycle}: verify Send address input account selection`);
     const sendAddressInputTrace = await runSendAddressInputScenario(
@@ -6614,8 +7056,8 @@ async function runCycle({ browser, cycle, rendererUrl }) {
       waitUntil: 'domcontentloaded',
     });
     await waitForAppReady(page);
-    await waitForHomeShell(page);
     await restoreWalletPasswordCache(page, fixture);
+    await waitForHomeShell(page);
     await configurePerfTrace(page, devOnlyPassword);
     const preReloadResidualTrace = takeResidualTrace();
     const perpsResetTrace = await collectPerfTraceUntil(
@@ -6823,6 +7265,7 @@ async function runCycle({ browser, cycle, rendererUrl }) {
       devOnlyPassword,
       collectedEvents,
     );
+    await assertNoStableAccountSelectorContextFailures(page);
     const allEvents = [...collectedEvents, ...settleTrace.events];
     assertTraceRequestResultPairs(allEvents);
     assertStaleReloadPostProcessPairs(allEvents);

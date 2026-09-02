@@ -8,6 +8,12 @@ const accountSelectorTestIDValues = require(
     'packages/kit/src/components/AccountSelector/testIDValues.json',
   ),
 );
+const accountSelectorMirrorInspectorTestIDValues = require(
+  path.join(
+    repoRoot,
+    'packages/kit/src/components/AccountSelector/AccountSelectorMirrorInspectorTestIDValues.json',
+  ),
+);
 const accountManagerTestIDValues = require(
   path.join(
     repoRoot,
@@ -39,6 +45,15 @@ const {
   ...accountSelectorStaticTestIDs
 } = accountSelectorTestIDValues;
 const {
+  copyAddressPrefix: mirrorInspectorCopyAddressPrefix,
+  findingsPrefix: mirrorInspectorFindingsPrefix,
+  findingsTogglePrefix: mirrorInspectorFindingsTogglePrefix,
+  instancePrefix: mirrorInspectorInstancePrefix,
+  revealAddressPrefix: mirrorInspectorRevealAddressPrefix,
+  slotPrefix: mirrorInspectorSlotPrefix,
+  ...mirrorInspectorStaticTestIDs
+} = accountSelectorMirrorInspectorTestIDValues;
+const {
   accountEditButtonPrefix,
   accountItemPrefix,
   exportMnemonicKeyPrefix,
@@ -51,10 +66,28 @@ const {
 
 const AccountSelectorTestIDs = Object.freeze({
   ...accountSelectorStaticTestIDs,
+  mirrorInspectorClose: mirrorInspectorStaticTestIDs.close,
+  mirrorInspectorList: mirrorInspectorStaticTestIDs.list,
+  mirrorInspectorRoot: mirrorInspectorStaticTestIDs.root,
+  mirrorInspectorSettingsSwitch: mirrorInspectorStaticTestIDs.settingsSwitch,
+  mirrorInspectorSummary: mirrorInspectorStaticTestIDs.summary,
+  mirrorInspectorToggle: mirrorInspectorStaticTestIDs.toggle,
   addressTypeSelectorItem: (deriveType) =>
     `${addressTypeSelectorItemPrefix}${deriveType}`,
   deriveTypeSelectorTrigger: (pathTemplate) =>
     `${deriveTypeSelectorTriggerPrefix}${pathTemplate}`,
+  mirrorInspectorCopyAddress: (instanceId, num) =>
+    `${mirrorInspectorCopyAddressPrefix}${instanceId}-${num}`,
+  mirrorInspectorFindings: (instanceId, num) =>
+    `${mirrorInspectorFindingsPrefix}${instanceId}-${num}`,
+  mirrorInspectorFindingsToggle: (instanceId, num) =>
+    `${mirrorInspectorFindingsTogglePrefix}${instanceId}-${num}`,
+  mirrorInspectorInstance: (instanceId) =>
+    `${mirrorInspectorInstancePrefix}${instanceId}`,
+  mirrorInspectorRevealAddress: (instanceId, num) =>
+    `${mirrorInspectorRevealAddressPrefix}${instanceId}-${num}`,
+  mirrorInspectorSlot: (instanceId, num) =>
+    `${mirrorInspectorSlotPrefix}${instanceId}-${num}`,
 });
 const AccountManagerTestIDs = Object.freeze({
   ...accountManagerStaticTestIDs,
