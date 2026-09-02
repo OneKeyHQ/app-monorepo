@@ -442,26 +442,34 @@ public class BaseMainApplication extends Application implements ReactApplication
     // page never blocks React Native from starting during test runs.
     boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
 
-    // Read-only here. MainApplication never increments — that's MainActivity's
+    // Read-only here. MainApplication never increments — that's MainLauncherActivity's
     // job (`recordBootAttempt`). System-initiated process launches (JPush
     // wakeups, foreground-service callbacks, broadcast receivers, post-
-    // download relaunches) run Application.onCreate but NOT MainActivity,
+    // download relaunches) run Application.onCreate but NOT MainLauncherActivity,
     // so the counter stays untouched and bg-launches don't count as failures.
     //
     // No +1 prediction either: predicting `(windowed + 1) >= threshold` would
     // skip RN/JPush init on bg-launches when the previous user-launches were
     // already approaching the threshold, silently dropping the wakeup. We
-    // take the small cost of running RN init on the strike that triggers
-    // recovery — MainActivity re-evaluates post-increment and launches
-    // RecoveryActivity itself.
+    // take the small cost of Application initialization on the strike that
+    // triggers recovery. MainLauncherActivity records the user launch and
+    // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
     shouldShowRecovery = !isHarnessMode
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
-    // SoLoader and new architecture entry point must be initialized before
-    // the recovery early-return because MainActivity extends ReactActivity,
-    // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
-    // TurboModules initialization. Without these, recovery mode itself crashes.
+    OneKeyLog.info(
+      "BootRecovery",
+      "boot_fail_count(activity.windowed): " + windowedFailures
+        + ", shouldShowRecovery: " + shouldShowRecovery
+    );
+
+    if (shouldShowRecovery) {
+        // MainLauncherActivity and RecoveryActivity are plain native activities.
+        // Keep the recovery path independent from React Native initialization.
+        return;
+    }
+
     long tBeforeSoLoader = System.currentTimeMillis();
     try {
         SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
@@ -481,19 +489,6 @@ public class BaseMainApplication extends Application implements ReactApplication
       "StartupTiming",
       "android.app.new_arch_load: " + (tAfterNewArch - tAfterSoLoader) + "ms (+" + (tAfterNewArch - appLaunchMs) + "ms from launch)"
     );
-
-    OneKeyLog.info(
-      "BootRecovery",
-      "boot_fail_count(activity.windowed): " + windowedFailures
-        + ", shouldShowRecovery: " + shouldShowRecovery
-    );
-
-    if (shouldShowRecovery) {
-        // Skip heavy initialization (React Native, Expo, JPush).
-        // RecoveryActivity is a plain Android Activity and doesn't need them.
-        // This prevents crashes in RN initialization from blocking recovery.
-        return;
-    }
 
     configureBuildVariantRuntime();
 

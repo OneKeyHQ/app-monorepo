@@ -29,35 +29,20 @@ import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
 
 public class MainActivity extends ReactActivity {
+  private static boolean hasCreatedInstance;
+
+  static boolean hasCreatedInstance() {
+    return hasCreatedInstance;
+  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    hasCreatedInstance = true;
     long tActivityStart = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",
       "android.activity.on_create.start: +" + (tActivityStart - MainApplication.appLaunchMs) + "ms from launch"
     );
-    // Record this MainActivity.onCreate attempt and get the post-write
-    // time-windowed count back. The increment lives HERE (not in
-    // MainApplication.onCreate) so system-initiated process launches —
-    // JPush wakeups, foreground-service callbacks, broadcast receivers,
-    // post-download relaunches — that run Application.onCreate but never
-    // bring up the UI don't ratchet the counter.
-    //
-    // Placed before super.onCreate(null) so that crashes during ReactActivity
-    // / Fabric / TurboModule init still accumulate toward recovery — the
-    // whole point of this counter is to catch RN init crash-loops.
-    //
-    // Reset paths (all live outside this file): MainActivity.onStop on
-    // graceful background, RecoveryActivity after the user resolves
-    // recovery, JS-side 5s `markBootSuccess` timer in Bootstrap.tsx via
-    // the Nitro module.
-    int windowedFailures = BootRecoveryStore.recordBootAttempt(
-      getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE)
-    );
-    boolean shouldEnterRecovery = MainApplication.shouldShowRecovery
-      || windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
-
     // Install AndroidX SplashScreen before super.onCreate() to fix MIUI/HyperOS crashes
     // where system's replaceUmiTheme method fails with NullPointerException
     // Added defensive error handling for OPPO and other vendor-specific crashes
@@ -89,10 +74,8 @@ public class MainActivity extends ReactActivity {
         // If AndroidX splash screen fails, we'll rely on the Expo splash screen as fallback
       }
     }
-    if (!shouldEnterRecovery) {
-      ((MainApplication) getApplication())
-        .startBackgroundThreadIfNeeded("main_activity_pre_super");
-    }
+    ((MainApplication) getApplication())
+      .startBackgroundThreadIfNeeded("main_activity_pre_super");
 
     long tBeforeSuper = System.currentTimeMillis();
     super.onCreate(null);
@@ -101,17 +84,6 @@ public class MainActivity extends ReactActivity {
       "StartupTiming",
       "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
     );
-
-    // Re-evaluate recovery here using the post-increment windowed count.
-    // MainApplication only saw the pre-increment value (it doesn't increment),
-    // so when the third user-launch in the 10-minute window finally crosses
-    // the threshold, MainApplication.shouldShowRecovery is still false on
-    // this launch and we have to route to recovery ourselves.
-    if (shouldEnterRecovery) {
-        startActivity(new Intent(this, RecoveryActivity.class));
-        finish();
-        return;
-    }
 
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -169,6 +141,12 @@ public class MainActivity extends ReactActivity {
           .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
           .commit();
     }
+  }
+
+  @Override
+  protected void onDestroy() {
+    hasCreatedInstance = false;
+    super.onDestroy();
   }
 
   @Override

@@ -504,6 +504,88 @@ describe('native-dev-shell', () => {
     ]);
   });
 
+  it('routes Android recovery before constructing the React activity', () => {
+    const androidRoot = path.join(__dirname, '../../android/app/src/main');
+    const launcherActivity = fs.readFileSync(
+      path.join(
+        androidRoot,
+        'java/so/onekey/app/wallet/MainLauncherActivity.java',
+      ),
+      'utf8',
+    );
+    const mainActivity = fs.readFileSync(
+      path.join(androidRoot, 'java/so/onekey/app/wallet/MainActivity.java'),
+      'utf8',
+    );
+    const mainApplication = fs.readFileSync(
+      path.join(
+        androidRoot,
+        'java/so/onekey/app/wallet/BaseMainApplication.java',
+      ),
+      'utf8',
+    );
+    const manifest = fs.readFileSync(
+      path.join(androidRoot, 'AndroidManifest.xml'),
+      'utf8',
+    );
+    const nativeDevShell = fs.readFileSync(
+      path.join(__dirname, '../native-dev-shell.js'),
+      'utf8',
+    );
+
+    expect(launcherActivity).toContain(
+      'class MainLauncherActivity extends Activity',
+    );
+    expect(launcherActivity).not.toContain('ReactActivity');
+    expect(launcherActivity).toContain(
+      'if (!MainActivity.hasCreatedInstance()) {',
+    );
+    expect(
+      launcherActivity.indexOf('BootRecoveryStore.recordBootAttempt('),
+    ).toBeLessThan(
+      launcherActivity.indexOf(
+        'startActivity(new Intent(this, RecoveryActivity.class));',
+      ),
+    );
+    expect(
+      launcherActivity.indexOf(
+        'startActivity(new Intent(this, RecoveryActivity.class));',
+      ),
+    ).toBeLessThan(launcherActivity.indexOf('MainActivity.class'));
+    expect(launcherActivity).toContain('new Intent(getIntent())');
+    expect(mainActivity).not.toContain('BootRecoveryStore.recordBootAttempt(');
+    expect(mainActivity).not.toContain('RecoveryActivity.class');
+    expect(mainActivity).toContain('hasCreatedInstance = true;');
+    expect(mainActivity).toContain('hasCreatedInstance = false;');
+    expect(mainApplication.indexOf('if (shouldShowRecovery) {')).toBeLessThan(
+      mainApplication.indexOf('SoLoader.init('),
+    );
+
+    const launcherManifestStart = manifest.indexOf(
+      '<activity android:name=".MainLauncherActivity"',
+    );
+    const launcherManifestEnd = manifest.indexOf(
+      '</activity>',
+      launcherManifestStart,
+    );
+    const launcherManifest = manifest.slice(
+      launcherManifestStart,
+      launcherManifestEnd,
+    );
+    expect(launcherManifest).toContain('android:exported="true"');
+    expect(launcherManifest).toContain('android.intent.action.MAIN');
+    expect(launcherManifest).toContain('android.intent.action.VIEW');
+    expect(manifest).toContain(
+      '<activity android:name=".MainActivity" android:label="@string/app_name"',
+    );
+    expect(manifest).toContain(
+      'android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />',
+    );
+    expect(nativeDevShell).toContain(
+      'so.onekey.app.wallet/.MainLauncherActivity',
+    );
+  });
+
   it('keeps Android reverse ownership inside the device lock lifetime', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '../native-dev-shell.js'),

@@ -1356,7 +1356,7 @@ function launchNativeApp(
       'start',
       '-S',
       '-n',
-      'so.onekey.app.wallet/.MainActivity',
+      'so.onekey.app.wallet/.MainLauncherActivity',
     ]);
     return {};
   }
