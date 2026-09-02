@@ -133,10 +133,6 @@ jest.mock('../hooks/useTokenDetail', () => ({
   })),
 }));
 
-jest.mock('../utils/fetchCoinGeckoKLineFallback', () => ({
-  buildCoinGeckoKLineFallback: jest.fn(),
-}));
-
 jest.mock('../utils/getMarketDetailTradingViewNativeSource', () => ({
   getMarketDetailTradingViewNativeSource: jest.fn(() => ({ kind: 'token' })),
 }));

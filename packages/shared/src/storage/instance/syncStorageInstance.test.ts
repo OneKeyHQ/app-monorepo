@@ -10,7 +10,11 @@ import { createMMKV } from 'react-native-mmkv';
 // vacuously passing.
 jest.mock('../../platformEnv', () => ({
   __esModule: true,
-  default: { isExtensionBackgroundServiceWorker: false, isNative: true },
+  default: {
+    isExtensionBackgroundServiceWorker: false,
+    isNative: true,
+    isNativeBackgroundThread: true,
+  },
 }));
 
 // Mock resetUtils
@@ -48,31 +52,31 @@ describe('createMMKVSyncStorage', () => {
   describe('safe set — null/undefined guard', () => {
     it('set(key, string) writes normally', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('testKey' as any, 'hello');
+      void store.set('testKey' as any, 'hello');
       expect(testMMKV.getString('testKey')).toBe('hello');
     });
 
     it('set(key, number) writes normally', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('testKey' as any, 42);
+      void store.set('testKey' as any, 42);
       expect(testMMKV.getNumber('testKey')).toBe(42);
     });
 
     it('set(key, boolean) writes normally', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('testKey' as any, true);
+      void store.set('testKey' as any, true);
       expect(testMMKV.getBoolean('testKey')).toBe(true);
     });
 
     it('set(key, undefined) writes empty string instead of crashing', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('testKey' as any, undefined as any);
+      void store.set('testKey' as any, undefined as any);
       expect(testMMKV.getString('testKey')).toBe('');
     });
 
     it('set(key, null) writes empty string instead of crashing', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('testKey' as any, null as any);
+      void store.set('testKey' as any, null as any);
       expect(testMMKV.getString('testKey')).toBe('');
     });
   });
@@ -80,7 +84,7 @@ describe('createMMKVSyncStorage', () => {
   describe('setObject', () => {
     it('writes JSON-serialized object', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.setObject('testKey' as any, { a: 1, b: 'two' });
+      void store.setObject('testKey' as any, { a: 1, b: 'two' });
       expect(testMMKV.getString('testKey')).toBe('{"a":1,"b":"two"}');
     });
 
@@ -115,7 +119,7 @@ describe('createMMKVSyncStorage', () => {
     it('delete removes key', () => {
       testMMKV.set('a', 'val');
       const store = createMMKVSyncStorage(testMMKV);
-      store.delete('a' as any);
+      void store.delete('a' as any);
       expect(testMMKV.getString('a')).toBeUndefined();
     });
 
@@ -123,7 +127,7 @@ describe('createMMKVSyncStorage', () => {
       testMMKV.set('a', '1');
       testMMKV.set('b', '2');
       const store = createMMKVSyncStorage(testMMKV);
-      store.clearAll();
+      void store.clearAll();
       expect(testMMKV.getAllKeys()).toEqual([]);
     });
 
@@ -138,19 +142,19 @@ describe('createMMKVSyncStorage', () => {
   describe('checkResetting option', () => {
     it('calls resetUtils.checkNotInResetting when enabled', () => {
       const store = createMMKVSyncStorage(testMMKV, { checkResetting: true });
-      store.set('k' as any, 'v');
+      void store.set('k' as any, 'v');
       expect(mockCheckNotInResetting).toHaveBeenCalled();
     });
 
     it('does not call resetUtils when disabled', () => {
       const store = createMMKVSyncStorage(testMMKV);
-      store.set('k' as any, 'v');
+      void store.set('k' as any, 'v');
       expect(mockCheckNotInResetting).not.toHaveBeenCalled();
     });
 
     it('checkResetting also applies to setObject', () => {
       const store = createMMKVSyncStorage(testMMKV, { checkResetting: true });
-      store.setObject('k' as any, { a: 1 });
+      void store.setObject('k' as any, { a: 1 });
       expect(mockCheckNotInResetting).toHaveBeenCalled();
     });
   });
@@ -158,7 +162,7 @@ describe('createMMKVSyncStorage', () => {
 
 describe('syncStorage export', () => {
   it('has checkResetting enabled', () => {
-    syncStorage.set('test' as any, 'val');
+    void syncStorage.set('test' as any, 'val');
     expect(mockCheckNotInResetting).toHaveBeenCalled();
   });
 });
@@ -166,7 +170,7 @@ describe('syncStorage export', () => {
 describe('coldStartCacheStorage export', () => {
   it('does not have checkResetting', () => {
     mockCheckNotInResetting.mockClear();
-    coldStartCacheStorage.set('test' as any, 'val');
+    void coldStartCacheStorage.set('test' as any, 'val');
     expect(mockCheckNotInResetting).not.toHaveBeenCalled();
   });
 });

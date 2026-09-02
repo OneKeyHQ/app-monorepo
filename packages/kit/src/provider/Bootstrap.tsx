@@ -845,14 +845,16 @@ export function Bootstrap() {
     if (!platformEnv.isNative) {
       return;
     }
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
-      !!devSettings.enabled,
-    );
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-      networkThrottleEnabled,
-    );
+    void Promise.all([
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+        !!devSettings.enabled,
+      ),
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+        networkThrottleEnabled,
+      ),
+    ]).catch(() => undefined);
     void nativeNetworkThrottle
       .setNetworkThrottle({
         enabled: networkThrottleEnabled,
@@ -1027,24 +1029,6 @@ export function Bootstrap() {
   }, []);
 
   useLogVersionInfo();
-
-  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
-  useEffect(() => {
-    if (!platformEnv.isNative) return;
-    const checkRecoveryFlag = async () => {
-      try {
-        const action = await BootRecovery.getAndClearRecoveryAction();
-        if (action) {
-          defaultLogger.app.error.log(
-            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
-          );
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-    void checkRecoveryFlag();
-  }, []);
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();

@@ -160,7 +160,6 @@ function TxFeeInfo(props: IProps) {
     transferPayload,
     gasAccountScenario,
   } = props;
-  const isPrivateSendTransfer = transferPayload?.isPrivateSend === true;
   const gasAccountDisabledByScenario =
     isGasAccountDisabledScenario(gasAccountScenario);
   const intl = useIntl();
@@ -580,21 +579,19 @@ function TxFeeInfo(props: IProps) {
         // show "0 network fee" / sponsor badge while the actual broadcast
         // falls back to user-paid.
         const sponsorDisabledForBatch = isMultiTxs;
-        // Private Send supports Gas Account sponsorship (OK-59993, admitted
-        // by the backend via scenario='privateSend'), but megafuel stays
-        // disabled for it: megafuel is an independent BNB-chain sponsor with
-        // no Private Send contract on the backend side.
-        const megafuelDisabledForPrivateSend = isPrivateSendTransfer;
+        // Private Send is treated exactly like a normal send for sponsorship:
+        // its deposit tx is an ordinary transfer broadcast through the same
+        // send-transaction endpoint, so both megafuel (eligibility returned
+        // by the estimate for this very tx) and Gas Account (admitted by the
+        // backend via scenario='privateSend', OK-59993) apply as-is.
+        //
         // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'`, even when a
         // frontend scenario disables Gas Account.
         //
         // Display payer and submit wiring are derived together from the
-        // post-filtered sponsor state so they cannot drift: when megafuel is
-        // suppressed for Private Send, a server `payer='megafuel'` preference
-        // falls through to an eligible gas account quote instead of silently
-        // degrading to user-paid.
+        // post-filtered sponsor state so they cannot drift.
         const serverPayer: IGasPayer = r.payer ?? 'user';
         const {
           effectiveFeePayer: nextEffectiveFeePayer,
@@ -609,7 +606,6 @@ function TxFeeInfo(props: IProps) {
           isCustomRpcEnabled,
           sponsorDisabledForBatch,
           sponsorDisabledForExternalAccount: isExternalAccount,
-          megafuelDisabledForPrivateSend,
           gasAccountDisabledByScenario,
           gasAccountTemporarilyDisabled,
         });
@@ -623,7 +619,6 @@ function TxFeeInfo(props: IProps) {
         if (
           r.megafuelEligible &&
           !sponsorDisabledForBatch &&
-          !megafuelDisabledForPrivateSend &&
           !isExternalAccount
         ) {
           // if custom rpc is enabled, disable megafuel eligible
@@ -641,11 +636,7 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (
-            sponsorDisabledForBatch ||
-            megafuelDisabledForPrivateSend ||
-            isExternalAccount
-          ) {
+          if (sponsorDisabledForBatch || isExternalAccount) {
             // Megafuel zeroes `gasPrice` in the estimate (real price kept in
             // `originalGasPrice`); restore it so the regular fee UI and the
             // native-balance precheck operate on the real fee.
@@ -923,7 +914,6 @@ function TxFeeInfo(props: IProps) {
       isSecondApproveTxWithFeeInfo,
       isSingleTxWithFeesInfo,
       feeInfoEditable,
-      isPrivateSendTransfer,
       network?.isTestnet,
       networkId,
       unsignedTxs,
