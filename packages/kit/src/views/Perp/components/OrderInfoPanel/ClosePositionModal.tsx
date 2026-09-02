@@ -15,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -135,6 +136,7 @@ const ClosePositionForm = memo(
     }, []);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submittingRef = useRef(false);
 
     const calculatedAmount = useMemo(() => {
       const percentage = Number.isNaN(formData.percentage)
@@ -235,6 +237,12 @@ const ClosePositionForm = memo(
     }, []);
 
     const handleSubmit = useCallback(async () => {
+      // The disabled state lands one render late, so same-frame double taps
+      // would otherwise send a second reduce-only order for the full size.
+      if (submittingRef.current) {
+        return;
+      }
+      submittingRef.current = true;
       try {
         if (isNil(assetId) || Number.isNaN(assetId)) {
           return;
@@ -294,6 +302,7 @@ const ClosePositionForm = memo(
           onClose();
         }
       } finally {
+        submittingRef.current = false;
         if (isMountedRef.current) {
           setIsSubmitting(false);
         }
@@ -531,16 +540,36 @@ const ClosePositionForm = memo(
 
 ClosePositionForm.displayName = 'ClosePositionForm';
 
+// Dialog.show mounts its portal asynchronously, so isExist() reports false
+// during the first frames; the grace window covers same-frame double taps.
+const CLOSE_DIALOG_MOUNT_GRACE_MS = 1000;
+let activeCloseDialog: IDialogInstance | undefined;
+let activeCloseDialogShownAt = 0;
+
 export function showClosePositionDialog({
   position,
   type,
   intl,
 }: IClosePositionParams & { intl: IntlShape }) {
+  // Rapid taps would stack dialogs, each holding its own position snapshot,
+  // so only one close dialog is kept alive at a time.
+  if (
+    activeCloseDialog &&
+    (activeCloseDialog.isExist() ||
+      Date.now() - activeCloseDialogShownAt < CLOSE_DIALOG_MOUNT_GRACE_MS)
+  ) {
+    return activeCloseDialog;
+  }
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.perp_close_position_title,
     }),
     disableDrag: true,
+    onClose: () => {
+      if (activeCloseDialog === dialogInstance) {
+        activeCloseDialog = undefined;
+      }
+    },
     renderContent: (
       <PerpsProviderMirror>
         <ClosePositionForm
@@ -553,6 +582,8 @@ export function showClosePositionDialog({
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
   });
+  activeCloseDialog = dialogInstance;
+  activeCloseDialogShownAt = Date.now();
 
   return dialogInstance;
 }
