@@ -14,6 +14,7 @@ const mockStockSimpleChart = jest.fn(
 );
 
 jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
@@ -64,6 +65,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     { mode: 'simple' },
     mockSetChartDisplayMode,
   ],
+}));
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
 }));
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
@@ -125,12 +131,21 @@ jest.mock('./components/StockNewsSection', () => ({
   StockNewsSection: () => null,
 }));
 
-jest.mock('../components/StockSimpleChart', () => ({
-  StockSimpleChart: (props: { priceMode: 'share' | 'token'; range: string }) =>
-    mockStockSimpleChart(props),
-  STOCK_SHARE_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
-  TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
-}));
+jest.mock('../components/StockSimpleChart', () => {
+  const { STOCK_SHARE_SIMPLE_CHART_RANGES, TOKEN_SIMPLE_CHART_RANGES } =
+    jest.requireActual<
+      typeof import('../components/StockSimpleChart/stockSimpleChartData')
+    >('../components/StockSimpleChart/stockSimpleChartData');
+
+  return {
+    StockSimpleChart: (props: {
+      priceMode: 'share' | 'token';
+      range: string;
+    }) => mockStockSimpleChart(props),
+    STOCK_SHARE_SIMPLE_CHART_RANGES,
+    TOKEN_SIMPLE_CHART_RANGES,
+  };
+});
 
 jest.mock('./components/MarketDetailProChartControls', () => ({
   MarketDetailProChartControls: ({ children }: { children?: ReactNode }) => (
