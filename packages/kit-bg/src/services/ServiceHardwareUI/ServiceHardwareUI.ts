@@ -131,6 +131,13 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleUnsupported,
 ];
 
+/** Stands in for the confirm payload in logs: its rows carry signature
+ * plaintext (personal-sign text, typed-data JSON, transfer amounts), which
+ * must never reach a log line — only whether a payload was registered. */
+const DEVICE_STAGE_CONFIRM_CONTENT_REDACTED: IDeviceStageConfirmContent = {
+  description: '[stageConfirmContent redacted]',
+};
+
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
   private deviceCacheByConnectId: Map<string, IDBDevice> = new Map();
@@ -1246,9 +1253,18 @@ class ServiceHardwareUI extends ServiceBase {
   ): Promise<T> {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
     clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
+    // Every log sink below prints this copy instead of params: the real
+    // stageConfirmContent stays untouched because it is the only channel
+    // feeding deviceStageBurst.begin({ confirmContent }).
+    const paramsForLog: IWithHardwareProcessingOptions = {
+      ...params,
+      stageConfirmContent: params.stageConfirmContent
+        ? DEVICE_STAGE_CONFIRM_CONTENT_REDACTED
+        : undefined,
+    };
     console.log(
       `withHardwareProcessing START: processingNestedNum=${this.processingNestedNum}`,
-      params,
+      paramsForLog,
     );
     const {
       deviceParams,
@@ -1281,7 +1297,7 @@ class ServiceHardwareUI extends ServiceBase {
 
       defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
       defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
-        params,
+        paramsForLog,
       );
 
       if (connectId) {
