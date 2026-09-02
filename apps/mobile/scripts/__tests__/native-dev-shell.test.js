@@ -11,6 +11,7 @@ const {
   acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  assertTargetDeviceArchitecture,
   configureDeviceMetro,
   createRenewedDevSession,
   createSessionId,
@@ -211,6 +212,68 @@ describe('native-dev-shell', () => {
         }),
       ),
     ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+  });
+
+  it('accepts only targets that can run the published shell architecture', () => {
+    const androidOutput = jest.fn(() => 'arm64-v8a,armeabi-v7a');
+    expect(() =>
+      assertTargetDeviceArchitecture({
+        deviceId: 'physical-device-1',
+        platform: 'android',
+        runForOutputCommand: androidOutput,
+      }),
+    ).not.toThrow();
+    expect(androidOutput).toHaveBeenCalledWith('adb', [
+      '-s',
+      'physical-device-1',
+      'shell',
+      'getprop',
+      'ro.product.cpu.abilist',
+    ]);
+
+    const iosOutput = jest.fn(() => 'arm64');
+    expect(() =>
+      assertTargetDeviceArchitecture({
+        deviceId: 'SIMULATOR-A',
+        platform: 'ios',
+        runForOutputCommand: iosOutput,
+      }),
+    ).not.toThrow();
+    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
+      'simctl',
+      'spawn',
+      'SIMULATOR-A',
+      'uname',
+      '-m',
+    ]);
+  });
+
+  it('rejects x86 targets before shell preparation', () => {
+    expect(() =>
+      assertTargetDeviceArchitecture({
+        deviceId: 'emulator-5554',
+        platform: 'android',
+        runForOutputCommand: () => 'x86_64,x86',
+      }),
+    ).toThrow('cannot run the arm64-v8a development shell');
+    expect(() =>
+      assertTargetDeviceArchitecture({
+        deviceId: 'SIMULATOR-X86',
+        platform: 'ios',
+        runForOutputCommand: () => 'x86_64',
+      }),
+    ).toThrow('cannot run the arm64 development shell');
+
+    const source = fs.readFileSync(
+      path.join(__dirname, '../native-dev-shell.js'),
+      'utf8',
+    );
+    const launchSource = source.slice(
+      source.indexOf('async function launchDevShell('),
+    );
+    expect(
+      launchSource.indexOf('assertTargetDeviceArchitecture({'),
+    ).toBeLessThan(launchSource.indexOf('acquireNamedLock({'));
   });
 
   it('uses device-scoped adb reverse only for a physical Android default route', () => {

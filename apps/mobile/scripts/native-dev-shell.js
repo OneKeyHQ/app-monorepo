@@ -882,6 +882,41 @@ function resolveTargetDevice({ platform, requestedDevice }) {
   return selectTargetDevice({ candidates, platform, requestedDevice });
 }
 
+function assertTargetDeviceArchitecture({
+  deviceId,
+  platform,
+  runForOutputCommand = runForOutput,
+}) {
+  const targetPlatform = assertPlatform(platform);
+  const requiredArchitecture = getPlatformArtifact(targetPlatform).architecture;
+  const reportedArchitectures =
+    targetPlatform === 'android'
+      ? runForOutputCommand('adb', [
+          '-s',
+          deviceId,
+          'shell',
+          'getprop',
+          'ro.product.cpu.abilist',
+        ])
+          .split(',')
+          .map((architecture) => architecture.trim())
+          .filter(Boolean)
+      : [
+          runForOutputCommand('xcrun', [
+            'simctl',
+            'spawn',
+            deviceId,
+            'uname',
+            '-m',
+          ]).trim(),
+        ].filter(Boolean);
+  if (!reportedArchitectures.includes(requiredArchitecture)) {
+    throw new Error(
+      `[nativeDevShell] ${targetPlatform} target ${deviceId} cannot run the ${requiredArchitecture} development shell; reported architectures: ${reportedArchitectures.join(', ') || 'none'}.`,
+    );
+  }
+}
+
 function isProcessAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -1828,6 +1863,10 @@ async function launchDevShell({
     platform,
     requestedDevice: device,
   });
+  assertTargetDeviceArchitecture({
+    deviceId: selectedDevice.id,
+    platform,
+  });
   const sessionId = createSessionId({ deviceId: selectedDevice.id });
   const deviceLock = acquireNamedLock({
     key: `${platform}\0${selectedDevice.id}\0${platform === 'android' ? ANDROID_APPLICATION_ID : IOS_BUNDLE_ID}`,
@@ -2025,6 +2064,7 @@ module.exports = {
   acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  assertTargetDeviceArchitecture,
   configureDeviceMetro,
   createRenewedDevSession,
   createSessionId,

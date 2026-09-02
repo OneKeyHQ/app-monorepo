@@ -27,6 +27,10 @@ If more than one target is available, do not guess. Resolve the requested UDID
 or serial and rerun with `--device <serial-or-UDID>`. The launcher accepts one
 available target without an explicit device argument.
 
+The target must support the published shell architecture: `arm64` for an iOS
+Simulator or `arm64-v8a` for Android. The launcher rejects unsupported targets
+before restoring, building, or installing a shell.
+
 Keep the default `--shell auto --vendor auto` behavior. It restores trusted
 remote resources when compatible and performs the supported local fallback when
 needed. Use `--shell local`, `--shell remote`, `--vendor local`, or a vendor tag
