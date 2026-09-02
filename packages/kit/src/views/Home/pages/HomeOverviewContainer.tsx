@@ -60,7 +60,10 @@ import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
-import { resolveHomeOverviewBalanceHold } from './homeOverviewBalanceHold';
+import {
+  resolveHomeOverviewBalanceHold,
+  shouldIncludeKnownDeFiWorth,
+} from './homeOverviewBalanceHold';
 
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
@@ -662,6 +665,15 @@ function HomeOverviewContainer() {
     overviewDeFiDataState.ownerKey,
   ]);
 
+  // Set by the bounded All Networks hold below (resolveHomeOverviewBalanceHold).
+  const [deFiGraceExpired, setDeFiGraceExpired] = useState(false);
+  const isDeFiOverviewOwnerMatched =
+    !!currentOverviewOwnerKey &&
+    buildOverviewOwnerKey(
+      accountDeFiOverview.accountId,
+      accountDeFiOverview.networkId,
+    ) === currentOverviewOwnerKey;
+
   // Returns a USD-basis string. DeFi data arrives in display currency from
   // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
@@ -693,10 +705,14 @@ function HomeOverviewContainer() {
       currencyMap,
     });
 
-    const deFiWorthRaw =
-      !isAllNetworks || isCurrentAccountDeFiReady
-        ? (accountDeFiOverview.netWorth ?? 0)
-        : 0;
+    const deFiWorthRaw = shouldIncludeKnownDeFiWorth({
+      isAllNetworks,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      deFiGraceExpired,
+      isDeFiOverviewOwnerMatched,
+    })
+      ? (accountDeFiOverview.netWorth ?? 0)
+      : 0;
     const deFiWorthUsd = convertFiat({
       value: deFiWorthRaw,
       sourceCurrency: accountDeFiOverview.currency || settings.currencyInfo.id,
@@ -716,8 +732,10 @@ function HomeOverviewContainer() {
     accountDeFiOverview.netWorth,
     accountDeFiOverview.currency,
     currencyMap,
+    deFiGraceExpired,
     isCurrentAccountDeFiReady,
     isCurrentAccountWorthReady,
+    isDeFiOverviewOwnerMatched,
     isPerpsEnabled,
     network?.isAllNetworks,
     perpsNetWorthUsd,
@@ -832,7 +850,6 @@ function HomeOverviewContainer() {
   // DeFi readiness only arrives through the cache-only DeFi hook, and when
   // that hook does not run the header must not stay pinned to a stale
   // persisted total for the whole session (see resolveHomeOverviewBalanceHold).
-  const [deFiGraceExpired, setDeFiGraceExpired] = useState(false);
   const { shouldHold: shouldHoldCurrentConfirmedBalance, shouldArmDeFiGrace } =
     resolveHomeOverviewBalanceHold({
       isAllNetworks: !!network?.isAllNetworks,

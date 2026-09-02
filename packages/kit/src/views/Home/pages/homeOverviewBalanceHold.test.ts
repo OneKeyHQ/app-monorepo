@@ -1,4 +1,7 @@
-import { resolveHomeOverviewBalanceHold } from './homeOverviewBalanceHold';
+import {
+  resolveHomeOverviewBalanceHold,
+  shouldIncludeKnownDeFiWorth,
+} from './homeOverviewBalanceHold';
 
 /*
 yarn jest packages/kit/src/views/Home/pages/homeOverviewBalanceHold.test.ts
@@ -89,5 +92,48 @@ describe('resolveHomeOverviewBalanceHold', () => {
         deFiGraceExpired: true,
       }),
     ).toEqual({ shouldHold: false, shouldArmDeFiGrace: false });
+  });
+});
+
+describe('shouldIncludeKnownDeFiWorth', () => {
+  const worthBase = {
+    isAllNetworks: true,
+    isDeFiReady: false,
+    deFiGraceExpired: false,
+    isDeFiOverviewOwnerMatched: true,
+  };
+
+  it('always includes DeFi outside All Networks', () => {
+    expect(
+      shouldIncludeKnownDeFiWorth({ ...worthBase, isAllNetworks: false }),
+    ).toBe(true);
+  });
+
+  it('includes DeFi once it reported for this owner', () => {
+    expect(
+      shouldIncludeKnownDeFiWorth({ ...worthBase, isDeFiReady: true }),
+    ).toBe(true);
+  });
+
+  it('excludes DeFi while the hold is still waiting for it', () => {
+    expect(shouldIncludeKnownDeFiWorth(worthBase)).toBe(false);
+  });
+
+  it('keeps the last same-owner DeFi value after the grace released the hold', () => {
+    // A warm refresh never clears the overview atom; zeroing it here would
+    // drop the header by the whole DeFi position until DeFi reports again.
+    expect(
+      shouldIncludeKnownDeFiWorth({ ...worthBase, deFiGraceExpired: true }),
+    ).toBe(true);
+  });
+
+  it("never borrows another owner's DeFi value after the grace released", () => {
+    expect(
+      shouldIncludeKnownDeFiWorth({
+        ...worthBase,
+        deFiGraceExpired: true,
+        isDeFiOverviewOwnerMatched: false,
+      }),
+    ).toBe(false);
   });
 });

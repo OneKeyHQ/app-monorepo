@@ -72,3 +72,29 @@ export function resolveHomeOverviewBalanceHold({
     shouldArmDeFiGrace,
   };
 }
+
+/**
+ * Whether the header total may include the DeFi value currently held in the
+ * overview atom. Readiness only says the DeFi hook reported for this owner
+ * this session. Once the grace has released the hold without it, the last
+ * value written for the SAME owner is still the best-known DeFi total — the
+ * warm token refresh never clears it — and zeroing it would make the header
+ * drop by the whole DeFi position until DeFi reports again.
+ */
+export function shouldIncludeKnownDeFiWorth({
+  isAllNetworks,
+  isDeFiReady,
+  deFiGraceExpired,
+  isDeFiOverviewOwnerMatched,
+}: {
+  isAllNetworks: boolean;
+  isDeFiReady: boolean;
+  deFiGraceExpired: boolean;
+  /** The overview atom is stamped with the current owner. */
+  isDeFiOverviewOwnerMatched: boolean;
+}): boolean {
+  if (!isAllNetworks || isDeFiReady) {
+    return true;
+  }
+  return deFiGraceExpired && isDeFiOverviewOwnerMatched;
+}
