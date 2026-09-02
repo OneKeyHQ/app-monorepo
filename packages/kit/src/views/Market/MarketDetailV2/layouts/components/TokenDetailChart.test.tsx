@@ -4,11 +4,9 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
-import type { IMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
 import { TokenDetailChart } from './TokenDetailChart';
 
-const mockSetMarketSelectedTab = jest.fn();
+const mockSetChartDisplayMode = jest.fn();
 const mockStockSimpleChart = jest.fn(() => (
   <div data-testid="market-token-simple-chart" />
 ));
@@ -51,9 +49,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketSelectedTabAtom: () => [
-    { tab: 'trending', chartDisplayMode: mockChartDisplayMode },
-    mockSetMarketSelectedTab,
+  useMarketDetailChartDisplayModePersistAtom: () => [
+    { mode: mockChartDisplayMode },
+    mockSetChartDisplayMode,
   ],
 }));
 
@@ -83,7 +81,7 @@ function renderTokenDetailChart() {
 describe('TokenDetailChart', () => {
   beforeEach(() => {
     mockChartDisplayMode = 'simple';
-    mockSetMarketSelectedTab.mockReset();
+    mockSetChartDisplayMode.mockReset();
     mockStockSimpleChart.mockClear();
   });
 
@@ -104,13 +102,7 @@ describe('TokenDetailChart', () => {
 
     fireEvent.click(view.getByTestId('market-token-chart-mode-pro'));
 
-    const update = mockSetMarketSelectedTab.mock.calls[0][0] as (
-      prev: IMarketSelectedTabAtom,
-    ) => IMarketSelectedTabAtom;
-    expect(update({ tab: 'watchlist' })).toEqual({
-      tab: 'watchlist',
-      chartDisplayMode: 'pro',
-    });
+    expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'pro' });
   });
 
   it('persists a switch back to Simple mode', () => {
@@ -119,12 +111,6 @@ describe('TokenDetailChart', () => {
 
     fireEvent.click(view.getByTestId('market-token-chart-mode-simple'));
 
-    const update = mockSetMarketSelectedTab.mock.calls[0][0] as (
-      prev: IMarketSelectedTabAtom,
-    ) => IMarketSelectedTabAtom;
-    expect(update({ tab: 'perps' })).toEqual({
-      tab: 'perps',
-      chartDisplayMode: 'simple',
-    });
+    expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'simple' });
   });
 });
