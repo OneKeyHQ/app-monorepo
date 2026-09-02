@@ -151,7 +151,7 @@ export type {
 } from './type';
 
 export const FIX_SHEET_PROPS = {
-  display: 'block',
+  display: platformEnv.isNative ? 'flex' : 'block',
 } satisfies IYStackProps;
 
 const MAX_CONTENT_WIDTH = 400;
