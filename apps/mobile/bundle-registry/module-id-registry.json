@@ -20213,6 +20213,7 @@
     "packages/kit/src/provider/Container/ColdStartByNotification.tsx": 4186,
     "packages/kit/src/provider/Container/CreateAddressContainer/index.tsx": 4187,
     "packages/kit/src/provider/Container/DeviceStageContainer/DeviceStageQrScanner.tsx": 8024,
+    "packages/kit/src/provider/Container/DeviceStageContainer/Lazy.tsx": 8033,
     "packages/kit/src/provider/Container/DeviceStageContainer/airGapScanFrame.ts": 8025,
     "packages/kit/src/provider/Container/DeviceStageContainer/index.tsx": 8026,
     "packages/kit/src/provider/Container/DialogLoadingContainer/DialogLoadingContainer.tsx": 4188,
