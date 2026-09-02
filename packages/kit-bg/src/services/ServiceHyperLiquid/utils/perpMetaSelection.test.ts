@@ -7,8 +7,10 @@ function buildMeta(firstCoin: string) {
 // One meta per perp dex index; unregistered slots use placeholder names.
 function buildAllMetas({
   slot8,
+  slot10 = 'io:AAPL',
 }: {
   slot8: string;
+  slot10?: string;
 }): ReturnType<typeof buildMeta>[] {
   return [
     buildMeta('BTC'),
@@ -20,6 +22,8 @@ function buildAllMetas({
     buildMeta('other6:A'),
     buildMeta('other7:A'),
     buildMeta(slot8),
+    buildMeta('other9:A'),
+    buildMeta(slot10),
   ];
 }
 
@@ -29,18 +33,20 @@ describe('perpMetaSelection', () => {
       buildAllMetas({ slot8: 'para:TOTAL2' }),
     );
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(4);
     expect(result[0]?.universe[0].name).toBe('BTC');
     expect(result[1]?.universe[0].name).toBe('xyz:XYZ100');
     expect(result[2]?.universe[0].name).toBe('para:TOTAL2');
+    expect(result[3]?.universe[0].name).toBe('io:AAPL');
   });
 
   it('leaves a slot undefined when the server has not deployed that dex yet', () => {
     const result = selectPerpMetasByDex([buildMeta('BTC'), buildMeta('xyz:X')]);
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(4);
     expect(result[1]?.universe[0].name).toBe('xyz:X');
     expect(result[2]).toBeUndefined();
+    expect(result[3]).toBeUndefined();
   });
 
   it('returns an empty array when the server returns nothing', () => {
@@ -48,10 +54,13 @@ describe('perpMetaSelection', () => {
   });
 
   it('drops a slot whose universe does not carry the expected prefix', () => {
-    const shifted = selectPerpMetasByDex(buildAllMetas({ slot8: 'other8:A' }));
+    const shifted = selectPerpMetasByDex(
+      buildAllMetas({ slot8: 'other8:A', slot10: 'other10:A' }),
+    );
 
     expect(shifted[1]?.universe[0].name).toBe('xyz:XYZ100');
     expect(shifted[2]).toBeUndefined();
+    expect(shifted[3]).toBeUndefined();
   });
 });
 
