@@ -2,6 +2,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   EJotaiContextStoreNames,
+  JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS,
   JotaiContextStoreRegistrationRegistry,
 } from './jotaiContextStoreMap';
 
@@ -209,5 +210,86 @@ describe('jotaiContextStoreMap', () => {
     expect(registry.update(buildSnapshot(2)).mapChanged).toBe(false);
     now = 120;
     expect(registry.update(buildSnapshot(3)).map[storeId]?.count).toBe(1);
+  });
+
+  it('keeps a throttled extension runtime through a 120-second heartbeat gap', () => {
+    let now = 0;
+    const registry = new JotaiContextStoreRegistrationRegistry({
+      now: () => now,
+    });
+    const storeId = 'accountSelector:swap';
+    const buildSnapshot = ({
+      enabledNum,
+      revision,
+      runtimeId,
+    }: {
+      enabledNum: number[];
+      revision: number;
+      runtimeId: string;
+    }) => ({
+      action: 'reconcile-runtime' as const,
+      registrations: [
+        {
+          data: {
+            storeName: EJotaiContextStoreNames.accountSelector,
+            accountSelectorInfo: {
+              enabledNum,
+              sceneName: EAccountSelectorSceneName.swap,
+            },
+          },
+          registrationId: `${runtimeId}:1`,
+          storeId,
+        },
+      ],
+      revision,
+      runtimeId,
+      storeId,
+    });
+
+    registry.update(
+      buildSnapshot({
+        enabledNum: [0],
+        revision: 1,
+        runtimeId: 'expand-tab',
+      }),
+    );
+    registry.update(
+      buildSnapshot({
+        enabledNum: [1],
+        revision: 1,
+        runtimeId: 'popup',
+      }),
+    );
+
+    for (const [elapsed, revision] of [
+      [60_001, 2],
+      [120_001, 3],
+    ] as const) {
+      now = elapsed;
+      const activeRuntimeUpdate = registry.update(
+        buildSnapshot({
+          enabledNum: [1],
+          revision,
+          runtimeId: 'popup',
+        }),
+      );
+      expect(activeRuntimeUpdate.map[storeId]).toMatchObject({
+        accountSelectorInfo: { enabledNum: [0, 1] },
+        count: 2,
+      });
+    }
+
+    expect(JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS).toBeGreaterThan(now);
+    const delayedHeartbeat = registry.update(
+      buildSnapshot({
+        enabledNum: [0],
+        revision: 2,
+        runtimeId: 'expand-tab',
+      }),
+    );
+    expect(delayedHeartbeat.map[storeId]).toMatchObject({
+      accountSelectorInfo: { enabledNum: [0, 1] },
+      count: 2,
+    });
   });
 });

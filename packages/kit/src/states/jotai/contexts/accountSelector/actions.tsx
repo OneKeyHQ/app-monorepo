@@ -5416,18 +5416,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   selectedAccount: newSelectedAccount,
                   source: 'saveToStorage:syncHome',
                 });
-              if (homeWriteIntentEpoch !== undefined) {
-                const homeSaveResult =
-                  await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
-                    {
-                      expectedWriteIntentEpoch: homeWriteIntentEpoch,
-                      sceneName: EAccountSelectorSceneName.home,
-                      num: 0,
-                      selectedAccount: fixedNewSelectedAccount,
-                    },
-                  );
-                syncedHome = Boolean(homeSaveResult.persisted);
-              }
+              // Swap/0 captures this before the mutex so a Home intent that
+              // arrives while waiting wins. The fallback keeps a future
+              // home-sync source correct if the background policy expands
+              // before the eager fast-path list is updated.
+              const effectiveHomeWriteIntentEpoch =
+                homeWriteIntentEpoch ??
+                (await simpleDb.accountSelector.getSelectedAccountWriteIntentEpoch(
+                  {
+                    sceneName: EAccountSelectorSceneName.home,
+                    num: 0,
+                  },
+                ));
+              const homeSaveResult =
+                await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+                  {
+                    expectedWriteIntentEpoch: effectiveHomeWriteIntentEpoch,
+                    sceneName: EAccountSelectorSceneName.home,
+                    num: 0,
+                    selectedAccount: fixedNewSelectedAccount,
+                  },
+                );
+              syncedHome = Boolean(homeSaveResult.persisted);
             }
 
             if (!isPayloadStillCurrent()) {

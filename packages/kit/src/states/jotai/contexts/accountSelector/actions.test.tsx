@@ -4082,6 +4082,45 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
+  it('captures the Home write epoch lazily for a newly enabled sync source', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const homeSelectedAccount = createHdSelectedAccount('hd-1--1');
+    mockShouldSyncWithHomeSource.mockResolvedValue(true);
+    mockGetSelectedAccountWriteIntentEpoch.mockResolvedValue(9);
+    mockGetSelectedAccount.mockImplementation(async ({ sceneName }) =>
+      sceneName === EAccountSelectorSceneName.home
+        ? homeSelectedAccount
+        : undefined,
+    );
+
+    const { store, Wrapper } = createWrapper(
+      EAccountSelectorSceneName.discover,
+    );
+    store.set(selectedAccountsAtom(), { 0: selectedAccount });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await result.current.saveToStorage({
+      selectedAccount,
+      sceneName: EAccountSelectorSceneName.discover,
+      num: 0,
+      selectedAccountUpdatedAt: 2000,
+    });
+
+    expect(mockGetSelectedAccountWriteIntentEpoch).toHaveBeenCalledWith({
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+    });
+    expect(mockSaveSelectedAccountIfWriteIntentCurrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedWriteIntentEpoch: 9,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      }),
+    );
+  });
+
   it('does not sync an event-disabled swap source save back to home', async () => {
     const selectedAccount = createHdSelectedAccount('hd-1--0');
     mockShouldSyncWithHomeSource.mockResolvedValue(true);
