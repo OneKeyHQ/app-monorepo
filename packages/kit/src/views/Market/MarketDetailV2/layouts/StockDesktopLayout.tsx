@@ -409,10 +409,12 @@ function StockPriceHeader({
         <StockMarketStatusBadge stock={stockStatus} variant="inline" />
       </YStack>
 
-      <XStack width={191} height={38} py="$1" gap="$0.5" alignItems="center">
+      {/* Figma widths are minimums: Spanish/Italian labels outgrow the
+          English boxes, and a fixed width would truncate both options into
+          the same truncated string. */}
+      <XStack minWidth={191} height={38} py="$1" gap="$0.5" alignItems="center">
         <Button
           testID="stock-price-mode-share"
-          width={94}
           minWidth={94}
           height={30}
           m="$0"
@@ -428,7 +430,6 @@ function StockPriceHeader({
         </Button>
         <Button
           testID="stock-price-mode-token"
-          width={95}
           minWidth={95}
           height={30}
           m="$0"

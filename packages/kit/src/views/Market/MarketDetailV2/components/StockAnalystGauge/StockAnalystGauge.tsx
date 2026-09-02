@@ -82,25 +82,36 @@ const GRADIENT_END_OFFSET = gaugeAngleToGradientOffset(0);
 
 // Measured at $bodySmMedium (12/16) in the reference and re-fitted for
 // $bodyMdMedium (14/20): every `top` moves up by (20 - 16) / 2 so the glyphs
-// keep the reference's optical center, and the two outer labels widen from
-// their measured 12px boxes (x 7/6, rounded up) to stay on one line. Those two
-// grow inward from the gauge edges, which still leaves ~9px between the label
-// and the arc at the label's lowest point.
+// keep the reference's optical center. The two outer labels were measured for
+// the English copy, but the translated extremes run much longer in German,
+// Russian and Ukrainian, so they anchor on their gauge edge and
+// size to their text, growing inward under the dial up to just short of the
+// needle pivot — a fixed width would truncate both extremes into the same
+// ellipsis. The three inner labels keep fixed centered boxes: their anchor IS
+// the box center, and their translations fit.
+const OUTER_ZONE_LABEL_MAX_WIDTH = DIAL_CENTER_X - 12;
 const ZONE_LABEL_LAYOUT: {
-  left: number;
-  width: number;
+  left?: number;
+  right?: number;
+  width?: number;
+  maxWidth?: number;
   top: number;
   textAlign: 'left' | 'center' | 'right';
 }[] = [
-  { left: 0, width: 76, top: 92.6, textAlign: 'right' },
+  {
+    left: 0,
+    maxWidth: OUTER_ZONE_LABEL_MAX_WIDTH,
+    top: 92.6,
+    textAlign: 'left',
+  },
   { left: 61.2, width: 80, top: 38, textAlign: 'center' },
   { left: 150, width: 80, top: 9.2, textAlign: 'center' },
   { left: 239.1, width: 80, top: 38, textAlign: 'center' },
   {
-    left: STOCK_ANALYST_GAUGE_WIDTH - 76,
-    width: 76,
+    right: 0,
+    maxWidth: OUTER_ZONE_LABEL_MAX_WIDTH,
     top: 92.6,
-    textAlign: 'left',
+    textAlign: 'right',
   },
 ];
 
@@ -284,8 +295,10 @@ export function StockAnalystGauge({
               key={labelId}
               position="absolute"
               left={layout.left}
+              right={layout.right}
               top={layout.top}
               width={layout.width}
+              maxWidth={layout.maxWidth}
               pointerEvents="none"
             >
               <SizableText
