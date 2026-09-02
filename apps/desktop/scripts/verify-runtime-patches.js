@@ -179,3 +179,19 @@ for (const {
     `Verified ${packageName} ${runtimeMetadata.version} runtime patch.\n`,
   );
 }
+
+if (process.platform === 'darwin') {
+  const nobleBuildRoot = path.join(
+    __dirname,
+    '../app/node_modules/@stoprocent/noble/build/Release',
+  );
+  for (const binaryName of ['binding.node', 'noble.node']) {
+    const binaryPath = path.join(nobleBuildRoot, binaryName);
+    if (!fs.existsSync(binaryPath)) {
+      failVerification(
+        `Patched Noble runtime binary is missing: ${binaryPath}. Run yarn rebuild:noble:runtime first.`,
+      );
+    }
+  }
+  process.stdout.write('Verified patched Noble runtime binaries.\n');
+}

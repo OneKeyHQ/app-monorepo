@@ -10232,6 +10232,7 @@ __metadata:
   resolution: "@onekeyhq/desktop@workspace:apps/desktop"
   dependencies:
     "@electron/notarize": "npm:2.3.2"
+    "@electron/rebuild": "npm:4.0.1"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@sentry/electron": "npm:7.8.0"
