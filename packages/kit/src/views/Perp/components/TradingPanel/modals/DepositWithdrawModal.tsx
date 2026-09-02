@@ -1564,8 +1564,22 @@ function DepositWithdrawContent({
 
   const isInsufficientBalance = useMemo(() => {
     const checkBN = selectedAction === 'deposit' ? tokenAmountBN : amountBN;
-    return checkBN.gt(availableBalanceBN) && checkBN.gt(0);
-  }, [amountBN, tokenAmountBN, availableBalanceBN, selectedAction]);
+    // Withdrawals validate against the gas-reserved maximum, so compare against
+    // the same ceiling. Otherwise an amount inside the reserve leaves the submit
+    // button disabled with nothing explaining why — and the displayed balance is
+    // the untrimmed one, so typing it lands there every time.
+    const limitBN =
+      selectedAction === 'deposit'
+        ? availableBalanceBN
+        : maximumWithdrawAmountBN;
+    return checkBN.gt(limitBN) && checkBN.gt(0);
+  }, [
+    amountBN,
+    tokenAmountBN,
+    availableBalanceBN,
+    maximumWithdrawAmountBN,
+    selectedAction,
+  ]);
 
   const amountInputErrorMessage = useMemo(() => {
     if (isInsufficientBalance) {
