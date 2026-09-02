@@ -328,7 +328,7 @@ describe('SwapPanelContent', () => {
     expect(screen.queryByTestId('market-token-selector')).toBeNull();
     expect(screen.queryByTestId('panel-top')).toBeNull();
     expect(screen.queryByTestId('rate-display')).toBeNull();
-    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+    expect(screen.getByTestId('stock-trade-estimated-shares')).toBeTruthy();
     expect(screen.getByTestId('swap-quote-result')).toBeTruthy();
     expect(
       screen
@@ -434,7 +434,7 @@ describe('SwapPanelContent', () => {
     expect(swapProviderInfoItemMock).not.toHaveBeenCalled();
   });
 
-  it('does not fabricate estimated shares without a variant ratio', () => {
+  it('keeps the shares row visible without fabricating a value', () => {
     const props = createProps();
     props.stockDetailDesktopLayout = true;
     props.quoteResult = {
@@ -449,7 +449,9 @@ describe('SwapPanelContent', () => {
 
     render(<SwapPanelContent {...props} />);
 
-    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+    expect(
+      screen.getByTestId('stock-trade-estimated-shares').textContent,
+    ).toContain('--');
   });
 
   it('keeps the shared Connect wallet action enabled without an account', () => {

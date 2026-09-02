@@ -5,9 +5,12 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
+  firmwareUpdateStepInfoAtom,
+  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalFirmwareUpdateRoutes,
   type IModalFirmwareUpdateParamList,
@@ -27,6 +30,7 @@ import {
 } from '../components/FirmwareUpdatePageLayout';
 import { FirmwareInstallingViewV2 } from '../componentsV2/FirmwareInstallingViewV2';
 import { FirmwareUpdateAlertInfoMessage } from '../componentsV2/FirmwareUpdateAlertInfoMessage';
+import { shouldCancelDeviceWhenLeavingFirmwareUpdate } from '../firmwareUpdateWorkflowLifetime';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 
@@ -41,11 +45,28 @@ function PageFirmwareUpdateInstallV2() {
   const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
+  const [isCancelAttemptRequested, setIsCancelAttemptRequested] =
+    useState(false);
+  const shouldReturnToChangeLog =
+    isCancelAttemptRequested && retryInfo !== undefined;
+
+  useEffect(() => {
+    if (shouldReturnToChangeLog) {
+      navigation.pop();
+    }
+  }, [navigation, shouldReturnToChangeLog]);
 
   useFirmwareUpdateWorkflowLifetime({
     onReallyLeave: async () => {
       await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
-      if (result?.originalConnectId) {
+      if (
+        result?.originalConnectId &&
+        (await shouldCancelDeviceWhenLeavingFirmwareUpdate(
+          platformEnv.isExtension === true,
+          async () => (await firmwareUpdateStepInfoAtom.get()).step,
+        ))
+      ) {
         await backgroundApiProxy.serviceHardware.cancel({
           connectId: result.originalConnectId,
           forceDeviceResetToHome: true,
@@ -132,7 +153,15 @@ function PageFirmwareUpdateInstallV2() {
         <>
           {!isDoneInternal ? (
             <>
-              <FirmwareUpdateExitPrevent />
+              <FirmwareUpdateExitPrevent
+                preserveWorkflowOnCancel={
+                  stepInfo.step === EFirmwareUpdateSteps.installing
+                    ? retryInfo === undefined
+                    : false
+                }
+                shouldPreventRemove={!shouldReturnToChangeLog}
+                onCancelAttempt={() => setIsCancelAttemptRequested(true)}
+              />
               <FirmwareUpdateAlertInfoMessage />
             </>
           ) : null}
@@ -157,6 +186,8 @@ function PageFirmwareUpdateInstallV2() {
     );
   }, [
     stepInfo.step,
+    retryInfo,
+    shouldReturnToChangeLog,
     result,
     navigation,
     isDone,

@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "डिवाइस बूटलोडर मोड में है। इंस्टॉलेशन पैकेज ट्रांसफर के साथ आगे बढ़ने के लिए नीचे दिए गए बटन पर क्लिक करें ताकि USB एक्सेस प्रदान किया जा सके।",
   "firmware_update.status_completed": "पूर्ण",
   "firmware_update.status_validating": "सत्यापन कर रहा है",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "फर्मवेयर स्विच करने से डिवाइस डेटा मिट जाएगा। कृपया अपने डिवाइस को फिर से कनेक्ट करें और USB को अधिकृत करने और जारी रखने के लिए नीचे दिए गए बटन पर क्लिक करें।",
   "first_deposit_gets_account_ready_to_trade__desc": "आपकी पहली जमा आपके खाते को ट्रेडिंग के लिए तैयार करती है। कभी भी निकासी करें।",
   "for_reference_only": "केवल संदर्भ हेतु",
