@@ -778,6 +778,8 @@ FunctionEnd
       Goto OneKeyModernInstallFallback
     ${EndIf}
 
+    # ResetProgress resumes the plug-in's native progress mirror. During
+    # InstFiles, its timer also forwards confirmed Cancel/Close as IDCANCEL.
     ${If} $OneKeyModernAccepted == "1"
       nsis-duilib-ui::ResetProgress "0"
       Pop $OneKeyModernResult
@@ -818,6 +820,7 @@ FunctionEnd
 
   !macro customInstall
     ${If} $OneKeyModernUiActive == "1"
+      # Native mirroring has already reported intermediate progress.
       nsis-duilib-ui::SetProgress "100"
       Pop $OneKeyModernResult
       ${If} $OneKeyModernResult != "ok"
