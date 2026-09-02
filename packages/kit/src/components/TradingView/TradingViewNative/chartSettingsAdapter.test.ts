@@ -24,6 +24,7 @@ describe('TradingViewNative chart settings adapter', () => {
     currentSettings.chartType = 'area';
     currentSettings.options.yAxis = false;
     const value = getTradingViewChartSettingsValue(currentSettings);
+    expect(value.chartType).toBe('area');
     const candleSection = value.appearanceSections.find(
       (section) => section.id === 'candles',
     );
@@ -33,6 +34,7 @@ describe('TradingViewNative chart settings adapter', () => {
       body.upColor = '#112233';
     }
     value.options.yAxis = true;
+    value.chartType = 'line';
     value.options.countdown = false;
     value.options.latestPrice = false;
     value.options.previousClose = true;
@@ -46,7 +48,7 @@ describe('TradingViewNative chart settings adapter', () => {
       value,
     });
 
-    expect(nextSettings.chartType).toBe('area');
+    expect(nextSettings.chartType).toBe('line');
     expect(nextSettings.options.yAxis).toBe(true);
     expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
