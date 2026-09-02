@@ -10,7 +10,12 @@ import { useToDetailPage } from './useToMarketDetailPage';
 
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
+let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
+
+jest.mock('@react-navigation/native', () => ({
+  useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -96,6 +101,7 @@ describe('useToDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockCurrentRouteName = 'MarketDetailV2';
     mockSplitViewType = 'UNKNOWN';
     (
       platformEnv as typeof platformEnv & {
@@ -193,7 +199,7 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('replaces the current V2 detail route for a top coin selected from detail', async () => {
+  it('updates the current V2 detail route without replacing it', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -215,7 +221,7 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketDetailV2', {
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
       tokenAddress: '',
       network: 'eth',
       isNative: true,
@@ -223,7 +229,7 @@ describe('useToDetailPage', () => {
       marketTokenId: 'ethereum',
       marketTokenCategory: 'top_coins',
     });
-    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).not.toHaveBeenCalled();
   });
 
   it('keeps the current split-view detail route before replacing it', async () => {
@@ -231,6 +237,7 @@ describe('useToDetailPage', () => {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
+    mockCurrentRouteName = 'MarketNativeDetail';
     mockSplitViewType = 'SUB';
     const appEventBusEmitSpy = jest.spyOn(appEventBus, 'emit');
     const { result } = renderHook(() =>
