@@ -491,8 +491,16 @@ class ProviderApiWalletConnect {
         throw new OneKeyLocalError('No account selected for authentication');
       }
 
+      // The approval modal lets the user pick the network among the requested
+      // chains, so the CACAO belongs to that network and not to the first
+      // supported one: formatAuthMessage takes the `Chain ID` line of the SIWE
+      // body from `iss`, and approveSessionAuthenticate scopes the session
+      // accounts by it.
+      const wcChain = await serviceWalletConnect.getWcChainByNetworkId({
+        networkId: accountInfo.networkId,
+      });
       // CAIP-122 issuer: did:pkh:<namespace>:<reference>:<address>
-      const iss = `did:pkh:${supportedChains[0]}:${accountInfo.address}`;
+      const iss = `did:pkh:${wcChain}:${accountInfo.address}`;
       const authMessage = this.web3Wallet?.formatAuthMessage({
         request: authPayload,
         iss,
@@ -556,13 +564,18 @@ class ProviderApiWalletConnect {
           }
           throw saveError;
         }
+
+        void serviceWalletConnect.batchEmitNetworkChangedEvent({
+          topic,
+          accountsInfo: result.accountsInfo,
+        });
       }
 
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
         action: 'ConnectWallet',
-        network: supportedChains.join(', '),
+        network: wcChain,
       });
     } catch (e) {
       console.error('onAuthRequest error: ', e);
