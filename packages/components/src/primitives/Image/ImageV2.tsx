@@ -87,7 +87,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
           observer.disconnect();
         }
       },
-      { rootMargin: '200px 0px' },
+      { rootMargin: '200px' },
     );
     observer.observe(element);
     return () => observer.disconnect();
