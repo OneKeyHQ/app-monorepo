@@ -144,8 +144,7 @@ export function isFirmwareUpdateDeviceDisconnectedError(
     isHardwareErrorByCode({
       error,
       code: FIRMWARE_DISCONNECT_ERROR_CODES,
-    }) ||
-    hasFirmwareUpdateErrorCode(error, FIRMWARE_DISCONNECT_ERROR_CODES),
+    }) || hasFirmwareUpdateErrorCode(error, FIRMWARE_DISCONNECT_ERROR_CODES),
   );
 }
 
