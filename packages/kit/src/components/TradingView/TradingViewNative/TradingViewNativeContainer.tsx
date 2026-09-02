@@ -733,7 +733,8 @@ export const TradingViewNativeContainer = memo(
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const showChartLoadingMask =
       points.length === 0 && dataState.status !== 'error';
-    const priceAxisWidth = Math.max(chartAreaWidth - chartWidth, 0);
+    const priceAxisWidth =
+      chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$transparent">

@@ -35,6 +35,11 @@ const mockHandleViewportRequestApplied = jest.fn();
 const mockHandleViewportTargetChange = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
+let mockChartAreaOnLayout:
+  | ((event: {
+      nativeEvent: { layout: { height: number; width: number } };
+    }) => void)
+  | undefined;
 const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
@@ -136,9 +141,22 @@ jest.mock('@onekeyhq/components', () => ({
     <span>{children}</span>
   ),
   LottieView: () => <div data-testid="trading-view-native-loading-animation" />,
-  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
-    <div data-testid={testID}>{children}</div>
-  ),
+  Stack: ({
+    children,
+    onLayout,
+    testID,
+  }: {
+    children?: ReactNode;
+    onLayout?: (event: {
+      nativeEvent: { layout: { height: number; width: number } };
+    }) => void;
+    testID?: string;
+  }) => {
+    if (onLayout) {
+      mockChartAreaOnLayout = onLayout;
+    }
+    return <div data-testid={testID}>{children}</div>;
+  },
   useTheme: () => ({
     amber9: { val: '#amber9' },
     bgApp: { val: '#bgApp' },
@@ -263,6 +281,7 @@ describe('TradingViewNativeContainer', () => {
     mockVisibleTimeRange = undefined;
     mockRealtimePointListener = undefined;
     mockViewportRequest = null;
+    mockChartAreaOnLayout = undefined;
     mockInitialChartSettings = undefined;
     mockPersistedChartSettings = undefined;
     mockInitialIndicatorSettings = undefined;
@@ -1084,6 +1103,41 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(mockTradingViewNativeChartSettingsButton).not.toHaveBeenCalled();
+  });
+
+  it('keeps the settings trigger on its fallback until plot width is ready', () => {
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        enableNativeChartSettings
+        nativeControlsLayoutMode="mobile"
+      />,
+    );
+
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { height: 240, width: 360 } },
+      });
+    });
+    expect(mockTradingViewNativeChartSettingsButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ priceAxisWidth: 0 }),
+    );
+
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+      onChartWidthChange: (width: number) => void;
+    };
+    act(() => {
+      chartProps.onChartWidthChange(300);
+    });
+    expect(mockTradingViewNativeChartSettingsButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ priceAxisWidth: 60 }),
+    );
   });
 
   it('maps calendar submissions to native viewport targets', () => {
