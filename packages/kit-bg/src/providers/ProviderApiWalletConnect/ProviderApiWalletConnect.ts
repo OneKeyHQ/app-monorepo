@@ -261,12 +261,19 @@ class ProviderApiWalletConnect {
     } catch (e) {
       console.error('onSessionProposal error: ', e);
       if (!sessionSettled) {
-        await this.web3Wallet?.rejectSession({
-          id: proposal.id,
-          reason: userApproved
-            ? getSdkError('SESSION_SETTLEMENT_FAILED')
-            : getSdkError('USER_REJECTED'),
-        });
+        try {
+          await this.web3Wallet?.rejectSession({
+            id: proposal.id,
+            reason: userApproved
+              ? getSdkError('SESSION_SETTLEMENT_FAILED')
+              : getSdkError('USER_REJECTED'),
+          });
+        } catch (rejectError) {
+          // reject() throws by itself when the proposal is already gone — it
+          // expires after five minutes, and a reject while offline throws too.
+          // Swallow it so the logging below still runs.
+          console.error('onSessionProposal rejectSession error: ', rejectError);
+        }
       }
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
