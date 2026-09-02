@@ -62,6 +62,8 @@ const {
 } = require('../plugins/startupProfilePrologue');
 
 const {
+  assertEntryStartsWithPolyfills,
+  assertPolyfillBootstrapSynchronous,
   buildPostSection,
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
@@ -2015,6 +2017,31 @@ async function main() {
     console.log(
       `Background graph modules: ${backgroundGraph.dependencies.size}`,
     );
+
+    const polyfillsPath = path.resolve(
+      mobileDirPath,
+      '../../packages/shared/src/polyfills',
+    );
+    const polyfillsEntryPath = path.resolve(polyfillsPath, 'index.ts');
+    assertEntryStartsWithPolyfills({
+      entryPath: mainEntry,
+      graph: mainGraph.dependencies,
+      polyfillsEntryPath,
+      runtimeLabel: 'main',
+    });
+    assertEntryStartsWithPolyfills({
+      entryPath: bgEntry,
+      graph: backgroundGraph.dependencies,
+      polyfillsEntryPath,
+      runtimeLabel: 'background',
+    });
+    assertPolyfillBootstrapSynchronous({
+      polyfillsPathPrefix: `${polyfillsPath}${path.sep}`,
+      runtimeGraphs: [
+        { graph: mainGraph.dependencies, runtimeLabel: 'main' },
+        { graph: backgroundGraph.dependencies, runtimeLabel: 'background' },
+      ],
+    });
 
     const mainPrepend = await getPrependedScripts(
       config,
