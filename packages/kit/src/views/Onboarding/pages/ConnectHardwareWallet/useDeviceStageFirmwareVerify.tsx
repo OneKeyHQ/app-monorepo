@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
   IOneKeyDeviceFeatures,
@@ -112,7 +113,14 @@ export function useDeviceStageFirmwareVerify() {
       await serviceHardwareUI.deviceStageJoinBurst({
         connectId,
         deviceType: device.deviceType,
-        deviceName: device.name,
+        deviceName: deviceUtils.buildDeviceStageName({
+          // The device-settings entry hands a stored device carrying its
+          // own features; the onboarding entry only has the ones passed in.
+          features:
+            features ??
+            ('featuresInfo' in device ? device.featuresInfo : undefined),
+          fallbackName: device.name,
+        }),
       });
       try {
         // Whether the server recognizes this exact version triple decides

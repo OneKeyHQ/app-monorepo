@@ -31,6 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 function AddHiddenWalletDialogContent() {
   const [settings, setSettings] = useSettingsPersistAtom();
@@ -203,16 +204,20 @@ export function useAddHiddenWallet() {
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
             walletId: wallet?.id || '',
           });
+        const stageDeviceName = deviceUtils.buildDeviceStageName({
+          features: device?.featuresInfo,
+          fallbackName: device?.name,
+        });
         await backgroundApiProxy.serviceHardwareUI.deviceStageJoinBurst({
           connectId: device?.connectId,
           deviceType: device?.deviceType,
-          deviceName: device?.name,
+          deviceName: stageDeviceName,
         });
         await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
           {
             connectId: device?.connectId,
             deviceType: device?.deviceType,
-            deviceName: device?.name,
+            deviceName: stageDeviceName,
           },
         );
         const intro = await new Promise<'continue' | 'closed'>((resolve) => {
