@@ -56,22 +56,44 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isDesktop: false, isJest: true, isNative: false },
 }));
 
-jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
-  firmwareUpdateWorkflowRunningAtom: {
-    get: jest.fn(),
-  },
-  hardwareUiStateAtom: {
-    get: jest.fn(),
-    set: jest.fn(),
-  },
-  thirdPartyAppInstallAtom: {
-    set: jest.fn(),
-  },
-  thirdPartyHardwareUiStateAtom: {
-    set: jest.fn(),
-  },
-}));
+jest.mock('../../states/jotai/atoms', () => {
+  // Real enum objects: the burst scope builds its action-to-step maps at
+  // module scope, so stubbed members would collapse every key into a
+  // single "undefined" — or throw outright, which is what a missing enum
+  // did here.
+  const { EHardwareUiStateAction, EThirdPartyHardwareUiAction } =
+    jest.requireActual('../../states/jotai/atoms');
+  return {
+    EHardwareUiStateAction,
+    EThirdPartyHardwareUiAction,
+    firmwareUpdateWorkflowRunningAtom: {
+      get: jest.fn(),
+    },
+    hardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    deviceStageAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    thirdPartyAppInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyBatchInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyHardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+  };
+});
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
