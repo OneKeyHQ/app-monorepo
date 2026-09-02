@@ -4,6 +4,9 @@ import {
   EJotaiContextStoreNames,
   JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS,
   JotaiContextStoreRegistrationRegistry,
+  getJotaiContextTrackerMap,
+  jotaiContextStoreMapAtom,
+  updateJotaiContextStoreRegistration,
 } from './jotaiContextStoreMap';
 
 describe('jotaiContextStoreMap', () => {
@@ -291,5 +294,44 @@ describe('jotaiContextStoreMap', () => {
       accountSelectorInfo: { enabledNum: [0, 1] },
       count: 2,
     });
+  });
+
+  it('expires the sole vanished runtime without waiting for another update', async () => {
+    jest.useFakeTimers({ now: 0 });
+    jest.spyOn(jotaiContextStoreMapAtom, 'set').mockResolvedValue(undefined);
+    try {
+      const storeId = 'accountSelector:orphan-expiry';
+      const initialPromise = updateJotaiContextStoreRegistration({
+        action: 'reconcile-runtime',
+        registrations: [
+          {
+            data: {
+              storeName: EJotaiContextStoreNames.accountSelector,
+              accountSelectorInfo: {
+                enabledNum: [0],
+                sceneName: EAccountSelectorSceneName.home,
+              },
+            },
+            registrationId: 'orphan-runtime:1',
+            storeId,
+          },
+        ],
+        revision: 1,
+        runtimeId: 'orphan-runtime',
+        storeId,
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      const initial = await initialPromise;
+      expect(initial.map[storeId]?.count).toBe(1);
+
+      await jest.advanceTimersByTimeAsync(
+        JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS,
+      );
+
+      expect(getJotaiContextTrackerMap()[storeId]).toBeUndefined();
+    } finally {
+      jest.restoreAllMocks();
+      jest.useRealTimers();
+    }
   });
 });
