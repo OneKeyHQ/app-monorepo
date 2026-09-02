@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "อุปกรณ์อยู่ในโหมด Bootloader คลิกปุ่มด้านล่างเพื่อให้สิทธิ์การเข้าถึง USB เพื่อดำเนินการถ่ายโอนแพ็คเกจการติดตั้ง",
   "firmware_update.status_completed": "เสร็จสิ้น",
   "firmware_update.status_validating": "กำลังตรวจสอบ",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "การสลับเฟิร์มแวร์จะลบข้อมูลบนอุปกรณ์ โปรดเชื่อมต่ออุปกรณ์ของคุณอีกครั้ง และคลิกปุ่มด้านล่างเพื่ออนุญาต USB และดำเนินการต่อ",
   "first_deposit_gets_account_ready_to_trade__desc": "เงินฝากครั้งแรกของคุณจะทำให้บัญชีของคุณพร้อมสำหรับการเทรด ถอนเมื่อไรก็ได้",
   "for_reference_only": "เพื่ออ้างอิงเท่านั้น",
