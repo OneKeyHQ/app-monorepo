@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "Pasar Populer",
   "perp_insufficient_margin__title": "Margin tidak cukup",
   "perp_invalid_scale_order__msg": "Pesanan skala tidak valid",
+  "perp_io_market__desc": "io menandai pasar dari DEX HIP-3 Entropy di Hyperliquid, termasuk perusahaan AI pra-IPO dan saham teknologi yang tercatat di bursa.",
   "perp_ip_restriction__title": "Trading kontrak sementara tidak tersedia",
   "perp_ip_restriction_perp__desc": "Trading kontrak saat ini tidak tersedia di jaringan atau wilayah Anda. Silakan coba lagi di wilayah atau lingkungan jaringan yang didukung.",
   "perp_ip_restriction_spot__desc": "Order spot baru tidak tersedia di wilayah Anda. Anda masih dapat melihat pasar, membatalkan order, dan mentransfer dana keluar.",

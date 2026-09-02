@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "热门市场",
   "perp_insufficient_margin__title": "保证金不足",
   "perp_invalid_scale_order__msg": "分段委托无效",
+  "perp_io_market__desc": "io 表示来自 Hyperliquid 上 Entropy HIP-3 DEX 的市场，涵盖 Pre-IPO AI 公司和上市科技股。",
   "perp_ip_restriction__title": "合约交易暂不可用",
   "perp_ip_restriction_perp__desc": "当前网络或地区暂不支持合约交易。请在受支持的地区或网络环境下重试。",
   "perp_ip_restriction_spot__desc": "当前地区无法新开现货订单。你仍可查看市场、撤单，并将资金转出。",

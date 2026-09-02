@@ -3155,6 +3155,7 @@
   "perp_home_hot_markets__title": "인기 시장",
   "perp_insufficient_margin__title": "증거금 부족",
   "perp_invalid_scale_order__msg": "유효하지 않은 스케일 주문",
+  "perp_io_market__desc": "io는 Pre-IPO AI 기업 및 상장 기술주를 포함하는 Hyperliquid의 Entropy HIP-3 DEX 시장을 나타냅니다.",
   "perp_ip_restriction__title": "계약 거래를 일시적으로 이용할 수 없습니다",
   "perp_ip_restriction_perp__desc": "현재 네트워크 또는 지역에서는 계약 거래가 지원되지 않습니다. 지원되는 지역 또는 네트워크 환경에서 다시 시도해 주세요.",
   "perp_ip_restriction_spot__desc": "해당 지역에서는 신규 현물 주문을 이용할 수 없습니다. 그래도 마켓 조회, 주문 취소 및 자금 출금은 계속할 수 있습니다.",

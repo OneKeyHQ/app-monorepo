@@ -39,6 +39,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useSpotActiveAssetAtom,
@@ -160,6 +161,7 @@ export function LimitOrderForm({
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [tradingPreferences] = usePerpsTradingPreferencesAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
@@ -425,15 +427,19 @@ export function LimitOrderForm({
   }, [isSpot, spotHoldingBaseBN, spotUniverse?.baseName]);
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
+      const sidePriceBN = resolvePriceForSide(targetSide).price;
+      const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
+      const sideOrderValueBN = sideSizeBN.multipliedBy(sidePriceBN);
+
       if (isSpot) {
         return {
           liquidationPriceBN: null,
           marginRequiredBN: new BigNumber(0),
+          sizeBN: sideSizeBN,
+          orderValueBN: sideOrderValueBN,
         };
       }
 
-      const sidePriceBN = resolvePriceForSide(targetSide).price;
-      const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
       const sideMarginRequiredBN =
         !sideSizeBN.isFinite() ||
         sideSizeBN.lte(0) ||
@@ -482,6 +488,8 @@ export function LimitOrderForm({
           ? sideLiquidationPriceBN
           : null,
         marginRequiredBN: sideMarginRequiredBN,
+        sizeBN: sideSizeBN,
+        orderValueBN: sideOrderValueBN,
       };
     };
 
@@ -502,6 +510,35 @@ export function LimitOrderForm({
     leverage,
     resolvePriceForSide,
   ]);
+
+  // Mirrors SizeInput: the persisted unit falls back to usd, and margin input
+  // is unavailable on spot.
+  const resolvedSizeInputUnit = useMemo(() => {
+    const rawUnit = tradingPreferences.sizeInputUnit ?? 'usd';
+    return isSpot && rawUnit === 'margin' ? 'usd' : rawUnit;
+  }, [isSpot, tradingPreferences.sizeInputUnit]);
+
+  const sideSecondaryText = useMemo(() => {
+    const buildText = (targetSide: ITradeSide) => {
+      const { orderValueBN, sizeBN } = sideStats[targetSide];
+      if (!orderValueBN.isFinite() || orderValueBN.lte(0)) {
+        return null;
+      }
+      if (resolvedSizeInputUnit === 'usd') {
+        return `≈ $${orderValueBN
+          .decimalPlaces(2, BigNumber.ROUND_DOWN)
+          .toFixed(2)}`;
+      }
+      return `${sizeBN
+        .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
+        .toFixed(szDecimals)} ${displayName}`;
+    };
+
+    return {
+      long: buildText('long'),
+      short: buildText('short'),
+    };
+  }, [displayName, resolvedSizeInputUnit, sideStats, szDecimals]);
 
   const shouldShowEnableTrading = useMemo(
     () => isAgentReady === false || !perpsAccountStatus.canTrade,
@@ -939,6 +976,7 @@ export function LimitOrderForm({
       pressBg,
       textColor,
       defaultText,
+      secondaryText,
       onDefaultPress,
     }: {
       sideKey: ITradeSide;
@@ -947,6 +985,7 @@ export function LimitOrderForm({
       pressBg: ColorTokens;
       textColor: ColorTokens;
       defaultText: string;
+      secondaryText: string | null;
       onDefaultPress: () => void;
     }) => {
       return (
@@ -963,10 +1002,29 @@ export function LimitOrderForm({
           disabledStyle={{ opacity: 1, bg }}
           opacity={shouldDisableActionButtons ? 1 : undefined}
           h={36}
+          py={secondaryText ? '$0.5' : undefined}
         >
-          <SizableText size="$bodyMdMedium" color={textColor}>
-            {defaultText}
-          </SizableText>
+          <YStack alignItems="center" gap={2}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color={textColor}
+              numberOfLines={1}
+            >
+              {defaultText}
+            </SizableText>
+            {secondaryText ? (
+              <SizableText
+                fontSize={11}
+                lineHeight={11}
+                color={textColor}
+                opacity={0.8}
+                numberOfLines={1}
+              >
+                {secondaryText}
+              </SizableText>
+            ) : null}
+          </YStack>
         </Button>
       );
     },
@@ -1253,7 +1311,10 @@ export function LimitOrderForm({
         </YStack>
       ) : (
         <XStack gap="$2.5" {...(!isSpot && { mt: '$1.5' })}>
-          <YStack flex={1} gap="$2">
+          {/* flexBasis + overflow keeps each column at half width: without it a
+              flex item cannot shrink below its content, so the cost/liq. price
+              digits resize the buttons on every slider frame. */}
+          <YStack flexBasis="50%" flexShrink={1} overflow="hidden" gap="$2">
             {renderActionButton({
               sideKey: 'long',
               bg: longButtonStyles.bg,
@@ -1265,6 +1326,7 @@ export function LimitOrderForm({
                   ? ETranslations.dexmarket_details_transactions_buy
                   : ETranslations.perp_trade_long,
               }),
+              secondaryText: sideSecondaryText.long,
               onDefaultPress: () => void handlePlace('long'),
             })}
             {!isSpot ? (
@@ -1322,7 +1384,7 @@ export function LimitOrderForm({
               </YStack>
             ) : null}
           </YStack>
-          <YStack flex={1} gap="$2">
+          <YStack flexBasis="50%" flexShrink={1} overflow="hidden" gap="$2">
             {renderActionButton({
               sideKey: 'short',
               bg: shortButtonStyles.bg,
@@ -1334,6 +1396,7 @@ export function LimitOrderForm({
                   ? ETranslations.dexmarket_details_transactions_sell
                   : ETranslations.perp_trade_short,
               }),
+              secondaryText: sideSecondaryText.short,
               onDefaultPress: () => void handlePlace('short'),
             })}
             {!isSpot ? (
