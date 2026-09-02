@@ -19,6 +19,7 @@ const mockGetWatchList = jest.fn<
   []
 >();
 const mockAddWatchList = jest.fn<Promise<void>, [unknown]>();
+const mockRemoveWatchList = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -26,6 +27,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarketV2: {
       getMarketWatchListV2: () => mockGetWatchList(),
       addMarketWatchListV2: (params: unknown) => mockAddWatchList(params),
+      removeMarketWatchListV2: (params: unknown) => mockRemoveWatchList(params),
     },
     serviceRookieGuide: {
       recordTaskCompleted: jest.fn(async () => undefined),
@@ -148,37 +150,53 @@ describe('marketV2 watchlist actions', () => {
     expect(result.current.watchList.data).toEqual([]);
   });
 
-  it('does not roll back a newer same-token add', async () => {
-    const failedRequest = deferred<void>();
-    const successfulRequest = deferred<void>();
-    mockAddWatchList
-      .mockImplementationOnce(() => failedRequest.promise)
-      .mockImplementationOnce(() => successfulRequest.promise);
+  it('deduplicates same-token mutations while one is pending', async () => {
+    const addRequest = deferred<void>();
+    const removeRequest = deferred<void>();
+    mockAddWatchList.mockImplementationOnce(() => addRequest.promise);
+    mockRemoveWatchList.mockImplementationOnce(() => removeRequest.promise);
 
-    const { Wrapper } = createWrapper();
+    const { store, Wrapper } = createWrapper();
     const { result } = renderHook(useWatchListTestHook, {
       wrapper: Wrapper,
     });
     await waitFor(() => expect(result.current.watchList.isMounted).toBe(true));
-    mockGetWatchList.mockResolvedValueOnce({ data: [btc] });
 
-    let failedMutation!: Promise<void>;
-    let successfulMutation!: Promise<void>;
+    let add!: Promise<void>;
+    let duplicateAdd!: Promise<void>;
     act(() => {
-      failedMutation = result.current.actions.addIntoWatchListV2(btc);
-      successfulMutation = result.current.actions.addIntoWatchListV2(btc);
+      add = result.current.actions.addIntoWatchListV2(btc);
+      duplicateAdd = result.current.actions.addIntoWatchListV2(btc);
     });
-
+    await expect(duplicateAdd).resolves.toBeUndefined();
+    expect(mockAddWatchList).toHaveBeenCalledTimes(1);
     await act(async () => {
-      failedRequest.reject(new Error('first add failed'));
-      await expect(failedMutation).rejects.toThrow('first add failed');
+      addRequest.reject(new Error('add failed'));
+      await expect(add).rejects.toThrow('add failed');
     });
-    expect(result.current.watchList.data).toHaveLength(1);
+    expect(result.current.watchList.data).toEqual([]);
 
-    await act(async () => {
-      successfulRequest.resolve();
-      await successfulMutation;
+    act(() => {
+      store.set(marketWatchListV2Atom(), { data: [btc] });
     });
-    expect(result.current.watchList.data).toHaveLength(1);
+    let remove!: Promise<void>;
+    let duplicateRemove!: Promise<void>;
+    act(() => {
+      remove = result.current.actions.removeFromWatchListV2(
+        btc.chainId,
+        btc.contractAddress,
+      );
+      duplicateRemove = result.current.actions.removeFromWatchListV2(
+        btc.chainId,
+        btc.contractAddress,
+      );
+    });
+    await expect(duplicateRemove).resolves.toBeUndefined();
+    expect(mockRemoveWatchList).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      removeRequest.reject(new Error('remove failed'));
+      await expect(remove).rejects.toThrow('remove failed');
+    });
+    expect(result.current.watchList.data).toEqual([btc]);
   });
 });
