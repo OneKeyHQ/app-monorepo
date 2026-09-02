@@ -6,6 +6,7 @@ import {
   type ITradingViewNativeSource,
   TradingViewNative,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -18,6 +19,7 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -130,6 +132,8 @@ export interface IDesktopLayoutProps {
   networkId: string;
   tokenAddress: string;
   marketTokenId?: string;
+  marketAssetDetail?: IMarketAssetDetailData;
+  isMarketAssetDetailLoading?: boolean;
   marketTokenCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -144,6 +148,8 @@ export function DesktopLayout({
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
   marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
   marketTokenCategory,
   disableTrade,
   showFavoriteButton = true,
@@ -163,6 +169,9 @@ export function DesktopLayout({
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
+  const marketAssetId = shouldUseTopCoinsDesktopLayout
+    ? marketTokenId?.trim()
+    : undefined;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
@@ -261,6 +270,9 @@ export function DesktopLayout({
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
     }
+    if (marketAssetId) {
+      return { kind: 'asset', assetId: marketAssetId };
+    }
     return getMarketDetailTradingViewNativeSource({
       hyperliquidCoin: nativeHyperliquidCoin,
       isNative,
@@ -271,6 +283,7 @@ export function DesktopLayout({
     });
   }, [
     isStockSharePrice,
+    marketAssetId,
     marketTradingViewParams?.dataSource,
     nativeHyperliquidCoin,
     isNative,
@@ -292,6 +305,19 @@ export function DesktopLayout({
             })
         : undefined,
     [stockId],
+  );
+  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+    () =>
+      marketAssetId
+        ? ({ interval, timeFrom, timeTo }) =>
+            fetchMarketAssetKLineData({
+              assetId: marketAssetId,
+              interval,
+              timeFrom,
+              timeTo,
+            })
+        : undefined,
+    [marketAssetId],
   );
   // Redesigned desktop detail pages lay their Simple/Pro switch over the
   // trailing edge of the Pro widget's control row. Drop the row's own trailing
@@ -315,9 +341,20 @@ export function DesktopLayout({
     () => handleChartFullscreenChange(true),
     [handleChartFullscreenChange],
   );
+  let marketTradingViewKey = 'token';
+  if (isStockSharePrice) {
+    marketTradingViewKey = `stock-share:${stockId ?? ''}`;
+  } else if (marketAssetId) {
+    marketTradingViewKey = `asset:${marketAssetId}`;
+  }
+  const proKLineDataFallback = isStockSharePrice
+    ? stockKLineDataFallback
+    : assetKLineDataFallback;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId || tradingViewNativeSource.kind === 'stock' ? (
+      return networkId ||
+        tradingViewNativeSource.kind === 'asset' ||
+        tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
@@ -345,7 +382,7 @@ export function DesktopLayout({
 
     return (
       <LazyDesktopMarketTradingView
-        key={isStockSharePrice ? `stock-share:${stockId ?? ''}` : 'token'}
+        key={marketTradingViewKey}
         tokenAddress={
           isStockSharePrice
             ? ''
@@ -381,10 +418,10 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
-        kLineDataFallback={
-          isStockSharePrice ? stockKLineDataFallback : undefined
+        kLineDataFallback={proKLineDataFallback}
+        primaryKLineDataUnavailable={
+          isStockSharePrice || Boolean(marketAssetId)
         }
-        primaryKLineDataUnavailable={isStockSharePrice}
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
@@ -396,6 +433,8 @@ export function DesktopLayout({
     isChartFullscreen,
     isTradingViewNative,
     isStockSharePrice,
+    marketTradingViewKey,
+    marketAssetId,
     shouldUseStockDesktopLayout,
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
@@ -403,7 +442,7 @@ export function DesktopLayout({
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,
-    stockKLineDataFallback,
+    proKLineDataFallback,
     tradingViewNativeSource,
   ]);
 
@@ -447,6 +486,8 @@ export function DesktopLayout({
           isRefreshing={isRefreshing}
           tokenLogoUrl={displayTokenDetail?.logoUrl}
           marketTokenId={marketTokenId}
+          assetDetail={marketAssetDetail}
+          isAssetDetailLoading={isMarketAssetDetailLoading}
           disableTrade={disableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}

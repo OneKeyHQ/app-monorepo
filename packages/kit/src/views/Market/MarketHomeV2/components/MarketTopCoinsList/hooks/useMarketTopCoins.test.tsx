@@ -34,6 +34,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchMarketAssetDetail: jest.fn(),
       fetchMarketAssetList: jest.fn(),
     },
+    serviceToken: {
+      fetchTokenInfoOnly: jest.fn(),
+    },
   },
 }));
 
@@ -105,12 +108,18 @@ describe('useMarketTopCoins', () => {
   const serviceMarket = backgroundApiProxy.serviceMarket as jest.Mocked<
     typeof backgroundApiProxy.serviceMarket
   >;
+  const serviceToken = backgroundApiProxy.serviceToken as jest.Mocked<
+    typeof backgroundApiProxy.serviceToken
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
     serviceMarket.fetchMarketAssetDetail.mockRejectedValue(
       new Error('utility unavailable'),
     );
+    serviceToken.fetchTokenInfoOnly.mockResolvedValue({
+      info: { decimals: 8 },
+    } as Awaited<ReturnType<typeof serviceToken.fetchTokenInfoOnly>>);
     mockToMarketDetailPage.mockResolvedValue(undefined);
   });
 
@@ -128,12 +137,20 @@ describe('useMarketTopCoins', () => {
         currency: 'usd',
       },
     ]);
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toContainEqual([
+      {
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+      },
+    ]);
     expect(mockToMarketDetailPage).toHaveBeenCalledWith({
       address: '0xbtc',
       change24h: 1,
+      decimals: 8,
       isNative: false,
       marketCap: 2_000_000,
       marketTokenId: 'btc',
+      marketVariantId: 'btc-evm--1-0xbtc',
       name: 'Bitcoin',
       networkId: 'evm--1',
       price: 100_000,

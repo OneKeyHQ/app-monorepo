@@ -5,12 +5,17 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 interface IUseMarketDetailDataProps {
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
   skipMarketDataFetch?: boolean;
+  marketTokenId?: string;
+  marketVariantId?: string;
+  marketTokenCategory?: string;
 }
 
 function toFiniteNumber(value?: string | number) {
@@ -61,26 +66,30 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   );
 
   // Track previous price scope to avoid showing stale token or currency data.
-  const prevTokenRef = useRef<{
-    tokenAddress: string;
-    networkId: string;
-    currencyId: string;
-  }>({
-    tokenAddress: '',
-    networkId: '',
-    currencyId: '',
-  });
+  const prevTokenRef = useRef<
+    | {
+        tokenAddress: string;
+        networkId: string;
+        currencyId: string;
+        marketTokenId?: string;
+        marketVariantId?: string;
+      }
+    | undefined
+  >(undefined);
 
   // Clear cached token detail when switching token or display currency.
   // This prevents showing stale data from the previous price scope.
   useEffect(() => {
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
-      prevToken.tokenAddress !== data.tokenAddress ||
-      prevToken.networkId !== data.networkId ||
-      prevToken.currencyId !== currencyInfo.id;
+      prevToken &&
+      (prevToken.tokenAddress !== data.tokenAddress ||
+        prevToken.networkId !== data.networkId ||
+        prevToken.currencyId !== currencyInfo.id ||
+        prevToken.marketTokenId !== data.marketTokenId ||
+        prevToken.marketVariantId !== data.marketVariantId);
 
-    if (isTokenChanged && prevToken.tokenAddress !== '') {
+    if (isTokenChanged) {
       // Only clear display-related atoms when switching tokens.
       // Do NOT call clearTokenDetail() here — it resets tokenAddressAtom
       // and networkIdAtom to '', which races with changeActiveToken's
@@ -95,8 +104,17 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       tokenAddress: data.tokenAddress,
       networkId: data.networkId,
       currencyId: currencyInfo.id,
+      marketTokenId: data.marketTokenId,
+      marketVariantId: data.marketVariantId,
     };
-  }, [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions]);
+  }, [
+    currencyInfo.id,
+    data.marketTokenId,
+    data.marketVariantId,
+    data.tokenAddress,
+    data.networkId,
+    tokenDetailActions,
+  ]);
 
   // Set tokenAddress/networkId/isNative synchronously on prop change,
   // NOT inside the polling callback. This prevents stale polling responses
@@ -107,7 +125,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     tokenDetailActions.setIsNative(data.isNative);
   }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
 
-  return usePromiseResult(
+  const { result, isLoading } = usePromiseResult<
+    { assetDetail: IMarketAssetDetailData } | undefined
+  >(
     async () => {
       if (
         data.skipMarketDataFetch ||
@@ -116,6 +136,18 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         (!data.tokenAddress && !data.isNative)
       ) {
         return;
+      }
+      if (
+        data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
+        data.marketTokenId
+      ) {
+        const assetDetail = await tokenDetailActions.fetchAssetTokenDetail({
+          assetId: data.marketTokenId,
+          variantId: data.marketVariantId,
+          tokenAddress: data.tokenAddress,
+          networkId: data.networkId,
+        });
+        return { assetDetail };
       }
       // Only fetch token detail data; atom identity is set synchronously above
       await tokenDetailActions.fetchTokenDetail(
@@ -126,12 +158,16 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     [
       currencyInfo.id,
       data.isNative,
+      data.marketTokenCategory,
+      data.marketTokenId,
+      data.marketVariantId,
       data.tokenAddress,
       data.networkId,
       data.skipMarketDataFetch,
       tokenDetailActions,
     ],
     {
+      watchLoading: true,
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -141,4 +177,10 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       checkIsFocused: false,
     },
   );
+
+  return {
+    marketAssetDetail: result?.assetDetail,
+    isMarketAssetDetailLoading:
+      data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID && isLoading,
+  };
 }

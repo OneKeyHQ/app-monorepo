@@ -13,6 +13,8 @@ export function MarketDetailResponsiveLayout({
   networkId,
   tokenAddress,
   marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
   marketTokenCategory,
   showFavoriteButton,
   disableTrade,
@@ -28,6 +30,8 @@ export function MarketDetailResponsiveLayout({
         networkId={networkId}
         tokenAddress={tokenAddress}
         marketTokenId={marketTokenId}
+        marketAssetDetail={marketAssetDetail}
+        isMarketAssetDetailLoading={isMarketAssetDetailLoading}
         marketTokenCategory={marketTokenCategory}
         disableTrade={disableTrade}
         showFavoriteButton={showFavoriteButton}
