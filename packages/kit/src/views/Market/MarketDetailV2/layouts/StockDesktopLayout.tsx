@@ -45,7 +45,9 @@ import {
 } from '../components/StockAnalystGauge';
 import {
   type IStockSimpleChartRange,
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../components/StockSimpleChart';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
@@ -89,15 +91,6 @@ const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 // block, so one offset puts the switch on the widget's line in Pro and leaves
 // it in exactly the same place when the mode is toggled.
 const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
-
-const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
 
 const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
   {
@@ -536,6 +529,13 @@ function StockChart({
   const [mode, setMode] = useState<IStockChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple';
+  const chartRanges =
+    priceMode === 'share'
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : TOKEN_SIMPLE_CHART_RANGES;
+  const effectiveRange =
+    priceMode === 'token' && range === 'All' ? '1Y' : range;
+  const rangeSelectorWidth = priceMode === 'share' ? 214 : 178;
 
   // Simple leads the chart with its own toolbar row (Figma 25476:88858): range
   // selector on the left, Simple/Pro on the right.
@@ -572,8 +572,8 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack width={214} alignItems="center" gap="$0.5">
-            {STOCK_SIMPLE_CHART_RANGES.map((item) => {
+          <XStack width={rangeSelectorWidth} alignItems="center" gap="$0.5">
+            {chartRanges.map((item) => {
               const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
                 <Stack
@@ -592,7 +592,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={range === item ? 'secondary' : 'tertiary'}
+                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -611,7 +611,7 @@ function StockChart({
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={range}
+          range={effectiveRange}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />
