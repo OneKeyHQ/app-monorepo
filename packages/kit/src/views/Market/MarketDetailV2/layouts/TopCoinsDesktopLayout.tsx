@@ -66,7 +66,7 @@ import { TokenPriceHeader } from './TokenDesktopLayout';
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
 const TOP_COINS_TRADE_COLUMN_WIDTH = 384;
 const TOP_COINS_COLUMN_GAP = 24;
-const TOP_COINS_CHART_HEIGHT = 360;
+const TOP_COINS_CHART_HEIGHT = 456;
 // Figma 25703:19148: label (bodyMd, 20px line) + 6px gap + value (headingXl,
 // 28px line).
 const TOP_COINS_STAT_CELL_HEIGHT = 54;

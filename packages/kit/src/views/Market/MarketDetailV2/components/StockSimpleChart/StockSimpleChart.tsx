@@ -28,7 +28,8 @@ import {
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
 
-const STOCK_SIMPLE_CHART_HEIGHT = 304;
+// Fills the 456px chart block minus its 40px toolbar row and 16px gap.
+const STOCK_SIMPLE_CHART_HEIGHT = 400;
 
 type IStockSimpleChartState = {
   data: IMarketTokenChart;

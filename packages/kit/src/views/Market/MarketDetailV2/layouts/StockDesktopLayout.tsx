@@ -88,7 +88,7 @@ type IStockDetailTab = 'overview' | 'position';
 
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
-const STOCK_CHART_HEIGHT = 360;
+const STOCK_CHART_HEIGHT = 456;
 const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 
 function StockPageHeader({
@@ -550,11 +550,7 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack
-            minWidth={rangeSelectorWidth}
-            alignItems="center"
-            gap="$0.5"
-          >
+          <XStack minWidth={rangeSelectorWidth} alignItems="center" gap="$0.5">
             {chartRanges.map((item) => {
               const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
@@ -1218,7 +1214,7 @@ export function StockDesktopLayout({
           <YStack
             testID="stock-token-detail-chart"
             width="100%"
-            height={504}
+            height={600}
             px={STOCK_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
