@@ -29,7 +29,6 @@ import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
 import {
   COLUMN_WIDTH_CHANGE,
-  COLUMN_WIDTH_LIQUIDITY,
   COLUMN_WIDTH_MARKET_CAP,
   COLUMN_WIDTH_NAME,
   COLUMN_WIDTH_PRICE,
@@ -235,23 +234,6 @@ const MarketTokenSelectorRow = memo(
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
               {String(item.marketCap)}
-            </NumberSizeableText>
-          ) : (
-            <SizableText size="$bodySm" color="$textSubdued">
-              --
-            </SizableText>
-          )}
-        </XStack>
-
-        {/* Liquidity cell */}
-        <XStack width={COLUMN_WIDTH_LIQUIDITY} justifyContent="flex-start">
-          {item.liquidity ? (
-            <NumberSizeableText
-              size="$bodySm"
-              formatter="marketCap"
-              formatterOptions={{ currency: '$' }}
-            >
-              {String(item.liquidity)}
             </NumberSizeableText>
           ) : (
             <SizableText size="$bodySm" color="$textSubdued">

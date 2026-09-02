@@ -24,6 +24,13 @@ export type IHardwareUiResponseCorrelation = {
   deviceId: string;
 };
 
+export type IFirmwareTransferMetrics = {
+  transferredBytes?: number;
+  totalBytes?: number;
+  rateBytesPerSecond?: number;
+  elapsedMs?: number;
+};
+
 export type IHardwareUiPayload = {
   uiRequestType: string; // EHardwareUiStateAction
   eventType: string;
@@ -51,6 +58,7 @@ export type IHardwareUiPayload = {
   firmwareInstallTargetId?: number;
   firmwareInstallPhase?: 'prepare' | 'install' | 'verify';
   firmwareInstallPhaseProgress?: number;
+  firmwareTransferMetrics?: IFirmwareTransferMetrics;
   // generic device data transfer progress
   deviceProgress?: {
     progress?: number;
