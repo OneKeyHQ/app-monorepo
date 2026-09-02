@@ -1,6 +1,10 @@
+import { HARDWARE_ERROR_DIALOG_TYPES } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import {
+  isTrezorHardwareErrorDialogPayload,
+  shouldReplaceHardwareErrorDialog,
+} from './hardwareErrorDialogUtils';
 
 describe('hardwareErrorDialogUtils', () => {
   it('detects Trezor from the event vendor field', () => {
@@ -23,6 +27,29 @@ describe('hardwareErrorDialogUtils', () => {
     expect(
       isTrezorHardwareErrorDialogPayload({
         errorType: 'DeviceNotFound',
+      }),
+    ).toBe(false);
+  });
+
+  it('prioritizes Bluetooth re-pairing guidance over another hardware error', () => {
+    expect(
+      shouldReplaceHardwareErrorDialog({
+        currentErrorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        nextErrorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldReplaceHardwareErrorDialog({
+        currentErrorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        nextErrorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldReplaceHardwareErrorDialog({
+        currentErrorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        nextErrorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
       }),
     ).toBe(false);
   });

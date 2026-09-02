@@ -1,4 +1,5 @@
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { HARDWARE_ERROR_DIALOG_TYPES } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 function getRecord(value: unknown): Record<string, unknown> | undefined {
@@ -22,4 +23,17 @@ export function isTrezorHardwareErrorDialogPayload(
   const vendor = getVendorFromPayload(payload);
 
   return vendor === EHardwareVendor.trezor || vendor === 'Trezor';
+}
+
+export function shouldReplaceHardwareErrorDialog({
+  currentErrorType,
+  nextErrorType,
+}: {
+  currentErrorType: string | null;
+  nextErrorType: string;
+}): boolean {
+  return (
+    nextErrorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR &&
+    currentErrorType !== HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR
+  );
 }

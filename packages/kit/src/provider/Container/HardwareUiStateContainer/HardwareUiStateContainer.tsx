@@ -78,7 +78,10 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import {
+  isTrezorHardwareErrorDialogPayload,
+  shouldReplaceHardwareErrorDialog,
+} from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
@@ -702,6 +705,7 @@ function HardwareUiStateContainerCmpControlled() {
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const hardwareErrorDialogTypeRef = useRef<string | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
@@ -789,6 +793,14 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
+    let isDisposed = false;
+    const showBleBondErrorDialog = () => {
+      hardwareErrorDialogTypeRef.current =
+        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+      hardwareErrorDialogInstanceRef.current = Dialog.show(
+        buildBleBondError(intl),
+      );
+    };
     const callback = throttle(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
@@ -799,23 +811,43 @@ function HardwareUiStateContainerCmpControlled() {
         if (!isDeviceNotFound && !isBleDeviceBondError) {
           return;
         }
-        // Prevent duplicate dialog instances
-        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
+        const existingDialog = hardwareErrorDialogInstanceRef.current;
+        if (existingDialog?.isExist()) {
+          if (
+            shouldReplaceHardwareErrorDialog({
+              currentErrorType: hardwareErrorDialogTypeRef.current,
+              nextErrorType: errorType,
+            })
+          ) {
+            void serviceHardwareUI.cleanHardwareUiState();
+            hardwareErrorDialogTypeRef.current =
+              HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+            void (async () => {
+              try {
+                await existingDialog.close();
+              } catch {
+                // Keep the repair guidance visible even if closing fails.
+              }
+              if (!isDisposed) {
+                showBleBondErrorDialog();
+              }
+            })();
+          }
           return;
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
 
         if (isBleDeviceBondError) {
-          hardwareErrorDialogInstanceRef.current = Dialog.show(
-            buildBleBondError(intl),
-          );
+          showBleBondErrorDialog();
           return;
         }
 
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
+        hardwareErrorDialogTypeRef.current =
+          HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           title: intl.formatMessage({
             id: isTrezorError
@@ -840,8 +872,10 @@ function HardwareUiStateContainerCmpControlled() {
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
+      isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       hardwareErrorDialogInstanceRef.current = null;
+      hardwareErrorDialogTypeRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
 

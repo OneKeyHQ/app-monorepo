@@ -17,7 +17,6 @@ import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
-  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
   IDBWalletIdSingleton,
@@ -2118,189 +2117,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   createHWWalletWithoutHidden = contextAtomMethod(
     async (_, set, params: IDBCreateHwWalletParamsBase) => {
-      let createdDevice: IDBDevice | undefined;
-
-      return this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const { wallet, device, indexedAccount, isOverrideWallet } =
-            await this.createHWWallet.call(
-              set,
-              {
-                ...params,
-                skipDeviceCancel: true,
-              },
-              {
-                // will autoSelect later by wallet is mocked or not
-                disableAutoSelect: true,
-              },
-            );
-          createdDevice = device;
-          if (!wallet.isMocked && indexedAccount?.id) {
-            // autoSelect account here
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-          await serviceAccount.restoreTempCreatedWallet({
-            walletId: wallet.id,
-          });
-          return {
-            isOverrideWallet,
-            wallet,
-            indexedAccount,
-            hidden: undefined,
-          };
-        },
-        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            isCreateWallet: true,
-            skipDeviceCancel: false,
-            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-          });
-          if (createdDevice?.connectId && createdDevice.deviceId) {
-            await this.updateHwWalletsDeprecatedStatus.call(set, {
-              connectId: createdDevice.connectId,
-              usbConnectId: createdDevice.usbConnectId,
-              bleConnectId: createdDevice.bleConnectId,
-              deviceId: createdDevice.deviceId,
-            });
-          }
-        },
+      const { createHWWalletWithoutHidden } =
+        await import('./hardwareWalletActions');
+      return createHWWalletWithoutHidden({
+        actions: this,
+        set,
+        params,
       });
     },
   );
 
   createHWWalletWithHidden = contextAtomMethod(
     async (_, set, params: IDBCreateHwWalletParamsBase) => {
-      let createdDevice: IDBDevice | undefined;
-
-      return this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const shouldCreateHiddenWalletOnly =
-            params.isAttachPinMode === true ||
-            Boolean(
-              params.deviceState?.status.passphraseProtection ??
-              params.features?.passphrase_protection,
-            );
-          const { wallet, device, indexedAccount, isOverrideWallet } =
-            await this.createHWWallet.call(
-              set,
-              {
-                ...params,
-                isMockedStandardHwWallet: shouldCreateHiddenWalletOnly,
-                skipDeviceCancel: true,
-              },
-              {
-                disableAutoSelect: true,
-              },
-            );
-
-          createdDevice = device;
-
-          let hiddenWalletCreatedResult:
-            | {
-                wallet: IDBWallet;
-                indexedAccount: IDBIndexedAccount | undefined;
-              }
-            | undefined;
-          if (shouldCreateHiddenWalletOnly) {
-            if (!device) {
-              throw new OneKeyLocalError(
-                'Unable to create hidden wallet without a hardware device',
-              );
-            }
-            // wait previous action done, wait device ready
-            if (!params.hideCheckingDeviceLoading) {
-              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
-                {
-                  connectId: device.connectId,
-                },
-              );
-            }
-            await timerUtils.wait(100);
-
-            hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
-              set,
-              {
-                walletId: wallet.id,
-                skipDeviceCancel: true,
-                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-              },
-            );
-          }
-
-          await serviceAccount.restoreTempCreatedWallet({
-            walletId: wallet.id,
-          });
-          if (!hiddenWalletCreatedResult) {
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-          return {
-            isOverrideWallet,
-            wallet,
-            indexedAccount,
-            hidden: hiddenWalletCreatedResult
-              ? {
-                  wallet: hiddenWalletCreatedResult.wallet,
-                  indexedAccount: hiddenWalletCreatedResult.indexedAccount,
-                }
-              : undefined,
-          };
-        },
-        generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
-          if (hidden && hidden.wallet && hidden.indexedAccount) {
-            // hidden wallet account should be first create before normal wallet account
-            // otherwise, passphrase input will be asked many times
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet: hidden.wallet,
-              indexedAccount: hidden.indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel: true,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-            });
-            await timerUtils.wait(100);
-          }
-          if (wallet && indexedAccount) {
-            await this.addDefaultNetworkAccounts.call(set, {
-              wallet,
-              indexedAccount,
-              isCreateWallet: true,
-              skipDeviceCancel: false,
-              hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
-            });
-          }
-
-          if (hidden?.wallet && hidden.indexedAccount) {
-            // Standard account generation may refresh the active selection.
-            // Make the newly created hidden wallet authoritative before the
-            // reset cleanup broadcasts WalletUpdate and before Ready is shown.
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet: hidden.wallet,
-              indexedAccount: hidden.indexedAccount,
-              isOverrideWallet: false,
-              isAttachPinMode: params.isAttachPinMode,
-            });
-          }
-
-          if (createdDevice?.connectId && createdDevice.deviceId) {
-            await this.updateHwWalletsDeprecatedStatus.call(set, {
-              connectId: createdDevice.connectId,
-              usbConnectId: createdDevice.usbConnectId,
-              bleConnectId: createdDevice.bleConnectId,
-              deviceId: createdDevice.deviceId,
-            });
-          }
-        },
+      const { createHWWalletWithHidden } =
+        await import('./hardwareWalletActions');
+      return createHWWalletWithHidden({
+        actions: this,
+        set,
+        params,
       });
     },
   );
@@ -2439,80 +2273,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   updateHwWalletsDeprecatedStatus = contextAtomMethod(
     async (
-      get,
-      set,
-      {
-        connectId,
-        usbConnectId,
-        bleConnectId,
-        deviceId,
-      }: {
+      _,
+      __,
+      params: {
         connectId: string;
         usbConnectId?: string;
         bleConnectId?: string;
         deviceId: string;
       },
     ) => {
-      if (!connectId || !deviceId) {
-        return;
-      }
-
-      // Best-effort cleanup: callers run it after the wallet is already
-      // created + committed; a throw must never fail that success path.
-      try {
-        const currentConnectIds = new Set(
-          [connectId, usbConnectId, bleConnectId]
-            .filter((item): item is string => Boolean(item))
-            .map((item) => item.toLowerCase()),
-        );
-        const allHwWallets =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-            filterHiddenWallet: false,
-            filterQrWallet: true,
-          });
-
-        const willUpdateDeprecateMap: Record<string, boolean> = {};
-
-        for (const walletWithDevice of Object.values(allHwWallets)) {
-          const wallet = walletWithDevice.wallet;
-          const device = walletWithDevice.device;
-
-          if (wallet?.id && device) {
-            const isSameConnectId = [
-              device.connectId,
-              device.usbConnectId,
-              device.bleConnectId,
-            ]
-              .filter((item): item is string => Boolean(item))
-              .some((item) => currentConnectIds.has(item.toLowerCase()));
-            const isSameDevice = device.deviceId === deviceId;
-
-            // only handle wallet with same connectId
-            if (isSameConnectId) {
-              // if connectId is same, deviceId is different, the wallet should be deprecated
-              // if connectId is same, deviceId is same, the wallet should be not deprecated
-              const newDeprecatedStatus = !isSameDevice;
-              if (Boolean(wallet.deprecated) !== newDeprecatedStatus) {
-                willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
-              }
-            }
-          }
-        }
-
-        if (Object.keys(willUpdateDeprecateMap).length === 0) {
-          return;
-        }
-
-        const result =
-          await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-            willUpdateDeprecateMap,
-          });
-        if (result) {
-          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-        }
-      } catch (error) {
-        console.error('updateHwWalletsDeprecatedStatus failed:', error);
-      }
+      const { updateHwWalletsDeprecatedStatus } =
+        await import('./hardwareWalletActions');
+      return updateHwWalletsDeprecatedStatus(params);
     },
   );
 
