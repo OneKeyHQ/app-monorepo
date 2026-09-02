@@ -4,6 +4,10 @@ import { join } from 'path';
 describe('TokenListBlock portfolio sync producer', () => {
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+    const buttonSource = readFileSync(
+      join(__dirname, 'PortfolioSyncButton.tsx'),
+      'utf8',
+    );
     const gateIndex = source.indexOf(
       'isProtocolV2ProductType(device?.deviceType) &&',
     );
@@ -42,9 +46,7 @@ describe('TokenListBlock portfolio sync producer', () => {
       'appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled',
     );
     expect(source).not.toContain('interactivePortfolioSyncRequestedRef');
-    expect(source).toContain(
-      'const portfolioSyncRequestRef = useRef<',
-    );
+    expect(source).toContain('const portfolioSyncRequestRef = useRef<');
     expect(source).toContain('buildPortfolioSyncTargetKey({');
     expect(source).toContain("phase: 'queued'");
     expect(source).toContain("'communicating'");
@@ -56,12 +58,32 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('eventPayload: portfolioSyncPayload');
     expect(source).toContain("syncMode: 'interactive'");
     expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
-    expect(source).toContain('testID="home-sync-portfolio"');
-    expect(source).toContain('icon="RefreshCwOutline"');
-    expect(source).toContain('loading={isPortfolioSyncing}');
+    expect(source).toContain('<PortfolioSyncButton');
+    expect(source).toContain('const showPortfolioSyncButton = Boolean(');
+    expect(source).not.toContain('isWalletConnected(wallet)');
+    expect(source).toContain(
+      'device?.deviceType ?? wallet.associatedDeviceInfo?.deviceType',
+    );
+    expect(source).toContain('return renderPortfolioSyncButton();');
+    expect(source).toContain('useFirmwareUpdateWorkflowRunningAtom');
+    expect(source).toContain(
+      'hardwareUiState || firmwareUpdateWorkflowRunning',
+    );
+    expect(source).toContain('completePortfolioSyncRequest');
+    expect(source).toContain("setPortfolioSyncFeedback('success')");
+    expect(source).not.toContain('<TokenSelectorLpTokenSwitch');
+    expect(buttonSource).toContain('testID="home-sync-portfolio"');
+    expect(buttonSource).toContain("state === 'loading'");
+    expect(buttonSource).toContain("state === 'success'");
+    expect(buttonSource).toContain(
+      'ETranslations.portfolio_sync_to_device__action',
+    );
+    expect(buttonSource).toContain('accessibilityLiveRegion="polite"');
     expect(source).toContain('errorToastUtils.showToastOfError(error)');
-    expect(source).toContain('deviceVendor === EHardwareVendor.onekey');
-    expect(source).toContain("device?.connectProtocol === 'V2'");
+    expect(source).toContain(
+      'activePortfolioSyncRequest &&\n            activePortfolioSyncRequest.id === portfolioSyncRequest?.id',
+    );
+    expect(source).toContain('errorToastUtils.showToastOfError(e)');
     expect(source).toContain('pollingInterval: POLLING_INTERVAL_FOR_TOKEN');
   });
 });
