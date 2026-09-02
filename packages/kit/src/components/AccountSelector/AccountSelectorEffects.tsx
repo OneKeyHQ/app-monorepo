@@ -83,6 +83,8 @@ const completedAutoSaveOutcomes = new Set<EStorageSaveOutcome>([
   EStorageSaveOutcome.SkipCompletedRevision,
 ]);
 
+const ACTIVE_ACCOUNT_RELOAD_RETRY_DELAY_MS = 1000;
+
 type IActiveAccountReloadRequest = {
   coalescedCount: number;
   coalescedTriggers: string[];
@@ -567,6 +569,20 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
               sceneName,
             });
           };
+          const waitForActiveReloadRetry = async () => {
+            if (request.generation !== activeReloadGenerationRef.current) {
+              return false;
+            }
+            pendingActiveReloadRequestRef.current = request;
+            await timerUtils.wait(ACTIVE_ACCOUNT_RELOAD_RETRY_DELAY_MS);
+            if (
+              pendingActiveReloadRequestRef.current?.scheduleId ===
+              request.scheduleId
+            ) {
+              pendingActiveReloadRequestRef.current = undefined;
+            }
+            return request.generation === activeReloadGenerationRef.current;
+          };
           if (request.generation !== activeReloadGenerationRef.current) {
             logDispatch({
               outcome: EActiveReloadDispatchOutcome.CancelledStaleScheduler,
@@ -580,21 +596,27 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
             });
             return;
           }
-          const gateStartedAt = request.perfEnabled
-            ? getAccountSelectorPerfTimestamp()
-            : undefined;
+          let gateStartedAt: number | undefined;
           let isInTransferImportOrBackupRestoreFlow: boolean;
-          try {
-            isInTransferImportOrBackupRestoreFlow =
-              await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
-          } catch (error) {
-            logDispatch({
-              gateMs: getElapsedMs(gateStartedAt),
-              outcome: EActiveReloadDispatchOutcome.Error,
-              phase: 'transfer-gate',
-            });
-            logActiveReloadFailure({ error, phase: 'transfer-gate' });
-            return;
+          for (;;) {
+            gateStartedAt = request.perfEnabled
+              ? getAccountSelectorPerfTimestamp()
+              : undefined;
+            try {
+              isInTransferImportOrBackupRestoreFlow =
+                await backgroundApiProxy.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+              break;
+            } catch (error) {
+              logDispatch({
+                gateMs: getElapsedMs(gateStartedAt),
+                outcome: EActiveReloadDispatchOutcome.Error,
+                phase: 'transfer-gate',
+              });
+              logActiveReloadFailure({ error, phase: 'transfer-gate' });
+              if (!(await waitForActiveReloadRetry())) {
+                return;
+              }
+            }
           }
           logActiveReloadRecovery('transfer-gate');
           if (request.generation !== activeReloadGenerationRef.current) {
