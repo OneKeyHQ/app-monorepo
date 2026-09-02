@@ -35,6 +35,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapLimitOrderExpiryStep,
+  ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -880,7 +881,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const checkSupportTokenSwapType = useCallback(
     (token: ISwapToken, enableSwitchAction?: boolean) => {
-      const supportNet = swapNetworks.find(
+      const supportNet = swapNetworksRef.current.find(
         (net) => net.networkId === token.networkId,
       );
       const supportTypes = supportNet
@@ -911,7 +912,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
     [
       normalizedSwapTabSwitchType,
-      swapNetworks,
       swapTypeSwitch,
       swapTypeSwitchAction,
       focusSwapPro,
@@ -1108,6 +1108,50 @@ export function useSwapInit(params?: ISwapInitParams) {
         if (params?.importToToken) {
           if (isImportToTokenSupported) {
             setToToken(params?.importToToken);
+          }
+        }
+        if (
+          params?.swapSource === ESwapSource.MARKET &&
+          params?.importToToken &&
+          !params.importFromToken &&
+          isImportToTokenSupported
+        ) {
+          const accountDefaultTokens =
+            swapDefaultSetTokens[swapAddressInfoRef.current?.networkId ?? ''];
+          const importNetworkDefaultTokens =
+            swapDefaultSetTokens[params.importToToken.networkId];
+          const importToFallbackToken = needChangeToken({
+            token: params.importToToken,
+            swapTypeSwitchValue: importTokenSupportCheckType,
+          });
+          const counterpartToken = [
+            fromTokenRef.current,
+            toTokenRef.current,
+            accountDefaultTokens?.fromToken,
+            accountDefaultTokens?.toToken,
+            importNetworkDefaultTokens?.fromToken,
+            importNetworkDefaultTokens?.toToken,
+            importToFallbackToken || undefined,
+          ].find(
+            (token) =>
+              token &&
+              !equalTokenNoCaseSensitive({
+                token1: token,
+                token2: params.importToToken,
+              }) &&
+              checkSupportTokenSwapType(token).includes(
+                importTokenSupportCheckType,
+              ) &&
+              !(
+                'balanceMultiplier' in token &&
+                tokenRebaseUtils.isScalingBalanceMultiplier(
+                  token.balanceMultiplier,
+                )
+              ),
+          );
+          if (counterpartToken) {
+            fromTokenRef.current = counterpartToken;
+            setSwapFromToken(counterpartToken);
           }
         }
         if (
@@ -1381,6 +1425,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
+    params?.swapSource,
     params?.swapTabSwitchType,
     normalizedSwapTabSwitchType,
     supportCheckSwapTabSwitchType,
