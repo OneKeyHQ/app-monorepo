@@ -52,22 +52,31 @@ export function resolveAllNetworkPublishedResult<T>({
  * When that fan-out then fails, the previously published result must be
  * restored — otherwise the consumer stays pinned on `undefined` until the
  * next successful must-run. The visible result is only restored while the
- * owner is unchanged: a stale runner from a previous owner must not overwrite
- * the current owner's state (the ref restore alone is safe, because the
- * skip path re-checks the run signature before serving it).
+ * owner is unchanged AND the retained snapshot carries the current run
+ * signature. `ownerUnchanged` only proves the failed runner still owns the
+ * hook; the retained ref outlives account/network switches, so without the
+ * signature check the first failed refresh after a switch would publish the
+ * previous owner's snapshot under the new owner. The ref restore itself is
+ * unconditional: the skip path and the publish path both re-check the run
+ * signature before serving it.
  */
 export function resolveAllNetworkFailedRunRestore<T>({
   previousPublished,
   ownerUnchanged,
+  currentRunSignature,
 }: {
   previousPublished: IAllNetworkLastPublishedResult<T> | undefined;
   ownerUnchanged: boolean;
+  currentRunSignature: string;
 }): {
   nextLastPublished: IAllNetworkLastPublishedResult<T> | undefined;
   shouldRestoreResult: boolean;
 } {
   return {
     nextLastPublished: previousPublished,
-    shouldRestoreResult: ownerUnchanged && previousPublished !== undefined,
+    shouldRestoreResult:
+      ownerUnchanged &&
+      previousPublished !== undefined &&
+      previousPublished.runSignature === currentRunSignature,
   };
 }

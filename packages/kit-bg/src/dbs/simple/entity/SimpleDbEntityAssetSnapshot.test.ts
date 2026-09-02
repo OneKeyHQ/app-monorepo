@@ -601,6 +601,60 @@ describe('SimpleDbEntityAccountValue snapshot admission', () => {
     await write('10', 3);
     expect(setRawDataSpy).toHaveBeenCalledTimes(2);
   });
+
+  it('writes into a pre-migration legacy record that lacks the address buckets', async () => {
+    // The address-key migration runs deferred at bootstrap, so an early
+    // refresh can hit a record that still only has the legacy `data` / `all`
+    // shape. Both writers must tolerate the missing buckets instead of
+    // indexing `undefined` and failing the refresh.
+    const entity = new SimpleDbEntityAccountValue();
+    const legacyData = { 'hd-1--evm--1': { value: '1', currency: 'usd' } };
+    const legacyAll = { 'hd-1': { value: { 'evm--1': '1' }, currency: 'usd' } };
+    const read = mockEntityStorage<IAccountValueDb>(entity, {
+      data: legacyData,
+      all: legacyAll,
+    } as unknown as IAccountValueDb);
+
+    await entity.updateAccountValue({
+      networkId: 'evm--1',
+      accountAddress: '0xalice',
+      value: '10',
+      currency: 'usd',
+      assetSnapshotMeta: meta(1),
+    });
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          accountAddress: '0xalice',
+          networkId: 'evm--1',
+          value: '10',
+          assetSnapshotMeta: meta(1),
+        },
+      ],
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(1),
+    });
+
+    const result = read() as IAccountValueDb & {
+      data?: unknown;
+      all?: unknown;
+    };
+    expect(result.byAddress['evm--1_0xalice']).toEqual({
+      value: '10',
+      currency: 'usd',
+      assetSnapshotMeta: meta(1),
+    });
+    expect(result.allByAddress['0xalice']).toEqual({
+      value: { 'evm--1': '10' },
+      currency: 'usd',
+      assetSnapshotMeta: meta(1),
+      assetSnapshotMetaByNetwork: { 'evm--1': meta(1) },
+    });
+    // The legacy snapshot stays intact for the deferred migration to consume.
+    expect(result.data).toEqual(legacyData);
+    expect(result.all).toEqual(legacyAll);
+  });
 });
 
 afterEach(() => {

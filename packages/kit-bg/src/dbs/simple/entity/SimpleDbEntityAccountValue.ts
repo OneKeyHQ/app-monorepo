@@ -150,6 +150,20 @@ function emptyData(): IAccountValueDb {
   return { byAddress: {}, allByAddress: {} };
 }
 
+// A record persisted before the address-key migration (which runs deferred at
+// bootstrap) still has the legacy `data` / `all` shape and lacks the
+// address-keyed buckets. Writers must index normalized buckets rather than
+// `undefined`, otherwise every refresh throws until the migration lands.
+function withAddressBuckets(
+  raw: IAccountValueDb | null | undefined,
+): IAccountValueDb {
+  return {
+    ...raw,
+    byAddress: raw?.byAddress ?? {},
+    allByAddress: raw?.allByAddress ?? {},
+  };
+}
+
 export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValueDb> {
   entityName = 'accountValue';
 
@@ -228,11 +242,13 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         sameSnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta));
     // Pre-check outside the mutex so a repeated refresh does not re-serialize
     // the whole entity (see updateAllNetworkAccountValue).
-    if (isNoopAgainst((await this.getRawData())?.byAddress[key])) {
+    if (
+      isNoopAgainst(withAddressBuckets(await this.getRawData()).byAddress[key])
+    ) {
       return;
     }
     await this.setRawData((rawData) => {
-      const base = rawData ?? emptyData();
+      const base = withAddressBuckets(rawData);
       const existing = base.byAddress[key];
       // The authoritative comparison happens inside the builder: setRawData
       // serializes this entity's writes, whereas the pre-read above can be
@@ -486,11 +502,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     // re-evaluates under the mutex, so a stale pre-read can at most cost one
     // redundant write, never a lost one.
     const preRead = await this.getRawData();
-    if (!applyWrites(preRead ?? emptyData()).changed) {
+    if (!applyWrites(withAddressBuckets(preRead)).changed) {
       return;
     }
     await this.setRawData(
-      (rawData) => applyWrites(rawData ?? emptyData()).next,
+      (rawData) => applyWrites(withAddressBuckets(rawData)).next,
     );
   }
 

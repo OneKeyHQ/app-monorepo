@@ -1036,13 +1036,17 @@ function useAllNetworkRequests<T>(params: {
           // The accepted run cleared the retained result before fetching.
           // Restore the last-good snapshot so a failed fan-out does not pin
           // the consumer on `undefined` until the next successful must-run.
-          // The visible result is only restored while the owner is unchanged;
-          // the ref restore alone is safe because the skip path re-checks the
-          // run signature before serving it.
+          // The visible result is only restored while the owner is unchanged
+          // AND the retained snapshot carries this run's signature: the ref
+          // outlives owner switches, so `ownerUnchanged` alone cannot prove
+          // the snapshot belongs to the current owner. The ref restore alone
+          // is safe because the skip path re-checks the run signature before
+          // serving it.
           const { nextLastPublished, shouldRestoreResult } =
             resolveAllNetworkFailedRunRestore({
               previousPublished: previousPublishedResult,
               ownerUnchanged: liveRunOwnerKeyRef.current === runnerOwnerKey,
+              currentRunSignature,
             });
           lastPublishedResultRef.current = nextLastPublished;
           if (shouldRestoreResult && previousPublishedResult) {

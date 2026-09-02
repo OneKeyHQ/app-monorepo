@@ -112,6 +112,7 @@ describe('resolveAllNetworkPublishedResult', () => {
       resolveAllNetworkFailedRunRestore({
         previousPublished: resolved.nextLastPublished,
         ownerUnchanged: true,
+        currentRunSignature: signature,
       }),
     ).toEqual({
       nextLastPublished: { result: completed, runSignature: signature },
@@ -150,6 +151,7 @@ describe('resolveAllNetworkFailedRunRestore', () => {
       resolveAllNetworkFailedRunRestore({
         previousPublished: previous,
         ownerUnchanged: true,
+        currentRunSignature: signature,
       }),
     ).toEqual({
       nextLastPublished: previous,
@@ -162,6 +164,7 @@ describe('resolveAllNetworkFailedRunRestore', () => {
       resolveAllNetworkFailedRunRestore({
         previousPublished: previous,
         ownerUnchanged: false,
+        currentRunSignature: signature,
       }),
     ).toEqual({
       nextLastPublished: previous,
@@ -174,9 +177,27 @@ describe('resolveAllNetworkFailedRunRestore', () => {
       resolveAllNetworkFailedRunRestore({
         previousPublished: undefined,
         ownerUnchanged: true,
+        currentRunSignature: signature,
       }),
     ).toEqual({
       nextLastPublished: undefined,
+      shouldRestoreResult: false,
+    });
+  });
+
+  test('keeps the ref but does not publish a snapshot minted for another run signature', () => {
+    // The retained ref outlives an account switch: owner X's superseded
+    // result is still in the ref when owner Y's first run is accepted. If
+    // that run fails, `ownerUnchanged` is true for Y's own runner, yet the
+    // snapshot belongs to X and must not be published under Y.
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: previous,
+        ownerUnchanged: true,
+        currentRunSignature: 'account-2|all--networks|wallet-1|0|0',
+      }),
+    ).toEqual({
+      nextLastPublished: previous,
       shouldRestoreResult: false,
     });
   });
