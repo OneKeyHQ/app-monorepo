@@ -282,6 +282,7 @@ function HomeOverviewContainer() {
           accountId: account.id,
           worth: {},
           initialized: false,
+          reset: true,
         });
         updateAccountDeFiOverview({
           accountId: account.id,
@@ -487,6 +488,10 @@ function HomeOverviewContainer() {
                 value: createAtNetworkValue,
                 currency: accountWorthCurrency,
                 shouldUpdateActiveAccountValue: true,
+                assetSnapshotMeta:
+                  accountWorth.assetSnapshotMetaByKey?.[
+                    createAtNetworkValueKey
+                  ],
               });
             }
           }
@@ -498,6 +503,10 @@ function HomeOverviewContainer() {
                 networkId: network.id,
               })
             ];
+          const singleNetworkValueKey = accountUtils.buildAccountValueKey({
+            accountId: account.id,
+            networkId: network.id,
+          });
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
@@ -505,6 +514,8 @@ function HomeOverviewContainer() {
               networkId: network.id,
               value: singleNetworkValue ?? '0',
               currency: accountWorthCurrency,
+              assetSnapshotMeta:
+                accountWorth.assetSnapshotMetaByKey?.[singleNetworkValueKey],
             },
           );
         }
@@ -515,6 +526,8 @@ function HomeOverviewContainer() {
             value: accountWorth.worth,
             currency: accountWorthCurrency,
             updateAll: accountWorth.updateAll,
+            assetSnapshotMetaByKey: accountWorth.assetSnapshotMetaByKey,
+            assetSnapshotMeta: accountWorth.assetSnapshotMeta,
           },
         );
       }

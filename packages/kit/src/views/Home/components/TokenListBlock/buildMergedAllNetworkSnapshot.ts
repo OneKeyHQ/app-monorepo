@@ -3,6 +3,7 @@ import { uniqBy } from 'lodash';
 
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { compareAssetSnapshotMeta } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import {
   flattenAggregateTokensMap,
   mergeAggregateTokenListMap,
@@ -19,6 +20,7 @@ import {
   sumFiatValuesFromTokens,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 /**
@@ -64,6 +66,8 @@ export interface IAllNetworkSnapshotRound {
    * leak risk-only keys into the account worth even after per-$key dedup.
    */
   accountWorth?: string;
+  /** Freshness marker for the values in this network round. */
+  assetSnapshotMeta?: IAssetSnapshotMeta;
 }
 
 /**
@@ -83,6 +87,10 @@ export interface IMergedAllNetworkSnapshot {
   smallBalanceFiatValue: string;
   accountsWorth: Record<string, string>;
   createAtNetworkWorth: string;
+  /** Freshness marker per account-value compound key. */
+  assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta>;
+  /** Oldest marker covered by the full snapshot, used for safe replacement. */
+  assetSnapshotMeta?: IAssetSnapshotMeta;
   tokenKeys: string;
   smallBalanceKeys: string;
   riskyKeys: string;
@@ -108,11 +116,14 @@ export function buildMergedAllNetworkSnapshot({
   mergeDeriveAssetsByNetworkId,
   accountId,
   createAtNetwork,
+  expectedAccountValueKeys,
 }: {
   rounds: IAllNetworkSnapshotRound[];
   mergeDeriveAssetsByNetworkId: Record<string, boolean | undefined>;
   accountId?: string;
   createAtNetwork?: string;
+  /** Keys required before the result may carry a complete-snapshot marker. */
+  expectedAccountValueKeys?: ReadonlySet<string>;
 }): IMergedAllNetworkSnapshot {
   const tokenList: { tokens: IAccountToken[]; keys: string } = {
     tokens: [],
@@ -131,6 +142,9 @@ export function buildMergedAllNetworkSnapshot({
   let smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
   let riskyTokenListMap: Record<string, ITokenFiat> = {};
   const accountsWorth: Record<string, string> = {};
+  const assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
+  let assetSnapshotMeta: IAssetSnapshotMeta | undefined;
+  let hasUnversionedAccountValue = false;
   let createAtNetworkWorth = new BigNumber(0);
   let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -215,12 +229,28 @@ export function buildMergedAllNetworkSnapshot({
       ? r.accountWorth
       : sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
-    accountsWorth[
-      accountUtils.buildAccountValueKey({
-        accountId: r.accountId ?? '',
-        networkId: r.networkId ?? '',
-      })
-    ] = accountWorth;
+    const accountValueKey = accountUtils.buildAccountValueKey({
+      accountId: r.accountId ?? '',
+      networkId: r.networkId ?? '',
+    });
+    accountsWorth[accountValueKey] = accountWorth;
+    if (r.assetSnapshotMeta) {
+      assetSnapshotMetaByKey[accountValueKey] = r.assetSnapshotMeta;
+      // `updateAll` may remove keys omitted by a full snapshot. Use the
+      // oldest covered marker so an unrelated newer persisted value is never
+      // deleted by an older/partial response.
+      if (
+        !assetSnapshotMeta ||
+        compareAssetSnapshotMeta(r.assetSnapshotMeta, assetSnapshotMeta) < 0
+      ) {
+        assetSnapshotMeta = r.assetSnapshotMeta;
+      }
+    } else {
+      // A legacy disk cache may not have a freshness marker. Keep its value in
+      // the per-network result, but do not manufacture a complete-snapshot
+      // marker from a different network and use it to replace newer data.
+      hasUnversionedAccountValue = true;
+    }
 
     if (
       accountId &&
@@ -290,6 +320,19 @@ export function buildMergedAllNetworkSnapshot({
     map: riskyTokenListMap,
   });
 
+  // `rounds` is often a materialized subset while a fan-out is still in
+  // flight. A marker on that subset would let downstream persistence treat it
+  // as a full replacement and delete the missing networks. The caller may
+  // provide the authoritative enabled-key set so absence is distinguished from
+  // an empty value returned by a settled round.
+  const hasCompleteExpectedKeys =
+    expectedAccountValueKeys === undefined
+      ? true
+      : expectedAccountValueKeys.size > 0 &&
+        [...expectedAccountValueKeys].every((key) =>
+          Object.prototype.hasOwnProperty.call(accountsWorth, key),
+        );
+
   return {
     orderedTokens: tokenList.tokens,
     smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
@@ -301,6 +344,12 @@ export function buildMergedAllNetworkSnapshot({
     smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
     accountsWorth,
     createAtNetworkWorth: createAtNetworkWorth.toFixed(),
+    assetSnapshotMetaByKey,
+    ...(assetSnapshotMeta &&
+    !hasUnversionedAccountValue &&
+    hasCompleteExpectedKeys
+      ? { assetSnapshotMeta }
+      : {}),
     tokenKeys: tokenList.keys,
     smallBalanceKeys: smallBalanceTokenList.keys,
     riskyKeys: riskyTokenList.keys,

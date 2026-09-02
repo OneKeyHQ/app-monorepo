@@ -2,6 +2,8 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
+import type { IAssetSnapshotMeta } from './assetSnapshot';
+
 export enum ETokenListSortType {
   Name = 'name',
   Price = 'price',
@@ -129,6 +131,8 @@ export type IFetchAccountTokensResp = {
     }
   >;
   aggregateTokenMap?: Record<string, ITokenFiat>;
+  /** Client-only metadata for ordering persistence writes. */
+  assetSnapshotMeta?: IAssetSnapshotMeta;
 };
 
 export type IFetchTokenDetailParams = {
