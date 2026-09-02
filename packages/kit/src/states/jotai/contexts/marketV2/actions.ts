@@ -50,6 +50,14 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
         }) || ''
       }`;
 
+let watchListMutationQueue: Promise<unknown> = Promise.resolve();
+
+function runWatchListMutation<T>(mutation: () => Promise<T>) {
+  const result = watchListMutationQueue.then(mutation, mutation);
+  watchListMutationQueue = result.catch(() => undefined);
+  return result;
+}
+
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 
 function isSameMarketTokenDetail({
@@ -249,8 +257,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         tokenDetailPreview.networkId === networkId
           ? tokenDetailPreview
           : undefined;
-      // Set atom values directly — `this.xxx.call(set)` doesn't work
-      // because `this` is not the class instance inside contextAtomMethod.
+      // contextAtomMethod does not bind the class instance.
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), nextPreview);
       set(tokenDetailWebsocketAtom(), undefined);
@@ -268,7 +275,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
@@ -304,9 +310,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
         }
       } finally {
-        // Skip loading reset when stale — another caller (fetchTokenDetail
-        // from useAutoRefreshTokenDetail) may already be in-flight with
-        // loading=true for the new token.
+        // Preserve a newer request's loading state.
         if (!isStale) {
           set(tokenDetailLoadingAtom(), false);
         }
@@ -342,9 +346,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        // Stale check first: discard if user already switched to a different
-        // token via changeActiveToken during this async fetch. Must run before
-        // the data validity check so that early returns don't clobber loading.
+        // Check staleness before validation can reset loading.
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (currentAddress !== tokenAddress && currentAddress !== '') {
@@ -389,7 +391,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Preserve chart-updated price only while it is fresh.
         const isSameToken =
           currentTokenDetail &&
           isSameMarketTokenDetail({
@@ -501,20 +502,22 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      try {
-        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-          watchList: params,
-          callerName: 'jotaiContextActions_addIntoWatchListV2',
-        });
-      } catch (error) {
-        const current = get(marketWatchListV2Atom());
-        set(marketWatchListV2Atom(), {
-          ...current,
-          data: current.data.filter((item) => !insertedItems.has(item)),
-        });
-        throw error;
-      }
-      await this.refreshWatchListV2.call(set).catch(() => undefined);
+      await runWatchListMutation(async () => {
+        try {
+          await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+            watchList: params,
+            callerName: 'jotaiContextActions_addIntoWatchListV2',
+          });
+        } catch (error) {
+          const current = get(marketWatchListV2Atom());
+          set(marketWatchListV2Atom(), {
+            ...current,
+            data: current.data.filter((item) => !insertedItems.has(item)),
+          });
+          throw error;
+        }
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      });
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.MARKET,
       );
@@ -546,26 +549,29 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      try {
-        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-          items: [{ chainId, contractAddress }],
-          callerName: 'jotaiContextActions_removeFromWatchListV2',
-        });
-      } catch (error) {
-        const current = get(marketWatchListV2Atom());
-        const currentKeys = new Set(current.data.map(uniqByFn));
-        const removed = prev.data.filter(
-          (item) => !newData.includes(item) && !currentKeys.has(uniqByFn(item)),
-        );
-        const data = sortUtils.buildSortedList({
-          oldList: current.data,
-          saveItems: removed,
-          uniqByFn,
-        });
-        set(marketWatchListV2Atom(), { ...current, data });
-        throw error;
-      }
-      await this.refreshWatchListV2.call(set).catch(() => undefined);
+      await runWatchListMutation(async () => {
+        try {
+          await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+            items: [{ chainId, contractAddress }],
+            callerName: 'jotaiContextActions_removeFromWatchListV2',
+          });
+        } catch (error) {
+          const current = get(marketWatchListV2Atom());
+          const currentKeys = new Set(current.data.map(uniqByFn));
+          const removed = prev.data.filter(
+            (item) =>
+              !newData.includes(item) && !currentKeys.has(uniqByFn(item)),
+          );
+          const data = sortUtils.buildSortedList({
+            oldList: current.data,
+            saveItems: removed,
+            uniqByFn,
+          });
+          set(marketWatchListV2Atom(), { ...current, data });
+          throw error;
+        }
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      });
     },
   );
 
@@ -679,8 +685,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Resolve current sortIndex from atom state to avoid stale values
-      // from callers (e.g. edit dialog local state).
+      // Read the current sortIndex instead of caller state.
       const resolveFromAtom = (
         item: IMarketWatchListItemV2 | undefined,
       ): IMarketWatchListItemV2 | undefined => {
