@@ -535,7 +535,10 @@ function TopCoinsInformation({
   let tabContent: ReactNode;
   if (tab === 'portfolio') {
     tabContent = (
-      <YStack px="$5" pt="$5">
+      // Portfolio brings its own horizontal padding (header px and row
+      // margin+padding both resolve to the 20px gutter), so no `px` here — an
+      // outer gutter would double-indent the table. Mirrors `StockOverview`.
+      <YStack pt="$5">
         <Portfolio
           standalone
           accountAddress={accountAddress}
