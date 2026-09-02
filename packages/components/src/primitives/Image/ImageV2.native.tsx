@@ -12,6 +12,7 @@ import {
 import {
   type ImageStyle,
   type ImageURISource,
+  PixelRatio,
   Platform,
   Image as ReactNativeImage,
   StyleSheet,
@@ -19,6 +20,7 @@ import {
 } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 
 import { buildOptimizedImageSource } from './optimization';
 
@@ -51,29 +53,100 @@ function getContentFit({
   contentFit?: IImageContentFit;
   resizeMode?: IImageV2Props['resizeMode'];
 }) {
-  if (contentFit === 'fill' || resizeMode === 'stretch') {
+  if (contentFit === 'fill') {
     return OneKeyImageContentFit.FILL;
   }
-  if (contentFit === 'contain' || resizeMode === 'contain') {
+  if (contentFit === 'contain') {
     return OneKeyImageContentFit.CONTAIN;
   }
-  if (
-    contentFit === 'center' ||
-    resizeMode === 'center' ||
-    resizeMode === 'none'
-  ) {
+  if (contentFit === 'center') {
+    return OneKeyImageContentFit.CENTER;
+  }
+  if (contentFit === 'cover') {
+    return OneKeyImageContentFit.COVER;
+  }
+  if (resizeMode === 'stretch') {
+    return OneKeyImageContentFit.FILL;
+  }
+  if (resizeMode === 'contain') {
+    return OneKeyImageContentFit.CONTAIN;
+  }
+  if (resizeMode === 'center' || resizeMode === 'none') {
     return OneKeyImageContentFit.CENTER;
   }
   return OneKeyImageContentFit.COVER;
 }
 
+function getPositiveNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function selectSourceCandidate({
+  sources,
+  width,
+  height,
+}: {
+  sources: readonly ImageURISource[];
+  width?: unknown;
+  height?: unknown;
+}) {
+  if (sources.length <= 1) {
+    return sources[0];
+  }
+
+  const displayWidth = getPositiveNumber(width);
+  const displayHeight = getPositiveNumber(height);
+  if (displayWidth && displayHeight) {
+    const pixelRatio = PixelRatio.get();
+    const targetArea = displayWidth * displayHeight * pixelRatio * pixelRatio;
+    let bestSource: ImageURISource | undefined;
+    let bestPrecision = Number.POSITIVE_INFINITY;
+
+    sources.forEach((source) => {
+      const sourceWidth = getPositiveNumber(source.width);
+      const sourceHeight = getPositiveNumber(source.height);
+      if (!sourceWidth || !sourceHeight) {
+        return;
+      }
+      const precision = Math.abs(1 - (sourceWidth * sourceHeight) / targetArea);
+      if (precision < bestPrecision) {
+        bestPrecision = precision;
+        bestSource = source;
+      }
+    });
+
+    if (bestSource) {
+      return bestSource;
+    }
+  }
+
+  const scaledSources = sources
+    .filter((source) => getPositiveNumber(source.scale))
+    .toSorted((left, right) => (left.scale ?? 1) - (right.scale ?? 1));
+  if (scaledSources.length > 0) {
+    const pixelRatio = PixelRatio.get();
+    return (
+      scaledSources.find((source) => (source.scale ?? 1) >= pixelRatio) ??
+      scaledSources[scaledSources.length - 1]
+    );
+  }
+
+  return sources[0];
+}
+
 function normalizeSource(
   source: IImageV2Props['source'] | undefined,
+  width?: unknown,
+  height?: unknown,
 ): ImageURISource | null {
   if (typeof source === 'string') {
     return { uri: source.trim() };
   }
-  const candidate = Array.isArray(source) ? source[0] : source;
+  const candidate = Array.isArray(source)
+    ? selectSourceCandidate({ sources: source, width, height })
+    : source;
   if (typeof candidate === 'number') {
     const resolved = ReactNativeImage.resolveAssetSource(candidate);
     if (
@@ -83,7 +156,8 @@ function normalizeSource(
     ) {
       return {
         ...resolved,
-        uri: `android.resource://so.onekey.app.wallet/drawable/${resolved.uri}`,
+        // Release bundles resolve require() images to a bare drawable name.
+        uri: `android.resource://${ANDROID_PACKAGE_NAME}/drawable/${resolved.uri}`,
       };
     }
     return resolved ?? null;
@@ -152,8 +226,8 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const rawSource = source ?? src;
   const normalizedSource = useMemo(
-    () => normalizeSource(rawSource),
-    [rawSource],
+    () => normalizeSource(rawSource, style.width, style.height),
+    [rawSource, style.height, style.width],
   );
   const optimizedSourceResult = useMemo(
     () =>

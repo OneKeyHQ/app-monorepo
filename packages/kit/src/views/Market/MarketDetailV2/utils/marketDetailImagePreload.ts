@@ -8,7 +8,7 @@ type IMarketTokenImageSource = {
 };
 
 const MARKET_TOKEN_IMAGE_PREWARM_LIMIT = 4;
-const MARKET_TOKEN_IMAGE_PREWARM_RESIZE_WIDTH = getTokenImageResizeWidth('md');
+const MARKET_TOKEN_IMAGE_PREWARM_SIZE = 'md' as const;
 const MAX_TRACKED_MARKET_TOKEN_IMAGE_URIS = 600;
 
 const prewarmedMarketTokenImageUris = new Set<string>();
@@ -49,11 +49,12 @@ export function prewarmMarketTokenImages(
   if (uris.length === 0) return;
 
   uris.forEach((uri) => prewarmingMarketTokenImageUris.add(uri));
+  const resizeWidth = getTokenImageResizeWidth(MARKET_TOKEN_IMAGE_PREWARM_SIZE);
 
   void preloadImages(
     uris.map((uri) => ({
       uri,
-      resizeWidth: MARKET_TOKEN_IMAGE_PREWARM_RESIZE_WIDTH,
+      resizeWidth,
     })),
   )
     .then((success) => {

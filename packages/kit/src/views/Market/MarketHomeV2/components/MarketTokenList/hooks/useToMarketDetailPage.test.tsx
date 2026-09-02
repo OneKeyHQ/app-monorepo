@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: {
     UNKNOWN: 'UNKNOWN',
   },
+  s: (value: number) => value,
   rootNavigationRef: {
     current: {
       navigate: jest.fn(),
