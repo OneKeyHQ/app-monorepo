@@ -287,7 +287,6 @@ export const TradingViewV2ChartControlsContainer = memo(
       showChartSettingsDialog,
       showNewChartSettingsDialog,
     ]);
-
     return (
       <TradingViewChartControls
         intervalConfig={intervalConfig}
@@ -316,8 +315,8 @@ export const TradingViewV2ChartControlsContainer = memo(
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
-        chartMode="tradingView"
-        onChartSwitch={onChartSwitch}
+        chartMode={layoutMode === 'desktop' ? 'tradingView' : undefined}
+        onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}

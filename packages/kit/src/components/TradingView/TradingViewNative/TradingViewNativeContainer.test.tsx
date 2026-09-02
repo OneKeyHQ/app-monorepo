@@ -39,6 +39,10 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
+const mockTradingViewNativeChartSettingsButton = jest.fn<
+  null,
+  [{ priceAxisWidth: number }]
+>(() => null);
 const mockShowTradingViewNativeIndicatorSettingsDialog = jest.fn<
   void,
   [unknown]
@@ -219,6 +223,11 @@ jest.mock('./TradingViewNativeChart', () => ({
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
   TradingViewNativeChartControlsContainer: (props: unknown) =>
     mockTradingViewNativeChartControlsContainer(props),
+}));
+
+jest.mock('./TradingViewNativeChartSettingsButton', () => ({
+  TradingViewNativeChartSettingsButton: (props: { priceAxisWidth: number }) =>
+    mockTradingViewNativeChartSettingsButton(props),
 }));
 
 jest.mock('./showTradingViewNativeIndicatorSettingsDialog', () => ({
@@ -1028,6 +1037,39 @@ describe('TradingViewNativeContainer', () => {
       screen.getByTestId('trading-view-native-fullscreen-toggle'),
     );
     expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('renders chart settings inside the opted-in mobile native chart', () => {
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+
+    render(
+      <TradingViewNativeContainer
+        source={source}
+        enableNativeChartSettings
+        nativeControlsLayoutMode="mobile"
+      />,
+    );
+
+    expect(mockTradingViewNativeChartSettingsButton).toHaveBeenCalledWith({
+      priceAxisWidth: 0,
+    });
+
+    mockTradingViewNativeChartSettingsButton.mockClear();
+    render(
+      <TradingViewNativeContainer
+        source={source}
+        enableNativeChartSettings
+        nativeControlsLayoutMode="desktop"
+      />,
+    );
+
+    expect(mockTradingViewNativeChartSettingsButton).not.toHaveBeenCalled();
   });
 
   it('maps calendar submissions to native viewport targets', () => {

@@ -105,6 +105,7 @@ describe('MarketChartSettingsModal', () => {
 
     const props = mockTradingViewChartSettings.mock.calls[0][0];
     expect(props.mobileLayout).toBe(false);
+    expect(props.showChartType).toBe(true);
     expect(props.onChange).toBeUndefined();
     expect(props.hiddenAppearanceSectionIds).toEqual(['events']);
     expect(props.hiddenOptionIds).toEqual([

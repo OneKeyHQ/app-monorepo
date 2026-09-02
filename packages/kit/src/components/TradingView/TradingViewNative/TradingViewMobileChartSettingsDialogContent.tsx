@@ -13,9 +13,13 @@ import {
 } from '@onekeyhq/components';
 import { useMarketTradingViewChartSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ITradingViewNativeChartSettingsOptions } from '@onekeyhq/shared/types/tradingViewNative';
+import type {
+  ITradingViewNativeChartSettingsOptions,
+  ITradingViewNativeChartTypePreference,
+} from '@onekeyhq/shared/types/tradingViewNative';
 
 import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
+import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 
@@ -120,6 +124,15 @@ export function TradingViewMobileChartSettingsDialogContent({
     },
     [setSettings],
   );
+  const handleChartTypeChange = useCallback(
+    (chartType: ITradingViewNativeChartTypePreference) => {
+      void setSettings((currentSettings) => ({
+        ...normalizeTradingViewNativeChartSettings(currentSettings),
+        chartType,
+      }));
+    },
+    [setSettings],
+  );
 
   return (
     <YStack gap="$4" pb="$6">
@@ -132,6 +145,10 @@ export function TradingViewMobileChartSettingsDialogContent({
             id: ETranslations.market_chart_settings__chart_display,
           })}
         </SizableText>
+        <TradingViewChartTypeSettingsRow
+          value={normalizedSettings.chartType}
+          onChange={handleChartTypeChange}
+        />
         <XStack flexWrap="wrap" rowGap="$1">
           {QUICK_SETTING_OPTIONS.map((option) => (
             <QuickSettingOption
