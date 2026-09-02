@@ -45,15 +45,10 @@ const range = (length: number) => [...Array(length).keys()];
 export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
-// How cleanly the best cut separates the image into two clusters, 0..1. A two-tone
-// image scores ~1 however little it spans; one smear of tones — a photo, or a flat
-// field carrying compression noise — peaks around 0.65 and gets dithered instead.
+// Dither images whose Otsu split falls below this confidence threshold.
 const MIN_SEPARABILITY = 0.85;
 
-// The color axes are only worth reaching for when luminance is a single spike: two
-// hues of equal brightness. Kept this tight on purpose — give a field carrying any
-// noise at all a color axis and a handful of blown-out pixels form their own
-// "perfect" cluster, which scores 1 and blanks the picture behind them.
+// Noisy luminance can make color outliers look perfectly separable.
 const FLAT_LUMINANCE_VARIANCE = 4;
 
 type IProjection = (red: number, green: number, blue: number) => number;
@@ -77,8 +72,7 @@ function projectPixels(data: Uint8ClampedArray, project: IProjection) {
   return { values, histogram, pixelCount };
 }
 
-// Picks the values to cut, the threshold, and which side of it becomes white.
-// canSplit false means no cut is honest and the caller should dither instead.
+// Returns the threshold axis, polarity, and whether the split is reliable.
 export function pickThresholdAxis(data: Uint8ClampedArray) {
   const {
     values: luminance,
@@ -98,9 +92,7 @@ export function pickThresholdAxis(data: Uint8ClampedArray) {
     return cut(luminance, brightness.threshold);
   }
 
-  // A flat luminance histogram is the one case a color axis can rescue. Anything
-  // else failing here is a photo or a noisy field, which dithers better than it
-  // cuts, so there is nothing to gain from searching further.
+  // Chroma can rescue equal-luminance colors only when luminance is flat.
   if (brightness.variance < FLAT_LUMINANCE_VARIANCE) {
     for (const project of CHROMA_AXES) {
       const projected = projectPixels(data, project);
@@ -120,13 +112,7 @@ export function pickThresholdAxis(data: Uint8ClampedArray) {
   };
 }
 
-// Atkinson error diffusion: the classic six-neighbour kernel that spreads only
-// three quarters of the error, which holds contrast on a screen this small better
-// than the kernels spreading all of it. Error accumulates in a float array rather
-// than a clamped one so it carries instead of saturating, and row edges are guarded.
-//
-// This is what runs when no threshold can honestly split the image. A flat field
-// becomes an even texture that reads as grey, which beats emitting a blank screen.
+// Atkinson's 6/8 error diffusion preserves contrast on small screens.
 export function atkinsonDither(
   luminance: Uint8ClampedArray,
   width: number,
@@ -162,8 +148,7 @@ export function atkinsonDither(
   return out;
 }
 
-// A color axis need not run dark-to-bright, so which side becomes white comes from
-// the two clusters' luminance rather than from the axis direction.
+// Derive polarity from cluster means because projection direction may differ.
 function isAboveThresholdBrighter(
   values: Uint8ClampedArray,
   luminance: Uint8ClampedArray,
@@ -191,9 +176,7 @@ function isAboveThresholdBrighter(
 // threshold tracks the image's own median, so the ratio is noise-sensitive.
 const INVERT_DEAD_ZONE = 0.05;
 
-// Threshold that maximizes between-class variance, separating an image's own
-// bright/dark clusters, plus how convincing that split is: separability is the
-// between-class share of total variance.
+// Finds Otsu's threshold and its share of total variance.
 export function otsuFromHistogram(histogram: number[], total: number) {
   let sum = 0;
   for (let t = 0; t < 256; t += 1) sum += t * histogram[t];
@@ -310,14 +293,11 @@ function convertToBlackAndWhiteImageBase64(
       const data = imageData.data;
       const pixelCount = data.length / 4;
 
-      // Perceptual luminance where the image separates on brightness, a color
-      // axis where it does not, and nothing to cut when neither separates. The
-      // threshold is Otsu's on the chosen axis, never a fixed 128.
+      // Prefer luminance, using chroma only for equal-luminance colors.
       const { values, luminance, threshold, canSplit, aboveIsBrighter } =
         pickThresholdAxis(data);
 
-      // No threshold separates this image, so render its tones as a dither
-      // pattern rather than giving up and emitting a blank screen.
+      // Dither continuous tones instead of producing a blank bitmap.
       if (!canSplit) {
         const dithered = atkinsonDither(luminance, canvas.width);
         for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {

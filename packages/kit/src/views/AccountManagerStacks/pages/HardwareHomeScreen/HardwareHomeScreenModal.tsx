@@ -486,9 +486,7 @@ function WallpaperCustomCategorySection({
       img = undefined;
     }
 
-    // resizeImage can reject or return a result with no base64. Caching either
-    // failure stored an empty entry, which rendered as a blank wallpaper and only
-    // failed on apply with an internal error string.
+    // Reject failed conversions before they create empty cache entries.
     if (!img?.base64) {
       Toast.error({
         title: intl.formatMessage({

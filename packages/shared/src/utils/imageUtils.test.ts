@@ -38,12 +38,10 @@ describe('otsuFromHistogram', () => {
     const { threshold, separability } = otsuFromHistogram(histogram, total);
     expect(threshold).toBeGreaterThanOrEqual(30);
     expect(threshold).toBeLessThan(220);
-    // Two tight clusters are the textbook perfect split.
     expect(separability).toBeCloseTo(1, 2);
   });
 
   it('scores a single smear of tones far below a real split', () => {
-    // A flat field with noise: what must be dithered rather than cut.
     const values: number[] = [];
     for (let i = 0; i < 1000; i += 1) values.push(126 + (i % 5));
     const { histogram, total } = histogramOf(values);
@@ -68,7 +66,6 @@ const HEIGHT = 64;
 
 type IRgb = [number, number, number];
 
-// Vertical stripes, the shape of a flat two-color pattern.
 function stripedImage(foreground: IRgb, background: IRgb): Uint8ClampedArray {
   const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
   for (let y = 0; y < HEIGHT; y += 1) {
@@ -81,7 +78,6 @@ function stripedImage(foreground: IRgb, background: IRgb): Uint8ClampedArray {
   return data;
 }
 
-// A flat color carrying compression noise, plus a few blown-out pixels.
 function nearSolidImage(color: IRgb, speckles: number): Uint8ClampedArray {
   const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
   let seed = 42;
@@ -117,8 +113,6 @@ const BLACK: IRgb = [0, 0, 0];
 
 describe('pickThresholdAxis', () => {
   it('keeps the luminance axis whenever brightness already separates the image', () => {
-    // Every pair here differs by more than the minimum spread in luminance, so the
-    // color axes must not change what these images have always done.
     for (const [foreground, background] of [
       [RED, GREEN],
       [BLUE, WHITE],
@@ -126,17 +120,13 @@ describe('pickThresholdAxis', () => {
       [RED, BLACK],
     ] as Array<[IRgb, IRgb]>) {
       const result = pickThresholdAxis(stripedImage(foreground, background));
-      // Cut on the luminance values themselves, not on a color projection of them.
       expect(result.values).toBe(result.luminance);
       expect(result.canSplit).toBe(true);
     }
   });
 
   it('splits a two-tone pattern too narrow for the spread test to accept', () => {
-    // The regression. While the narrow branch still cut every pixel at 128 these
-    // split correctly, because their tones sit either side of it; filling the whole
-    // image with one value took the pattern with it. Grey pairs are the harder half:
-    // no color axis can rescue them, only the fact that they are two clean clusters.
+    // Close tones must still be treated as clean clusters.
     const SALMON: IRgb = [255, 60, 90]; // luminance 122
     const STEEL_BLUE: IRgb = [100, 160, 200]; // luminance 147
     const OLIVE: IRgb = [150, 130, 40];
@@ -158,8 +148,6 @@ describe('pickThresholdAxis', () => {
   });
 
   it('reaches for a color axis when two hues share the exact same luminance', () => {
-    // Red and this green both compute to luminance 76, so the luminance histogram is
-    // a single spike and no threshold on it can separate them.
     const RED_76: IRgb = [255, 0, 0];
     const GREEN_76: IRgb = [0, 129, 0];
     expect(toGrayScale(...RED_76)).toBe(toGrayScale(...GREEN_76));
@@ -169,8 +157,6 @@ describe('pickThresholdAxis', () => {
   });
 
   it('reports a near-solid image as unsplittable, which now routes it to the dither', () => {
-    // Cutting these at any threshold only carves up compression noise. Saying so
-    // is not a rejection any more: convertToBlackAndWhiteImageBase64 dithers them.
     expect(pickThresholdAxis(nearSolidImage([128, 128, 128], 1)).canSplit).toBe(
       false,
     );
@@ -187,8 +173,6 @@ describe('atkinsonDither', () => {
   const WIDTH_8 = 8;
 
   it('never returns a blank field for a mid-tone image', () => {
-    // The regression this replaces: an image the threshold could not split was
-    // emitted as solid black, which clears the device screen.
     const flat = new Uint8ClampedArray(WIDTH_8 * WIDTH_8).fill(128);
     const out = atkinsonDither(flat, WIDTH_8);
     const white = out.filter((v) => v === 255).length;
@@ -221,14 +205,12 @@ describe('atkinsonDither', () => {
 
 describe('polarity reported by pickThresholdAxis', () => {
   it('leaves the luminance axis pointing the way it already runs', () => {
-    // Higher luminance is brighter by definition, so above-threshold is the white side.
     const result = pickThresholdAxis(stripedImage(WHITE, BLACK));
     expect(result.aboveIsBrighter).toBe(true);
   });
 
   it('flips for a color axis running opposite to brightness', () => {
-    // Overlapping luminance noise makes brightness a single smear, while red still
-    // separates the stripes. The high-red stripe is slightly darker on average.
+    // Red separates the stripes while luminance overlaps.
     const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
     for (let p = 0; p < WIDTH * HEIGHT; p += 1) {
       const noise = (p % 5) - 2;
