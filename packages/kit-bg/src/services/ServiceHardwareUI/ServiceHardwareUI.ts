@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -282,7 +283,10 @@ class ServiceHardwareUI extends ServiceBase {
       void this.deviceStageBurst.mergeDeviceIdentity({
         connectId,
         deviceType: device.deviceType,
-        deviceName: device.name,
+        deviceName: deviceUtils.buildDeviceStageName({
+          features: device.featuresInfo,
+          fallbackName: device.name,
+        }),
       });
       const currentState = await hardwareUiStateAtom.get();
       if (
@@ -1298,7 +1302,10 @@ class ServiceHardwareUI extends ServiceBase {
         await this.deviceStageBurst.begin({
           connectId,
           deviceType: device?.deviceType,
-          deviceName: device?.name,
+          deviceName: deviceUtils.buildDeviceStageName({
+            features: device?.featuresInfo,
+            fallbackName: device?.name,
+          }),
           vendor: isThirdPartyVendor
             ? (device?.vendor ?? device?.settings?.vendor)
             : undefined,
