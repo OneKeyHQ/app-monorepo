@@ -97,6 +97,7 @@ function SwapPanelWrapContent({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
+  const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
@@ -319,6 +320,16 @@ function SwapPanelWrapContent({
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
       : sellAmount.toFixed();
+  const currentMarketTokenKey = currentMarketToken.networkId
+    ? `${currentMarketToken.networkId}:${
+        currentMarketToken.isNative
+          ? 'native'
+          : currentMarketToken.contractAddress
+      }`
+    : undefined;
+  const isCurrentStockTokenReady =
+    Boolean(currentMarketTokenKey) &&
+    readyStockTokenKey === currentMarketTokenKey;
   const useSpeedSwapActionsParams = {
     slippageItem: {
       key: effectiveSlippageMode,
@@ -835,6 +846,34 @@ function SwapPanelWrapContent({
     speedSwapInitLoading,
   ]);
 
+  useEffect(() => {
+    if (
+      stockDetailDesktopLayout &&
+      !isActionLoading &&
+      isReady &&
+      speedConfigReady &&
+      !speedSwapInitLoading &&
+      originalSupportSpeedSwap !== undefined &&
+      savedPreferenceLoading === false &&
+      currentMarketTokenKey &&
+      selectedTokenVariant &&
+      paymentToken?.networkId
+    ) {
+      setReadyStockTokenKey(currentMarketTokenKey);
+    }
+  }, [
+    currentMarketTokenKey,
+    isActionLoading,
+    isReady,
+    originalSupportSpeedSwap,
+    paymentToken?.networkId,
+    savedPreferenceLoading,
+    selectedTokenVariant,
+    speedConfigReady,
+    speedSwapInitLoading,
+    stockDetailDesktopLayout,
+  ]);
+
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -872,7 +911,9 @@ function SwapPanelWrapContent({
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
-      hasInitialReady={hasInitialReady}
+      hasInitialReady={
+        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
+      }
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}

@@ -15,6 +15,8 @@ import {
   swapInitialSelectedTokensSyncedAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectedFromTokenBalanceAtom,
+  swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapStockSelectedTokenAtom,
   swapTypeSwitchAtom,
@@ -119,11 +121,31 @@ export const SwapProviderMirror = memo(
         }
 
         hasInitializedSelectedTokensRef.current = true;
+        const shouldKeepFromBalance = equalTokenNoCaseSensitive({
+          token1: cachedFromToken,
+          token2: initialSelectedTokensOnInit.fromToken,
+        });
+        const shouldKeepToBalance = equalTokenNoCaseSensitive({
+          token1: cachedToToken,
+          token2: initialToToken,
+        });
         store.set(
           swapSelectFromTokenAtom(),
           initialSelectedTokensOnInit.fromToken,
         );
         store.set(swapSelectToTokenAtom(), initialToToken);
+        if (!shouldKeepFromBalance) {
+          store.set(
+            swapSelectedFromTokenBalanceAtom(),
+            initialSelectedTokensOnInit.fromToken?.balanceParsed ?? '',
+          );
+        }
+        if (!shouldKeepToBalance) {
+          store.set(
+            swapSelectedToTokenBalanceAtom(),
+            initialToToken?.balanceParsed ?? '',
+          );
+        }
         if (seededBalanceDisplayCache !== initialBalanceDisplayCache) {
           store.set(swapBalanceDisplayCacheAtom(), seededBalanceDisplayCache);
         }
