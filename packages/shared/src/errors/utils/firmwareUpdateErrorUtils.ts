@@ -28,6 +28,14 @@ const FIRMWARE_ARTIFACT_DOWNLOAD_ERROR_CODES = new Set([
   'ARTIFACT_PROTOCOL_INVALID',
 ]);
 
+const FIRMWARE_DISCONNECT_ERROR_CODES = [
+  HardwareErrorCode.DeviceNotFound,
+  HardwareErrorCode.BridgeDeviceDisconnected,
+  HardwareErrorCode.BleDeviceBondError,
+  HardwareErrorCode.BleDeviceDisconnected,
+  HardwareErrorCode.BlePeerRemovedPairingInformation,
+];
+
 function getErrorText(error: IOneKeyError | undefined): string {
   return [
     error?.className,
@@ -108,10 +116,8 @@ function isFirmwareUpdateInternalCancellationError(
 export function isFirmwareUpdateCancellationError(
   error: IOneKeyError | undefined,
 ): boolean {
-  if (isFirmwareUpdateInternalCancellationError(error)) {
-    return true;
-  }
-  if (
+  return (
+    isFirmwareUpdateInternalCancellationError(error) ||
     hasFirmwareUpdateErrorCode(error, [
       HardwareErrorCode.PinCancelled,
       HardwareErrorCode.ActionCancelled,
@@ -122,10 +128,7 @@ export function isFirmwareUpdateCancellationError(
       HardwareErrorCode.BleTransportCallCanceled,
     ]) ||
     getFirmwareArtifactErrorCode(error) === 'ARTIFACT_CANCELLED'
-  ) {
-    return true;
-  }
-  return false;
+  );
 }
 
 export function isFirmwareUpdateDeviceDisconnectedError(
@@ -140,21 +143,9 @@ export function isFirmwareUpdateDeviceDisconnectedError(
   return Boolean(
     isHardwareErrorByCode({
       error,
-      code: [
-        HardwareErrorCode.DeviceNotFound,
-        HardwareErrorCode.BridgeDeviceDisconnected,
-        HardwareErrorCode.BleDeviceBondError,
-        HardwareErrorCode.BleDeviceDisconnected,
-        HardwareErrorCode.BlePeerRemovedPairingInformation,
-      ],
+      code: FIRMWARE_DISCONNECT_ERROR_CODES,
     }) ||
-    hasFirmwareUpdateErrorCode(error, [
-      HardwareErrorCode.DeviceNotFound,
-      HardwareErrorCode.BridgeDeviceDisconnected,
-      HardwareErrorCode.BleDeviceBondError,
-      HardwareErrorCode.BleDeviceDisconnected,
-      HardwareErrorCode.BlePeerRemovedPairingInformation,
-    ]),
+    hasFirmwareUpdateErrorCode(error, FIRMWARE_DISCONNECT_ERROR_CODES),
   );
 }
 
