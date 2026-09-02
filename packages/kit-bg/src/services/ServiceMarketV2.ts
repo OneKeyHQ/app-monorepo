@@ -16,6 +16,7 @@ import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/per
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioResponse,
@@ -1169,7 +1170,10 @@ class ServiceMarketV2 extends ServiceBase {
     const response = await client.get<IMarketPerpsTokenListResponse>(
       '/utility/v2/market/perps/token-list',
       {
-        params: params?.category ? { category: params.category } : undefined,
+        params: {
+          ...(params?.category ? { category: params.category } : undefined),
+          assetTypeVersion: PERPS_ASSET_TYPE_VERSION,
+        },
       },
     );
     return response.data.data;

@@ -17,6 +17,7 @@ describe('perpsDexUtils', () => {
     expect(getDexAssetIdOffset(0)).toBe(0);
     expect(getDexAssetIdOffset(1)).toBe(110_000);
     expect(getDexAssetIdOffset(2)).toBe(180_000);
+    expect(getDexAssetIdOffset(3)).toBe(200_000);
   });
 
   it('falls back to the main dex offset for unknown dex index', () => {
@@ -28,6 +29,7 @@ describe('perpsDexUtils', () => {
     expect(getDexIndexByCoin('BTC')).toBe(0);
     expect(getDexIndexByCoin('xyz:NVDA')).toBe(1);
     expect(getDexIndexByCoin('para:UNITREE')).toBe(2);
+    expect(getDexIndexByCoin('io:AAPL')).toBe(3);
   });
 
   it('does not treat an unregistered prefix as a sub dex', () => {
@@ -41,6 +43,8 @@ describe('perpsDexUtils', () => {
     expect(getDexIndexByAssetId(110_104)).toBe(1);
     expect(getDexIndexByAssetId(180_000)).toBe(2);
     expect(getDexIndexByAssetId(180_019)).toBe(2);
+    expect(getDexIndexByAssetId(200_000)).toBe(3);
+    expect(getDexIndexByAssetId(200_042)).toBe(3);
   });
 
   it('does not classify a spot assetId as a perp dex asset', () => {
@@ -64,6 +68,7 @@ describe('perpsDexUtils', () => {
     expect(toCtxIndex(5)).toBe(5);
     expect(toCtxIndex(110_003)).toBe(3);
     expect(toCtxIndex(180_019)).toBe(19);
+    expect(toCtxIndex(200_042)).toBe(42);
   });
 
   it('honours an explicitly supplied dex index over detection', () => {
@@ -75,10 +80,11 @@ describe('perpsDexUtils', () => {
     expect(toAssetId({ dexIndex: 0, index: 5 })).toBe(5);
     expect(toAssetId({ dexIndex: 1, index: 3 })).toBe(110_003);
     expect(toAssetId({ dexIndex: 2, index: 19 })).toBe(180_019);
+    expect(toAssetId({ dexIndex: 3, index: 42 })).toBe(200_042);
   });
 
   it('round-trips assetId through ctx index for every registered dex', () => {
-    [0, 1, 2].forEach((dexIndex) => {
+    [0, 1, 2, 3].forEach((dexIndex) => {
       const assetId = toAssetId({ dexIndex, index: 4 });
       expect(getDexIndexByAssetId(assetId)).toBe(dexIndex);
       expect(toCtxIndex(assetId)).toBe(4);
@@ -89,6 +95,7 @@ describe('perpsDexUtils', () => {
     expect(normalizeDexCoin('para:unitree')).toBe('para:UNITREE');
     expect(normalizeDexCoin('PARA:UNITREE')).toBe('para:UNITREE');
     expect(normalizeDexCoin('xyz:nvda')).toBe('xyz:NVDA');
+    expect(normalizeDexCoin('IO:aapl')).toBe('io:AAPL');
     expect(normalizeDexCoin('btc')).toBe('BTC');
     expect(normalizeDexCoin('@149')).toBe('@149');
     expect(normalizeDexCoin('')).toBe('');
@@ -160,6 +167,9 @@ describe('perpsDexUtils', () => {
       expect(
         buildCoinFromSearchAssetType({ assetType: 'para', name: 'UNITREE' }),
       ).toBe('para:UNITREE');
+      expect(
+        buildCoinFromSearchAssetType({ assetType: 'io', name: 'AAPL' }),
+      ).toBe('io:AAPL');
     });
 
     it('rejects a dex the client does not support', () => {
@@ -180,22 +190,24 @@ describe('perpsDexUtils', () => {
 
   describe('isPerpsUniverseCacheComplete', () => {
     it('accepts a cache covering every registered dex', () => {
-      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}]])).toBe(true);
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}], [{}]])).toBe(true);
     });
 
-    // A cache written before `para` was registered has two slots and still
-    // looks populated.
+    // A cache written before a sub dex was registered is shorter than the
+    // registry while still looking populated.
     it('rejects a cache written before a sub dex was registered', () => {
       expect(isPerpsUniverseCacheComplete([[{}], [{}]])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}]])).toBe(false);
     });
 
     it('rejects a cache whose main dex slot is empty', () => {
-      expect(isPerpsUniverseCacheComplete([[], [{}], [{}]])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[], [{}], [{}], [{}]])).toBe(false);
     });
 
     it('rejects a cache whose registered sub dex slot is empty', () => {
-      expect(isPerpsUniverseCacheComplete([[{}], [{}], []])).toBe(false);
-      expect(isPerpsUniverseCacheComplete([[{}], [], [{}]])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [{}], []])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[{}], [{}], [], [{}]])).toBe(false);
+      expect(isPerpsUniverseCacheComplete([[{}], [], [{}], [{}]])).toBe(false);
     });
 
     it('rejects an empty or missing cache', () => {

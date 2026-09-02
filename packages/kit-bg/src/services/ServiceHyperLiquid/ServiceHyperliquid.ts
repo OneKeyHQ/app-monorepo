@@ -78,6 +78,7 @@ import type { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperli
 import {
   CACHE_TIME_QUANTIZE_MS,
   DEX_PREFIXES,
+  PERPS_ASSET_TYPE_VERSION,
   SPOT_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
@@ -864,7 +865,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
-    >('/utility/v1/perp-config');
+    >('/utility/v1/perp-config', {
+      params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
+    });
     const resData = resp.data;
 
     if (process.env.NODE_ENV !== 'production') {
