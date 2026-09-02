@@ -139,6 +139,30 @@ describe('build-dev-vendor', () => {
     expect(build).not.toHaveBeenCalled();
   });
 
+  it('restores an explicitly remote vendor even when the local cache is valid', async () => {
+    const check = jest.fn();
+    const build = jest.fn();
+    const restore = jest
+      .fn()
+      .mockResolvedValue({ tagName: 'metro-dev-prebundle-v2-exact' });
+
+    await expect(
+      preparePlatform('android', {
+        build,
+        check,
+        restore,
+        source: 'remote',
+      }),
+    ).resolves.toEqual({
+      fallback: false,
+      source: 'remote',
+      tag: 'metro-dev-prebundle-v2-exact',
+    });
+    expect(restore).toHaveBeenCalledWith('android');
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(build).not.toHaveBeenCalled();
+  });
+
   it('builds directly when the local vendor is explicitly requested', async () => {
     const check = jest.fn();
     const build = jest.fn();

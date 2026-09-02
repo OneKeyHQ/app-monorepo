@@ -564,14 +564,16 @@ async function preparePlatform(
   }
 
   let localCacheReason;
-  try {
-    check(platform);
-    return { fallback: false, source: 'local-cache' };
-  } catch (error) {
-    localCacheReason = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `[devVendor] local cache unavailable platform=${platform} reason=${localCacheReason}`,
-    );
+  if (source === 'auto') {
+    try {
+      check(platform);
+      return { fallback: false, source: 'local-cache' };
+    } catch (error) {
+      localCacheReason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[devVendor] local cache unavailable platform=${platform} reason=${localCacheReason}`,
+      );
+    }
   }
 
   let remoteReason;

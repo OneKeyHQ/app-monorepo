@@ -21,6 +21,7 @@ const {
   getContractManifest,
   getShellArtifactTag,
   getShellCompatibility,
+  launchNativeApp,
   parseAndroidDevices,
   parseArgs,
   parseIosSimulators,
@@ -31,6 +32,7 @@ const {
   quoteAdbShellArgument,
   renewPrivateSession,
   selectTargetDevice,
+  waitForNativeAppStartup,
   waitForMetroCompletionWithSessionRenewal,
   writeArtifactManifest,
 } = require('../native-dev-shell');
@@ -385,6 +387,87 @@ describe('native-dev-shell', () => {
       }),
     ).toEqual({ metroUrl: 'http://10.0.2.2:8084' });
     expect(emulatorRunChecked).not.toHaveBeenCalled();
+  });
+
+  it('checks that a launched native app survives its startup grace period', async () => {
+    const wait = jest.fn().mockResolvedValue(undefined);
+    const androidOutput = jest.fn().mockReturnValue('1234');
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'emulator-5554',
+        launch: {},
+        platform: 'android',
+        runForOutputCommand: androidOutput,
+        wait,
+      }),
+    ).resolves.toBeUndefined();
+    expect(androidOutput).toHaveBeenCalledWith('adb', [
+      '-s',
+      'emulator-5554',
+      'shell',
+      'pidof',
+      'so.onekey.app.wallet',
+    ]);
+
+    const iosOutput = jest.fn().mockReturnValue('');
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'SIMULATOR-A',
+        launch: { processId: 4321 },
+        platform: 'ios',
+        runForOutputCommand: iosOutput,
+        wait,
+      }),
+    ).resolves.toBeUndefined();
+    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
+      'simctl',
+      'spawn',
+      'SIMULATOR-A',
+      '/bin/kill',
+      '-0',
+      '4321',
+    ]);
+    expect(wait).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails before reporting running when the launched app exits', async () => {
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'emulator-5554',
+        launch: {},
+        platform: 'android',
+        runForOutputCommand: () => '',
+        wait: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow('android app exited during startup');
+
+    const source = fs.readFileSync(
+      path.join(__dirname, '../native-dev-shell.js'),
+      'utf8',
+    );
+    const launchSource = source.slice(
+      source.indexOf('async function launchDevShell('),
+      source.indexOf('\nasync function main()'),
+    );
+    expect(
+      launchSource.indexOf('await waitForNativeAppStartup({'),
+    ).toBeLessThan(launchSource.indexOf("report.status = 'running';"));
+  });
+
+  it('captures the iOS process ID returned by simctl launch', () => {
+    const runForOutputCommand = jest
+      .fn()
+      .mockReturnValue('so.onekey.wallet: 4321');
+    expect(
+      launchNativeApp('ios', 'SIMULATOR-A', { runForOutputCommand }),
+    ).toEqual({ processId: 4321 });
+    expect(runForOutputCommand).toHaveBeenCalledWith('xcrun', [
+      'simctl',
+      'launch',
+      '--terminate-running-process',
+      'SIMULATOR-A',
+      'so.onekey.wallet',
+    ]);
   });
 
   it('keeps Android reverse ownership inside the device lock lifetime', () => {

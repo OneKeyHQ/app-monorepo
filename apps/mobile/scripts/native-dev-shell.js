@@ -36,6 +36,7 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SESSION_RENEW_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const SESSION_RENEW_RETRY_INTERVAL_MS = 30_000;
 const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
+const NATIVE_APP_STARTUP_GRACE_MS = 1500;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
@@ -1339,9 +1340,13 @@ async function acquireMetroPort({ deviceId, requestedPort, sessionId }) {
   throw new Error('[nativeDevShell] No available Metro port in 8081-8280.');
 }
 
-function launchNativeApp(platform, deviceId) {
+function launchNativeApp(
+  platform,
+  deviceId,
+  { runCheckedCommand = runChecked, runForOutputCommand = runForOutput } = {},
+) {
   if (platform === 'android') {
-    runChecked('adb', [
+    runCheckedCommand('adb', [
       '-s',
       deviceId,
       'shell',
@@ -1351,15 +1356,66 @@ function launchNativeApp(platform, deviceId) {
       '-n',
       'so.onekey.app.wallet/.MainActivity',
     ]);
-    return;
+    return {};
   }
-  runChecked('xcrun', [
+  const output = runForOutputCommand('xcrun', [
     'simctl',
     'launch',
     '--terminate-running-process',
     deviceId,
     IOS_BUNDLE_ID,
   ]);
+  const prefix = `${IOS_BUNDLE_ID}: `;
+  const processId = output.startsWith(prefix)
+    ? Number(output.slice(prefix.length))
+    : Number.NaN;
+  if (!Number.isSafeInteger(processId) || processId <= 0) {
+    throw new Error(
+      '[nativeDevShell] iOS simulator launch returned no process ID.',
+    );
+  }
+  return { processId };
+}
+
+async function waitForNativeAppStartup({
+  deviceId,
+  launch,
+  platform,
+  runForOutputCommand = runForOutput,
+  wait = (durationMs) =>
+    new Promise((resolve) => setTimeout(resolve, durationMs)),
+}) {
+  await wait(NATIVE_APP_STARTUP_GRACE_MS);
+  try {
+    if (platform === 'android') {
+      const processIds = runForOutputCommand('adb', [
+        '-s',
+        deviceId,
+        'shell',
+        'pidof',
+        ANDROID_APPLICATION_ID,
+      ]);
+      if (!/^\d+(?:\s+\d+)*$/u.test(processIds)) {
+        throw new Error('[nativeDevShell] Android app process is missing.');
+      }
+    } else {
+      if (!Number.isSafeInteger(launch.processId) || launch.processId <= 0) {
+        throw new Error('[nativeDevShell] iOS app process ID is missing.');
+      }
+      runForOutputCommand('xcrun', [
+        'simctl',
+        'spawn',
+        deviceId,
+        '/bin/kill',
+        '-0',
+        String(launch.processId),
+      ]);
+    }
+  } catch (error) {
+    throw new Error(`[nativeDevShell] ${platform} app exited during startup.`, {
+      cause: error,
+    });
+  }
 }
 
 async function preparePrivateSessionPayload({
@@ -1965,8 +2021,13 @@ async function launchDevShell({
     await waitForMetro(metroPort, child, () => metroSpawnError);
     preparationLock.release();
     preparationLock = undefined;
-    launchNativeApp(platform, selectedDevice.id);
+    const nativeLaunch = launchNativeApp(platform, selectedDevice.id);
     report.launchedAt = new Date().toISOString();
+    await waitForNativeAppStartup({
+      deviceId: selectedDevice.id,
+      launch: nativeLaunch,
+      platform,
+    });
     report.status = 'running';
     await writeRunReport(report);
     printRunSummary(report);
@@ -2078,6 +2139,7 @@ module.exports = {
   getPlatformArtifact,
   getShellArtifactTag,
   getShellCompatibility,
+  launchNativeApp,
   loadVendorManifest,
   parseAndroidDevices,
   parseArgs,
@@ -2089,6 +2151,7 @@ module.exports = {
   quoteAdbShellArgument,
   renewPrivateSession,
   selectTargetDevice,
+  waitForNativeAppStartup,
   waitForMetroCompletionWithSessionRenewal,
   writeContractManifest,
   writeArtifactManifest,
