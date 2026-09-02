@@ -256,19 +256,21 @@ describe('account selector development-only logger scenes', () => {
         }),
       ),
     ).not.toContain('hd-1');
-    expect(
-      JSON.stringify(
-        failureScene.activeReloadFailed({
-          consecutiveFailures: 2,
-          errorMessage: 'bg is not ready',
-          errorName: 'OneKeyLocalError',
-          num: 0,
-          phase: 'transfer-gate',
-          previousFailures: 3,
-          sceneName: 'home',
-        }),
-      ),
-    ).not.toContain('hd-1');
+    const activeReloadPayload = JSON.stringify(
+      failureScene.activeReloadFailed({
+        consecutiveFailures: 2,
+        errorMessage:
+          'record not found: Account watching--60--0xf5881234567890abcdef1234567890abcdef1234',
+        errorName: 'OneKeyLocalError',
+        num: 0,
+        phase: 'transfer-gate',
+        previousFailures: 3,
+        sceneName: 'home',
+      }),
+    );
+    expect(activeReloadPayload).toContain('[account-id]');
+    expect(activeReloadPayload).not.toContain('watching--60');
+    expect(activeReloadPayload).not.toContain('0xf5881234');
     expect(
       JSON.stringify(
         failureScene.activeReloadRecovered({

@@ -846,6 +846,59 @@ describe('SimpleDbEntityAccountSelector unavailable selection CAS', () => {
   });
 });
 
+describe('SimpleDbEntityAccountSelector write-intent conditional save', () => {
+  it('persists only while the captured intent is current and never mints its own intent', async () => {
+    const previousHome = createSelectedAccount({
+      indexedAccountId: 'hd-1--0',
+      walletId: 'hd-1',
+    });
+    const syncedHome = createSelectedAccount({
+      indexedAccountId: 'hd-2--0',
+      walletId: 'hd-2',
+    });
+    const explicitHome = createSelectedAccount({
+      indexedAccountId: 'hd-3--0',
+      walletId: 'hd-3',
+    });
+    const entity = await createEntityWithPersistInfo(
+      createPersistInfo({ home: previousHome }),
+    );
+    const scope = {
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+    };
+    const capturedEpoch =
+      await entity.getSelectedAccountWriteIntentEpoch(scope);
+
+    await expect(
+      entity.saveSelectedAccountIfWriteIntentCurrent({
+        ...scope,
+        expectedWriteIntentEpoch: capturedEpoch,
+        selectedAccount: syncedHome,
+      }),
+    ).resolves.toEqual({ persisted: true });
+    expect(await entity.getSelectedAccountWriteIntentEpoch(scope)).toBe(
+      capturedEpoch,
+    );
+
+    const explicitEpoch = await entity.recordSelectedAccountIntent({
+      ...scope,
+      selectedAccount: explicitHome,
+    });
+    await expect(
+      entity.saveSelectedAccountIfWriteIntentCurrent({
+        ...scope,
+        expectedWriteIntentEpoch: capturedEpoch,
+        selectedAccount: previousHome,
+      }),
+    ).resolves.toEqual({ persisted: false });
+    expect(await entity.getSelectedAccountWriteIntentEpoch(scope)).toBe(
+      explicitEpoch,
+    );
+    await expect(entity.getSelectedAccount(scope)).resolves.toEqual(syncedHome);
+  });
+});
+
 describe('SimpleDbEntityAccountSelector global derive type persistence', () => {
   afterEach(() => {
     jest.restoreAllMocks();

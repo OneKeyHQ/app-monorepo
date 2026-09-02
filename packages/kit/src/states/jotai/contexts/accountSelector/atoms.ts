@@ -235,6 +235,9 @@ export function useAccountSelectorAvailableNetworksByNum(num: number) {
 }
 export type IAccountSelectorUpdateMeta = {
   eventEmitDisabled: boolean;
+  // Stable runtime identity for deterministic ordering when two isolated
+  // extension runtimes commit different values in the same millisecond.
+  sourceRuntimeId?: string;
   // The selection's committed revision. Undefined means the slot holds a value
   // that was applied from an unversioned source (cold-start storage apply, an
   // event that carried no revision) and therefore claims no ordering: any

@@ -138,6 +138,7 @@ export enum EStorageSaveOutcome {
   SkipCompletedRevision = 'skip-completed-revision',
   SkipDefaultSelection = 'skip-default-selection',
   SkipIncompatible = 'skip-incompatible',
+  SkipInitPending = 'skip-init-pending',
   SkipNoIdentity = 'skip-no-identity',
   SkipNoNetwork = 'skip-no-network',
   SkipNotReady = 'skip-not-ready',
@@ -207,6 +208,7 @@ export enum ESelectionStorageEffectOutcome {
   CancelledCleanup = 'cancelled-cleanup',
   SkipDefaultSelection = 'skip-default-selection',
   SkipDuplicateRevision = 'skip-duplicate-revision',
+  SkipInitPending = 'skip-init-pending',
   SkipNotReady = 'skip-not-ready',
 }
 

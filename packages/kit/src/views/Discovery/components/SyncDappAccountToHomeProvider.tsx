@@ -160,11 +160,12 @@ function SyncDappAccountToHomeCmp({
   return null;
 }
 
-function SyncHomeAccountPageToDappAccount() {
+export function SyncHomeAccountPageToDappAccount() {
   const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
   const actions = useAccountSelectorActions();
   useEffect(() => {
     const fn = async (params: {
+      expectedSelectedAccount: IAccountSelectorSelectedAccount;
       selectedAccount: IAccountSelectorSelectedAccount;
     }) => {
       if (
@@ -173,7 +174,9 @@ function SyncHomeAccountPageToDappAccount() {
         return;
       }
       await actions.current.updateSelectedAccount({
+        expectedSelection: params.expectedSelectedAccount,
         num: 0,
+        reason: 'syncDappAccountToHomeAccount',
         builder: () => params.selectedAccount,
       });
       void backgroundApiProxy.serviceDApp.setIsAlignPrimaryAccountProcessing({

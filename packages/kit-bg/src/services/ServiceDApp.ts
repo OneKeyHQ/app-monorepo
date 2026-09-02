@@ -2291,9 +2291,23 @@ class ServiceDApp extends ServiceBase {
       connectedAccountInfos ?? (await this.findInjectedAccountByOrigin(origin));
 
     const { simpleDb } = this.backgroundApi;
+    const homeSelectedAccount =
+      await simpleDb.accountSelector.getSelectedAccount({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    const expectedHomeSelectedAccount = homeSelectedAccount ?? {
+      deriveType: undefined,
+      focusedWallet: undefined,
+      indexedAccountId: undefined,
+      networkId: undefined,
+      othersWalletAccountId: undefined,
+      walletId: undefined,
+    };
     const newSelectedAccount = await this.buildHomeSelectedAccountByDappAccount(
       {
         dAppAccountInfos: connectedAccount,
+        homeSelectedAccount: expectedHomeSelectedAccount,
       },
     );
     if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
@@ -2332,6 +2346,7 @@ class ServiceDApp extends ServiceBase {
       }
       try {
         appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+          expectedSelectedAccount: expectedHomeSelectedAccount,
           selectedAccount: newSelectedAccount,
         });
       } catch {
@@ -2354,8 +2369,10 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async buildHomeSelectedAccountByDappAccount({
     dAppAccountInfos,
+    homeSelectedAccount,
   }: {
     dAppAccountInfos: IConnectionAccountInfo[] | null;
+    homeSelectedAccount?: IAccountSelectorSelectedAccount;
   }) {
     if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
       return null;
@@ -2372,10 +2389,11 @@ class ServiceDApp extends ServiceBase {
     } = dAppAccount;
     let newSelectedAccount: IAccountSelectorSelectedAccount;
     const homeAccountSelectorInfo =
-      await simpleDb.accountSelector.getSelectedAccount({
+      homeSelectedAccount ??
+      (await simpleDb.accountSelector.getSelectedAccount({
         sceneName: EAccountSelectorSceneName.home,
         num: 0,
-      });
+      }));
     const isOtherWallet = accountUtils.isOthersAccount({
       accountId,
     });

@@ -10,7 +10,7 @@ const {
   validateComparableMeasurements,
 } = require('./render-baseline-protocol');
 
-const METRICS_VERSION = 6;
+const METRICS_VERSION = 7;
 
 function stats(median) {
   return { max: median, median, min: median };
@@ -62,6 +62,11 @@ function buildArtifact(overrides = {}) {
       platform: 'darwin',
     },
     fixture: { accountsPerWallet: 2, walletCount: 3 },
+    instrumentation: {
+      inAppAccountSelectorPerfWrapperDetected: false,
+      mode: 'injection-only',
+      reactDevtoolsHook: 'render-baseline-v7',
+    },
     iterations: 5,
     metricsVersion: METRICS_VERSION,
     operationWindow: 'operation-to-hard-quiescence',
@@ -171,6 +176,21 @@ test('comparability rejects environment differences and missing metrics', () => 
 
   assert.match(issues.join('\n'), /environment mismatch/);
   assert.match(issues.join('\n'), /maxRenderedInCommit/);
+});
+
+test('comparability rejects different in-app instrumentation', () => {
+  const candidate = buildArtifact({
+    instrumentation: {
+      ...buildArtifact().instrumentation,
+      inAppAccountSelectorPerfWrapperDetected: true,
+    },
+  });
+  const issues = validateComparableMeasurements(
+    buildPairs({ candidateArtifact: candidate }),
+    METRICS_VERSION,
+  );
+
+  assert.match(issues.join('\n'), /instrumentation mismatch/);
 });
 
 test('comparability rejects a missing phase instead of warning', () => {

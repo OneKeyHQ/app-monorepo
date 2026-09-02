@@ -94,14 +94,15 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 }));
 
 jest.mock(
-  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions',
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy',
   () => ({
-    useAccountSelectorActions: () => ({
-      current: {
-        confirmAccountSelect: async (params: unknown) =>
-          mockConfirmAccountSelect(params),
+    useAccountSelectorLazyAction:
+      () => async (name: string, params: unknown) => {
+        if (name === 'confirmAccountSelect') {
+          return mockConfirmAccountSelect(params);
+        }
+        return undefined;
       },
-    }),
   }),
 );
 

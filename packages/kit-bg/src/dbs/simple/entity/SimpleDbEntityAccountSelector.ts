@@ -281,6 +281,51 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }
 
   @backgroundMethod()
+  async getSelectedAccountWriteIntentEpoch({
+    sceneName,
+    sceneUrl,
+    num,
+  }: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }) {
+    checkIsDefined(num);
+    checkIsDefined(sceneName);
+    return getAccountSelectorWriteIntentEpoch({ sceneName, sceneUrl, num });
+  }
+
+  @backgroundMethod()
+  async saveSelectedAccountIfWriteIntentCurrent(
+    {
+      expectedWriteIntentEpoch,
+      selectedAccount,
+      sceneName,
+      sceneUrl,
+      num,
+    }: {
+      expectedWriteIntentEpoch: number;
+      selectedAccount: IAccountSelectorSelectedAccount;
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    },
+    persistenceLockToken?: IAccountSelectorPersistenceLockToken,
+  ) {
+    return this.saveSelectedAccountIfCurrent(
+      {
+        expectedWriteIntentEpoch,
+        selectedAccount,
+        sceneName,
+        sceneUrl,
+        num,
+        shouldCommit: () => true,
+      },
+      persistenceLockToken,
+    );
+  }
+
+  @backgroundMethod()
   async beginAccountSelectorStorageInit({
     sceneName,
     sceneUrl,

@@ -17,7 +17,7 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -41,7 +41,7 @@ export function WebAccountPanelAccountList({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
 
   const focusedWallet = selectedAccount?.focusedWallet;
   const networkId = selectedAccount?.networkId;
@@ -76,7 +76,7 @@ export function WebAccountPanelAccountList({
     async (item: IDBAccount | IDBIndexedAccount, isOthers: boolean) => {
       try {
         if (isOthers) {
-          await actions.current.confirmAccountSelect({
+          await runAccountSelectorAction('confirmAccountSelect', {
             num: 0,
             indexedAccount: undefined,
             othersWalletAccount: item as IDBAccount,
@@ -84,7 +84,7 @@ export function WebAccountPanelAccountList({
             entry: 'webAccountPanel:othersWallet',
           });
         } else {
-          await actions.current.confirmAccountSelect({
+          await runAccountSelectorAction('confirmAccountSelect', {
             num: 0,
             indexedAccount: item as IDBIndexedAccount,
             othersWalletAccount: undefined,
@@ -108,7 +108,7 @@ export function WebAccountPanelAccountList({
       }
       onRequestClose();
     },
-    [actions, intl, networkId, onRequestClose],
+    [intl, networkId, onRequestClose, runAccountSelectorAction],
   );
 
   // "Add external wallet" must open the connect-options flow (Continue with

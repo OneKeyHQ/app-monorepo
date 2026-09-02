@@ -27,6 +27,7 @@ import {
   useAccountSelectorContextData,
   useAccountSelectorContextDataAtom,
   useAccountSelectorSceneInfo,
+  useAccountSelectorStorageInitDoneAtom,
   useAccountSelectorStorageReadyAtom,
   useAccountSelectorUpdateMetaByNum,
   useActiveAccount,
@@ -44,6 +45,7 @@ import {
   EActiveReloadPostProcessOutcome,
   EExternalActivateOutcome,
   ESelectionStorageEffectOutcome,
+  EStorageSaveOutcome,
 } from '../../states/jotai/contexts/accountSelector/outcomes';
 import {
   buildActiveAccountPerfSummary,
@@ -72,6 +74,14 @@ const swapToAnotherAccountSwitchOnAtom = selectAtom(
 const activeReloadFieldSet = new Set<string>(
   ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS,
 );
+
+const completedAutoSaveOutcomes = new Set<EStorageSaveOutcome>([
+  EStorageSaveOutcome.NoopAlreadySaved,
+  EStorageSaveOutcome.Persisted,
+  EStorageSaveOutcome.ProcessedNonpersistent,
+  EStorageSaveOutcome.ReplayedSideEffects,
+  EStorageSaveOutcome.SkipCompletedRevision,
+]);
 
 type IActiveAccountReloadRequest = {
   coalescedCount: number;
@@ -421,6 +431,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   );
 
   const [isReady] = useAccountSelectorStorageReadyAtom();
+  const [isStorageInitDone] = useAccountSelectorStorageInitDoneAtom();
+  const storageInitDoneRef = useRef(isStorageInitDone);
+  storageInitDoneRef.current = isStorageInitDone;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const effectInstanceIdRef = useRef<number | undefined>(undefined);
   const perfDebugEnabled = isAccountSelectorPerfDebugEnabled();
@@ -858,12 +871,14 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   >(undefined);
   const autoSaveToStorage = useCallback(async () => {
     // do not save before initFromStorage() completes
-    if (!isReady) {
+    if (!isReady || !isStorageInitDone) {
       if (isAccountSelectorPerfDebugEnabled()) {
         defaultLogger.accountSelector.perf.trace('selectionStorageSkipped', {
           effectInstanceId: effectInstanceIdRef.current,
           num,
-          outcome: ESelectionStorageEffectOutcome.SkipNotReady,
+          outcome: isReady
+            ? ESelectionStorageEffectOutcome.SkipInitPending
+            : ESelectionStorageEffectOutcome.SkipNotReady,
           sceneName,
           trigger: 'selection-effect',
         });
@@ -900,7 +915,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       });
       try {
         // check initFromStorage() at AccountSelectorStorageInit
-        await actions.current.saveToStorage({
+        const saveOutcome = await actions.current.saveToStorage({
           trigger: 'selection-effect',
           selectedAccount,
           sceneName,
@@ -908,6 +923,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
           num,
           selectedAccountUpdatedAt: updateMeta?.updatedAt,
         });
+        if (!completedAutoSaveOutcomes.has(saveOutcome)) {
+          return;
+        }
       } catch (error) {
         // Upstream let this reject into an unhandled rejection, which at least
         // reached Sentry. Now that the caller swallows it, the loss would be
@@ -956,6 +974,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     actions,
     isReady,
     isSelectedAccountDefaultValue,
+    isStorageInitDone,
     num,
     sceneName,
     sceneUrl,
@@ -986,6 +1005,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   // jotai context store and the bound setter outlive this component.
   useEffect(
     () => () => {
+      if (!storageInitDoneRef.current) {
+        return;
+      }
       const currentSelectedAccount = actions.current.getSelectedAccount({
         num,
       });
@@ -1173,6 +1195,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
             builder: () => eventPayload.selectedAccount,
             updateMeta: {
               eventEmitDisabled: true, // avoid infinite loop: event -> updateSelectedAccount -> event
+              sourceRuntimeId: eventPayload.sourceRuntimeId,
               // The source revision, not the receive time: later events from
               // the peer runtime are only comparable against what we commit
               // here if this revision is the one the event was emitted with.
