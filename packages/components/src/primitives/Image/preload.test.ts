@@ -58,6 +58,14 @@ describe('preloadImages', () => {
     ).resolves.toBe(true);
   });
 
+  test('returns false when prefetch resolves with a failed result', async () => {
+    mockPrefetch.mockResolvedValue(false);
+
+    await expect(
+      preloadImages([{ optimize: false, uri: 'https://example.com/a.png' }]),
+    ).resolves.toBe(false);
+  });
+
   test('returns false instead of rejecting when a prefetch fails', async () => {
     mockPrefetch
       .mockResolvedValueOnce(undefined as never)
