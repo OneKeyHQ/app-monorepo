@@ -6,12 +6,12 @@
   "private": true,
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
-    "postinstall": ""
+    "postinstall": "node ../../../node_modules/patch-package/index.js --patch-dir patches --error-on-fail"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
     "@sentry/electron": "7.8.0",
-    "@stoprocent/noble": "2.3.16",
+    "@stoprocent/noble": "2.8.0",
     "adm-zip": "0.5.17",
     "electron-check-biometric-auth-changed": "1.0.0",
     "electron-updater": "6.8.9",

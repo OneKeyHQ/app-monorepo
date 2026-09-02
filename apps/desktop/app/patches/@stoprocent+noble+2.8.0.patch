@@ -1,0 +1,21 @@
+diff --git a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
+index b82f1e9..295c285 100644
+--- a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
++++ b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
+@@ -196,7 +196,15 @@
+ - (void) centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+     [self.peripherals removeObjectForKey:getNSUuid(peripheral)];
+     std::string uuid = getUuid(peripheral);
+-    emit.Connected(uuid, "connection failed");
++    std::string errorMessage = "connection failed";
++    if (error) {
++        NSString *message = [NSString stringWithFormat:@"%@:%ld %@", error.domain, (long)error.code, error.localizedDescription];
++        const char *utf8Message = [message UTF8String];
++        if (utf8Message) {
++            errorMessage = std::string(utf8Message);
++        }
++    }
++    emit.Connected(uuid, errorMessage);
+ }
+ 
+ - (BOOL)disconnect:(NSString*) uuid {

@@ -442,6 +442,7 @@
     "@onekeyfe/hd-transport": "1.2.2-alpha.10",
     "@onekeyfe/hd-transport-http": "1.2.2-alpha.10",
     "@onekeyfe/hd-transport-web-device": "1.2.2-alpha.10",
+    "@stoprocent/noble": "2.8.0",
     "promise": "^8.3.0",
     "metro": "0.84.4",
     "metro-babel-transformer": "0.84.4",
