@@ -8,6 +8,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   canApplyAssetSnapshotMeta as canApplySnapshotMeta,
   getNewestAssetSnapshotMeta,
+  isAssetSnapshotNewer,
+  isAssetSnapshotSameOrNewer,
   normalizeAssetSnapshotMeta as normalizeSnapshotMeta,
   sameAssetSnapshotMeta as sameSnapshotMeta,
 } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
@@ -301,25 +303,43 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         const previousMetaByNetwork =
           previous?.assetSnapshotMetaByNetwork ?? {};
 
-        // A complete snapshot can replace the map only when its own version
-        // is newer than the stored complete snapshot (or any per-network
-        // metadata left by earlier partial writes). This decision is made
-        // under the entity mutex so overlapping writes in this writer see the
-        // latest persisted marker.
-        const previousComparableMeta = maxSnapshotMeta([
-          previous?.assetSnapshotMeta,
-          ...Object.values(previousMetaByNetwork),
-        ]);
+        // A complete snapshot can replace the map only when every network it
+        // supplies is at least as fresh as the stored one, its own version is
+        // not older than the stored complete snapshot, and every network it
+        // omits (evicted by the replacement) is strictly older than the
+        // snapshot's oldest marker. Equal markers for supplied networks are
+        // admitted because the partial path may already have written this
+        // round's responses; rejecting them would make a full refresh unable
+        // to evict a disabled/removed network. This decision is made under the
+        // entity mutex so overlapping writes in this writer see the latest
+        // persisted marker.
+        const previousNetworkMetaOf = (networkId: string) =>
+          maxSnapshotMeta([
+            previousMetaByNetwork[networkId],
+            previous?.assetSnapshotMeta,
+          ]);
         const incomingNetworksAreFresh = Object.keys(valueMap).every(
           (networkId) => {
             const incomingMeta = assetSnapshotMetaByNetwork[networkId];
-            const previousNetworkMeta = maxSnapshotMeta([
-              previousMetaByNetwork[networkId],
-              previous?.assetSnapshotMeta,
-            ]);
-            return canApplySnapshotMeta(incomingMeta, previousNetworkMeta);
+            const previousNetworkMeta = previousNetworkMetaOf(networkId);
+            return (
+              !previousNetworkMeta ||
+              isAssetSnapshotSameOrNewer(incomingMeta, previousNetworkMeta)
+            );
           },
         );
+        const omittedNetworksAreOlder = Object.keys(previous?.value ?? {})
+          .filter(
+            (networkId) =>
+              !Object.prototype.hasOwnProperty.call(valueMap, networkId),
+          )
+          .every((networkId) => {
+            const previousNetworkMeta = previousNetworkMetaOf(networkId);
+            return (
+              !previousNetworkMeta ||
+              isAssetSnapshotNewer(normalizedSnapshotMeta, previousNetworkMeta)
+            );
+          });
         const hasCompleteIncomingSnapshotMeta =
           Boolean(normalizedSnapshotMeta) &&
           Object.keys(valueMap).every(
@@ -331,7 +351,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           updateAll &&
           hasCompleteIncomingSnapshotMeta &&
           incomingNetworksAreFresh &&
-          canApplySnapshotMeta(normalizedSnapshotMeta, previousComparableMeta);
+          isAssetSnapshotSameOrNewer(
+            normalizedSnapshotMeta,
+            previous?.assetSnapshotMeta,
+          ) &&
+          omittedNetworksAreOlder;
 
         // Without a complete snapshot version, an address that already has
         // per-network versions is treated as a partial merge. Dropping absent

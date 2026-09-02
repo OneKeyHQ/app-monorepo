@@ -567,4 +567,219 @@ describe('account overview worth freshness', () => {
     expect(result.current.worth.worth).toEqual({});
     expect(result.current.worth.assetSnapshotMeta).toEqual({ localSeq: 10 });
   });
+
+  it('lets a full snapshot evict omitted networks after progressive merges admitted the same responses', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useAccountOverviewActions().current;
+        const [worth] = useAccountWorthAtom();
+        return { actions, worth };
+      },
+      { wrapper: createWrapper() },
+    );
+
+    // Round 1: a complete snapshot that still includes network-c.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: {
+          'account-1_network-a': '7',
+          'account-1_network-b': '5',
+          'account-1_network-c': '3',
+        },
+        createAtNetworkWorth: '15',
+        updateAll: true,
+        assetSnapshotMetaByKey: {
+          'account-1_network-a': { localSeq: 1 },
+          'account-1_network-b': { localSeq: 1 },
+          'account-1_network-c': { localSeq: 1 },
+        },
+        assetSnapshotMeta: { localSeq: 1 },
+      });
+    });
+
+    // Round 2 (network-c disabled): progressive per-network merges arrive
+    // first and admit each response.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '8' },
+        createAtNetworkWorth: '8',
+        merge: true,
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 2 } },
+      });
+    });
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-b': '6' },
+        createAtNetworkWorth: '6',
+        merge: true,
+        assetSnapshotMetaByKey: { 'account-1_network-b': { localSeq: 3 } },
+      });
+    });
+
+    // The full snapshot for the same round re-materializes those responses
+    // with EQUAL markers. It must still replace the map and drop network-c.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: {
+          'account-1_network-a': '8',
+          'account-1_network-b': '6',
+        },
+        createAtNetworkWorth: '14',
+        updateAll: true,
+        assetSnapshotMetaByKey: {
+          'account-1_network-a': { localSeq: 2 },
+          'account-1_network-b': { localSeq: 3 },
+        },
+        assetSnapshotMeta: { localSeq: 2 },
+      });
+    });
+
+    expect(result.current.worth.worth).toEqual({
+      'account-1_network-a': '8',
+      'account-1_network-b': '6',
+    });
+    expect(result.current.worth.assetSnapshotMeta).toEqual({ localSeq: 2 });
+    expect(result.current.worth.assetSnapshotMetaByKey).toEqual({
+      'account-1_network-a': { localSeq: 2 },
+      'account-1_network-b': { localSeq: 3 },
+    });
+    expect(result.current.worth.createAtNetworkWorth).toBe('14');
+  });
+
+  it('still refuses a full snapshot whose omitted network carries a newer marker', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useAccountOverviewActions().current;
+        const [worth] = useAccountWorthAtom();
+        return { actions, worth };
+      },
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '7' },
+        createAtNetworkWorth: '7',
+        merge: true,
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 2 } },
+      });
+    });
+    // network-b was refreshed after the full snapshot's oldest response.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-b': '5' },
+        createAtNetworkWorth: '5',
+        merge: true,
+        assetSnapshotMetaByKey: { 'account-1_network-b': { localSeq: 9 } },
+      });
+    });
+
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '7' },
+        createAtNetworkWorth: '7',
+        updateAll: true,
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 2 } },
+        assetSnapshotMeta: { localSeq: 2 },
+      });
+    });
+
+    expect(result.current.worth.worth).toEqual({
+      'account-1_network-a': '7',
+      'account-1_network-b': '5',
+    });
+    expect(result.current.worth.assetSnapshotMeta).toBeUndefined();
+  });
+
+  it('keeps the currency tag of retained values when a replacement rejects every incoming value', () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useAccountOverviewActions().current;
+        const [worth] = useAccountWorthAtom();
+        return { actions, worth };
+      },
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '70' },
+        createAtNetworkWorth: '70',
+        merge: false,
+        currency: 'cny',
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 5 } },
+      });
+    });
+
+    // A stale replacement tagged in another currency is rejected; the
+    // retained value must keep describing itself as CNY.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '10' },
+        createAtNetworkWorth: '10',
+        merge: false,
+        currency: 'usd',
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 1 } },
+      });
+    });
+
+    expect(result.current.worth.worth).toEqual({
+      'account-1_network-a': '70',
+    });
+    expect(result.current.worth.currency).toBe('cny');
+
+    // Same for a stale progressive merge.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '11' },
+        createAtNetworkWorth: '11',
+        merge: true,
+        currency: 'usd',
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 2 } },
+      });
+    });
+
+    expect(result.current.worth.worth).toEqual({
+      'account-1_network-a': '70',
+    });
+    expect(result.current.worth.currency).toBe('cny');
+
+    // A fresh value adopts the incoming tag again.
+    act(() => {
+      result.current.actions.updateAccountWorth({
+        accountId: 'account-1',
+        initialized: true,
+        worth: { 'account-1_network-a': '10' },
+        createAtNetworkWorth: '10',
+        merge: false,
+        currency: 'usd',
+        assetSnapshotMetaByKey: { 'account-1_network-a': { localSeq: 6 } },
+      });
+    });
+
+    expect(result.current.worth.worth).toEqual({
+      'account-1_network-a': '10',
+    });
+    expect(result.current.worth.currency).toBe('usd');
+  });
 });

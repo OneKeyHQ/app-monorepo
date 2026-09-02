@@ -15,6 +15,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   getNewestAssetSnapshotMeta,
   isAssetSnapshotNewer,
+  isAssetSnapshotSameOrNewer,
 } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -1128,6 +1129,9 @@ class ServiceAccountProfile extends ServiceBase {
     const buildAcceptedValues = (
       existingMetaByKey: Record<string, IAssetSnapshotMeta>,
       aggregateMeta?: IAssetSnapshotMeta,
+      // An admitted full snapshot is authoritative for every key it supplies,
+      // including keys whose marker equals the stored one.
+      admitsEqualMarker = false,
     ) => {
       const acceptedValueMap: Record<string, string> = {};
       const acceptedMetaByKey: Record<string, IAssetSnapshotMeta> = {};
@@ -1145,7 +1149,10 @@ class ServiceAccountProfile extends ServiceBase {
           existingMetaByKey[key],
           aggregateMeta,
         );
-        if (!existingMeta || isAssetSnapshotNewer(incomingMeta, existingMeta)) {
+        const incomingIsFresh = admitsEqualMarker
+          ? isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
+          : isAssetSnapshotNewer(incomingMeta, existingMeta);
+        if (!existingMeta || incomingIsFresh) {
           acceptedValueMap[key] = usdValue;
           if (incomingMeta) {
             acceptedMetaByKey[key] = incomingMeta;
@@ -1186,10 +1193,10 @@ class ServiceAccountProfile extends ServiceBase {
           baseAggregateMeta = persisted.assetSnapshotMeta;
         }
 
-        const { acceptedValueMap, acceptedMetaByKey } = buildAcceptedValues(
-          baseMetaByKey,
-          baseAggregateMeta,
-        );
+        // The progressive (partial) path may already have written this
+        // round's responses, so a full snapshot's per-key markers can EQUAL
+        // the stored ones. Equal markers must not block the replacement,
+        // otherwise a full refresh could never evict an omitted network.
         const incomingKeysAreFresh = [...resolvedValueKeys].every((key) => {
           const incomingMeta =
             assetSnapshotMetaByKey?.[key] ??
@@ -1199,21 +1206,36 @@ class ServiceAccountProfile extends ServiceBase {
             baseAggregateMeta,
           );
           return (
-            !existingMeta || isAssetSnapshotNewer(incomingMeta, existingMeta)
+            !existingMeta ||
+            isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
           );
         });
+        // Do not use owner mismatch as an unconditional replacement signal:
+        // the switched-to account may already have a newer persisted value.
+        // Keys omitted by the full snapshot are evicted, so their markers
+        // must be strictly older than the oldest marker the snapshot covers;
+        // supplied keys were admitted per key above.
+        const canReplaceFullSnapshot =
+          effectiveUpdateAll &&
+          (assetSnapshotMeta
+            ? incomingKeysAreFresh &&
+              isAssetSnapshotSameOrNewer(
+                assetSnapshotMeta,
+                baseAggregateMeta,
+              ) &&
+              Object.entries(baseMetaByKey)
+                .filter(([key]) => !resolvedValueKeys.has(key))
+                .every(([, baseMeta]) =>
+                  isAssetSnapshotNewer(assetSnapshotMeta, baseMeta),
+                )
+            : !baseAggregateMeta && Object.keys(baseMetaByKey).length === 0);
+        const { acceptedValueMap, acceptedMetaByKey } = buildAcceptedValues(
+          baseMetaByKey,
+          baseAggregateMeta,
+          canReplaceFullSnapshot,
+        );
 
         if (effectiveUpdateAll) {
-          // Do not use owner mismatch as an unconditional replacement signal:
-          // the switched-to account may already have a newer persisted value.
-          const canReplaceFullSnapshot = assetSnapshotMeta
-            ? incomingKeysAreFresh &&
-              (!baseAggregateMeta ||
-                isAssetSnapshotNewer(assetSnapshotMeta, baseAggregateMeta)) &&
-              Object.values(baseMetaByKey).every((baseMeta) =>
-                isAssetSnapshotNewer(assetSnapshotMeta, baseMeta),
-              )
-            : !baseAggregateMeta && Object.keys(baseMetaByKey).length === 0;
           const nextValue = canReplaceFullSnapshot
             ? acceptedValueMap
             : { ...baseValue, ...acceptedValueMap };

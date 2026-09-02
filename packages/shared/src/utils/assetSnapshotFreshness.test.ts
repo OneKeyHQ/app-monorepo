@@ -5,6 +5,7 @@ import {
   getNewestAssetSnapshotMeta,
   getServerDateMsFromHeaders,
   isAssetSnapshotNewer,
+  isAssetSnapshotSameOrNewer,
   normalizeAssetSnapshotMeta,
 } from './assetSnapshotFreshness';
 
@@ -101,5 +102,17 @@ describe('assetSnapshotFreshness', () => {
     const after = createAssetSnapshotMeta();
     expect(after.localSeq).toBeGreaterThan(futureSeq);
     expect(isAssetSnapshotNewer(after, persistedFutureMeta)).toBe(true);
+  });
+
+  it('admits an equal marker as same-or-newer but never an older or missing one', () => {
+    const older = { localSeq: 1 };
+    const same = { localSeq: 2 };
+    const newer = { localSeq: 3 };
+    expect(isAssetSnapshotSameOrNewer(same, same)).toBe(true);
+    expect(isAssetSnapshotSameOrNewer(newer, same)).toBe(true);
+    expect(isAssetSnapshotSameOrNewer(older, same)).toBe(false);
+    expect(isAssetSnapshotSameOrNewer(undefined, same)).toBe(false);
+    expect(isAssetSnapshotSameOrNewer(same, undefined)).toBe(true);
+    expect(isAssetSnapshotSameOrNewer(undefined, undefined)).toBe(true);
   });
 });

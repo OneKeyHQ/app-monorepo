@@ -373,6 +373,143 @@ describe('SimpleDbEntityAccountValue snapshot admission', () => {
 
     expect(read().allByAddress[address]?.value).toEqual({ 'evm--1': '10' });
   });
+
+  it('lets a full snapshot drop an omitted network after partial writes admitted the same responses', async () => {
+    const entity = new SimpleDbEntityAccountValue();
+    const read = mockEntityStorage<IAccountValueDb>(entity, {
+      byAddress: {},
+      allByAddress: {},
+    });
+    const address = '0xalice';
+
+    // Older complete snapshot that still covers evm--10.
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--1',
+          accountAddress: address,
+          value: '1',
+          assetSnapshotMeta: meta(1),
+        },
+        {
+          networkId: 'evm--56',
+          accountAddress: address,
+          value: '2',
+          assetSnapshotMeta: meta(1),
+        },
+        {
+          networkId: 'evm--10',
+          accountAddress: address,
+          value: '3',
+          assetSnapshotMeta: meta(1),
+        },
+      ],
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(1),
+    });
+
+    // Progressive per-network writes of the next round (evm--10 disabled).
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--1',
+          accountAddress: address,
+          value: '10',
+          assetSnapshotMeta: meta(2),
+        },
+      ],
+      currency: 'usd',
+      updateAll: false,
+    });
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--56',
+          accountAddress: address,
+          value: '20',
+          assetSnapshotMeta: meta(3),
+        },
+      ],
+      currency: 'usd',
+      updateAll: false,
+    });
+
+    // Full snapshot of that round with EQUAL per-network markers.
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--1',
+          accountAddress: address,
+          value: '10',
+          assetSnapshotMeta: meta(2),
+        },
+        {
+          networkId: 'evm--56',
+          accountAddress: address,
+          value: '20',
+          assetSnapshotMeta: meta(3),
+        },
+      ],
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(2),
+    });
+
+    expect(read().allByAddress[address]).toEqual({
+      value: { 'evm--1': '10', 'evm--56': '20' },
+      currency: 'usd',
+      assetSnapshotMeta: meta(2),
+      assetSnapshotMetaByNetwork: { 'evm--1': meta(2), 'evm--56': meta(3) },
+    });
+  });
+
+  it('still keeps an omitted network whose marker is newer than the full snapshot', async () => {
+    const entity = new SimpleDbEntityAccountValue();
+    const read = mockEntityStorage<IAccountValueDb>(entity, {
+      byAddress: {},
+      allByAddress: {},
+    });
+    const address = '0xalice';
+
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--1',
+          accountAddress: address,
+          value: '10',
+          assetSnapshotMeta: meta(2),
+        },
+        {
+          networkId: 'evm--56',
+          accountAddress: address,
+          value: '20',
+          assetSnapshotMeta: meta(9),
+        },
+      ],
+      currency: 'usd',
+      updateAll: false,
+    });
+
+    await entity.updateAllNetworkAccountValue({
+      items: [
+        {
+          networkId: 'evm--1',
+          accountAddress: address,
+          value: '10',
+          assetSnapshotMeta: meta(2),
+        },
+      ],
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(2),
+    });
+
+    expect(read().allByAddress[address]).toMatchObject({
+      value: { 'evm--1': '10', 'evm--56': '20' },
+    });
+    expect(read().allByAddress[address]?.assetSnapshotMeta).toBeUndefined();
+  });
 });
 
 afterEach(() => {

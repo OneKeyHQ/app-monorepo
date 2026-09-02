@@ -140,6 +140,19 @@ export function isAssetSnapshotNewer(
 }
 
 /**
+ * Admission for keys a full snapshot supplies. Progressive per-key merges may
+ * already have written the same responses, so the snapshot's markers can EQUAL
+ * the stored ones; only strictly older input is stale. Keep
+ * `isAssetSnapshotNewer` for the eviction guard of keys the snapshot omits.
+ */
+export function isAssetSnapshotSameOrNewer(
+  incoming: IAssetSnapshotMeta | undefined,
+  existing: IAssetSnapshotMeta | undefined,
+): boolean {
+  return compareAssetSnapshotMeta(incoming, existing) >= 0;
+}
+
+/**
  * A write without metadata is legacy: it may initialize an unversioned key,
  * but must never clobber a versioned snapshot.
  */

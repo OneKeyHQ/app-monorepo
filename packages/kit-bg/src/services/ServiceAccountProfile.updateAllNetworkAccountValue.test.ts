@@ -567,4 +567,91 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
     });
     expect(mockSimpleDbUpdateAllNetworkAccountValue).toHaveBeenCalled();
   });
+
+  it('lets a full snapshot evict an omitted network after progressive writes admitted the same responses', async () => {
+    const SOL_ID = 'sol--101';
+    const SOL_ACCOUNT_A = "hd-1--m/44'/501'/0'/0/1";
+    const tronKey = `${TRON_ACCOUNT_A}_${TRON_ID}`;
+    const evmKey = `${EVM_ACCOUNT_A}_${EVM_ID}`;
+    const solKey = `${SOL_ACCOUNT_A}_${SOL_ID}`;
+    // Progressive per-network writes from the current round already landed
+    // (tron seq 2, evm seq 3); sol is a retained key from an older round.
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55', [solKey]: '9' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+        [solKey]: { localSeq: 1 },
+      },
+      assetSnapshotMeta: { localSeq: 1 },
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+      },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+      },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+    expect(mockSimpleDbUpdateAllNetworkAccountValue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updateAll: true,
+        snapshotMeta: { localSeq: 2 },
+      }),
+    );
+  });
+
+  it('still refuses a full snapshot when an omitted key carries a newer marker', async () => {
+    const tronKey = `${TRON_ACCOUNT_A}_${TRON_ID}`;
+    const evmKey = `${EVM_ACCOUNT_A}_${EVM_ID}`;
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 9 },
+      },
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMetaByKey: { [tronKey]: { localSeq: 2 } },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 9 },
+      },
+    });
+  });
 });

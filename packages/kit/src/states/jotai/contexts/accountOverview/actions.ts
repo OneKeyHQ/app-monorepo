@@ -7,6 +7,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   getNewestAssetSnapshotMeta,
   isAssetSnapshotNewer,
+  isAssetSnapshotSameOrNewer,
 } from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
@@ -191,13 +192,21 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         // cannot describe the complete account snapshot, so never promote it
         // to the aggregate marker used by full replacements.
         const nextAggregateMeta = currentAggregateMeta;
+        // The currency tag describes the values in `nextWorth`. When every
+        // incoming value was rejected as stale, only retained values remain
+        // and they still carry the previous tag; adopting the rejected
+        // payload's tag would convert them from the wrong currency downstream.
+        const nextCurrency =
+          !hasAcceptedWorth && sameAccount && Object.keys(nextWorth).length > 0
+            ? current.currency
+            : currency;
         set(accountWorthAtom(), {
           worth: nextWorth,
           createAtNetworkWorth: nextCreateAtNetworkWorth,
           initialized: payload.initialized,
           accountId: payload.accountId,
           updateAll: payload.updateAll,
-          currency,
+          currency: nextCurrency,
           ...(Object.keys(nextMetaByKey).length > 0
             ? { assetSnapshotMetaByKey: nextMetaByKey }
             : {}),
@@ -214,6 +223,11 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         current.worth !== null
           ? current.worth
           : {};
+      // Progressive per-network merges admit each response as it settles, and
+      // the full snapshot built from the same round re-materializes those
+      // responses with EQUAL markers. Equal markers must not block the
+      // replacement, otherwise a full refresh could never evict an omitted
+      // (disabled/removed) network; only strictly older input is stale.
       const incomingKeysAreFresh = Object.keys(payload.worth).every((key) => {
         const incomingMeta = incomingMetaForKey(key);
         const existingMeta = getNewestAssetSnapshotMeta(
@@ -221,18 +235,26 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           currentAggregateMeta,
         );
         return (
-          !existingMeta || isAssetSnapshotNewer(incomingMeta, existingMeta)
+          !existingMeta ||
+          isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
         );
       });
+      // Keys omitted by the full snapshot are evicted, so their markers must
+      // be strictly older than the oldest marker the snapshot covers. Keys the
+      // snapshot supplies were admitted per key above.
       const completeMetaIsFresh = payload.assetSnapshotMeta
-        ? (!currentAggregateMeta ||
-            isAssetSnapshotNewer(
-              payload.assetSnapshotMeta,
-              currentAggregateMeta,
-            )) &&
-          Object.values(currentMetaByKey).every((currentMeta) =>
-            isAssetSnapshotNewer(payload.assetSnapshotMeta, currentMeta),
-          )
+        ? isAssetSnapshotSameOrNewer(
+            payload.assetSnapshotMeta,
+            currentAggregateMeta,
+          ) &&
+          Object.entries(currentMetaByKey)
+            .filter(
+              ([key]) =>
+                !Object.prototype.hasOwnProperty.call(payload.worth, key),
+            )
+            .every(([, currentMeta]) =>
+              isAssetSnapshotNewer(payload.assetSnapshotMeta, currentMeta),
+            )
         : !currentAggregateMeta && Object.keys(currentMetaByKey).length === 0;
       const hasVersionedCurrentSnapshot =
         Boolean(currentAggregateMeta) ||
@@ -259,6 +281,9 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         : {};
       const nextMetaByKey: Record<string, IAssetSnapshotMeta> =
         preserveCurrentValues ? { ...currentMetaByKey } : {};
+      // An admitted full snapshot is authoritative for every key it supplies,
+      // including keys whose marker equals the stored one (see above).
+      const admitsEqualMarker = isCompleteSnapshot && canReplaceFullSnapshot;
       let acceptedValueCount = 0;
       Object.entries(payload.worth).forEach(([key, value]) => {
         const incomingMeta = incomingMetaForKey(key);
@@ -266,11 +291,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           currentMetaByKey[key],
           currentAggregateMeta,
         );
-        if (
-          !sameAccount ||
-          !existingMeta ||
-          isAssetSnapshotNewer(incomingMeta, existingMeta)
-        ) {
+        const incomingIsFresh = admitsEqualMarker
+          ? isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
+          : isAssetSnapshotNewer(incomingMeta, existingMeta);
+        if (!sameAccount || !existingMeta || incomingIsFresh) {
           nextWorth[key] = value;
           acceptedValueCount += 1;
           if (incomingMeta) {
@@ -326,13 +350,22 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         nextCreateAtNetworkWorth = payload.createAtNetworkWorth ?? '0';
       }
 
+      // See the merge path: a replacement that rejected every incoming value
+      // keeps only retained values and must keep their currency tag.
+      const nextCurrency =
+        acceptedValueCount === 0 &&
+        sameAccount &&
+        Object.keys(nextWorth).length > 0
+          ? current.currency
+          : currency;
+
       set(accountWorthAtom(), {
         worth: nextWorth,
         createAtNetworkWorth: nextCreateAtNetworkWorth,
         initialized: payload.initialized,
         accountId: payload.accountId,
         updateAll: payload.updateAll,
-        currency,
+        currency: nextCurrency,
         ...(Object.keys(nextMetaByKey).length > 0
           ? { assetSnapshotMetaByKey: nextMetaByKey }
           : {}),
