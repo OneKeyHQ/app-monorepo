@@ -21,7 +21,9 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import {
+  type IMarketDetailChartDisplayMode,
   type IMarketPriceSource,
+  useMarketDetailChartDisplayModePersistAtom,
   useMarketPriceSourceAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -77,7 +79,6 @@ import {
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
-type IStockChartMode = 'simple' | 'pro';
 
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
@@ -470,8 +471,8 @@ function StockChartModeControl({
   mode,
   onChange,
 }: {
-  mode: IStockChartMode;
-  onChange: (mode: IStockChartMode) => void;
+  mode: IMarketDetailChartDisplayMode;
+  onChange: (mode: IMarketDetailChartDisplayMode) => void;
 }) {
   const intl = useIntl();
 
@@ -533,9 +534,13 @@ function StockChart({
   onEnterChartFullscreen: () => void;
 }) {
   const intl = useIntl();
-  const [mode, setMode] = useState<IStockChartMode>('simple');
+  const [{ mode }, setChartDisplayMode] =
+    useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple';
+  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
+    setChartDisplayMode({ mode: nextMode });
+  };
 
   // Simple leads the chart with its own toolbar row (Figma 25476:88858): range
   // selector on the left, Simple/Pro on the right.
@@ -605,7 +610,7 @@ function StockChart({
             })}
           </XStack>
           <Stack testID="stock-chart-mode-control">
-            <StockChartModeControl mode={mode} onChange={setMode} />
+            <StockChartModeControl mode={mode} onChange={handleModeChange} />
           </Stack>
         </XStack>
       ) : null}
@@ -630,7 +635,7 @@ function StockChart({
               onChartSwitch={onChartSwitch}
               onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              <StockChartModeControl mode={mode} onChange={setMode} />
+              <StockChartModeControl mode={mode} onChange={handleModeChange} />
             </MarketDetailProChartControls>
           )}
         </>

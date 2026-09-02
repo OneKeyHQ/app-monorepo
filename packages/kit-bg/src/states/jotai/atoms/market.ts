@@ -116,6 +116,21 @@ export const {
   initialValue: createTradingViewNativeIndicatorSettings(),
 });
 
+export type IMarketDetailChartDisplayMode = 'simple' | 'pro';
+
+export interface IMarketDetailChartDisplayModePersistAtom {
+  mode: IMarketDetailChartDisplayMode;
+}
+
+export const {
+  target: marketDetailChartDisplayModePersistAtom,
+  use: useMarketDetailChartDisplayModePersistAtom,
+} = globalAtom<IMarketDetailChartDisplayModePersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailChartDisplayModePersistAtom,
+  initialValue: { mode: 'simple' },
+});
+
 export type IMarketPriceSource = 'share' | 'token';
 
 export interface IMarketPriceSourceAtom {
