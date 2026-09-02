@@ -10,11 +10,11 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
