@@ -140,6 +140,18 @@ export function usePerpPortfolioData(
         ) {
           return sum.minus(delta.amount);
         }
+        // The matching inbound leg. HyperEVM -> Core credits arrive as a
+        // `spotTransfer` sent by the system address rather than a `send` from
+        // it, so without this a Core/HyperEVM round trip subtracts on the way
+        // out and never adds on the way back.
+        if (
+          delta.type === 'spotTransfer' &&
+          delta.token === 'USDC' &&
+          delta.user?.toLowerCase() === HYPEREVM_SYSTEM_ADDRESS.toLowerCase() &&
+          delta.amount
+        ) {
+          return sum.plus(delta.amount);
+        }
         // `accountClassTransfer` moves USDC between the perp and spot balances
         // of the same account, which is neither a deposit nor a withdrawal.
         // Counting it contradicted this stat's own definition and, now that a
