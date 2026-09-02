@@ -195,8 +195,15 @@ export function BrowserSubmenuColumn({
         ref={containerRef as unknown as Ref<TamaguiElement>}
         position="relative"
         flex={1}
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
+        {...(platformEnv.isDesktop
+          ? {
+              onMouseEnter: handleHoverIn,
+              onMouseLeave: handleHoverOut,
+            }
+          : {
+              onHoverIn: handleHoverIn,
+              onHoverOut: handleHoverOut,
+            })}
       >
         <VerticalDivider />
         <SubmenuColumn
