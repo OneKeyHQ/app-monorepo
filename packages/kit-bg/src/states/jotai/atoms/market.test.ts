@@ -1,19 +1,19 @@
-import {
-  type IMarketDetailChartDisplayModePersistAtom,
-  marketDetailChartDisplayModePersistAtom,
-} from './market';
+import { type IMarketSelectedTabAtom, marketSelectedTabAtom } from './market';
 
 import type { IJotaiAtomPro } from '../types';
 
-describe('marketDetailChartDisplayModePersistAtom', () => {
+describe('marketSelectedTabAtom', () => {
   const atom =
-    marketDetailChartDisplayModePersistAtom.atom() as unknown as IJotaiAtomPro<IMarketDetailChartDisplayModePersistAtom>;
+    marketSelectedTabAtom.atom() as unknown as IJotaiAtomPro<IMarketSelectedTabAtom>;
 
-  it('defaults to the simple chart', () => {
-    expect(atom.initialValue).toEqual({ mode: 'simple' });
+  it('defaults to the trending tab and simple chart', () => {
+    expect(atom.initialValue).toEqual({
+      tab: 'trending',
+      chartDisplayMode: 'simple',
+    });
   });
 
-  it('persists the selected chart display mode', () => {
+  it('persists market UI preferences', () => {
     expect(atom.persist).toBe(true);
   });
 });

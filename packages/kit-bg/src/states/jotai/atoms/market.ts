@@ -12,6 +12,7 @@ export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
 export interface IMarketSelectedTabAtom {
   tab: IMarketSelectedTab;
+  chartDisplayMode?: 'simple' | 'pro';
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
   selectedPerpsCategory?: string;
@@ -22,7 +23,7 @@ export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
   globalAtom<IMarketSelectedTabAtom>({
     persist: true,
     name: EAtomNames.marketSelectedTabAtom,
-    initialValue: { tab: 'trending' },
+    initialValue: { tab: 'trending', chartDisplayMode: 'simple' },
   });
 
 export interface IMarketBannerListSortAtom {
@@ -114,21 +115,6 @@ export const {
   persist: true,
   name: EAtomNames.marketTradingViewIndicatorSettingsPersistAtom,
   initialValue: createTradingViewNativeIndicatorSettings(),
-});
-
-export type IMarketDetailChartDisplayMode = 'simple' | 'pro';
-
-export interface IMarketDetailChartDisplayModePersistAtom {
-  mode: IMarketDetailChartDisplayMode;
-}
-
-export const {
-  target: marketDetailChartDisplayModePersistAtom,
-  use: useMarketDetailChartDisplayModePersistAtom,
-} = globalAtom<IMarketDetailChartDisplayModePersistAtom>({
-  persist: true,
-  name: EAtomNames.marketDetailChartDisplayModePersistAtom,
-  initialValue: { mode: 'simple' },
 });
 
 export type IMarketPriceSource = 'share' | 'token';

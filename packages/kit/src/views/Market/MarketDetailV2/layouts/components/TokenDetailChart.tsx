@@ -6,33 +6,27 @@ import { useIntl } from 'react-intl';
 import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
-  type IMarketDetailChartDisplayMode,
-  useMarketDetailChartDisplayModePersistAtom,
+  type IMarketSelectedTabAtom,
+  useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../../components/StockSimpleChart';
 
 import { MarketDetailProChartControls } from './MarketDetailProChartControls';
 
-const TOKEN_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
+type ITokenChartMode = NonNullable<IMarketSelectedTabAtom['chartDisplayMode']>;
 
 function TokenChartModeControl({
   mode,
   onChange,
 }: {
-  mode: IMarketDetailChartDisplayMode;
-  onChange: (mode: IMarketDetailChartDisplayMode) => void;
+  mode: ITokenChartMode;
+  onChange: (mode: ITokenChartMode) => void;
 }) {
   const intl = useIntl();
 
@@ -85,13 +79,15 @@ export function TokenDetailChart({
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
-  const intl = useIntl();
-  const [{ mode }, setChartDisplayMode] =
-    useMarketDetailChartDisplayModePersistAtom();
+  const [{ chartDisplayMode: mode = 'simple' }, setMarketSelectedTab] =
+    useMarketSelectedTabAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
-  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
-    setChartDisplayMode({ mode: nextMode });
+  const handleModeChange = (nextMode: ITokenChartMode) => {
+    setMarketSelectedTab((prev) => ({
+      ...prev,
+      chartDisplayMode: nextMode,
+    }));
   };
 
   return (
@@ -110,7 +106,7 @@ export function TokenDetailChart({
                 <Button
                   key={item}
                   testID={`market-token-chart-range-${item}`}
-                  minWidth={item === 'All' ? 46 : 40}
+                  minWidth={40}
                   height={32}
                   m="$0"
                   px="$2"
@@ -120,9 +116,7 @@ export function TokenDetailChart({
                   borderRadius="$full"
                   onPress={() => setRange(item)}
                 >
-                  {item === 'All'
-                    ? intl.formatMessage({ id: ETranslations.global_all })
-                    : item}
+                  {item}
                 </Button>
               ))}
             </XStack>

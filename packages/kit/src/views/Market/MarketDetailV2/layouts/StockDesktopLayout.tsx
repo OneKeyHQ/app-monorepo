@@ -21,10 +21,10 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import {
-  type IMarketDetailChartDisplayMode,
   type IMarketPriceSource,
-  useMarketDetailChartDisplayModePersistAtom,
+  type IMarketSelectedTabAtom,
   useMarketPriceSourceAtom,
+  useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -47,7 +47,9 @@ import {
 } from '../components/StockAnalystGauge';
 import {
   type IStockSimpleChartRange,
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../components/StockSimpleChart';
 import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
@@ -79,6 +81,9 @@ import {
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
+type IStockChartDisplayMode = NonNullable<
+  IMarketSelectedTabAtom['chartDisplayMode']
+>;
 
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
@@ -90,15 +95,6 @@ const STOCK_CHART_TOOLBAR_HEIGHT = 40;
 // block, so one offset puts the switch on the widget's line in Pro and leaves
 // it in exactly the same place when the mode is toggled.
 const STOCK_CHART_TOOLBAR_VERTICAL_INSET = 4;
-
-const STOCK_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
 
 const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
   {
@@ -471,8 +467,8 @@ function StockChartModeControl({
   mode,
   onChange,
 }: {
-  mode: IMarketDetailChartDisplayMode;
-  onChange: (mode: IMarketDetailChartDisplayMode) => void;
+  mode: IStockChartDisplayMode;
+  onChange: (mode: IStockChartDisplayMode) => void;
 }) {
   const intl = useIntl();
 
@@ -534,12 +530,22 @@ function StockChart({
   onEnterChartFullscreen: () => void;
 }) {
   const intl = useIntl();
-  const [{ mode }, setChartDisplayMode] =
-    useMarketDetailChartDisplayModePersistAtom();
+  const [{ chartDisplayMode: mode = 'simple' }, setMarketSelectedTab] =
+    useMarketSelectedTabAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple';
-  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
-    setChartDisplayMode({ mode: nextMode });
+  const chartRanges =
+    priceMode === 'share'
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : TOKEN_SIMPLE_CHART_RANGES;
+  const effectiveRange =
+    priceMode === 'token' && range === 'All' ? '1Y' : range;
+  const rangeSelectorWidth = priceMode === 'share' ? 214 : 178;
+  const handleModeChange = (nextMode: IStockChartDisplayMode) => {
+    setMarketSelectedTab((prev) => ({
+      ...prev,
+      chartDisplayMode: nextMode,
+    }));
   };
 
   // Simple leads the chart with its own toolbar row (Figma 25476:88858): range
@@ -577,8 +583,8 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack width={214} alignItems="center" gap="$0.5">
-            {STOCK_SIMPLE_CHART_RANGES.map((item) => {
+          <XStack width={rangeSelectorWidth} alignItems="center" gap="$0.5">
+            {chartRanges.map((item) => {
               const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
                 <Stack
@@ -597,7 +603,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={range === item ? 'secondary' : 'tertiary'}
+                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -616,7 +622,7 @@ function StockChart({
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={range}
+          range={effectiveRange}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />

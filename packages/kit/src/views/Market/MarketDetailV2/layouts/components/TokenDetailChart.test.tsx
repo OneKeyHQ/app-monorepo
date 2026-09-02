@@ -4,9 +4,11 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
+import type { IMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 import { TokenDetailChart } from './TokenDetailChart';
 
-const mockSetChartDisplayMode = jest.fn();
+const mockSetMarketSelectedTab = jest.fn();
 const mockStockSimpleChart = jest.fn(() => (
   <div data-testid="market-token-simple-chart" />
 ));
@@ -49,9 +51,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketDetailChartDisplayModePersistAtom: () => [
-    { mode: mockChartDisplayMode },
-    mockSetChartDisplayMode,
+  useMarketSelectedTabAtom: () => [
+    { tab: 'trending', chartDisplayMode: mockChartDisplayMode },
+    mockSetMarketSelectedTab,
   ],
 }));
 
@@ -81,7 +83,7 @@ function renderTokenDetailChart() {
 describe('TokenDetailChart', () => {
   beforeEach(() => {
     mockChartDisplayMode = 'simple';
-    mockSetChartDisplayMode.mockReset();
+    mockSetMarketSelectedTab.mockReset();
     mockStockSimpleChart.mockClear();
   });
 
@@ -102,7 +104,13 @@ describe('TokenDetailChart', () => {
 
     fireEvent.click(view.getByTestId('market-token-chart-mode-pro'));
 
-    expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'pro' });
+    const update = mockSetMarketSelectedTab.mock.calls[0][0] as (
+      prev: IMarketSelectedTabAtom,
+    ) => IMarketSelectedTabAtom;
+    expect(update({ tab: 'watchlist' })).toEqual({
+      tab: 'watchlist',
+      chartDisplayMode: 'pro',
+    });
   });
 
   it('persists a switch back to Simple mode', () => {
@@ -111,6 +119,12 @@ describe('TokenDetailChart', () => {
 
     fireEvent.click(view.getByTestId('market-token-chart-mode-simple'));
 
-    expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'simple' });
+    const update = mockSetMarketSelectedTab.mock.calls[0][0] as (
+      prev: IMarketSelectedTabAtom,
+    ) => IMarketSelectedTabAtom;
+    expect(update({ tab: 'perps' })).toEqual({
+      tab: 'perps',
+      chartDisplayMode: 'simple',
+    });
   });
 });
