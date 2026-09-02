@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -10,6 +16,7 @@ import {
   useMedia,
   usePreventRemove,
 } from '@onekeyhq/components';
+import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -40,7 +47,10 @@ import {
   useStockDetail,
 } from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
+import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
+
+import type { NavigationAction } from '@react-navigation/routers';
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -135,6 +145,27 @@ function MarketDetail({
 
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
+  const isRouteFocused = useIsFocused();
+  const rootRoutersLength = getRootRoutersLength();
+  const ownsEmbeddedSwapRef = useRef(isRouteFocused);
+  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  if (isRouteFocused) {
+    ownsEmbeddedSwapRef.current = true;
+    focusedRootRoutersLengthRef.current = rootRoutersLength;
+  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
+    ownsEmbeddedSwapRef.current = false;
+  }
+  const shouldKeepEmbeddedSwapMounted =
+    !isRouteFocused &&
+    rootRoutersLength > focusedRootRoutersLengthRef.current &&
+    ownsEmbeddedSwapRef.current;
+  // Desktop detail screens stay mounted in the navigation stack. Only the
+  // focused screen may own the shared Swap state and page footer. Keep that
+  // owner mounted while a child modal is open so quote listeners remain
+  // attached to the same Swap instance.
+  const shouldDisableTrade =
+    disableTrade ||
+    (isDesktopLayout && !isRouteFocused && !shouldKeepEmbeddedSwapMounted);
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -179,7 +210,7 @@ function MarketDetail({
             marketTokenId={marketTokenId}
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
-            disableTrade={disableTrade}
+            disableTrade={shouldDisableTrade}
           />
         </Page.Body>
       </Page>
@@ -233,9 +264,15 @@ function MarketDetailV2(
     handleChartFullscreenChange(false);
     setIsTradingViewNative((currentValue) => !currentValue);
   }, [handleChartFullscreenChange]);
-  const handleFullscreenRemove = useCallback(() => {
-    handleChartFullscreenChange(false);
-  }, [handleChartFullscreenChange]);
+  const handleFullscreenRemove = useCallback(
+    ({ data }: { data: { action: NavigationAction } }) => {
+      handleChartFullscreenChange(false);
+      if (shouldReplayFullscreenNavigationAction(data.action)) {
+        navigation.dispatch(data.action);
+      }
+    },
+    [handleChartFullscreenChange, navigation],
+  );
 
   usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
 

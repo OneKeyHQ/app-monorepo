@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "Das Gerät befindet sich im Bootloader-Modus. Klicken Sie auf die Schaltfläche unten, um den USB-Zugriff zu gewähren und mit der Übertragung des Installationspakets fortzufahren.",
   "firmware_update.status_completed": "Abgeschlossen",
   "firmware_update.status_validating": "Validierung",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "Das Wechseln der Firmware löscht die Gerätedaten. Bitte verbinden Sie Ihr Gerät erneut und klicken Sie auf die Schaltfläche unten, um USB zu autorisieren und fortzufahren.",
   "first_deposit_gets_account_ready_to_trade__desc": "Mit deiner ersten Einzahlung wird dein Konto für den Handel vorbereitet. Du kannst jederzeit auszahlen.",
   "for_reference_only": "Nur zur Referenz",
