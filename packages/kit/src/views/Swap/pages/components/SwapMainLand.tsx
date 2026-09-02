@@ -178,6 +178,9 @@ const SwapMainLoad = ({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const isMarketEmbeddedSwap =
+    Boolean(singleSwapBridgeHeader) &&
+    swapInitParams?.swapSource === ESwapSource.MARKET;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
@@ -1341,7 +1344,9 @@ const SwapMainLoad = ({
     accountScope: swapProAccount.accountScope,
     accountStatus: swapProAccount.accountStatus,
   });
-  useSwapQuote();
+  useSwapQuote({
+    isMarketEmbeddedSwap,
+  });
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
@@ -1425,6 +1430,7 @@ const SwapMainLoad = ({
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
+          hideRecentTokenPairs={isMarketEmbeddedSwap}
           headerContent={
             gtLg && pageType !== EPageType.modal ? (
               <SwapHeaderContainer
@@ -1490,6 +1496,7 @@ const SwapMainLoad = ({
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,
     gtLg,
+    isMarketEmbeddedSwap,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1610,10 +1617,17 @@ const SwapMainLoad = ({
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
-  const { pageType, swapInitParams } = props;
+  const { pageType, singleSwapBridgeHeader, swapInitParams } = props;
+  const shouldSeedMarketEmbeddedPair = Boolean(
+    singleSwapBridgeHeader &&
+    swapInitParams?.swapSource === ESwapSource.MARKET &&
+    swapInitParams.importFromToken &&
+    swapInitParams.importToToken,
+  );
   const initialSelectedTokensOnInit =
-    swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
-    Boolean(swapInitParams?.importNetworkId)
+    (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+      Boolean(swapInitParams?.importNetworkId)) ||
+    shouldSeedMarketEmbeddedPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,

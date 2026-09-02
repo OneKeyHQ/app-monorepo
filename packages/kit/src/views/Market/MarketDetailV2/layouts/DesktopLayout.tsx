@@ -166,15 +166,25 @@ export function DesktopLayout({
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
-  const networkId =
-    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
-  const tokenAddress =
-    selectedTokenVariant?.contractAddress ||
-    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
-  const isNative =
-    networkId === routeNetworkId && tokenAddress === routeTokenAddress
+  const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
+  const stockTokenAddress =
+    selectedTokenVariant?.contractAddress || routeTokenAddress;
+  const tokenDetailNetworkId = storeNetworkId || routeNetworkId;
+  const tokenDetailAddress = storeNetworkId
+    ? storeTokenAddress
+    : routeTokenAddress;
+  const networkId = shouldUseStockDesktopLayout
+    ? stockNetworkId
+    : tokenDetailNetworkId;
+  const tokenAddress = shouldUseStockDesktopLayout
+    ? stockTokenAddress
+    : tokenDetailAddress;
+  const tokenDetailIsNative =
+    tokenDetailNetworkId === routeNetworkId &&
+    tokenDetailAddress === routeTokenAddress
       ? routeIsNative
       : storeIsNative;
+  const isNative = shouldUseStockDesktopLayout ? false : tokenDetailIsNative;
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -182,8 +192,8 @@ export function DesktopLayout({
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
-    xpub,
+    accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
+    xpub: shouldUseStockDesktopLayout ? undefined : xpub,
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
@@ -395,7 +405,6 @@ export function DesktopLayout({
         <StockDesktopLayout
           marketTradingView={marketTradingView}
           swapToken={swapToken}
-          portfolioData={portfolioData}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
@@ -458,6 +467,7 @@ export function DesktopLayout({
         chartFullscreenZIndex={chartFullscreenZIndex}
         chartMode={isTradingViewNative ? 'native' : 'tradingView'}
         isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+        disableTrade={disableTrade}
         onChartSwitch={onChartSwitch}
         onEnterChartFullscreen={handleEnterChartFullscreen}
         InformationTabsComponent={LazyDesktopInformationTabs}
