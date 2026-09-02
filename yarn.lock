@@ -9701,6 +9701,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-image@portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-image::locator=%40onekeyhq%2Fmobile%40workspace%3Aapps%2Fmobile":
+  version: 0.0.0-use.local
+  resolution: "@onekeyfe/react-native-image@portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-image::locator=%40onekeyhq%2Fmobile%40workspace%3Aapps%2Fmobile"
+  peerDependencies:
+    "@onekeyfe/react-native-skeleton": 3.0.97
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.37.0
+  languageName: node
+  linkType: soft
+
 "@onekeyfe/react-native-keychain-module@npm:3.0.95":
   version: 3.0.95
   resolution: "@onekeyfe/react-native-keychain-module@npm:3.0.95"
@@ -9809,16 +9820,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-skeleton@npm:3.0.95":
-  version: 3.0.95
-  resolution: "@onekeyfe/react-native-skeleton@npm:3.0.95"
+"@onekeyfe/react-native-skeleton@portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-skeleton::locator=%40onekeyhq%2Fmobile%40workspace%3Aapps%2Fmobile":
+  version: 0.0.0-use.local
+  resolution: "@onekeyfe/react-native-skeleton@portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-skeleton::locator=%40onekeyhq%2Fmobile%40workspace%3Aapps%2Fmobile"
   peerDependencies:
     react: "*"
     react-native: "*"
-    react-native-nitro-modules: 0.36.5
-  checksum: 10/586ebf08bd75315938602c28caf8872b6be46e53cd3a379ed630fa64700527093861e1413092083116cf978877b825988f5e0444a5d68c180def7a5697dc70b4
+    react-native-nitro-modules: 0.37.0
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@onekeyfe/react-native-sni-connect@npm:3.0.95":
   version: 3.0.95
@@ -10331,6 +10341,7 @@ __metadata:
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:3.0.95"
     "@onekeyfe/react-native-cloud-kit-module": "npm:3.0.95"
     "@onekeyfe/react-native-device-utils": "npm:3.0.95"
+    "@onekeyfe/react-native-image": "portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-image"
     "@onekeyfe/react-native-keychain-module": "npm:3.0.95"
     "@onekeyfe/react-native-lite-card": "npm:3.0.95"
     "@onekeyfe/react-native-native-logger": "npm:3.0.95"
@@ -10341,7 +10352,7 @@ __metadata:
     "@onekeyfe/react-native-range-downloader": "npm:3.0.95"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.95"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.95"
-    "@onekeyfe/react-native-skeleton": "npm:3.0.95"
+    "@onekeyfe/react-native-skeleton": "portal:/Users/huhuanming/.codex/worktrees/3e4e/app-modules/native-views/react-native-skeleton"
     "@onekeyfe/react-native-sni-connect": "npm:3.0.95"
     "@onekeyfe/react-native-splash-screen": "npm:3.0.95"
     "@onekeyfe/react-native-split-bundle-loader": "npm:3.0.95"
@@ -10385,7 +10396,6 @@ __metadata:
     expo-font: "npm:~57.0.1"
     expo-glass-effect: "npm:~57.0.1"
     expo-haptics: "npm:~57.0.1"
-    expo-image: "npm:~57.0.3"
     expo-image-loader: "npm:~57.0.1"
     expo-image-manipulator: "npm:~57.0.11"
     expo-image-picker: "npm:~57.0.11"
@@ -10434,7 +10444,7 @@ __metadata:
     react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@3.0.95"
     react-native-network-logger: "npm:2.0.1"
-    react-native-nitro-modules: "npm:0.36.5"
+    react-native-nitro-modules: "npm:0.37.0"
     react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@3.0.95"
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
@@ -31237,23 +31247,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-image@npm:~57.0.3":
-  version: 57.0.3
-  resolution: "expo-image@npm:57.0.3"
-  dependencies:
-    sf-symbols-typescript: "npm:^2.2.0"
-  peerDependencies:
-    expo: "*"
-    react: "*"
-    react-native: "*"
-    react-native-web: "*"
-  peerDependenciesMeta:
-    react-native-web:
-      optional: true
-  checksum: 10/eb89843b36eea96abb989437c23bf4e439522aacfcb87a55db9ce2bdde645c3071b5c13560d652335d8f7d5adf93f1f52e3a0ae336ce77f4f98d15d1c779ce40
-  languageName: node
-  linkType: hard
-
 "expo-keep-awake@npm:~57.0.1":
   version: 57.0.1
   resolution: "expo-keep-awake@npm:57.0.1"
@@ -42947,13 +42940,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-modules@npm:0.36.5":
-  version: 0.36.5
-  resolution: "react-native-nitro-modules@npm:0.36.5"
+"react-native-nitro-modules@npm:0.37.0":
+  version: 0.37.0
+  resolution: "react-native-nitro-modules@npm:0.37.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/d92e2a6ad62d6bb338a1ac689f9b9ae757103d8b8812101f7e6e4ed2d64178d90a9e65a6dbae0b78253c972d5881fc69a0e20c0fb64aa3a42e5d16eb31d1d653
+  checksum: 10/b04414f7a49e1cef031ff17fdbf535b62ccd577f9af1e5f952f0d8531872e0726f0cdca19821ae84c9237bab0bc524320c37baf56a5008cfc956ecec3a8dd39b
   languageName: node
   linkType: hard
 
@@ -45280,7 +45273,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sf-symbols-typescript@npm:^2.0.0, sf-symbols-typescript@npm:^2.1.0, sf-symbols-typescript@npm:^2.2.0":
+"sf-symbols-typescript@npm:^2.0.0, sf-symbols-typescript@npm:^2.1.0":
   version: 2.2.0
   resolution: "sf-symbols-typescript@npm:2.2.0"
   checksum: 10/8623e148bf86151692d3ccb3149122c091b256162a39f4c4f78472811ffe92e3c77a83841a7381a5dc0bc6505ebb73e7ca8901cb077004872d7ee1cb4e5be9d4

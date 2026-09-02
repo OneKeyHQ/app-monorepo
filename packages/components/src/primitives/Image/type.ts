@@ -4,12 +4,11 @@ import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IStackStyle } from '../Stack';
 import type {
-  ImageErrorEventData,
-  ImageLoadEventData,
-  ImageProgressEventData,
+  Image,
   ImageProps,
-} from 'expo-image';
-import type { Image, ImageSourcePropType } from 'react-native';
+  ImageSourcePropType,
+  ImageURISource,
+} from 'react-native';
 
 export type IImageContext = {
   loading?: boolean;
@@ -31,7 +30,7 @@ export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
 export type IImageSourcePropType = ImageProps['source'];
 export type IImageSourceProps = Omit<
   ImageProps,
-  'width' | 'height' | 'source' | 'borderRadius' | 'size'
+  keyof StackStyle | 'source' | 'size'
 > & {
   circular?: boolean;
   delayMs?: number;
@@ -49,13 +48,33 @@ export type IUseImageComponent = (
   imageSource?: ImageSourcePropType,
 ) => typeof Image;
 
+export type IImageCachePolicy = 'memory-disk' | 'memory' | 'disk' | 'none';
+export type IImageContentFit = 'cover' | 'contain' | 'fill' | 'center';
+export type IImageCacheType = 'none' | 'disk' | 'memory';
+
+export type IImageLoadEventData = {
+  cacheType: IImageCacheType;
+  source: {
+    url: string;
+    width: number;
+    height: number;
+  };
+};
+
+export type IImageErrorEventData = {
+  error: string;
+};
+
 export type IPreloadImageOptions = {
   pixelRatio?: number;
 };
 
 type IPreloadImageSourceBase = {
   uri?: string;
+  headers?: ImageURISource['headers'];
+  cachePolicy?: IImageCachePolicy;
   pixelRatio?: number;
+  overscan?: number;
 };
 
 export type IPreloadImageSource =
@@ -90,6 +109,7 @@ export type IPreloadImageFunc = (
 
 export type IImageV2Props = Omit<
   ImageProps,
+  | keyof IStackStyle
   | 'source'
   | 'src'
   | 'pointerEvents'
@@ -100,33 +120,27 @@ export type IImageV2Props = Omit<
   | 'onProgress'
 > &
   IStackStyle & {
-    /** Enable animated image support */
-    animated?: boolean;
     size?: IStackStyle['height'];
     source?: ImageSourcePropType | string | number;
-    skeleton?: React.ReactNode;
+    /** Content shown while a non-null source is loading. */
+    placeholder?: React.ReactNode;
+    /** Content shown when source is unavailable or fails to load. */
     fallback?: React.ReactNode;
     src?: string;
     /** Display width hint in layout units. DPR is applied internally. */
     resizeWidth?: number;
-    /** Retry times when image loading fails, default is 5 */
-    retryTimes?: number;
-    onError?: (event: ImageErrorEventData) => void;
-    onLoad?: (event: ImageLoadEventData) => void;
+    onError?: (event: IImageErrorEventData) => void;
+    onLoad?: (event: IImageLoadEventData) => void;
     onLoadEnd?: () => void;
     onLoadStart?: () => void;
     onDisplay?: () => void;
     resizeMode?: ImageProps['resizeMode'];
+    contentFit?: IImageContentFit;
+    cachePolicy?: IImageCachePolicy;
+    recyclingKey?: string;
     tintColor?: ImageProps['tintColor'];
-    onProgress?: (event: ImageProgressEventData) => void;
-    /** Whether the image can be retried
-     * @default true
-     */
-    canRetry?: boolean;
-    /** Whether to autoplay animated images (GIF, WebP)
-     * @default true
-     * @platform android
-     * @platform ios
+    /** Whether to autoplay animated images (GIF, WebP).
+     * @default false on Android, true on iOS
      */
     autoplay?: boolean;
   };

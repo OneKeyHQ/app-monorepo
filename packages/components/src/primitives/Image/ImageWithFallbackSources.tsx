@@ -52,7 +52,6 @@ export function ImageWithFallbackSources({
       src={currentSrc}
       fallback={fallback}
       onError={handleError}
-      canRetry={false}
     />
   );
 }

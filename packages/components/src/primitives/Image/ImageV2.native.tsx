@@ -1,36 +1,81 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Image as ExpoImage, resolveSource } from 'expo-image';
-import { StyleSheet } from 'react-native';
+import {
+  OneKeyImage,
+  OneKeyImageCachePolicy,
+  OneKeyImageContentFit,
+  type OneKeyImageErrorEvent,
+  type OneKeyImageLoadEvent,
+  OneKeyImageLoadingStrategy,
+  type OneKeyImageProps,
+} from '@onekeyfe/react-native-image';
+import {
+  type ImageSourcePropType,
+  type ImageStyle,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Skeleton } from '../Skeleton';
-import { Stack } from '../Stack';
+import type {
+  IImageCachePolicy,
+  IImageContentFit,
+  IImageV2Props,
+} from './type';
 
-import { AnimatedExpoImage } from './AnimatedImage';
-import { buildOptimizedImageSource } from './optimization';
-import { useImage } from './useImage';
-import { isEmptyResolvedSource, useResetError } from './utils';
-
-import type { IImageV2Props } from './type';
-import type { ImageErrorEventData, ImageSource, ImageStyle } from 'expo-image';
-
-const getRandomRetryTimes = () => {
-  return Math.floor(Math.random() * 3) * 1000;
+const CACHE_POLICIES: Record<IImageCachePolicy, OneKeyImageCachePolicy> = {
+  disk: OneKeyImageCachePolicy.DISK,
+  memory: OneKeyImageCachePolicy.MEMORY,
+  'memory-disk': OneKeyImageCachePolicy.MEMORY_DISK,
+  none: OneKeyImageCachePolicy.NONE,
 };
 
-// Disable GIF autoplay by default on Android to prevent OOM issues
-// when rendering many animated images in lists (e.g., NFT history)
-const DEFAULT_AUTOPLAY = !platformEnv.isNativeAndroid;
+const styles = StyleSheet.create({
+  overlay: {
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'center',
+    width: '100%',
+  },
+});
 
-export function ImageV2({
-  style: defaultStyle,
-  animated,
-  canRetry = true,
-  ...props
-}: IImageV2Props) {
+function getContentFit({
+  contentFit,
+  resizeMode,
+}: {
+  contentFit?: IImageContentFit;
+  resizeMode?: IImageV2Props['resizeMode'];
+}) {
+  if (contentFit === 'fill' || resizeMode === 'stretch') {
+    return OneKeyImageContentFit.FILL;
+  }
+  if (contentFit === 'contain' || resizeMode === 'contain') {
+    return OneKeyImageContentFit.CONTAIN;
+  }
+  if (
+    contentFit === 'center' ||
+    resizeMode === 'center' ||
+    resizeMode === 'none'
+  ) {
+    return OneKeyImageContentFit.CENTER;
+  }
+  return OneKeyImageContentFit.COVER;
+}
+
+function normalizeSource(
+  source: IImageV2Props['source'] | undefined,
+): OneKeyImageProps['source'] {
+  if (typeof source === 'string') {
+    return { uri: source.trim() };
+  }
+  if (Array.isArray(source)) {
+    return source[0];
+  }
+  return source as Exclude<ImageSourcePropType, ImageSourcePropType[]>;
+}
+
+export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -57,167 +102,93 @@ export function ImageV2({
       ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
+
   const {
     source,
     src,
-    retryTimes: defaultRetryTimes,
-    onError,
     fallback,
-    skeleton,
+    placeholder,
+    onError,
     onLoad,
     onLoadEnd,
     onLoadStart,
     onDisplay,
     autoplay,
-    resizeWidth,
-    ...imageProps
+    resizeMode,
+    contentFit,
+    cachePolicy,
+    recyclingKey,
+    resizeWidth: _resizeWidth,
+    blurRadius: _blurRadius,
+    capInsets: _capInsets,
+    defaultSource: _defaultSource,
+    fadeDuration: _fadeDuration,
+    loadingIndicatorSource: _loadingIndicatorSource,
+    onPartialLoad: _onPartialLoad,
+    progressiveRenderingEnabled: _progressiveRenderingEnabled,
+    resizeMethod: _resizeMethod,
+    srcSet: _srcSet,
+    tintColor: _tintColor,
+    crossOrigin: _crossOrigin,
+    referrerPolicy: _referrerPolicy,
+    ...viewProps
   } = restProps;
-  const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
-  const retryTimes = useRef<number>(0);
 
-  const [hasError, setHasError] = useState(false);
-  const rawSource = useMemo(() => {
-    return (source as ImageSource) || src;
-  }, [source, src]);
-  const rawResolvedSource = useMemo(() => {
-    return resolveSource(rawSource);
-  }, [rawSource]);
-  const optimizedSourceResult = useMemo(
-    () =>
-      buildOptimizedImageSource({
-        source: rawSource,
-        resolvedSource: rawResolvedSource,
-        resizeWidth,
-        width: [style.width, sizeProps?.width, props.width, props.w],
-        height: [style.height, sizeProps?.height, props.height, props.h],
-      }),
-    [
-      props.h,
-      props.height,
-      props.w,
-      props.width,
-      rawResolvedSource,
-      rawSource,
-      resizeWidth,
-      sizeProps?.height,
-      sizeProps?.width,
-      style.height,
-      style.width,
-    ],
+  const normalizedSource = useMemo(
+    () => normalizeSource(source ?? src),
+    [source, src],
   );
-  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
-    string | undefined
-  >();
-  const shouldUseRawSourceFallback =
-    optimizedSourceResult.optimized &&
-    Boolean(optimizedSourceResult.rawUri) &&
-    rawSourceFallbackUri === optimizedSourceResult.rawUri;
-  const activeSource = useMemo(() => {
-    return shouldUseRawSourceFallback
-      ? optimizedSourceResult.rawSource
-      : optimizedSourceResult.source;
-  }, [
-    optimizedSourceResult.rawSource,
-    optimizedSourceResult.source,
-    shouldUseRawSourceFallback,
-  ]);
-
-  const { image, reFetchImage } = useImage(activeSource ?? undefined, {
-    onError(error, retry) {
-      console.error('Loading failed:', error.message);
-      if (
-        optimizedSourceResult.optimized &&
-        optimizedSourceResult.rawUri &&
-        !shouldUseRawSourceFallback
-      ) {
-        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
-        return;
-      }
-      if (canRetry && retryTimes.current < retryTimesLimit.current) {
-        retryTimes.current += 1;
-        setTimeout(() => {
-          retry();
-        }, getRandomRetryTimes());
-      } else {
-        setHasError(true);
-      }
+  const placeholderOverlay = useMemo(
+    () =>
+      placeholder === null || placeholder === undefined ? undefined : (
+        <View pointerEvents="none" style={styles.overlay}>
+          {placeholder}
+        </View>
+      ),
+    [placeholder],
+  );
+  const fallbackOverlay = useMemo(
+    () =>
+      fallback === null || fallback === undefined ? undefined : (
+        <View pointerEvents="none" style={styles.overlay}>
+          {fallback}
+        </View>
+      ),
+    [fallback],
+  );
+  const handleLoad = useCallback(
+    (event: OneKeyImageLoadEvent) => {
+      onLoad?.({
+        cacheType: event.cacheType,
+        source: event.source,
+      });
     },
-  });
-
-  const onResetError = useCallback((error: boolean) => {
-    setHasError(error);
-    retryTimes.current = 0;
-  }, []);
-
-  useResetError(activeSource ?? null, hasError, onResetError);
-
+    [onLoad],
+  );
   const handleError = useCallback(
-    (event: ImageErrorEventData) => {
-      if (
-        optimizedSourceResult.optimized &&
-        optimizedSourceResult.rawUri &&
-        !shouldUseRawSourceFallback
-      ) {
-        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
-        return;
-      }
-      reFetchImage();
+    (event: OneKeyImageErrorEvent) => {
       onError?.(event);
     },
-    [
-      onError,
-      optimizedSourceResult.optimized,
-      optimizedSourceResult.rawUri,
-      reFetchImage,
-      shouldUseRawSourceFallback,
-    ],
+    [onError],
   );
-
-  const fallbackStyle = useMemo(
-    () => ({
-      overflow: 'hidden' as const,
-      display: 'flex' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      ...style,
-    }),
-    [style],
-  );
-
-  if (!image) {
-    if (hasError || isEmptyResolvedSource(activeSource)) {
-      return <Stack style={fallbackStyle}>{fallback}</Stack>;
-    }
-    return skeleton || <Skeleton width={style.width} height={style.height} />;
-  }
-
-  if (animated) {
-    return (
-      <AnimatedExpoImage
-        source={image}
-        style={style}
-        onError={handleError}
-        onLoad={onLoad}
-        onLoadEnd={onLoadEnd}
-        onDisplay={onDisplay}
-        onLoadStart={onLoadStart}
-        autoplay={autoplay ?? DEFAULT_AUTOPLAY}
-        {...(imageProps as any)}
-      />
-    );
-  }
 
   return (
-    <ExpoImage
-      source={image}
+    <OneKeyImage
+      {...(viewProps as OneKeyImageProps)}
+      source={normalizedSource}
       style={style}
-      onError={handleError}
-      onLoad={onLoad}
+      placeholder={placeholderOverlay}
+      fallback={fallbackOverlay}
+      contentFit={getContentFit({ contentFit, resizeMode })}
+      cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
+      recyclingKey={recyclingKey}
+      autoplay={autoplay}
+      loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
+      onError={onError ? handleError : undefined}
+      onLoad={onLoad ? handleLoad : undefined}
       onLoadEnd={onLoadEnd}
-      onDisplay={onDisplay}
       onLoadStart={onLoadStart}
-      autoplay={autoplay ?? DEFAULT_AUTOPLAY}
-      {...(imageProps as any)}
+      onDisplay={onDisplay}
     />
   );
 }
