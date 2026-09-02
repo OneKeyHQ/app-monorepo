@@ -27,12 +27,18 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   - **Common issues**: Manifest v3 validation errors, permission issues
   - **Troubleshooting**: Check extension manifest validity, verify content security policy
 
-- `yarn app:ios` - Start iOS mobile development
+- [Mobile DevSession launcher](references/mobile-dev-shell.md) - Default path
+  for normal iOS/Android React Native development. Read this guide before
+  starting the app, restoring shell/vendor resources, or attaching UI tooling.
+
+- `yarn app:ios` - Direct local iOS native build, only when explicitly requested
+  or when diagnosing the mobile DevSession launcher
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Xcode setup, simulator issues, pod install failures
   - **Prerequisites**: Xcode installed, iOS simulator available
 
-- `yarn app:android` - Start Android mobile development
+- `yarn app:android` - Direct local Android native build, only when explicitly
+  requested or when diagnosing the mobile DevSession launcher
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Android SDK path, emulator setup, gradle build failures
   - **Prerequisites**: Android Studio, SDK tools, emulator configured
