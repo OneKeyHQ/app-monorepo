@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { ScrollView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -134,8 +134,10 @@ export function useFixedColumnShadow({
     [forceVisible, position],
   );
 
-  // Web ResizeObserver setup
-  useEffect(() => {
+  // Measure before the first paint: a freshly mounted table seeded with
+  // initialVisible would otherwise flash the shadow for one frame even when
+  // its content does not overflow.
+  useLayoutEffect(() => {
     if (!enabled || isNative || forceVisible) return;
     if (typeof ResizeObserver === 'undefined') return;
 
