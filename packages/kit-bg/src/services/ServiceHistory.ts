@@ -37,7 +37,10 @@ import {
   isPrivateSendSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { collectDecodedTxInvolvedAddresses } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  collectDecodedTxInvolvedAddresses,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressBadge,
   IAddressInfo,
@@ -68,6 +71,7 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IDecodedTxAction,
   IReplaceTxInfo,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
@@ -725,6 +729,94 @@ function mergePrivateSendLocalDecodedTxFields({
       ...(outputActionsResult.updated
         ? { outputActions: outputActionsResult.actions }
         : {}),
+    },
+  };
+}
+
+// The indexer owns a tx's display label, but networks it cannot parse return an
+// empty one. Replacing the local record with such an on-chain record drops the
+// semantics the app already knew when it built the tx (Earn claim/redeem,
+// internal swap), leaving both the history row and its details page with an
+// empty title. Carry those local fields over, but only when the indexer gave us
+// nothing to show.
+function mergeLocalTxDisplayFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  if (onChainHistoryTx.decodedTx.payload?.label) {
+    return onChainHistoryTx;
+  }
+
+  const localTransfer = localTx.decodedTx.actions?.[0]?.assetTransfer;
+  const localStakingInfo = localTx.stakingInfo;
+  // stakingInfo also identifies a staking tx whose merged record no longer has
+  // an assetTransfer action (the indexer parsed no transfers), so the label
+  // survives every later refresh instead of only the first merge.
+  const isInternalStaking = Boolean(
+    localTransfer?.isInternalStaking || localStakingInfo,
+  );
+  const isInternalSwap = localTransfer?.isInternalSwap;
+  if (!isInternalStaking && !isInternalSwap) {
+    return onChainHistoryTx;
+  }
+
+  const internalStakingLabel = isInternalStaking
+    ? localTransfer?.internalStakingLabel ||
+      (localStakingInfo
+        ? getStakingActionLabel({ stakingInfo: localStakingInfo })
+        : undefined)
+    : undefined;
+
+  const mergeAction = (action: IDecodedTxAction): IDecodedTxAction => {
+    if (action.assetTransfer) {
+      return {
+        ...action,
+        assetTransfer: {
+          ...action.assetTransfer,
+          ...(isInternalStaking ? { isInternalStaking } : {}),
+          ...(isInternalSwap ? { isInternalSwap } : {}),
+          ...(internalStakingLabel ? { internalStakingLabel } : {}),
+        },
+      };
+    }
+
+    // The indexer parsed no transfers at all, so the tx renders as a function
+    // call / unknown action instead. Those views read their own label field.
+    if (!internalStakingLabel) {
+      return action;
+    }
+    if (action.functionCall && !action.functionCall.functionName) {
+      return {
+        ...action,
+        functionCall: {
+          ...action.functionCall,
+          functionName: internalStakingLabel,
+        },
+      };
+    }
+    if (action.unknownAction && !action.unknownAction.label) {
+      return {
+        ...action,
+        unknownAction: {
+          ...action.unknownAction,
+          label: internalStakingLabel,
+        },
+      };
+    }
+    return action;
+  };
+
+  return {
+    ...onChainHistoryTx,
+    stakingInfo: onChainHistoryTx.stakingInfo ?? localStakingInfo,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      actions: onChainHistoryTx.decodedTx.actions.map((action, index) =>
+        index === 0 ? mergeAction(action) : action,
+      ),
     },
   };
 }
@@ -2185,12 +2277,16 @@ class ServiceHistory extends ServiceBase {
           const localHistoryTx = localHistoryTxs.find((tx) =>
             this.isSameScopedHistoryTx(onChainHistoryTx, tx),
           );
-          return localHistoryTx
-            ? mergePrivateSendLocalDecodedTxFields({
-                localTx: localHistoryTx,
-                onChainHistoryTx,
-              })
-            : onChainHistoryTx;
+          if (!localHistoryTx) {
+            return onChainHistoryTx;
+          }
+          return mergeLocalTxDisplayFields({
+            localTx: localHistoryTx,
+            onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+              localTx: localHistoryTx,
+              onChainHistoryTx,
+            }),
+          });
         },
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);

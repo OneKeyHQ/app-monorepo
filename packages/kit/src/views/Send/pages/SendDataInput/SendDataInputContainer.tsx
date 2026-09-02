@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -9,9 +17,12 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Alert,
+  Button,
   Form,
+  Icon,
   Page,
   SizableText,
+  Skeleton,
   TextArea,
   Toast,
   XStack,
@@ -31,6 +42,7 @@ import {
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -54,14 +66,18 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
+  EModalRoutes,
   EModalSendRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -75,6 +91,7 @@ import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/
 
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
+  getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
@@ -113,6 +130,10 @@ type ISendDataInputRouteName =
   | EModalSignatureConfirmRoutes.TxDataInput;
 type ISendAmountInputParams =
   IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
+const addressRiskCheckInteractionProps = {
+  hoverStyle: { bg: '$transparent', opacity: 0.7 },
+  pressStyle: { bg: '$transparent', opacity: 0.5 },
+} as const;
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -124,6 +145,10 @@ function SendDataInputContainer() {
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
   const isNavigatingRef = useRef(false);
+  const addressRiskContinuePendingRef = useRef(false);
+  const navigateToAmountInputRef = useRef<(() => Promise<void>) | undefined>(
+    undefined,
+  );
   const route =
     useRoute<RouteProp<ISendInputFlowParamList, ISendDataInputRouteName>>();
   const amountInputRouteName =
@@ -153,10 +178,28 @@ function SendDataInputContainer() {
     accountId,
     networkId,
   });
+  const addressRiskContextRef = useRef<{
+    networkId: string;
+    address?: string;
+  }>({ networkId });
 
   const { hiddenTabs: recipientHiddenTabs, keylessWalletsOnly } =
     useWebDappRecipientOptions();
+  const { isPrimeActive, user } = useOneKeyAuth();
 
+  const { result: addressRiskSupport } = usePromiseResult(
+    async () => {
+      const requestedNetworkId = currentAccount.networkId;
+      const supported = platformEnv.isWebDappMode
+        ? false
+        : await backgroundApiProxy.serviceAddressRiskCheck.apiIsNetworkSupported(
+            { networkId: requestedNetworkId },
+          );
+      return { networkId: requestedNetworkId, supported };
+    },
+    [currentAccount.networkId],
+    { initResult: { networkId: '', supported: false } },
+  );
   const [quickSelectActiveTab, setQuickSelectActiveTab] =
     useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
@@ -362,6 +405,122 @@ function SendDataInputContainer() {
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
   const toSimilarAddress = toValue?.similarAddress;
+  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  addressRiskContextRef.current = {
+    networkId: currentAccount.networkId,
+    address: toResolved,
+  };
+  const addressRiskCheckButtonState = platformEnv.isWebDappMode
+    ? 'hidden'
+    : getSendAddressRiskCheckButtonState({
+        currentNetworkId: currentAccount.networkId,
+        supportNetworkId: addressRiskSupport.networkId,
+        isSupported: addressRiskSupport.supported,
+        isPrimeUser,
+        resolvedAddress: toResolved,
+        isPending: toPending,
+      });
+
+  const handleAddressRiskCheck = useCallback(() => {
+    if (addressRiskCheckButtonState !== 'enabled') {
+      return;
+    }
+    defaultLogger.prime.subscription.primeEntryClick({
+      featureName: EPrimeFeatures.AddressRiskCheck,
+      entryPoint: 'sendAddressInput',
+      isPrimeActive: !!isPrimeActive,
+    });
+    if (!isPrimeUser) {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDashboard,
+        params: {
+          fromFeature: EPrimeFeatures.AddressRiskCheck,
+          networkId: currentAccount.networkId,
+        },
+      });
+      return;
+    }
+    if (!toResolved) {
+      return;
+    }
+    const checkedContext = {
+      networkId: currentAccount.networkId,
+      address: toResolved,
+    };
+    navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
+      screen: EModalAddressRiskCheckRoutes.AddressRiskCheckResult,
+      params: {
+        checkRequest: checkedContext,
+        showMoreAnalysis: false,
+        onContinue: async () => {
+          if (
+            isNavigatingRef.current ||
+            addressRiskContinuePendingRef.current
+          ) {
+            return;
+          }
+          addressRiskContinuePendingRef.current = true;
+          setIsSubmitting(true);
+          try {
+            if (platformEnv.isNative) {
+              await timerUtils.wait(350);
+            }
+            const currentContext = addressRiskContextRef.current;
+            if (
+              currentContext.networkId === checkedContext.networkId &&
+              currentContext.address === checkedContext.address
+            ) {
+              await navigateToAmountInputRef.current?.();
+            }
+          } finally {
+            if (addressRiskContinuePendingRef.current) {
+              addressRiskContinuePendingRef.current = false;
+              setIsSubmitting(false);
+            }
+          }
+        },
+      },
+    });
+  }, [
+    addressRiskCheckButtonState,
+    currentAccount.networkId,
+    isPrimeActive,
+    isPrimeUser,
+    navigation,
+    toResolved,
+  ]);
+
+  let addressRiskCheckLabelAddon: ReactNode = null;
+  if (addressRiskCheckButtonState === 'loading') {
+    addressRiskCheckLabelAddon = (
+      <Skeleton width={88} height={20} radius="round" />
+    );
+  } else if (addressRiskCheckButtonState !== 'hidden') {
+    addressRiskCheckLabelAddon = (
+      <Button
+        testID={SendTestIDs.addressRiskCheckButton}
+        size="small"
+        variant="tertiary"
+        childrenAsText={false}
+        cursor="default"
+        {...(addressRiskCheckButtonState === 'enabled'
+          ? addressRiskCheckInteractionProps
+          : {})}
+        disabled={addressRiskCheckButtonState !== 'enabled'}
+        onPress={handleAddressRiskCheck}
+      >
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.address_risk_check_check_risk__action,
+          })}
+        </SizableText>
+        {!isPrimeUser ? (
+          <Icon name="PrimeOutline" size="$4" ml="$1.5" color="$iconSubdued" />
+        ) : null}
+      </Button>
+    );
+  }
+
   const onScanResult = useCallback(
     async (result: IQRCodeHandlerParseResult<IChainValue>) => {
       if (
@@ -415,9 +574,7 @@ function SendDataInputContainer() {
     [account, currentAccount.accountId, currentAccount.networkId, form],
   );
 
-  const handleNavigateToAmountInput = useCallback(async () => {
-    if (isNavigatingRef.current) return;
-    isNavigatingRef.current = true;
+  const navigateToAmountInputCore = useCallback(async () => {
     setIsSubmitting(true);
     try {
       // Use already-watched toResolved instead of re-getting from form
@@ -630,7 +787,6 @@ function SendDataInputContainer() {
     } catch (e) {
       console.error('Navigate to amount input failed:', e);
     } finally {
-      isNavigatingRef.current = false;
       setIsSubmitting(false);
     }
   }, [
@@ -653,6 +809,25 @@ function SendDataInputContainer() {
     intl,
     network?.name,
   ]);
+
+  const handleNavigateToAmountInput = useCallback(async () => {
+    if (isNavigatingRef.current || addressRiskContinuePendingRef.current) {
+      return;
+    }
+    isNavigatingRef.current = true;
+    try {
+      await navigateToAmountInputCore();
+    } finally {
+      isNavigatingRef.current = false;
+    }
+  }, [navigateToAmountInputCore]);
+
+  useEffect(() => {
+    navigateToAmountInputRef.current = navigateToAmountInputCore;
+    return () => {
+      navigateToAmountInputRef.current = undefined;
+    };
+  }, [navigateToAmountInputCore]);
 
   const validateMemoField = useValidateMemoField({
     networkId: currentAccount.networkId,
@@ -1326,6 +1501,7 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
+              labelAddon={addressRiskCheckLabelAddon}
               numberOfLines={
                 networkUtils.isLightningNetworkByNetworkId(
                   currentAccount.networkId,
