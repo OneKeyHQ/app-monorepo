@@ -271,6 +271,7 @@ export function SwapPanel({
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
         }}
+        e2eContextProbeName="market-swap-panel"
         enabledNum={[0]}
       >
         {media.lg && !stockDetailDesktopLayout ? (

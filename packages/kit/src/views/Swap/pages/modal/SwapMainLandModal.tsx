@@ -99,6 +99,7 @@ export default function SwapMainLandModal() {
       config={{
         sceneName: EAccountSelectorSceneName.swap,
       }}
+      e2eContextProbeName="swap-main-modal"
       enabledNum={[0, 1]}
     >
       <SwapMainLandModalPage />

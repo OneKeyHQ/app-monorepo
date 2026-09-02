@@ -124,6 +124,7 @@
     "test:unit:account-selector:performance": "yarn jest packages/kit/src/components/AccountSelector/AccountSelectorProvider.test.tsx packages/kit/src/components/AccountSelector/hooks/useAccountSelectorAvailableNetworks.test.tsx packages/kit/src/states/jotai/contexts/accountSelector/atoms.test.tsx --runInBand --reporters=default",
     "test:performance:account-selector": "yarn test:e2e:web:account-selector:perf-metrics && yarn test:unit:account-selector:performance",
     "test:e2e:web:account-selector": "node apps/web/e2e/account-selector.e2e.js",
+    "test:e2e:web:account-selector:inspect": "cross-env ACCOUNT_SELECTOR_E2E_CYCLES=1 ACCOUNT_SELECTOR_E2E_INSPECT=true WEB_E2E_HEADLESS=false WEB_E2E_SLOW_MO_MS=2000 node apps/web/e2e/account-selector.e2e.js",
     "test:e2e:web:account-selector:slow": "cross-env ACCOUNT_SELECTOR_E2E_CYCLES=1 WEB_E2E_HEADLESS=false WEB_E2E_SLOW_MO_MS=2000 node apps/web/e2e/account-selector.e2e.js",
     "test:e2e:web:account-selector:loop": "cross-env ACCOUNT_SELECTOR_E2E_CYCLES=0 node apps/web/e2e/account-selector.e2e.js",
     "test:unit": "yarn workspace @onekeyfe/cli test:unit",
