@@ -498,7 +498,10 @@ const SwapQuoteResult = ({
             )
           : null}
         {buyTaxPercentage
-          ? calculateTaxItem(buyTaxPercentage, quoteResultForDisplay?.toTokenInfo)
+          ? calculateTaxItem(
+              buyTaxPercentage,
+              quoteResultForDisplay?.toTokenInfo,
+            )
           : null}
       </SwapQuoteResultAccordion>
     );
