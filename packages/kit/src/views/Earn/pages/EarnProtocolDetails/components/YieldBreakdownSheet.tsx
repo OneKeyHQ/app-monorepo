@@ -65,7 +65,12 @@ function YieldBar({ items }: { items: IEarnPopupActionIcon['data']['items'] }) {
     return null;
   }
   return (
-    <XStack h="$1.5" bg="$bgStrongActive" borderRadius="$full" overflow="hidden">
+    <XStack
+      h="$1.5"
+      bg="$bgStrongActive"
+      borderRadius="$full"
+      overflow="hidden"
+    >
       {segments.map((segment, index) => (
         <Stack
           key={index}
@@ -183,7 +188,7 @@ export function YieldBreakdownSheet({
               <YStack gap="$2">
                 {data.bulletList.map((text, index) => (
                   // Mirrors the fee row above: an icon-width column then the
-                  // same gap. The dot centres under the icon and the copy lands
+                  // same gap. The dot centers under the icon and the copy lands
                   // on the label's own offset by construction, so neither
                   // alignment drifts if the icon size or gap ever changes.
                   <XStack key={index} gap="$2" ai="flex-start">

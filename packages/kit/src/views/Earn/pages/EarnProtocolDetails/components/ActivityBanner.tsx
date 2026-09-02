@@ -3,14 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IEarnDetailPageBanner } from '@onekeyhq/shared/types/staking';
-
 import {
   handleDeepLinkUrl,
   tryHandleOneKeyUniversalLink,
 } from '@onekeyhq/kit/src/routes/config/deeplink';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { IEarnDetailPageBanner } from '@onekeyhq/shared/types/staking';
 
 const ONE_MINUTE_MS = 60 * 1000;
 
@@ -19,7 +18,7 @@ const ONE_MINUTE_MS = 60 * 1000;
  *
  * The server assembles the copy, link and end time; the remaining time is
  * counted down here so the strip does not go stale on a page that can stay open
- * for a long time. Colours follow the app's theme rather than the banner's own
+ * for a long time. Colors follow the app's theme rather than the banner's own
  * `theme` field — the detail page is not themed per banner.
  */
 export function ActivityBanner({ banner }: { banner: IEarnDetailPageBanner }) {

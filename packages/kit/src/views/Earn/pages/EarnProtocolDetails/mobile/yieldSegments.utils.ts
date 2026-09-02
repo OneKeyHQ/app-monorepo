@@ -47,7 +47,7 @@ export type IHeadlineApyParts = {
   base: string;
   /** campaign boost + protocol rewards, summed */
   bonus?: string;
-  /** colour of the bonus half — taken from the breakdown row itself, so the
+  /** color of the bonus half — taken from the breakdown row itself, so the
    * headline always matches the Yield sheet's bar */
   bonusColor?: string;
 };
@@ -82,7 +82,7 @@ export function buildHeadlineApyParts(
     }
     if (BONUS_KINDS.has(item.kind) && parsed > 0) {
       bonus += parsed;
-      // A campaign wins the colour; a page carrying only protocol rewards keeps
+      // A campaign wins the color; a page carrying only protocol rewards keeps
       // theirs. Same precedence the chart's second line uses.
       if (!bonusColor || item.kind === 'campaign') {
         bonusColor = item.color;

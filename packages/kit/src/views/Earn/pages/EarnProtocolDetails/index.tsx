@@ -186,7 +186,7 @@ const ProtocolHeader = ({
     }
   }, [maturity?.date, maturityText?.text, intl]);
 
-  // Green base + bonus in the campaign colour, split from the same kind/rate
+  // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back
   // to the single string the server rendered when the breakdown is missing.
   const headlineApyParts = useMemo(
@@ -458,7 +458,7 @@ function ChartSection({
   const secondaryLineColor = isPendleProvider
     ? undefined
     : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
-      // segment colours. TODO(design): confirm the exact orange against Figma.
+      // segment colors. TODO(design): confirm the exact orange against Figma.
       (extraApyKind === 'reward' && '#0177E5') || '#DD7B22';
 
   // Calculate high and low APY
@@ -861,7 +861,9 @@ const DetailsPartComponent = ({
                         swapped for Protocol) plus the new Token info block.
                         Falls back to intro when the server predates it. */}
                     <GridSection
-                      data={detailInfo.mobileInfo?.productInfo ?? detailInfo.intro}
+                      data={
+                        detailInfo.mobileInfo?.productInfo ?? detailInfo.intro
+                      }
                     />
                     <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
                     {earnUtils.isPendleProvider({ providerName: provider }) ? (

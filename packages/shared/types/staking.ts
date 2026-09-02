@@ -2396,7 +2396,7 @@ export type IStakeBlockRegionResponse =
       countryCode: string;
     };
 
-/** Second chart line colour: a protocol-owned reward is blue, anything that
+/** Second chart line color: a protocol-owned reward is blue, anything that
  * includes a platform campaign is orange. Resolved by the server. */
 export type IExtraApyKind = 'campaign' | 'reward';
 

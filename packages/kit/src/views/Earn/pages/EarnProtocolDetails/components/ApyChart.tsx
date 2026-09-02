@@ -43,7 +43,7 @@ interface IApyChartProps {
   controlsPlacement?: 'top' | 'bottom';
   /** Hex for the second line. Pendle's underlying APY keeps the default blue;
    * the campaign line is orange. Literal hex because the chart library takes
-   * colours, not theme tokens — same as the two lines already here. */
+   * colors, not theme tokens — same as the two lines already here. */
   secondaryLineColor?: string;
 }
 
