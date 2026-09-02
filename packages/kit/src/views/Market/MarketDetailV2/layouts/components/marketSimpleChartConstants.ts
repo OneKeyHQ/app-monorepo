@@ -11,15 +11,6 @@ import type { IStockSimpleChartRange } from '../../components/StockSimpleChart';
 // it in exactly the same place when the mode is toggled.
 export const MARKET_CHART_TOOLBAR_VERTICAL_INSET = 4;
 
-export const MARKET_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
-
 // Minimum widths sized for the Latin labels (Figma design grid); CJK locales
 // render wider labels ("全部"), so buttons grow beyond these instead of
 // wrapping the text.

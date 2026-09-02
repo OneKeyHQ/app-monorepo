@@ -23,6 +23,7 @@ import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   type IStockSimpleChartRange,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartRequestScope,
 } from './stockSimpleChartData';
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
@@ -50,6 +51,23 @@ export function StockSimpleChart({
   const intl = useIntl();
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
+  const {
+    coinGeckoId: requestCoinGeckoId,
+    isNative: requestIsNative,
+    networkId: requestNetworkId,
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockId: requestStockId,
+    tokenAddress: requestTokenAddress,
+  } = resolveStockSimpleChartRequestScope({
+    coinGeckoId,
+    isNative,
+    networkId,
+    priceMode,
+    range,
+    stockId,
+    tokenAddress,
+  });
 
   const {
     result: chartState,
@@ -59,13 +77,13 @@ export function StockSimpleChart({
     async () => {
       try {
         const data = await fetchStockSimpleChartPoints({
-          coinGeckoId,
-          isNative,
-          networkId,
-          priceMode,
-          range,
-          stockId,
-          tokenAddress,
+          coinGeckoId: requestCoinGeckoId,
+          isNative: requestIsNative,
+          networkId: requestNetworkId,
+          priceMode: requestPriceMode,
+          range: requestRange,
+          stockId: requestStockId,
+          tokenAddress: requestTokenAddress,
         });
 
         return {
@@ -76,7 +94,15 @@ export function StockSimpleChart({
         return { data: [], status: 'error' };
       }
     },
-    [coinGeckoId, isNative, networkId, priceMode, range, stockId, tokenAddress],
+    [
+      requestCoinGeckoId,
+      requestIsNative,
+      requestNetworkId,
+      requestPriceMode,
+      requestRange,
+      requestStockId,
+      requestTokenAddress,
+    ],
     {
       initResult: { data: [], status: 'pending' },
       watchLoading: true,

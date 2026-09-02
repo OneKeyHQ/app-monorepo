@@ -5,29 +5,30 @@ import { useIntl } from 'react-intl';
 
 import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import {
+  type IMarketDetailChartDisplayMode,
+  useMarketDetailChartDisplayModePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../../components/StockSimpleChart';
 
 import { MarketDetailProChartControls } from './MarketDetailProChartControls';
 import {
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
-  MARKET_SIMPLE_CHART_RANGES,
-  MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH,
   MARKET_SIMPLE_CHART_RANGE_WIDTHS,
 } from './marketSimpleChartConstants';
-
-type ITokenChartMode = 'simple' | 'pro';
 
 function TokenChartModeControl({
   mode,
   onChange,
 }: {
-  mode: ITokenChartMode;
-  onChange: (mode: ITokenChartMode) => void;
+  mode: IMarketDetailChartDisplayMode;
+  onChange: (mode: IMarketDetailChartDisplayMode) => void;
 }) {
   const intl = useIntl();
 
@@ -81,13 +82,17 @@ export function TokenDetailChart({
   onEnterChartFullscreen: () => void;
 }) {
   const intl = useIntl();
-  const [mode, setMode] = useState<ITokenChartMode>('simple');
+  const [{ mode }, setChartDisplayMode] =
+    useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
+  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
+    setChartDisplayMode({ mode: nextMode });
+  };
 
   return (
-    // Simple mode stacks a 40px toolbar, a 16px gap and the 304px chart into
-    // the 360px block, matching the stock detail chart. Without the gap the
+    // Simple mode stacks a 40px toolbar, a 16px gap and the 400px chart into
+    // the 456px block, matching the stock detail chart. Without the gap the
     // toolbar sits flush against the chart's top price label and the spare
     // 16px collects at the bottom of the block instead.
     <YStack
@@ -105,12 +110,8 @@ export function TokenDetailChart({
             alignItems="center"
             justifyContent="space-between"
           >
-            <XStack
-              minWidth={MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH}
-              alignItems="center"
-              gap="$0.5"
-            >
-              {MARKET_SIMPLE_CHART_RANGES.map((item) => {
+            <XStack alignItems="center" gap="$0.5">
+              {TOKEN_SIMPLE_CHART_RANGES.map((item) => {
                 const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
                 return (
                   <Stack
@@ -139,7 +140,7 @@ export function TokenDetailChart({
                 );
               })}
             </XStack>
-            <TokenChartModeControl mode={mode} onChange={setMode} />
+            <TokenChartModeControl mode={mode} onChange={handleModeChange} />
           </XStack>
           <StockSimpleChart range={range} priceMode="token" />
         </>
@@ -158,7 +159,7 @@ export function TokenDetailChart({
               onChartSwitch={onChartSwitch}
               onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              <TokenChartModeControl mode={mode} onChange={setMode} />
+              <TokenChartModeControl mode={mode} onChange={handleModeChange} />
             </MarketDetailProChartControls>
           )}
         </>

@@ -1,4 +1,6 @@
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
+  IMarketBasicConfigHomeTab,
   IMarketPerpsTokenFromServer,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
@@ -7,14 +9,22 @@ import {
   getNativeTokenInfo,
   normalizeStockMetadataValue,
 } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
+import { ensureMarketTopCoinsCategory } from '../../../Market/MarketHomeV2/utils';
+
+import { HOME_WATCHLIST_TAB_TYPE } from './constants';
 
 import type { IFavoriteTokenDisplay } from './types';
+import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
 function getTokenKey(token: {
   chainId: string;
   contractAddress: string;
   perpsCoin?: string;
+  marketAsset?: Pick<IMarketAssetListItem, 'assetId'>;
 }) {
+  if (token.marketAsset) {
+    return `market:${token.marketAsset.assetId}`;
+  }
   if (token.perpsCoin) {
     return `perps:${token.perpsCoin}`;
   }
@@ -113,13 +123,73 @@ function mapMarketPerpsTokenToDisplay({
   };
 }
 
+function mapMarketAssetToDisplay(
+  item: IMarketAssetListItem,
+): IFavoriteTokenDisplay {
+  return {
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: item.symbol.toUpperCase(),
+    name: item.symbol,
+    logoUrl: item.logoUrl,
+    price: parseMarketValue(item.price) ?? 0,
+    priceChange24h: parseMarketValue(item.priceChange24hPercent) ?? 0,
+    marketCap: parseMarketValue(item.marketCap) ?? 0,
+    volume24h: parseMarketValue(item.volume24h) ?? 0,
+    marketAsset: item,
+  };
+}
+
+function buildHomeMarketCategories({
+  apiHomeTabs,
+  favoritesCategory,
+  marketCategories,
+  homePerpsHotCategory,
+  topCoinsFallbackName,
+}: {
+  apiHomeTabs: IMarketBasicConfigHomeTab[];
+  favoritesCategory: IMarketCategoryItem;
+  marketCategories: IMarketCategoryItem[];
+  homePerpsHotCategory?: IMarketCategoryItem;
+  topCoinsFallbackName: string;
+}) {
+  const categories =
+    apiHomeTabs.length > 0
+      ? apiHomeTabs.map((tab) => {
+          if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
+            return {
+              ...favoritesCategory,
+              name: tab.name,
+            };
+          }
+
+          return {
+            id: tab.type,
+            name: tab.name,
+            icon: tab.icon,
+          };
+        })
+      : [favoritesCategory, ...marketCategories];
+  const categoriesWithTopCoins = ensureMarketTopCoinsCategory(
+    categories,
+    topCoinsFallbackName,
+  );
+
+  return homePerpsHotCategory
+    ? [...categoriesWithTopCoins, homePerpsHotCategory]
+    : categoriesWithTopCoins;
+}
+
 export {
   EMPTY_DISPLAY_TOKENS,
+  buildHomeMarketCategories,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
+  mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 };
