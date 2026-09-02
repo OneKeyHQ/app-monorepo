@@ -499,7 +499,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state with proper sorting
       const sortedNewData = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: params,
@@ -507,27 +506,18 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      // Persist the optimistic update and restore local state if persistence fails.
       try {
         await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
           watchList: params,
           callerName: 'jotaiContextActions_addIntoWatchListV2',
         });
       } catch (error) {
-        const current = get(marketWatchListV2Atom());
-        if (current.data === sortedNewData) {
+        if (get(marketWatchListV2Atom()).data === sortedNewData) {
           set(marketWatchListV2Atom(), prev);
-        } else {
-          try {
-            await this.refreshWatchListV2.call(set);
-          } catch {
-            // Keep concurrent local changes when the authoritative refresh fails.
-          }
         }
         throw error;
       }
-      await this.refreshWatchListV2.call(set);
-      // Record MARKET task completion for rookie guide
+      await this.refreshWatchListV2.call(set).catch(() => undefined);
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.MARKET,
       );
@@ -547,7 +537,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Immediately update local state using proper token matching
       const newData = prev.data.filter(
         (item) =>
           !equalTokenNoCaseSensitive({
@@ -560,36 +549,26 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // Persist the optimistic update and restore local state if persistence fails.
       try {
         await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
           items: [{ chainId, contractAddress }],
           callerName: 'jotaiContextActions_removeFromWatchListV2',
         });
       } catch (error) {
-        const current = get(marketWatchListV2Atom());
-        if (current.data === newData) {
+        if (get(marketWatchListV2Atom()).data === newData) {
           set(marketWatchListV2Atom(), prev);
-        } else {
-          try {
-            await this.refreshWatchListV2.call(set);
-          } catch {
-            // Keep concurrent local changes when the authoritative refresh fails.
-          }
         }
         throw error;
       }
-      await this.refreshWatchListV2.call(set);
+      await this.refreshWatchListV2.call(set).catch(() => undefined);
     },
   );
 
-  // Perps watchlist: check if a perps coin is in the watchlist
   isPerpsInWatchListV2 = contextAtomMethod((get, _set, perpsCoin: string) => {
     const prev = get(marketWatchListV2Atom());
     return !!prev.data?.find((i) => i.perpsCoin === perpsCoin);
   });
 
-  // Perps watchlist: add a perps coin to the watchlist
   addPerpsIntoWatchListV2 = contextAtomMethod(
     async (get, set, perpsCoin: string) => {
       const prev = get(marketWatchListV2Atom());
@@ -624,7 +603,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  // Perps watchlist: remove a perps coin from the watchlist
   removePerpsFromWatchListV2 = contextAtomMethod(
     async (get, set, perpsCoin: string) => {
       const prev = get(marketWatchListV2Atom());
@@ -753,7 +731,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       return;
     }
 
-    // Immediately update local state
     set(marketWatchListV2Atom(), { ...prev, data: [] });
 
     // Asynchronously call API without waiting for result
