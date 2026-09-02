@@ -4,7 +4,6 @@ import { cloneDeep } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,10 +14,7 @@ import {
   equalTokenNoCaseSensitive,
   normalizeTokenContractAddress,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IMarketAssetDetailData,
-  IMarketWatchListItemV2,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -41,7 +37,6 @@ import {
   tokenDetailPreviewAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
-import { buildMarketAssetTokenDetail } from './marketAssetDetail';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -455,154 +450,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
-  fetchAssetTokenDetail = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: {
-        assetId: string;
-        variantId?: string;
-        tokenAddress: string;
-        networkId: string;
-      },
-    ): Promise<IMarketAssetDetailData> => {
-      const { assetId, variantId, tokenAddress, networkId } = payload;
-      let isStale = false;
-      const isCurrentIdentity = () =>
-        get(tokenAddressAtom()) === tokenAddress &&
-        get(networkIdAtom()) === networkId;
-
-      try {
-        set(tokenDetailLoadingAtom(), true);
-
-        const assetDetail =
-          await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-            assetId,
-            variantId,
-            currency: 'usd',
-          });
-
-        if (!isCurrentIdentity()) {
-          isStale = true;
-          return assetDetail;
-        }
-
-        const { selectedVariant } = assetDetail;
-        const selectedVariantMatchesRoute = equalTokenNoCaseSensitive({
-          token1: {
-            networkId,
-            contractAddress: tokenAddress,
-          },
-          token2: {
-            networkId: selectedVariant.networkId,
-            contractAddress: selectedVariant.tokenAddress,
-          },
-        });
-        if (
-          !selectedVariantMatchesRoute ||
-          (variantId && selectedVariant.variantId !== variantId)
-        ) {
-          throw new OneKeyLocalError(
-            'Market asset detail variant does not match the active route',
-          );
-        }
-
-        const currentTokenDetail = get(tokenDetailAtom());
-        const tokenDetailPreview = get(tokenDetailPreviewAtom());
-        const currentDecimals = isSameMarketTokenDetail({
-          tokenDetail: currentTokenDetail,
-          tokenAddress,
-          networkId,
-        })
-          ? currentTokenDetail?.decimals
-          : undefined;
-        const previewMatchesRoute = tokenDetailPreview
-          ? equalTokenNoCaseSensitive({
-              token1: {
-                networkId,
-                contractAddress: tokenAddress,
-              },
-              token2: {
-                networkId: tokenDetailPreview.networkId,
-                contractAddress: tokenDetailPreview.address,
-              },
-            })
-          : false;
-        let decimals = previewMatchesRoute
-          ? tokenDetailPreview?.decimals
-          : currentDecimals;
-
-        if (typeof decimals !== 'number' || !Number.isFinite(decimals)) {
-          try {
-            const tokenInfo =
-              await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-                networkId: selectedVariant.networkId,
-                tokenAddress: selectedVariant.tokenAddress,
-              });
-            decimals = tokenInfo?.info?.decimals;
-          } catch {
-            decimals = undefined;
-          }
-        }
-
-        if (!isCurrentIdentity()) {
-          isStale = true;
-          return assetDetail;
-        }
-
-        const lastUpdated = Date.now();
-        const tokenData = buildMarketAssetTokenDetail({
-          assetDetail,
-          decimals:
-            typeof decimals === 'number' && Number.isFinite(decimals)
-              ? decimals
-              : 0,
-          lastUpdated,
-        });
-        const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-        const hasFreshKLinePrice =
-          isSameMarketTokenDetail({
-            tokenDetail: currentTokenDetail,
-            tokenAddress,
-            networkId,
-          }) &&
-          typeof chartPriceUpdatedAt === 'number' &&
-          Number.isFinite(chartPriceUpdatedAt) &&
-          lastUpdated - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
-        const finalTokenData = hasFreshKLinePrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail?.price,
-              lastUpdated: currentTokenDetail?.lastUpdated,
-              chartPriceUpdatedAt,
-            }
-          : tokenData;
-
-        set(tokenDetailAtom(), finalTokenData);
-        set(tokenDetailPreviewAtom(), undefined);
-        set(tokenDetailWebsocketAtom(), undefined);
-        set(perpsInfoAtom(), undefined);
-        set(isNativeAtom(), selectedVariant.isNative);
-
-        return assetDetail;
-      } catch (error) {
-        console.error('Failed to fetch market asset detail:', error);
-        if (isCurrentIdentity()) {
-          set(tokenDetailAtom(), undefined);
-          set(tokenDetailWebsocketAtom(), undefined);
-          set(perpsInfoAtom(), undefined);
-        } else {
-          isStale = true;
-        }
-        throw error;
-      } finally {
-        if (!isStale) {
-          set(tokenDetailLoadingAtom(), false);
-        }
-      }
-    },
-  );
-
   // Existing WatchList Actions
   flushWatchListV2Atom = contextAtomMethod(
     (_, set, payload: IMarketWatchListItemV2[]) => {
@@ -929,7 +776,6 @@ export function useTokenDetailActions() {
   const setTokenDetailWebsocket = actions.setTokenDetailWebsocket.use();
   const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
-  const fetchAssetTokenDetail = actions.fetchAssetTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
   const changeActiveToken = actions.changeActiveToken.use();
   const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
@@ -946,7 +792,6 @@ export function useTokenDetailActions() {
     setTokenDetailWebsocket,
     setPerpsInfo,
     fetchTokenDetail,
-    fetchAssetTokenDetail,
     clearTokenDetail,
     changeActiveToken,
     applyChartPriceUpdate,

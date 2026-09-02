@@ -218,7 +218,7 @@ export function DesktopLayout({
         selectedTokenVariant?.contractAddress ||
         '',
       symbol: displayTokenDetail?.symbol || selectedTokenVariant?.symbol || '',
-      decimals: displayTokenDetail?.decimals || 0,
+      decimals: displayTokenDetail?.decimals ?? 0,
       logoURI: displayTokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
       price: displayTokenDetail?.price || selectedTokenVariant?.price,
       isNative,
@@ -234,6 +234,11 @@ export function DesktopLayout({
       isNative,
     ],
   );
+  const isSwapTokenReady =
+    typeof displayTokenDetail?.decimals === 'number' &&
+    Number.isInteger(displayTokenDetail.decimals) &&
+    displayTokenDetail.decimals >= 0;
+  const shouldDisableTrade = disableTrade || !isSwapTokenReady;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -460,7 +465,7 @@ export function DesktopLayout({
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
           }
-          disableTrade={disableTrade}
+          disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
@@ -488,7 +493,7 @@ export function DesktopLayout({
           marketTokenId={marketTokenId}
           assetDetail={marketAssetDetail}
           isAssetDetailLoading={isMarketAssetDetailLoading}
-          disableTrade={disableTrade}
+          disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
@@ -520,7 +525,7 @@ export function DesktopLayout({
         chartFullscreenZIndex={chartFullscreenZIndex}
         chartMode={isTradingViewNative ? 'native' : 'tradingView'}
         isChartSwitchDisabled={!effectiveMarketTradingViewParams}
-        disableTrade={disableTrade}
+        disableTrade={shouldDisableTrade}
         onChartSwitch={onChartSwitch}
         onEnterChartFullscreen={handleEnterChartFullscreen}
         InformationTabsComponent={LazyDesktopInformationTabs}

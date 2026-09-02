@@ -11,8 +11,10 @@ import { useTokenDetailActions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
   tokenDetailAtom,
+  tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
 } from './atoms';
+import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 
 const mockFetchMarketAssetDetail: jest.MockedFunction<
   (params: {
@@ -30,6 +32,19 @@ const mockFetchTokenInfoOnly: jest.MockedFunction<
     tokenAddress: string;
   }) => Promise<{ info?: { decimals?: number } } | undefined>
 > = jest.fn();
+const mockLogError = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      error: {
+        log: (...args: unknown[]) => {
+          mockLogError(...args);
+        },
+      },
+    },
+  },
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -124,9 +139,16 @@ describe('marketV2 asset token detail actions', () => {
 
   it('loads DOGE through the asset detail API without calling token detail', async () => {
     const { store, Wrapper } = createWrapper();
-    const { result } = renderHook(() => useTokenDetailActions().current, {
-      wrapper: Wrapper,
-    });
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
 
     act(() => {
       result.current.prepareTokenDetailPreview({
@@ -146,6 +168,7 @@ describe('marketV2 asset token detail actions', () => {
         variantId: 'doge-doge--0-1',
         tokenAddress: '',
         networkId: 'doge--0',
+        currency: 'usd',
       });
     });
 
@@ -171,5 +194,90 @@ describe('marketV2 asset token detail actions', () => {
       price: '0.25',
       lastUpdated: 1_788_332_400_000,
     });
+  });
+
+  it('fails safely when token decimals cannot be resolved', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+    mockFetchTokenInfoOnly.mockResolvedValue(undefined);
+
+    act(() => {
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+          currency: 'usd',
+        }),
+      ).rejects.toThrow('Unable to resolve token decimals');
+    });
+
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledWith({
+      networkId: 'doge--0',
+      tokenAddress: '',
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('clears the matching preview when the Asset API fails', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+    mockFetchMarketAssetDetail.mockRejectedValue(
+      new Error('Asset API unavailable'),
+    );
+
+    act(() => {
+      result.current.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+          currency: 'usd',
+        }),
+      ).rejects.toThrow('Asset API unavailable');
+    });
+
+    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 });

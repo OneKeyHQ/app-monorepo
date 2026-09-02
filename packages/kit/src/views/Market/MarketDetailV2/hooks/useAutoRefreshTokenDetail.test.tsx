@@ -16,22 +16,29 @@ const mockSetTokenAddress = jest.fn();
 const mockSetTokenDetail = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
 let promiseFactory: (() => Promise<unknown>) | undefined;
+let promiseOptions: Record<string, unknown> | undefined;
+let promiseResult: unknown;
+let mockCurrencyId = 'usd';
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
-  useCurrency: () => ({ id: 'usd' }),
+  useCurrency: () => ({ id: mockCurrencyId }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (factory: () => Promise<unknown>) => {
+  usePromiseResult: (
+    factory: () => Promise<unknown>,
+    _deps: unknown[],
+    options: Record<string, unknown>,
+  ) => {
     promiseFactory = factory;
-    return { result: undefined, isLoading: false };
+    promiseOptions = options;
+    return { result: promiseResult, isLoading: false };
   },
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: () => ({
     current: {
-      fetchAssetTokenDetail: mockFetchAssetTokenDetail,
       fetchTokenDetail: mockFetchTokenDetail,
       setIsNative: mockSetIsNative,
       setNetworkId: mockSetNetworkId,
@@ -44,9 +51,20 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 }));
 
 jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail',
+  () => ({
+    useMarketAssetTokenDetailAction: () => mockFetchAssetTokenDetail,
+  }),
+);
+
+jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail',
   () => ({
-    useTokenDetail: () => ({ tokenDetail: undefined, networkId: '' }),
+    useTokenDetail: () => ({
+      tokenDetail: undefined,
+      networkId: '',
+      isLoading: false,
+    }),
   }),
 );
 
@@ -61,6 +79,9 @@ describe('useAutoRefreshTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     promiseFactory = undefined;
+    promiseOptions = undefined;
+    promiseResult = undefined;
+    mockCurrencyId = 'usd';
   });
 
   it('uses the asset detail owner for Top Coins routes', async () => {
@@ -84,8 +105,13 @@ describe('useAutoRefreshTokenDetail', () => {
       variantId: 'doge-doge--0-1',
       tokenAddress: '',
       networkId: 'doge--0',
+      currency: 'usd',
     });
     expect(mockFetchTokenDetail).not.toHaveBeenCalled();
+    expect(promiseOptions).toMatchObject({
+      undefinedResultIfError: true,
+    });
+    expect(promiseOptions).not.toHaveProperty('watchLoading');
   });
 
   it('keeps ordinary market tokens on the token detail owner', async () => {
@@ -101,5 +127,45 @@ describe('useAutoRefreshTokenDetail', () => {
 
     expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1');
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it('requests Asset detail in the selected fiat currency', async () => {
+    mockCurrencyId = 'cny';
+    mockFetchAssetTokenDetail.mockResolvedValue({ asset: { assetId: 'doge' } });
+
+    renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      }),
+    );
+
+    await promiseFactory?.();
+
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'cny' }),
+    );
+  });
+
+  it('does not expose an asset result from a previous route', () => {
+    promiseResult = {
+      assetId: 'btc',
+      assetDetail: { asset: { assetId: 'btc' } },
+    };
+
+    const { result } = renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      }),
+    );
+
+    expect(result.current.marketAssetDetail).toBeUndefined();
   });
 });

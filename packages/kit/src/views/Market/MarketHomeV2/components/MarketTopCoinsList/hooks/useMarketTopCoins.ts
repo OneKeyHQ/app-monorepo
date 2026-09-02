@@ -55,15 +55,24 @@ export function useMarketTopCoinResolver() {
         if (selectedVariant.isNative) {
           decimals = networkInfo.decimals;
         } else {
-          const tokenInfo =
-            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-              networkId: selectedVariant.networkId,
-              tokenAddress: selectedVariant.tokenAddress,
-            });
-          decimals = tokenInfo?.info?.decimals;
+          try {
+            const tokenInfo =
+              await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+                networkId: selectedVariant.networkId,
+                tokenAddress: selectedVariant.tokenAddress,
+              });
+            decimals = tokenInfo?.info?.decimals;
+          } catch {
+            decimals = undefined;
+          }
         }
-        if (typeof decimals !== 'number' || !Number.isFinite(decimals)) {
-          throw new OneKeyLocalError('Invalid market asset variant decimals');
+        if (
+          typeof decimals !== 'number' ||
+          !Number.isFinite(decimals) ||
+          !Number.isInteger(decimals) ||
+          decimals < 0
+        ) {
+          decimals = undefined;
         }
         return {
           address: selectedVariant.tokenAddress,

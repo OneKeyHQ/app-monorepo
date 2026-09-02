@@ -2,6 +2,11 @@ import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 import { buildMarketAssetTokenDetail } from './marketAssetDetail';
 
+jest.mock(
+  '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+  () => ({}),
+);
+
 const dogeAssetDetail: IMarketAssetDetailData = {
   asset: {
     assetId: 'doge',

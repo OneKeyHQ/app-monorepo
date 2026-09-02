@@ -49,6 +49,8 @@ export function MarketDetailResponsiveLayout({
       isNative={isNative}
       networkId={networkId}
       tokenAddress={tokenAddress}
+      marketTokenId={marketTokenId}
+      marketTokenCategory={marketTokenCategory}
     />
   );
 }

@@ -161,6 +161,27 @@ describe('useMarketTopCoins', () => {
     });
   });
 
+  it('keeps navigation available when token metadata is temporarily unavailable', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
+    serviceToken.fetchTokenInfoOnly.mockRejectedValueOnce(
+      new Error('metadata unavailable'),
+    );
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decimals: undefined,
+        marketTokenId: 'btc',
+        marketVariantId: 'btc-evm--1-0xbtc',
+      }),
+    );
+    expect(Toast.error).not.toHaveBeenCalled();
+  });
+
   it('reports a detail lookup failure without opening a CoinGecko route', async () => {
     const { result } = renderHook(() => useMarketTopCoins());
 

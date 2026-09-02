@@ -1,5 +1,61 @@
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  contextAtomMethod,
+  isNativeAtom,
+  networkIdAtom,
+  perpsInfoAtom,
+  tokenAddressAtom,
+  tokenDetailAtom,
+  tokenDetailLoadingAtom,
+  tokenDetailPreviewAtom,
+  tokenDetailWebsocketAtom,
+} from './atoms';
+
+const CHART_PRICE_FRESHNESS_MS = 10_000;
+
+function isSameMarketTokenDetail({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress: string;
+  networkId: string;
+}) {
+  if (!tokenDetail) {
+    return false;
+  }
+
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId,
+      contractAddress: tokenAddress,
+    },
+    token2: {
+      networkId,
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
+function isValidTokenDecimals(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
+  );
+}
 
 export function buildMarketAssetTokenDetail({
   assetDetail,
@@ -32,4 +88,167 @@ export function buildMarketAssetTokenDetail({
     volume24h: market.volume24h,
     lastUpdated,
   };
+}
+
+interface IMarketAssetTokenDetailPayload {
+  assetId: string;
+  variantId?: string;
+  tokenAddress: string;
+  networkId: string;
+  currency: string;
+}
+
+async function fetchMarketAssetTokenDetail(
+  get: IJotaiGetter,
+  set: IJotaiSetter,
+  payload: IMarketAssetTokenDetailPayload,
+): Promise<IMarketAssetDetailData> {
+  const { assetId, variantId, tokenAddress, networkId, currency } = payload;
+  let isStale = false;
+  const isCurrentIdentity = () =>
+    get(tokenAddressAtom()) === tokenAddress &&
+    get(networkIdAtom()) === networkId;
+
+  try {
+    set(tokenDetailLoadingAtom(), true);
+
+    const assetDetail =
+      await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+        assetId,
+        variantId,
+        currency,
+      });
+
+    if (!isCurrentIdentity()) {
+      isStale = true;
+      return assetDetail;
+    }
+
+    const { selectedVariant } = assetDetail;
+    const selectedVariantMatchesRoute = equalTokenNoCaseSensitive({
+      token1: {
+        networkId,
+        contractAddress: tokenAddress,
+      },
+      token2: {
+        networkId: selectedVariant.networkId,
+        contractAddress: selectedVariant.tokenAddress,
+      },
+    });
+    if (
+      !selectedVariantMatchesRoute ||
+      (variantId && selectedVariant.variantId !== variantId)
+    ) {
+      throw new OneKeyLocalError(
+        'Market asset detail variant does not match the active route',
+      );
+    }
+
+    const currentTokenDetail = get(tokenDetailAtom());
+    const tokenDetailPreview = get(tokenDetailPreviewAtom());
+    const currentDecimals = isSameMarketTokenDetail({
+      tokenDetail: currentTokenDetail,
+      tokenAddress,
+      networkId,
+    })
+      ? currentTokenDetail?.decimals
+      : undefined;
+    const previewMatchesRoute = tokenDetailPreview
+      ? equalTokenNoCaseSensitive({
+          token1: {
+            networkId,
+            contractAddress: tokenAddress,
+          },
+          token2: {
+            networkId: tokenDetailPreview.networkId,
+            contractAddress: tokenDetailPreview.address,
+          },
+        })
+      : false;
+    let decimals = previewMatchesRoute
+      ? tokenDetailPreview?.decimals
+      : currentDecimals;
+
+    if (!isValidTokenDecimals(decimals)) {
+      try {
+        const tokenInfo =
+          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+            networkId: selectedVariant.networkId,
+            tokenAddress: selectedVariant.tokenAddress,
+          });
+        decimals = tokenInfo?.info?.decimals;
+      } catch {
+        decimals = undefined;
+      }
+    }
+
+    if (!isCurrentIdentity()) {
+      isStale = true;
+      return assetDetail;
+    }
+
+    if (!isValidTokenDecimals(decimals)) {
+      throw new OneKeyLocalError(
+        'Unable to resolve token decimals for market asset detail',
+      );
+    }
+
+    const lastUpdated = Date.now();
+    const tokenData = buildMarketAssetTokenDetail({
+      assetDetail,
+      decimals,
+      lastUpdated,
+    });
+    const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
+    const hasFreshKLinePrice =
+      isSameMarketTokenDetail({
+        tokenDetail: currentTokenDetail,
+        tokenAddress,
+        networkId,
+      }) &&
+      typeof chartPriceUpdatedAt === 'number' &&
+      Number.isFinite(chartPriceUpdatedAt) &&
+      lastUpdated - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
+    const finalTokenData = hasFreshKLinePrice
+      ? {
+          ...tokenData,
+          price: currentTokenDetail?.price,
+          lastUpdated: currentTokenDetail?.lastUpdated,
+          chartPriceUpdatedAt,
+        }
+      : tokenData;
+
+    set(tokenDetailAtom(), finalTokenData);
+    set(tokenDetailPreviewAtom(), undefined);
+    set(tokenDetailWebsocketAtom(), undefined);
+    set(perpsInfoAtom(), undefined);
+    set(isNativeAtom(), selectedVariant.isNative);
+
+    return assetDetail;
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to fetch market asset detail: ${String(error)}`,
+    );
+    if (isCurrentIdentity()) {
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailPreviewAtom(), undefined);
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+    } else {
+      isStale = true;
+    }
+    throw error;
+  } finally {
+    if (!isStale) {
+      set(tokenDetailLoadingAtom(), false);
+    }
+  }
+}
+
+const fetchMarketAssetTokenDetailAction = contextAtomMethod(
+  fetchMarketAssetTokenDetail,
+);
+
+export function useMarketAssetTokenDetailAction() {
+  return fetchMarketAssetTokenDetailAction.use();
 }

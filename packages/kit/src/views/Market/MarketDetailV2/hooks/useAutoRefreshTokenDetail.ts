@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -26,8 +27,13 @@ function toFiniteNumber(value?: string | number) {
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const { current: tokenDetailActions } = useTokenDetailActions();
+  const fetchMarketAssetTokenDetail = useMarketAssetTokenDetailAction();
   const currencyInfo = useCurrency();
-  const { tokenDetail, networkId } = useTokenDetail();
+  const {
+    tokenDetail,
+    networkId,
+    isLoading: isTokenDetailLoading,
+  } = useTokenDetail();
   const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
 
   // Sync tokenDetail to global atom so mobile modal can read it
@@ -125,8 +131,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     tokenDetailActions.setIsNative(data.isNative);
   }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
 
-  const { result, isLoading } = usePromiseResult<
-    { assetDetail: IMarketAssetDetailData } | undefined
+  const { result } = usePromiseResult<
+    { assetId: string; assetDetail: IMarketAssetDetailData } | undefined
   >(
     async () => {
       if (
@@ -141,13 +147,14 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
         data.marketTokenId
       ) {
-        const assetDetail = await tokenDetailActions.fetchAssetTokenDetail({
+        const assetDetail = await fetchMarketAssetTokenDetail({
           assetId: data.marketTokenId,
           variantId: data.marketVariantId,
           tokenAddress: data.tokenAddress,
           networkId: data.networkId,
+          currency: currencyInfo.id,
         });
-        return { assetDetail };
+        return { assetId: data.marketTokenId, assetDetail };
       }
       // Only fetch token detail data; atom identity is set synchronously above
       await tokenDetailActions.fetchTokenDetail(
@@ -164,10 +171,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       data.tokenAddress,
       data.networkId,
       data.skipMarketDataFetch,
+      fetchMarketAssetTokenDetail,
       tokenDetailActions,
     ],
     {
-      watchLoading: true,
+      undefinedResultIfError: true,
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -178,9 +186,13 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     },
   );
 
+  const marketAssetDetail =
+    result?.assetId === data.marketTokenId ? result?.assetDetail : undefined;
+
   return {
-    marketAssetDetail: result?.assetDetail,
+    marketAssetDetail,
     isMarketAssetDetailLoading:
-      data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID && isLoading,
+      data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
+      isTokenDetailLoading,
   };
 }

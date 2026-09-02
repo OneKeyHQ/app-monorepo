@@ -109,7 +109,7 @@ function StockPageHeader({
   showFavoriteButton: boolean;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const { stockDetail, stockId } = useStockDetail();
+  const { stockDetail, stockId, stockPreview } = useStockDetail();
   const stock = tokenDetail?.stock;
   const tokenActionIdentity =
     networkId && tokenDetail?.address && tokenDetail.symbol
@@ -159,6 +159,7 @@ function StockPageHeader({
               size="xl"
               tokenImageUri={
                 stockDetail?.logoUrl ||
+                stockPreview?.logoUrl ||
                 tokenDetail?.logoUrl ||
                 stock?.sourceLogoUri
               }
@@ -167,6 +168,7 @@ function StockPageHeader({
             <YStack minWidth={0} justifyContent="center">
               <SizableText size="$headingXl" numberOfLines={1}>
                 {stockDetail?.symbol ||
+                  stockPreview?.symbol ||
                   stock?.underlyingAssetTicker ||
                   stock?.title ||
                   tokenDetail?.symbol ||
@@ -179,6 +181,7 @@ function StockPageHeader({
                 numberOfLines={1}
               >
                 {stockDetail?.name ||
+                  stockPreview?.name ||
                   stock?.subtitle ||
                   tokenDetail?.name ||
                   ''}
@@ -535,8 +538,6 @@ function StockChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const effectiveRange =
-    priceMode === 'token' && range === 'All' ? '1Y' : range;
   const rangeSelectorWidth = priceMode === 'share' ? 214 : 178;
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
@@ -581,7 +582,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
+                    variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -600,7 +601,7 @@ function StockChart({
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={effectiveRange}
+          range={range}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />
