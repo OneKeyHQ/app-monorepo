@@ -96,7 +96,12 @@ jest.mock('../../states/jotai/atoms', () => ({
     installing: 'installing',
     updateStart: 'updateStart',
   },
-  EHardwareUiStateAction: {},
+  // The real enum: the service builds its skipped/dialog event sets at
+  // module scope, so an empty stub collapses both into Set{undefined}
+  // and every event-routing assertion below stops proving anything.
+  EHardwareUiStateAction: jest.requireActual(
+    '@onekeyhq/shared/types/hardwareUi',
+  ).EHardwareUiStateAction,
   firmwareUpdateResultVerifyAtom: {
     set: jest.fn(),
   },
