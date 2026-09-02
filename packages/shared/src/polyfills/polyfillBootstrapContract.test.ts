@@ -21,6 +21,11 @@ const fullRuntimeEntries = [
 
 const limitedRuntimeEntries = ['apps/ext/src/entry/content-script.ts'] as const;
 
+const nativeRuntimeEntries = [
+  'apps/mobile/index.ts',
+  'apps/mobile/background.ts',
+] as const;
+
 function findFirstRuntimeDependency(source: string): string | undefined {
   const ast = parse(source, {
     plugins: ['jsx', 'typescript'],
@@ -144,6 +149,58 @@ function containsDynamicImport(value: unknown): boolean {
   return Object.values(node).some(containsDynamicImport);
 }
 
+function containsImmediateCall(value: unknown, calleeName: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => containsImmediateCall(item, calleeName));
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const node = value as {
+    callee?: { name?: string; type?: string };
+    type?: string;
+    [key: string]: unknown;
+  };
+  if (
+    node.type === 'FunctionDeclaration' ||
+    node.type === 'FunctionExpression' ||
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'ClassDeclaration' ||
+    node.type === 'ClassExpression'
+  ) {
+    return false;
+  }
+  if (
+    node.type === 'CallExpression' &&
+    node.callee?.type === 'Identifier' &&
+    node.callee.name === calleeName
+  ) {
+    return true;
+  }
+  return Object.values(node).some((child) =>
+    containsImmediateCall(child, calleeName),
+  );
+}
+
+function collectTopLevelBootstrapEvents(source: string): string[] {
+  const ast = parse(source, {
+    plugins: ['jsx', 'typescript'],
+    sourceType: 'unambiguous',
+  });
+
+  return ast.program.body.flatMap((statement) => {
+    const dependency = findImmediateRequire(statement);
+    if (dependency) {
+      return [`require:${dependency}`];
+    }
+    if (containsImmediateCall(statement, 'markRuntimePolyfillsReady')) {
+      return ['call:markRuntimePolyfillsReady'];
+    }
+    return [];
+  });
+}
+
 describe('runtime polyfill bootstrap contract', () => {
   it('captures the startup baseline before installing polyfills', () => {
     const source = readFileSync(
@@ -174,6 +231,19 @@ describe('runtime polyfill bootstrap contract', () => {
       expect(findFirstRuntimeDependency(source)).toBe(
         '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript',
       );
+    },
+  );
+
+  it.each(nativeRuntimeEntries)(
+    '%s marks polyfills ready before loading any other runtime dependency',
+    (relativePath) => {
+      const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
+
+      expect(collectTopLevelBootstrapEvents(source).slice(0, 3)).toEqual([
+        'require:@onekeyhq/shared/src/polyfills',
+        'require:@onekeyhq/shared/src/polyfills/runtimeCapabilities',
+        'call:markRuntimePolyfillsReady',
+      ]);
     },
   );
 
