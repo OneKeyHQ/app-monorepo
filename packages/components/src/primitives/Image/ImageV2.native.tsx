@@ -12,6 +12,8 @@ import {
 import {
   type ImageSourcePropType,
   type ImageStyle,
+  Platform,
+  Image as ReactNativeImage,
   StyleSheet,
   View,
 } from 'react-native';
@@ -69,10 +71,22 @@ function normalizeSource(
   if (typeof source === 'string') {
     return { uri: source.trim() };
   }
-  if (Array.isArray(source)) {
-    return source[0];
+  const candidate = Array.isArray(source) ? source[0] : source;
+  if (typeof candidate === 'number') {
+    const resolved = ReactNativeImage.resolveAssetSource(candidate);
+    if (
+      Platform.OS === 'android' &&
+      resolved?.uri &&
+      !resolved.uri.includes(':')
+    ) {
+      return {
+        ...resolved,
+        uri: `android.resource://so.onekey.app.wallet/drawable/${resolved.uri}`,
+      };
+    }
+    return resolved;
   }
-  return source as Exclude<ImageSourcePropType, ImageSourcePropType[]>;
+  return candidate as Exclude<ImageSourcePropType, ImageSourcePropType[]>;
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
