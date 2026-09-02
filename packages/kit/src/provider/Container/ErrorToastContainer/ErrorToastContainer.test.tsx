@@ -28,6 +28,8 @@ jest.mock('react-intl', () => ({
           '设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。',
         'hardware.device_pin_state_error':
           '输入的PIN码与当前钱包不符。请重试。',
+        'feedback.try_repairing_device_in_settings':
+          '尝试在系统设置中重新配对设备。',
       };
       return messages[id] ?? defaultMessage ?? id;
     },
@@ -222,6 +224,12 @@ describe('ErrorToastContainer', () => {
       title: 'Device check unlock type not match error',
       i18nKey: ETranslations.hardware_device_pin_state_error,
       expectedTitle: '输入的PIN码与当前钱包不符。请重试。',
+    },
+    {
+      errorCode: 715,
+      title: 'Peer removed pairing information',
+      i18nKey: ETranslations.feedback_try_repairing_device_in_settings,
+      expectedTitle: '尝试在系统设置中重新配对设备。',
     },
   ])(
     'localizes hardware error $errorCode on the main thread',

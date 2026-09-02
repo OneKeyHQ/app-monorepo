@@ -17,6 +17,7 @@ import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
   IDBWalletIdSingleton,
@@ -2164,8 +2165,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWWalletWithHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHwWalletParamsBase) =>
-      this.withFinalizeWalletSetupStep.call(set, {
+    async (_, set, params: IDBCreateHwWalletParamsBase) => {
+      let createdDevice: IDBDevice | undefined;
+
+      return this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
@@ -2185,6 +2188,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               'Unable to create hidden wallet without a hardware device',
             );
           }
+          createdDevice = device;
 
           // wait previous action done, wait device ready
           if (!params.hideCheckingDeviceLoading) {
@@ -2216,7 +2220,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             },
           };
         },
-        generatingAccountsFn: async ({ wallet, indexedAccount, hidden }) => {
+        generatingAccountsFn: async ({
+          wallet,
+          indexedAccount,
+          hidden,
+          isOverrideWallet,
+        }) => {
           if (hidden && hidden.wallet && hidden.indexedAccount) {
             // hidden wallet account should be first create before normal wallet account
             // otherwise, passphrase input will be asked many times
@@ -2238,8 +2247,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             });
           }
+
+          if (hidden?.wallet && hidden.indexedAccount) {
+            // Standard account generation may refresh the active selection.
+            // Make the newly created hidden wallet authoritative before the
+            // reset cleanup broadcasts WalletUpdate and before Ready is shown.
+            await this.autoSelectToCreatedWallet.call(set, {
+              wallet: hidden.wallet,
+              indexedAccount: hidden.indexedAccount,
+              isOverrideWallet,
+              isAttachPinMode: params.isAttachPinMode,
+            });
+          }
+
+          if (createdDevice?.connectId && createdDevice.deviceId) {
+            await this.updateHwWalletsDeprecatedStatus.call(set, {
+              connectId: createdDevice.connectId,
+              deviceId: createdDevice.deviceId,
+            });
+          }
         },
-      }),
+      });
+    },
   );
 
   createQrWallet = contextAtomMethod(
@@ -2410,16 +2439,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               // if connectId is same, deviceId is different, the wallet should be deprecated
               // if connectId is same, deviceId is same, the wallet should be not deprecated
               const newDeprecatedStatus = !isSameDevice;
-              willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+              if (Boolean(wallet.deprecated) !== newDeprecatedStatus) {
+                willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+              }
             }
           }
+        }
+
+        if (Object.keys(willUpdateDeprecateMap).length === 0) {
+          return;
         }
 
         const result =
           await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
             willUpdateDeprecateMap,
           });
-        if (result && Object.keys(willUpdateDeprecateMap).length > 0) {
+        if (result) {
           appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
         }
       } catch (error) {
