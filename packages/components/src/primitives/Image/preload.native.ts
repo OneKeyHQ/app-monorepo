@@ -30,7 +30,7 @@ export const preloadImages: IPreloadImagesFunc = (sources, options) => {
         overscan: source.overscan,
         optimizeTos: source.optimize !== false,
       })),
-  );
+  ).catch(() => false);
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>

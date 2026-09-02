@@ -49,7 +49,14 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
   if (!uris.length) {
     return true;
   }
-  const results = await Promise.all(uris.map((uri) => Image.prefetch(uri)));
+  const results = await Promise.all(
+    uris.map((uri) =>
+      Image.prefetch(uri).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  );
   return results.every(Boolean);
 };
 

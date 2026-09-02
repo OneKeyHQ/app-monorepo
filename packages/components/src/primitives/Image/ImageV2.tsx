@@ -184,7 +184,23 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       clearPlaceholderTimer();
       setHasError(false);
       setIsPlaceholderVisible(false);
-      const { height, uri, width } = event.nativeEvent.source;
+      const nativeEvent = event.nativeEvent as unknown as {
+        source?: { height?: number; uri?: string; width?: number };
+        target?: {
+          currentSrc?: string;
+          naturalHeight?: number;
+          naturalWidth?: number;
+        };
+      };
+      const height =
+        nativeEvent.source?.height ?? nativeEvent.target?.naturalHeight ?? 0;
+      const uri =
+        nativeEvent.source?.uri ??
+        nativeEvent.target?.currentSrc ??
+        resolvedSource?.uri ??
+        '';
+      const width =
+        nativeEvent.source?.width ?? nativeEvent.target?.naturalWidth ?? 0;
       const loadEvent: IImageLoadEventData = {
         cacheType: 'none',
         source: {
@@ -196,7 +212,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       onLoad?.(loadEvent);
       onDisplay?.();
     },
-    [clearPlaceholderTimer, onDisplay, onLoad],
+    [clearPlaceholderTimer, onDisplay, onLoad, resolvedSource?.uri],
   );
 
   const handleLoadEnd = useCallback(() => {

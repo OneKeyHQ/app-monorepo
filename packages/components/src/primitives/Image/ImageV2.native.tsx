@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   OneKeyImage,
@@ -10,8 +10,8 @@ import {
   type OneKeyImageProps,
 } from '@onekeyfe/react-native-image';
 import {
-  type ImageSourcePropType,
   type ImageStyle,
+  type ImageURISource,
   Platform,
   Image as ReactNativeImage,
   StyleSheet,
@@ -19,6 +19,8 @@ import {
 } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+
+import { buildOptimizedImageSource } from './optimization';
 
 import type {
   IImageCachePolicy,
@@ -67,7 +69,7 @@ function getContentFit({
 
 function normalizeSource(
   source: IImageV2Props['source'] | undefined,
-): OneKeyImageProps['source'] {
+): ImageURISource | null {
   if (typeof source === 'string') {
     return { uri: source.trim() };
   }
@@ -84,9 +86,9 @@ function normalizeSource(
         uri: `android.resource://so.onekey.app.wallet/drawable/${resolved.uri}`,
       };
     }
-    return resolved;
+    return resolved ?? null;
   }
-  return candidate as Exclude<ImageSourcePropType, ImageSourcePropType[]>;
+  return (candidate as ImageURISource | undefined) ?? null;
 }
 
 export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
@@ -132,7 +134,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     contentFit,
     cachePolicy,
     recyclingKey,
-    resizeWidth: _resizeWidth,
+    resizeWidth,
     blurRadius: _blurRadius,
     capInsets: _capInsets,
     defaultSource: _defaultSource,
@@ -148,10 +150,44 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     ...viewProps
   } = restProps;
 
+  const rawSource = source ?? src;
   const normalizedSource = useMemo(
-    () => normalizeSource(source ?? src),
-    [source, src],
+    () => normalizeSource(rawSource),
+    [rawSource],
   );
+  const optimizedSourceResult = useMemo(
+    () =>
+      buildOptimizedImageSource({
+        source: rawSource,
+        resolvedSource: normalizedSource,
+        resizeWidth,
+        width: [style.width, sizeProps?.width, props.width, props.w],
+        height: [style.height, sizeProps?.height, props.height, props.h],
+      }),
+    [
+      normalizedSource,
+      props.h,
+      props.height,
+      props.w,
+      props.width,
+      rawSource,
+      resizeWidth,
+      sizeProps?.height,
+      sizeProps?.width,
+      style.height,
+      style.width,
+    ],
+  );
+  const [rawSourceFallbackUri, setRawSourceFallbackUri] = useState<
+    string | undefined
+  >();
+  const shouldUseRawSourceFallback =
+    optimizedSourceResult.optimized &&
+    Boolean(optimizedSourceResult.rawUri) &&
+    rawSourceFallbackUri === optimizedSourceResult.rawUri;
+  const activeSource = shouldUseRawSourceFallback
+    ? optimizedSourceResult.rawSource
+    : optimizedSourceResult.source;
   const placeholderOverlay = useMemo(
     () =>
       placeholder === null || placeholder === undefined ? undefined : (
@@ -181,15 +217,28 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   );
   const handleError = useCallback(
     (event: OneKeyImageErrorEvent) => {
+      if (
+        optimizedSourceResult.optimized &&
+        optimizedSourceResult.rawUri &&
+        !shouldUseRawSourceFallback
+      ) {
+        setRawSourceFallbackUri(optimizedSourceResult.rawUri);
+        return;
+      }
       onError?.(event);
     },
-    [onError],
+    [
+      onError,
+      optimizedSourceResult.optimized,
+      optimizedSourceResult.rawUri,
+      shouldUseRawSourceFallback,
+    ],
   );
 
   return (
     <OneKeyImage
       {...(viewProps as OneKeyImageProps)}
-      source={normalizedSource}
+      source={activeSource ?? undefined}
       style={style}
       placeholder={placeholderOverlay}
       fallback={fallbackOverlay}
@@ -197,6 +246,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
       recyclingKey={recyclingKey}
       autoplay={autoplay}
+      optimizeTos={!shouldUseRawSourceFallback}
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
       onError={onError ? handleError : undefined}
       onLoad={onLoad ? handleLoad : undefined}
