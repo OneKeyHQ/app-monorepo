@@ -622,7 +622,9 @@ class ServiceHardware extends ServiceBase {
     );
     serviceHardwareUtils.hardwareLog(
       'migrated existing device connect protocols',
-      { migratedCount: migrations.length },
+      {
+        migratedCount: migrations.length,
+      },
     );
   }
 
@@ -1386,6 +1388,10 @@ class ServiceHardware extends ServiceBase {
           installTargetId?: number;
           installPhase?: 'prepare' | 'install' | 'verify';
           installPhaseProgress?: number;
+          transferredBytes?: number;
+          totalBytes?: number;
+          rateBytesPerSecond?: number;
+          elapsedMs?: number;
         };
       newPayload.firmwareProgress = firmwareProgressPayload.progress;
       newPayload.firmwareProgressType = firmwareProgressPayload.progressType;
@@ -1394,6 +1400,21 @@ class ServiceHardware extends ServiceBase {
       newPayload.firmwareInstallPhase = firmwareProgressPayload.installPhase;
       newPayload.firmwareInstallPhaseProgress =
         firmwareProgressPayload.installPhaseProgress;
+      if (
+        [
+          firmwareProgressPayload.transferredBytes,
+          firmwareProgressPayload.totalBytes,
+          firmwareProgressPayload.rateBytesPerSecond,
+          firmwareProgressPayload.elapsedMs,
+        ].some((value) => typeof value === 'number')
+      ) {
+        newPayload.firmwareTransferMetrics = {
+          transferredBytes: firmwareProgressPayload.transferredBytes,
+          totalBytes: firmwareProgressPayload.totalBytes,
+          rateBytesPerSecond: firmwareProgressPayload.rateBytesPerSecond,
+          elapsedMs: firmwareProgressPayload.elapsedMs,
+        };
+      }
     }
 
     if (originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS) {
@@ -1601,12 +1622,15 @@ class ServiceHardware extends ServiceBase {
                     if (
                       isSameFirmwareDevice &&
                       appliedUiRequestType ===
-                        EHardwareUiStateAction.FIRMWARE_PROGRESS &&
-                      previousState?.payload?.firmwareTipData
+                        EHardwareUiStateAction.FIRMWARE_PROGRESS
                     ) {
                       firmwarePayload = {
                         ...appliedPayload,
-                        firmwareTipData: previousState.payload.firmwareTipData,
+                        firmwareTipData:
+                          previousState?.payload?.firmwareTipData,
+                        firmwareTransferMetrics:
+                          appliedPayload.firmwareTransferMetrics ??
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     } else if (
                       isSameFirmwareDevice &&
@@ -1625,6 +1649,8 @@ class ServiceHardware extends ServiceBase {
                           previousState?.payload?.firmwareInstallPhase,
                         firmwareInstallPhaseProgress:
                           previousState?.payload?.firmwareInstallPhaseProgress,
+                        firmwareTransferMetrics:
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     }
                     return {
@@ -1642,11 +1668,18 @@ class ServiceHardware extends ServiceBase {
             if (!isCurrent()) {
               return;
             }
-            await hardwareUiStateCompletedAtom.set({
+            await hardwareUiStateCompletedAtom.set((previousState) => ({
               action: appliedUiRequestType,
               connectId: appliedConnectId,
-              payload: appliedPayload,
-            });
+              payload: {
+                ...appliedPayload,
+                firmwareTransferMetrics:
+                  appliedPayload.firmwareTransferMetrics ??
+                  (previousState?.connectId === appliedConnectId
+                    ? previousState.payload?.firmwareTransferMetrics
+                    : undefined),
+              },
+            }));
           })
           .catch((error: unknown) => {
             defaultLogger.hardware.sdkLog.log(
@@ -3065,7 +3098,9 @@ class ServiceHardware extends ServiceBase {
       task: () =>
         convertDeviceResponse(
           () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-          { silentMode },
+          {
+            silentMode,
+          },
         ),
     });
     await this.rememberDeviceProtocol({

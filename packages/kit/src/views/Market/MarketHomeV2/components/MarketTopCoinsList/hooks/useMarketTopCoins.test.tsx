@@ -13,6 +13,9 @@ import type {
 import { useMarketTopCoins } from './useMarketTopCoins';
 
 const mockToMarketDetailPage = jest.fn();
+const mockUseToDetailPage = jest.fn(
+  (_options?: unknown) => mockToMarketDetailPage,
+);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -39,7 +42,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 
 jest.mock('../../MarketTokenList/hooks/useToMarketDetailPage', () => ({
-  useToDetailPage: () => mockToMarketDetailPage,
+  useToDetailPage: (options: unknown) => mockUseToDetailPage(options),
 }));
 
 const bitcoin: IMarketAssetListItem = {
@@ -183,6 +186,15 @@ describe('useMarketTopCoins', () => {
     expect(mockToMarketDetailPage).not.toHaveBeenCalled();
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.global_an_error_occurred,
+    });
+  });
+
+  it('forwards detail replacement mode to the detail navigation owner', () => {
+    renderHook(() => useMarketTopCoins({ replaceCurrentDetail: true }));
+
+    expect(mockUseToDetailPage).toHaveBeenCalledWith({
+      marketTokenCategory: 'top_coins',
+      replaceCurrentDetail: true,
     });
   });
 
