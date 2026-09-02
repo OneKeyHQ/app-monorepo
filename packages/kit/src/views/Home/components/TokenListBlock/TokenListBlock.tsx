@@ -307,7 +307,7 @@ function TokenListBlock({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
-  // The all-network LWW orchestration pipeline (design §2 收口 facade): owns the
+  // The all-network LWW orchestration pipeline (design §2 facade): owns the
   // FloorView (LwwMaterializedView, SWR floor + IVM full-overwrite +
   // intersection-evict + generation guard) + the merge + the `ingestRound` feed.
   // The render-state writes (worth/overview/tokenListState) stay in this
