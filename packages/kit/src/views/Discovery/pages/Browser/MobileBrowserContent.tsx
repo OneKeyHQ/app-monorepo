@@ -72,7 +72,6 @@ function MobileBrowserContent({
   if (!webViewInitialUrlRef.current && tab?.url) {
     webViewInitialUrlRef.current = tab.url;
   }
-  const webViewInitialUrl = webViewInitialUrlRef.current;
 
   // Lazy first mount: restored tabs enter the keep-alive window on cold start
   // without ever being opened. Mount a tab's WebView only after it has been
@@ -97,7 +96,13 @@ function MobileBrowserContent({
   // iPad Browser segment is hidden, retain only the active WebView instead of
   // keeping the full LRU window resident.
   const shouldMountWebView =
-    (hasBeenShown || isCurrent) && (isActive || keepInactiveWebViewMounted);
+    keepAlive &&
+    (hasBeenShown || isCurrent) &&
+    (isActive || keepInactiveWebViewMounted);
+  if (!shouldMountWebView && tab?.url) {
+    webViewInitialUrlRef.current = tab.url;
+  }
+  const webViewInitialUrl = webViewInitialUrlRef.current;
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
@@ -119,7 +124,7 @@ function MobileBrowserContent({
     // Evicted (cold) or never-shown tab: render nothing. Inactive tabs are
     // hidden, and the tab switcher uses the persisted thumbnail
     // (tab.thumbnail), not this view.
-    if (!keepAlive || !shouldMountWebView) {
+    if (!shouldMountWebView) {
       return null;
     }
     const webView = (
@@ -177,7 +182,6 @@ function MobileBrowserContent({
     webViewInitialUrl,
     isActive,
     isCurrent,
-    keepAlive,
     shouldMountWebView,
     customReceiveHandler,
   ]);

@@ -287,11 +287,13 @@ function MobileBrowser() {
   const isBrowserDashboardActive =
     isBrowserHeaderTabSelected && showDiscoveryPage;
   const shouldKeepBrowserTabLayerAttached =
+    platformEnv.isNativeIOSPad && isTabletDetailView;
+  const shouldDismissKeyboardOnTabSwitch =
     platformEnv.isNativeIOSPad && !isTabletMainView;
   // Preserve the active iPad page without keeping every LRU WebView resident
-  // while Market or Earn covers the Browser layer.
+  // while the Browser WebView layer is hidden.
   const keepInactiveWebViewsMounted =
-    !shouldKeepBrowserTabLayerAttached || isBrowserHeaderTabSelected;
+    !shouldKeepBrowserTabLayerAttached || isBrowserWebPageVisible;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -366,7 +368,7 @@ function MobileBrowser() {
       // Dashboard before switching the main tab.
       // If the target is Browser itself, do NOT collapse the WebView.
       if (!displayHomePage && event.tab !== ETranslations.global_browser) {
-        if (shouldKeepBrowserTabLayerAttached) {
+        if (shouldDismissKeyboardOnTabSwitch) {
           dismissWebviewKeyboard(activeTabId ?? undefined);
         }
         setDisplayHomePage(true);
@@ -390,7 +392,7 @@ function MobileBrowser() {
     activeTabId,
     displayHomePage,
     setDisplayHomePage,
-    shouldKeepBrowserTabLayerAttached,
+    shouldDismissKeyboardOnTabSwitch,
   ]);
 
   // For risk detection
