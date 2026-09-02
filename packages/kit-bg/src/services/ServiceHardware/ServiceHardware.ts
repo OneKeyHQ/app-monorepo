@@ -3569,16 +3569,19 @@ class ServiceHardware extends ServiceBase {
     }
 
     // One-time default flip (OK-61489): button devices (Classic / 1S /
-    // Mini) now enter PIN on the device by default. Stored `true` values
-    // were written at record creation, not chosen by anyone, so they are
-    // flipped wholesale; from here on `true` only ever means an explicit
-    // opt-in back to app entry.
+    // Mini) now enter PIN on the device by default. `inputPinOnSoftwareSupport`
+    // is only ever written by setInputPinOnSoftware, the user-driven enable
+    // path whose firmware capability probe passed — record creation never
+    // writes it. So a stored `true` carrying that marker is a deliberate
+    // opt-in and is kept; a stored `true` without it is the legacy creation
+    // default nobody chose, and that is what flips.
     const { devices } = await localDb.getAllDevices();
     for (const device of devices) {
       if (
         (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
         deviceUtils.checkInputPinOnSoftwareSupport(device.deviceType) &&
-        device.settings?.inputPinOnSoftware === true
+        device.settings?.inputPinOnSoftware === true &&
+        device.settings?.inputPinOnSoftwareSupport !== true
       ) {
         await localDb.updateDeviceDbSettings({
           dbDeviceId: device.id,
