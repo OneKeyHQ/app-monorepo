@@ -20,6 +20,10 @@ const SUPPORTED_PLATFORMS = new Set(['android', 'ios']);
 const SUPPORTED_RUNTIME_TARGETS = new Set(['main', 'background']);
 const DEV_SESSION_ID_PATTERN =
   /^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$/u;
+const NATIVE_CONTRACT_SOURCE_EXTENSIONS = {
+  android: new Set(['.c', '.cc', '.cpp', '.h', '.hpp', '.java', '.kt']),
+  ios: new Set(['.c', '.cc', '.cpp', '.h', '.hpp', '.m', '.mm', '.swift']),
+};
 const SHELL_INPUT_BINARY_EXTENSIONS = new Set([
   '.aar',
   '.bin',
@@ -139,7 +143,79 @@ function getNativePatchInputPaths(
   });
 }
 
-function getNativeContractInputPaths(platform) {
+function getNativeContractPatchInputPaths(platform, repoRoot, repoFiles) {
+  const sourceExtensions = NATIVE_CONTRACT_SOURCE_EXTENSIONS[platform];
+  const nativeBuildExtensions =
+    platform === 'android'
+      ? new Set(['.cmake', '.gradle', '.kts'])
+      : new Set(['.podspec', '.xcconfig']);
+  const nativeBuildFileNames =
+    platform === 'android'
+      ? new Set(['Android.mk', 'Application.mk', 'CMakeLists.txt'])
+      : new Set(['Package.swift']);
+  return repoFiles.filter((relativePath) => {
+    if (!relativePath.startsWith('patches/')) return false;
+    if (!relativePath.endsWith('.patch')) return false;
+    const source = fs.readFileSync(
+      path.resolve(repoRoot, relativePath),
+      'utf8',
+    );
+    return source.split('\n').some((line) => {
+      const match = line.match(/^diff --git a\/(.+) b\/(.+)$/u);
+      return match
+        ? [match[1], match[2]].some((patchPath) => {
+            const extension = path.extname(patchPath).toLowerCase();
+            return (
+              sourceExtensions.has(extension) ||
+              nativeBuildExtensions.has(extension) ||
+              nativeBuildFileNames.has(path.basename(patchPath))
+            );
+          })
+        : false;
+    });
+  });
+}
+
+function getAppNativeContractInputPaths(platform, repoRoot = REPO_ROOT) {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
+  }
+  const inputDirectories = [
+    ...devVendorConfig.nativeContractDirectories.shared,
+    ...devVendorConfig.nativeContractDirectories[platform],
+  ];
+  const configuredFiles = [
+    ...devVendorConfig.nativeContractFiles.shared,
+    ...devVendorConfig.nativeContractFiles[platform],
+  ];
+  const sourceExtensions = NATIVE_CONTRACT_SOURCE_EXTENSIONS[platform];
+  const configuredNativeSources = configuredFiles.filter((relativePath) =>
+    sourceExtensions.has(path.extname(relativePath).toLowerCase()),
+  );
+  const directoryPrefixes = inputDirectories.map(
+    (relativeDirectory) => `${relativeDirectory}/`,
+  );
+  const repoFiles = listShellInputRepoFiles(repoRoot, [
+    ...inputDirectories,
+    ...configuredNativeSources,
+    'patches',
+  ]);
+  const nativeSources = repoFiles.filter(
+    (relativePath) =>
+      directoryPrefixes.some((directoryPrefix) =>
+        relativePath.startsWith(directoryPrefix),
+      ) && sourceExtensions.has(path.extname(relativePath).toLowerCase()),
+  );
+  return [
+    ...new Set([
+      ...configuredNativeSources,
+      ...nativeSources,
+      ...getNativeContractPatchInputPaths(platform, repoRoot, repoFiles),
+    ]),
+  ].toSorted();
+}
+
+function getNativeContractInputPaths(platform, repoRoot = REPO_ROOT) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
@@ -147,6 +223,7 @@ function getNativeContractInputPaths(platform) {
     ...new Set([
       ...devVendorConfig.nativeContractFiles.shared,
       ...devVendorConfig.nativeContractFiles[platform],
+      ...getAppNativeContractInputPaths(platform, repoRoot),
     ]),
   ].toSorted();
 }
@@ -510,6 +587,10 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
     throw new Error('[devVendor] Native engine ABI configuration is missing.');
   }
   return {
+    appNativeInputsDigest: hashRepoFiles(
+      getAppNativeContractInputPaths(platform, repoRoot),
+      repoRoot,
+    ),
     dependencies: dependencies.map(({ descriptor, name, requested }) => {
       const resolution = resolutions.get(descriptor);
       return {
@@ -632,6 +713,7 @@ function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
       `loader-protocol=${descriptor.loaderProtocolVersion}`,
       `vendor-schema=${descriptor.vendorSchemaVersion}`,
       `vendor-strategy=${descriptor.vendorStrategyVersion}`,
+      `app-native-inputs=${descriptor.appNativeInputsDigest}`,
       `engine.hermes=${descriptor.engine.hermes}`,
       `engine.new-architecture=${descriptor.engine.newArchitecture}`,
       ...descriptor.dependencies.map(

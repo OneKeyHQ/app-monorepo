@@ -643,7 +643,7 @@ describe('devVendor', () => {
     }
   });
 
-  it('keeps the native contract ABI-only and native build changes in the shell input', () => {
+  it('limits the native contract to ABI and compiled app-native inputs', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
       const iosInputs = getNativeContractInputPaths('ios', fixture.repoRoot);
@@ -651,29 +651,114 @@ describe('devVendor', () => {
         'android',
         fixture.repoRoot,
       );
-      expect(iosInputs).toEqual([
-        'apps/mobile/ios/Podfile.lock',
-        'apps/mobile/ios/Podfile.properties.json',
-        'apps/mobile/package.json',
-        'yarn.lock',
-      ]);
-      expect(androidInputs).toEqual([
-        'apps/mobile/android/gradle.properties',
-        'apps/mobile/package.json',
-        'yarn.lock',
-      ]);
+      expect(iosInputs).toEqual(
+        expect.arrayContaining([
+          'apps/mobile/ios/AppDelegate.swift',
+          'apps/mobile/ios/OneKeyWallet/BootRecoveryKeys.swift',
+          'apps/mobile/ios/Podfile.lock',
+          'apps/mobile/ios/Podfile.properties.json',
+          'apps/mobile/ios/ServiceExtension/NotificationService.m',
+          'apps/mobile/package.json',
+          'patches/react-native+0.86.2.patch',
+          'yarn.lock',
+        ]),
+      );
+      expect(androidInputs).toEqual(
+        expect.arrayContaining([
+          'apps/mobile/android/app-update-noop/src/main/java/com/margelo/nitro/reactnativeappupdate/ReactNativeAppUpdatePackage.kt',
+          'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+          'apps/mobile/android/gradle.properties',
+          'apps/mobile/package.json',
+          'patches/react-native+0.86.2.patch',
+          'yarn.lock',
+        ]),
+      );
+      expect(iosInputs).not.toContain(
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+      );
+      expect(androidInputs).not.toContain('apps/mobile/ios/AppDelegate.swift');
       for (const inputs of [iosInputs, androidInputs]) {
-        expect(inputs).not.toContain('patches/react-native+0.86.2.patch');
         expect(inputs).not.toContain('apps/mobile/scripts/native-dev-shell.js');
         expect(inputs).not.toContain('apps/mobile/metro.config.js');
         expect(inputs).not.toContain('patches/electron-updater+6.8.9.patch');
       }
+      expect(androidInputs).not.toContain(
+        'apps/mobile/android/app/src/main/res/values/strings.xml',
+      );
+      expect(iosInputs).not.toContain(
+        'apps/mobile/ios/en.lproj/InfoPlist.strings',
+      );
 
       const iosBaseline = computeNativeContractKey('ios', fixture.repoRoot);
       const androidBaseline = computeNativeContractKey(
         'android',
         fixture.repoRoot,
       );
+      for (const relativePath of [
+        'apps/mobile/android/app/src/main/res/values/strings.xml',
+        'apps/mobile/ios/en.lproj/InfoPlist.strings',
+      ]) {
+        const resourcePath = path.join(fixture.repoRoot, relativePath);
+        const resource = fs.readFileSync(resourcePath);
+        fs.appendFileSync(resourcePath, '\nresource-only change\n');
+        expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+          iosBaseline,
+        );
+        expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+          androidBaseline,
+        );
+        fs.writeFileSync(resourcePath, resource);
+      }
+
+      const patchDirectory = path.join(fixture.repoRoot, 'patches');
+      const androidNativePatch = path.join(
+        patchDirectory,
+        'contract-test-android.patch',
+      );
+      fs.writeFileSync(
+        androidNativePatch,
+        'diff --git a/node_modules/example/android/Test.java b/node_modules/example/android/Test.java\n',
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      fs.rmSync(androidNativePatch);
+
+      const iosNativePatch = path.join(
+        patchDirectory,
+        'contract-test-ios.patch',
+      );
+      fs.writeFileSync(
+        iosNativePatch,
+        'diff --git a/node_modules/example/ios/Test.swift b/node_modules/example/ios/Test.swift\n',
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.rmSync(iosNativePatch);
+
+      const jsOnlyPatch = path.join(
+        patchDirectory,
+        'contract-test-js-only.patch',
+      );
+      fs.writeFileSync(
+        jsOnlyPatch,
+        'diff --git a/node_modules/example/index.js b/node_modules/example/index.js\n',
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.rmSync(jsOnlyPatch);
+
       const podLockPath = path.join(
         fixture.repoRoot,
         'apps/mobile/ios/Podfile.lock',
@@ -776,6 +861,12 @@ describe('devVendor', () => {
         untrackedNativeSource,
         'package so.onekey.app.wallet;\nclass NewModule {}\n',
       );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
       expect(
         computeShellInputKey(
           {
@@ -787,6 +878,9 @@ describe('devVendor', () => {
         ),
       ).not.toBe(androidShellInputBaseline);
       fs.rmSync(untrackedNativeSource);
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
       expect(
         computeShellInputKey(
           {
@@ -806,6 +900,12 @@ describe('devVendor', () => {
       fs.appendFileSync(
         trackedBuildSource,
         '\n// changed tracked build source\n',
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
       );
       expect(
         computeShellInputKey(
@@ -889,11 +989,13 @@ describe('devVendor', () => {
         ),
       ).not.toBe(androidShellInputBaseline);
 
-      fs.appendFileSync(
-        path.join(fixture.repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
-        '\n// changed native runtime\n',
+      const appDelegatePath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/ios/AppDelegate.swift',
       );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+      const appDelegate = fs.readFileSync(appDelegatePath);
+      fs.appendFileSync(appDelegatePath, '\n// changed native runtime\n');
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
         iosBaseline,
       );
       expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
@@ -909,6 +1011,10 @@ describe('devVendor', () => {
           fixture.repoRoot,
         ),
       ).not.toBe(iosShellInputBaseline);
+      fs.writeFileSync(appDelegatePath, appDelegate);
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
 
       const mobilePackagePath = path.join(
         fixture.repoRoot,

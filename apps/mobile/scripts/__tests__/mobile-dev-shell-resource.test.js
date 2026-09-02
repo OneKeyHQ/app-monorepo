@@ -177,23 +177,33 @@ describe('mobile-dev-shell-resource', () => {
         }),
       ).rejects.toBe(operationError);
       expect(consoleError).toHaveBeenCalledWith(
-        '[mobileDevShellResource] Cache lease cleanup warning: lease lock failed',
+        '[ONEKEY_USER_NOTICE] Mobile shell cache lease cleanup failed: lease lock failed',
       );
     } finally {
       consoleError.mockRestore();
     }
   });
 
-  it('fails with the cleanup error when the operation succeeds', async () => {
+  it('keeps a successful operation successful when cleanup fails', async () => {
     const cleanupError = new Error('lease lock failed');
-    await expect(
-      runWithCacheLeaseCleanup({
-        operation: async () => 'installed',
-        releaseCacheLease: async () => {
-          throw cleanupError;
-        },
-      }),
-    ).rejects.toBe(cleanupError);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        runWithCacheLeaseCleanup({
+          operation: async () => 'installed',
+          releaseCacheLease: async () => {
+            throw cleanupError;
+          },
+        }),
+      ).resolves.toBe('installed');
+      expect(consoleError).toHaveBeenCalledWith(
+        '[ONEKEY_USER_NOTICE] Mobile shell cache lease cleanup failed: lease lock failed',
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('binds shell attestations to the x branch', () => {
@@ -573,6 +583,33 @@ describe('mobile-dev-shell-resource', () => {
       expect(retainedTags).toHaveLength(MAX_CACHED_SHELLS);
       expect(retainedTags).toEqual(
         expect.arrayContaining([currentTag, leasedTag]),
+      );
+    } finally {
+      fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('removes its lease immediately when the tag lock is busy', async () => {
+    const cacheRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-shell-busy-release-test-'),
+    );
+    const tag = `mobile-dev-shell-input-v3-android-arm64-v8a-${'a'.repeat(64)}`;
+    const cacheDirectory = path.join(cacheRoot, tag);
+    const leaseDirectory = path.join(cacheDirectory, '.leases');
+    try {
+      fs.mkdirSync(cacheDirectory);
+      const releaseCacheLease = await createMobileShellCacheLease({
+        cacheRoot,
+        tag,
+      });
+
+      await withCacheLock(
+        path.join(cacheRoot, '.locks', `${tag}.lock`),
+        async () => {
+          await expect(releaseCacheLease()).resolves.toBeUndefined();
+          expect(fs.existsSync(leaseDirectory)).toBe(false);
+          expect(fs.existsSync(cacheDirectory)).toBe(true);
+        },
       );
     } finally {
       fs.rmSync(cacheRoot, { force: true, recursive: true });

@@ -34,6 +34,8 @@ const REPO_ROOT = path.resolve(MOBILE_ROOT, '../..');
 const DEV_SESSION_SCHEMA_VERSION = 2;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SESSION_RENEW_INTERVAL_MS = 3 * 60 * 60 * 1000;
+const SESSION_RENEW_RETRY_INTERVAL_MS = 30_000;
+const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
 const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
@@ -171,6 +173,31 @@ function addFailureNotice(report, reason) {
   report.userNoticeRequired = true;
   report.userNotices.push({ notice, reason, resource: 'run' });
   console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+}
+
+function addSessionRenewalNotice(
+  report,
+  {
+    consecutiveFailures,
+    error,
+    expiresAtEpochMs,
+    remainingMs,
+    retryIntervalMs,
+    shouldPrintNotice,
+  },
+) {
+  const reason = getErrorMessage(error);
+  const notice = `${formatRunContext(report)} resource=session-renewal action=retry consecutiveFailures=${String(consecutiveFailures)} expiresAt=${new Date(expiresAtEpochMs).toISOString()} remainingMs=${String(remainingMs)} retryInMs=${String(retryIntervalMs)} reason=${JSON.stringify(reason)}`;
+  const entry = { notice, reason, resource: 'session-renewal' };
+  const existingIndex = report.userNotices.findIndex(
+    (item) => item.resource === 'session-renewal',
+  );
+  report.userNoticeRequired = true;
+  if (existingIndex === -1) report.userNotices.push(entry);
+  else report.userNotices[existingIndex] = entry;
+  if (shouldPrintNotice) {
+    console.error(`[ONEKEY_USER_NOTICE] ${notice}`);
+  }
 }
 
 function printFallbackDone(report, resource) {
@@ -587,6 +614,64 @@ function getDefaultMetroUrl(platform, metroPort) {
     : `http://127.0.0.1:${metroPort}`;
 }
 
+function configureDeviceMetro({
+  deviceId,
+  metroPort,
+  platform,
+  requestedMetroUrl,
+  runBestEffortCommand = runBestEffort,
+  runCheckedCommand = runChecked,
+  runForOutputCommand = runForOutput,
+}) {
+  if (requestedMetroUrl) return { metroUrl: requestedMetroUrl };
+  if (platform !== 'android') {
+    return { metroUrl: getDefaultMetroUrl(platform, metroPort) };
+  }
+  const isEmulator =
+    runForOutputCommand('adb', [
+      '-s',
+      deviceId,
+      'shell',
+      'getprop',
+      'ro.kernel.qemu',
+    ]).trim() === '1';
+  if (isEmulator) {
+    return { metroUrl: getDefaultMetroUrl(platform, metroPort) };
+  }
+  const route = `tcp:${String(metroPort)}`;
+  const existingRemoteRoutes = runForOutputCommand('adb', [
+    '-s',
+    deviceId,
+    'reverse',
+    '--list',
+  ])
+    .split(/\r?\n/u)
+    .map((line) => line.trim().split(/\s+/u))
+    .filter((parts) => parts.length >= 2 && parts.at(-2) === route)
+    .map((parts) => parts.at(-1));
+  if (existingRemoteRoutes.length > 0) {
+    if (existingRemoteRoutes.every((remoteRoute) => remoteRoute === route)) {
+      return { metroUrl: `http://127.0.0.1:${String(metroPort)}` };
+    }
+    throw new Error(
+      `[nativeDevShell] Android reverse route ${route} already targets ${existingRemoteRoutes.join(', ')} on device ${deviceId}.`,
+    );
+  }
+  runCheckedCommand('adb', ['-s', deviceId, 'reverse', route, route]);
+  return {
+    metroUrl: `http://127.0.0.1:${String(metroPort)}`,
+    release() {
+      runBestEffortCommand('adb', [
+        '-s',
+        deviceId,
+        'reverse',
+        '--remove',
+        route,
+      ]);
+    },
+  };
+}
+
 async function waitForMetro(metroPort, child, getSpawnError) {
   const deadline = Date.now() + 90_000;
   const statusUrl = `http://127.0.0.1:${metroPort}/status`;
@@ -617,22 +702,39 @@ async function waitForMetro(metroPort, child, getSpawnError) {
 
 async function waitForMetroCompletionWithSessionRenewal({
   clearTimeoutFn = clearTimeout,
+  fatalExpiryWindowMs = SESSION_RENEW_FATAL_WINDOW_MS,
+  initialExpiresAtEpochMs,
   intervalMs = SESSION_RENEW_INTERVAL_MS,
   metroCompletion,
+  nowFn = Date.now,
+  onRenewalFailure = () => {},
+  retryIntervalMs = SESSION_RENEW_RETRY_INTERVAL_MS,
   renewSession,
   setTimeoutFn = setTimeout,
 }) {
-  if (!Number.isSafeInteger(intervalMs) || intervalMs < 0) {
-    throw new Error('[nativeDevShell] Invalid session renewal interval.');
+  if (
+    !Number.isSafeInteger(initialExpiresAtEpochMs) ||
+    !Number.isSafeInteger(intervalMs) ||
+    intervalMs < 0 ||
+    !Number.isSafeInteger(retryIntervalMs) ||
+    retryIntervalMs < 0 ||
+    !Number.isSafeInteger(fatalExpiryWindowMs) ||
+    fatalExpiryWindowMs < 0
+  ) {
+    throw new Error('[nativeDevShell] Invalid session renewal timing.');
   }
   const metroOutcome = metroCompletion.then((value) => ({
     type: 'metro-complete',
     value,
   }));
+  let actualExpiresAtEpochMs = initialExpiresAtEpochMs;
+  let consecutiveFailures = 0;
+  let nextDelayMs = intervalMs;
   while (true) {
     let timer;
+    const delayMs = nextDelayMs;
     const renewalDue = new Promise((resolve) => {
-      timer = setTimeoutFn(() => resolve({ type: 'renewal-due' }), intervalMs);
+      timer = setTimeoutFn(() => resolve({ type: 'renewal-due' }), delayMs);
     });
     let outcome;
     try {
@@ -641,7 +743,41 @@ async function waitForMetroCompletionWithSessionRenewal({
       clearTimeoutFn(timer);
     }
     if (outcome.type === 'metro-complete') return outcome.value;
-    await renewSession();
+    try {
+      const renewedSession = await renewSession();
+      const renewedExpiresAtEpochMs = renewedSession?.expiresAtEpochMs;
+      if (
+        !Number.isSafeInteger(renewedExpiresAtEpochMs) ||
+        renewedExpiresAtEpochMs <= nowFn()
+      ) {
+        throw new Error(
+          '[nativeDevShell] Session renewal returned an invalid expiry.',
+        );
+      }
+      actualExpiresAtEpochMs = renewedExpiresAtEpochMs;
+      consecutiveFailures = 0;
+      nextDelayMs = intervalMs;
+    } catch (error) {
+      consecutiveFailures += 1;
+      const remainingMs = actualExpiresAtEpochMs - nowFn();
+      await Promise.resolve(
+        onRenewalFailure({
+          consecutiveFailures,
+          error,
+          expiresAtEpochMs: actualExpiresAtEpochMs,
+          remainingMs,
+          retryIntervalMs,
+          shouldPrintNotice: consecutiveFailures === 1,
+        }),
+      );
+      if (consecutiveFailures >= 2 && remainingMs <= fatalExpiryWindowMs) {
+        throw new Error(
+          `[nativeDevShell] Private dev session renewal failed ${String(consecutiveFailures)} consecutive times and expires in ${String(remainingMs)}ms.`,
+          { cause: error },
+        );
+      }
+      nextDelayMs = retryIntervalMs;
+    }
   }
 }
 
@@ -1706,6 +1842,7 @@ async function launchDevShell({
   let metroLock;
   let child;
   let preparationLock;
+  let releaseDeviceMetroRoute;
   let report;
   try {
     const metroAllocation = await acquireMetroPort({
@@ -1715,8 +1852,14 @@ async function launchDevShell({
     });
     metroLock = metroAllocation.lock;
     const metroPort = metroAllocation.port;
-    const deviceMetroUrl =
-      requestedDeviceMetroUrl || getDefaultMetroUrl(platform, metroPort);
+    const deviceMetro = configureDeviceMetro({
+      deviceId: selectedDevice.id,
+      metroPort,
+      platform,
+      requestedMetroUrl: requestedDeviceMetroUrl,
+    });
+    const deviceMetroUrl = deviceMetro.metroUrl;
+    releaseDeviceMetroRoute = deviceMetro.release;
     report = createRunReport({
       deviceId: selectedDevice.id,
       metroPort,
@@ -1735,7 +1878,7 @@ async function launchDevShell({
       shell,
     });
     await prepareVendor({ platform, report, vendor });
-    const session = await stagePrivateSession({
+    let session = await stagePrivateSession({
       deviceId: selectedDevice.id,
       metroUrl: deviceMetroUrl,
       platform,
@@ -1743,6 +1886,8 @@ async function launchDevShell({
     });
     report.session = {
       devicePath: `${DEV_SESSION_ROOT_NAME}/${sessionId}`,
+      expiresAt: session.expiresAt,
+      expiresAtEpochMs: session.expiresAtEpochMs,
       status: 'injected',
       worktreeId: session.worktreeId,
     };
@@ -1789,13 +1934,28 @@ async function launchDevShell({
       });
     }
     const { code, signal } = await waitForMetroCompletionWithSessionRenewal({
+      initialExpiresAtEpochMs: session.expiresAtEpochMs,
       metroCompletion,
-      renewSession: () =>
-        renewPrivateSession({
+      onRenewalFailure: async (details) => {
+        addSessionRenewalNotice(report, details);
+        try {
+          await writeRunReport(report);
+        } catch (error) {
+          console.error(
+            `[nativeDevShell] Session renewal report warning: ${getErrorMessage(error)}`,
+          );
+        }
+      },
+      renewSession: async () => {
+        session = await renewPrivateSession({
           deviceId: selectedDevice.id,
           platform,
           session,
-        }),
+        });
+        report.session.expiresAt = session.expiresAt;
+        report.session.expiresAtEpochMs = session.expiresAtEpochMs;
+        return session;
+      },
     });
     if (code !== 0 && signal !== 'SIGINT' && signal !== 'SIGTERM') {
       throw new Error(
@@ -1821,6 +1981,7 @@ async function launchDevShell({
       child.kill('SIGTERM');
     }
     preparationLock?.release();
+    releaseDeviceMetroRoute?.();
     metroLock?.release();
     deviceLock.release();
   }
@@ -1860,9 +2021,11 @@ module.exports = {
   SHELL_MANIFEST_SCHEMA_VERSION,
   addFallbackNotice,
   addFailureNotice,
+  addSessionRenewalNotice,
   acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  configureDeviceMetro,
   createRenewedDevSession,
   createSessionId,
   createRunReport,

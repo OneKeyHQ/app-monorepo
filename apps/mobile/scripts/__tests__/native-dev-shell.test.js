@@ -7,9 +7,11 @@ const path = require('path');
 const {
   addFallbackNotice,
   addFailureNotice,
+  addSessionRenewalNotice,
   acquireNamedLock,
   acquireMetroPort,
   acquireWorktreePreparationLock,
+  configureDeviceMetro,
   createRenewedDevSession,
   createSessionId,
   createRunReport,
@@ -190,6 +192,142 @@ describe('native-dev-shell', () => {
         }),
       ),
     ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+  });
+
+  it('uses device-scoped adb reverse only for a physical Android default route', () => {
+    const runCheckedCommand = jest.fn();
+    const runBestEffortCommand = jest.fn();
+    const runForOutputCommand = jest.fn(() => '0');
+    const physical = configureDeviceMetro({
+      deviceId: 'physical-device-1',
+      metroPort: 8083,
+      platform: 'android',
+      runBestEffortCommand,
+      runCheckedCommand,
+      runForOutputCommand,
+    });
+
+    expect(physical.metroUrl).toBe('http://127.0.0.1:8083');
+    expect(runForOutputCommand).toHaveBeenCalledWith('adb', [
+      '-s',
+      'physical-device-1',
+      'shell',
+      'getprop',
+      'ro.kernel.qemu',
+    ]);
+    expect(runForOutputCommand).toHaveBeenCalledWith('adb', [
+      '-s',
+      'physical-device-1',
+      'reverse',
+      '--list',
+    ]);
+    expect(runCheckedCommand).toHaveBeenCalledWith('adb', [
+      '-s',
+      'physical-device-1',
+      'reverse',
+      'tcp:8083',
+      'tcp:8083',
+    ]);
+
+    physical.release();
+    expect(runBestEffortCommand).toHaveBeenCalledWith('adb', [
+      '-s',
+      'physical-device-1',
+      'reverse',
+      '--remove',
+      'tcp:8083',
+    ]);
+  });
+
+  it('reuses an exact Android reverse route without taking cleanup ownership', () => {
+    const runCheckedCommand = jest.fn();
+    const runForOutputCommand = jest.fn((_command, args) =>
+      args.at(-1) === '--list' ? 'transport tcp:8083 tcp:8083' : '0',
+    );
+
+    expect(
+      configureDeviceMetro({
+        deviceId: 'physical-device-1',
+        metroPort: 8083,
+        platform: 'android',
+        runCheckedCommand,
+        runForOutputCommand,
+      }),
+    ).toEqual({ metroUrl: 'http://127.0.0.1:8083' });
+    expect(runCheckedCommand).not.toHaveBeenCalled();
+  });
+
+  it('refuses to overwrite a conflicting Android reverse route', () => {
+    const runCheckedCommand = jest.fn();
+    const runForOutputCommand = jest.fn((_command, args) =>
+      args.at(-1) === '--list' ? 'transport tcp:8083 tcp:9090' : '0',
+    );
+
+    expect(() =>
+      configureDeviceMetro({
+        deviceId: 'physical-device-1',
+        metroPort: 8083,
+        platform: 'android',
+        runCheckedCommand,
+        runForOutputCommand,
+      }),
+    ).toThrow('already targets tcp:9090');
+    expect(runCheckedCommand).not.toHaveBeenCalled();
+  });
+
+  it('keeps explicit and emulator Metro routes free of adb reverse', () => {
+    const explicitRunChecked = jest.fn();
+    const explicitRunForOutput = jest.fn();
+    expect(
+      configureDeviceMetro({
+        deviceId: 'physical-device-1',
+        metroPort: 8083,
+        platform: 'android',
+        requestedMetroUrl: 'http://192.168.1.5:9000',
+        runCheckedCommand: explicitRunChecked,
+        runForOutputCommand: explicitRunForOutput,
+      }),
+    ).toEqual({ metroUrl: 'http://192.168.1.5:9000' });
+    expect(explicitRunForOutput).not.toHaveBeenCalled();
+    expect(explicitRunChecked).not.toHaveBeenCalled();
+
+    const emulatorRunChecked = jest.fn();
+    const emulatorRunForOutput = jest.fn(() => '1');
+    expect(
+      configureDeviceMetro({
+        deviceId: 'emulator-5554',
+        metroPort: 8084,
+        platform: 'android',
+        runCheckedCommand: emulatorRunChecked,
+        runForOutputCommand: emulatorRunForOutput,
+      }),
+    ).toEqual({ metroUrl: 'http://10.0.2.2:8084' });
+    expect(emulatorRunChecked).not.toHaveBeenCalled();
+  });
+
+  it('keeps Android reverse ownership inside the device lock lifetime', () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, '../native-dev-shell.js'),
+      'utf8',
+    );
+    const launchSource = source.slice(
+      source.indexOf('async function launchDevShell('),
+    );
+    const lockIndex = launchSource.indexOf(
+      'const deviceLock = acquireNamedLock(',
+    );
+    const configureIndex = launchSource.indexOf(
+      'const deviceMetro = configureDeviceMetro(',
+    );
+    const releaseRouteIndex = launchSource.indexOf(
+      'releaseDeviceMetroRoute?.();',
+    );
+    const releaseLockIndex = launchSource.indexOf('deviceLock.release();');
+
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    expect(configureIndex).toBeGreaterThan(lockIndex);
+    expect(releaseRouteIndex).toBeGreaterThan(configureIndex);
+    expect(releaseLockIndex).toBeGreaterThan(releaseRouteIndex);
   });
 
   it('keeps the complete Android run-as script in one quoted adb argument', () => {
@@ -426,8 +564,10 @@ describe('native-dev-shell', () => {
         }),
     );
     const waiting = waitForMetroCompletionWithSessionRenewal({
+      initialExpiresAtEpochMs: 10_000,
       intervalMs: 0,
       metroCompletion,
+      nowFn: () => 1000,
       renewSession,
     });
     await renewalStarted;
@@ -439,23 +579,151 @@ describe('native-dev-shell', () => {
     await Promise.resolve();
     expect(settled).toBe(false);
 
-    finishRenewal();
+    finishRenewal({ expiresAtEpochMs: 20_000 });
 
     await expect(waiting).resolves.toEqual({ code: 0, signal: null });
     expect(renewSession).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces a session renewal failure to the awaited launch path', async () => {
+  it('retries transient renewal failures against the last successful expiry', async () => {
+    let finishMetro;
+    const metroCompletion = new Promise((resolve) => {
+      finishMetro = resolve;
+    });
+    let renewalAttempts = 0;
+    const renewalFailures = [];
+
+    const result = await waitForMetroCompletionWithSessionRenewal({
+      fatalExpiryWindowMs: 1500,
+      initialExpiresAtEpochMs: 2000,
+      intervalMs: 0,
+      metroCompletion,
+      nowFn: () => 1000,
+      onRenewalFailure: (details) => {
+        renewalFailures.push(details);
+        if (details.consecutiveFailures === 2) {
+          finishMetro({ code: 0, signal: null });
+        }
+      },
+      renewSession: () => {
+        renewalAttempts += 1;
+        if (renewalAttempts === 2) {
+          return Promise.resolve({ expiresAtEpochMs: 100_000 });
+        }
+        return fs.promises.readFile(
+          path.join(temporaryDirectory, 'missing-session.json'),
+        );
+      },
+      retryIntervalMs: 0,
+    });
+
+    expect(result).toEqual({ code: 0, signal: null });
+    expect(renewalAttempts).toBe(4);
+    expect(
+      renewalFailures.map(
+        ({ consecutiveFailures, expiresAtEpochMs, shouldPrintNotice }) => ({
+          consecutiveFailures,
+          expiresAtEpochMs,
+          shouldPrintNotice,
+        }),
+      ),
+    ).toEqual([
+      {
+        consecutiveFailures: 1,
+        expiresAtEpochMs: 2000,
+        shouldPrintNotice: true,
+      },
+      {
+        consecutiveFailures: 1,
+        expiresAtEpochMs: 100_000,
+        shouldPrintNotice: true,
+      },
+      {
+        consecutiveFailures: 2,
+        expiresAtEpochMs: 100_000,
+        shouldPrintNotice: false,
+      },
+    ]);
+  });
+
+  it('fails only after consecutive renewal errors approach expiry', async () => {
+    let renewalAttempts = 0;
+    const onRenewalFailure = jest.fn();
+
     await expect(
       waitForMetroCompletionWithSessionRenewal({
+        fatalExpiryWindowMs: 1500,
+        initialExpiresAtEpochMs: 2000,
         intervalMs: 0,
         metroCompletion: new Promise(() => {}),
-        renewSession: () =>
-          fs.promises.readFile(
+        nowFn: () => 1000,
+        onRenewalFailure,
+        renewSession: () => {
+          renewalAttempts += 1;
+          return fs.promises.readFile(
             path.join(temporaryDirectory, 'missing-session.json'),
-          ),
+          );
+        },
+        retryIntervalMs: 0,
       }),
-    ).rejects.toMatchObject({ code: 'ENOENT' });
+    ).rejects.toThrow('failed 2 consecutive times');
+    expect(renewalAttempts).toBe(2);
+    expect(
+      onRenewalFailure.mock.calls.map(([details]) => ({
+        consecutiveFailures: details.consecutiveFailures,
+        shouldPrintNotice: details.shouldPrintNotice,
+      })),
+    ).toEqual([
+      { consecutiveFailures: 1, shouldPrintNotice: true },
+      { consecutiveFailures: 2, shouldPrintNotice: false },
+    ]);
+  });
+
+  it('keeps repeated session renewal notices bounded', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const report = {
+      deviceId: 'SIMULATOR-A',
+      sessionId: 'session-a',
+      userNoticeRequired: false,
+      userNotices: [],
+      worktreeId: 'worktree-a',
+    };
+    let renewalError;
+    try {
+      await fs.promises.readFile(
+        path.join(temporaryDirectory, 'missing-session.json'),
+      );
+    } catch (error) {
+      renewalError = error;
+    }
+    try {
+      for (let index = 1; index <= 20; index += 1) {
+        addSessionRenewalNotice(report, {
+          consecutiveFailures: index,
+          error: renewalError,
+          expiresAtEpochMs: 100_000,
+          remainingMs: 99_000 - index,
+          retryIntervalMs: 30_000,
+          shouldPrintNotice: index === 1,
+        });
+      }
+
+      expect(report.userNoticeRequired).toBe(true);
+      expect(
+        report.userNotices.filter(
+          (notice) => notice.resource === 'session-renewal',
+        ),
+      ).toHaveLength(1);
+      expect(report.userNotices[0].notice).toContain('consecutiveFailures=20');
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('[ONEKEY_USER_NOTICE]'),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('retries lock acquisition when the stale lock vanishes before stat', () => {

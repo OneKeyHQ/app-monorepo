@@ -652,30 +652,55 @@ async function createMobileShellCacheLease({ cacheRoot, tag }) {
     `${JSON.stringify({ pid: process.pid })}\n`,
     { flag: 'wx', mode: 0o600 },
   );
+  const removeLease = async () => {
+    await fs.promises.rm(leasePath, { force: true });
+    try {
+      await fs.promises.rmdir(leaseDirectory);
+    } catch (error) {
+      if (!['ENOENT', 'ENOTEMPTY'].includes(error?.code)) throw error;
+    }
+  };
   let released = false;
   return async () => {
     if (released) return;
     released = true;
-    await withCacheLock(getCacheTagLockDirectory(cacheRoot, tag), async () => {
-      let pruneError;
-      try {
-        await touchAndPruneMobileShellCache(cacheRoot, tag);
-      } catch (error) {
-        pruneError = error;
+    try {
+      await withCacheLock(
+        getCacheTagLockDirectory(cacheRoot, tag),
+        async () => {
+          let pruneError;
+          try {
+            await touchAndPruneMobileShellCache(cacheRoot, tag);
+          } catch (error) {
+            pruneError = error;
+          }
+          await removeLease();
+          if (pruneError) {
+            throw new Error(
+              '[mobileDevShell] Failed to prune the shell cache.',
+              { cause: pruneError },
+            );
+          }
+        },
+        { waitTimeoutMs: 0 },
+      );
+    } catch (error) {
+      await removeLease();
+      if (error?.constructor?.name !== 'CacheLockTimeoutError') {
+        throw error;
       }
-      await fs.promises.rm(leasePath, { force: true });
-      try {
-        await fs.promises.rmdir(leaseDirectory);
-      } catch (error) {
-        if (!['ENOENT', 'ENOTEMPTY'].includes(error?.code)) throw error;
-      }
-      if (pruneError) {
-        throw new Error('[mobileDevShell] Failed to prune the shell cache.', {
-          cause: pruneError,
-        });
-      }
-    });
+    }
   };
+}
+
+async function releaseCacheLeaseWithNotice(releaseCacheLease) {
+  try {
+    await releaseCacheLease?.();
+  } catch (error) {
+    console.error(
+      `[ONEKEY_USER_NOTICE] Mobile shell cache lease cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 async function runWithCacheLeaseCleanup({ operation, releaseCacheLease }) {
@@ -683,16 +708,10 @@ async function runWithCacheLeaseCleanup({ operation, releaseCacheLease }) {
   try {
     result = await operation();
   } catch (operationError) {
-    try {
-      await releaseCacheLease?.();
-    } catch (cleanupError) {
-      console.error(
-        `[mobileDevShellResource] Cache lease cleanup warning: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
-      );
-    }
+    await releaseCacheLeaseWithNotice(releaseCacheLease);
     throw operationError;
   }
-  await releaseCacheLease?.();
+  await releaseCacheLeaseWithNotice(releaseCacheLease);
   return result;
 }
 

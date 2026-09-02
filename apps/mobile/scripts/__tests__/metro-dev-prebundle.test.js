@@ -1,4 +1,5 @@
 /* cspell:words prebundle */
+const { spawnSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 
@@ -113,6 +114,21 @@ function createTemporaryRepo() {
     path.join(repoRoot, prependModulePath),
     'module.exports = {};\n',
   );
+
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '--all'],
+  ]) {
+    const result = spawnSync('git', args, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    if (result.status !== 0 || result.error) {
+      throw new TypeError(
+        `Unable to initialize fixture repository: ${result.stderr || result.error?.message || 'unknown error'}`,
+      );
+    }
+  }
 
   const projectRoot = path.join(repoRoot, 'apps/mobile');
   const modules = [{ id: moduleId, path: modulePath }];

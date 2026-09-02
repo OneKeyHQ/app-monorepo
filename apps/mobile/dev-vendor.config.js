@@ -185,10 +185,22 @@ const nativeContractDependencies = {
 const nativeContractFiles = {
   android: ['apps/mobile/android/gradle.properties'],
   ios: [
+    'apps/mobile/ios/AppDelegate.swift',
     'apps/mobile/ios/Podfile.lock',
     'apps/mobile/ios/Podfile.properties.json',
   ],
   shared: ['apps/mobile/package.json', 'yarn.lock'],
+};
+
+const nativeContractDirectories = {
+  android: [
+    'apps/mobile/android/app-update-noop/src/main',
+    'apps/mobile/android/app/src/debug',
+    'apps/mobile/android/app/src/main',
+    'apps/mobile/android/app/src/prod',
+  ],
+  ios: ['apps/mobile/ios/OneKeyWallet', 'apps/mobile/ios/ServiceExtension'],
+  shared: [],
 };
 
 const shellInputDirectories = {
@@ -304,7 +316,7 @@ module.exports = {
   fingerprintFiles,
   fingerprintOptionalFiles: [],
   nativeContractDependencies,
-  nativeContractDirectories: { android: [], ios: [], shared: [] },
+  nativeContractDirectories,
   nativeContractFiles,
   getTransformationEnvironment,
   isVendorModule(moduleKey) {
