@@ -19,7 +19,6 @@ import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 import {
   type ITradingViewNativeAnyIndicator,
   TRADING_VIEW_NATIVE_INDICATOR_CATALOG,
@@ -42,6 +41,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
+  flushDesktopControls?: ITradingViewChartControlsProps['flushDesktopControls'];
   showChartCloseControl?: boolean;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -73,6 +73,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
+    flushDesktopControls,
     showChartCloseControl = true,
     isFullscreen = false,
     fullscreenHeader,
@@ -95,7 +96,8 @@ export const TradingViewNativeChartControlsContainer = memo(
     });
     const activeChartTypeValue =
       getTradingViewNativeChartTypeValue(activeChartType);
-    const settingsEnabled = enableNativeChartSettings;
+    const settingsEnabled =
+      enableNativeChartSettings && layoutMode === 'desktop';
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
@@ -113,23 +115,6 @@ export const TradingViewNativeChartControlsContainer = memo(
         screen: EModalMarketRoutes.MarketChartSettings,
       });
     }, [navigation]);
-    const handleSettingsPress = useCallback(() => {
-      if (layoutMode !== 'mobile') {
-        openChartSettingsModal();
-        return;
-      }
-
-      Dialog.show({
-        title: intl.formatMessage({ id: ETranslations.global_settings }),
-        showFooter: false,
-        testID: 'trading-view-native-chart-settings-quick-dialog',
-        renderContent: (
-          <TradingViewMobileChartSettingsDialogContent
-            onOpenSettings={openChartSettingsModal}
-          />
-        ),
-      });
-    }, [intl, layoutMode, openChartSettingsModal]);
     const handleFullscreenToggle = useCallback(() => {
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);
@@ -195,7 +180,11 @@ export const TradingViewNativeChartControlsContainer = memo(
     const shouldShowChartCloseControl =
       Boolean(onChartClose) && showChartCloseControl;
     const closeControl = shouldShowChartCloseControl ? (
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      <Icon
+        name="ChevronTriangleDownSmallSolid"
+        size="$5"
+        color="$iconSubdued"
+      />
     ) : null;
     const closeLabel = intl.formatMessage({ id: ETranslations.global_close });
 
@@ -222,19 +211,20 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect
+        showChartTypeSelect={!compactMobileLayout}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
         isControlsReady
         intervalControlMode={layoutMode === 'desktop' ? 'popover' : 'dialog'}
         layoutMode={layoutMode}
+        flushDesktopControls={flushDesktopControls}
         chartTimezone={getTradingViewTimezone()}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
-        chartMode="native"
+        chartMode={layoutMode === 'desktop' ? 'native' : undefined}
         isChartSwitchDisabled={isChartSwitchDisabled}
-        onChartSwitch={onChartSwitch}
+        onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
         rightControl={closeControl}
         rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}
@@ -245,7 +235,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onPriceMarketCapModeChange={noop}
         onCalendarPanelOpen={onCalendarPanelOpen}
         onCalendarPanelSubmit={onCalendarPanelSubmit}
-        onSettingsPress={handleSettingsPress}
+        onSettingsPress={openChartSettingsModal}
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
         }

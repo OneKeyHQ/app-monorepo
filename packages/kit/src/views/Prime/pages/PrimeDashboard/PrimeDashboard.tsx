@@ -16,12 +16,14 @@ import {
   Theme,
   XStack,
   YStack,
+  useIsModalPage,
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -97,7 +99,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature } = route.params || {};
+  const { fromFeature, networkId } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -113,14 +115,20 @@ export default function PrimeDashboard({
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
 
   const { top } = useSafeAreaInsets();
+  const isModalPage = useIsModalPage();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
-  const mobileTopValue = isMobile ? top + 25 : '$10';
+  // iOS sheets already exclude the status-bar inset from their content frame.
+  const safeAreaTop = platformEnv.isNativeIOS && isModalPage ? 0 : top;
+  const mobileTopValue = isMobile ? safeAreaTop + 25 : '$10';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
-    usePrimeRequirements();
+    usePrimeRequirements({ networkId: networkId ?? network?.id });
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -347,7 +355,12 @@ export default function PrimeDashboard({
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+        <Stack
+          position="absolute"
+          left="$5"
+          top={safeAreaTop || '$5'}
+          zIndex="$5"
+        >
           <NavCloseButton onPress={() => navigation.popStack()} />
         </Stack>
         <Page scrollEnabled>

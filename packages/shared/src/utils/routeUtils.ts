@@ -156,6 +156,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketStockDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
       {
         showUrl: true,
@@ -227,6 +232,11 @@ export const buildAllowList = (
         showParams: false,
       },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.TxConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp}`]:
       {
         showUrl: true,
         showParams: true,

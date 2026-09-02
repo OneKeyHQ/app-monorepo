@@ -100,7 +100,7 @@ function formatLightweightMarketValue(value: unknown) {
 
 function renderLightweightText(value: unknown) {
   return (
-    <SizableText size="$bodyMd" numberOfLines={1} ellipsizeMode="tail">
+    <SizableText size="$bodyLgMedium" numberOfLines={1} ellipsizeMode="tail">
       {formatLightweightMarketValue(value)}
     </SizableText>
   );
@@ -123,7 +123,7 @@ function renderLightweightTokenIdentity(record: IMarketToken) {
       minWidth={0}
       overflow="hidden"
     >
-      <Stack width={32} height={32} borderRadius="$full" bg="$bgStrong" />
+      <Stack width={40} height={40} borderRadius="$full" bg="$bgStrong" />
       <Stack flex={1} minWidth={0}>
         <SizableText
           size="$bodyLgMedium"
@@ -171,12 +171,12 @@ export const useColumnsDesktop = (
     const columns = [
       {
         title: (
-          <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
+          <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
             #
           </SizableText>
         ) as any,
         dataIndex: 'star',
-        columnWidth: 50,
+        columnWidth: 40,
         render: (_: unknown, record: IMarketToken, index?: number) => {
           if (!shouldRenderRichCell(index)) {
             return (
@@ -197,6 +197,7 @@ export const useColumnsDesktop = (
                   from={watchlistFrom || EWatchlistFrom.Homepage}
                   tokenSymbol={record.symbol}
                   size="small"
+                  customIconSize="$4"
                   isNative={record.isNative}
                 />
               )}
@@ -213,7 +214,7 @@ export const useColumnsDesktop = (
         columnWidth: (() => {
           if (isWatchlistMode) return watchlistNameWidth;
           if (hasStock && showStockSubtitle) return 240;
-          return 200;
+          return 216;
         })(),
         render: (_: unknown, record: IMarketToken, index?: number) => {
           const renderRichCell = shouldRenderRichCell(index);
@@ -224,13 +225,13 @@ export const useColumnsDesktop = (
           return record.perpsCoin ? (
             <XStack
               alignItems="center"
-              gap="$3"
+              gap={14}
               userSelect="none"
               minWidth={0}
               overflow="hidden"
             >
               <Token
-                size="md"
+                size="lg"
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUri}
                 tokenImageUris={record.tokenImageUris}
@@ -269,13 +270,15 @@ export const useColumnsDesktop = (
               communityRecognized={record.communityRecognized}
               stock={record.stock}
               showStockSubtitle={showStockSubtitle}
+              tokenSize="lg"
+              gap={14}
             />
           );
         },
         renderSkeleton: () => (
           <XStack alignItems="center" gap="$3">
             <XStack position="relative">
-              <Skeleton width={32} height={32} borderRadius="$full" />
+              <Skeleton width={40} height={40} borderRadius="$full" />
             </XStack>
             <YStack gap="$1">
               <Skeleton width={80} height={16} />
@@ -295,7 +298,7 @@ export const useColumnsDesktop = (
 
           return (
             <NumberSizeableText
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatter={Number(text) > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
@@ -322,7 +325,7 @@ export const useColumnsDesktop = (
 
           if (record.priceChangeRaw === '-') {
             return (
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText size="$bodyLgMedium" color="$textSubdued">
                 --
               </SizableText>
             );
@@ -333,7 +336,7 @@ export const useColumnsDesktop = (
           });
           return (
             <NumberSizeableText
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatter="priceChange"
               color={changeColor}
               formatterOptions={{
@@ -363,7 +366,7 @@ export const useColumnsDesktop = (
 
               return (
                 <NumberSizeableText
-                  size="$bodyMd"
+                  size="$bodyLgMedium"
                   formatter="marketCap"
                   formatterOptions={{ currency: '$', capAtMaxT: true }}
                 >
@@ -394,7 +397,7 @@ export const useColumnsDesktop = (
 
               return (
                 <NumberSizeableText
-                  size="$bodyMd"
+                  size="$bodyLgMedium"
                   formatter="marketCap"
                   formatterOptions={{ currency: '$' }}
                 >
@@ -421,7 +424,7 @@ export const useColumnsDesktop = (
 
           return (
             <NumberSizeableText
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatter={useStockMetadataColumns ? 'value' : 'marketCap'}
               formatterOptions={
                 useStockMetadataColumns ? undefined : { currency: '$' }

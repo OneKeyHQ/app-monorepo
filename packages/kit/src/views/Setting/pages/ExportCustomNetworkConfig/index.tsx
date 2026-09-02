@@ -7,6 +7,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 import { downloadAsFile } from './downloadAsFile';
 
 const CRLF = '\r\n';
@@ -131,7 +133,7 @@ const ExportCustomNetworkConfigPage = () => {
           id: ETranslations.settings_export_network_config_label,
         })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <Stack px="$5">
           <SizableText size="$bodyLg">
             {intl.formatMessage({

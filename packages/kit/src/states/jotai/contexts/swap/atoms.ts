@@ -53,7 +53,6 @@ import {
   type ISwapTips,
   type ISwapToken,
   type ISwapTokenCatch,
-  type ISwapTokenMetadata,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
@@ -88,6 +87,55 @@ export function useSwapColdStartScopeKey() {
       | undefined
   )?.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
 }
+
+export function sanitizeSwapProSelectTokenSnapshot(
+  token: ISwapToken,
+): ISwapToken {
+  const {
+    balanceParsed,
+    price,
+    fiatValue,
+    reservationValue,
+    accountAddress,
+    ...stableToken
+  } = token;
+  return stableToken;
+}
+
+function sanitizeSwapStockPayTokenDisplaySnapshot(
+  tokens: Record<string, ISwapToken>,
+) {
+  return Object.fromEntries(
+    Object.entries(tokens).map(([scope, token]) => [
+      scope,
+      sanitizeSwapProSelectTokenSnapshot(token),
+    ]),
+  );
+}
+
+function memoizeSnapshotTransform<Value>(transform: (value: Value) => Value) {
+  let source: Value;
+  let snapshot: Value;
+  return (value: Value) => {
+    if (value !== source) {
+      source = value;
+      snapshot = transform(value);
+    }
+    return snapshot;
+  };
+}
+
+const sanitizeSwapStockSelectedTokenColdStartSnapshot =
+  memoizeSnapshotTransform((token: ISwapToken | undefined) =>
+    token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+  );
+const sanitizeSwapProSelectedTokenColdStartSnapshot = memoizeSnapshotTransform(
+  (token: ISwapToken | undefined) =>
+    token ? sanitizeSwapProSelectTokenSnapshot(token) : undefined,
+);
+const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
+  sanitizeSwapStockPayTokenDisplaySnapshot,
+);
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -219,6 +267,7 @@ export const {
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+  coldStartCacheTransform: sanitizeSwapStockSelectedTokenColdStartSnapshot,
 });
 
 export const {
@@ -253,6 +302,7 @@ export const {
     coldStartCache: true,
     coldStartCacheKey:
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenDisplayAtom,
+    coldStartCacheTransform: sanitizeSwapStockPayTokenColdStartSnapshot,
   },
 );
 
@@ -510,19 +560,6 @@ export const {
   });
 });
 
-export const { atom: swapTokenMetadataAtom, use: useSwapTokenMetadataAtom } =
-  contextAtomComputed<{
-    swapTokenMetadata?: ISwapTokenMetadata;
-  }>((get) => {
-    const quoteList = get(swapQuoteListAtom());
-    const swapTokenMetadata = quoteList.find(
-      (item) => item.tokenMetadata,
-    )?.tokenMetadata;
-    return {
-      swapTokenMetadata,
-    };
-  });
-
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);
 
@@ -761,7 +798,12 @@ export const {
 
 // swap pro
 export const { atom: swapProSelectTokenAtom, use: useSwapProSelectTokenAtom } =
-  contextAtom<ISwapToken | undefined>(undefined);
+  contextAtom<ISwapToken | undefined>(undefined, {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProSelectTokenAtom,
+    coldStartCacheTransform: sanitizeSwapProSelectedTokenColdStartSnapshot,
+  });
 
 export const { atom: swapProUserSelectedTokenAtom } = contextAtom<
   ISwapToken | undefined

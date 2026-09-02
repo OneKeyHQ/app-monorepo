@@ -73,6 +73,7 @@ export interface ITradingViewNativeChartControlsConfigData {
 
 export type IChartSettingsSegmentValue = number | string;
 export type ITradingViewNativeChartTypeControlMode = 'toggle' | 'select';
+export type ITradingViewNativeIntervalControlMode = 'dialog' | 'popover';
 export type ITradingViewNativeIndicatorControlMode = 'dialog' | 'popover';
 export type ITradingViewNativePriceMarketCapControlMode = 'settings' | 'select';
 export type ITradingViewNativeControlsLayoutMode = 'mobile' | 'desktop';

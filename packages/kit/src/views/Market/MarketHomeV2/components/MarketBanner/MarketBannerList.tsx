@@ -8,6 +8,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import { MarketTestIDs } from '../../testIDs';
+
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
 import { useMarketBannerList } from './useMarketBannerList';
@@ -34,7 +36,14 @@ function BannerContainerMobile({ children }: { children: ReactNode }) {
 
 function BannerContainerDesktop({ children }: { children: ReactNode }) {
   return (
-    <XStack pt="$4" pb="$2" px="$5" gap="$3" overflow="scroll">
+    <XStack
+      pt="$4"
+      pb="$2"
+      px="$5"
+      gap="$3"
+      overflow="scroll"
+      testID={MarketTestIDs.bannerList}
+    >
       {children}
     </XStack>
   );

@@ -1,5 +1,6 @@
+/* cspell:ignore hoverable */
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -52,6 +53,7 @@ const OVERFLOW_ANIMATION: [
   'quick',
   { opacity: { overshootClamping: boolean } },
 ] = ['quick', { opacity: { overshootClamping: true } }];
+const OVERFLOW_HOVER_CONFIG = { delay: { open: 150, close: 200 } } as const;
 const PLATFORM_WEB_SHADOW_STYLE = {
   outlineColor: '$neutral3',
   outlineStyle: 'solid',
@@ -348,6 +350,7 @@ function OverflowMenuItem({
 
   return (
     <XStack
+      testID={route.name.toLowerCase()}
       px="$3"
       py="$2"
       gap="$2.5"
@@ -430,43 +433,12 @@ function OverflowMoreButton({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const intl = useIntl();
-  const [isHovered, setIsHovered] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleTabPress = useTabAction(navigation);
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const handleHoverIn = useCallback(() => {
-    setIsHovered(true);
-    clearTimer();
-    timerRef.current = setTimeout(() => setIsOpen(true), 150);
-  }, [clearTimer]);
-
-  const handleHoverOut = useCallback(() => {
-    setIsHovered(false);
-    clearTimer();
-    timerRef.current = setTimeout(() => setIsOpen(false), 200);
-  }, [clearTimer]);
-
   const handlePopoverOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setIsOpen(false);
-      setIsHovered(false);
-    }
+    setIsOpen(open);
   }, []);
-
-  const handleContentHoverIn = useCallback(() => {
-    clearTimer();
-    setIsOpen(true);
-  }, [clearTimer]);
-
-  useEffect(() => () => clearTimer(), [clearTimer]);
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
   const overflowPopoverPanelProps = useMemo<
@@ -481,28 +453,18 @@ function OverflowMoreButton({
       borderRadius: '$3',
       enterStyle: ENTER_EXIT_STYLE,
       exitStyle: ENTER_EXIT_STYLE,
-      animation: OVERFLOW_ANIMATION,
+      transition: OVERFLOW_ANIMATION,
       animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
-      onHoverIn: handleContentHoverIn,
-      onHoverOut: handleHoverOut,
       '$platform-web': PLATFORM_WEB_SHADOW_STYLE,
     }),
-    [handleContentHoverIn, handleHoverOut],
+    [],
   );
 
   const overflowPopoverTrigger = useMemo(
     () => (
-      <YStack
-        w="100%"
-        ai="center"
-        gap="$0.5"
-        pt={6}
-        pb={6}
-        onHoverIn={handleHoverIn}
-        onHoverOut={handleHoverOut}
-      >
+      <YStack w="100%" ai="center" gap="$0.5" pt={6} pb={6}>
         <DesktopTabItem
-          isContainerHovered={isHovered || isOpen}
+          isContainerHovered={isOpen}
           selected={isAnyOverflowActive}
           tabBarStyle={TAB_BAR_STYLE_WIDTH_40}
           icon={isAnyOverflowActive ? 'DotHorSolid' : 'DotHorOutline'}
@@ -521,14 +483,7 @@ function OverflowMoreButton({
         </SizableText>
       </YStack>
     ),
-    [
-      handleHoverIn,
-      handleHoverOut,
-      isAnyOverflowActive,
-      isHovered,
-      isOpen,
-      moreLabel,
-    ],
+    [isAnyOverflowActive, isOpen, moreLabel],
   );
 
   const overflowPopoverContent = useMemo(
@@ -569,6 +524,8 @@ function OverflowMoreButton({
   return (
     <LazyPopover
       title={moreLabel}
+      hoverable={OVERFLOW_HOVER_CONFIG}
+      scope="desktop-sidebar-overflow"
       showHeader={false}
       usingSheet={false}
       offset={8}

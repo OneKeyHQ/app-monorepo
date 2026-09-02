@@ -57,6 +57,12 @@ describe('TradingViewNative active interval storage', () => {
         kind: 'hyperliquid',
       }),
     ).toBe('market-hyperliquid');
+    expect(
+      getTradingViewNativeIntervalStorageNamespace({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    ).toBe('stock');
   });
 
   it('restores only supported saved intervals', () => {
@@ -79,7 +85,7 @@ describe('TradingViewNative active interval storage', () => {
     expect(readTradingViewNativeActiveInterval('token')).toBe('60');
   });
 
-  it('merges a successfully displayed interval into existing namespaces', () => {
+  it('merges a successfully displayed interval into existing namespaces', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(200);
     mockSyncStorage.getObject.mockReturnValue({
       native: {
@@ -89,7 +95,7 @@ describe('TradingViewNative active interval storage', () => {
       },
     });
 
-    saveTradingViewNativeActiveInterval({
+    await saveTradingViewNativeActiveInterval({
       interval: '15',
       namespace: 'token',
     });

@@ -51,6 +51,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   supportedAssets,
   paymentOptionsLoaded,
   createNewPayment,
+  flowId,
   requestedPlan,
   requestedSubscriptionPeriod,
   fetchLatestPayment,
@@ -63,6 +64,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   supportedAssets: IPrimeInfiniPaymentAsset[];
   paymentOptionsLoaded: boolean;
   createNewPayment: boolean;
+  flowId?: string;
   requestedPlan: IPrimeInfiniSubscriptionPlan;
   requestedSubscriptionPeriod: 'P1M' | 'P1Y';
   fetchLatestPayment: (paymentId: string) => Promise<IPrimeInfiniPayment>;
@@ -72,7 +74,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   ) => Promise<boolean>;
   clearCompletedPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   persistRestoredSession: (
     session: IPrimeInfiniPendingPaymentSession,
   ) => Promise<IPrimeInfiniPendingPaymentSession>;
@@ -106,7 +108,11 @@ export async function resolvePrimeInfiniPaymentRestore({
       purchaseStatusSnapshot,
     })
   ) {
-    await clearCompletedPaymentSession(session.paymentCacheKey);
+    if (!(await clearCompletedPaymentSession(session.paymentCacheKey))) {
+      throw new OneKeyLocalError(
+        'Infini payment session changed during restore',
+      );
+    }
     return { type: 'completed' };
   }
   const transferSnapshotUnchanged = isSamePrimeInfiniPaymentTransferSnapshot({
@@ -143,7 +149,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   const assetIsStillSupported =
     !paymentOptionsLoaded || Boolean(supportedAsset);
   const shouldReplacePayment =
-    createNewPayment ||
+    (createNewPayment && (!flowId || session.flowId !== flowId)) ||
     !transferSnapshotUnchanged ||
     !paymentMatchesAsset ||
     !routeMatches ||

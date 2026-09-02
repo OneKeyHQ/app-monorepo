@@ -2,9 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { LottieView, Stack, useTheme } from '@onekeyhq/components';
+import { Stack, useTheme } from '@onekeyhq/components';
 import type { IDialogInstance, IStackStyle } from '@onekeyhq/components';
-import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveTradeInstrumentAtom,
@@ -29,6 +28,7 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '../hooks';
+import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -206,17 +206,6 @@ const WebViewMemoized = memo(
 );
 
 WebViewMemoized.displayName = 'WebViewMemoized';
-
-function TradingViewChartLoading() {
-  return (
-    <LottieView
-      width={110}
-      height={110}
-      autoPlay
-      source={TradingViewChartLoadingAnimation}
-    />
-  );
-}
 
 const hideTradingViewBuiltInLoadingScript = `
   ;(function() {
@@ -756,22 +745,7 @@ export function TradingViewPerpsV2(
         decelerationRate="normal"
       />
 
-      {showChartLoadingMask ? (
-        <Stack
-          position="absolute"
-          left={0}
-          top={0}
-          right={0}
-          bottom={0}
-          zIndex={2}
-          bg="$bgApp"
-          alignItems="center"
-          justifyContent="center"
-          pointerEvents="none"
-        >
-          <TradingViewChartLoading />
-        </Stack>
-      ) : null}
+      {showChartLoadingMask ? <TradingViewChartLoadingMask /> : null}
 
       {platformEnv.isNativeIOS ? (
         <Stack

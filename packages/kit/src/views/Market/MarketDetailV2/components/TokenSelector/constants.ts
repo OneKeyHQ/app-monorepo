@@ -8,6 +8,9 @@ export const TOKEN_SELECTOR_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 15,
 });
 
+export const TOKEN_SELECTOR_HEADER_HEIGHT = 40;
+export const TOKEN_SELECTOR_ROW_HEIGHT = 56;
+
 export const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
   'uniqueTraders',

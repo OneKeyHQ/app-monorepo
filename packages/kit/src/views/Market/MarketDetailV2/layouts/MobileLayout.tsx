@@ -68,6 +68,7 @@ import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetwor
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
+import { useStockDetail } from '../hooks/StockDetailContext';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -286,8 +287,12 @@ export function MobileLayout({
     perpsInfo,
     isStockToken,
   } = useTokenDetail();
-  const networkId = storeNetworkId || routeNetworkId;
-  const tokenAddress = storeNetworkId ? storeTokenAddress : routeTokenAddress;
+  const { selectedTokenVariant } = useStockDetail();
+  const networkId =
+    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
+  const tokenAddress =
+    selectedTokenVariant?.contractAddress ||
+    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
   const isNative =
     networkId === routeNetworkId && tokenAddress === routeTokenAddress
       ? routeIsNative
@@ -763,6 +768,7 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      enableNativeChartSettings
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }

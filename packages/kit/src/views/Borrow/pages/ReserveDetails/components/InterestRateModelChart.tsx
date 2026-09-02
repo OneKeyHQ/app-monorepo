@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { useTheme } from '@tamagui/core';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import type { ILightweightChartTheme } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import {
   createAreaSeriesOptions,
@@ -375,7 +377,11 @@ export function InterestRateModelChart({
             pointerEvents="none"
           />
         ) : null}
-        <Stack ref={chartContainerRef} width="100%" height={CHART_HEIGHT} />
+        <Stack
+          ref={chartContainerRef as unknown as Ref<IElement>}
+          width="100%"
+          height={CHART_HEIGHT}
+        />
       </Stack>
     </YStack>
   );

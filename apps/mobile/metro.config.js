@@ -7,6 +7,14 @@
  */
 const path = require('path');
 
+// This must run before Metro dependencies load the Babel/environment config.
+// oxlint-disable-next-line import-js/order
+const devVendorConfig = require('./dev-vendor.config');
+
+if (process.env.ONEKEY_DEV_VENDOR === 'true') {
+  devVendorConfig.applyTransformationEnvironment(process.env);
+}
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
@@ -16,6 +24,17 @@ const {
 const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
+
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+
+const splitCodePlugin = require('./plugins');
+const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
+const {
+  getThirdPartyMMKVImportError,
+} = require('./scripts/native-storage-metro-policy');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -29,6 +48,17 @@ const defaultConfig = getDefaultConfig(projectRoot);
 // Use Sentry Expo's Metro config as a base, merged with the RN default config
 const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
+
+// Expo CLI normally injects this polyfill around Metro. Our native release and
+// union builders call Metro directly, so include it in the shared config too.
+const originalGetPolyfills = config.serializer.getPolyfills;
+config.serializer.getPolyfills = (options) =>
+  Array.from(
+    new Set([
+      ...originalGetPolyfills(options),
+      require.resolve('expo/virtual/streams.js'),
+    ]),
+  );
 
 config.projectRoot = projectRoot;
 config.watchFolders = Array.from(
@@ -354,13 +384,15 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+if (isDevVendorEnabled()) {
+  config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
+}
 
 if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
   const configuredMaxWorkers = Number.parseInt(
@@ -379,6 +411,60 @@ const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
   'main';
+
+// Native storage ownership is enforced at bundle resolution as well as at
+// runtime. This redirects application and third-party AsyncStorage imports to
+// the compatible bg proxy without patching dependencies. Deep imports are
+// rejected because they could bypass the adapter. MMKV itself resolves to a
+// throwing guard in main bundles.
+{
+  const previousResolveRequest = config.resolver.resolveRequest;
+  const asyncStorageAdapter = path.resolve(
+    monorepoRoot,
+    'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
+  );
+  const mmkvMainGuard = path.resolve(
+    projectRoot,
+    'shims/reactNativeMMKVMainGuard.js',
+  );
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
+      moduleName,
+      originModulePath: context.originModulePath,
+    });
+    if (thirdPartyMMKVImportError) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(thirdPartyMMKVImportError);
+    }
+    if (moduleName === '@react-native-async-storage/async-storage') {
+      return { type: 'sourceFile', filePath: asyncStorageAdapter };
+    }
+    if (moduleName.startsWith('@react-native-async-storage/async-storage/')) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
+      );
+    }
+    if (
+      moduleName === 'react-native-mmkv' &&
+      getMetroRuntimeTarget(context) !== 'background' &&
+      process.env.RN_HARNESS !== 'true'
+    ) {
+      return { type: 'sourceFile', filePath: mmkvMainGuard };
+    }
+    if (
+      moduleName.startsWith('react-native-mmkv/') &&
+      getMetroRuntimeTarget(context) !== 'background' &&
+      process.env.RN_HARNESS !== 'true'
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `MMKV deep import bypasses the native main-runtime guard: ${moduleName}`,
+      );
+    }
+    return previousResolveRequest(context, moduleName, platform);
+  };
+}
 
 // --- Native background thread: prefer `.native-ui` in the main runtime ---
 // In native background-thread mode, main-thread JS should prefer the
@@ -473,12 +559,31 @@ config.server.rewriteRequestUrl = (url) => {
     }resolver.runtimeTarget=${runtimeTarget}`;
   }
 
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('resolver.devVendor=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.devVendor=true`;
+  }
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('unstable_transformProfile=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }unstable_transformProfile=hermes-stable`;
+  }
+
   return rewrittenUrl;
 };
 
 // Apply split code plugin, then wrap with Rozenite plugin
-const splitCodePlugin = require('./plugins');
-
 const GET_TOP_DIR_SYMBOL = 'relative_dir_symbol';
 const buildRelativeDirPath = (url, depth = 2) => {
   const symbols = Array.from({ length: depth }, () => GET_TOP_DIR_SYMBOL).join(
@@ -543,11 +648,16 @@ config.cacheVersion = [
   .filter(Boolean)
   .join('-');
 
+const metroConfigWithPlugins = applyDevVendorConfig(
+  splitCodePlugin(config, projectRoot),
+  projectRoot,
+);
+
 module.exports = withRozenite(
   // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
   // strips every storybook module from the bundle via its resolver, so normal
   // and production builds are unaffected.
-  withStorybook(splitCodePlugin(config, projectRoot), {
+  withStorybook(metroConfigWithPlugins, {
     enabled: process.env.STORYBOOK_ENABLED === 'true',
     configPath: path.resolve(projectRoot, './.rnstorybook'),
     // Explicit localhost keeps the generated storybook.requires.ts stable —

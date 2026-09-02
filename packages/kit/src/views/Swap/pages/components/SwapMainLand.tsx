@@ -163,9 +163,14 @@ interface ISwapMainLoadProps {
   children?: React.ReactNode;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
+  singleSwapBridgeHeader?: boolean;
 }
 
-const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
+const SwapMainLoad = ({
+  swapInitParams,
+  pageType,
+  singleSwapBridgeHeader,
+}: ISwapMainLoadProps) => {
   const dialogRef = useRef<IDialogInstance>(null);
   const reviewDialogTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
@@ -173,6 +178,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const isMarketEmbeddedSwap =
+    Boolean(singleSwapBridgeHeader) &&
+    swapInitParams?.swapSource === ESwapSource.MARKET;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const isFocused = useRouteIsFocused();
@@ -1336,7 +1344,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     accountScope: swapProAccount.accountScope,
     accountStatus: swapProAccount.accountStatus,
   });
-  useSwapQuote();
+  useSwapQuote({
+    isMarketEmbeddedSwap,
+  });
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
@@ -1420,6 +1430,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           onSelectRecentTokenPairs={onSelectRecentTokenPairs}
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
+          hideRecentTokenPairs={isMarketEmbeddedSwap}
           headerContent={
             gtLg && pageType !== EPageType.modal ? (
               <SwapHeaderContainer
@@ -1485,6 +1496,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,
     gtLg,
+    isMarketEmbeddedSwap,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -1558,6 +1570,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               showSwapPro={platformEnv.isNative}
               hideRightActions={showDesktopProviderPanel}
               enterFrom={swapInitParams?.swapSource}
+              singleSwapBridgeTab={singleSwapBridgeHeader}
               marketPresetSettings={
                 focusSwapPro ? swapProMarketPresetSettings : undefined
               }
@@ -1604,10 +1617,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
-  const { pageType, swapInitParams } = props;
+  const { pageType, singleSwapBridgeHeader, swapInitParams } = props;
+  const shouldSeedMarketEmbeddedPair = Boolean(
+    singleSwapBridgeHeader &&
+    swapInitParams?.swapSource === ESwapSource.MARKET &&
+    swapInitParams.importFromToken &&
+    swapInitParams.importToToken,
+  );
   const initialSelectedTokensOnInit =
-    swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
-    Boolean(swapInitParams?.importNetworkId)
+    (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+      Boolean(swapInitParams?.importNetworkId)) ||
+    shouldSeedMarketEmbeddedPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,

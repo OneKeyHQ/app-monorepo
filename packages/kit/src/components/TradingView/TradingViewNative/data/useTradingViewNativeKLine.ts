@@ -1620,6 +1620,7 @@ export function useTradingViewNativeKLine({
   source: ITradingViewNativeSource;
 }) {
   const sourceKind = source.kind;
+  const stockId = source.kind === 'stock' ? source.stockId : '';
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
   const hyperliquidEnvironment =
     source.kind === 'hyperliquid' ? source.environment : 'mainnet';
@@ -1642,6 +1643,12 @@ export function useTradingViewNativeKLine({
         environment: hyperliquidEnvironment,
       });
     }
+    if (sourceKind === 'stock') {
+      return createTradingViewNativeDataProvider({
+        kind: 'stock',
+        stockId,
+      });
+    }
     return createTradingViewNativeDataProvider({
       kind: 'market',
       fallbackCoinGeckoId: marketFallbackCoinGeckoId,
@@ -1660,6 +1667,7 @@ export function useTradingViewNativeKLine({
     marketNetworkId,
     marketTokenAddress,
     sourceKind,
+    stockId,
   ]);
   const seriesKey = rawHistoryProvider.key;
   const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
@@ -2066,7 +2074,7 @@ export function useTradingViewNativeKLine({
     ) {
       return;
     }
-    saveTradingViewNativeActiveInterval({
+    void saveTradingViewNativeActiveInterval({
       interval: activeInterval,
       namespace: intervalStorageNamespace,
     });

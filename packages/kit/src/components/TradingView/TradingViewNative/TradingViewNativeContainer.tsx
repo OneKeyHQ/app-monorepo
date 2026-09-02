@@ -12,12 +12,14 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { useTradingViewSettingsThemeColors } from '../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
+import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
   TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT,
   TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
 } from './chartConstants';
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import {
@@ -43,6 +45,7 @@ import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSett
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
+import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
 import { useTradingViewNativeChartComponents } from './useTradingViewNativeChartComponents';
 import {
@@ -159,12 +162,14 @@ export const TradingViewNativeContainer = memo(
   ({
     testID,
     source,
+    forcedChartType,
     chartComponents,
     enableNativeChartSettings,
     initialRightOffset,
     nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
@@ -205,6 +210,7 @@ export const TradingViewNativeContainer = memo(
       target: ITradingViewNativeViewportTarget;
     } | null>(null);
     const [chartWidth, setChartWidth] = useState(0);
+    const [chartAreaWidth, setChartAreaWidth] = useState(0);
     const [chartHeight, setChartHeight] = useState(0);
     const [subIndicatorCalculationCache] = useState(() =>
       createTradingViewNativeSubIndicatorCalculationCache(),
@@ -348,6 +354,9 @@ export const TradingViewNativeContainer = memo(
       [chartType, points],
     );
     const isCompactDisplayMode = nativeChartDisplayMode === 'compact';
+    const timeAxisHeight = isCompactDisplayMode
+      ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
+      : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
     const indicatorSeries = useMemo(
       () =>
         buildTradingViewNativeIndicatorSeries({
@@ -701,7 +710,9 @@ export const TradingViewNativeContainer = memo(
 
     const isMobileControlsLayout = nativeControlsLayoutMode !== 'desktop';
     const handleChartAreaLayout = useCallback((event: LayoutChangeEvent) => {
-      const nextChartHeight = Math.round(event.nativeEvent.layout.height);
+      const { height, width } = event.nativeEvent.layout;
+      const nextChartHeight = Math.round(height);
+      const nextChartAreaWidth = Math.round(width);
       if (nextChartHeight > 0) {
         setChartHeight((currentChartHeight) =>
           currentChartHeight === nextChartHeight
@@ -709,10 +720,21 @@ export const TradingViewNativeContainer = memo(
             : nextChartHeight,
         );
       }
+      if (nextChartAreaWidth > 0) {
+        setChartAreaWidth((currentChartAreaWidth) =>
+          currentChartAreaWidth === nextChartAreaWidth
+            ? currentChartAreaWidth
+            : nextChartAreaWidth,
+        );
+      }
     }, []);
     const handleMobileFullscreenToggle = useCallback(() => {
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
+    const showChartLoadingMask =
+      points.length === 0 && dataState.status !== 'error';
+    const priceAxisWidth =
+      chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
 
     return (
       <Stack flex={1} w="100%" h="100%" bg="$transparent">
@@ -725,6 +747,7 @@ export const TradingViewNativeContainer = memo(
           activeIndicatorValues={activeIndicatorValues}
           maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
           layoutMode={nativeControlsLayoutMode}
+          flushDesktopControls={nativeControlsFlushHorizontalInset}
           showChartCloseControl={showNativeChartCloseControl}
           isFullscreen={isNativeChartFullscreen}
           fullscreenHeader={nativeChartFullscreenHeader}
@@ -748,7 +771,7 @@ export const TradingViewNativeContainer = memo(
             candleIntervalSeconds={candleIntervalSeconds}
             chartComponents={chartComponentRenderNodes}
             chartSettings={chartSettings}
-            chartType={chartType}
+            chartType={forcedChartType ?? chartType}
             chartPictureVersion={chartPictureVersion}
             currentPriceLabel={currentPriceLabel}
             extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
@@ -774,11 +797,7 @@ export const TradingViewNativeContainer = memo(
                 ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
                 : undefined
             }
-            timeAxisHeight={
-              isCompactDisplayMode
-                ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_HEIGHT
-                : undefined
-            }
+            timeAxisHeight={timeAxisHeight}
             timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
             onChartWidthChange={setChartWidth}
             onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
@@ -790,6 +809,11 @@ export const TradingViewNativeContainer = memo(
             testID={testID}
             viewportRequest={viewportRequest}
           />
+          {showChartLoadingMask ? (
+            <TradingViewChartLoadingMask
+              testID={testID ? `${testID}-loading` : undefined}
+            />
+          ) : null}
           {dataState.status === 'error' && points.length === 0 ? (
             <YStack
               position="absolute"
@@ -816,11 +840,19 @@ export const TradingViewNativeContainer = memo(
               </Button>
             </YStack>
           ) : null}
+          {isMobileControlsLayout && enableNativeChartSettings ? (
+            <TradingViewNativeChartSettingsButton
+              priceAxisWidth={priceAxisWidth}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+            />
+          ) : null}
           {isMobileControlsLayout && onNativeChartFullscreenChange ? (
             <TradingViewNativeFullscreenButton
               chartHeight={chartHeight}
               isFullscreen={Boolean(isNativeChartFullscreen)}
               onPress={handleMobileFullscreenToggle}
+              timeAxisHeight={timeAxisHeight}
               visibleSubIndicatorCount={visibleSubIndicatorCount}
             />
           ) : null}

@@ -23,6 +23,7 @@ const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
+const mockPrimeCryptoPaymentFlowLog = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -70,6 +71,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
       get: (_target, property: string | symbol) => {
         const nextPath = [...path, String(property)];
         const loggerMethod = nextPath.join('.');
+        if (loggerMethod === 'prime.subscription.primeCryptoPaymentFlow') {
+          return mockPrimeCryptoPaymentFlowLog;
+        }
         if (loggerMethod === 'prime.subscription.onekeyIdRemoteLogoutFlow') {
           return mockOneKeyIdRemoteLogoutFlowLog;
         }
@@ -296,6 +300,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
       async () => undefined as string | undefined,
@@ -1425,6 +1430,60 @@ describe('ServicePrime Infini payment APIs', () => {
     expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/options');
   });
 
+  it.each([
+    { symbol: ' eth ' },
+    { symbol: 'ETH', contract: '' },
+    { symbol: 'ETH', contract: null },
+    { symbol: 'ETH', contract: ' ' },
+  ])(
+    'normalizes a native payment option with contract $contract',
+    async (token) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: {
+          data: {
+            chains: [
+              {
+                chain: 'ETHEREUM',
+                networkId: 'evm--1',
+                tokens: [token],
+              },
+            ],
+          },
+        },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'ETH', contract: '' }],
+        },
+      ]);
+    },
+  );
+
+  it('drops a native payment option when the chain conflicts with the network', async () => {
+    const { service } = createInfiniService();
+    const get = jest.fn(async () => ({
+      data: {
+        data: {
+          chains: [
+            {
+              chain: 'BSC',
+              networkId: 'evm--1',
+              tokens: [{ symbol: 'ETH', contract: '' }],
+            },
+          ],
+        },
+      },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+
+    await expect(service.apiGetInfiniPaymentOptions()).resolves.toEqual([]);
+  });
+
   it('drops malformed payment options at the service boundary', async () => {
     const { service } = createInfiniService();
     const get = jest.fn(async () => ({
@@ -1440,6 +1499,10 @@ describe('ServicePrime Infini payment APIs', () => {
                   contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
                 },
                 { symbol: 'USDT', contract: '' },
+                { symbol: 'USDT' },
+                { symbol: 'ETH', contract: 123 },
+                { symbol: 'ETH', contract: {} },
+                { symbol: 'ETH', contract: false },
                 123,
               ],
             },
@@ -1599,6 +1662,158 @@ describe('ServicePrime Infini payment APIs', () => {
       },
     });
   });
+
+  it.each([undefined, [], ['First warning', 'Second warning']])(
+    'preserves the latest payment warning messages: %p',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () => ({
+        data: { data: { ...payment, warningMessages } },
+      }));
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).resolves.toEqual({ ...payment, warningMessages });
+    },
+  );
+
+  it('carries the same UI flow into background validation without changing the HTTP request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const get = jest.fn(async () => ({ data: { data: payment } }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    const flowContext = {
+      flowId: 'flow-from-ui',
+      paymentSource: 'restoreRefresh' as const,
+      expectedChain: payment.chain,
+      expectedToken: payment.token,
+    };
+    await service.apiGetInfiniPayment({
+      paymentId: payment.paymentId,
+      expectedOneKeyUserId: 'user-a',
+      flowContext,
+    });
+    expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment', {
+      params: { paymentId: payment.paymentId },
+      headers: { 'X-Onekey-Request-Token': 'token-a' },
+    });
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      payment,
+      flowId: 'flow-from-ui',
+    });
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'flow-from-ui',
+        paymentSource: 'restoreRefresh',
+        stage: 'responseValidation',
+        actualChain: payment.chain,
+        actualToken: payment.token,
+      }),
+    );
+  });
+
+  it('returns confirmed payment progress when diagnostic metadata cannot be persisted', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const confirmedPayment = {
+      ...payment,
+      amountConfirmed: payment.amountDue,
+    };
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: confirmedPayment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'polling-flow',
+          paymentSource: 'polling',
+          sessionMode: 'tracking',
+        },
+      }),
+    ).resolves.toEqual(confirmedPayment);
+    expect(simpleDbPrime.recordInfiniPaymentValidation).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowId: 'polling-flow',
+        paymentSource: 'polling',
+        stage: 'sessionPersistence',
+        failureReason: 'localPersistenceFailed',
+      }),
+    );
+    expect(
+      JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+    ).not.toContain('disk full');
+  });
+
+  it('still rejects an auth change when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: async () => ({ data: { data: payment } }),
+    }));
+    simpleDbPrime.recordInfiniPaymentValidation.mockImplementation(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+      throw new OneKeyLocalError('disk full');
+    });
+
+    await expect(
+      service.apiGetInfiniPayment({
+        paymentId: payment.paymentId,
+        expectedOneKeyUserId: 'user-a',
+        flowContext: { flowId: 'polling-flow', paymentSource: 'polling' },
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([null, 'warning', ['warning', 1]])(
+    'rejects malformed warnings as invalidResponse (%p)',
+    async (warningMessages) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: async () => ({ data: { data: { ...payment, warningMessages } } }),
+      }));
+      await expect(
+        service.apiGetInfiniPayment({
+          paymentId: payment.paymentId,
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'invalidResponse' },
+      });
+    },
+  );
+
+  it.each(['NaN', 'Infinity', '-0.01', ''])(
+    'rejects invalid progress amounts (%s)',
+    async (amount) => {
+      const { service } = createInfiniService();
+      for (const field of ['amountConfirmed', 'amountConfirming']) {
+        service.getPrimeClient = jest.fn(async () => ({
+          get: async () => ({
+            data: { data: { ...payment, [field]: amount } },
+          }),
+        }));
+        await expect(
+          service.apiGetInfiniPayment({
+            paymentId: payment.paymentId,
+            expectedOneKeyUserId: 'user-a',
+          }),
+        ).rejects.toMatchObject({
+          data: { paymentValidationFailure: 'invalidResponse' },
+        });
+      }
+    },
+  );
 
   it('rejects a payment query response with a different paymentId', async () => {
     const { service } = createInfiniService();
@@ -1962,8 +2177,11 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
-  it('returns payment and purchase status from one pre-broadcast auth snapshot', async () => {
-    const { service } = createInfiniService();
+  it('returns a pre-broadcast auth snapshot when diagnostic persistence fails', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.recordInfiniPaymentValidation.mockRejectedValue(
+      new Error('disk full'),
+    );
     const subscription = {
       subscriptionId: 'infini-subscription-id',
       status: 'active',
@@ -1993,6 +2211,10 @@ describe('ServicePrime Infini payment APIs', () => {
       service.apiGetInfiniPaymentPreBroadcastSnapshot({
         paymentId: payment.paymentId,
         expectedOneKeyUserId: 'user-a',
+        flowContext: {
+          flowId: 'pre-broadcast-flow',
+          paymentSource: 'preflightRefresh',
+        },
       }),
     ).resolves.toEqual({
       payment,

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -42,7 +43,15 @@ export function useNetworkLogoUri({
   logoUri?: string;
   networkId?: string;
 }): string {
-  const shouldFetch = !logoUri && !!networkId;
+  const localLogoUri = useMemo(
+    () =>
+      logoUri ||
+      (networkId
+        ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+        : undefined),
+    [logoUri, networkId],
+  );
+  const shouldFetch = !localLogoUri && !!networkId;
 
   const { result: fetchedLogo } = usePromiseResult(
     async (): Promise<IFetchedNetworkLogo> => {
@@ -64,7 +73,8 @@ export function useNetworkLogoUri({
   // A result fetched for the previous network must never be shown beside the
   // new network identity while its request is still pending.
   return useMemo(
-    () => resolveNetworkLogoUri({ fetchedLogo, logoUri, networkId }),
-    [fetchedLogo, logoUri, networkId],
+    () =>
+      resolveNetworkLogoUri({ fetchedLogo, logoUri: localLogoUri, networkId }),
+    [fetchedLogo, localLogoUri, networkId],
   );
 }

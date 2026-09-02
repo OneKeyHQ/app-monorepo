@@ -21,6 +21,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
@@ -67,6 +69,7 @@ const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
 const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
+const TAB_BAR_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 export type ITabBarVariant = 'default' | 'pill' | 'text';
 export type IDirectTabPressAnimationMode = 'timing' | 'instant';
@@ -1071,7 +1074,7 @@ export function TabBar({
       }
       if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
-        if (scrollable && listViewRef.current) {
+        if (scrollable) {
           runOnJS(scrollToTab)(result);
         }
       }
@@ -1368,7 +1371,7 @@ export function TabBar({
 
   return scrollable ? (
     <YStack
-      position={'sticky' as any}
+      position={TAB_BAR_POSITION as any}
       top={0}
       bg="$bgApp"
       zIndex={10}
@@ -1403,7 +1406,7 @@ export function TabBar({
       pointerEvents="box-none"
       bg="$bgApp"
       className="onekey-tabs-header"
-      position={'sticky' as any}
+      position={TAB_BAR_POSITION as any}
       top={0}
       zIndex={10}
       {...containerStyle}

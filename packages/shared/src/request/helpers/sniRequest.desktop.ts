@@ -4,8 +4,13 @@ import { defaultLogger } from '../../logger/logger';
 
 import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
+import { executeSniRequestWithAbort } from './sniRequestAbort';
 
-import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
+import type {
+  ISniRequestConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 
 const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
   /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.isProxyActiveForUrl\(\)/;
@@ -16,6 +21,7 @@ const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
  */
 export async function sniRequest(
   config: ISniRequestConfig,
+  options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
   // Check if running in desktop environment
   if (!platformEnv.isDesktop) {
@@ -39,8 +45,12 @@ export async function sniRequest(
     }
 
     // Call main process via proxy
-    const response: ISniResponse =
-      await desktopApiProxy.sniRequest.request(config);
+    const response = await executeSniRequestWithAbort<ISniResponse>(
+      config,
+      options,
+      (requestConfig) => desktopApiProxy.sniRequest.request(requestConfig),
+      (requestId) => desktopApiProxy.sniRequest.cancelRequest(requestId),
+    );
 
     return response;
   } catch (error) {

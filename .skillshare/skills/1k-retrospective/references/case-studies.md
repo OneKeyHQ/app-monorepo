@@ -241,3 +241,52 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The session guard stored one ID instead of the set of accounts already reported.
 **Fix**: Session-scoped Set of OneKey user IDs; add before emit. Account switch still reports the new account; switching back does not.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (a per-user session guard must keep every seen user, not only the last)
+
+## Case: iOS Infini subscription management opened a OneKey invite page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android Google Play, desktop, web
+**Symptom**: Tapping Prime 订阅管理 on iOS opened Safari to a OneKey Perps invite/marketing page instead of Infini or store subscription management (OK-61464).
+**Root Cause**: Infini has no web portal. The router fell through to `subscriptions[].managementUrl`, which was a OneKey marketing page.
+**Fix**: Infini channel always opens the in-app Infini cancel-renewal page and never uses that marketing URL. Redemption-only still shows 管理订阅 and toasts that the activation method cannot be managed.
+**Catchable by**: Section 4: Edge cases — a channel without a real management portal must not fall through to another destination
+
+## Case: Channel-less Prime managementUrl opened a marketing page
+**Date**: 2026-08-30 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: A Prime row with no `channel` but a leftover `managementUrl` (often the OneKey invite page) would open that URL and skip the legacy Infini probe.
+**Root Cause**: Router treated any non-empty nested `managementUrl` as a real portal, including records that never declared a payment channel.
+**Fix**: Only trust a nested management URL when the same row declares a non-Infini, non-redemption channel. Channel-less rows stay on the Infini probe / unsupported toast path.
+**Catchable by**: Section 4: Edge cases — a URL without a declared channel is not a management portal
+
+## Case: Settings dApp Connection opened a second Bottom Sheet
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: Tapping dApp 连接 from Settings stacked a second Bottom Sheet on top of the settings sheet (OK-61439).
+**Root Cause**: The settings entry used `pushModal(DAppConnectionModal)` instead of in-stack `push()` like sibling pages.
+**Fix**: Added `SettingDAppConnectionList` to the SettingModal stack and changed the entry to `navigation.push`.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (settings entries that open a page should use the same stack as siblings)
+
+## Case: Protection Prime badge misaligned on mobile
+**Date**: 2026-08-31 | **Platforms**: iOS, Android
+**Symptom**: The Prime badge on 收款风险监控 sat between subtitle and switch, aligned with neither (OK-61456).
+**Root Cause**: Badge was a `ListItem` child next to the switch instead of inline in the title.
+**Fix**: Render the badge in `ListItem.Text` primary via an `XStack` with the title.
+**Catchable by**: Section 3: UI changes verified on mobile — trailing children of a two-line ListItem do not vertically align with the title
+
+## Case: Union-build ownership promotion dropped runtime-divergent modules from every bundle
+**Date**: 2026-08-26 | **Platforms**: iOS, Android (split-bundle union build)
+**Symptom**: CI "Native startup graph budget" failed: 38 `react-native-mmkv/src/*` modules were reachable via sync edges in the background graph but landed in no eager bundle and no segment, which would crash the bg runtime with "Requiring unknown module".
+**Root Cause**: `buildRuntimeOwnership` promoted every sync dep of a shared-startup module into the common-bundle set, but the common bundle is serialized from the MAIN graph only. A dep that resolves differently per runtime (react-native-mmkv → real package in bg, guard shim in main) exists only in the bg graph, so promotion removed it from bg-only ownership while the common bundle could never emit it.
+**Fix**: The shared-startup expansion only promotes deps that are shared-equivalent (present in both graphs with identical signatures); runtime-divergent deps stay runtime-owned so each eager bundle ships its own variant under the same stable module id.
+**Catchable by**: NEW — not covered (build allocator invariants need a cross-runtime completeness gate; the union build's assertBundleCompleteness caught it only in CI)
+
+## Case: Jest suite mocking platformEnv as native crashed the whole shard via WebStorage
+**Date**: 2026-08-26 | **Platforms**: CI unit tests (all shards at risk)
+**Symptom**: Unit Tests shard crashed the Node process: `IndexedDBPromised.open` threw "Cannot read properties of undefined (reading 'open')" inside `new WebStorage()`'s async promise executor, killing jest before any suite result was reported.
+**Root Cause**: A test mocked `platformEnv` with `isNative: true` but without `isJest: true`; after a base-branch merge extended ServiceApp's import graph to `webStorageInstance.ts`, the falsy `isJest` made the module construct real IndexedDB-backed WebStorage singletons in Node, and the unhandled rejection killed the worker process.
+**Fix**: The test mock keeps `isJest: true`; platform-file seams (`nativeSyncStorageParts`, `jotaiStorageNativeMMKV`) are mapped to their `.native` implementations via jest `moduleNameMapper` so native-mocked suites construct jest-safe storage.
+**Catchable by**: Section 6: Tests cover happy path AND edge cases (platformEnv mocks must preserve `isJest`); NEW — a platformEnv test mock omitting `isJest` is a systemic hazard worth a lint/setup guard
+
+## Case: Shared stock balance atom loop and stale restore
+**Date**: 2026-09-01 | **Platforms**: iOS, Android, desktop, web, extension
+**Symptom**: Navigating from a stock Market detail page to a Trending/Top Coins token caused `Maximum update depth exceeded` (white screen, OK-61600). After breaking the loop, returning to the retained stock page left trading disabled until its balance changed.
+**Root Cause**: Two retained Market detail screens share `marketSwap`. Each `useSwapStockSelectedBalanceSync` instance wrote the same atom and listed `storedBalance` as an effect dep, so write → rerender → write ping-ponged. Removing that dep stopped the loop, but the retained stock instance no longer republished on return, and an unfocused stock instance could still overwrite the current screen when its fetch completed.
+**Fix**: Keep the functional atom update (skip unchanged values) and publish only while `useRouteIsFocused()` is true, so blur stops overwrites and focus restores the current screen's balance.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: "Not loaded" vs later async updates on a retained screen; NEW — shared context atoms plus retained navigation screens need an active-owner or focus write lock, not only a skip-if-equal setter

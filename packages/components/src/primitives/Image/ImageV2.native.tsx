@@ -149,7 +149,7 @@ export function ImageV2({
     retryTimes.current = 0;
   }, []);
 
-  useResetError(image, hasError, onResetError);
+  useResetError(activeSource ?? null, hasError, onResetError);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {

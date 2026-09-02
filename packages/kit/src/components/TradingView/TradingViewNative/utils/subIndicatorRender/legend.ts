@@ -204,12 +204,14 @@ export function getTradingViewNativeSubIndicatorLegendHitRegions({
   panes,
   pointIndex,
   priceAxisX,
+  timeAxisHeight,
 }: {
   height: number;
   measureTextWidth: (text: string) => number;
   panes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   pointIndex: number;
   priceAxisX: number;
+  timeAxisHeight?: number;
 }): ITradingViewNativeSubIndicatorLegendHitRegion[] {
   'worklet';
 
@@ -220,6 +222,7 @@ export function getTradingViewNativeSubIndicatorLegendHitRegions({
   const stackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
     height,
     paneCount: visiblePaneCount,
+    timeAxisHeight,
   });
   if (stackLayout.height <= 0) {
     return [];

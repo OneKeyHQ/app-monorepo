@@ -13,8 +13,21 @@ export type IModalAddressRiskCheckParamList = {
         networkId?: string;
       }
     | undefined;
-  [EModalAddressRiskCheckRoutes.AddressRiskCheckResult]: {
-    result: IAddressRiskCheckResult;
-  };
+  [EModalAddressRiskCheckRoutes.AddressRiskCheckResult]:
+    | {
+        result: IAddressRiskCheckResult;
+        checkRequest?: never;
+        showMoreAnalysis: boolean;
+        onContinue?: never;
+      }
+    | {
+        result?: never;
+        checkRequest: {
+          networkId: string;
+          address: string;
+        };
+        showMoreAnalysis: false;
+        onContinue: () => void | Promise<void>;
+      };
   [EModalAddressRiskCheckRoutes.AddressRiskCheckHistory]: undefined;
 };

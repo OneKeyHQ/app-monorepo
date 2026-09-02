@@ -464,17 +464,6 @@ export interface IQuoteRoutePath {
   subRoutes?: IQuoteRouteDataInfo[][];
 }
 
-export interface ISwapTokenMetadata {
-  buyToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
-  sellToken: {
-    buyTaxBps: string;
-    sellTaxBps: string;
-  };
-}
-
 export interface IQuoteTip {
   icon?: string;
   title?: string;
@@ -611,6 +600,11 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  // Raw megafuel eligibility kept for the external-wallet promo hint
+  // (OK-61254). The effective sponsor state above is stripped at the estimate
+  // source for external-wallet accounts — they always pay the real fee — but
+  // the review UI still advertises "zero network fee with OneKey wallet".
+  externalSponsorPromoEligible?: boolean;
 }
 export interface ISwapPreSwapData {
   fromToken?: ISwapToken;
@@ -750,12 +744,13 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   orderSupportUrl?: string;
   isAntiMEV?: boolean;
-  tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
+  buyTax?: number;
+  sellTax?: number;
 }
 
 export interface IAllowanceResult {
@@ -1240,6 +1235,7 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
+  unavailable?: boolean;
 }
 
 export interface IFetchUSMarketStatusResult {

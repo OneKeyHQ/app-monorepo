@@ -50,7 +50,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isSamePrimeInfiniNetworkAddress,
+  isValidPrimeInfiniPaymentContract,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentValidationFailure,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
+import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -82,6 +88,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ISignTransactionPrefetchedCredentials,
   ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -327,15 +334,19 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   public async signTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+      },
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+      params.prefetchedCredentials ??
+      (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
-      });
+      }));
     // signTransaction
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -427,11 +438,23 @@ class ServiceSend extends ServiceBase {
       });
 
       let effectiveBroadcastDeadline = broadcastDeadline;
+      let infiniPaymentExpiresAt: number | undefined;
       const ensureBroadcastDeadline = () => {
         if (
           effectiveBroadcastDeadline !== undefined &&
           Date.now() >= effectiveBroadcastDeadline
         ) {
+          if (beforeBroadcastAction?.type === 'primeInfiniPayment') {
+            throw new InvoiceExpiredError({
+              data: {
+                paymentValidationFailure:
+                  infiniPaymentExpiresAt !== undefined &&
+                  Date.now() >= infiniPaymentExpiresAt
+                    ? 'quoteExpired'
+                    : 'quoteValidityTooShort',
+              },
+            });
+          }
           throw new InvoiceExpiredError();
         }
       };
@@ -502,13 +525,27 @@ class ServiceSend extends ServiceBase {
             {
               paymentId: paymentCacheKey.paymentId,
               expectedOneKeyUserId: paymentCacheKey.onekeyUserId,
+              flowContext: beforeBroadcastAction.flowContext,
             },
           );
         const [decodedTx, { payment: latestPayment, purchaseStatusSnapshot }] =
           await Promise.all([decodedTxPromise, preBroadcastSnapshotPromise]);
+        infiniPaymentExpiresAt = latestPayment.expiresAt;
         const action = decodedTx.actions[0];
         const transfer = action?.assetTransfer?.sends[0];
-        const isExpectedSingleTokenTransfer =
+        const isExpectedTransferAsset =
+          isValidPrimeInfiniPaymentContract({
+            chain: latestPayment.chain,
+            networkId,
+            token: latestPayment.token,
+            contractAddress: paymentCacheKey.contractAddress,
+          }) &&
+          typeof transfer?.tokenIdOnNetwork === 'string' &&
+          (paymentCacheKey.contractAddress === ''
+            ? transfer.isNative === true && transfer.tokenIdOnNetwork === ''
+            : transfer.isNative !== true &&
+              Boolean(transfer.tokenIdOnNetwork.trim()));
+        const isExpectedSingleAssetTransfer =
           decodedTx.networkId === networkId &&
           decodedTx.accountId === accountId &&
           isSamePrimeInfiniNetworkAddress({
@@ -526,10 +563,9 @@ class ServiceSend extends ServiceBase {
           Boolean(transfer) &&
           Boolean(transfer?.from.trim()) &&
           Boolean(transfer?.to.trim()) &&
-          Boolean(transfer?.tokenIdOnNetwork.trim()) &&
+          isExpectedTransferAsset &&
           new BigNumber(transfer?.amount ?? '').isFinite() &&
           new BigNumber(transfer?.amount ?? '').gt(0) &&
-          transfer?.isNative !== true &&
           transfer?.isNFT !== true &&
           (!transfer?.networkId || transfer.networkId === networkId) &&
           isSamePrimeInfiniNetworkAddress({
@@ -542,7 +578,7 @@ class ServiceSend extends ServiceBase {
             first: action.assetTransfer?.to ?? '',
             second: transfer?.to ?? '',
           });
-        if (!isExpectedSingleTokenTransfer || !transfer) {
+        if (!isExpectedSingleAssetTransfer || !transfer) {
           throw new OneKeyLocalError({
             message: 'Infini payment transaction cannot be verified',
             autoToast: false,
@@ -557,6 +593,30 @@ class ServiceSend extends ServiceBase {
           contractAddress: transfer.tokenIdOnNetwork,
           amount: transfer.amount,
         };
+        const quoteFailure = getPrimeInfiniPaymentValidationFailure({
+          payment: latestPayment,
+        });
+        if (
+          quoteFailure ||
+          hasUnconfirmedPrimeInfiniPaymentWarnings({
+            payment: latestPayment,
+            confirmedWarningsFingerprint:
+              beforeBroadcastAction.confirmedWarningsFingerprint,
+          })
+        ) {
+          defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+            ...beforeBroadcastAction.flowContext,
+            stage: 'broadcast',
+            status: 'blocked',
+            paymentSource: 'preflightRefresh',
+            paymentId: latestPayment.paymentId,
+            failureReason: quoteFailure ?? 'transferSnapshotChanged',
+            remainingMs: latestPayment.expiresAt - Date.now(),
+          });
+          throw createPrimeInfiniPaymentValidationError(
+            quoteFailure ?? 'transferSnapshotChanged',
+          );
+        }
         ensureBroadcastDeadline();
         if (
           !isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
@@ -567,6 +627,17 @@ class ServiceSend extends ServiceBase {
         ) {
           throw new OneKeyLocalError({
             message: 'Infini payment session is unavailable before broadcast',
+            data:
+              !new BigNumber(transferClaim.amount).eq(
+                latestPayment.amountDue,
+              ) ||
+              !isSamePrimeInfiniNetworkAddress({
+                networkId,
+                first: transferClaim.toAddress,
+                second: latestPayment.address,
+              })
+                ? { paymentValidationFailure: 'transferSnapshotChanged' }
+                : undefined,
             autoToast: false,
           });
         }
@@ -580,6 +651,7 @@ class ServiceSend extends ServiceBase {
               purchaseStatusSnapshot,
             },
           );
+        infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
           effectiveBroadcastDeadline ?? markedSession.payment.expiresAt,
           markedSession.payment.expiresAt,

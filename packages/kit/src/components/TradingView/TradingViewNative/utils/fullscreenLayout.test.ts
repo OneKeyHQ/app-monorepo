@@ -67,6 +67,13 @@ describe('TradingView native fullscreen layout', () => {
         paneCount: 2,
       }),
     ).toBe(144);
+    expect(
+      getTradingViewNativeFullscreenButtonBottom({
+        chartHeight: 300,
+        paneCount: 2,
+        timeAxisHeight: 20,
+      }),
+    ).toBe(140);
   });
 
   it.each([

@@ -21,6 +21,7 @@ const webPreloadConfig: Record<ETabPreloadMode, IPreloadEntry> = {
   [ETabPreloadMode.full]: {
     queue: [
       ETabRoutes.Swap,
+      ETabRoutes.Market,
       ETabRoutes.Discovery,
       ETabRoutes.Perp,
       ETabRoutes.DeviceManagement,

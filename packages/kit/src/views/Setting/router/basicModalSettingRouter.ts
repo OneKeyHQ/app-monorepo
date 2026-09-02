@@ -47,6 +47,10 @@ const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
 );
 
+const SettingDAppConnectionListModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/DAppConnection/pages/ConnectionList'),
+);
+
 const FloatingIconModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
 );
@@ -77,6 +81,11 @@ const DevSesHardenRuntimeCheck = LazyLoadPage(
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
+);
+
+const SniRequestQa = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/SniRequestQa'),
 );
 
 const PerpGallery = LazyLoadPage(
@@ -246,6 +255,11 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: SettingSignatureRecordModal,
   },
   {
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    component: SettingDAppConnectionListModal,
+    rewrite: '/dapp-connections',
+  },
+  {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
     component: FirmwareUpdateDevSettings,
   },
@@ -272,6 +286,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSniRequestQa,
+    component: SniRequestQa,
   },
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,

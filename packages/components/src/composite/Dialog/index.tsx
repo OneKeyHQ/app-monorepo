@@ -150,9 +150,9 @@ export type {
   IDialogShowProps,
 } from './type';
 
-export const FIX_SHEET_PROPS: IYStackProps = {
+export const FIX_SHEET_PROPS = {
   display: 'block',
-};
+} satisfies IYStackProps;
 
 const MAX_CONTENT_WIDTH = 400;
 
@@ -390,7 +390,7 @@ function DialogFrame({
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
-        animation="quick"
+        transition="quick"
         zIndex={zIndex}
         // OK-36893 OK-38624
         // When modal is false, multiple Tamagui sheets may collapse into position:relative
@@ -400,7 +400,7 @@ function DialogFrame({
       >
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={DIALOG_ENTER_STYLE_OPACITY}
           exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -464,7 +464,7 @@ function DialogFrame({
               key="overlay"
               backgroundColor="$bgBackdrop"
               animateOnly={ANIMATE_ONLY_OPACITY}
-              animation="quick"
+              transition="quick"
               forceMount={forceMount || undefined}
               enterStyle={DIALOG_ENTER_STYLE_OPACITY}
               exitStyle={DIALOG_EXIT_STYLE_OPACITY}
@@ -485,7 +485,7 @@ function DialogFrame({
               key="content"
               testID={testID}
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-              animation={DIALOG_CONTENT_ANIMATION}
+              transition={DIALOG_CONTENT_ANIMATION}
               enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               borderRadius="$4"

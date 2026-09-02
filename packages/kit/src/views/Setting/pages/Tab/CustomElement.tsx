@@ -66,6 +66,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ISettingsEntrySurface } from '@onekeyhq/shared/src/logger/scopes/setting';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -85,6 +86,10 @@ import { useOptions } from '../AppAutoLock/useOptions';
 
 import { TabSettingsListItem } from './ListItem';
 import { useOfficialChannels } from './officialChannels';
+import {
+  logSettingValueChanged,
+  maybeLogSettingsSearchResultClick,
+} from './settingsAnalytics';
 import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
 
 export interface ICustomElementProps {
@@ -97,14 +102,37 @@ export interface ICustomElementProps {
   icon?: IKeyOfIcons;
   testID?: string;
   onPress?: () => void;
+  logItemClick?: () => void;
+  analyticsSource?: ISettingsEntrySurface;
 }
 
-export function CurrencyListItem(props: ICustomElementProps) {
+function useLogSearchResultOnSelectOpen({
+  analyticsSource,
+  logItemClick,
+}: Pick<ICustomElementProps, 'analyticsSource' | 'logItemClick'>) {
+  return useCallback(
+    (isOpen: boolean) => {
+      if (isOpen) {
+        maybeLogSettingsSearchResultClick({
+          source: analyticsSource,
+          logItemClick,
+        });
+      }
+    },
+    [analyticsSource, logItemClick],
+  );
+}
+
+export function CurrencyListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
+    logItemClick?.();
     navigation.push(EModalSettingRoutes.SettingCurrencyModal);
-  }, [navigation]);
+  }, [logItemClick, navigation]);
   const [settings] = useSettingsPersistAtom();
   const text = settings.currencyInfo?.id ?? '';
   return (
@@ -124,8 +152,27 @@ export function CurrencyListItem(props: ICustomElementProps) {
   );
 }
 
-export function LanguageListItem(props: ICustomElementProps) {
+export function LanguageListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const { options, value, onChange } = useLanguageSelector();
+  const handleChange = useCallback(
+    (text: string) => {
+      logSettingValueChanged({
+        itemId: 'language',
+        from: String(value),
+        to: text,
+      });
+      void onChange(text);
+    },
+    [onChange, value],
+  );
+  const handleOpenChange = useLogSearchResultOnSelectOpen({
+    analyticsSource,
+    logItemClick,
+  });
   return (
     <Select
       testID="setting-language-list-item-select"
@@ -133,7 +180,8 @@ export function LanguageListItem(props: ICustomElementProps) {
       title={props?.title || ''}
       items={options}
       value={value}
-      onChange={onChange}
+      onChange={handleChange}
+      onOpenChange={handleOpenChange}
       placement="bottom-end"
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
@@ -157,7 +205,11 @@ export function LanguageListItem(props: ICustomElementProps) {
   );
 }
 
-export function ThemeListItem(props: ICustomElementProps) {
+export function ThemeListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ theme }] = useSettingsPersistAtom();
   const { setFreezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const intl = useIntl();
@@ -187,12 +239,21 @@ export function ThemeListItem(props: ICustomElementProps) {
 
   const onChange = useCallback(
     async (text: 'light' | 'dark' | 'system') => {
+      logSettingValueChanged({
+        itemId: 'theme',
+        from: theme,
+        to: text,
+      });
       setFreezeOnBlur(false);
       await backgroundApiProxy.serviceSetting.setTheme(text);
       setFreezeOnBlur(true);
     },
-    [setFreezeOnBlur],
+    [setFreezeOnBlur, theme],
   );
+  const handleOpenChange = useLogSearchResultOnSelectOpen({
+    analyticsSource,
+    logItemClick,
+  });
 
   return (
     <Select
@@ -202,6 +263,7 @@ export function ThemeListItem(props: ICustomElementProps) {
       items={options}
       value={theme}
       onChange={onChange}
+      onOpenChange={handleOpenChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem
@@ -245,18 +307,26 @@ export function BiologyAuthListItem(props: ICustomElementProps) {
   );
 }
 
-export function ClearAppCacheListItem(props: ICustomElementProps) {
+export function ClearAppCacheListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
+    logItemClick?.();
     navigation.push(EModalSettingRoutes.SettingClearAppCache);
-  }, [navigation]);
+  }, [logItemClick, navigation]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
-export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
+export function ClearPendingTransactionsListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const intl = useIntl();
   const onPress = useCallback(() => {
+    logItemClick?.();
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.settings_clear_pending_transactions,
@@ -281,26 +351,34 @@ export function ClearPendingTransactionsListItem(props: ICustomElementProps) {
         });
       },
     });
-  }, [intl]);
+  }, [intl, logItemClick]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
 export function ResetAppListItem(props: ICustomElementProps) {
-  const { iconProps, titleProps, ...restProps } = props;
+  const { iconProps, titleProps, logItemClick, ...restProps } = props;
   const resetApp = useResetApp();
+  const onPress = useCallback(() => {
+    logItemClick?.();
+    void resetApp();
+  }, [logItemClick, resetApp]);
   return (
     <TabSettingsListItem
       {...restProps}
       iconProps={{ ...iconProps, color: '$iconCritical' }}
       titleProps={{ ...titleProps, color: '$textCritical' }}
-      onPress={resetApp}
+      onPress={onPress}
       testID={SettingTestIDs.eraseDataButton}
       drillIn
     />
   );
 }
 
-export function HardwareTransportTypeListItem(props: ICustomElementProps) {
+export function HardwareTransportTypeListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const [devPersist] = useDevSettingsPersistAtom();
 
@@ -355,23 +433,35 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
     }
     return [];
   }, [devPersist?.settings?.usbCommunicationMode]);
-  const onChange = useCallback(async (value: string) => {
-    const newTransportType = value as EHardwareTransportType;
+  const onChange = useCallback(
+    async (value: string) => {
+      logSettingValueChanged({
+        itemId: 'hardware-communication',
+        from: String(hardwareTransportType ?? ''),
+        to: value,
+      });
+      const newTransportType = value as EHardwareTransportType;
 
-    if (platformEnv.isWeb || platformEnv.isExtension) {
-      await backgroundApiProxy.serviceHardware.switchTransport({
-        transportType: newTransportType,
-      });
-      await backgroundApiProxy.serviceSetting.setHardwareTransportType(
-        newTransportType,
-      );
-    } else if (platformEnv.isDesktop) {
-      // Desktop now supports runtime switching without restart
-      await backgroundApiProxy.serviceHardware.switchHardwareTransportType({
-        transportType: newTransportType,
-      });
-    }
-  }, []);
+      if (platformEnv.isWeb || platformEnv.isExtension) {
+        await backgroundApiProxy.serviceHardware.switchTransport({
+          transportType: newTransportType,
+        });
+        await backgroundApiProxy.serviceSetting.setHardwareTransportType(
+          newTransportType,
+        );
+      } else if (platformEnv.isDesktop) {
+        // Desktop now supports runtime switching without restart
+        await backgroundApiProxy.serviceHardware.switchHardwareTransportType({
+          transportType: newTransportType,
+        });
+      }
+    },
+    [hardwareTransportType],
+  );
+  const handleOpenChange = useLogSearchResultOnSelectOpen({
+    analyticsSource,
+    logItemClick,
+  });
 
   return (
     <Select
@@ -381,6 +471,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       items={transportOptions}
       value={hardwareTransportType}
       onChange={onChange}
+      onOpenChange={handleOpenChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <TabSettingsListItem {...props} userSelect="none">
@@ -399,12 +490,17 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 }
 
 export function ListVersionItem(props: ICustomElementProps) {
-  const { iconProps, titleProps } = props;
+  const { iconProps, titleProps, logItemClick } = props;
   const { isMobileLayout } = useSettingsLayout();
   const appUpdateInfo = useAppUpdateInfo();
   const handleToUpdatePreviewPage = useCallback(() => {
+    logItemClick?.();
     appUpdateInfo.toUpdatePreviewPage();
-  }, [appUpdateInfo]);
+  }, [appUpdateInfo, logItemClick]);
+  const handleViewReleaseInfo = useCallback(() => {
+    logItemClick?.();
+    appUpdateInfo.onViewReleaseInfo();
+  }, [appUpdateInfo, logItemClick]);
   const isShowAppUpdateUI = useMemo(() => {
     return isShowAppUpdateUIWhenUpdating({
       updateStrategy: appUpdateInfo.data.updateStrategy,
@@ -429,11 +525,7 @@ export function ListVersionItem(props: ICustomElementProps) {
       />
     </TabSettingsListItem>
   ) : (
-    <TabSettingsListItem
-      {...props}
-      onPress={appUpdateInfo.onViewReleaseInfo}
-      drillIn
-    >
+    <TabSettingsListItem {...props} onPress={handleViewReleaseInfo} drillIn>
       {isMobileLayout ? null : (
         <ListItem.Text
           primaryTextProps={props?.valueTextProps ?? props?.titleProps}
@@ -445,13 +537,17 @@ export function ListVersionItem(props: ICustomElementProps) {
   );
 }
 
-export function AutoLockListItem(props: ICustomElementProps) {
+export function AutoLockListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
+    logItemClick?.();
     navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
-  }, [navigation]);
+  }, [logItemClick, navigation]);
   const options = useOptions();
   const text = useMemo(() => {
     const option = options.find(
@@ -470,7 +566,10 @@ export function AutoLockListItem(props: ICustomElementProps) {
   ) : null;
 }
 
-export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
+export function ChangeOrSetPasswordListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
 
@@ -479,6 +578,7 @@ export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
   }, []);
 
   const onPress = useCallback(async () => {
+    logItemClick?.();
     if (isPasswordSet) {
       const oldEncodedPassword =
         await backgroundApiProxy.servicePassword.promptPasswordVerify({
@@ -503,7 +603,7 @@ export function ChangeOrSetPasswordListItem(props: ICustomElementProps) {
     } else {
       void backgroundApiProxy.servicePassword.promptPasswordVerify();
     }
-  }, [intl, isPasswordSet]);
+  }, [intl, isPasswordSet, logItemClick]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
@@ -791,14 +891,25 @@ export function SocialButtonGroup() {
   );
 }
 
-export function DesktopBluetoothListItem(props: ICustomElementProps) {
+export function DesktopBluetoothListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
-  const toggleBluetooth = useCallback(async (value: boolean) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
-      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
-    });
-  }, []);
+  const toggleBluetooth = useCallback(
+    async (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+        defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+      });
+    },
+    [analyticsSource, logItemClick],
+  );
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
@@ -811,19 +922,35 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   );
 }
 
-export function MenuBarTrayListItem(props: ICustomElementProps) {
+export function MenuBarTrayListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ enableMenuBarTray }] = useSettingsPersistAtom();
   // Fall back to true so migrated users (persisted atom lacks this field)
   // match the main-process default of tray-enabled.
   const isEnabled = enableMenuBarTray ?? true;
-  const toggleMenuBarTray = useCallback(async (value: boolean) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
-      if (platformEnv.isDesktopMac) {
-        globalThis.desktopApi?.toggleTray(value);
-      }
-    });
-  }, []);
+  const toggleMenuBarTray = useCallback(
+    async (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'menu-bar-tray',
+        from: String(isEnabled),
+        to: String(value),
+      });
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+        if (platformEnv.isDesktopMac) {
+          globalThis.desktopApi?.toggleTray(value);
+        }
+      });
+    },
+    [analyticsSource, isEnabled, logItemClick],
+  );
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
@@ -836,13 +963,29 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
   );
 }
 
-export function HapticFeedbackListItem(props: ICustomElementProps) {
+export function HapticFeedbackListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ hapticFeedbackEnabled }] = useSettingsPersistAtom();
-  const toggleHapticFeedback = useCallback((value: boolean) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
-    });
-  }, []);
+  const toggleHapticFeedback = useCallback(
+    (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'haptic-feedback',
+        from: String(hapticFeedbackEnabled ?? true),
+        to: String(value),
+      });
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setHapticFeedbackEnabled(value);
+      });
+    },
+    [analyticsSource, hapticFeedbackEnabled, logItemClick],
+  );
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
@@ -855,16 +998,27 @@ export function HapticFeedbackListItem(props: ICustomElementProps) {
   );
 }
 
-export function BTCFreshAddressListItem(props: ICustomElementProps) {
+export function BTCFreshAddressListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
-  const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
-      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
-        enabled: value,
+  const toggleBTCFreshAddress = useCallback(
+    async (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
       });
-    });
-  }, []);
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+        defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+          enabled: value,
+        });
+      });
+    },
+    [analyticsSource, logItemClick],
+  );
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <YStack alignSelf="stretch" justifyContent="center">
@@ -879,13 +1033,29 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   );
 }
 
-export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
+export function UseGasAccountByDefaultListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ useGasAccountByDefault }] = useSettingsPersistAtom();
-  const toggleUseGasAccountByDefault = useCallback(async (value: boolean) => {
-    startViewTransition(() => {
-      void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
-    });
-  }, []);
+  const toggleUseGasAccountByDefault = useCallback(
+    async (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'gas-account',
+        from: String(useGasAccountByDefault ?? true),
+        to: String(value),
+      });
+      startViewTransition(() => {
+        void backgroundApiProxy.serviceSetting.setUseGasAccountByDefault(value);
+      });
+    },
+    [analyticsSource, logItemClick, useGasAccountByDefault],
+  );
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <YStack alignSelf="stretch" justifyContent="center">
@@ -900,12 +1070,25 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   );
 }
 
-export function SplitViewListItem(props: ICustomElementProps) {
+export function SplitViewListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
   const [{ enableSplitView }] = useSettingsPersistAtom();
   const checked = enableSplitView !== false;
   const toggleSplitView = useCallback(
     async (value: boolean) => {
       if (value === checked) return;
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'split-view',
+        from: String(checked),
+        to: String(value),
+      });
       await backgroundApiProxy.serviceSetting.setEnableSplitView(value);
       // Layout swap requires a fresh app boot; small delay lets the Switch
       // animate before the native restart kicks in.
@@ -913,7 +1096,7 @@ export function SplitViewListItem(props: ICustomElementProps) {
         void backgroundApiProxy.serviceApp.restartApp();
       }, 200);
     },
-    [checked],
+    [analyticsSource, checked, logItemClick],
   );
   return (
     <TabSettingsListItem {...props} userSelect="none">
@@ -929,11 +1112,15 @@ export function SplitViewListItem(props: ICustomElementProps) {
   );
 }
 
-export function ResetPinListItem(props: ICustomElementProps) {
+export function ResetPinListItem({
+  logItemClick,
+  ...props
+}: ICustomElementProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
 
   const onPress = useCallback(async () => {
+    logItemClick?.();
     try {
       // Always verify password before proceeding to reset PIN (Security reason forces re-entry)
       await backgroundApiProxy.servicePassword.promptPasswordVerify({
@@ -963,7 +1150,7 @@ export function ResetPinListItem(props: ICustomElementProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [goToOneKeyIDLoginPageForKeylessWallet]);
+  }, [goToOneKeyIDLoginPageForKeylessWallet, logItemClick]);
 
   return (
     <TabSettingsListItem

@@ -13,6 +13,7 @@
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A02F08000000E00001 /* RecoveryViewController.swift */; };
 		07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */; };
+		07B1C3A52F08000000E00003 /* OneKeyNativeStorageMigration.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */; };
 		0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
@@ -74,6 +75,7 @@
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
 		07B1C3A02F08000000E00001 /* RecoveryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecoveryViewController.swift; path = OneKeyWallet/RecoveryViewController.swift; sourceTree = "<group>"; };
 		07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BootRecoveryKeys.swift; path = OneKeyWallet/BootRecoveryKeys.swift; sourceTree = "<group>"; };
+		07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyNativeStorageMigration.m; path = OneKeyWallet/OneKeyNativeStorageMigration.m; sourceTree = "<group>"; };
 		0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Regular.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
@@ -166,6 +168,7 @@
 				2DAB62C802804CA1BF90BB10 /* noop-file.swift */,
 				07B1C3A02F08000000E00001 /* RecoveryViewController.swift */,
 				07B1C3A22F08000000E00002 /* BootRecoveryKeys.swift */,
+				07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */,
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 				B443EFD976C5A3FE30F5AF8C /* Fonts */,
@@ -419,15 +422,19 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeLiteCard/GPChannelSDKCore.framework/GPChannelSDKCore",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GPChannelSDKCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -496,8 +503,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# --- Union build: run build-bundle.js instead of standard Metro ---\n# When UNION_BUILD=true, skip the default single-entry Metro bundling\n# and run the union build which produces common + main + background\n# bundles in a single process with shared module IDs.\nif [[ \"$UNION_BUILD\" = \"true\" && \"$SKIP_BUNDLING\" != \"1\" ]]; then\n  # Fail fast: without this, a silent build-bundle.js failure lets the cps\n  # below fail and still exit 0, shipping a JS-less IPA.\n  set -euo pipefail\n  echo \"[UnionBuild] Running union build (UNION_BUILD=true)...\"\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  cd \"$PROJECT_ROOT\"\n  SENTRY_DISABLE_AUTO_UPLOAD=true NODE_ENV=production \"$NODE_BINARY\" --max-old-space-size=8192 build-bundle.js --platform ios\n  UNION_OUT=\"$PROJECT_ROOT/out-dir-bundle/ios/dist\"\n  for required in \"$UNION_OUT/common.bundle\" \"$UNION_OUT/main.jsbundle.hbc\" \"$UNION_OUT/background.bundle\"; do\n    if [[ ! -f \"$required\" ]]; then\n      echo \"[UnionBuild][FATAL] Required bundle missing: $required\" >&2\n      echo \"[UnionBuild][FATAL] build-bundle.js did not produce expected union outputs; refusing to ship an IPA without JS.\" >&2\n      exit 1\n    fi\n  done\n  cp \"$UNION_OUT/common.bundle\" \"$DEST/common.bundle\"\n  echo \"[UnionBuild] Copied common.bundle\"\n  cp \"$UNION_OUT/main.jsbundle.hbc\" \"$DEST/main.jsbundle\"\n  echo \"[UnionBuild] Copied main.jsbundle\"\n  cp \"$UNION_OUT/background.bundle\" \"$DEST/background.bundle\"\n  echo \"[UnionBuild] Copied background.bundle\"\n  if [[ -d \"$UNION_OUT/segments\" ]]; then\n    cp -R \"$UNION_OUT/segments\" \"$DEST/segments\"\n    echo \"[UnionBuild] Copied segments/\"\n  fi\n  if [[ -d \"$UNION_OUT/segments-background\" ]]; then\n    cp -R \"$UNION_OUT/segments-background\" \"$DEST/segments-background\"\n    echo \"[UnionBuild] Copied segments-background/\"\n  fi\n  if [[ -f \"$UNION_OUT/module-id-map.json\" ]]; then\n    cp \"$UNION_OUT/module-id-map.json\" \"$DEST/module-id-map.json\"\n    echo \"[UnionBuild] Copied module-id-map.json\"\n  fi\n  if [[ -d \"$UNION_OUT/assets\" ]]; then\n    rm -rf \"$DEST/assets\"\n    cp -R \"$UNION_OUT/assets\" \"$DEST/assets\"\n    echo \"[UnionBuild] Copied assets/\"\n  fi\n  echo \"[UnionBuild] Union build complete.\"\n  exit 0\nfi\n\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
+			shellPath = /bin/bash;
+			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios relative | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# --- Dev-vendor debug common HBC ---\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  DEV_VENDOR_COMMON_DEST=\"$DEST/onekey-dev-vendor-common.hbc\"\n  DEV_VENDOR_MANIFEST_DEST=\"$DEST/onekey-dev-vendor-manifest.json\"\n  rm -f \"$DEV_VENDOR_COMMON_DEST\" \"$DEV_VENDOR_MANIFEST_DEST\"\n  if [[ \"$ONEKEY_DEV_VENDOR\" = \"true\" ]]; then\n    cd \"$PROJECT_ROOT\"\n    if ! \"$NODE_BINARY\" scripts/build-dev-vendor.js --check --platform ios; then\n      echo \"[DevVendor][FATAL] iOS common HBC check failed; rebuild the iOS cache.\" >&2\n      exit 1\n    fi\n    DEV_VENDOR_OUT=\"$PROJECT_ROOT/out-dir-bundle/dev-vendor/ios\"\n    if [[ ! -f \"$DEV_VENDOR_OUT/common.hbc\" || ! -f \"$DEV_VENDOR_OUT/manifest.json\" ]]; then\n      echo \"[DevVendor][FATAL] Validated iOS artifacts are missing\" >&2\n      exit 1\n    fi\n    cp \"$DEV_VENDOR_OUT/common.hbc\" \"$DEV_VENDOR_COMMON_DEST\"\n    cp \"$DEV_VENDOR_OUT/manifest.json\" \"$DEV_VENDOR_MANIFEST_DEST\"\n    echo \"[DevVendor] Embedded iOS common HBC + manifest\"\n  fi\nfi\n\n# --- Union build: run build-bundle.js instead of standard Metro ---\n# When UNION_BUILD=true, skip the default single-entry Metro bundling\n# and run the union build which produces common + main + background\n# bundles in a single process with shared module IDs.\nif [[ \"$UNION_BUILD\" = \"true\" && \"$SKIP_BUNDLING\" != \"1\" ]]; then\n  # Fail fast: without this, a silent build-bundle.js failure lets the cps\n  # below fail and still exit 0, shipping a JS-less IPA.\n  set -euo pipefail\n  echo \"[UnionBuild] Running union build (UNION_BUILD=true)...\"\n  DEST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  cd \"$PROJECT_ROOT\"\n  SENTRY_DISABLE_AUTO_UPLOAD=true NODE_ENV=production \"$NODE_BINARY\" --max-old-space-size=8192 build-bundle.js --platform ios\n  UNION_OUT=\"$PROJECT_ROOT/out-dir-bundle/ios/dist\"\n  for required in \"$UNION_OUT/common.bundle\" \"$UNION_OUT/main.jsbundle.hbc\" \"$UNION_OUT/background.bundle\"; do\n    if [[ ! -f \"$required\" ]]; then\n      echo \"[UnionBuild][FATAL] Required bundle missing: $required\" >&2\n      echo \"[UnionBuild][FATAL] build-bundle.js did not produce expected union outputs; refusing to ship an IPA without JS.\" >&2\n      exit 1\n    fi\n  done\n  cp \"$UNION_OUT/common.bundle\" \"$DEST/common.bundle\"\n  echo \"[UnionBuild] Copied common.bundle\"\n  cp \"$UNION_OUT/main.jsbundle.hbc\" \"$DEST/main.jsbundle\"\n  echo \"[UnionBuild] Copied main.jsbundle\"\n  cp \"$UNION_OUT/background.bundle\" \"$DEST/background.bundle\"\n  echo \"[UnionBuild] Copied background.bundle\"\n  if [[ -d \"$UNION_OUT/segments\" ]]; then\n    cp -R \"$UNION_OUT/segments\" \"$DEST/segments\"\n    echo \"[UnionBuild] Copied segments/\"\n  fi\n  if [[ -d \"$UNION_OUT/segments-background\" ]]; then\n    cp -R \"$UNION_OUT/segments-background\" \"$DEST/segments-background\"\n    echo \"[UnionBuild] Copied segments-background/\"\n  fi\n  if [[ -f \"$UNION_OUT/module-id-map.json\" ]]; then\n    cp \"$UNION_OUT/module-id-map.json\" \"$DEST/module-id-map.json\"\n    echo \"[UnionBuild] Copied module-id-map.json\"\n  fi\n  if [[ -d \"$UNION_OUT/assets\" ]]; then\n    rm -rf \"$DEST/assets\"\n    cp -R \"$UNION_OUT/assets\" \"$DEST/assets\"\n    echo \"[UnionBuild] Copied assets/\"\n  fi\n  echo \"[UnionBuild] Union build complete.\"\n  exit 0\nfi\n\nSENTRY_XCODE_SCRIPT=\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\")\"\nREACT_NATIVE_XCODE_SCRIPT=\"$(\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\")\"\nif [[ \"$SENTRY_DISABLE_AUTO_UPLOAD\" = \"true\" ]]; then\n  /bin/sh \"$REACT_NATIVE_XCODE_SCRIPT\"\nelse\n  /bin/sh \"$SENTRY_XCODE_SCRIPT\" \"$REACT_NATIVE_XCODE_SCRIPT\"\nfi\n\n";
 		};
 		EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -511,24 +518,25 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoLocalization/ExpoLocalization_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoNotifications/ExpoNotifications_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/GTMAppAuth/GTMAppAuth_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleSignIn/GoogleSignIn.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/MMKV/MMKV_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/RNImageCropPickerPrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNImageCropPicker/QBImagePicker.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNPermissions/RNPermissionsPrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ReactNativeFs/RNFS_PrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RealmJS/RealmJS.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
@@ -536,10 +544,9 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/SSZipArchive/SSZipArchive.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/Sentry/Sentry.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/TOCropViewController/TOCropViewControllerBundle.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-ios/LottiePrivacyInfo.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/lottie-react-native/Lottie_React_Native_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/react-native-view-shot/RNViewShotPrivacyInfo.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
@@ -548,24 +555,25 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoLocalization_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GTMAppAuth_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GTMSessionFetcher_Core_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleSignIn.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleUtilities_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/MMKV_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FBLPromises_Privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNImageCropPickerPrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/QBImagePicker.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNPermissionsPrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNFS_PrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RealmJS.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
@@ -573,10 +581,9 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SSZipArchive.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Sentry.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/TOCropViewControllerBundle.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LottiePrivacyInfo.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Lottie_React_Native_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNViewShotPrivacyInfo.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -616,6 +623,7 @@
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				07B1C3A12F08000000E00001 /* RecoveryViewController.swift in Sources */,
 				07B1C3A32F08000000E00002 /* BootRecoveryKeys.swift in Sources */,
+				07B1C3A52F08000000E00003 /* OneKeyNativeStorageMigration.m in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);
@@ -690,7 +698,7 @@
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -729,7 +737,7 @@
 				ENABLE_NATIVE_BACKGROUND_THREAD = true;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -803,6 +811,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PODS_ROOT)/Headers/Public/RCTDeprecation",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers/react/nativemodule/core",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon-Samples/ReactCommon_Samples.framework/Headers",
@@ -814,7 +823,7 @@
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers/platform/ios",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -822,12 +831,19 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "$(inherited)";
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					" ",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -882,6 +898,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PODS_ROOT)/Headers/Public/RCTDeprecation",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon/ReactCommon.framework/Headers/react/nativemodule/core",
 					"${PODS_CONFIGURATION_BUILD_DIR}/ReactCommon-Samples/ReactCommon_Samples.framework/Headers",
@@ -893,19 +910,26 @@
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers",
 					"${PODS_CONFIGURATION_BUILD_DIR}/React-runtimeexecutor/React_runtimeexecutor.framework/Headers/platform/ios",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "$(inherited)";
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					" ",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
@@ -939,7 +963,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD = clang;
 				LDPLUSPLUS = "clang++";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -984,7 +1008,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD = clang;
 				LDPLUSPLUS = "clang++";
 				LD_RUNPATH_SEARCH_PATHS = (

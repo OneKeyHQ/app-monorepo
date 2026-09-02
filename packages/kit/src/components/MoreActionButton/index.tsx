@@ -45,7 +45,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
-  useFirmwareUpdatesDetectStatusPersistAtom,
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -83,9 +82,11 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
+import { useFirmwareUpdateDetectStatus } from '../../views/FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
+import { logSettingCategoryOpened } from '../../views/Setting/pages/Tab/settingsAnalytics';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import {
   isShowAppUpdateUIWhenUpdating,
@@ -106,6 +107,12 @@ const LazyHomeFirmwareUpdateReminder = lazy(async () => {
   const { HomeFirmwareUpdateReminder } =
     await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder');
   return { default: HomeFirmwareUpdateReminder };
+});
+
+const LazyHomeFirmwareUpdateDetect = lazy(async () => {
+  const { HomeFirmwareUpdateDetect } =
+    await import('../../views/FirmwareUpdate/components/HomeFirmwareUpdateDetect');
+  return { default: HomeFirmwareUpdateDetect };
 });
 
 const LazyPrimeUserBadge = lazy(async () => {
@@ -384,6 +391,10 @@ function MoreActionAboutCard({
   const handleAbout = useCallback(async () => {
     defaultLogger.ui.button.click({
       trackId: 'wallet-about',
+    });
+    logSettingCategoryOpened({
+      category: ESettingsTabNames.About,
+      source: 'moreActions',
     });
     await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -799,26 +810,7 @@ const useIsShowRedDot = () => {
 const useIsNeedUpgradeFirmware = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
-  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
-  const { result } = usePromiseResult(async () => {
-    if (!connectId) return undefined;
-    const detectResult = detectStatus?.[connectId];
-    const shouldUpdate =
-      detectResult?.connectId === connectId && detectResult?.hasUpgrade;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const detectInfo =
-      await backgroundApiProxy.serviceFirmwareUpdate.getFirmwareUpdateDetectInfo(
-        {
-          connectId,
-        },
-      );
-    return {
-      shouldUpdate,
-      detectResult,
-    };
-  }, [connectId, detectStatus]);
-
-  return result?.shouldUpdate;
+  return useFirmwareUpdateDetectStatus(connectId)?.hasUpgrade;
 };
 
 const useIsShowWalletXfpStatus = () => {
@@ -1063,47 +1055,27 @@ const MoreActionWalletGrid = () => {
   const navigation = useAppNavigation();
   const navigateToBulkSend = useNavigateToBulkSend();
   const showBulkSendModeDialog = useBulkSendModeDialog();
-  const handleBackup = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Backup,
-      },
-    });
-  }, [navigation]);
+  const openSettingsCategory = useCallback(
+    (category: ESettingsTabNames) => {
+      logSettingCategoryOpened({
+        category,
+        source: 'moreActions',
+      });
+      navigation.pushModal(EModalRoutes.SettingModal, {
+        screen: EModalSettingRoutes.SettingListSubModal,
+        params: {
+          name: category,
+        },
+      });
+    },
+    [navigation],
+  );
   const onPressAddressBook = useShowAddressBook({
     useNewModal: true,
   });
   const handleAddressBook = useCallback(() => {
     void onPressAddressBook(navigation);
   }, [onPressAddressBook, navigation]);
-
-  const handleNetwork = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Network,
-      },
-    });
-  }, [navigation]);
-
-  const handleSecurity = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Security,
-      },
-    });
-  }, [navigation]);
-
-  const handlePreferences = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.Preferences,
-      },
-    });
-  }, [navigation]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
@@ -1186,7 +1158,7 @@ const MoreActionWalletGrid = () => {
         : {
             title: intl.formatMessage({ id: ETranslations.global_backup }),
             icon: 'CloudUploadOutline' as const,
-            onPress: handleBackup,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Backup),
             trackID: 'wallet-backup',
           },
       platformEnv.isWebDappMode
@@ -1204,13 +1176,13 @@ const MoreActionWalletGrid = () => {
         : {
             title: intl.formatMessage({ id: ETranslations.global_network }),
             icon: 'GlobusOutline' as const,
-            onPress: handleNetwork,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Network),
             trackID: 'wallet-network',
           },
       {
         title: intl.formatMessage({ id: ETranslations.global_preferences }),
         icon: 'SliderThreeOutline' as const,
-        onPress: handlePreferences,
+        onPress: () => openSettingsCategory(ESettingsTabNames.Preferences),
         trackID: 'wallet-preferences',
       },
       platformEnv.isWebDappMode
@@ -1218,7 +1190,7 @@ const MoreActionWalletGrid = () => {
         : {
             title: intl.formatMessage({ id: ETranslations.global_security }),
             icon: 'Shield2CheckOutline' as const,
-            onPress: handleSecurity,
+            onPress: () => openSettingsCategory(ESettingsTabNames.Security),
             trackID: 'wallet-security',
           },
       platformEnv.isWebDappMode
@@ -1284,11 +1256,8 @@ const MoreActionWalletGrid = () => {
     ].filter(Boolean);
   }, [
     handleAddressBook,
-    handleBackup,
-    handleNetwork,
-    handlePreferences,
-    handleSecurity,
     intl,
+    openSettingsCategory,
     isPrimeActive,
     isPrimeUser,
     openBulkCopyAddressesModule,
@@ -1628,11 +1597,17 @@ function MoreActionContent({
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
-    rootNavigationRef.current?.addListener('__unsafe_action__', ({ data }) => {
-      if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
-        void closePopover?.();
-      }
-    });
+    const unsubscribe = rootNavigationRef.current?.addListener(
+      '__unsafe_action__',
+      ({ data }) => {
+        if (NAVIGATION_ACTION_TYPES.has(data.action.type)) {
+          void closePopover?.();
+        }
+      },
+    );
+    return () => {
+      unsubscribe?.();
+    };
   }, [closePopover]);
   return (
     <MoreActionProvider>
@@ -1691,11 +1666,7 @@ function Dot({
   );
 }
 
-function MoreButtonWithDot({
-  onPress: _onPress,
-}: {
-  onPress?: IButtonProps['onPress'];
-}) {
+function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
@@ -1747,7 +1718,12 @@ function MoreButtonWithDot({
 
   if (isDesktopMode) {
     return (
-      <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
+      <YStack
+        p="$2"
+        borderRadius="$2"
+        hoverStyle={{ bg: '$bgHover' }}
+        onPress={onPress}
+      >
         <Stack position="relative">
           <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
@@ -1779,6 +1755,7 @@ function MoreActionButtonCmp() {
 
   const trigger = (
     <Tooltip
+      triggerAsChild
       placement={platformEnv.isWebDappMode || media.md ? 'bottom' : 'right'}
       renderTrigger={<MoreButtonWithDot />}
       renderContent={intl.formatMessage({
@@ -1812,6 +1789,11 @@ function MoreActionButtonCmp() {
 export function MoreActionButton() {
   return (
     <MoreActionProvider>
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <LazyHomeFirmwareUpdateDetect />
+        </Suspense>
+      )}
       <MoreActionButtonCmp />
     </MoreActionProvider>
   );

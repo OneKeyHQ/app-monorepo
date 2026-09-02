@@ -66,6 +66,41 @@ function createTradingViewNativeSkiaFont({
   return Skia.Font(typeface, fontSize);
 }
 
+function createTradingViewNativeSkiaFontFromSystemFamilies({
+  fontFamily,
+  fontManager,
+  fontSize,
+  primaryFont,
+  requiredText,
+}: {
+  fontFamily: string;
+  fontManager: SkFontMgr;
+  fontSize: number;
+  primaryFont: SkFont;
+  requiredText: string;
+}): SkFont {
+  const systemFontFamilyCount = fontManager.countFamilies();
+  for (let index = 0; index < systemFontFamilyCount; index += 1) {
+    const fallbackFontFamily = fontManager.getFamilyName(index);
+    if (fallbackFontFamily && fallbackFontFamily !== fontFamily) {
+      const fallbackFont = createTradingViewNativeSkiaFont({
+        fontFamily: fallbackFontFamily,
+        fontManager,
+        fontSize,
+      });
+      if (
+        doesTradingViewNativeSkiaFontSupportText(fallbackFont, requiredText)
+      ) {
+        primaryFont.dispose();
+        return fallbackFont;
+      }
+      fallbackFont.dispose();
+    }
+  }
+
+  return primaryFont;
+}
+
 export function createTradingViewNativeSkiaFontForText({
   fontFamily,
   fontSize,
@@ -90,6 +125,17 @@ export function createTradingViewNativeSkiaFontForText({
   );
   if (missingCharacters.length === 0) {
     return primaryFont;
+  }
+
+  // Older native binaries do not include OneKey's locale-aware Skia JSI API.
+  if (typeof fontManager.matchFamilyStyleCharacter !== 'function') {
+    return createTradingViewNativeSkiaFontFromSystemFamilies({
+      fontFamily,
+      fontManager,
+      fontSize,
+      primaryFont,
+      requiredText,
+    });
   }
 
   const checkedCodePoints = new Set<number>();

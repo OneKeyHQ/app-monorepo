@@ -31,15 +31,21 @@ const PRICE_SCALE_CONTROLS_TOUCH_VISIBLE_DURATION = 3000;
 function getTradingViewNativeMainPriceAxisLayoutForPanes({
   height,
   subIndicatorPanes,
+  timeAxisHeight,
 }: {
   height: number;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  timeAxisHeight: number;
 }) {
   'worklet';
 
   const paneCount =
     getTradingViewNativeVisibleSubIndicatorPaneCount(subIndicatorPanes);
-  return getTradingViewNativeMainPriceAxisLayout({ height, paneCount });
+  return getTradingViewNativeMainPriceAxisLayout({
+    height,
+    paneCount,
+    timeAxisHeight,
+  });
 }
 
 function getRuntimeWithCrosshairHidden(
@@ -64,6 +70,7 @@ export function useTradingViewNativePriceScale({
   isLogScaleAvailable,
   priceAxisWidth,
   subIndicatorPanes,
+  timeAxisHeight,
 }: {
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   chartSize: ITradingViewNativeChartSize;
@@ -73,6 +80,7 @@ export function useTradingViewNativePriceScale({
   isLogScaleAvailable: boolean;
   priceAxisWidth: SharedValue<number>;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  timeAxisHeight: number;
 }) {
   const [isAutoScale, setIsAutoScale] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
@@ -187,6 +195,7 @@ export function useTradingViewNativePriceScale({
         height: runtime.size.height,
         paneCount,
         priceAxisWidth: priceAxisWidth.value,
+        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -244,6 +253,7 @@ export function useTradingViewNativePriceScale({
             chartHeight: getTradingViewNativeMainPriceAxisLayoutForPanes({
               height: runtime.size.height,
               subIndicatorPanes: runtime.subIndicatorPanes,
+              timeAxisHeight,
             }).height,
             startScale: runtime.priceRangeScale,
             startY: event.y,
@@ -272,6 +282,7 @@ export function useTradingViewNativePriceScale({
     handleAutoScaleStateChange,
     isEnabled,
     priceAxisWidth,
+    timeAxisHeight,
   ]);
 
   const priceAxisControlWidth = Math.max(
@@ -283,8 +294,9 @@ export function useTradingViewNativePriceScale({
       getTradingViewNativeMainPriceAxisLayoutForPanes({
         height: chartSize.height,
         subIndicatorPanes,
+        timeAxisHeight,
       }),
-    [chartSize.height, subIndicatorPanes],
+    [chartSize.height, subIndicatorPanes, timeAxisHeight],
   );
   const isPriceAxisPointer = useCallback(
     ({ x, y }: { x: number; y: number }) =>
@@ -293,6 +305,7 @@ export function useTradingViewNativePriceScale({
         paneCount:
           getTradingViewNativeVisibleSubIndicatorPaneCount(subIndicatorPanes),
         priceAxisWidth: priceAxisControlWidth,
+        timeAxisHeight,
         width: chartSize.width,
         x,
         y,
@@ -302,6 +315,7 @@ export function useTradingViewNativePriceScale({
       chartSize.width,
       priceAxisControlWidth,
       subIndicatorPanes,
+      timeAxisHeight,
     ],
   );
   const updateHovered = useCallback((nextIsHovered: boolean) => {
