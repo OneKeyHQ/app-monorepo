@@ -8,10 +8,17 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketStockColumns } from './useMarketStockColumns';
 
+// Mirrors the en_US values of the keys this suite asserts on; every other key
+// falls through as its own id.
+const MOCK_MESSAGES: Record<string, string> = {
+  'global.price': 'Price',
+  'market.stock_price_underlying_tooltip':
+    'The displayed price is the underlying stock price.',
+};
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) =>
-      id === 'global.price' ? 'Price' : id,
+    formatMessage: ({ id }: { id: string }) => MOCK_MESSAGES[id] ?? id,
   }),
 }));
 

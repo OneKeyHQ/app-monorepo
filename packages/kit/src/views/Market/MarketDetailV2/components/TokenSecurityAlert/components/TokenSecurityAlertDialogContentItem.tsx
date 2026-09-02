@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   SizableText,
@@ -6,6 +8,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
@@ -39,6 +42,7 @@ type ITokenSecurityAlertDialogContentItemProps = {
 function TokenSecurityAlertDialogContentItem({
   item,
 }: ITokenSecurityAlertDialogContentItemProps) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
 
   const isLongString = (value: string | number | boolean | undefined) => {
@@ -55,7 +59,11 @@ function TokenSecurityAlertDialogContentItem({
     }
 
     if (typeof value === 'boolean') {
-      return value ? 'Yes' : 'No';
+      return intl.formatMessage({
+        id: value
+          ? ETranslations.perp_yes__title
+          : ETranslations.perp_no__title,
+      });
     }
 
     return value;

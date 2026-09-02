@@ -1,7 +1,8 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
 import type { IMarketStockAnalystRatings } from '@onekeyhq/shared/types/marketV2';
 
 import {
-  STOCK_ABOUT_IPO_DATE_LABEL,
   formatDirectPercentValue,
   getStockAnalystConsensus,
 } from './stockPublicDataUtils';
@@ -23,8 +24,11 @@ describe('stockPublicDataUtils', () => {
     expect(getStockAnalystConsensus(ratings)).toBe('--');
   });
 
-  it('labels ipoDate as IPO Date instead of Founded', () => {
-    expect(STOCK_ABOUT_IPO_DATE_LABEL).toBe('IPO Date');
-    expect(STOCK_ABOUT_IPO_DATE_LABEL).not.toBe('Founded');
+  it('labels ipoDate as IPO date instead of Founded', () => {
+    const label = (enUS as Record<string, string>)[
+      ETranslations.market_stock_about_ipo_date
+    ];
+    expect(label).toBe('IPO date');
+    expect(label).not.toBe('Founded');
   });
 });

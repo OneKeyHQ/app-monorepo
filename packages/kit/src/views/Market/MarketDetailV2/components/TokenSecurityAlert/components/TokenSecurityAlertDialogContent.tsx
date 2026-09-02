@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   Icon,
@@ -7,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenSecurityData } from '@onekeyhq/shared/types/marketV2';
 
 import { formatSecurityData } from '../utils';
@@ -26,6 +29,7 @@ function TokenSecurityAlertDialogContent({
   riskCount,
   cautionCount,
 }: ITokenSecurityAlertDialogContentProps) {
+  const intl = useIntl();
   const formattedData = formatSecurityData(securityData);
 
   return (
@@ -55,7 +59,9 @@ function TokenSecurityAlertDialogContent({
             <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
 
             <SizableText color="$textSuccess">
-              No security issues detected
+              {intl.formatMessage({
+                id: ETranslations.market_security_no_issues,
+              })}
             </SizableText>
           </XStack>
         ) : null}

@@ -390,7 +390,10 @@ export function StockTokenVariantSelector({
                 color="$textSubdued"
                 numberOfLines={1}
               >
-                {`Issued by ${getIssuerLabel(selectedTokenVariant.issuer)}`}
+                {intl.formatMessage(
+                  { id: ETranslations.market_issued_by },
+                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                )}
               </SizableText>
             </YStack>
             <Icon

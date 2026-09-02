@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import Svg, {
   Circle,
   Defs,
@@ -12,12 +13,12 @@ import Svg, {
 import { SizableText, Stack, YStack, useTheme } from '@onekeyhq/components';
 import type { IMarketStockAnalystRatings } from '@onekeyhq/shared/types/marketV2';
 
-import { getStockAnalystConsensus } from '../../utils/stockPublicDataUtils';
+import { formatStockAnalystConsensus } from '../../utils/stockPublicDataUtils';
 
 import {
   STOCK_ANALYST_GAUGE_END_ANGLE,
   STOCK_ANALYST_GAUGE_START_ANGLE,
-  STOCK_ANALYST_GAUGE_ZONE_LABELS,
+  STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS,
   describeStockAnalystGaugeArc,
   getStockAnalystGaugeAngle,
   getStockAnalystGaugeScore,
@@ -132,6 +133,7 @@ export function StockAnalystGauge({
   ratings,
   ratingCounts,
 }: IStockAnalystGaugeProps) {
+  const intl = useIntl();
   const theme = useTheme();
   // SVG gradient ids share one namespace per document on web, so the id has to
   // stay unique per instance. `useId` returns colon separated ids that url(#)
@@ -275,11 +277,11 @@ export function StockAnalystGauge({
             fill={theme.text.val}
           />
         </Svg>
-        {STOCK_ANALYST_GAUGE_ZONE_LABELS.map((label, index) => {
+        {STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.map((labelId, index) => {
           const layout = ZONE_LABEL_LAYOUT[index];
           return (
             <Stack
-              key={label}
+              key={labelId}
               position="absolute"
               left={layout.left}
               top={layout.top}
@@ -292,7 +294,7 @@ export function StockAnalystGauge({
                 numberOfLines={1}
                 color={getZoneLabelColor(index, index === activeZoneIndex)}
               >
-                {label}
+                {intl.formatMessage({ id: labelId })}
               </SizableText>
             </Stack>
           );
@@ -309,7 +311,7 @@ export function StockAnalystGauge({
           color={consensusColor}
           textAlign="center"
         >
-          {getStockAnalystConsensus(ratings)}
+          {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
         </SizableText>
       </YStack>
     </YStack>

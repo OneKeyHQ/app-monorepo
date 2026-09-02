@@ -143,10 +143,12 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
       gap="$4"
       testID="market-top-coins-trade-unavailable"
     >
-      <SizableText size="$headingMd">Swap &amp; Bridge</SizableText>
+      <SizableText size="$headingMd">
+        {intl.formatMessage({ id: ETranslations.swap_history_title })}
+      </SizableText>
       <YStack bg="$bgSubdued" borderRadius="$4" p="$4" gap="$2">
         <SizableText size="$bodySm" color="$textSubdued">
-          From
+          {intl.formatMessage({ id: ETranslations.global_from })}
         </SizableText>
         <XStack alignItems="center" justifyContent="space-between">
           <SizableText size="$heading2xl" color="$textDisabled">
@@ -160,7 +162,7 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
       </YStack>
       <YStack bg="$bgSubdued" borderRadius="$4" p="$4" gap="$2">
         <SizableText size="$bodySm" color="$textSubdued">
-          To
+          {intl.formatMessage({ id: ETranslations.global_to })}
         </SizableText>
         <XStack alignItems="center" justifyContent="space-between">
           <SizableText size="$heading2xl" color="$textDisabled">
@@ -385,7 +387,9 @@ function TopCoinsOverview({
       {/* Each section carries its own `py $8` wrapper, so the gap between the
           stats grid and this heading is the two paddings stacked. */}
       <YStack py="$8" gap="$6">
-        <SizableText size="$headingXl">Performance</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage({ id: ETranslations.market_performance })}
+        </SizableText>
         <XStack>
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
@@ -439,13 +443,17 @@ function TopCoinsEarnSection({
   onPress: () => void;
 }) {
   const intl = useIntl();
-  const earnLabel = intl.formatMessage({ id: ETranslations.earn_title });
   const aprText = resolveEarnAprText(earnAsset);
 
   return (
     <YStack px="$5">
       <YStack py="$8" gap="$6">
-        <SizableText size="$headingXl">{`${earnLabel} ${symbol}`}</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage(
+            { id: ETranslations.market_earn_title_with_symbol },
+            { symbol },
+          )}
+        </SizableText>
         <XStack
           testID="top-coins-earn-entry"
           minHeight={48}
@@ -478,7 +486,10 @@ function TopCoinsEarnSection({
             minWidth={0}
             numberOfLines={2}
           >
-            {`${earnLabel} ${aprText} on your ${symbol}`}
+            {intl.formatMessage(
+              { id: ETranslations.market_earn_cta },
+              { apr: aprText, symbol },
+            )}
           </SizableText>
           <Icon
             name="ChevronRightSmallOutline"

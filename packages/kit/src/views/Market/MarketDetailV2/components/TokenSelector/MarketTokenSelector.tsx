@@ -173,7 +173,7 @@ function BaseMarketTokenSelectorContent({
           id: c.type,
           name: c.name,
         })),
-        'Top Coins',
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
       );
     }
     // Keep the complete selector available while the remote config loads.
@@ -190,7 +190,7 @@ function BaseMarketTokenSelectorContent({
           }),
         },
       ],
-      'Top Coins',
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
 

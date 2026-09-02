@@ -134,7 +134,10 @@ const useMarketHomeLayoutProps = () => {
         };
       });
 
-      return ensureMarketTopCoinsCategory(mappedCategories, 'Top Coins');
+      return ensureMarketTopCoinsCategory(
+        mappedCategories,
+        intl.formatMessage({ id: ETranslations.market_top_coins }),
+      );
     }
 
     // Fallback before API responds
@@ -145,7 +148,7 @@ const useMarketHomeLayoutProps = () => {
           name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
         },
       ],
-      'Top Coins',
+      intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
 

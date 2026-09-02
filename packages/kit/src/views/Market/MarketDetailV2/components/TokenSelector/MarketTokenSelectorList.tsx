@@ -376,15 +376,17 @@ const MarketTokenSelectorList = memo(
       () => ({
         price: intl.formatMessage({ id: ETranslations.global_price }),
         // Time-scoped labels follow the MarketHomeV2 trending table: the range
-        // is prefixed to the translated metric word.
-        change: `${metricsTimeRange} ${intl.formatMessage({
-          id: ETranslations.dexmarket_token_change,
-        })}`,
+        // is interpolated into the translated metric phrase.
+        change: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: metricsTimeRange },
+        ),
         marketCap: intl.formatMessage({ id: ETranslations.global_market_cap }),
         liquidity: intl.formatMessage({ id: ETranslations.global_liquidity }),
-        turnover: `${metricsTimeRange} ${intl.formatMessage({
-          id: ETranslations.perp_token_selector_volume,
-        })}`,
+        turnover: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: metricsTimeRange },
+        ),
       }),
       [intl, metricsTimeRange],
     );

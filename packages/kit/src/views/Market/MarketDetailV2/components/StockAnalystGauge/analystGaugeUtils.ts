@@ -1,16 +1,18 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockAnalystRatings } from '@onekeyhq/shared/types/marketV2';
 
 /**
  * The dial follows the analyst gauge in the Figma reference (node 26190:22905):
  * a half circle running from Strong sell on the left (180deg) to Strong buy on
- * the right (0deg), split into five equal 36deg zones.
+ * the right (0deg), split into five equal 36deg zones. The order also drives
+ * the 0-4 score scale, so it must stay lowest-to-highest.
  */
-export const STOCK_ANALYST_GAUGE_ZONE_LABELS = [
-  'Strong sell',
-  'Sell',
-  'Neutral',
-  'Buy',
-  'Strong buy',
+export const STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS = [
+  ETranslations.market_stock_rating_strong_sell,
+  ETranslations.global_sell,
+  ETranslations.market_stock_rating_neutral,
+  ETranslations.global_buy,
+  ETranslations.market_stock_rating_strong_buy,
 ] as const;
 
 export const STOCK_ANALYST_GAUGE_START_ANGLE = 180;
@@ -19,7 +21,7 @@ export const STOCK_ANALYST_GAUGE_END_ANGLE = 0;
 // Strong sell scores 0 and Strong buy scores 4, so a weighted average of the
 // five buckets addresses every point of the dial.
 const STOCK_ANALYST_GAUGE_MAX_SCORE =
-  STOCK_ANALYST_GAUGE_ZONE_LABELS.length - 1;
+  STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.length - 1;
 
 /**
  * Raw per-bucket rating counts as the provider passes them through: string
@@ -118,7 +120,7 @@ export function getStockAnalystGaugeAngle(score: number): number {
  * keeps the highlighted label and the needle position in sync.
  */
 export function getStockAnalystGaugeZoneIndex(score: number): number {
-  const zoneCount = STOCK_ANALYST_GAUGE_ZONE_LABELS.length;
+  const zoneCount = STOCK_ANALYST_GAUGE_ZONE_LABEL_IDS.length;
   if (!Number.isFinite(score)) {
     return 0;
   }

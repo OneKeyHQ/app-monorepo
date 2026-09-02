@@ -100,7 +100,7 @@ export function useMarketStockColumns({
               #
             </SizableText>
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              Company
+              {intl.formatMessage({ id: ETranslations.market_stock_company })}
             </SizableText>
           </XStack>
         ),
@@ -190,7 +190,9 @@ export function useMarketStockColumns({
             }
             renderContent={
               <SizableText size="$bodySm">
-                The displayed price is the underlying stock price.
+                {intl.formatMessage({
+                  id: ETranslations.market_stock_price_underlying_tooltip,
+                })}
               </SizableText>
             }
             placement="top"

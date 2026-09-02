@@ -45,7 +45,7 @@ function TokenChartModeControl({
         borderRadius="$full"
         onPress={() => onChange('simple')}
       >
-        Simple
+        {intl.formatMessage({ id: ETranslations.market_chart_mode_simple })}
       </Button>
       <Button
         testID="market-token-chart-mode-pro"

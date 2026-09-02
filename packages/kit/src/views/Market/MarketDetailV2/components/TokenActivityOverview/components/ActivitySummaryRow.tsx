@@ -62,7 +62,10 @@ export function ActivitySummaryRow({
       <YStack minWidth={160} maxWidth={160} gap="$2" alignItems="flex-start">
         <XStack gap="$1" alignItems="center">
           <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {timeRange} total vol
+            {intl.formatMessage(
+              { id: ETranslations.market_total_vol_in_range },
+              { range: timeRange },
+            )}
           </SizableText>
           {volumeUnavailable ? (
             <SizableText size="$bodyLgMedium">--</SizableText>
@@ -129,7 +132,7 @@ export function ActivitySummaryRow({
       <YStack minWidth={160} maxWidth={160} gap="$2" alignItems="flex-end">
         <XStack gap="$1" alignItems="center" justifyContent="flex-end">
           <SizableText size="$bodyLgMedium" color="$textSubdued">
-            Net vol
+            {intl.formatMessage({ id: ETranslations.market_net_vol })}
           </SizableText>
           {netVolumeUnavailable ? (
             <SizableText size="$bodyLgMedium">--</SizableText>

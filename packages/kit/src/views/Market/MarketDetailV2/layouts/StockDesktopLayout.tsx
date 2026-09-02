@@ -62,7 +62,6 @@ import {
   formatRatioValue,
 } from '../utils/statValue';
 import {
-  STOCK_ABOUT_IPO_DATE_LABEL,
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
 } from '../utils/stockPublicDataUtils';
@@ -275,6 +274,7 @@ function StockPriceHeader({
   // point under the crosshair instead of the live quote.
   hoverPoint?: IStockPriceLineChartHoverPoint;
 }) {
+  const intl = useIntl();
   const { tokenDetail } = useTokenDetail();
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const isSharePrice = priceMode === 'share';
@@ -424,7 +424,7 @@ function StockPriceHeader({
           borderRadius="$full"
           onPress={() => onPriceModeChange('share')}
         >
-          Share Price
+          {intl.formatMessage({ id: ETranslations.market_share_price })}
         </Button>
         <Button
           testID="stock-price-mode-token"
@@ -440,7 +440,7 @@ function StockPriceHeader({
           borderRadius="$full"
           onPress={() => onPriceModeChange('token')}
         >
-          Token Price
+          {intl.formatMessage({ id: ETranslations.market_token_price })}
         </Button>
       </XStack>
     </XStack>
@@ -472,7 +472,7 @@ function StockChartModeControl({
         borderRadius="$full"
         onPress={() => onChange('simple')}
       >
-        Simple
+        {intl.formatMessage({ id: ETranslations.market_chart_mode_simple })}
       </Button>
       <Button
         testID="stock-chart-mode-pro"
@@ -659,7 +659,7 @@ function StockOverviewGrid() {
         ),
       },
       {
-        label: 'EPS',
+        label: intl.formatMessage({ id: ETranslations.market_stock_eps }),
         value: formatCurrencyStatValue(stockDetail?.epsTtm),
       },
       {
@@ -695,19 +695,25 @@ function StockOverviewGrid() {
         ),
       },
       {
-        label: 'Net income (FY)',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_net_income_fy,
+        }),
         value: formatCurrencyStatValue(stockDetail?.netIncomeFy),
       },
       {
-        label: 'Revenue (FY)',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_revenue_fy,
+        }),
         value: formatCurrencyStatValue(stockDetail?.revenueFy),
       },
       {
-        label: 'Shares float',
+        label: intl.formatMessage({
+          id: ETranslations.market_stock_shares_float,
+        }),
         value: formatMarketCapValue(stockDetail?.sharesFloat),
       },
       {
-        label: 'Beta (1Y)',
+        label: intl.formatMessage({ id: ETranslations.market_stock_beta_1y }),
         value: formatRatioValue(stockDetail?.beta1y),
       },
     ],
@@ -821,7 +827,14 @@ function StockAnalystRatings() {
   });
   const footerText =
     ratingCounts.total > 0
-      ? `${ratingCounts.total} ratings, ${lastUpdatedLabel}: ${lastUpdatedText}`
+      ? intl.formatMessage(
+          { id: ETranslations.market_analyst_footer },
+          {
+            total: ratingCounts.total,
+            label: lastUpdatedLabel,
+            time: lastUpdatedText,
+          },
+        )
       : `${lastUpdatedLabel}: ${lastUpdatedText}`;
 
   return (
@@ -832,7 +845,9 @@ function StockAnalystRatings() {
       py="$8"
       gap="$4"
     >
-      <SizableText size="$headingXl">Analyst ratings</SizableText>
+      <SizableText size="$headingXl">
+        {intl.formatMessage({ id: ETranslations.market_stock_analyst_ratings })}
+      </SizableText>
       {isLoading ? (
         <XStack
           testID="stock-detail-analyst-ratings-skeleton"
@@ -865,7 +880,9 @@ function StockAnalystRatings() {
               },
               {
                 key: 'hold',
-                label: 'Hold',
+                label: intl.formatMessage({
+                  id: ETranslations.market_stock_rating_hold,
+                }),
                 value: ratings?.hold,
                 barColor: '$neutral8',
               },
@@ -959,7 +976,7 @@ function StockAbout() {
   const description =
     about?.description ??
     stockDetail?.introduction ??
-    'Company information is not available.';
+    intl.formatMessage({ id: ETranslations.market_stock_about_unavailable });
   const canExpandDescription =
     description.length > STOCK_ABOUT_DESCRIPTION_COLLAPSED_LENGTH;
 
@@ -970,11 +987,18 @@ function StockAbout() {
       pb="$3"
     >
       <YStack py="$8" gap="$6">
-        <SizableText size="$headingXl">About {ticker}</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage(
+            { id: ETranslations.market_about_title },
+            { ticker },
+          )}
+        </SizableText>
         <XStack height={46}>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              CEO
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_ceo,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.ceo || STAT_FALLBACK_VALUE}
@@ -982,13 +1006,15 @@ function StockAbout() {
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Employees
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_employees,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">{formattedEmployees}</SizableText>
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Exchange
+              {intl.formatMessage({ id: ETranslations.exchange__title })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.exchange || STAT_FALLBACK_VALUE}
@@ -996,7 +1022,9 @@ function StockAbout() {
           </YStack>
           <YStack flex={1} pr="$2.5" gap="$1.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {STOCK_ABOUT_IPO_DATE_LABEL}
+              {intl.formatMessage({
+                id: ETranslations.market_stock_about_ipo_date,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {about?.ipoDate
