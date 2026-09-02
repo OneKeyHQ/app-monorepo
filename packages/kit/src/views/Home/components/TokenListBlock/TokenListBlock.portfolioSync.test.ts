@@ -9,7 +9,7 @@ describe('TokenListBlock portfolio sync producer', () => {
       'utf8',
     );
     const gateIndex = source.indexOf(
-      'isProtocolV2ProductType(device?.deviceType) &&',
+      'isProtocolV2ProductType(portfolioSyncDeviceType) &&',
     );
     const buildIndex = source.indexOf(
       'const flattenedAggregateTokenMap = flattenAggregateTokensMap',
@@ -66,13 +66,22 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('const showPortfolioSyncButton = Boolean(');
     expect(source).not.toContain('isWalletConnected(wallet)');
     expect(source).toContain(
-      'device?.deviceType ?? wallet.associatedDeviceInfo?.deviceType',
+      'device?.deviceType ?? wallet?.associatedDeviceInfo?.deviceType',
+    );
+    expect(
+      source.match(/isProtocolV2ProductType\(portfolioSyncDeviceType\)/g),
+    ).toHaveLength(3);
+    expect(source).toMatch(
+      /!hasPortfolioSyncTarget \|\|\s+hardwareUiState \|\|\s+firmwareUpdateWorkflowRunning/,
+    );
+    expect(source).toContain(
+      'const isInteractivePortfolioSync = Boolean(portfolioSyncRequest);',
+    );
+    expect(source).toContain(
+      '!isInteractivePortfolioSync &&\n      assetStatusAggregationComplete',
     );
     expect(source).toContain('return renderPortfolioSyncButton();');
     expect(source).toContain('useFirmwareUpdateWorkflowRunningAtom');
-    expect(source).toContain(
-      'hardwareUiState || firmwareUpdateWorkflowRunning',
-    );
     expect(source).toContain('completePortfolioSyncRequest');
     expect(source).toContain("setPortfolioSyncFeedback('success')");
     expect(source).not.toContain('<TokenSelectorLpTokenSwitch');

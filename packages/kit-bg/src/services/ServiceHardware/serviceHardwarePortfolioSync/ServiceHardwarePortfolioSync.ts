@@ -32,7 +32,6 @@ import {
   settingsPersistAtom,
 } from '../../../states/jotai/atoms';
 import ServiceBase from '../../ServiceBase';
-import type { IOneKeyHardwareOperationLease } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import {
   buildPortfolioSyncArtifacts,
@@ -44,6 +43,7 @@ import type {
   IPortfolioSyncArtifacts,
   IPortfolioSyncSettledPayload,
 } from './serviceHardwarePortfolioSyncUtils';
+import type { IOneKeyHardwareOperationLease } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 export type IPortfolioSyncStatus =
   | 'cooldown'
@@ -2058,14 +2058,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           'Authorized portfolio payload is missing walletId',
         );
       }
-      await this.commitProcessedArtifacts({
-        artifacts,
-        attemptAt: lastAttemptAt,
-        generation,
-        targetKey,
-        transferAt: Date.now(),
-        walletId: eventPayload.walletId,
-      });
+      try {
+        await this.commitProcessedArtifacts({
+          artifacts,
+          attemptAt: lastAttemptAt,
+          generation,
+          targetKey,
+          transferAt: Date.now(),
+          walletId: eventPayload.walletId,
+        });
+      } catch (error) {
+        this.releaseInFlightReservation({
+          contentHash: artifacts.contentHash,
+          generation,
+          targetKey,
+        });
+        debugPortfolioSyncLog('persist-upload-metadata-failed', {
+          message: error instanceof Error ? error.message : String(error),
+          targetKey,
+        });
+      }
       if (syncMode === 'interactive') {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
         this.pendingMobileBlePayloadByTargetKey.delete(targetKey);

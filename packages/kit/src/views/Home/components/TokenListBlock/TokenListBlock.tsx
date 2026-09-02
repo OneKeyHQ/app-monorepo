@@ -420,6 +420,8 @@ function TokenListBlock({
   >('idle');
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
+  const portfolioSyncDeviceType =
+    device?.deviceType ?? wallet?.associatedDeviceInfo?.deviceType;
   const portfolioSyncIndexedAccountId =
     indexedAccount?.id ?? account?.indexedAccountId ?? '';
   const portfolioSyncNetworkId = network?.id ?? '';
@@ -801,7 +803,7 @@ function TokenListBlock({
         if (
           portfolioSyncRequest &&
           currencyInfo?.id &&
-          isProtocolV2ProductType(device?.deviceType) &&
+          isProtocolV2ProductType(portfolioSyncDeviceType) &&
           wallet &&
           accountUtils.isHwWallet({ walletId: wallet.id }) &&
           !accountUtils.isQrWallet({ walletId: wallet.id })
@@ -954,11 +956,11 @@ function TokenListBlock({
       completePortfolioSyncRequest,
       currencyInfo?.id,
       device?.connectId,
-      device?.deviceType,
       device?.id,
       finishPortfolioSyncRequest,
       getCurrentPortfolioSyncRequest,
       network,
+      portfolioSyncDeviceType,
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
@@ -1962,7 +1964,9 @@ function TokenListBlock({
         result: allNetworksResult,
       });
     const assetStatusCurrency = getWalletAssetStatusCurrency(allNetworksResult);
+    const isInteractivePortfolioSync = Boolean(portfolioSyncRequest);
     if (
+      !isInteractivePortfolioSync &&
       assetStatusAggregationComplete &&
       assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
     ) {
@@ -2115,7 +2119,7 @@ function TokenListBlock({
 
       if (
         assetStatusCurrency &&
-        isProtocolV2ProductType(device?.deviceType) &&
+        isProtocolV2ProductType(portfolioSyncDeviceType) &&
         wallet &&
         accountUtils.isHwWallet({ walletId: wallet.id }) &&
         !accountUtils.isQrWallet({ walletId: wallet.id })
@@ -2240,7 +2244,6 @@ function TokenListBlock({
     cellsNonZeroInputs,
     completePortfolioSyncRequest,
     device?.connectId,
-    device?.deviceType,
     device?.id,
     finishPortfolioSyncRequest,
     getCurrentPortfolioSyncRequest,
@@ -2251,6 +2254,7 @@ function TokenListBlock({
     allNetworkAccounts,
     allNetworksResult,
     network?.id,
+    portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
     updateAccountWorth,
@@ -3088,9 +3092,7 @@ function TokenListBlock({
     wallet &&
     accountUtils.isHwWallet({ walletId: wallet.id }) &&
     !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-    isProtocolV2ProductType(
-      device?.deviceType ?? wallet.associatedDeviceInfo?.deviceType,
-    ),
+    isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
   const renderPortfolioSyncButton = useCallback(() => {
@@ -3100,13 +3102,18 @@ function TokenListBlock({
     return (
       <PortfolioSyncButton
         onPress={handleSyncPortfolio}
-        disabled={Boolean(hardwareUiState || firmwareUpdateWorkflowRunning)}
+        disabled={Boolean(
+          !hasPortfolioSyncTarget ||
+            hardwareUiState ||
+            firmwareUpdateWorkflowRunning,
+        )}
         state={isPortfolioSyncing ? 'loading' : portfolioSyncFeedback}
       />
     );
   }, [
     handleSyncPortfolio,
     firmwareUpdateWorkflowRunning,
+    hasPortfolioSyncTarget,
     hardwareUiState,
     isPortfolioSyncing,
     portfolioSyncFeedback,

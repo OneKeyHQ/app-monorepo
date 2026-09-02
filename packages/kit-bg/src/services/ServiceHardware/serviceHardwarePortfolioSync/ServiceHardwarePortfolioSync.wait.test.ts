@@ -1254,6 +1254,39 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     ).resolves.toBe(false);
   });
 
+  test('keeps explicit sync successful when upload metadata persistence fails', async () => {
+    const { service, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+    updateTargetState
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage failed'));
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'uploaded',
+        upload: { portfolioUpdated: true },
+      }),
+    );
+    expect(
+      (
+        service as unknown as {
+          inFlightReservationByTargetKey: Map<string, unknown>;
+        }
+      ).inFlightReservationByTargetKey.size,
+    ).toBe(0);
+  });
+
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
     const payload = buildHardwarePayload();
