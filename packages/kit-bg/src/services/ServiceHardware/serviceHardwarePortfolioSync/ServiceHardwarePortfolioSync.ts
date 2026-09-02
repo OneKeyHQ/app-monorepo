@@ -1273,7 +1273,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }: {
     eventPayload: IPortfolioSyncSettledPayload;
     syncMode: IPortfolioSyncMode;
-  }): Promise<void> {
+  }): Promise<boolean | void> {
     if (syncMode === 'interactive') {
       const authorizedPayload =
         await this.resolveAuthorizedPortfolioPayload(eventPayload);
@@ -1282,7 +1282,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         : undefined;
       if (!authorizedPayload || !device) {
         this.setRejectedPayloadResult(eventPayload);
-        return;
+        return false;
       }
       const targetKey = this.getSyncTargetKey(authorizedPayload);
       const eligibility = await this.getPortfolioSyncEligibility(
@@ -1295,22 +1295,23 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           eventPayload: authorizedPayload,
           targetKey,
         });
-        return;
+        return false;
       }
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async (oneKeyOperationLease?: IOneKeyHardwareOperationLease) => {
           const generation = this.advanceSyncGeneration(targetKey);
-          return this.syncSettledPortfolio(authorizedPayload, generation, {
-            oneKeyOperationLease,
-            syncMode,
-          });
+          return Boolean(
+            await this.syncSettledPortfolio(authorizedPayload, generation, {
+              oneKeyOperationLease,
+              syncMode,
+            }),
+          );
         },
         {
           debugMethodName: 'portfolio.syncPortfolio',
           deviceParams: { dbDevice: device },
         },
       );
-      return;
     }
 
     const walletId = eventPayload.walletId ?? '';
@@ -1747,7 +1748,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     syncMode?: IPortfolioSyncMode;
     targetKey: string;
     updatedAt: number;
-  }) {
+  }): Promise<boolean | undefined> {
     if (!this.isCurrentSyncGeneration(targetKey, generation)) {
       this.releaseInFlightReservation({
         contentHash: artifacts.contentHash,
@@ -1933,8 +1934,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             deviceConnectId,
             eventPayload,
             generation,
-            retry: () =>
-              this.uploadPreparedHardwarePortfolio({
+            retry: async () => {
+              await this.uploadPreparedHardwarePortfolio({
                 artifacts,
                 deviceConnectId,
                 eventPayload,
@@ -1944,7 +1945,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 serverSubmit,
                 targetKey,
                 updatedAt: Date.now(),
-              }),
+              });
+            },
             targetKey,
           });
         }
@@ -2113,7 +2115,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         );
     this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {
-      await uploadPromise;
+      return Boolean(await uploadPromise);
     } finally {
       if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
         this.activeUploadByTargetKey.delete(targetKey);
@@ -2125,7 +2127,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     incomingPayload: IPortfolioSyncSettledPayload,
     requestedGeneration?: number,
     options?: IPortfolioSyncExecutionOptions,
-  ) {
+  ): Promise<boolean | undefined> {
     const updatedAt = Date.now();
     const syncMode = options?.syncMode ?? 'silent';
     const eventPayload =
@@ -2312,10 +2314,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       });
 
       // Read the persisted last-synced hash for this target (await) BEFORE the
-      // synchronous check-and-reserve below. The in-flight read + duplicate
-      // check + reserve run with NO await between them, so two concurrent
-      // invocations for the same target either see it already reserved (and are
-      // deduped) or one reserves first — never both upload the same snapshot.
+      // synchronous check-and-reserve below. Silent syncs honor the persisted
+      // hash, while explicit syncs only dedupe work already in flight. The
+      // in-flight check + reserve run with NO await between them, so concurrent
+      // invocations cannot both reserve the same snapshot.
       // The hardware path further down awaits isHardwareChannelBusy, which is
       // exactly why the reservation must be taken here, not after that await.
       const persistedTargetState =
@@ -2323,11 +2325,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
       }
-      const isDuplicate =
-        (eventPayload.walletId === persistedTargetState?.lastWalletId &&
-          artifacts.contentHash === persistedTargetState?.lastContentHash) ||
+      const isPersistedDuplicate =
+        eventPayload.walletId === persistedTargetState?.lastWalletId &&
+        artifacts.contentHash === persistedTargetState?.lastContentHash;
+      const isInFlightDuplicate =
         artifacts.contentHash ===
-          this.inFlightReservationByTargetKey.get(targetKey)?.contentHash;
+        this.inFlightReservationByTargetKey.get(targetKey)?.contentHash;
+      const isDuplicate =
+        isInFlightDuplicate ||
+        (syncMode === 'silent' && isPersistedDuplicate);
       if (isDuplicate) {
         if (desktopBleExecution) {
           this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
@@ -2396,7 +2402,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             deviceConnectId,
             eventPayload,
             generation,
-            retry: () => this.syncSettledPortfolio(eventPayload, generation),
+            retry: async () => {
+              await this.syncSettledPortfolio(eventPayload, generation);
+            },
             targetKey,
           });
         }
@@ -2416,7 +2424,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
 
-      await this.uploadPreparedHardwarePortfolio({
+      return await this.uploadPreparedHardwarePortfolio({
         artifacts,
         desktopBleExecution,
         deviceConnectId,

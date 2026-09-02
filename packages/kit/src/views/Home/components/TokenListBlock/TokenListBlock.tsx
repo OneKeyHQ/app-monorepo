@@ -822,34 +822,40 @@ function TokenListBlock({
             'communicating',
           );
           try {
-            await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
-              {
-                eventPayload: {
-                  accountAddress: account?.address,
-                  accountId: account?.id,
-                  accountName,
-                  aggregateTokenMap: {},
-                  deviceConnectId:
-                    device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
-                  deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
-                  indexedAccountId: indexedAccount?.id,
-                  indexedAccountIndex: indexedAccount?.index,
-                  indexedAccountName: indexedAccount?.name,
-                  networkId: network.id,
-                  ownerAccountId: account?.id,
-                  ownerNetworkId: network.id,
-                  totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
-                  totalFiatCurrency: currencyInfo.id,
-                  totalTokenCount: portfolioTokens.length,
-                  tokenMap: portfolioTokenMap,
-                  tokens: portfolioTokens,
-                  walletId: wallet.id,
-                  walletType: wallet.type,
+            const portfolioSynced =
+              await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                {
+                  eventPayload: {
+                    accountAddress: account?.address,
+                    accountId: account?.id,
+                    accountName,
+                    aggregateTokenMap: {},
+                    deviceConnectId:
+                      device?.connectId ??
+                      wallet.associatedDeviceInfo?.connectId,
+                    deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+                    indexedAccountId: indexedAccount?.id,
+                    indexedAccountIndex: indexedAccount?.index,
+                    indexedAccountName: indexedAccount?.name,
+                    networkId: network.id,
+                    ownerAccountId: account?.id,
+                    ownerNetworkId: network.id,
+                    totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
+                    totalFiatCurrency: currencyInfo.id,
+                    totalTokenCount: portfolioTokens.length,
+                    tokenMap: portfolioTokenMap,
+                    tokens: portfolioTokens,
+                    walletId: wallet.id,
+                    walletType: wallet.type,
+                  },
+                  syncMode: 'interactive',
                 },
-                syncMode: 'interactive',
-              },
-            );
-            completePortfolioSyncRequest(portfolioSyncRequest.id);
+              );
+            if (portfolioSynced) {
+              completePortfolioSyncRequest(portfolioSyncRequest.id);
+            } else {
+              finishPortfolioSyncRequest(portfolioSyncRequest.id);
+            }
           } catch (error) {
             errorToastUtils.toastIfError(error);
             errorToastUtils.showToastOfError(error);
@@ -2171,13 +2177,18 @@ function TokenListBlock({
               'communicating',
             );
             try {
-              await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
-                {
-                  eventPayload: portfolioSyncPayload,
-                  syncMode: 'interactive',
-                },
-              );
-              completePortfolioSyncRequest(portfolioSyncRequest.id);
+              const portfolioSynced =
+                await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+                  {
+                    eventPayload: portfolioSyncPayload,
+                    syncMode: 'interactive',
+                  },
+                );
+              if (portfolioSynced) {
+                completePortfolioSyncRequest(portfolioSyncRequest.id);
+              } else {
+                finishPortfolioSyncRequest(portfolioSyncRequest.id);
+              }
             } catch (error) {
               errorToastUtils.toastIfError(error);
               errorToastUtils.showToastOfError(error);

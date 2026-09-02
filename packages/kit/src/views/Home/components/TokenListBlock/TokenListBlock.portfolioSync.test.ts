@@ -56,7 +56,11 @@ describe('TokenListBlock portfolio sync producer', () => {
     );
     expect(source).toContain('const portfolioSyncPayload = {');
     expect(source).toContain('eventPayload: portfolioSyncPayload');
-    expect(source).toContain("syncMode: 'interactive'");
+    expect(source.match(/syncMode: 'interactive'/g)).toHaveLength(2);
+    expect(source).toContain('networkId: network.id');
+    expect(source).toContain('networkId: network?.id');
+    expect(source.match(/const portfolioSynced =/g)).toHaveLength(2);
+    expect(source.match(/if \(portfolioSynced\) \{/g)).toHaveLength(2);
     expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
     expect(source).toContain('<PortfolioSyncButton');
     expect(source).toContain('const showPortfolioSyncButton = Boolean(');

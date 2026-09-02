@@ -574,7 +574,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       submitPortfolioJsonToServer: jest.Mock;
       syncSettledPortfolio: (
         eventPayload: IPortfolioSyncSettledPayload,
-      ) => Promise<void>;
+      ) => Promise<boolean | undefined>;
     };
     serviceInternals.getHardwareCooldownRemainingMs = jest
       .fn()
@@ -1211,10 +1211,12 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       hardwareTransportType: EHardwareTransportType.BLE,
     });
 
-    await service.syncPortfolio({
-      eventPayload: buildHardwarePayload(),
-      syncMode: 'interactive',
-    });
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
 
     expect(withHardwareProcessing).toHaveBeenCalledWith(
       expect.any(Function),
@@ -1235,6 +1237,76 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       packageBase64: 'AQID',
       uiMode: 'progress',
     });
+  });
+
+  test('uploads an unchanged snapshot again for an explicit sync', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const explicit = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await expect(
+      explicit.service.syncPortfolio({
+        eventPayload: payload,
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
+
+    expect(explicit.uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns false when an explicit sync target is no longer active', async () => {
+    const { service, uploadPortfolioPackage, withHardwareProcessing } =
+      prepareHardwareSync({
+        busyResults: [false],
+        selectedWalletId: 'hw-2',
+      });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(false);
+
+    expect(withHardwareProcessing).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('returns false when explicit sync verifies a different device', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'OTHER_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(false);
+
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
   test('skips desktop BLE sync without waiting for a later USB connection', async () => {
