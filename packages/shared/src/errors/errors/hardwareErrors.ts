@@ -355,8 +355,7 @@ export class DeviceBondError extends OneKeyHardwareError {
     if (!props?.silentMode) {
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
         errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
-        errorCode:
-          props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
+        errorCode: props?.payload?.code || HardwareErrorCode.BleDeviceBondError,
         errorMessage:
           props?.payload?.message || props?.message || 'DeviceBondError',
         payload: props?.payload,
