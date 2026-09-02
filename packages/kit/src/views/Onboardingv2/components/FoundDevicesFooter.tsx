@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
@@ -87,6 +88,7 @@ export function FoundDevicesFooter({
   onConnect: (item: IConnectYourDeviceItem) => Promise<void> | void;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [pickedKey, setPickedKey] = useState<string | undefined>();
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -147,9 +149,10 @@ export function FoundDevicesFooter({
             <Button
               testID={OnboardingTestIDs.connectYourDeviceConnectBtn}
               variant="primary"
-              size="large"
+              size={gtMd ? 'medium' : 'large'}
               mx="$5"
               mt="$1"
+              mb="$3"
               loading={isConnecting}
               onPress={handleConnect}
             >
