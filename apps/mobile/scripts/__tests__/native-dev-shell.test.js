@@ -389,9 +389,13 @@ describe('native-dev-shell', () => {
     expect(emulatorRunChecked).not.toHaveBeenCalled();
   });
 
-  it('checks that a launched native app survives its startup grace period', async () => {
+  it('waits for Android startup and checks that the process survives', async () => {
     const wait = jest.fn().mockResolvedValue(undefined);
-    const androidOutput = jest.fn().mockReturnValue('1234');
+    const androidOutput = jest
+      .fn()
+      .mockReturnValueOnce('')
+      .mockReturnValueOnce('')
+      .mockReturnValue('1234');
     await expect(
       waitForNativeAppStartup({
         deviceId: 'emulator-5554',
@@ -401,6 +405,7 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
+    expect(androidOutput).toHaveBeenCalledTimes(4);
     expect(androidOutput).toHaveBeenCalledWith('adb', [
       '-s',
       'emulator-5554',
@@ -408,7 +413,13 @@ describe('native-dev-shell', () => {
       'pidof',
       'so.onekey.app.wallet',
     ]);
+    expect(wait).toHaveBeenNthCalledWith(1, 500);
+    expect(wait).toHaveBeenNthCalledWith(2, 500);
+    expect(wait).toHaveBeenNthCalledWith(3, 1500);
+  });
 
+  it('checks that an iOS app survives its startup grace period', async () => {
+    const wait = jest.fn().mockResolvedValue(undefined);
     const iosOutput = jest.fn().mockReturnValue('');
     await expect(
       waitForNativeAppStartup({
@@ -427,20 +438,43 @@ describe('native-dev-shell', () => {
       '-0',
       '4321',
     ]);
+    expect(wait).toHaveBeenCalledTimes(1);
+    expect(wait).toHaveBeenCalledWith(1500);
+  });
+
+  it('fails when Android startup exhausts its process wait budget', async () => {
+    const wait = jest.fn().mockResolvedValue(undefined);
+    await expect(
+      waitForNativeAppStartup({
+        androidPollIntervalMs: 500,
+        androidStartupTimeoutMs: 1000,
+        deviceId: 'emulator-5554',
+        launch: {},
+        platform: 'android',
+        runForOutputCommand: () => '',
+        wait,
+      }),
+    ).rejects.toThrow('android app exited during startup');
     expect(wait).toHaveBeenCalledTimes(2);
   });
 
-  it('fails before reporting running when the launched app exits', async () => {
+  it('fails when the Android process exits during its startup grace period', async () => {
+    const androidOutput = jest
+      .fn()
+      .mockReturnValueOnce('1234')
+      .mockReturnValueOnce('');
     await expect(
       waitForNativeAppStartup({
         deviceId: 'emulator-5554',
         launch: {},
         platform: 'android',
-        runForOutputCommand: () => '',
+        runForOutputCommand: androidOutput,
         wait: jest.fn().mockResolvedValue(undefined),
       }),
     ).rejects.toThrow('android app exited during startup');
+  });
 
+  it('fails before reporting running when the launched app exits', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '../native-dev-shell.js'),
       'utf8',

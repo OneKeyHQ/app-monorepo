@@ -36,6 +36,8 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SESSION_RENEW_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const SESSION_RENEW_RETRY_INTERVAL_MS = 30_000;
 const SESSION_RENEW_FATAL_WINDOW_MS = 5 * 60 * 1000;
+const ANDROID_APP_STARTUP_TIMEOUT_MS = 10_000;
+const ANDROID_APP_STARTUP_POLL_INTERVAL_MS = 500;
 const NATIVE_APP_STARTUP_GRACE_MS = 1500;
 const SHELL_MANIFEST_SCHEMA_VERSION = 3;
 const SHELL_RELEASE_TAG_VERSION = 3;
@@ -1378,6 +1380,8 @@ function launchNativeApp(
 }
 
 async function waitForNativeAppStartup({
+  androidPollIntervalMs = ANDROID_APP_STARTUP_POLL_INTERVAL_MS,
+  androidStartupTimeoutMs = ANDROID_APP_STARTUP_TIMEOUT_MS,
   deviceId,
   launch,
   platform,
@@ -1385,20 +1389,48 @@ async function waitForNativeAppStartup({
   wait = (durationMs) =>
     new Promise((resolve) => setTimeout(resolve, durationMs)),
 }) {
-  await wait(NATIVE_APP_STARTUP_GRACE_MS);
   try {
     if (platform === 'android') {
-      const processIds = runForOutputCommand('adb', [
-        '-s',
-        deviceId,
-        'shell',
-        'pidof',
-        ANDROID_APPLICATION_ID,
-      ]);
-      if (!/^\d+(?:\s+\d+)*$/u.test(processIds)) {
+      const readProcessIds = () => {
+        try {
+          const output = runForOutputCommand('adb', [
+            '-s',
+            deviceId,
+            'shell',
+            'pidof',
+            ANDROID_APPLICATION_ID,
+          ]);
+          return /^\d+(?:\s+\d+)*$/u.test(output) ? output.split(/\s+/u) : [];
+        } catch {
+          return [];
+        }
+      };
+      const pollCount = Math.floor(
+        androidStartupTimeoutMs / androidPollIntervalMs,
+      );
+      let launchedProcessIds = readProcessIds();
+      for (
+        let pollIndex = 0;
+        launchedProcessIds.length === 0 && pollIndex < pollCount;
+        pollIndex += 1
+      ) {
+        await wait(androidPollIntervalMs);
+        launchedProcessIds = readProcessIds();
+      }
+      if (launchedProcessIds.length === 0) {
         throw new Error('[nativeDevShell] Android app process is missing.');
       }
+      await wait(NATIVE_APP_STARTUP_GRACE_MS);
+      const survivingProcessIds = new Set(readProcessIds());
+      if (
+        !launchedProcessIds.some((processId) =>
+          survivingProcessIds.has(processId),
+        )
+      ) {
+        throw new Error('[nativeDevShell] Android app process exited.');
+      }
     } else {
+      await wait(NATIVE_APP_STARTUP_GRACE_MS);
       if (!Number.isSafeInteger(launch.processId) || launch.processId <= 0) {
         throw new Error('[nativeDevShell] iOS app process ID is missing.');
       }
