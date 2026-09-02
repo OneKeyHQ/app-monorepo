@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IFiatCryptoTokenListWithNetworks,
   IFiatCryptoType,
   IGetTokensListParams,
 } from '@onekeyhq/shared/types/fiatCrypto';
@@ -56,22 +57,28 @@ export const useSupportToken = (
     },
   );
 
-export const useGetTokensList = ({
+const EMPTY_TOKEN_LIST_WITH_NETWORKS: IFiatCryptoTokenListWithNetworks = {
+  tokens: [],
+  networksMap: {},
+  mergeDeriveAssetsNetworkIds: [],
+};
+
+// Tokens and their network metadata come back in one background response so
+// the list renders names, badges and logos in a single commit.
+export const useGetTokensListWithNetworks = ({
   networkId,
   type,
   accountId,
 }: IGetTokensListParams) =>
   usePromiseResult(
-    async () => {
-      const data = await backgroundApiProxy.serviceFiatCrypto.getTokensList({
+    async () =>
+      backgroundApiProxy.serviceFiatCrypto.getTokensListWithNetworks({
         networkId,
         type,
         accountId,
-      });
-      return data;
-    },
+      }),
     [networkId, type, accountId],
-    { initResult: [], watchLoading: true },
+    { initResult: EMPTY_TOKEN_LIST_WITH_NETWORKS, watchLoading: true },
   );
 
 export function useFiatCrypto({
