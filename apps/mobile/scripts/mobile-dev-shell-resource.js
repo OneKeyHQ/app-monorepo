@@ -744,7 +744,13 @@ async function restoreLocator({
         }),
         source: 'remote-cache',
       };
-    } catch {
+    } catch (error) {
+      if (await hasActiveCacheLease(cacheDirectory)) {
+        throw new Error(
+          '[mobileDevShellResource] Cached shell verification failed while the shell is in use.',
+          { cause: error },
+        );
+      }
       await fs.promises.rm(cacheDirectory, { force: true, recursive: true });
     }
 

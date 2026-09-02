@@ -1,17 +1,31 @@
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+jest.mock('child_process', () => ({
+  ...jest.requireActual('child_process'),
+  spawnSync: jest.fn(),
+}));
+
 const devVendorConfig = require('../../dev-vendor.config');
 const {
-  createIosDevShellInfoPlist,
+  assertIosProductionInfoPlistIsolated,
   getIosBuildSettings,
+  getIosDevShellInfoPlistEntries,
   getNativeBuildEnvironment,
+  injectIosDevShellInfoPlist,
   parseArgs,
 } = require('../build-mobile-dev-shell');
 
 describe('build-mobile-dev-shell', () => {
   const repoRoot = path.resolve(__dirname, '../../../..');
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    spawnSync.mockReturnValue({ status: 0, stdout: '' });
+  });
+
   it('parses one platform build without combining native targets', () => {
     expect(
       parseArgs([
@@ -65,6 +79,19 @@ describe('build-mobile-dev-shell', () => {
     expect(androidBuildGradle).toContain(
       "defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()",
     );
+    const variableDeclarationIndex = androidBuildGradle.indexOf(
+      'def enableNativeBackgroundThread =',
+    );
+    expect(variableDeclarationIndex).toBeGreaterThan(-1);
+    expect(variableDeclarationIndex).toBeLessThan(
+      androidBuildGradle.indexOf('android {'),
+    );
+    expect(
+      androidBuildGradle.indexOf(
+        'def enableNativeBackgroundThread =',
+        variableDeclarationIndex + 1,
+      ),
+    ).toBe(-1);
     expect(androidBuildGradle).toContain(
       'buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)',
     );
@@ -73,43 +100,68 @@ describe('build-mobile-dev-shell', () => {
     );
   });
 
-  it('injects the iOS contract through dev-shell-only build configuration', () => {
+  it('injects the iOS contract only into the built app Info.plist', () => {
     const temporaryDirectory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-ios-dev-shell-info-test-'),
     );
     try {
-      const outputPath = path.join(temporaryDirectory, 'Info.plist');
-      createIosDevShellInfoPlist({
-        nativeContractKey: 'a'.repeat(64),
-        outputPath,
-      });
+      const infoPlistPath = path.join(temporaryDirectory, 'Info.plist');
+      fs.writeFileSync(infoPlistPath, '<?xml version="1.0"?><plist/>');
       const productionInfo = fs.readFileSync(
         path.join(repoRoot, 'apps/mobile/ios/OneKeyWallet/Info.plist'),
         'utf8',
       );
-      const devShellInfo = fs.readFileSync(outputPath, 'utf8');
+      const serviceExtensionInfo = fs.readFileSync(
+        path.join(repoRoot, 'apps/mobile/ios/ServiceExtension/Info.plist'),
+        'utf8',
+      );
 
-      for (const key of [
+      assertIosProductionInfoPlistIsolated();
+      const keys = [
         'ONEKEY_DEV_BG_HMR',
         'ONEKEY_DEV_VENDOR_SCHEMA_VERSION',
         'ONEKEY_DEV_VENDOR_STRATEGY_VERSION',
         'ONEKEY_NATIVE_CONTRACT_KEY',
-      ]) {
+      ];
+      for (const key of keys) {
         expect(productionInfo).not.toContain(`<key>${key}</key>`);
-        expect(devShellInfo).toContain(`<key>${key}</key>`);
       }
-      expect(devShellInfo).toContain(
-        `<integer>${devVendorConfig.SCHEMA_VERSION}</integer>`,
-      );
-      expect(devShellInfo).toContain(
-        `<integer>${devVendorConfig.STRATEGY_VERSION}</integer>`,
-      );
-      expect(devShellInfo).toContain(`<string>${'a'.repeat(64)}</string>`);
-      expect(getIosBuildSettings(outputPath)).toEqual([
-        // cspell:disable-next-line
-        `INFOPLIST_FILE=${outputPath}`,
+      expect(serviceExtensionInfo).toContain('<key>NSExtension</key>');
+      expect(getIosBuildSettings()).toEqual([
         'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG ONEKEY_DEV_SHELL',
       ]);
+      expect(getIosDevShellInfoPlistEntries('a'.repeat(64))).toEqual([
+        ['ONEKEY_DEV_BG_HMR', 'bool', 'false'],
+        [
+          'ONEKEY_DEV_VENDOR_SCHEMA_VERSION',
+          'integer',
+          String(devVendorConfig.SCHEMA_VERSION),
+        ],
+        [
+          'ONEKEY_DEV_VENDOR_STRATEGY_VERSION',
+          'integer',
+          String(devVendorConfig.STRATEGY_VERSION),
+        ],
+        ['ONEKEY_NATIVE_CONTRACT_KEY', 'string', 'a'.repeat(64)],
+      ]);
+
+      injectIosDevShellInfoPlist({
+        appDirectory: temporaryDirectory,
+        nativeContractKey: 'a'.repeat(64),
+      });
+      expect(spawnSync).toHaveBeenCalledTimes(5);
+      for (const call of spawnSync.mock.calls) {
+        expect(call[1].at(-1)).toBe(infoPlistPath);
+        expect(call[1].join(' ')).not.toContain('ServiceExtension');
+      }
+      expect(spawnSync).toHaveBeenLastCalledWith(
+        '/usr/bin/plutil',
+        ['-lint', infoPlistPath],
+        expect.objectContaining({ stdio: 'inherit' }),
+      );
+      expect(() =>
+        getIosDevShellInfoPlistEntries('<invalid-native-contract-key>'),
+      ).toThrow('Invalid iOS native contract key');
     } finally {
       fs.rmSync(temporaryDirectory, { force: true, recursive: true });
     }

@@ -75,9 +75,8 @@ Never violate this dependency order:
 
 ## Debugging And Verification
 
-- For normal React Native launches, use the Mobile DevSession workflow in
-  `/1k-dev-commands`; use direct app commands only for explicit native rebuilds
-  or launcher diagnosis.
+- For normal React Native launches, use `/1k-dev-commands` Mobile DevSession;
+  use direct mobile workspace scripts only for native rebuilds or diagnosis.
 - If a command emits `ONEKEY_USER_NOTICE`, or its run receipt has
   `userNoticeRequired: true`, report every notice explicitly to the user even
   when the fallback succeeds. Never describe that run as a clean cache hit.

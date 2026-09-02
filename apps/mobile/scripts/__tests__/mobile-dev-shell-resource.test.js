@@ -476,6 +476,45 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
+  it('preserves an active cache when verification transiently fails', async () => {
+    const cacheRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-shell-active-cache-test-'),
+    );
+    let releaseCacheLease;
+    try {
+      const remote = createRemoteShell({
+        compatibility,
+        inputKey: compatibility.shellInputKey,
+      });
+      const initialRestore = await restoreMobileDevShell({
+        attestationVerifier: jest.fn().mockResolvedValue(undefined),
+        cacheRoot,
+        compatibility,
+        fetchImpl: remote.fetchImpl,
+      });
+      releaseCacheLease = initialRestore.releaseCacheLease;
+      remote.fetchImpl.mockClear();
+
+      await expect(
+        restoreMobileDevShell({
+          attestationVerifier: jest
+            .fn()
+            .mockRejectedValue(new Error('temporary verifier failure')),
+          cacheRoot,
+          compatibility,
+          fetchImpl: remote.fetchImpl,
+        }),
+      ).rejects.toThrow('verification failed while the shell is in use');
+      expect(fs.readFileSync(initialRestore.artifactPath)).toEqual(
+        remote.artifact,
+      );
+      expect(remote.fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      await releaseCacheLease?.();
+      fs.rmSync(cacheRoot, { force: true, recursive: true });
+    }
+  });
+
   it('falls back to an ABI-compatible remote shell with a user notice', async () => {
     const cacheRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-shell-compatible-cache-test-'),

@@ -20,6 +20,9 @@ yarn workspace @onekeyhq/mobile dev-shell --platform ios
 yarn workspace @onekeyhq/mobile dev-shell --platform android
 ```
 
+The root aliases `yarn app:ios` and `yarn app:android` invoke these DevSession
+launchers; they are not direct native build commands.
+
 If more than one target is available, do not guess. Resolve the requested UDID
 or serial and rerun with `--device <serial-or-UDID>`. The launcher accepts one
 available target without an explicit device argument.
@@ -52,8 +55,9 @@ content, and relevant logs rather than only checking that the process exists.
 
 ## Boundaries
 
-- Use direct `yarn app:ios` or `yarn app:android` only for an explicitly
-  requested native rebuild or to diagnose the DevSession launcher itself.
+- Use direct `yarn workspace @onekeyhq/mobile ios` or
+  `yarn workspace @onekeyhq/mobile android` only for an explicitly requested
+  native rebuild or to diagnose the DevSession launcher itself.
 - Do not trigger the mobile dev-shell publishing workflows merely to launch RN.
 - Publishing trusted remote shell resources requires an explicit request and is
   restricted by the workflows to `refs/heads/x`.
