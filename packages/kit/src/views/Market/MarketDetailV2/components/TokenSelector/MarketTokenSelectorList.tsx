@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -44,6 +46,23 @@ type IMarketTokenSelectorItem = IMarketToken & {
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
 
+const TOKEN_SELECTOR_LIST_HEIGHT = 350;
+// The column header now scrolls inside the list instead of sitting above it, so
+// the scroll box absorbs the height the header used to take and the dropdown
+// keeps the same overall size as the stocks tab.
+const TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT =
+  TOKEN_SELECTOR_LIST_HEIGHT + TOKEN_SELECTOR_HEADER_HEIGHT;
+
+// `VirtualizedList` (web/desktop/extension) maps sticky index 0 onto
+// `ListHeaderComponent`, which is what pins the column header while scrolling.
+// FlashList (native) instead indexes into `data`, so passing [0] there would
+// pin the first token row; native simply scrolls the header away. Either way
+// the header lives in the same content box as the rows, which is what keeps the
+// percentage columns aligned once a vertical scrollbar takes layout width.
+const TOKEN_SELECTOR_STICKY_HEADER_INDICES = platformEnv.isNative
+  ? undefined
+  : [0];
+
 interface IMarketTokenSelectorListProps {
   networkId: string;
   selectedCategory?: string;
@@ -67,6 +86,7 @@ function TokenSelectorListView({
   emptyMessage,
   showAddress = true,
   columns,
+  listHeader,
 }: {
   data: IMarketTokenSelectorItem[];
   isLoading?: boolean;
@@ -75,19 +95,28 @@ function TokenSelectorListView({
   emptyMessage?: string;
   showAddress?: boolean;
   columns: IMarketTokenSelectorColumns;
+  listHeader: ReactElement;
 }) {
+  // The loading and empty states are not lists, so they carry the header
+  // themselves — it must never disappear while a tab is switching or empty.
   if (isLoading && data.length === 0) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <Spinner size="large" />
+      <YStack flex={1}>
+        {listHeader}
+        <YStack flex={1} justifyContent="center" alignItems="center">
+          <Spinner size="large" />
+        </YStack>
       </YStack>
     );
   }
 
   if (!isLoading && data.length === 0 && emptyMessage) {
     return (
-      <YStack flex={1} alignItems="center" justifyContent="center">
-        <Empty illustration="QuestionMark" title={emptyMessage} />
+      <YStack flex={1}>
+        {listHeader}
+        <YStack flex={1} alignItems="center" justifyContent="center">
+          <Empty illustration="QuestionMark" title={emptyMessage} />
+        </YStack>
       </YStack>
     );
   }
@@ -97,6 +126,8 @@ function TokenSelectorListView({
       estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
       data={data}
       keyExtractor={(item) => item.id}
+      ListHeaderComponent={listHeader}
+      stickyHeaderIndices={TOKEN_SELECTOR_STICKY_HEADER_INDICES}
       renderItem={({ item }) => (
         <MarketTokenSelectorRow
           item={item}
@@ -117,11 +148,13 @@ const WatchlistTokenSelectorList = memo(
     onItemPress,
     pollingInterval,
     columns,
+    listHeader,
   }: {
     networkId: string;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
     columns: IMarketTokenSelectorColumns;
+    listHeader: ReactElement;
   }) => {
     const intl = useIntl();
     const [{ data: watchListData }] = useMarketWatchListV2Atom();
@@ -146,6 +179,7 @@ const WatchlistTokenSelectorList = memo(
           id: ETranslations.market_favorites_empty,
         })}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   },
@@ -161,6 +195,7 @@ const CategoryTokenSelectorList = memo(
     onItemPress,
     pollingInterval,
     columns,
+    listHeader,
   }: {
     networkId: string;
     selectedCategory?: string;
@@ -168,6 +203,7 @@ const CategoryTokenSelectorList = memo(
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
     columns: IMarketTokenSelectorColumns;
+    listHeader: ReactElement;
   }) => {
     const { data, isLoading } = useMarketTokenList({
       networkId,
@@ -183,6 +219,7 @@ const CategoryTokenSelectorList = memo(
         networkId={networkId}
         onItemPress={onItemPress}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   },
@@ -197,12 +234,14 @@ const SearchTokenSelectorList = memo(
     onItemPress,
     networkId,
     columns,
+    listHeader,
   }: {
     searchResults: (IMarketSearchV2Token & { networkLogoURI: string })[];
     searchLoading?: boolean;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     networkId: string;
     columns: IMarketTokenSelectorColumns;
+    listHeader: ReactElement;
   }) => {
     const intl = useIntl();
     const data = useMemo(
@@ -224,6 +263,7 @@ const SearchTokenSelectorList = memo(
           id: ETranslations.global_no_results,
         })}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   },
@@ -244,7 +284,11 @@ function ListContent({
   dataOverride,
   dataOverrideLoading,
   columns,
-}: IMarketTokenSelectorListProps & { columns: IMarketTokenSelectorColumns }) {
+  listHeader,
+}: IMarketTokenSelectorListProps & {
+  columns: IMarketTokenSelectorColumns;
+  listHeader: ReactElement;
+}) {
   if (searchQuery) {
     return (
       <SearchTokenSelectorList
@@ -253,6 +297,7 @@ function ListContent({
         onItemPress={onItemPress}
         networkId={networkId}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   }
@@ -263,6 +308,7 @@ function ListContent({
         onItemPress={onItemPress}
         pollingInterval={pollingInterval}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   }
@@ -275,6 +321,7 @@ function ListContent({
         onItemPress={onItemPress}
         showAddress={false}
         columns={columns}
+        listHeader={listHeader}
       />
     );
   }
@@ -286,6 +333,7 @@ function ListContent({
       onItemPress={onItemPress}
       pollingInterval={pollingInterval}
       columns={columns}
+      listHeader={listHeader}
     />
   );
 }
@@ -341,13 +389,19 @@ const MarketTokenSelectorList = memo(
       [intl, metricsTimeRange],
     );
 
-    return (
-      <YStack flex={1}>
-        {/* Fixed header */}
+    // Rendered inside the scroll container as the list header so it shares the
+    // rows' content box. A vertical scrollbar that takes layout width (Windows
+    // desktop, browser extension) then shrinks header and rows by the same
+    // amount and the percentage columns stay aligned.
+    const listHeader = useMemo(
+      () => (
         <XStack
           width="100%"
           height={TOKEN_SELECTOR_HEADER_HEIGHT}
           alignItems="center"
+          // Sticky headers scroll over the rows, so the header needs the
+          // popover panel background to stay opaque.
+          bg="$bg"
         >
           <XStack
             width={columns.nameColumnWidth}
@@ -384,24 +438,27 @@ const MarketTokenSelectorList = memo(
             </XStack>
           ))}
         </XStack>
+      ),
+      [columns, intl, metricTitles],
+    );
 
-        {/* Scrollable list */}
-        <YStack height={350}>
-          <ListContent
-            searchQuery={searchQuery}
-            searchResults={searchResults}
-            searchLoading={searchLoading}
-            isWatchlistMode={isWatchlistMode}
-            networkId={networkId}
-            onItemPress={onItemPress}
-            pollingInterval={pollingInterval}
-            selectedCategory={selectedCategory}
-            timeRange={timeRange}
-            dataOverride={dataOverride}
-            dataOverrideLoading={dataOverrideLoading}
-            columns={columns}
-          />
-        </YStack>
+    return (
+      <YStack height={TOKEN_SELECTOR_LIST_CONTAINER_HEIGHT}>
+        <ListContent
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          searchLoading={searchLoading}
+          isWatchlistMode={isWatchlistMode}
+          networkId={networkId}
+          onItemPress={onItemPress}
+          pollingInterval={pollingInterval}
+          selectedCategory={selectedCategory}
+          timeRange={timeRange}
+          dataOverride={dataOverride}
+          dataOverrideLoading={dataOverrideLoading}
+          columns={columns}
+          listHeader={listHeader}
+        />
       </YStack>
     );
   },

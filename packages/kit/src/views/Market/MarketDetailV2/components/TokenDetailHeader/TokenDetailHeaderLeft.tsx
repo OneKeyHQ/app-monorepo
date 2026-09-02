@@ -1,3 +1,5 @@
+import { useMemo, useRef } from 'react';
+
 import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import {
@@ -79,6 +81,21 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
+  // Token detail polling hands back a brand new `logoUrls` array on every
+  // refresh even when its contents are unchanged. Cache it behind its joined
+  // value so the trigger element below keeps a stable identity, mirroring what
+  // MarketTokenSelector does for its own default trigger.
+  const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
+  const stableLogoUrlsRef = useRef(logoUrls);
+  const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
+
+  if (stableLogoUrlsKeyRef.current !== logoUrlsCacheKey) {
+    stableLogoUrlsRef.current = logoUrls;
+    stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
+  }
+
+  const stableLogoUrls = stableLogoUrlsRef.current;
+
   const isTopCoins = desktopDetailVariant === 'topCoins';
   // Figma 25593:18401 lays the trending desktop header out as one 72px row:
   // a single-line selector pill, the address/security/social row as the
@@ -150,65 +167,86 @@ export function TokenDetailHeaderLeft({
     />
   ) : null;
 
+  // `MarketTokenSelector` memoizes its Popover on the trigger identity so the
+  // popover tree survives token detail polling. Keep this element stable, and
+  // declare the hook above the `isTrendingDesktop` early return so hook order
+  // stays identical for every branch.
+  const trendingSelectorTrigger = useMemo(
+    () => (
+      // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
+      <XStack
+        testID="trending-header-token-selector"
+        alignItems="center"
+        gap={14}
+        minWidth={0}
+        cursor="pointer"
+        // Hovering paints a rounded-full pill that reaches 8px past the
+        // content horizontally and 4px vertically. Each negative margin is
+        // cancelled by matching padding, so the row itself never moves.
+        ml={-8}
+        mr={-8}
+        my={-4}
+        pl={8}
+        pr={8}
+        py={4}
+        borderRadius="$full"
+        borderCurve="continuous"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+      >
+        <Token
+          size="xl"
+          tokenImageUri={logoUrl}
+          tokenImageUris={stableLogoUrls}
+          networkImageUri={effectiveNetworkLogoUri}
+          fallbackIcon="CryptoCoinOutline"
+        />
+        <XStack alignItems="center" gap="$1.5" minWidth={0}>
+          <SizableText
+            size="$headingXl"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            maxWidth="$48"
+            flexShrink={1}
+          >
+            {symbol}
+          </SizableText>
+          {communityRecognized ? <CommunityRecognizedBadge /> : null}
+        </XStack>
+        {/* The chevron closes the whole pill and is centered on it, not
+            tucked beside the ticker. */}
+        <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
+    ),
+    [
+      communityRecognized,
+      effectiveNetworkLogoUri,
+      logoUrl,
+      stableLogoUrls,
+      symbol,
+    ],
+  );
+
   if (isTrendingDesktop) {
     return (
       <XStack ai="center" flex={1} gap="$5" minWidth={0}>
         <MarketTokenSelector
           defaultCategory="trending"
-          renderTrigger={
-            // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
-            <XStack
-              testID="trending-header-token-selector"
-              alignItems="center"
-              gap={14}
-              minWidth={0}
-              cursor="pointer"
-              // Hovering paints a rounded-full pill that reaches 8px past the
-              // content horizontally and 4px vertically. Each negative margin is
-              // cancelled by matching padding, so the row itself never moves.
-              ml={-8}
-              mr={-8}
-              my={-4}
-              pl={8}
-              pr={8}
-              py={4}
-              borderRadius="$full"
-              borderCurve="continuous"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-            >
-              <Token
-                size="xl"
-                tokenImageUri={logoUrl}
-                tokenImageUris={logoUrls}
-                networkImageUri={effectiveNetworkLogoUri}
-                fallbackIcon="CryptoCoinOutline"
-              />
-              <XStack alignItems="center" gap="$1.5" minWidth={0}>
-                <SizableText
-                  size="$headingXl"
-                  color="$text"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  maxWidth="$48"
-                  flexShrink={1}
-                >
-                  {symbol}
-                </SizableText>
-                {communityRecognized ? <CommunityRecognizedBadge /> : null}
-              </XStack>
-              {/* The chevron closes the whole pill and is centered on it, not
-                  tucked beside the ticker. */}
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </XStack>
-          }
+          renderTrigger={trendingSelectorTrigger}
         />
 
         <XStack flex={1} minWidth={0} ai="center" gap="$2" py="$0.5">
+          {/* Tokenized stocks reach this branch through the DEX token path, so
+              the issuer logo, company subtitle and market status badge live
+              here rather than inside the single-line selector pill. All three
+              render nothing for plain DEX tokens. */}
+          <StockSourceLogo stock={stock} />
+          {stock?.subtitle ? (
+            <SubtitleBadge subtitle={stock.subtitle} noTruncate />
+          ) : null}
+          <StockMarketStatusBadge stock={stock} />
+
           {address ? (
             <XStack ai="center" gap="$0.5">
               <SizableText
