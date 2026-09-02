@@ -1,6 +1,15 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 
 import {
+  deviceStageAtom,
+  firmwareUpdateWorkflowRunningAtom,
+} from '../../states/jotai/atoms';
+
+import {
+  DeviceStageBurstScope,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -9,6 +18,35 @@ import {
 } from './DeviceStageBurst';
 
 import type { IDeviceStageState } from '../../states/jotai/atoms';
+
+jest.mock('../../states/jotai/atoms', () => {
+  // Real enum objects: the burst scope builds its action-to-step maps at
+  // module scope, so stubbed members would collapse every key into a
+  // single "undefined".
+  const { EHardwareUiStateAction, EThirdPartyHardwareUiAction } =
+    jest.requireActual('../../states/jotai/atoms');
+  return {
+    EHardwareUiStateAction,
+    EThirdPartyHardwareUiAction,
+    deviceStageAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    firmwareUpdateWorkflowRunningAtom: {
+      get: jest.fn(),
+    },
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/hardware/deviceStageOwnership', () => {
+  const actual: typeof import('@onekeyhq/shared/src/hardware/deviceStageOwnership') =
+    jest.requireActual('@onekeyhq/shared/src/hardware/deviceStageOwnership');
+
+  return {
+    ...actual,
+    setDeviceStageBurstActive: jest.fn(),
+  };
+});
 
 describe('pickDeviceType', () => {
   it('keeps the device it already identified when an event does not know', () => {
@@ -168,5 +206,146 @@ describe('pickErrorMessage', () => {
     expect(pickErrorMessage({ message: '   ' })).toBeUndefined();
     expect(pickErrorMessage({ message: 500 })).toBeUndefined();
     expect(pickErrorMessage('a bare string, not an error')).toBeUndefined();
+  });
+});
+
+/** The scope's own beats, mirrored here: the deferred opening `connecting`
+ * and the grace window a follow-up burst may cancel. */
+const OPENING_BEAT_DEFER_MS = 120;
+const OFF_GRACE_MS = 600;
+
+const CONNECT_ID = 'PRB09B0058A';
+
+type IStageWrite =
+  | IDeviceStageState
+  | ((prev: IDeviceStageState | undefined) => IDeviceStageState);
+
+const stageAtom = deviceStageAtom as unknown as {
+  get: jest.Mock<Promise<IDeviceStageState | undefined>, []>;
+  set: jest.Mock<Promise<void>, [IStageWrite]>;
+};
+const firmwareWorkflowAtom = firmwareUpdateWorkflowRunningAtom as unknown as {
+  get: jest.Mock<Promise<boolean>, []>;
+};
+const burstActiveFlag = jest.mocked(setDeviceStageBurstActive);
+
+describe('DeviceStageBurstScope', () => {
+  // The atom stands in for the real cross-runtime one: a single value the
+  // scope reads back between beats, updater form included.
+  let stage: IDeviceStageState | undefined;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    stage = undefined;
+    stageAtom.get.mockImplementation(async () => stage);
+    stageAtom.set.mockImplementation(async (next) => {
+      stage = typeof next === 'function' ? next(stage) : next;
+    });
+    firmwareWorkflowAtom.get.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  /** Lets the deferred opening beat paint, so the stage is visibly on. */
+  const paintOpeningBeat = () =>
+    jest.advanceTimersByTimeAsync(OPENING_BEAT_DEFER_MS);
+
+  /** Lets the scheduled exit run out. */
+  const letTheExitRun = () => jest.advanceTimersByTimeAsync(OFF_GRACE_MS);
+
+  it('releases the burst even when the firmware workflow silences the stage mid-flight', async () => {
+    // startUpdateWorkflow raises the flag and only THEN waits for the
+    // hardware work in flight to drain, so this wrapper's end() runs
+    // silenced. Its bookkeeping still has to happen: a gated end that
+    // kept the layer left every later burst unable to reach its own exit.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    await scope.end();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+
+    // The update page cleared the flag in its own finally; the next burst
+    // must behave like any other.
+    firmwareWorkflowAtom.get.mockResolvedValue(false);
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('writes nothing to the stage while the firmware workflow owns the screen', async () => {
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const scope = new DeviceStageBurstScope();
+
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+
+    expect(stageAtom.set).not.toHaveBeenCalled();
+    expect(stage).toBeUndefined();
+  });
+
+  it('keeps a failure the hardware layer never claimed off the stage', async () => {
+    // A keyring/vault OneKeyLocalError rides out through the same finally
+    // as a device failure. It still owns the legacy toast, so landing it
+    // here would say the same internal sentence twice — and the probe
+    // would delay the caller ~500ms to ask about a device that is fine.
+    const isDeviceStillConnected = jest.fn(async () => true);
+    const scope = new DeviceStageBurstScope({ isDeviceStillConnected });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: new OneKeyLocalError('Unable to build the transaction'),
+    });
+
+    expect(isDeviceStillConnected).not.toHaveBeenCalled();
+    expect(stage?.step).not.toBe('error');
+    // The burst still closes — only the outcome stays out.
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
+  it('still lands the outcome for a real hardware failure', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.end({
+      error: {
+        $isHardwareError: true,
+        code: HardwareErrorCode.ActionCancelled,
+      },
+    });
+
+    expect(stage?.step).toBe('error');
+    expect(stage?.errorReason).toBe('rejected');
+  });
+
+  it('hands the stage over between explicit holders without leaking a layer', async () => {
+    // The second holder supersedes the first: the first's layer has to
+    // leave with its token, or its stale endExplicit releases nothing and
+    // the stage stands until the person closes it.
+    const scope = new DeviceStageBurstScope();
+    const holderA = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const holderB = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.endExplicit({ token: holderA });
+    await letTheExitRun();
+    expect(stage?.step).toBe('connecting');
+
+    await scope.endExplicit({ token: holderB });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
   });
 });

@@ -1,7 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
-import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isHardwareErrorByCode,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   isDeviceStageOwnedHardwareUiAction,
   setDeviceStageBurstActive,
@@ -517,6 +520,17 @@ export class DeviceStageBurstScope {
       await this.mergeDeviceIdentity(params);
       return params.reuseToken;
     }
+    // A different holder is taking the flow over. The superseded holder's
+    // layer has to leave WITH its token: endExplicit drops a stale token
+    // without ending anything, so that layer would otherwise never be
+    // released and the stage would stand until the person closed it. This
+    // is the plain end-then-begin handoff the pages already perform
+    // between flows — the end lands at depth 0 and schedules the exit,
+    // the begin below cancels that timer and rejoins the visible burst.
+    if (this.explicitToken !== undefined) {
+      this.explicitToken = undefined;
+      await this.end();
+    }
     this.explicitSeq += 1;
     const token = this.explicitSeq;
     this.explicitToken = token;
@@ -534,9 +548,16 @@ export class DeviceStageBurstScope {
   }
 
   async end(params: { error?: unknown } = {}) {
-    if (!(await this.isEnabled())) {
-      return;
-    }
+    // Read, never returned on — the same reasoning that keeps the QR
+    // beats off this gate: a burst already in flight must not lose its
+    // bookkeeping because the gate closed under it. The firmware workflow
+    // raises the flag FIRST and only then waits for the hardware work in
+    // flight to drain, so a wrapper begun a moment earlier reaches its
+    // end() inside that window; returning here left the depth standing
+    // and the burst marked active forever, and no later burst could ever
+    // reach its own exit again (only userClose healed it). What the gate
+    // does own is the painting, held back below.
+    const enabled = await this.isEnabled();
     // No burst to end: the flag flipped mid-flow, or the person already
     // closed the stage (userClose drops the depth). Either way there is
     // nothing to land — never resurrect a dismissed stage with an outcome.
@@ -577,8 +598,10 @@ export class DeviceStageBurstScope {
     // A ✓ still resting when the last burst layer ends keeps its own
     // exit: the armed handover retires the narrative at full rest and
     // schedules this burst's off itself once depth is 0. Ending over it
-    // would trim the rest down to the grace window.
+    // would trim the rest down to the grace window. Silenced, there is no
+    // rest left to protect — the release below takes the hold with it.
     if (
+      enabled &&
       !params.error &&
       this.authoredAuthStep === 'authSuccess' &&
       this.authHoldTimer
@@ -597,6 +620,23 @@ export class DeviceStageBurstScope {
     this.clearPendingOpen();
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
+    // The burst is released; from here on it is only the stage speaking,
+    // and while the firmware page runs the stage is not the surface.
+    if (!enabled) {
+      return;
+    }
+    // A failure the hardware layer never claimed — a keyring or vault
+    // OneKeyLocalError riding out through the very same finally — is not
+    // this stage's news to land. The toast suppression only covers
+    // hardware errors, so the person would read the same internal English
+    // sentence twice, once on the card and once in the toast that still
+    // fires; and the probe below would hold the caller ~500ms longer to
+    // ask a device that never failed whether it is still there. The burst
+    // still closes, only the outcome stays out.
+    if (params.error && !isOneKeyHardwareError(params.error)) {
+      this.scheduleOff();
+      return;
+    }
     let reason = params.error ? this.mapErrorToReason(params.error) : undefined;
     // DeviceNotFound splits by whether this burst ever heard from the
     // device (see resolveDeviceNotFoundLanding). The at-initiation half
