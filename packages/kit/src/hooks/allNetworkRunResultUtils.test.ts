@@ -88,6 +88,54 @@ describe('resolveAllNetworkPublishedResult', () => {
       nextLastPublished: { result: null, runSignature: signature },
     });
   });
+
+  test('retains a superseded result as the last-good snapshot when the accepted run cleared it', () => {
+    const completed = [{ networkId: 'evm--1' }];
+
+    // The accepted run invalidated the retained result before its fan-out;
+    // a must-run queued meanwhile supersedes this completed result.
+    const resolved = resolveAllNetworkPublishedResult({
+      completedResult: completed,
+      hasQueuedRerun: true,
+      lastPublished: undefined,
+      runSignature: signature,
+      retainSupersededResult: true,
+    });
+
+    expect(resolved).toEqual({
+      publishedResult: undefined,
+      nextLastPublished: { result: completed, runSignature: signature },
+    });
+
+    // The queued run fails: the superseded snapshot must be restorable.
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: resolved.nextLastPublished,
+        ownerUnchanged: true,
+      }),
+    ).toEqual({
+      nextLastPublished: { result: completed, runSignature: signature },
+      shouldRestoreResult: true,
+    });
+  });
+
+  test('prefers the newer superseded result over a retained one when retaining', () => {
+    const previous = [{ networkId: 'btc--0' }];
+    const completed = [{ networkId: 'evm--1' }];
+
+    expect(
+      resolveAllNetworkPublishedResult({
+        completedResult: completed,
+        hasQueuedRerun: true,
+        lastPublished: { result: previous, runSignature: signature },
+        runSignature: signature,
+        retainSupersededResult: true,
+      }),
+    ).toEqual({
+      publishedResult: previous,
+      nextLastPublished: { result: completed, runSignature: signature },
+    });
+  });
 });
 
 describe('resolveAllNetworkFailedRunRestore', () => {

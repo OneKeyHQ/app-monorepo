@@ -8,11 +8,19 @@ export function resolveAllNetworkPublishedResult<T>({
   hasQueuedRerun,
   lastPublished,
   runSignature,
+  retainSupersededResult = false,
 }: {
   completedResult: Array<T> | null;
   hasQueuedRerun: boolean;
   lastPublished: IAllNetworkLastPublishedResult<T> | undefined;
   runSignature: string;
+  /**
+   * Consumers that clear the retained result when a run is accepted have no
+   * last-good snapshot left by the time a superseded run completes. Record
+   * the superseded (unpublished) result as that snapshot so the queued run
+   * can restore it if its own fan-out fails.
+   */
+  retainSupersededResult?: boolean;
 }): {
   publishedResult: Array<T> | null | undefined;
   nextLastPublished: IAllNetworkLastPublishedResult<T> | undefined;
@@ -23,7 +31,9 @@ export function resolveAllNetworkPublishedResult<T>({
         lastPublished?.runSignature === runSignature
           ? lastPublished.result
           : undefined,
-      nextLastPublished: lastPublished,
+      nextLastPublished: retainSupersededResult
+        ? { result: completedResult, runSignature }
+        : lastPublished,
     };
   }
 

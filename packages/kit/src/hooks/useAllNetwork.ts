@@ -1086,6 +1086,10 @@ function useAllNetworkRequests<T>(params: {
         hasQueuedRerun,
         lastPublished: lastPublishedResultRef.current,
         runSignature: currentRunSignature,
+        // The accepted run cleared the retained result above; a superseded
+        // completed result is then the only last-good snapshot the queued
+        // must-run can restore from if its fan-out fails.
+        retainSupersededResult: clearRetainedResultOnAcceptedRun,
       });
       lastPublishedResultRef.current = resolved.nextLastPublished;
       return resolved.publishedResult;

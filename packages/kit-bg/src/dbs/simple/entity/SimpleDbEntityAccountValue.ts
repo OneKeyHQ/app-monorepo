@@ -104,6 +104,48 @@ function maxSnapshotMeta(
   return getNewestAssetSnapshotMeta(...values);
 }
 
+function isSameStringMap(
+  left: Record<string, string>,
+  right: Record<string, string>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  return (
+    leftKeys.length === Object.keys(right).length &&
+    leftKeys.every((key) => right[key] === left[key])
+  );
+}
+
+function isSameMetaMap(
+  left: Record<string, IAssetSnapshotMeta> | undefined,
+  right: Record<string, IAssetSnapshotMeta> | undefined,
+): boolean {
+  const leftKeys = Object.keys(left ?? {});
+  return (
+    leftKeys.length === Object.keys(right ?? {}).length &&
+    leftKeys.every(
+      (key) =>
+        Boolean(right?.[key]) && sameSnapshotMeta(left?.[key], right?.[key]),
+    )
+  );
+}
+
+// Value-level equality of a persisted all-network entry, used to skip
+// re-serializing the entity when a refresh repeats what is already stored.
+function isSameAllNetworkEntry(
+  left: IAllNetworkAccountValueEntry,
+  right: IAllNetworkAccountValueEntry,
+): boolean {
+  return (
+    left.currency === right.currency &&
+    isSameStringMap(left.value, right.value) &&
+    sameSnapshotMeta(left.assetSnapshotMeta, right.assetSnapshotMeta) &&
+    isSameMetaMap(
+      left.assetSnapshotMetaByNetwork,
+      right.assetSnapshotMetaByNetwork,
+    )
+  );
+}
+
 function emptyData(): IAccountValueDb {
   return { byAddress: {}, allByAddress: {} };
 }
@@ -175,23 +217,27 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     if (!key) {
       return;
     }
+    const normalizedMeta = normalizeSnapshotMeta(assetSnapshotMeta);
+    // Rejected (stale) or identical writes are no-ops. An unchanged value with
+    // a NEWER marker is not: the marker must be persisted, otherwise a later
+    // stale response would be admitted against the old one.
+    const isNoopAgainst = (existing: IAccountValueEntry | undefined) =>
+      !canApplySnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta) ||
+      (existing?.value === value &&
+        existing?.currency === currency &&
+        sameSnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta));
+    // Pre-check outside the mutex so a repeated refresh does not re-serialize
+    // the whole entity (see updateAllNetworkAccountValue).
+    if (isNoopAgainst((await this.getRawData())?.byAddress[key])) {
+      return;
+    }
     await this.setRawData((rawData) => {
       const base = rawData ?? emptyData();
       const existing = base.byAddress[key];
-      const normalizedMeta = normalizeSnapshotMeta(assetSnapshotMeta);
-      // The comparison must happen inside the builder: setRawData serializes
-      // this entity's writes, whereas a pre-read can be stale by the time the
-      // write acquires the mutex.
-      if (
-        !canApplySnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta)
-      ) {
-        return base;
-      }
-      if (
-        existing?.value === value &&
-        existing?.currency === currency &&
-        sameSnapshotMeta(assetSnapshotMeta, existing?.assetSnapshotMeta)
-      ) {
+      // The authoritative comparison happens inside the builder: setRawData
+      // serializes this entity's writes, whereas the pre-read above can be
+      // stale by the time the write acquires the mutex.
+      if (isNoopAgainst(existing)) {
         return base;
       }
       return {
@@ -289,12 +335,17 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return;
     }
 
-    await this.setRawData((rawData) => {
-      const base = rawData ?? emptyData();
+    // Applies the grouped writes to one snapshot of the entity and reports
+    // whether anything changed. Used twice: for a cheap pre-check outside the
+    // mutex and, authoritatively, inside the setRawData builder.
+    const applyWrites = (
+      base: IAccountValueDb,
+    ): { next: IAccountValueDb; changed: boolean } => {
       const existing = base.allByAddress;
       const next: Record<string, IAllNetworkAccountValueEntry> = {
         ...existing,
       };
+      let changed = false;
       for (const [
         key,
         { value: valueMap, assetSnapshotMetaByNetwork },
@@ -362,7 +413,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
         // networks in that case could resurrect stale data from a legacy
         // caller, so preserve them until a versioned full snapshot arrives.
         if (canReplaceWhole) {
-          next[key] = {
+          const replaced: IAllNetworkAccountValueEntry = {
             value: { ...valueMap },
             currency,
             ...(normalizedSnapshotMeta
@@ -374,6 +425,10 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
                 }
               : {}),
           };
+          if (!previous || !isSameAllNetworkEntry(previous, replaced)) {
+            next[key] = replaced;
+            changed = true;
+          }
         } else {
           // A full snapshot that is not admitted (for example, because one
           // sibling network has a newer version) degrades to a per-network merge;
@@ -384,19 +439,16 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
           const mergedMetaByNetwork: Record<string, IAssetSnapshotMeta> = {
             ...previousMetaByNetwork,
           };
-          let changed = !previous || previous.currency !== currency;
+          let entryChanged = !previous || previous.currency !== currency;
           for (const [networkId, incomingValue] of Object.entries(valueMap)) {
             const incomingMeta = assetSnapshotMetaByNetwork[networkId];
-            const previousNetworkMeta = maxSnapshotMeta([
-              previousMetaByNetwork[networkId],
-              previous?.assetSnapshotMeta,
-            ]);
+            const previousNetworkMeta = previousNetworkMetaOf(networkId);
             if (canApplySnapshotMeta(incomingMeta, previousNetworkMeta)) {
               if (
                 mergedValue[networkId] !== incomingValue ||
                 !sameSnapshotMeta(mergedMetaByNetwork[networkId], incomingMeta)
               ) {
-                changed = true;
+                entryChanged = true;
               }
               mergedValue[networkId] = incomingValue;
               if (incomingMeta) {
@@ -407,7 +459,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
             }
           }
 
-          if (changed) {
+          if (entryChanged) {
             next[key] = {
               value: updateAll && !previous ? { ...valueMap } : mergedValue,
               currency,
@@ -418,14 +470,28 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
                 ? { assetSnapshotMetaByNetwork: mergedMetaByNetwork }
                 : {}),
             };
+            changed = true;
           }
         }
       }
-      return {
-        ...base,
-        allByAddress: next,
-      };
-    });
+      return changed
+        ? { next: { ...base, allByAddress: next }, changed }
+        : { next: base, changed };
+    };
+
+    // Most refresh calls repeat values the store already holds: every settled
+    // network re-publishes the whole atom snapshot, and a builder-based
+    // setRawData always re-serializes the entire entity. Pre-check on a read
+    // outside the mutex and skip when nothing would change. The builder
+    // re-evaluates under the mutex, so a stale pre-read can at most cost one
+    // redundant write, never a lost one.
+    const preRead = await this.getRawData();
+    if (!applyWrites(preRead ?? emptyData()).changed) {
+      return;
+    }
+    await this.setRawData(
+      (rawData) => applyWrites(rawData ?? emptyData()).next,
+    );
   }
 
   // One-shot migration from the legacy accountId-keyed `data` / `all` shape

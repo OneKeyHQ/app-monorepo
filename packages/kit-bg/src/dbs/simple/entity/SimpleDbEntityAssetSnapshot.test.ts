@@ -510,6 +510,97 @@ describe('SimpleDbEntityAccountValue snapshot admission', () => {
     });
     expect(read().allByAddress[address]?.assetSnapshotMeta).toBeUndefined();
   });
+
+  it('skips the storage write when a refresh repeats persisted values and markers', async () => {
+    const entity = new SimpleDbEntityAccountValue();
+    const read = mockEntityStorage<IAccountValueDb>(entity, {
+      byAddress: {},
+      allByAddress: {},
+    });
+    const address = '0xalice';
+    const setRawDataSpy = jest.spyOn(entity, 'setRawData');
+    const items = [
+      {
+        networkId: 'evm--1',
+        accountAddress: address,
+        value: '10',
+        assetSnapshotMeta: meta(2),
+      },
+      {
+        networkId: 'evm--56',
+        accountAddress: address,
+        value: '20',
+        assetSnapshotMeta: meta(3),
+      },
+    ];
+
+    await entity.updateAllNetworkAccountValue({
+      items,
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(2),
+    });
+    expect(setRawDataSpy).toHaveBeenCalledTimes(1);
+
+    // Same full snapshot again, and the same values as a partial merge:
+    // nothing changes, so the entity must not be re-serialized.
+    await entity.updateAllNetworkAccountValue({
+      items,
+      currency: 'usd',
+      updateAll: true,
+      snapshotMeta: meta(2),
+    });
+    await entity.updateAllNetworkAccountValue({
+      items: [items[0]],
+      currency: 'usd',
+      updateAll: false,
+    });
+    // A rejected stale response is a no-op as well.
+    await entity.updateAllNetworkAccountValue({
+      items: [{ ...items[0], value: '1', assetSnapshotMeta: meta(1) }],
+      currency: 'usd',
+      updateAll: false,
+    });
+    expect(setRawDataSpy).toHaveBeenCalledTimes(1);
+
+    // A newer marker with an unchanged value must still persist the marker,
+    // otherwise a later stale response would be admitted against the old one.
+    await entity.updateAllNetworkAccountValue({
+      items: [{ ...items[0], assetSnapshotMeta: meta(4) }],
+      currency: 'usd',
+      updateAll: false,
+    });
+    expect(setRawDataSpy).toHaveBeenCalledTimes(2);
+    expect(read().allByAddress[address]?.assetSnapshotMetaByNetwork).toEqual({
+      'evm--1': meta(4),
+      'evm--56': meta(3),
+    });
+  });
+
+  it('skips the single-network storage write when value and marker are unchanged', async () => {
+    const entity = new SimpleDbEntityAccountValue();
+    mockEntityStorage<IAccountValueDb>(entity, {
+      byAddress: {},
+      allByAddress: {},
+    });
+    const setRawDataSpy = jest.spyOn(entity, 'setRawData');
+    const write = (value: string, localSeq: number) =>
+      entity.updateAccountValue({
+        networkId: 'evm--1',
+        accountAddress: '0xalice',
+        value,
+        currency: 'usd',
+        assetSnapshotMeta: meta(localSeq),
+      });
+
+    await write('10', 2);
+    await write('10', 2);
+    await write('99', 1);
+    expect(setRawDataSpy).toHaveBeenCalledTimes(1);
+
+    await write('10', 3);
+    expect(setRawDataSpy).toHaveBeenCalledTimes(2);
+  });
 });
 
 afterEach(() => {
