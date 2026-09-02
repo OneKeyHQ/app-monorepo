@@ -140,6 +140,38 @@ export class JotaiContextStoreRegistrationRegistry {
     return map;
   }
 
+  private buildUpdateResult(
+    storeId?: string,
+  ): IJotaiContextStoreRegistrationUpdateResult {
+    const map = this.buildMap();
+    const mapFingerprint = JSON.stringify(map);
+    const mapChanged = mapFingerprint !== this.lastMapFingerprint;
+    this.lastMapFingerprint = mapFingerprint;
+    return {
+      map,
+      mapChanged,
+      registrationCount: storeId ? (map[storeId]?.count ?? 0) : 0,
+    };
+  }
+
+  getNextExpirationDelayMs() {
+    let nextExpiresAt: number | undefined;
+    for (const registration of this.registrations.values()) {
+      nextExpiresAt = Math.min(
+        nextExpiresAt ?? registration.expiresAt,
+        registration.expiresAt,
+      );
+    }
+    return nextExpiresAt === undefined
+      ? undefined
+      : Math.max(0, nextExpiresAt - this.now());
+  }
+
+  pruneExpiredRegistrations() {
+    this.pruneExpired(this.now());
+    return this.buildUpdateResult();
+  }
+
   update(
     update: IJotaiContextStoreRegistrationUpdate,
   ): IJotaiContextStoreRegistrationUpdateResult {
@@ -208,15 +240,7 @@ export class JotaiContextStoreRegistrationRegistry {
       }
     }
 
-    const map = this.buildMap();
-    const mapFingerprint = JSON.stringify(map);
-    const mapChanged = mapFingerprint !== this.lastMapFingerprint;
-    this.lastMapFingerprint = mapFingerprint;
-    return {
-      map,
-      mapChanged,
-      registrationCount: map[update.storeId]?.count ?? 0,
-    };
+    return this.buildUpdateResult(update.storeId);
   }
 }
 
@@ -254,15 +278,55 @@ export function getJotaiContextTrackerMap() {
 const backgroundRegistrationRegistry =
   new JotaiContextStoreRegistrationRegistry();
 let backgroundRegistrationUpdateQueue = Promise.resolve();
+let backgroundRegistrationExpiryTimer:
+  | ReturnType<typeof setTimeout>
+  | undefined;
+
+async function publishBackgroundRegistrationMap(
+  result: IJotaiContextStoreRegistrationUpdateResult,
+) {
+  syncJotaiContextTrackerMap(result.map);
+  if (result.mapChanged) {
+    await jotaiContextStoreMapAtom.set(result.map);
+  }
+}
+
+function scheduleBackgroundRegistrationExpiry() {
+  if (backgroundRegistrationExpiryTimer) {
+    clearTimeout(backgroundRegistrationExpiryTimer);
+    backgroundRegistrationExpiryTimer = undefined;
+  }
+  const delayMs = backgroundRegistrationRegistry.getNextExpirationDelayMs();
+  if (delayMs === undefined) {
+    return;
+  }
+  backgroundRegistrationExpiryTimer = setTimeout(() => {
+    backgroundRegistrationExpiryTimer = undefined;
+    const expiryTask = backgroundRegistrationUpdateQueue.then(async () => {
+      try {
+        await publishBackgroundRegistrationMap(
+          backgroundRegistrationRegistry.pruneExpiredRegistrations(),
+        );
+      } finally {
+        scheduleBackgroundRegistrationExpiry();
+      }
+    });
+    backgroundRegistrationUpdateQueue = expiryTask.then(
+      () => undefined,
+      () => undefined,
+    );
+  }, delayMs);
+}
 
 export function updateJotaiContextStoreRegistration(
   update: IJotaiContextStoreRegistrationUpdate,
 ): Promise<IJotaiContextStoreRegistrationUpdateResult> {
   const updateTask = backgroundRegistrationUpdateQueue.then(async () => {
     const result = backgroundRegistrationRegistry.update(update);
-    syncJotaiContextTrackerMap(result.map);
-    if (result.mapChanged) {
-      await jotaiContextStoreMapAtom.set(result.map);
+    try {
+      await publishBackgroundRegistrationMap(result);
+    } finally {
+      scheduleBackgroundRegistrationExpiry();
     }
     return result;
   });
