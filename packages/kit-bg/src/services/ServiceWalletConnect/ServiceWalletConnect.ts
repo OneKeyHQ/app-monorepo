@@ -450,17 +450,18 @@ class ServiceWalletConnect extends ServiceBase {
     if (session) {
       const updatedNamespaces = { ...session.namespaces };
       for (const [namespace, value] of Object.entries(session.namespaces)) {
+        // The settled session is keyed the same way the proposal was, so a
+        // namespace key can be an inline chain. Resolving the impl straight off
+        // the key would miss those and leave the entry on its old account.
+        const { impl, chainsFromKey } = parseNamespaceKey(namespace);
         const matchAccount = accountsInfo.find(
-          (account) =>
-            account.networkImpl ===
-            namespaceToImplsMap[namespace as INamespaceUnion],
+          (account) => account.networkImpl === impl,
         );
         if (matchAccount) {
+          const chains = value.chains?.length ? value.chains : chainsFromKey;
           updatedNamespaces[namespace] = {
             ...value,
-            accounts: (value.chains ?? []).map(
-              (chain) => `${chain}:${matchAccount.address}`,
-            ),
+            accounts: chains.map((chain) => `${chain}:${matchAccount.address}`),
           };
         }
       }
