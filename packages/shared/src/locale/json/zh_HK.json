@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "裝置處於 Bootloader 模式。按下方按鈕授予 USB 存取權限，以繼續傳輸安裝套件。",
   "firmware_update.status_completed": "已完成",
   "firmware_update.status_validating": "驗證中",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "切換韌體將會清除裝置資料。請重新連接您的裝置，然後按一下下方按鈕以授權 USB 並繼續。",
   "first_deposit_gets_account_ready_to_trade__desc": "首次存入後即可讓你的帳戶準備好交易，隨時提取",
   "for_reference_only": "僅供參考",
