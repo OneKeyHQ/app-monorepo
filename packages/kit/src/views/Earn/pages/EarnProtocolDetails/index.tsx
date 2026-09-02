@@ -86,6 +86,7 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 
+import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
 import { ProtocolIntroSection } from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
@@ -99,7 +100,10 @@ import {
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
-import { isYieldSheetAvailable } from './mobile/yieldSegments.utils';
+import {
+  buildHeadlineApyParts,
+  isYieldSheetAvailable,
+} from './mobile/yieldSegments.utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -182,6 +186,14 @@ const ProtocolHeader = ({
     }
   }, [maturity?.date, maturityText?.text, intl]);
 
+  // Green base + bonus in the campaign colour, split from the same kind/rate
+  // fields the Yield sheet's bar uses so the two can never disagree. Falls back
+  // to the single string the server rendered when the breakdown is missing.
+  const headlineApyParts = useMemo(
+    () => buildHeadlineApyParts(yieldSheetData?.items),
+    [yieldSheetData?.items],
+  );
+
   return (
     <YStack gap="$2.5">
       <XStack jc="space-between" ai="center">
@@ -244,25 +256,43 @@ const ProtocolHeader = ({
           <Popover
             title={yieldSheetData.title?.text ?? ''}
             renderTrigger={
-              <XStack gap="$2" ai="center" cursor="pointer">
-                <EarnText
-                  text={
-                    apyDetail?.description || {
-                      text: intl.formatMessage({
-                        id: ETranslations.earn_earn_points,
-                      }),
-                      color: '$textDisabled',
+              // The whole figure is the trigger, marked by a dotted rule rather
+              // than an icon — the affordance the design uses.
+              <XStack
+                ai="baseline"
+                cursor="pointer"
+                borderBottomWidth={1}
+                borderBottomColor="$borderSubdued"
+                borderStyle="dotted"
+                pb="$1"
+              >
+                {headlineApyParts ? (
+                  <>
+                    <SizableText size="$heading2xl" color="$textSuccess">
+                      {headlineApyParts.base}
+                    </SizableText>
+                    {headlineApyParts.bonus ? (
+                      <SizableText
+                        size="$heading2xl"
+                        color={headlineApyParts.bonusColor}
+                      >
+                        {headlineApyParts.bonus}
+                      </SizableText>
+                    ) : null}
+                  </>
+                ) : (
+                  <EarnText
+                    text={
+                      apyDetail?.description || {
+                        text: intl.formatMessage({
+                          id: ETranslations.earn_earn_points,
+                        }),
+                        color: '$textDisabled',
+                      }
                     }
-                  }
-                  size="$heading3xl"
-                />
-                {yieldSheetData.icon ? (
-                  <EarnIcon
-                    icon={yieldSheetData.icon}
-                    size="$5"
-                    color="$iconSubdued"
+                    size="$heading2xl"
                   />
-                ) : null}
+                )}
               </XStack>
             }
             renderContent={<YieldBreakdownSheet data={yieldSheetData} />}
@@ -470,6 +500,7 @@ function ChartSection({
         apyHistory={impliedApyHistory}
         underlyingApyHistory={secondaryHistory}
         secondaryLineColor={secondaryLineColor}
+        controlsPlacement={showTimeRangeControls ? 'bottom' : 'top'}
         showChartControls={isPendleProvider || Boolean(showTimeRangeControls)}
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={
@@ -772,6 +803,9 @@ const DetailsPartComponent = ({
         >
           {detailInfo ? (
             <YStack gap="$8">
+              {detailInfo.activityBanner ? (
+                <ActivityBanner banner={detailInfo.activityBanner} />
+              ) : null}
               <EarnPlatformBonusSection
                 appearance="alert"
                 platformBonus={detailInfo.platformBonus}

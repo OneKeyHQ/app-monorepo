@@ -1,4 +1,5 @@
 import {
+  buildHeadlineApyParts,
   buildYieldSegments,
   formatCountdown,
   isYieldSheetAvailable,
@@ -96,5 +97,67 @@ describe('formatCountdown', () => {
     expect(formatCountdown(0)).toBeNull();
     expect(formatCountdown(-1)).toBeNull();
     expect(formatCountdown(Number.NaN)).toBeNull();
+  });
+});
+
+describe('buildHeadlineApyParts', () => {
+  it('splits base and bonus the way the design draws them', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '5.10', color: '$textSuccess' },
+        { kind: 'campaign', rate: '2.12', color: '$textCaution' },
+        { kind: 'fee', rate: '-1.00' },
+      ] as any),
+    ).toEqual({
+      base: '5.10%',
+      bonus: '+2.12%',
+      bonusColor: '$textCaution',
+    });
+  });
+
+  it('sums several bonus rows into one figure', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '3.52', color: '$textSuccess' },
+        { kind: 'campaign', rate: '20', color: '$textCaution' },
+        { kind: 'reward', rate: '1.5', color: '$textInfo' },
+      ] as any),
+    ).toMatchObject({ base: '3.52%', bonus: '+21.50%' });
+  });
+
+  it('keeps the reward colour when there is no campaign', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '6.10', color: '$textSuccess' },
+        { kind: 'reward', rate: '2.12', color: '$textInfo' },
+      ] as any),
+    ).toMatchObject({ bonusColor: '$textInfo' });
+  });
+
+  it('lets the campaign colour win when both are present', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '1', color: '$textSuccess' },
+        { kind: 'reward', rate: '1', color: '$textInfo' },
+        { kind: 'campaign', rate: '1', color: '$textCaution' },
+      ] as any),
+    ).toMatchObject({ bonusColor: '$textCaution' });
+  });
+
+  it('drops the bonus half when there is none', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '4.00', color: '$textSuccess' },
+        { kind: 'fee', rate: '-0.5' },
+      ] as any),
+    ).toEqual({ base: '4.00%' });
+  });
+
+  it('gives up when the breakdown has no base row', () => {
+    expect(
+      buildHeadlineApyParts([{ kind: 'campaign', rate: '2' }] as any),
+    ).toBeUndefined();
+    expect(buildHeadlineApyParts([])).toBeUndefined();
+    expect(buildHeadlineApyParts(undefined)).toBeUndefined();
   });
 });

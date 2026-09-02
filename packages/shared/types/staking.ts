@@ -1490,7 +1490,24 @@ export interface IEarnRiskNoticeDialog {
   checkboxes: IEarnText[];
 }
 
+/** Promo banner above the vault detail page. Configured in the back office
+ * (Earn -> Banner, placement "detail") and matched per provider/network/vault. */
+export interface IEarnDetailPageBanner {
+  bannerId: string;
+  /** the banner's own light/dark preference; the app follows its own theme and
+   * ignores this, kept so the field is not silently dropped */
+  theme?: string;
+  icon: string;
+  title: string;
+  description?: string;
+  /** campaign end, ms. The countdown next to the title is computed client-side */
+  endTime: number;
+  href: string;
+  hrefType: 'external' | 'internal';
+}
+
 export interface IStakeEarnDetail {
+  activityBanner?: IEarnDetailPageBanner;
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;

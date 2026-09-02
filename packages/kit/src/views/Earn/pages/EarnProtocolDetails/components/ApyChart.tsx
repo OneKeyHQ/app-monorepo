@@ -37,6 +37,10 @@ interface IApyChartProps {
   showUnderlyingApyToggle?: boolean;
   primaryApyLabel?: string;
   secondaryApyLabel?: string;
+  /** The phone layout puts the range selector under the chart and
+   * left-aligned, per the design. Wide layouts keep it above and right-aligned,
+   * so Pendle's desktop page is unchanged. */
+  controlsPlacement?: 'top' | 'bottom';
   /** Hex for the second line. Pendle's underlying APY keeps the default blue;
    * the campaign line is orange. Literal hex because the chart library takes
    * colours, not theme tokens — same as the two lines already here. */
@@ -148,6 +152,7 @@ const ApyChartComponent = ({
   primaryApyLabel,
   secondaryApyLabel,
   secondaryLineColor = '#0177E5',
+  controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
 
@@ -316,48 +321,50 @@ const ApyChartComponent = ({
     [intl],
   );
 
+  const isControlsAtBottom = controlsPlacement === 'bottom';
+  const controls = showChartControls ? (
+    <YStack gap="$2">
+      <XStack ai="center" gap="$3" minHeight={44}>
+        {isControlsAtBottom ? null : <XStack flex={1} />}
+
+        <SegmentControl
+          value={timePeriod}
+          options={timePeriodOptions}
+          onChange={(nextValue) => setTimePeriod(nextValue as IChartTimePeriod)}
+          slotBackgroundColor="$bg"
+          activeBackgroundColor="$bgActive"
+          activeTextColor="$text"
+        />
+        {isControlsAtBottom ? <XStack flex={1} /> : null}
+      </XStack>
+
+      {showUnderlyingApyToggle ? (
+        <Checkbox
+          testID="earn-checkbox"
+          value={showUnderlyingApy}
+          onChange={(value) => setShowUnderlyingApy(Boolean(value))}
+          label={intl.formatMessage({
+            id: ETranslations.defi_show_underlying_apy,
+          })}
+          containerProps={{
+            ai: 'center',
+          }}
+          labelContainerProps={{
+            py: '$0',
+            my: '$0',
+            justifyContent: 'center',
+          }}
+          labelProps={{
+            variant: '$bodyMd',
+          }}
+        />
+      ) : null}
+    </YStack>
+  ) : null;
+
   return (
     <YStack gap="$2">
-      {showChartControls ? (
-        <YStack gap="$2">
-          <XStack ai="center" gap="$3" minHeight={44}>
-            <XStack flex={1} />
-
-            <SegmentControl
-              value={timePeriod}
-              options={timePeriodOptions}
-              onChange={(nextValue) =>
-                setTimePeriod(nextValue as IChartTimePeriod)
-              }
-              slotBackgroundColor="$bg"
-              activeBackgroundColor="$bgActive"
-              activeTextColor="$text"
-            />
-          </XStack>
-
-          {showUnderlyingApyToggle ? (
-            <Checkbox
-              testID="earn-checkbox"
-              value={showUnderlyingApy}
-              onChange={(value) => setShowUnderlyingApy(Boolean(value))}
-              label={intl.formatMessage({
-                id: ETranslations.defi_show_underlying_apy,
-              })}
-              containerProps={{
-                ai: 'center',
-              }}
-              labelContainerProps={{
-                py: '$0',
-                my: '$0',
-                justifyContent: 'center',
-              }}
-              labelProps={{
-                variant: '$bodyMd',
-              }}
-            />
-          ) : null}
-        </YStack>
-      ) : null}
+      {isControlsAtBottom ? null : controls}
 
       {isLoading && !chartData ? (
         <Stack
@@ -470,6 +477,8 @@ const ApyChartComponent = ({
           />
         </YStack>
       ) : null}
+
+      {isControlsAtBottom ? controls : null}
     </YStack>
   );
 };
