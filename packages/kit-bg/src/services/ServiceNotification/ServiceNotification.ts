@@ -29,6 +29,9 @@ import type {
   ENotificationPushTopicTypes,
   INotificationClickParams,
   INotificationPermissionDetail,
+  INotificationPermissionRecoveryActionResult,
+  INotificationPermissionRecoveryCheckParams,
+  INotificationPermissionRecoveryResult,
   INotificationPushClient,
   INotificationPushMessageAckParams,
   INotificationPushMessageInfo,
@@ -43,6 +46,8 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 import {
   ENotificationPermission,
+  ENotificationPermissionRecoveryAction,
+  ENotificationPermissionRecoveryTestScenario,
   ENotificationPushMessageAckAction,
   ENotificationPushSyncMethod,
   EPushProviderEventNames,
@@ -57,6 +62,11 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import {
+  buildNotificationPermissionRecoveryResult,
+  buildNotificationPermissionRecoveryStateTransition,
+  resolveNotificationPermissionRecoveryLastPermission,
+} from './notificationPermissionRecovery';
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
 import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
@@ -408,6 +418,274 @@ export default class ServiceNotification extends ServiceBase {
     return this.getPermission();
   }
 
+  notificationPermissionRecoveryTestScenario =
+    ENotificationPermissionRecoveryTestScenario.real;
+
+  private notificationPermissionRecoveryCheckSequence = 0;
+
+  private getNotificationPermissionRecoveryTestData():
+    | {
+        permissionDetail: INotificationPermissionDetail | undefined;
+        pushEnabled: boolean | undefined;
+        queryFailed: boolean;
+      }
+    | undefined {
+    switch (this.notificationPermissionRecoveryTestScenario) {
+      case ENotificationPermissionRecoveryTestScenario.pushOnGranted:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.granted,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOnDefault:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.default,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOnDenied:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.denied,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.pushOff:
+        return {
+          permissionDetail: {
+            isSupported: true,
+            permission: ENotificationPermission.granted,
+          },
+          pushEnabled: false,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.unsupported:
+        return {
+          permissionDetail: {
+            isSupported: false,
+            permission: ENotificationPermission.default,
+          },
+          pushEnabled: true,
+          queryFailed: false,
+        };
+      case ENotificationPermissionRecoveryTestScenario.queryFailed:
+        return {
+          permissionDetail: undefined,
+          pushEnabled: undefined,
+          queryFailed: true,
+        };
+      case ENotificationPermissionRecoveryTestScenario.real:
+      default:
+        return undefined;
+    }
+  }
+
+  private getNotificationPermissionRecoveryPlatform() {
+    if (platformEnv.isNativeIOS) {
+      return 'ios' as const;
+    }
+    if (platformEnv.isNativeAndroid) {
+      return 'android' as const;
+    }
+    return 'other' as const;
+  }
+
+  @backgroundMethod()
+  async setNotificationPermissionRecoveryTestScenario(
+    scenario: ENotificationPermissionRecoveryTestScenario,
+  ) {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    this.notificationPermissionRecoveryTestScenario = scenario;
+    return scenario;
+  }
+
+  @backgroundMethod()
+  async getNotificationPermissionRecoveryTestScenario() {
+    return this.notificationPermissionRecoveryTestScenario;
+  }
+
+  @backgroundMethod()
+  async resetNotificationPermissionRecoveryState() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    await notificationsAtom.set((value) => ({
+      ...value,
+      permissionRecoveryDismissedAt: undefined,
+      permissionRecoveryLastPermission: undefined,
+    }));
+  }
+
+  @backgroundMethod()
+  async dismissNotificationPermissionRecovery() {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    await notificationsAtom.set((value) => ({
+      ...value,
+      permissionRecoveryDismissedAt: Date.now(),
+    }));
+  }
+
+  @backgroundMethod()
+  async checkNotificationPermissionRecovery({
+    source,
+    ignoreCooldown = false,
+    pushEnabled: pushEnabledSnapshot,
+  }: INotificationPermissionRecoveryCheckParams): Promise<INotificationPermissionRecoveryResult> {
+    const checkSequence = this.notificationPermissionRecoveryCheckSequence + 1;
+    this.notificationPermissionRecoveryCheckSequence = checkSequence;
+    const checkedAt = Date.now();
+    const testData = this.getNotificationPermissionRecoveryTestData();
+    const isTestMode = Boolean(testData);
+    let permissionDetail: INotificationPermissionDetail | undefined;
+    let pushEnabled: boolean | undefined;
+    let isServerSettingsAvailable = false;
+    let queryFailed = false;
+
+    if (testData) {
+      permissionDetail = testData.permissionDetail;
+      pushEnabled = testData.pushEnabled;
+      queryFailed = testData.queryFailed;
+      isServerSettingsAvailable = !queryFailed;
+    } else if (platformEnv.isNative) {
+      try {
+        const permissionPromise = this.getPermissionWithoutLog();
+        if (pushEnabledSnapshot === undefined) {
+          const [serverSettings, permission] = await Promise.all([
+            this.fetchServerNotificationSettingsWithCache(),
+            permissionPromise,
+          ]);
+          permissionDetail = permission;
+          pushEnabled = serverSettings?.pushEnabled;
+          isServerSettingsAvailable = Boolean(serverSettings);
+        } else {
+          permissionDetail = await permissionPromise;
+          pushEnabled = pushEnabledSnapshot;
+          isServerSettingsAvailable = true;
+        }
+      } catch {
+        queryFailed = true;
+      }
+    }
+
+    const notificationState = await notificationsAtom.get();
+    const previousPermission =
+      notificationState.permissionRecoveryLastPermission;
+    const currentPermission = permissionDetail?.permission;
+    const stateTransition = buildNotificationPermissionRecoveryStateTransition({
+      currentPermission,
+      dismissedAt: notificationState.permissionRecoveryDismissedAt,
+      isTestMode,
+      previousPermission,
+      pushEnabled,
+    });
+    const result = buildNotificationPermissionRecoveryResult({
+      checkedAt,
+      dismissedAt: stateTransition.dismissedAtForCheck,
+      ignoreCooldown,
+      isNative: Boolean(platformEnv.isNative),
+      isServerSettingsAvailable,
+      isTestMode,
+      permissionDetail,
+      pushEnabled,
+      queryFailed,
+    });
+    let registrationFailed = false;
+
+    if (
+      !queryFailed &&
+      currentPermission &&
+      checkSequence === this.notificationPermissionRecoveryCheckSequence
+    ) {
+      if (stateTransition.shouldRegisterClient) {
+        try {
+          await this.registerClientWithOverrideAllAccountsImmediate();
+        } catch {
+          registrationFailed = true;
+        }
+      }
+
+      await notificationsAtom.set((value) => {
+        if (
+          checkSequence !== this.notificationPermissionRecoveryCheckSequence
+        ) {
+          return value;
+        }
+        return perfUtils.buildNewValueIfChanged(value, {
+          ...value,
+          permissionRecoveryDismissedAt: stateTransition.nextDismissedAt,
+          permissionRecoveryLastPermission:
+            resolveNotificationPermissionRecoveryLastPermission({
+              currentPermission,
+              previousPermission,
+              registrationFailed,
+            }),
+        });
+      });
+    }
+
+    defaultLogger.notification.common.permissionRecoveryCheck({
+      ...result,
+      platform: this.getNotificationPermissionRecoveryPlatform(),
+      registrationFailed,
+      source,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async recoverNotificationPermission(): Promise<INotificationPermissionRecoveryActionResult> {
+    this.notificationPermissionRecoveryCheckSequence += 1;
+    const testData = this.getNotificationPermissionRecoveryTestData();
+    const isTestMode = Boolean(testData);
+    let permissionDetail = testData
+      ? (testData.permissionDetail ?? {
+          isSupported: false,
+          permission: ENotificationPermission.default,
+        })
+      : await this.getPermissionWithoutLog();
+    const permissionBefore = permissionDetail.permission;
+    let action = ENotificationPermissionRecoveryAction.none;
+
+    if (permissionBefore === ENotificationPermission.default) {
+      action = ENotificationPermissionRecoveryAction.requestPermission;
+      if (isTestMode) {
+        this.notificationPermissionRecoveryTestScenario =
+          ENotificationPermissionRecoveryTestScenario.pushOnGranted;
+        permissionDetail = {
+          isSupported: true,
+          permission: ENotificationPermission.granted,
+        };
+      } else {
+        permissionDetail = await this.requestPermission();
+      }
+    } else if (permissionBefore === ENotificationPermission.denied) {
+      action = ENotificationPermissionRecoveryAction.openSettings;
+      if (!isTestMode) {
+        await this.openPermissionSettings();
+      }
+    }
+
+    const result = {
+      action,
+      isSupported: permissionDetail.isSupported,
+      isTestMode,
+      permission: permissionDetail.permission,
+    };
+    defaultLogger.notification.common.permissionRecoveryAction({
+      ...result,
+      permissionBefore,
+      platform: this.getNotificationPermissionRecoveryPlatform(),
+    });
+    return result;
+  }
+
   desktopNotificationCache: {
     [notificationId: string]: Notification;
   } = {};
@@ -705,17 +983,16 @@ export default class ServiceNotification extends ServiceBase {
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
-    await timerUtils.setTimeoutPromised(async () => {
-      await this.registerClientWithSyncAccounts({
-        syncMethod: ENotificationPushSyncMethod.override,
-      });
-      await notificationsAtom.set((v) =>
-        perfUtils.buildNewValueIfChanged(v, {
-          ...v,
-          lastRegisterTime: Date.now(),
-        }),
-      );
+    await timerUtils.wait(0);
+    await this.registerClientWithSyncAccounts({
+      syncMethod: ENotificationPushSyncMethod.override,
     });
+    await notificationsAtom.set((v) =>
+      perfUtils.buildNewValueIfChanged(v, {
+        ...v,
+        lastRegisterTime: Date.now(),
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -1281,7 +1558,8 @@ export default class ServiceNotification extends ServiceBase {
   // TODO clear cache if prime expired, onekeyID logout
   getServerSettingsWithCache = memoizee(
     async () => {
-      const serverSettings = await this.fetchServerNotificationSettings();
+      const serverSettings =
+        await this.fetchServerNotificationSettingsWithoutToast();
 
       let supportNetworks:
         | {
@@ -1322,6 +1600,7 @@ export default class ServiceNotification extends ServiceBase {
       maxAge: timerUtils.getTimeDurationMs({
         hour: 1,
       }),
+      promise: true,
     },
   );
 
@@ -1378,14 +1657,18 @@ export default class ServiceNotification extends ServiceBase {
     },
   );
 
-  @backgroundMethod()
-  @toastIfError()
-  async fetchServerNotificationSettings() {
+  private async fetchServerNotificationSettingsWithoutToast() {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<INotificationPushSettings>
     >('/notification/v1/config/query');
     return result?.data?.data;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async fetchServerNotificationSettings() {
+    return this.fetchServerNotificationSettingsWithoutToast();
   }
 
   @backgroundMethod()

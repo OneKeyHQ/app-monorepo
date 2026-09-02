@@ -88,6 +88,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ISignTransactionPrefetchedCredentials,
   ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -333,15 +334,19 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   public async signTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+      },
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+      params.prefetchedCredentials ??
+      (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
-      });
+      }));
     // signTransaction
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
