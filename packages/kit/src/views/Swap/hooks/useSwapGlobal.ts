@@ -881,7 +881,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const checkSupportTokenSwapType = useCallback(
     (token: ISwapToken, enableSwitchAction?: boolean) => {
-      const supportNet = swapNetworks.find(
+      const supportNet = swapNetworksRef.current.find(
         (net) => net.networkId === token.networkId,
       );
       const supportTypes = supportNet
@@ -912,7 +912,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
     [
       normalizedSwapTabSwitchType,
-      swapNetworks,
       swapTypeSwitch,
       swapTypeSwitchAction,
       focusSwapPro,
