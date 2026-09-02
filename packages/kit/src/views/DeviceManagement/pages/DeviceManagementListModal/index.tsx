@@ -66,7 +66,9 @@ export type IDeviceManagementListItem = IHwQrWalletWithDevice & {
 // Module-level so dedup survives modal close/reopen within a session.
 const reportedUnverifiedDeviceIds = new Set<string>();
 
-function DeviceListItem({
+// Exported for tests only (render-prop identity guard in
+// DeviceListItem.test.tsx).
+export function DeviceListItem({
   item,
   onPress,
   isConnected,
@@ -82,16 +84,19 @@ function DeviceListItem({
   const isThirdParty = vendorProfile.isThirdParty;
   const canShowFirmwareVersion = vendorProfile.supportsFirmwareVersionDisplay;
   const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
-  const walletAvatarProps: IWalletAvatarProps = {
-    img: item.wallet.avatarInfo?.img,
-    wallet: item.wallet,
-    firmwareTypeBadge: item.firmwareTypeBadge,
-    firmwareTypeProps: {
-      top: 0,
-      left: -1,
-    },
-    badge: item.isQrWallet ? 'QR' : undefined,
-  };
+  const walletAvatarProps: IWalletAvatarProps = useMemo(
+    () => ({
+      img: item.wallet.avatarInfo?.img,
+      wallet: item.wallet,
+      firmwareTypeBadge: item.firmwareTypeBadge,
+      firmwareTypeProps: {
+        top: 0,
+        left: -1,
+      },
+      badge: item.isQrWallet ? 'QR' : undefined,
+    }),
+    [item.firmwareTypeBadge, item.isQrWallet, item.wallet],
+  );
 
   const isVerified = Boolean(item.device?.verifiedAtVersion);
 
@@ -213,6 +218,64 @@ function DeviceListItem({
     item.firmwareVersionDisplay,
   ]);
 
+  // ListItem renders these props as components, so inline arrows would be new
+  // element types on every render and React would remount their subtrees
+  // instead of updating them in place.
+  const renderListItemAvatar = useCallback(
+    () => (
+      <Stack
+        w={48}
+        h={48}
+        justifyContent="center"
+        alignItems="center"
+        borderRadius="$3"
+        bg="$bgStrong"
+        $gtMd={{
+          w: 56,
+          h: 56,
+        }}
+        testID={
+          isConnected
+            ? DeviceManagementTestIDs.deviceStatusConnected
+            : DeviceManagementTestIDs.deviceStatusDisconnected
+        }
+      >
+        <WalletAvatar
+          {...walletAvatarProps}
+          size={gtMd ? 44 : 36}
+          status={isConnected ? 'connected' : 'default'}
+        />
+      </Stack>
+    ),
+    [gtMd, isConnected, walletAvatarProps],
+  );
+
+  const renderListItemText = useCallback(
+    () => (
+      <YStack gap="$0" flex={1}>
+        <XStack gap="$1" ai="center">
+          <SizableText
+            size="$bodyLgMedium"
+            color="$text"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {item.wallet.name}
+          </SizableText>
+          {item.isQrWallet || isThirdParty ? null : (
+            <VerifiedBadge isVerified={isVerified} />
+          )}
+        </XStack>
+        {bleName ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {bleName}
+          </SizableText>
+        ) : null}
+      </YStack>
+    ),
+    [bleName, isThirdParty, isVerified, item.isQrWallet, item.wallet.name],
+  );
+
   return (
     <ListItem
       mx="$0"
@@ -223,53 +286,8 @@ function DeviceListItem({
         px: '$pagePadding',
         minHeight: 88,
       }}
-      renderAvatar={() => (
-        <Stack
-          w={48}
-          h={48}
-          justifyContent="center"
-          alignItems="center"
-          borderRadius="$3"
-          bg="$bgStrong"
-          $gtMd={{
-            w: 56,
-            h: 56,
-          }}
-          testID={
-            isConnected
-              ? DeviceManagementTestIDs.deviceStatusConnected
-              : DeviceManagementTestIDs.deviceStatusDisconnected
-          }
-        >
-          <WalletAvatar
-            {...walletAvatarProps}
-            size={gtMd ? 44 : 36}
-            status={isConnected ? 'connected' : 'default'}
-          />
-        </Stack>
-      )}
-      renderItemText={() => (
-        <YStack gap="$0" flex={1}>
-          <XStack gap="$1" ai="center">
-            <SizableText
-              size="$bodyLgMedium"
-              color="$text"
-              numberOfLines={1}
-              flexShrink={1}
-            >
-              {item.wallet.name}
-            </SizableText>
-            {item.isQrWallet || isThirdParty ? null : (
-              <VerifiedBadge isVerified={isVerified} />
-            )}
-          </XStack>
-          {bleName ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {bleName}
-            </SizableText>
-          ) : null}
-        </YStack>
-      )}
+      renderAvatar={renderListItemAvatar}
+      renderItemText={renderListItemText}
       onPress={canOpenDetails ? () => onPress(item) : undefined}
       drillIn={canOpenDetails}
       testID={DeviceManagementTestIDs.deviceListItem}

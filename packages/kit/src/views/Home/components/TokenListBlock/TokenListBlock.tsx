@@ -707,7 +707,10 @@ function TokenListBlock({
         tokenListRefreshEventStarted = true;
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          excludedFlags: ['token-selector'],
+          // Only this list's own superseded fetches should die here. The token
+          // and address-type selectors fetch on their own schedule, and killing
+          // their request leaves those popovers without balances.
+          excludedFlags: ['token-selector', 'address-type-selector'],
         });
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
@@ -3111,7 +3114,10 @@ function TokenListBlock({
         // network's data. Mirrors the abort in the closure-bound `run` path;
         // the seq guard alone only coordinates between explicit refreshes.
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          excludedFlags: ['token-selector'],
+          // Only this list's own superseded fetches should die here. The token
+          // and address-type selectors fetch on their own schedule, and killing
+          // their request leaves those popovers without balances.
+          excludedFlags: ['token-selector', 'address-type-selector'],
         });
         if (!isLatest()) return;
 

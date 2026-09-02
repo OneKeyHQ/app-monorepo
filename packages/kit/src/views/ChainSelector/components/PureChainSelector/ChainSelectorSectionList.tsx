@@ -127,8 +127,6 @@ const ChainSelectorSectionListContent = ({
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
 
-        console.log('accountNetworkValues', accountNetworkValues);
-        console.log('item.id', item.id);
         return (
           <ListItem
             h={48}

@@ -131,7 +131,7 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
 };
 
 /* Text */
-interface IListItemTextProps extends IStackProps {
+export interface IListItemTextProps extends IStackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';

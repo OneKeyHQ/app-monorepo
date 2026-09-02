@@ -16,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -42,6 +43,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import {
+  accountSelectorUpdateMetaAtom,
   selectedAccountsAtom,
   useActiveAccount,
   useSelectedAccount,
@@ -67,7 +69,6 @@ import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapInitParamsConsumptionKey,
-  buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapDefaultToTokenForSwapType,
@@ -75,6 +76,7 @@ import {
   getSwapSelectedTokensHomeAccountSyncAction,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
+  prepareSwapSelectedAccountSyncedFromHome,
   resolveSwapTokenNetworkLogoURI,
   shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldMarkSwapInitialSelectedTokensSynced,
@@ -129,7 +131,7 @@ function getSelectedTokensColdStartSwapType({
   return currentSwapType;
 }
 
-function getHomeSelectedAccountFromContextStore() {
+function getHomeSelectedAccountInfoFromContextStore() {
   const homeAccountSelectorStore = jotaiContextStore.getStore({
     storeName: EJotaiContextStoreNames.accountSelector,
     accountSelectorInfo: {
@@ -138,19 +140,46 @@ function getHomeSelectedAccountFromContextStore() {
       enabledNum: [0],
     },
   });
-  return homeAccountSelectorStore?.get(selectedAccountsAtom())?.[0];
+  const selectedAccount = homeAccountSelectorStore?.get(
+    selectedAccountsAtom(),
+  )?.[0];
+  if (!selectedAccount) {
+    return undefined;
+  }
+  return {
+    selectedAccount,
+    // The home scene's committed revision for this selection - the same value
+    // its change events broadcast as `selectedAccountUpdatedAt` - so a read
+    // taken here stays comparable with those events in the compare-if-newer
+    // gate. Undefined when the home slot holds an unversioned value.
+    selectedAccountUpdatedAt: homeAccountSelectorStore?.get(
+      accountSelectorUpdateMetaAtom(),
+    )?.[0]?.updatedAt,
+  };
 }
 
-async function getLatestHomeSelectedAccount() {
-  const homeSelectedAccountFromStore = getHomeSelectedAccountFromContextStore();
-  if (homeSelectedAccountFromStore) {
-    return homeSelectedAccountFromStore;
+export async function getLatestHomeSelectedAccountInfo() {
+  const homeSelectedAccountInfoFromStore =
+    getHomeSelectedAccountInfoFromContextStore();
+  if (homeSelectedAccountInfoFromStore) {
+    return homeSelectedAccountInfoFromStore;
   }
 
-  return backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
-    sceneName: SWAP_COLD_START_HOME_SCENE_NAME,
-    num: 0,
-  });
+  const selectedAccount =
+    await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
+      sceneName: SWAP_COLD_START_HOME_SCENE_NAME,
+      num: 0,
+    });
+  // simpleDb persists no selection revision, so a snapshot read this way
+  // carries no ordering information.
+  return {
+    selectedAccount,
+    selectedAccountUpdatedAt: undefined,
+  };
+}
+
+export async function getLatestHomeSelectedAccount() {
+  return (await getLatestHomeSelectedAccountInfo()).selectedAccount;
 }
 
 /**
@@ -559,11 +588,28 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [markInitialSelectedTokensSynced, markSwapInitParamsConsumed]);
 
   const syncSwapSelectedAccountFromHome = useCallback(
-    async (
+    async ({
+      homeSelectedAccount,
+      homeSelectedAccountUpdatedAt,
+    }: {
       homeSelectedAccount?: Parameters<
         typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
-      >[0]['eventPayload']['selectedAccount'],
-    ) => {
+      >[0]['eventPayload']['selectedAccount'];
+      /**
+       * Ordering source of `homeSelectedAccount`, forwarded untouched to
+       * `updateSelectedAccount` (same contract as its `eventUpdatedAt`):
+       * a number is the home commit revision the selection was produced
+       * with, null marks a source without a revision (may only fill an
+       * unversioned slot), undefined marks a local non-event apply that
+       * commits unconditionally and mints a fresh revision. Never
+       * substitute Date.now() for a missing revision here: a self-minted
+       * value outranks the event's real revision, so the Effects-path sync
+       * of the same home change (the one that runs
+       * fixOthersWalletAccountNetworkPair) would be dropped as older, and
+       * later legitimate events would keep losing to the inflated value.
+       */
+      homeSelectedAccountUpdatedAt: number | null | undefined;
+    }) => {
       if (!homeSelectedAccount) {
         return { synced: false as const };
       }
@@ -632,17 +678,35 @@ export function useSwapInit(params?: ISwapInitParams) {
           resetSwapType: !shouldPreserveLimitTabWithoutDefaultTokens,
         });
       }
+      // Merge base and others-wallet pair fix are computed before the update
+      // mutex and handed to the builder precomputed - the same pattern as the
+      // Effects path (syncHomeAndSwapSelectedAccount): ordering stays
+      // arbitrated by the compare-if-newer gate inside the mutex. Running the
+      // identical fix here makes this write and the Effects-path write of the
+      // same home change (same revision) carry equal values, so the later one
+      // lands on noop instead of SkipEqualEventConflict keeping an unfixed
+      // account/network pair.
+      const preparedSelectedAccount =
+        await prepareSwapSelectedAccountSyncedFromHome({
+          fixOthersWalletAccountNetworkPair: (fixParams) =>
+            backgroundApiProxy.serviceAccountSelector.fixOthersWalletAccountNetworkPair(
+              fixParams,
+            ),
+          homeSelectedAccount,
+          swapSelectedAccount: swapSelectedAccountRef.current,
+        });
       await updateSelectedAccount({
+        eventUpdatedAt: homeSelectedAccountUpdatedAt,
         updateMeta: {
           eventEmitDisabled: true,
-          updatedAt: Date.now(),
+          // The source revision, not the receive time (see the parameter
+          // doc): committing the revision the home change was emitted with
+          // keeps this write comparable with every other delivery of the
+          // same change, and an unversioned source stays unversioned.
+          updatedAt: homeSelectedAccountUpdatedAt ?? undefined,
         },
         num: 0,
-        builder: (currentSelectedAccount) =>
-          buildSwapSelectedAccountSyncedFromHome({
-            homeSelectedAccount,
-            swapSelectedAccount: currentSelectedAccount,
-          }),
+        builder: () => preparedSelectedAccount,
       });
       return {
         synced: true as const,
@@ -662,8 +726,23 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncSwapSelectedAccountFromLatestHome = useCallback(async () => {
-    const homeSelectedAccount = await getLatestHomeSelectedAccount();
-    return syncSwapSelectedAccountFromHome(homeSelectedAccount);
+    const { selectedAccount, selectedAccountUpdatedAt } =
+      await getLatestHomeSelectedAccountInfo();
+    return syncSwapSelectedAccountFromHome({
+      homeSelectedAccount: selectedAccount,
+      // Home's committed revision when the home store is alive in this
+      // runtime; otherwise undefined, which commits unconditionally and
+      // mints a fresh local revision. Deliberately NOT null for a snapshot
+      // without a revision: storage init restores a committed revision
+      // into the swap slot from its cold-start cache in the common case, so
+      // the fill-only null semantics would skip this initial sync entirely
+      // and leave swap visibly out of step with home after a cold start
+      // into the swap tab. The unconditional apply matches the previous
+      // behavior of this path; the minted revision is a genuine local
+      // commit (monotonic, wall clock at commit time), not a receive time
+      // stamped onto somebody else's event.
+      homeSelectedAccountUpdatedAt: selectedAccountUpdatedAt,
+    });
   }, [syncSwapSelectedAccountFromHome]);
 
   const syncSwapSelectedAccountFromHomeStoragePromiseRef = useRef<
@@ -685,9 +764,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
-      eventPayload: Parameters<
-        typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
-      >[0]['eventPayload'],
+      eventPayload: IAppEventBusPayload[EAppEventBusNames.AccountSelectorSelectedAccountUpdate],
     ) => {
       if (
         eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
@@ -695,24 +772,28 @@ export function useSwapInit(params?: ISwapInitParams) {
       ) {
         return;
       }
-      void syncSwapSelectedAccountFromHome(eventPayload.selectedAccount).then(
-        (result) => {
-          if (!result.synced) {
-            return;
-          }
-          const homeNetworkDefaultTokens = result.homeSelectedAccount.networkId
-            ? swapDefaultSetTokens[result.homeSelectedAccount.networkId]
-            : undefined;
-          if (
-            result.clearedSelectedTokens &&
-            swapTypeSwitchRef.current === ESwapTabSwitchType.LIMIT &&
-            !homeNetworkDefaultTokens?.limitFromToken &&
-            !homeNetworkDefaultTokens?.limitToToken
-          ) {
-            markInitialSelectedTokensSynced();
-          }
-        },
-      );
+      void syncSwapSelectedAccountFromHome({
+        homeSelectedAccount: eventPayload.selectedAccount,
+        // The event's own revision; an event without one maps to null
+        // (fill-only), never to a locally minted timestamp.
+        homeSelectedAccountUpdatedAt:
+          eventPayload.selectedAccountUpdatedAt ?? null,
+      }).then((result) => {
+        if (!result.synced) {
+          return;
+        }
+        const homeNetworkDefaultTokens = result.homeSelectedAccount.networkId
+          ? swapDefaultSetTokens[result.homeSelectedAccount.networkId]
+          : undefined;
+        if (
+          result.clearedSelectedTokens &&
+          swapTypeSwitchRef.current === ESwapTabSwitchType.LIMIT &&
+          !homeNetworkDefaultTokens?.limitFromToken &&
+          !homeNetworkDefaultTokens?.limitToToken
+        ) {
+          markInitialSelectedTokensSynced();
+        }
+      });
     };
 
     appEventBus.on(
@@ -1580,6 +1661,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: params?.importNetworkId,
+          reason: 'swapImportNetworkSync',
         });
       }
     })();

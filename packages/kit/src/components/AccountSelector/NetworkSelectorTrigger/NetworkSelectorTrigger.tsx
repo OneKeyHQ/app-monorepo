@@ -27,6 +27,7 @@ import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 import { useUnifiedNetworkSelectorTrigger } from '../hooks/useUnifiedNetworkSelectorTrigger';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 import type { IChainSelectorInputProps } from '../../ChainSelectorInput';
 
@@ -68,13 +69,14 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
         网络选择器 {selectedAccount.networkId}
       </SizableText>
       <Select
-        testID="account-selector-actions-select"
+        testID={AccountSelectorTestIDs.actionsSelect}
         items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>
           actions.current.updateSelectedAccountNetwork({
             num,
             networkId: id,
+            reason: 'userSelectNetwork',
           })
         }
         title="网络"
@@ -149,7 +151,7 @@ function NetworkSelectorTriggerHomeCmp({
 
   return (
     <XStack
-      testID="account-network-trigger-button"
+      testID={AccountSelectorTestIDs.networkTrigger}
       role="button"
       flexShrink={1}
       alignItems="center"
@@ -175,7 +177,7 @@ function NetworkSelectorTriggerHomeCmp({
       <NetworkAvatar networkId={network?.id} size="$6" />
       {isLarge ? (
         <SizableText
-          testID="account-network-trigger-button-text"
+          testID={AccountSelectorTestIDs.networkTriggerText}
           pl="$2"
           size="$bodyMd"
           maxWidth="$28"
@@ -213,7 +215,7 @@ export function ControlledNetworkSelectorTrigger({
   const intl = useIntl();
   return (
     <ChainSelectorInput
-      testID="network-selector-input"
+      testID={AccountSelectorTestIDs.networkInput}
       title={intl.formatMessage({ id: ETranslations.global_networks })}
       borderRadius="$3"
       borderWidth={1}
@@ -288,7 +290,7 @@ export function ControlledNetworkSelectorIconTrigger({
   ]);
   return (
     <XStack
-      testID="account-network-trigger-button"
+      testID={AccountSelectorTestIDs.networkTrigger}
       role="button"
       flexShrink={1}
       alignItems="center"

@@ -20,6 +20,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { AccountSelectorTestIDs } from '../AccountSelector/testIDs';
 import { ListItem } from '../ListItem';
 
 import AddressTypeCheckMark from './AddressTypeCheckMark';
@@ -152,6 +153,7 @@ function AddressTypeSelectorItem(props: IProps) {
 
   return (
     <ListItem
+      testID={AccountSelectorTestIDs.addressTypeSelectorItem(deriveType)}
       disabled={isCreatingAddress}
       alignItems="flex-start"
       borderRadius="$2"

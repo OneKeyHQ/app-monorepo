@@ -5383,9 +5383,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     // upload to server
     if (!skipUploadToServer) {
-      void this.backgroundApi?.servicePrimeCloudSync.apiUploadItems({
-        localItems: items,
-      });
+      // Fire-and-forget by design, so the rejection must be handled here:
+      // apiUploadItems throws whenever cloud sync is unavailable (disabled,
+      // logged out) — the normal state for most users — and every sync-item
+      // write (e.g. an account rename) would surface that as an unhandled
+      // rejection. The item already sits in the local sync pool, so the next
+      // full sync uploads it once sync becomes available.
+      this.backgroundApi?.servicePrimeCloudSync
+        .apiUploadItems({
+          localItems: items,
+        })
+        .catch((error) => {
+          errorUtils.autoPrintErrorIgnore(error);
+        });
     }
   }
 

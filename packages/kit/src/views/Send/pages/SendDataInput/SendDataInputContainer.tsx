@@ -1443,6 +1443,7 @@ function SendDataInputContainer() {
             sceneUrl: '',
           }}
           enabledNum={[0]}
+          perfDebugName="send-address-input"
           availableNetworksMap={{
             0: {
               networkIds: [currentAccount.networkId],
@@ -1502,6 +1503,7 @@ function SendDataInputContainer() {
             <AddressInputField
               name="to"
               labelAddon={addressRiskCheckLabelAddon}
+              testID={SendTestIDs.recipientInput}
               numberOfLines={
                 networkUtils.isLightningNetworkByNetworkId(
                   currentAccount.networkId,

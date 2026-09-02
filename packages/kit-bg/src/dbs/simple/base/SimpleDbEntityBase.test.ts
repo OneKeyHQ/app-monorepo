@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import {
@@ -40,6 +41,27 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
     this.entityName = name;
     this.enableCache = enableCache;
     this.enableUnreadableRecordSelfHeal = selfHeal;
+  }
+
+  async runTransaction({
+    afterPublish,
+    beforePublish,
+    build,
+    shouldCommit,
+  }: {
+    afterPublish?: (data: { v: number }) => boolean;
+    beforePublish?: (data: { v: number }) => Promise<boolean> | boolean;
+    build: (
+      rawData: { v: number } | null | undefined,
+    ) => Promise<{ data: { v: number } } | undefined>;
+    shouldCommit: () => boolean;
+  }) {
+    return this.setRawDataTransaction({
+      afterPublish,
+      beforePublish,
+      build,
+      shouldCommit,
+    });
   }
 }
 
@@ -93,6 +115,164 @@ describe('SimpleDbEntityBase clear/set mutex serialization', () => {
 
     expect(order).toEqual(['setItem', 'removeItem']); // serialized, clear last
     expect(entity.entityKey in store).toBe(false); // cache stays cleared
+  });
+});
+
+describe('SimpleDbEntityBase guarded transaction visibility', () => {
+  const readStoredData = (value: unknown) => {
+    const saved =
+      typeof value === 'string'
+        ? (JSON.parse(value) as { data: { v: number } })
+        : (value as { data: { v: number } });
+    return saved.data;
+  };
+
+  test('keeps the old snapshot visible and restores storage when the guard becomes stale', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let transactionWriteCount = 0;
+    let signalTransactionWrite!: () => void;
+    const transactionWriteStarted = new Promise<void>((resolve) => {
+      signalTransactionWrite = resolve;
+    });
+    let releaseTransactionWrite!: () => void;
+    const transactionWriteGate = new Promise<void>((resolve) => {
+      releaseTransactionWrite = resolve;
+    });
+    let transactionActive = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+        if (transactionActive && transactionWriteCount === 0) {
+          transactionWriteCount += 1;
+          signalTransactionWrite();
+          await transactionWriteGate;
+        }
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    let current = true;
+    transactionActive = true;
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => current,
+    });
+    await transactionWriteStarted;
+
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+
+    current = false;
+    releaseTransactionWrite();
+    await expect(transaction).resolves.toMatchObject({ committed: false });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('publishes the new cache only after persistence and the final guard pass', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let signalTransactionWrite!: () => void;
+    const transactionWriteStarted = new Promise<void>((resolve) => {
+      signalTransactionWrite = resolve;
+    });
+    let releaseTransactionWrite!: () => void;
+    const transactionWriteGate = new Promise<void>((resolve) => {
+      releaseTransactionWrite = resolve;
+    });
+    let transactionActive = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+        if (transactionActive) {
+          signalTransactionWrite();
+          await transactionWriteGate;
+        }
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    transactionActive = true;
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => true,
+    });
+    await transactionWriteStarted;
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+
+    transactionActive = false;
+    releaseTransactionWrite();
+    await expect(transaction).resolves.toMatchObject({ committed: true });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 2 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+  });
+
+  test('restores storage and cache when the synchronous publish finalizer rejects', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    await expect(
+      entity.runTransaction({
+        afterPublish: (data) => {
+          expect(data).toEqual({ v: 2 });
+          expect(entity.cachedRawData).toEqual({ v: 2 });
+          return false;
+        },
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => true,
+      }),
+    ).resolves.toMatchObject({ committed: false });
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('restores storage and cache when the pre-publish finalizer throws', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+
+    await expect(
+      entity.runTransaction({
+        beforePublish: async () => {
+          await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+          throw new OneKeyLocalError('finalizer failed');
+        },
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => true,
+      }),
+    ).rejects.toThrow('finalizer failed');
+
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
   });
 });
 

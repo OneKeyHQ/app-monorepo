@@ -1,4 +1,5 @@
 // Master testID index — QA can import from here to discover all available testIDs
+export { AccountSelectorTestIDs } from '../components/AccountSelector/testIDs';
 export { HomeTestIDs } from './Home/testIDs';
 export { SendTestIDs } from './Send/testIDs';
 export { SwapTestIDs } from './Swap/testIDs';
