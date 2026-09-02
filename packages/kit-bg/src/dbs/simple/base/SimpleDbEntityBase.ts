@@ -281,10 +281,9 @@ abstract class SimpleDbEntityBase<T> {
         appStorageUtils.canSaveAsObject() && !isString(value)
           ? (value as unknown as string)
           : JSON.stringify(value);
-      let restoreAttempted = false;
+      let restoreCompleted = false;
       let writeAttempted = false;
       const restorePreviousData = async () => {
-        restoreAttempted = true;
         this.transactionReadSnapshot = { data: previousData };
         if (this.enableCache) {
           this.cachedRawData = previousData;
@@ -301,6 +300,7 @@ abstract class SimpleDbEntityBase<T> {
         } else {
           await this.appStorage.removeItem(this.entityKey);
         }
+        restoreCompleted = true;
       };
       const buildRejectedResult = () => ({
         committed: false,
@@ -359,7 +359,10 @@ abstract class SimpleDbEntityBase<T> {
           previousData,
         };
       } catch (error) {
-        if (writeAttempted && !restoreAttempted) {
+        // A rollback invoked from the guarded path is still inside this try.
+        // If its first storage write fails, retry it here instead of treating
+        // the attempted rollback as complete and leaving rejected data on disk.
+        if (writeAttempted && !restoreCompleted) {
           await restorePreviousData();
         }
         throw error;

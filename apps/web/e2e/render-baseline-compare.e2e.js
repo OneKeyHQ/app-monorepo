@@ -47,7 +47,7 @@ const repoRoot = path.resolve(__dirname, '../../..');
 const DEFAULT_PINNED_X_COMMIT = 'a830dee4bbcee70217c127ec369432cd15c4b14e';
 
 const HARNESS_RELATIVE_PATH = 'apps/web/e2e/render-commit-baseline.e2e.js';
-const METRICS_VERSION = 6;
+const METRICS_VERSION = 7;
 const RUN_SCRIPT_NAME = 'test:e2e:web:render-baseline';
 const RUN_SCRIPT_COMMAND = 'node apps/web/e2e/render-commit-baseline.e2e.js';
 const DEFAULT_GROUPS = 3;

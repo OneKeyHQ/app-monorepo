@@ -73,6 +73,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -252,19 +253,40 @@ export const getNextSelectionUpdatedAt = ({
 }) => {
   const monotonicFloor =
     currentUpdatedAt === undefined ? 0 : currentUpdatedAt + 1;
-  // A requested revision carries a peer runtime's ordering (extension runs the
-  // UI and background as separate runtimes, and every cross scene sync event
-  // ships the revision it was emitted with). Clamping it up to Date.now() would
-  // replace that ordering with our receive time: two updates emitted in quick
-  // succession would both land on a receive timestamp far above the second
-  // payload's revision, so the second one reads as older than what we already
-  // hold and is dropped with nothing to retry it. Only the monotonic floor
-  // applies here - local updates below still take the wall clock.
+  // Explicit revisions on non-event commits preserve their caller ordering
+  // while remaining monotonic for this slot. Cross-runtime event commits bypass
+  // this helper and store eventUpdatedAt verbatim so equal revisions can use the
+  // deterministic sourceRuntimeId tie-breaker.
   if (requestedUpdatedAt !== undefined) {
     return Math.max(requestedUpdatedAt, monotonicFloor);
   }
   return Math.max(Date.now(), monotonicFloor);
 };
+
+function shouldApplyEqualRevisionEvent({
+  currentSelectedAccount,
+  currentSourceRuntimeId,
+  incomingSelectedAccount,
+  incomingSourceRuntimeId,
+}: {
+  currentSelectedAccount: IAccountSelectorSelectedAccount;
+  currentSourceRuntimeId: string | undefined;
+  incomingSelectedAccount: IAccountSelectorSelectedAccount;
+  incomingSourceRuntimeId: string | undefined;
+}) {
+  const currentRuntimeKey = currentSourceRuntimeId ?? '';
+  const incomingRuntimeKey = incomingSourceRuntimeId ?? '';
+  if (currentRuntimeKey !== incomingRuntimeKey) {
+    return incomingRuntimeKey > currentRuntimeKey;
+  }
+  // Legacy cached metadata and old peers may not carry a runtime id. The
+  // stable selection key is the final deterministic fallback, so both sides
+  // still choose the same winner instead of each keeping its local value.
+  return (
+    stableStringify(incomingSelectedAccount) >
+    stableStringify(currentSelectedAccount)
+  );
+}
 
 type IAccountSelectorRecentSelectionCacheItem = {
   version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
@@ -466,6 +488,8 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 };
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
+  private selectionMutationRevision = 0;
+
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
     this.setSelectedAccountsAtom(
@@ -494,8 +518,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       const isForcedRefresh = reason === 'refresh';
-      if (!isForcedRefresh && isEqual(currentValue, newValue)) {
+      const selectionChanged = !isEqual(currentValue, newValue);
+      if (!isForcedRefresh && !selectionChanged) {
         return currentValue;
+      }
+      if (selectionChanged) {
+        this.selectionMutationRevision += 1;
       }
       if (isAccountSelectorPerfDebugEnabled()) {
         const nums = new Set([
@@ -2160,8 +2188,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // Re-read inside the mutex: this is the authoritative revision every
           // guard below compares against, and it cannot move again before the
           // commit because judgment and write share this critical section.
-          const committedUpdatedAt = get(accountSelectorUpdateMetaAtom())[num]
-            ?.updatedAt;
+          const committedUpdateMeta = get(accountSelectorUpdateMetaAtom())[num];
+          const committedUpdatedAt = committedUpdateMeta?.updatedAt;
           if (
             expectedUpdatedAt !== undefined &&
             committedUpdatedAt !== (expectedUpdatedAt ?? undefined)
@@ -2284,12 +2312,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
           }
 
-          // Equal source revision, different value: two runtimes committed
-          // different selections within the same millisecond, which no
-          // timestamp comparison can order (the same-value case already fell
-          // into the Noop above). Deliberately no tie-break - each side keeps
-          // its own value and the divergence heals on the next commit; the
-          // dedicated log documents this theoretical boundary.
+          // Equal source revision, different value: two isolated runtimes can
+          // commit within the same millisecond. Runtime id is the deterministic
+          // tie-break; legacy entries without one fall back to stable selection
+          // serialization. Both receivers therefore choose the same winner.
           if (
             eventUpdatedAt !== undefined &&
             committedUpdatedAt !== undefined &&
@@ -2331,19 +2357,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 });
               }
             }
-            defaultLogger.accountSelector.staleDrop.equalRevisionConflictKeptLocal(
-              {
-                current: oldSelectedAccount,
-                incoming: newSelectedAccount,
-                num,
-                reason: requestReason,
-                sceneName: sceneInfo?.sceneName,
-              },
-            );
-            return logSelectionUpdateResult({
-              outcome: ESelectionUpdateOutcome.SkipEqualEventConflict,
-              selectedAccount: oldSelectedAccount,
-            });
+            if (
+              !shouldApplyEqualRevisionEvent({
+                currentSelectedAccount: oldSelectedAccount,
+                currentSourceRuntimeId: committedUpdateMeta?.sourceRuntimeId,
+                incomingSelectedAccount: newSelectedAccount,
+                incomingSourceRuntimeId: updateMeta?.sourceRuntimeId,
+              })
+            ) {
+              defaultLogger.accountSelector.staleDrop.equalRevisionConflictKeptLocal(
+                {
+                  current: oldSelectedAccount,
+                  incoming: newSelectedAccount,
+                  num,
+                  reason: requestReason,
+                  sceneName: sceneInfo?.sceneName,
+                },
+              );
+              return logSelectionUpdateResult({
+                outcome: ESelectionUpdateOutcome.SkipEqualEventConflict,
+                selectedAccount: oldSelectedAccount,
+              });
+            }
           }
 
           if (isEmpty(newSelectedAccount)) {
@@ -2499,26 +2534,37 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             'bumped',
             payload.parentOperationId,
           );
-          set(accountSelectorUpdateMetaAtom(), (v) => ({
-            ...v,
-            [num]: {
-              eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
-              // An unversioned-event apply (eventUpdatedAt: null, see the
-              // guard above) must not advance the revision: the slot had no
-              // committed revision, and minting the receive time here would
-              // outrank every real revision emitted before "now", so the
-              // stopgap value could never be replaced by the genuine update
-              // that follows. The slot stays unversioned until a versioned
-              // event or a local commit lands.
-              updatedAt:
-                eventUpdatedAt === null
-                  ? undefined
-                  : getNextSelectionUpdatedAt({
-                      currentUpdatedAt: v[num]?.updatedAt,
-                      requestedUpdatedAt: updateMeta?.updatedAt,
-                    }),
-            },
-          }));
+          set(accountSelectorUpdateMetaAtom(), (v) => {
+            let updatedAt: number | undefined;
+            if (eventUpdatedAt === null) {
+              updatedAt = undefined;
+            } else if (eventUpdatedAt !== undefined) {
+              updatedAt = eventUpdatedAt;
+            } else {
+              updatedAt = getNextSelectionUpdatedAt({
+                currentUpdatedAt: v[num]?.updatedAt,
+                requestedUpdatedAt: updateMeta?.updatedAt,
+              });
+            }
+            return {
+              ...v,
+              [num]: {
+                eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
+                sourceRuntimeId:
+                  eventUpdatedAt === undefined
+                    ? appEventBus.nodeId
+                    : updateMeta?.sourceRuntimeId,
+                // An unversioned-event apply (eventUpdatedAt: null, see the
+                // guard above) must not advance the revision: the slot had no
+                // committed revision, and minting the receive time here would
+                // outrank every real revision emitted before "now", so the
+                // stopgap value could never be replaced by the genuine update
+                // that follows. The slot stays unversioned until a versioned
+                // event or a local commit lands.
+                updatedAt,
+              },
+            };
+          });
           return logSelectionUpdateResult({
             outcome: ESelectionUpdateOutcome.Commit,
             selectedAccount: newSelectedAccount,
@@ -4171,6 +4217,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               parentOperationId: operationId,
               updateMeta: {
                 eventEmitDisabled: true, // stop update infinite loop here
+                sourceRuntimeId: eventPayload.sourceRuntimeId,
                 // The source revision, not the receive time - and an
                 // unversioned event stays unversioned (the commit path
                 // leaves the revision unset for eventUpdatedAt: null).
@@ -4247,6 +4294,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               parentOperationId: operationId,
               updateMeta: {
                 eventEmitDisabled: true, // stop update infinite loop here
+                sourceRuntimeId: eventPayload.sourceRuntimeId,
                 // The source revision, not the receive time: cross-runtime
                 // comparability of later events depends on committing the
                 // revision the event was emitted with. No Date.now() fallback
@@ -4461,6 +4509,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.initFromStorageGenerationMap.set(initScopeKey, generation);
       const isLatestGeneration = () =>
         this.initFromStorageGenerationMap.get(initScopeKey) === generation;
+      const selectionMutationRevisionAtStart = this.selectionMutationRevision;
       const perfEnabled = isAccountSelectorPerfDebugEnabled();
       const operationId = perfEnabled
         ? getNextAccountSelectorPerfOperationId()
@@ -4734,6 +4783,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ? Object.keys(recentSelectionCacheSelectedAccountsMap).length
           : 0;
         if (
+          this.selectionMutationRevision === selectionMutationRevisionAtStart &&
           recentSelectionCache &&
           recentSelectionCacheSelectedAccountsMap &&
           this.shouldKeepColdStartSelectedAccounts({
@@ -4789,6 +4839,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         startPhase(EStorageInitPhase.CurrentSelection);
         const currentSelectedAccountsMap = get(selectedAccountsAtom());
+        const currentSelectionMutationRevision = this.selectionMutationRevision;
         const repairedSelectedAccountsMap =
           await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
             selectedAccountsMap: currentSelectedAccountsMap,
@@ -4809,19 +4860,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           logResult(`stale-${phase}`);
           return;
         }
-        const selectedAccountsMap =
+        let selectedAccountsMap =
           currentCleanupResult.selectedAccountsMap || {};
         if (abortIfStale()) {
           return;
         }
+        const selectionChangedAfterCurrentSnapshot =
+          this.selectionMutationRevision !== currentSelectionMutationRevision;
+        if (selectionChangedAfterCurrentSnapshot) {
+          selectedAccountsMap = get(selectedAccountsAtom());
+        }
+        const selectionChangedDuringInit =
+          this.selectionMutationRevision !== selectionMutationRevisionAtStart;
         const updateMeta = get(accountSelectorUpdateMetaAtom());
         if (
-          !isDappConnectionBackedScene &&
-          this.shouldKeepColdStartSelectedAccounts({
-            selectedAccountsMap,
-            selectedAccountsMapInDB,
-            updateMeta,
-          })
+          selectionChangedDuringInit ||
+          (!isDappConnectionBackedScene &&
+            this.shouldKeepColdStartSelectedAccounts({
+              selectedAccountsMap,
+              selectedAccountsMapInDB,
+              updateMeta,
+            }))
         ) {
           // Keep the cold-start selection but fill EMPTY nums from the
           // (home-merged) DB; else a sibling scene (e.g. swap on the Perps
@@ -4926,7 +4985,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       string,
       {
         operationId: number | undefined;
-        promise: Promise<void>;
+        promise: Promise<EStorageSaveOutcome>;
         trigger: string;
       }
     >
@@ -4985,7 +5044,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             },
           );
         }
-        return;
+        return EStorageSaveOutcome.SkipCompletedRevision;
       }
       const existingInflight = this.saveToStorageInflightMap
         .get(payload.selectedAccount)
@@ -5010,8 +5069,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const operationId = perfEnabled
         ? getNextAccountSelectorPerfOperationId()
         : undefined;
+      // The canonical home-sync source policy currently contains Home/0 and
+      // Swap/0. Home never enters the sync branch below, so only Swap/0 needs
+      // an eager epoch capture. Keeping this off every other selector save
+      // avoids adding a background round-trip to Discover and modal scenes.
+      const maySyncToHome =
+        payload.sceneName === EAccountSelectorSceneName.swap &&
+        payload.num === 0;
+      const homeWriteIntentEpochPromise = maySyncToHome
+        ? backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountWriteIntentEpoch(
+            {
+              sceneName: EAccountSelectorSceneName.home,
+              num: 0,
+            },
+          )
+        : Promise.resolve(undefined);
       let storageRevisionHandled = false;
       const saveTask = (async () => {
+        const homeWriteIntentEpoch = await homeWriteIntentEpochPromise;
         const { serviceAccountSelector } = backgroundApiProxy;
         const transitionMeta = getSelectedAccountPerfCommitMeta(
           payload.selectedAccount,
@@ -5036,6 +5111,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
         let primaryPersisted = false;
         let selectionIntentRejected = false;
+        let storageOutcome = EStorageSaveOutcome.Error;
         let storagePhase = 'mutex-wait';
         await this.mutexSaveToStorage
           .runExclusive(async () => {
@@ -5057,6 +5133,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               outcome: EStorageSaveOutcome;
               syncedHome?: boolean;
             }) => {
+              storageOutcome = outcome;
               if (STORAGE_SIDE_EFFECT_STALE_OUTCOMES.has(outcome)) {
                 this.saveToStoragePendingSideEffectMap.set(
                   sideEffectScopeKey,
@@ -5124,6 +5201,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             const isReady = get(accountSelectorStorageReadyAtom());
             if (!isReady) {
               logStorageResult({ outcome: EStorageSaveOutcome.SkipNotReady });
+              return;
+            }
+            const isAutomatedSave =
+              payload.trigger === 'selection-effect' ||
+              payload.trigger === 'unmount-flush';
+            if (isAutomatedSave && !get(accountSelectorStorageInitDoneAtom())) {
+              logStorageResult({
+                outcome: EStorageSaveOutcome.SkipInitPending,
+              });
               return;
             }
             if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
@@ -5197,7 +5283,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               ...payload,
               selectedAccount,
               sourceOperationId: operationId,
-              sourceRuntimeId: perfEnabled ? appEventBus.nodeId : undefined,
+              sourceRuntimeId: appEventBus.nodeId,
               sourceTransitionId: transitionMeta?.transitionId,
             };
             storagePhase = 'read-primary';
@@ -5330,12 +5416,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   selectedAccount: newSelectedAccount,
                   source: 'saveToStorage:syncHome',
                 });
-              await simpleDb.accountSelector.saveSelectedAccount({
-                sceneName: EAccountSelectorSceneName.home,
-                num: 0,
-                selectedAccount: fixedNewSelectedAccount,
-              });
-              syncedHome = true;
+              if (homeWriteIntentEpoch !== undefined) {
+                const homeSaveResult =
+                  await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+                    {
+                      expectedWriteIntentEpoch: homeWriteIntentEpoch,
+                      sceneName: EAccountSelectorSceneName.home,
+                      num: 0,
+                      selectedAccount: fixedNewSelectedAccount,
+                    },
+                  );
+                syncedHome = Boolean(homeSaveResult.persisted);
+              }
             }
 
             if (!isPayloadStillCurrent()) {
@@ -5433,6 +5525,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             'Account selector selection intent is stale',
           );
         }
+        return storageOutcome;
       })();
       let inflightByScope = this.saveToStorageInflightMap.get(
         payload.selectedAccount,
@@ -5450,7 +5543,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         trigger: payload.trigger || 'unspecified',
       });
       try {
-        await saveTask;
+        const outcome = await saveTask;
         if (
           storageRevisionHandled &&
           payload.selectedAccountUpdatedAt !== undefined
@@ -5469,6 +5562,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             trigger: payload.trigger || 'unspecified',
           });
         }
+        return outcome;
       } finally {
         if (inflightByScope.get(inflightScopeKey)?.promise === saveTask) {
           inflightByScope.delete(inflightScopeKey);
@@ -6009,18 +6103,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               }),
             );
           } else if (selectedAccount.othersWalletAccountId) {
-            try {
-              await serviceAccount.getAccount({
+            selectedAccountStillExists = Boolean(
+              await serviceAccount.getDBAccountSafe({
                 accountId: selectedAccount.othersWalletAccountId,
-                networkId: selectedAccount.networkId ?? '',
-              });
-            } catch {
-              selectedAccountStillExists = false;
-            }
+              }),
+            );
           }
           if (!selectedAccountStillExists) {
             phase = 'clear-removed-account';
             const selectionResult = await this.updateSelectedAccount.call(set, {
+              expectedPartialSelection: {
+                indexedAccountId: selectedAccount.indexedAccountId,
+                othersWalletAccountId: selectedAccount.othersWalletAccountId,
+                walletId: selectedAccount.walletId,
+              },
               num,
               parentOperationId: operationId,
               reason: 'removeAccountSelectionClear',

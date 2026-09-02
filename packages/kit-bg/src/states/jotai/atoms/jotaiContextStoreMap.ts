@@ -42,21 +42,39 @@ export type IJotaiContextStoreMap = {
   // check buildJotaiContextStoreId()
   [storeId: string]: IJotaiContextStoreMapValue;
 };
-export type IJotaiContextStoreRegistrationUpdate = {
-  action: 'add' | 'remove';
+export const JOTAI_CONTEXT_STORE_REGISTRATION_HEARTBEAT_MS = 20_000;
+export const JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS = 60_000;
+
+export type IJotaiContextStoreRuntimeRegistration = {
   data: IJotaiContextStoreData;
   registrationId: string;
-  revision: number;
   storeId: string;
 };
+export type IJotaiContextStoreRegistrationUpdate =
+  | (IJotaiContextStoreRuntimeRegistration & {
+      action: 'add' | 'remove';
+      revision: number;
+      runtimeId?: string;
+    })
+  | {
+      action: 'reconcile-runtime';
+      registrations: IJotaiContextStoreRuntimeRegistration[];
+      revision: number;
+      runtimeId: string;
+      // The initiating mirror's store, used only to return its aggregate count.
+      storeId: string;
+    };
 export type IJotaiContextStoreRegistrationUpdateResult = {
   map: IJotaiContextStoreMap;
+  mapChanged: boolean;
   registrationCount: number;
 };
 
 type IJotaiContextStoreRegistration = {
   data: IJotaiContextStoreData;
+  expiresAt: number;
   revision: number;
+  runtimeId: string;
   storeId: string;
 };
 
@@ -66,9 +84,40 @@ export class JotaiContextStoreRegistrationRegistry {
     IJotaiContextStoreRegistration
   >();
 
+  private readonly runtimeRevisions = new Map<string, number>();
+
+  private lastMapFingerprint = JSON.stringify({});
+
+  constructor(
+    private readonly options: {
+      leaseMs?: number;
+      now?: () => number;
+    } = {},
+  ) {}
+
+  private get leaseMs() {
+    return this.options.leaseMs ?? JOTAI_CONTEXT_STORE_REGISTRATION_LEASE_MS;
+  }
+
+  private get now() {
+    return this.options.now ?? Date.now;
+  }
+
+  private pruneExpired(now: number) {
+    for (const [registrationId, registration] of this.registrations) {
+      if (registration.expiresAt <= now) {
+        this.registrations.delete(registrationId);
+      }
+    }
+  }
+
   private buildMap(): IJotaiContextStoreMap {
     const map: IJotaiContextStoreMap = {};
-    for (const { data, storeId } of this.registrations.values()) {
+    const registrations = [...this.registrations.entries()].toSorted(
+      ([registrationIdA], [registrationIdB]) =>
+        registrationIdA.localeCompare(registrationIdB),
+    );
+    for (const [, { data, storeId }] of registrations) {
       const current = map[storeId];
       const enabledNum = new Set([
         ...(current?.accountSelectorInfo?.enabledNum ?? []),
@@ -91,31 +140,78 @@ export class JotaiContextStoreRegistrationRegistry {
   update(
     update: IJotaiContextStoreRegistrationUpdate,
   ): IJotaiContextStoreRegistrationUpdateResult {
-    const latestRevision =
-      this.registrations.get(update.registrationId)?.revision ?? -1;
-    if (update.revision > latestRevision) {
-      if (update.action === 'add') {
-        this.registrations.set(update.registrationId, {
-          data: {
-            ...update.data,
-            accountSelectorInfo: update.data.accountSelectorInfo
-              ? {
-                  ...update.data.accountSelectorInfo,
-                  enabledNum: [...update.data.accountSelectorInfo.enabledNum],
-                }
-              : undefined,
-          },
-          revision: update.revision,
-          storeId: update.storeId,
+    const now = this.now();
+    this.pruneExpired(now);
+    if (update.action === 'reconcile-runtime') {
+      const latestRuntimeRevision =
+        this.runtimeRevisions.get(update.runtimeId) ?? -1;
+      if (update.revision > latestRuntimeRevision) {
+        for (const [registrationId, registration] of this.registrations) {
+          if (registration.runtimeId === update.runtimeId) {
+            this.registrations.delete(registrationId);
+          }
+        }
+        update.registrations.forEach((registration) => {
+          this.registrations.set(registration.registrationId, {
+            data: {
+              ...registration.data,
+              accountSelectorInfo: registration.data.accountSelectorInfo
+                ? {
+                    ...registration.data.accountSelectorInfo,
+                    enabledNum: [
+                      ...registration.data.accountSelectorInfo.enabledNum,
+                    ],
+                  }
+                : undefined,
+            },
+            expiresAt: now + this.leaseMs,
+            revision: update.revision,
+            runtimeId: update.runtimeId,
+            storeId: registration.storeId,
+          });
         });
-      } else {
-        this.registrations.delete(update.registrationId);
+        this.runtimeRevisions.set(update.runtimeId, update.revision);
+      } else if (update.revision === latestRuntimeRevision) {
+        for (const registration of this.registrations.values()) {
+          if (registration.runtimeId === update.runtimeId) {
+            registration.expiresAt = now + this.leaseMs;
+          }
+        }
+      }
+    } else {
+      const latestRevision =
+        this.registrations.get(update.registrationId)?.revision ?? -1;
+      if (update.revision > latestRevision) {
+        if (update.action === 'add') {
+          this.registrations.set(update.registrationId, {
+            data: {
+              ...update.data,
+              accountSelectorInfo: update.data.accountSelectorInfo
+                ? {
+                    ...update.data.accountSelectorInfo,
+                    enabledNum: [...update.data.accountSelectorInfo.enabledNum],
+                  }
+                : undefined,
+            },
+            expiresAt: now + this.leaseMs,
+            revision: update.revision,
+            runtimeId:
+              update.runtimeId ?? update.registrationId.split(':')[0] ?? '',
+            storeId: update.storeId,
+          });
+        } else {
+          this.registrations.delete(update.registrationId);
+        }
       }
     }
 
     const map = this.buildMap();
+    const mapFingerprint = JSON.stringify(map);
+    const mapChanged = mapFingerprint !== this.lastMapFingerprint;
+    this.lastMapFingerprint = mapFingerprint;
     return {
       map,
+      mapChanged,
       registrationCount: map[update.storeId]?.count ?? 0,
     };
   }
@@ -162,7 +258,9 @@ export function updateJotaiContextStoreRegistration(
   const updateTask = backgroundRegistrationUpdateQueue.then(async () => {
     const result = backgroundRegistrationRegistry.update(update);
     syncJotaiContextTrackerMap(result.map);
-    await jotaiContextStoreMapAtom.set(result.map);
+    if (result.mapChanged) {
+      await jotaiContextStoreMapAtom.set(result.map);
+    }
     return result;
   });
   backgroundRegistrationUpdateQueue = updateTask.then(

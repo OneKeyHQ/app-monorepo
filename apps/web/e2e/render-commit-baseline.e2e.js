@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
- * Cross-branch Account Selector performance baseline (v6).
+ * Cross-branch Account Selector performance baseline (v7).
  *
  * Purpose
  * -------
@@ -92,11 +92,12 @@ const artifactDir =
 // numbers: v3 added warm-up iterations, v4 pinned a canonical background-churn
 // state, v5 added retention/responsiveness probes, and v6 added hard
 // quiescence, operation-to-quiescence windows with next-paint checkpoints, and
-// the scene/num/origin matrix. Artifacts
+// the scene/num/origin matrix. v7 excludes the candidate-only in-app Account
+// Selector profiler and records an instrumentation fingerprint. Artifacts
 // from different metricsVersions describe different protocols and must never
 // be compared value-to-value - re-measure both sides instead (which is what
 // the A/B driver does on every run).
-const METRICS_VERSION = 6;
+const METRICS_VERSION = 7;
 
 const RENDERER_TIMEOUT_MS =
   Number(process.env.WEB_E2E_RENDERER_TIMEOUT_MS) || 180_000;
@@ -515,6 +516,10 @@ async function launchBrowser() {
 // isDevToolsPresent), which populates fiber.actualDuration; identical on both
 // branches, so the profiling overhead is symmetric too.
 function installRenderBaselineHook() {
+  // This init script runs before the app bundle. Current candidates use the
+  // marker to skip their in-app Account Selector diagnostics; x commits that
+  // predate those diagnostics naturally have nothing to skip.
+  globalThis.$$accountSelectorRenderBaselineMode = true;
   const state = {
     actualDurationMs: 0,
     // Append-only per-commit logs so the driver can compute per-commit and
@@ -525,6 +530,7 @@ function installRenderBaselineHook() {
     commits: 0,
     commitsMissingDuration: 0,
     interactionDurationsMs: [],
+    inAppAccountSelectorPerfWrapperDetected: false,
     longAnimationFrameDurationsMs: [],
     longTasks: 0,
     renderedComponents: 0,
@@ -533,6 +539,22 @@ function installRenderBaselineHook() {
   };
   const MAX_COMMIT_LOG = 100_000;
   const WALK_NODE_BUDGET = 200_000;
+  const IN_APP_PERF_COMPONENT_NAMES = new Set([
+    'AccountSelectorMirrorPerfTracker',
+    'AccountSelectorProviderPerfDebug',
+    'AccountSelectorProviderProfiler',
+  ]);
+
+  function recordInAppPerfComponent(fiber) {
+    const type = fiber.elementType || fiber.type;
+    const name =
+      (typeof type === 'function' && (type.displayName || type.name)) ||
+      (type && typeof type === 'object' && type.displayName) ||
+      undefined;
+    if (name && IN_APP_PERF_COMPONENT_NAMES.has(name)) {
+      state.inAppAccountSelectorPerfWrapperDetected = true;
+    }
+  }
 
   // Counts composite components that rendered in THIS commit, the way React
   // DevTools does: a visited composite fiber rendered iff its PerformedWork
@@ -569,6 +591,7 @@ function installRenderBaselineHook() {
         break;
       }
       const [next, prev] = stack.pop();
+      recordInAppPerfComponent(next);
       if (!prev) {
         if (isCountedTag(next.tag)) {
           rendered += 1;
@@ -715,6 +738,9 @@ function installRenderBaselineHook() {
     get interactionDurationsMs() {
       return state.interactionDurationsMs;
     },
+    get inAppAccountSelectorPerfWrapperDetected() {
+      return state.inAppAccountSelectorPerfWrapperDetected;
+    },
     get longAnimationFrameDurationsMs() {
       return state.longAnimationFrameDurationsMs;
     },
@@ -748,6 +774,8 @@ async function readCounters(page) {
     commitsMissingDuration: globalThis.__renderBaseline.commitsMissingDuration,
     interactionLogLength:
       globalThis.__renderBaseline.interactionDurationsMs.length,
+    inAppAccountSelectorPerfWrapperDetected:
+      globalThis.__renderBaseline.inAppAccountSelectorPerfWrapperDetected,
     longAnimationFrameLogLength:
       globalThis.__renderBaseline.longAnimationFrameDurationsMs.length,
     longTasks: globalThis.__renderBaseline.longTasks,
@@ -1864,6 +1892,14 @@ async function main() {
       true,
       'React devtools hook must observe commits (app booted before hook?)',
     );
+    const inAppPerfWrapperDetected = await page.evaluate(
+      () => globalThis.__renderBaseline.inAppAccountSelectorPerfWrapperDetected,
+    );
+    assert.equal(
+      inAppPerfWrapperDetected,
+      false,
+      'Render baseline must not mount candidate-only Account Selector perf wrappers',
+    );
     await waitForCommitQuiescence(page);
     const bootCounters = await readCounters(page);
     log(
@@ -2044,6 +2080,11 @@ async function main() {
       },
       git,
       iterations: ITERATIONS,
+      instrumentation: {
+        inAppAccountSelectorPerfWrapperDetected,
+        mode: 'injection-only',
+        reactDevtoolsHook: 'render-baseline-v7',
+      },
       metricsVersion: METRICS_VERSION,
       notes,
       operationWindow: OPERATION_WINDOW,

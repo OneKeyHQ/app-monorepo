@@ -1,5 +1,6 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
+import { redactErrorMessageForLocalLog } from '../../../utils/redactErrorMessage';
 
 // Failures a user can notice, kept out of the dev-only scenes on purpose.
 // These are the cases where the app stops doing something the user asked for
@@ -29,7 +30,14 @@ export class AccountSelectorFailureScene extends BaseScene {
   }) {
     return [
       'accountSelector external account activation failed',
-      { connectionKind, errorMessage, errorName, num, phase, sceneName },
+      {
+        connectionKind,
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
+        errorName,
+        num,
+        phase,
+        sceneName,
+      },
     ];
   }
 
@@ -125,7 +133,7 @@ export class AccountSelectorFailureScene extends BaseScene {
       'accountSelector active account reload failed',
       {
         consecutiveFailures,
-        errorMessage,
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
         errorName,
         num,
         phase,
@@ -179,7 +187,12 @@ export class AccountSelectorFailureScene extends BaseScene {
   }) {
     return [
       'accountSelector build active account stage failed',
-      { errorMessage, errorName, networkId, stage },
+      {
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
+        errorName,
+        networkId,
+        stage,
+      },
     ];
   }
 
@@ -200,7 +213,11 @@ export class AccountSelectorFailureScene extends BaseScene {
   }) {
     return [
       'accountSelector hw wallet deprecated status update failed',
-      { errorMessage, errorName, walletType },
+      {
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
+        errorName,
+        walletType,
+      },
     ];
   }
 
@@ -227,7 +244,7 @@ export class AccountSelectorFailureScene extends BaseScene {
       'accountSelector selection save failed',
       {
         consecutiveFailures,
-        errorMessage,
+        errorMessage: redactErrorMessageForLocalLog(errorMessage),
         errorName,
         num,
         previousFailures,

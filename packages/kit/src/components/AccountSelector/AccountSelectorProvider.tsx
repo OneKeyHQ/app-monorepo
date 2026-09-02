@@ -39,6 +39,10 @@ const AccountSelectorProviderPerfDebug = lazy(async () => {
   return { default: PerfDebug };
 });
 
+const accountSelectorRenderBaselineGlobals = globalThis as typeof globalThis & {
+  $$accountSelectorRenderBaselineMode?: boolean;
+};
+
 type IAccountSelectorE2EStateAccessor = {
   getSnapshot: (params: {
     num: number;
@@ -178,7 +182,11 @@ export function AccountSelectorProviderMirror({
     </AccountSelectorJotaiProvider>
   );
 
-  if (perfDebugName && (platformEnv.isDev || platformEnv.isE2E)) {
+  if (
+    perfDebugName &&
+    (platformEnv.isDev || platformEnv.isE2E) &&
+    !accountSelectorRenderBaselineGlobals.$$accountSelectorRenderBaselineMode
+  ) {
     return (
       <Suspense fallback={null}>
         <AccountSelectorProviderPerfDebug

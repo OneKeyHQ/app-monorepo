@@ -193,7 +193,7 @@ describe('RewardCenter account selector sync', () => {
     mockGetSelectedAccount.mockImplementation(() => ({}));
   });
 
-  it('logs a rejected confirmAccountSelect (indexed) and still finishes the remaining init steps', async () => {
+  it('aborts indexed-account initialization when selection is rejected', async () => {
     mockConfirmAccountSelect.mockImplementation(() =>
       Promise.reject(new Error('save to storage failed')),
     );
@@ -201,20 +201,11 @@ describe('RewardCenter account selector sync', () => {
     await renderAndFlushSync();
 
     expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
-    expect(mockErrorLog).toHaveBeenCalledTimes(1);
-    expect(mockErrorLog.mock.calls[0][0]).toContain(
-      'RewardCenter confirmAccountSelect (indexed) failed',
-    );
-    expect(mockErrorLog.mock.calls[0][0]).toContain('save to storage failed');
-    // The failure must not abort the rest of the init sequence.
-    expect(mockUpdateSelectedAccountFocusedWallet).toHaveBeenCalledWith({
-      num: 0,
-      focusedWallet: 'hd-1',
-    });
-    expect(mockReloadActiveAccountInfo).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSelectedAccountFocusedWallet).not.toHaveBeenCalled();
+    expect(mockReloadActiveAccountInfo).not.toHaveBeenCalled();
   });
 
-  it('logs a rejected confirmAccountSelect (others) and still finishes the remaining init steps', async () => {
+  it('aborts others-account initialization when selection is rejected', async () => {
     mockIsOthersAccount.mockImplementation(() => true);
     mockConfirmAccountSelect.mockImplementation(() =>
       Promise.reject(new Error('save to storage failed')),
@@ -222,12 +213,9 @@ describe('RewardCenter account selector sync', () => {
 
     await renderAndFlushSync();
 
-    expect(mockErrorLog).toHaveBeenCalledTimes(1);
-    expect(mockErrorLog.mock.calls[0][0]).toContain(
-      'RewardCenter confirmAccountSelect (others) failed',
-    );
-    expect(mockUpdateSelectedAccountFocusedWallet).toHaveBeenCalledTimes(1);
-    expect(mockReloadActiveAccountInfo).toHaveBeenCalledTimes(1);
+    expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSelectedAccountFocusedWallet).not.toHaveBeenCalled();
+    expect(mockReloadActiveAccountInfo).not.toHaveBeenCalled();
   });
 
   it('runs the full init sequence without logging when the selection is persisted', async () => {

@@ -46,11 +46,10 @@ describe('getNextSelectionUpdatedAt', () => {
     });
   });
 
-  describe('event commits (requestedUpdatedAt from a peer runtime)', () => {
-    it('keeps a peer revision that is ahead of the local clock', () => {
-      // A peer revision carries the emitting runtime's ordering; a value ahead
-      // of our wall clock (peer clock skew) must survive as-is, not be clamped
-      // down to local time.
+  describe('explicit revisions on non-event commits', () => {
+    it('keeps a requested revision that is ahead of the local clock', () => {
+      // An explicit revision carries the caller's ordering; a value ahead of
+      // our wall clock must survive as-is, not be clamped down to local time.
       jest.spyOn(Date, 'now').mockReturnValue(1000);
       expect(
         getNextSelectionUpdatedAt({
@@ -60,11 +59,7 @@ describe('getNextSelectionUpdatedAt', () => {
       ).toBe(9999);
     });
 
-    it('never replaces the peer revision with the receive time', () => {
-      // Burst scenario from the source comment: re-stamping events with the
-      // receive clock would lift the first event far above the second payload's
-      // revision, so the second event would read as stale and be dropped. The
-      // receive clock therefore plays no part in an event commit at all.
+    it('never replaces the requested revision with the wall clock', () => {
       const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(50_000);
       expect(
         getNextSelectionUpdatedAt({
@@ -75,9 +70,8 @@ describe('getNextSelectionUpdatedAt', () => {
       expect(nowSpy).not.toHaveBeenCalled();
     });
 
-    it('lifts a peer revision below the committed one up to the monotonic floor', () => {
-      // A stale peer revision must not rewind what we already hold: the floor
-      // (currentUpdatedAt + 1) is the only clamp applied to event commits.
+    it('lifts a requested revision below the committed one to the monotonic floor', () => {
+      // An explicit revision must not rewind what we already hold.
       jest.spyOn(Date, 'now').mockReturnValue(50_000);
       expect(
         getNextSelectionUpdatedAt({
@@ -87,9 +81,9 @@ describe('getNextSelectionUpdatedAt', () => {
       ).toBe(1001);
     });
 
-    it('keeps the peer revision untouched on the very first commit', () => {
-      // Initial state: with no committed revision the floor is 0, so a peer
-      // revision far below the local wall clock is still stored verbatim.
+    it('keeps the requested revision untouched on the very first commit', () => {
+      // Initial state: with no committed revision the floor is 0, so an
+      // explicit revision far below the wall clock is stored verbatim.
       jest.spyOn(Date, 'now').mockReturnValue(50_000);
       expect(getNextSelectionUpdatedAt({ requestedUpdatedAt: 7 })).toBe(7);
     });

@@ -1014,27 +1014,13 @@ function RewardCenterAccountSelectorSync({
             accountId,
           })
         ) {
-          try {
-            await actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount: undefined,
-              othersWalletAccount: initAccount,
-              entry: 'rewardCenter:othersWallet',
-              forceSelectToNetworkId: networkId,
-            });
-          } catch (error) {
-            // Only persisting the selection failed; the in-memory selection is
-            // already committed, so the page still renders the right account.
-            // Swallow it here instead of letting the outer catch abort the
-            // remaining init steps (focused wallet + active account reload),
-            // which would leave the page on a half-initialized selector. No
-            // Toast: nothing looks wrong to the user on this page.
-            defaultLogger.app.error.log(
-              `RewardCenter confirmAccountSelect (others) failed: ${
-                (error as Error)?.message ?? String(error)
-              }`,
-            );
-          }
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: initAccount,
+            entry: 'rewardCenter:othersWallet',
+            forceSelectToNetworkId: networkId,
+          });
         } else if (initWallet) {
           const indexedAccount =
             await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount({
@@ -1043,22 +1029,12 @@ function RewardCenterAccountSelectorSync({
           if (cancelled) {
             return;
           }
-          try {
-            await actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount,
-              othersWalletAccount: undefined,
-              forceSelectToNetworkId: networkId,
-            });
-          } catch (error) {
-            // Same as the others-account branch above: keep the remaining init
-            // steps running instead of aborting into the outer catch.
-            defaultLogger.app.error.log(
-              `RewardCenter confirmAccountSelect (indexed) failed: ${
-                (error as Error)?.message ?? String(error)
-              }`,
-            );
-          }
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount,
+            othersWalletAccount: undefined,
+            forceSelectToNetworkId: networkId,
+          });
         }
 
         if (cancelled) {

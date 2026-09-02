@@ -468,6 +468,7 @@ export interface IAppEventBusPayload {
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;
   };
   [EAppEventBusNames.ShowFindInWebPage]: {

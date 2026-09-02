@@ -1,10 +1,24 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 
-import { useSyncDappAccountToHomeAccount } from './SyncDappAccountToHomeProvider';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import {
+  SyncHomeAccountPageToDappAccount,
+  useSyncDappAccountToHomeAccount,
+} from './SyncDappAccountToHomeProvider';
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
+const mockUpdateSelectedAccount = jest.fn(async (_params: unknown) => ({
+  outcome: 'commit',
+}));
+const mockSetIsAlignPrimaryAccountProcessing = jest.fn(
+  async (_params: unknown) => undefined,
+);
 const mockErrorLog = jest.fn((_message: string) => undefined);
 const mockIsOthersAccount = jest.fn((_params: unknown) => false);
 
@@ -13,7 +27,7 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useAccountSelectorContextDataAtom: () => [undefined],
+  useAccountSelectorContextDataAtom: () => [{ sceneName: 'home' }],
 }));
 
 jest.mock(
@@ -23,6 +37,8 @@ jest.mock(
       current: {
         confirmAccountSelect: async (params: unknown) =>
           mockConfirmAccountSelect(params),
+        updateSelectedAccount: async (params: unknown) =>
+          mockUpdateSelectedAccount(params),
       },
     }),
   }),
@@ -38,6 +54,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: {
       getAccount: async () => ({ id: 'account-id' }),
       getIndexedAccount: async () => ({ id: 'indexed-account-id' }),
+    },
+    serviceDApp: {
+      setIsAlignPrimaryAccountProcessing: (params: unknown) =>
+        mockSetIsAlignPrimaryAccountProcessing(params),
     },
   },
 }));
@@ -138,5 +158,41 @@ describe('useSyncDappAccountToHomeAccount', () => {
 
     expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
     expect(mockErrorLog).not.toHaveBeenCalled();
+  });
+});
+
+describe('SyncHomeAccountPageToDappAccount', () => {
+  it('applies the background result only while the observed Home selection is current', async () => {
+    const expectedSelectedAccount = {
+      deriveType: 'default' as const,
+      focusedWallet: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: 'evm--1',
+      othersWalletAccountId: undefined,
+      walletId: 'hd-1',
+    };
+    const selectedAccount = {
+      ...expectedSelectedAccount,
+      indexedAccountId: 'hd-2--0',
+      walletId: 'hd-2',
+    };
+    render(<SyncHomeAccountPageToDappAccount />);
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+        expectedSelectedAccount,
+        selectedAccount,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateSelectedAccount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedSelection: expectedSelectedAccount,
+          num: 0,
+          reason: 'syncDappAccountToHomeAccount',
+        }),
+      );
+    });
   });
 });
