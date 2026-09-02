@@ -644,6 +644,33 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async openBatchTxConfirmModal({
+    request,
+    accountId,
+    networkId,
+    batchId,
+  }: {
+    request: IJsBridgeMessagePayload;
+    accountId: string;
+    networkId: string;
+    batchId: string;
+  }): Promise<string[]> {
+    return this.openModal({
+      request,
+      screens: [
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp,
+      ],
+      params: {
+        accountId,
+        networkId,
+        batchId,
+      },
+      fullScreen: true,
+    }) as Promise<string[]>;
+  }
+
+  @backgroundMethod()
   async openAddCustomNetworkModal({
     request,
     params,
