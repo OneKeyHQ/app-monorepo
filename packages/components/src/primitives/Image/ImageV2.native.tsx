@@ -110,7 +110,11 @@ function selectSourceCandidate({
       if (!sourceWidth || !sourceHeight) {
         return;
       }
-      const precision = Math.abs(1 - (sourceWidth * sourceHeight) / targetArea);
+      const sourceScale = getPositiveNumber(source.scale) ?? 1;
+      const precision = Math.abs(
+        1 -
+          (sourceWidth * sourceHeight * sourceScale * sourceScale) / targetArea,
+      );
       if (precision < bestPrecision) {
         bestPrecision = precision;
         bestSource = source;
@@ -320,7 +324,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
       recyclingKey={recyclingKey}
       autoplay={autoplay}
-      optimizeTos={!shouldUseRawSourceFallback}
+      optimizeTos={
+        !optimizedSourceResult.optimized && !shouldUseRawSourceFallback
+      }
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
       onError={handleError}
       onLoad={onLoad ? handleLoad : undefined}

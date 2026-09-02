@@ -16,23 +16,23 @@ const CACHE_POLICIES = {
 } as const;
 
 export const preloadImages: IPreloadImagesFunc = (sources, options) => {
-  return OneKeyImageCache.preload(
-    sources
-      .filter((source) => Boolean(source.uri))
-      .map((source) => {
-        const pixelRatio =
-          source.pixelRatio ?? options?.pixelRatio ?? PixelRatio.get();
-        const optimizedSource = buildTosImageResizeUrl({
-          uri: source.uri,
-          resizeWidth: source.resizeWidth,
-          displayWidth: source.width,
-          displayHeight: source.height,
-          pixelRatio,
-          enabled: source.optimize !== false,
-          overscanRatio: source.overscan,
-        });
+  const preloadRequests = sources
+    .filter((source) => Boolean(source.uri))
+    .map((source) => {
+      const pixelRatio =
+        source.pixelRatio ?? options?.pixelRatio ?? PixelRatio.get();
+      const optimizedSource = buildTosImageResizeUrl({
+        uri: source.uri,
+        resizeWidth: source.resizeWidth,
+        displayWidth: source.width,
+        displayHeight: source.height,
+        pixelRatio,
+        enabled: source.optimize !== false,
+        overscanRatio: source.overscan,
+      });
 
-        return {
+      return {
+        request: {
           uri: optimizedSource.uri ?? source.uri,
           headers: source.headers,
           cachePolicy: source.cachePolicy
@@ -43,9 +43,26 @@ export const preloadImages: IPreloadImagesFunc = (sources, options) => {
           pixelRatio,
           overscan: source.overscan,
           optimizeTos: false,
-        };
-      }),
-  ).catch(() => false);
+        },
+        rawUri: source.uri,
+        optimized: optimizedSource.optimized,
+      };
+    });
+  const requests = preloadRequests.map(({ request }) => request);
+
+  return OneKeyImageCache.preload(requests)
+    .catch(() => false)
+    .then((success) => {
+      if (success || !preloadRequests.some(({ optimized }) => optimized)) {
+        return success;
+      }
+      return OneKeyImageCache.preload(
+        preloadRequests.map(({ request, rawUri }) => ({
+          ...request,
+          uri: rawUri,
+        })),
+      ).catch(() => false);
+    });
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>

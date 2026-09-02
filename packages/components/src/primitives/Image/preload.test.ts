@@ -94,4 +94,25 @@ describe('native preloadImages', () => {
       }),
     ]);
   });
+
+  test('retries the original URLs when an optimized preload fails', async () => {
+    mockNativePreload.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    await expect(
+      preloadNativeImages([
+        {
+          uri: 'https://uni.onekey-asset.com/token.png',
+          resizeWidth: 32,
+          pixelRatio: 1,
+        },
+      ]),
+    ).resolves.toBe(true);
+
+    expect(mockNativePreload).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({
+        uri: 'https://uni.onekey-asset.com/token.png',
+        optimizeTos: false,
+      }),
+    ]);
+  });
 });
