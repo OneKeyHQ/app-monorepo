@@ -60,6 +60,7 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   LocalPendingTxConfirmed = 'LocalPendingTxConfirmed',
   DeFiPositionRefreshed = 'DeFiPositionRefreshed',
+  DeFiEnabledNetworksChanged = 'DeFiEnabledNetworksChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',

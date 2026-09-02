@@ -63,6 +63,24 @@ export function useHomeWalletTabSupport({
     };
   }, [isAllNetworks]);
 
+  useEffect(() => {
+    const onDeFiEnabledNetworksChanged = () => {
+      setEnabledNetworksChangedNonce((value) => value + 1);
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.DeFiEnabledNetworksChanged,
+      onDeFiEnabledNetworksChanged,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.DeFiEnabledNetworksChanged,
+        onDeFiEnabledNetworksChanged,
+      );
+    };
+  }, []);
+
   const scopeKey = useMemo(
     () =>
       [
