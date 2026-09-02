@@ -1383,6 +1383,7 @@ async function readCacheLockOwner(lockDirectory, fileSystem = fs.promises) {
 async function getCacheLockSnapshot(lockDirectory, fileSystem) {
   let lastStat;
   for (let attempt = 0; attempt < 3; attempt += 1) {
+    const firstOwner = await readCacheLockOwner(lockDirectory, fileSystem);
     let firstStat;
     try {
       firstStat = await fileSystem.lstat(lockDirectory);
@@ -1400,7 +1401,7 @@ async function getCacheLockSnapshot(lockDirectory, fileSystem) {
       throw error;
     }
     const firstIdentity = `${String(firstStat.dev)}:${String(firstStat.ino)}`;
-    const owner = await readCacheLockOwner(lockDirectory, fileSystem);
+    const confirmedOwner = await readCacheLockOwner(lockDirectory, fileSystem);
     let confirmedStat;
     try {
       confirmedStat = await fileSystem.lstat(lockDirectory);
@@ -1410,12 +1411,15 @@ async function getCacheLockSnapshot(lockDirectory, fileSystem) {
     lastStat = confirmedStat;
     if (confirmedStat) {
       const lastIdentity = `${String(confirmedStat.dev)}:${String(confirmedStat.ino)}`;
-      if (firstIdentity === lastIdentity) {
+      if (
+        firstIdentity === lastIdentity &&
+        firstOwner?.token === confirmedOwner?.token
+      ) {
         return {
           ageMs: Date.now() - confirmedStat.mtimeMs,
           identity: lastIdentity,
           missing: false,
-          owner,
+          owner: confirmedOwner,
           stable: true,
           stat: confirmedStat,
         };
@@ -1587,16 +1591,11 @@ async function tryReclaimCacheLock({
     return true;
   } finally {
     if (markerAcquired && !lockRenamed) {
-      const currentRoot = await getCacheLockSnapshot(lockDirectory, fileSystem);
       const currentMarker = await getCacheLockSnapshot(
         reclaimDirectory,
         fileSystem,
       );
-      if (
-        isSameCacheLockGeneration(snapshot, currentRoot) &&
-        currentMarker.owner?.token === token &&
-        isReclaimMarkerBoundToLock(currentMarker, currentRoot)
-      ) {
+      if (currentMarker.stable && currentMarker.owner?.token === token) {
         await fileSystem.rm(reclaimDirectory, {
           force: true,
           recursive: true,

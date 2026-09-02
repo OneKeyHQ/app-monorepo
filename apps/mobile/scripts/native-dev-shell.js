@@ -770,19 +770,33 @@ function getLockSnapshot({ fileSystem, lockDirectory, ownerPath }) {
     if (error?.code === 'ENOENT') return missingSnapshot();
     throw error;
   }
-  let activeOwner;
+  const readOwner = () => {
+    try {
+      return JSON.parse(fileSystem.readFileSync(ownerPath, 'utf8'));
+    } catch {
+      return undefined;
+    }
+  };
+  const getOwnerGeneration = (owner) =>
+    owner?.sessionId === undefined
+      ? owner?.token
+      : `session:${owner.sessionId}`;
+  const firstOwner = readOwner();
   try {
-    activeOwner = JSON.parse(fileSystem.readFileSync(ownerPath, 'utf8'));
-  } catch {
-    activeOwner = undefined;
-  }
-  try {
+    const middle = fileSystem.statSync(lockDirectory);
+    const secondOwner = readOwner();
     const after = fileSystem.statSync(lockDirectory);
-    if (before.dev !== after.dev || before.ino !== after.ino) {
+    if (
+      before.dev !== middle.dev ||
+      before.ino !== middle.ino ||
+      middle.dev !== after.dev ||
+      middle.ino !== after.ino ||
+      getOwnerGeneration(firstOwner) !== getOwnerGeneration(secondOwner)
+    ) {
       return missingSnapshot();
     }
     return {
-      activeOwner,
+      activeOwner: secondOwner,
       ageMs: Date.now() - after.mtimeMs,
       identity: `${String(after.dev)}:${String(after.ino)}`,
       missing: false,
@@ -1046,20 +1060,11 @@ function acquireNamedLock({
           }
         } finally {
           if (markerAcquired && !lockRenamed) {
-            const current = getLockSnapshot({
-              fileSystem,
-              lockDirectory,
-              ownerPath,
-            });
             const currentMarker = getReclaimMarkerSnapshot(
               fileSystem,
               reclaimMarker,
             );
-            if (
-              isSameLockGeneration(snapshot, current) &&
-              currentMarker.activeOwner?.token === markerOwner.token &&
-              isMarkerBoundToRoot(currentMarker, current)
-            ) {
+            if (currentMarker.activeOwner?.token === markerOwner.token) {
               fileSystem.rmSync(reclaimMarker, {
                 force: true,
                 recursive: true,

@@ -930,6 +930,86 @@ describe('metro-dev-prebundle release transport', () => {
     }
   });
 
+  it('removes only its marker after root replacement reuses an inode', async () => {
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-metro-cache-inode-reuse-'),
+    );
+    const lockDirectory = path.join(root, 'tag.lock');
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    const reclaimDirectory = path.join(lockDirectory, '.reclaim');
+    const reclaimOwnerPath = path.join(reclaimDirectory, 'owner.json');
+    const savedMarker = path.join(root, 'saved-reclaim');
+    const callback = jest.fn();
+    let replaced = false;
+    let rootRenameCount = 0;
+    try {
+      await fs.ensureDir(lockDirectory);
+      await fs.writeJson(ownerPath, {
+        pid: 12_345,
+        token: 'stale-owner',
+      });
+      const staleTimestamp = new Date(1000);
+      await fs.utimes(lockDirectory, staleTimestamp, staleTimestamp);
+      const initialStat = await fs.promises.lstat(lockDirectory);
+      const fileSystem = {
+        ...fs.promises,
+        async lstat(filePath) {
+          const stat = await fs.promises.lstat(filePath);
+          if (filePath !== lockDirectory) return stat;
+          return {
+            dev: initialStat.dev,
+            ino: initialStat.ino,
+            isDirectory: () => stat.isDirectory(),
+            isSymbolicLink: () => stat.isSymbolicLink(),
+            mtimeMs: stat.mtimeMs,
+          };
+        },
+        async rename(sourcePath, targetPath) {
+          if (sourcePath === lockDirectory) rootRenameCount += 1;
+          return fs.promises.rename(sourcePath, targetPath);
+        },
+        async writeFile(filePath, ...args) {
+          const result = await fs.promises.writeFile(filePath, ...args);
+          if (filePath === reclaimOwnerPath && !replaced) {
+            replaced = true;
+            await fs.promises.rename(reclaimDirectory, savedMarker);
+            await fs.promises.rm(lockDirectory, {
+              force: true,
+              recursive: true,
+            });
+            await fs.promises.mkdir(lockDirectory);
+            await fs.promises.writeFile(
+              ownerPath,
+              `${JSON.stringify({ pid: process.pid, token: 'live-replacement' })}\n`,
+            );
+            await fs.promises.rename(savedMarker, reclaimDirectory);
+          }
+          return result;
+        },
+      };
+
+      await expect(
+        withCacheLock(lockDirectory, callback, {
+          fileSystem,
+          processIsRunning: (pid) => pid === process.pid,
+          staleMs: 0,
+          waitTimeoutMs: 0,
+        }),
+      ).rejects.toThrow('Timed out waiting for shared cache lock');
+
+      expect(replaced).toBe(true);
+      expect(callback).not.toHaveBeenCalled();
+      expect(rootRenameCount).toBe(0);
+      expect(await fs.readJson(ownerPath)).toEqual({
+        pid: process.pid,
+        token: 'live-replacement',
+      });
+      expect(await fs.pathExists(reclaimDirectory)).toBe(false);
+    } finally {
+      await fs.remove(root);
+    }
+  });
+
   it('retries a snapshot when the root changes between stat and owner read', async () => {
     const root = await fs.mkdtemp(
       path.join(os.tmpdir(), 'onekey-metro-cache-snapshot-'),

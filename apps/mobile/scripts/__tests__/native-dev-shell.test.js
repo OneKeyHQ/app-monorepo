@@ -518,6 +518,16 @@ describe('native-dev-shell', () => {
     let replaced = false;
     const racingFileSystem = {
       ...fs,
+      statSync(targetPath) {
+        const stats = fs.statSync(targetPath);
+        if (targetPath === lockDirectory) {
+          Object.defineProperties(stats, {
+            dev: { value: 7 },
+            ino: { value: 11 },
+          });
+        }
+        return stats;
+      },
       readFileSync(targetPath, ...args) {
         const value = fs.readFileSync(targetPath, ...args);
         if (!replaced && targetPath === ownerPath) {
@@ -527,6 +537,51 @@ describe('native-dev-shell', () => {
           fs.writeFileSync(ownerPath, `${JSON.stringify(newOwner)}\n`);
         }
         return value;
+      },
+    };
+
+    expect(
+      acquireNamedLock({
+        fileSystem: racingFileSystem,
+        key: 'shared',
+        kind,
+        lockRoot,
+        owner: { pid: 303, sessionId: 'unexpected-owner' },
+        processIsAlive: (pid) => pid === newOwner.pid,
+        returnNullWhenBusy: true,
+      }),
+    ).toBeNull();
+    expect(replaced).toBe(true);
+    expect(JSON.parse(fs.readFileSync(ownerPath))).toEqual(newOwner);
+    expect(fs.existsSync(path.join(lockDirectory, '.reclaim'))).toBe(false);
+  });
+
+  it('cleans up its own marker after the main owner generation changes', () => {
+    const lockRoot = path.join(temporaryDirectory, 'marker-cleanup-locks');
+    const kind = 'test-marker-cleanup';
+    acquireNamedLock({
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: 101, sessionId: 'stale-owner' },
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    const ownerPath = path.join(lockDirectory, 'owner.json');
+    const markerOwnerPath = path.join(lockDirectory, '.reclaim', 'owner.json');
+    const newOwner = { pid: 202, sessionId: 'new-owner' };
+    let replaced = false;
+    const racingFileSystem = {
+      ...fs,
+      writeFileSync(targetPath, ...args) {
+        const result = fs.writeFileSync(targetPath, ...args);
+        if (!replaced && targetPath === markerOwnerPath) {
+          replaced = true;
+          fs.writeFileSync(ownerPath, `${JSON.stringify(newOwner)}\n`);
+        }
+        return result;
       },
     };
 
