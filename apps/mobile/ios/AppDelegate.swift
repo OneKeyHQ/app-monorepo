@@ -1,4 +1,6 @@
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
 internal import CryptoKit
+#endif
 internal import Expo
 import MMKV
 import React
@@ -79,6 +81,7 @@ private enum BackgroundThreadBridge {
     cls.perform(selector, with: host, with: entryURL)
   }
 
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
   static func installSharedBridgeInMainRuntime(
     _ host: AnyObject,
     thenStartBackgroundRunnerWithDevVendorConfig config: [String: String]
@@ -98,6 +101,7 @@ private enum BackgroundThreadBridge {
 
     cls.perform(selector, with: host, with: config as NSDictionary)
   }
+#endif
 }
 
 /// Single flag controlling HBC + segment profile on native side. Read from
@@ -124,16 +128,20 @@ private func isStartupProfileEnabled() -> Bool {
 private enum InitialBundleKind {
   case none
   case common
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
   case devVendorCommon
+#endif
   case main
 }
 
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
 private struct DevVendorBundleInfo {
   let commonBundleURL: URL
   let fingerprint: String
   let metroBaseURL: URL
   let sessionId: String
 }
+#endif
 
 @UIApplicationMain
 class AppDelegate: ExpoAppDelegate {
@@ -342,11 +350,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
   private var initialBundleKind: InitialBundleKind = .none
-  private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
 
   private func canonicalDevMetroURL(_ url: URL?) -> URL? {
     return url
   }
+
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
+  private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()
 
   private func explicitDevBackgroundHMRValue() -> Bool? {
     if let envValue = ProcessInfo.processInfo.environment["ONEKEY_DEV_BG_HMR"] {
@@ -366,15 +376,10 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 
   private func isDevBackgroundHMREnabled(fingerprint _: String) -> Bool {
-#if DEBUG
     return explicitDevBackgroundHMRValue() ?? false
-#else
-    return false
-#endif
   }
 
   private func resolveDevVendorBundleInfo() -> DevVendorBundleInfo? {
-#if DEBUG && targetEnvironment(simulator)
     guard
       let nativeContractKey = Bundle.main.object(
         forInfoDictionaryKey: "ONEKEY_NATIVE_CONTRACT_KEY"
@@ -511,9 +516,6 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         "Run the dev-shell command again for this exact simulator. Error: \(error)"
       )
     }
-#else
-    return nil
-#endif
   }
 
   private func bundleInteger(forInfoDictionaryKey key: String) -> Int? {
@@ -657,6 +659,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     components.queryItems = queryItems
     return components.url
   }
+#endif
 
   private func isNativeBackgroundThreadEnabled() -> Bool {
 #if DEBUG
@@ -724,6 +727,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
+#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)
     if let devVendorBundleInfo {
       initialBundleKind = .devVendorCommon
       NitroModuleBridge.logInfo(
@@ -732,6 +736,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       )
       return devVendorBundleInfo.commonBundleURL
     }
+#endif
     let metroURL = canonicalDevMetroURL(
       RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
     )
@@ -837,7 +842,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
     (UIApplication.shared.delegate as? AppDelegate)?.reactHost = host
 
-#if DEBUG
+#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)
     if initialBundleKind == .devVendorCommon {
       guard
         let devVendorBundleInfo,

@@ -161,9 +161,8 @@ android {
                 appEnvConfig.setProperty(key.toString(), value.toString())
             }
         }
-        def enableNativeBackgroundThread = useDevShell
-            ? 'true'
-            : defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
+        def enableNativeBackgroundThread =
+            defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
         buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
@@ -172,8 +171,6 @@ android {
             "ONEKEY_STARTUP_PROFILE",
             (System.getenv('ONEKEY_STARTUP_PROFILE')?.toLowerCase() in ['1', 'true', 'yes', 'on']).toString()
         )
-        buildConfigField("boolean", "ONEKEY_DEV_VENDOR", "false")
-        buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", "false")
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
@@ -194,6 +191,11 @@ android {
         debug {
             buildConfigField("boolean", "ONEKEY_DEV_SHELL", useDevShell.toString())
             buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", useDevBackgroundHmr.toString())
+            buildConfigField(
+                "boolean",
+                "ENABLE_NATIVE_BACKGROUND_THREAD",
+                (useDevShell ? 'true' : enableNativeBackgroundThread),
+            )
             resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
             ndk {

@@ -54,6 +54,25 @@ function createDevSession({
   };
 }
 
+function stripSwiftDevShellBlocks(source) {
+  const output = [];
+  let excludedDepth = 0;
+  for (const line of source.split('\n')) {
+    if (/^\s*#if\b/u.test(line)) {
+      if (excludedDepth > 0 || line.includes('ONEKEY_DEV_SHELL')) {
+        excludedDepth += 1;
+      } else {
+        output.push(line);
+      }
+    } else if (/^\s*#endif\b/u.test(line) && excludedDepth > 0) {
+      excludedDepth -= 1;
+    } else if (excludedDepth === 0) {
+      output.push(line);
+    }
+  }
+  return output.join('\n');
+}
+
 function createCurrentSession(session) {
   return {
     deviceId: session.deviceId,
@@ -1271,7 +1290,7 @@ describe('native-dev-shell', () => {
     const androidApplication = fs.readFileSync(
       path.join(
         __dirname,
-        '../../android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+        '../../android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
       ),
       'utf8',
     );
@@ -1324,6 +1343,80 @@ describe('native-dev-shell', () => {
       'await waitForMetroCompletionWithSessionRenewal({',
     );
     expect(launchSource).toContain('addFailureNotice(report, report.failure);');
+  });
+
+  it('excludes dev session capability and identifiers from production variants', () => {
+    const androidRoot = path.join(__dirname, '../../android/app');
+    const androidBase = fs.readFileSync(
+      path.join(
+        androidRoot,
+        'src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
+      ),
+      'utf8',
+    );
+    const androidDebug = fs.readFileSync(
+      path.join(
+        androidRoot,
+        'src/debug/java/so/onekey/app/wallet/MainApplication.java',
+      ),
+      'utf8',
+    );
+    const androidRelease = fs.readFileSync(
+      path.join(
+        androidRoot,
+        'src/release/java/so/onekey/app/wallet/MainApplication.java',
+      ),
+      'utf8',
+    );
+    const androidBuild = fs.readFileSync(
+      path.join(androidRoot, 'build.gradle'),
+      'utf8',
+    );
+    const androidReleaseConfig = androidBuild.slice(
+      androidBuild.indexOf('        release {'),
+      androidBuild.indexOf('    flavorDimensions'),
+    );
+    const iosSource = fs.readFileSync(
+      path.join(__dirname, '../../ios/AppDelegate.swift'),
+      'utf8',
+    );
+    const iosProductionSource = stripSwiftDevShellBlocks(iosSource);
+    const productionInfo = fs.readFileSync(
+      path.join(__dirname, '../../ios/OneKeyWallet/Info.plist'),
+      'utf8',
+    );
+    const devOnlyIdentifiers = [
+      'onekey-dev-sessions',
+      'resolver.devSessionId',
+      'ONEKEY_NATIVE_CONTRACT_KEY',
+    ];
+
+    for (const identifier of devOnlyIdentifiers) {
+      expect(androidBase).not.toContain(identifier);
+      expect(androidRelease).not.toContain(identifier);
+      expect(androidReleaseConfig).not.toContain(identifier);
+      expect(iosProductionSource).not.toContain(identifier);
+      expect(productionInfo).not.toContain(identifier);
+      expect(iosSource).toContain(identifier);
+    }
+    expect(androidDebug).toContain('onekey-dev-sessions');
+    expect(androidDebug).toContain('resolver.devSessionId');
+    expect(androidReleaseConfig).not.toContain('ONEKEY_DEV_SHELL');
+    expect(iosSource).toContain(
+      '#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)',
+    );
+
+    expect(androidDebug).toContain(
+      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "main", fingerprint)',
+    );
+    expect(androidDebug).toContain(
+      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "background", fingerprint)',
+    );
+    expect(iosSource).toContain(
+      'private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()',
+    );
+    expect(iosSource).toContain('runtimeTarget: "main"');
+    expect(iosSource).toContain('runtimeTarget: "background"');
   });
 
   it('creates an input-bound ARM shell artifact manifest', async () => {

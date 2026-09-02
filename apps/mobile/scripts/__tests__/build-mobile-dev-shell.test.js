@@ -1,8 +1,10 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const devVendorConfig = require('../../dev-vendor.config');
 const {
+  createIosDevShellInfoPlist,
   getIosBuildSettings,
   getNativeBuildEnvironment,
   parseArgs,
@@ -60,20 +62,57 @@ describe('build-mobile-dev-shell', () => {
       path.join(repoRoot, 'apps/mobile/android/app/build.gradle'),
       'utf8',
     );
-    expect(androidBuildGradle).toMatch(
-      /def enableNativeBackgroundThread = useDevShell\s*\? 'true'\s*: defEnvStr\(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false'\)\.toLowerCase\(\)/u,
+    expect(androidBuildGradle).toContain(
+      "defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()",
     );
     expect(androidBuildGradle).toContain(
       'buildConfigField("boolean", "ENABLE_NATIVE_BACKGROUND_THREAD", enableNativeBackgroundThread)',
     );
+    expect(androidBuildGradle).toContain(
+      "(useDevShell ? 'true' : enableNativeBackgroundThread)",
+    );
   });
 
-  it('injects the generated vendor contract versions into iOS', () => {
-    expect(getIosBuildSettings('a'.repeat(64))).toEqual([
-      `ONEKEY_NATIVE_CONTRACT_KEY=${'a'.repeat(64)}`,
-      `ONEKEY_DEV_VENDOR_SCHEMA_VERSION=${devVendorConfig.SCHEMA_VERSION}`,
-      `ONEKEY_DEV_VENDOR_STRATEGY_VERSION=${devVendorConfig.STRATEGY_VERSION}`,
-    ]);
+  it('injects the iOS contract through dev-shell-only build configuration', () => {
+    const temporaryDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-ios-dev-shell-info-test-'),
+    );
+    try {
+      const outputPath = path.join(temporaryDirectory, 'Info.plist');
+      createIosDevShellInfoPlist({
+        nativeContractKey: 'a'.repeat(64),
+        outputPath,
+      });
+      const productionInfo = fs.readFileSync(
+        path.join(repoRoot, 'apps/mobile/ios/OneKeyWallet/Info.plist'),
+        'utf8',
+      );
+      const devShellInfo = fs.readFileSync(outputPath, 'utf8');
+
+      for (const key of [
+        'ONEKEY_DEV_BG_HMR',
+        'ONEKEY_DEV_VENDOR_SCHEMA_VERSION',
+        'ONEKEY_DEV_VENDOR_STRATEGY_VERSION',
+        'ONEKEY_NATIVE_CONTRACT_KEY',
+      ]) {
+        expect(productionInfo).not.toContain(`<key>${key}</key>`);
+        expect(devShellInfo).toContain(`<key>${key}</key>`);
+      }
+      expect(devShellInfo).toContain(
+        `<integer>${devVendorConfig.SCHEMA_VERSION}</integer>`,
+      );
+      expect(devShellInfo).toContain(
+        `<integer>${devVendorConfig.STRATEGY_VERSION}</integer>`,
+      );
+      expect(devShellInfo).toContain(`<string>${'a'.repeat(64)}</string>`);
+      expect(getIosBuildSettings(outputPath)).toEqual([
+        // cspell:disable-next-line
+        `INFOPLIST_FILE=${outputPath}`,
+        'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG ONEKEY_DEV_SHELL',
+      ]);
+    } finally {
+      fs.rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
   });
 
   it('serializes x-only platform publishing with exact and compatible locators', () => {

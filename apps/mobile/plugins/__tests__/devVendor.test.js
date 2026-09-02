@@ -374,7 +374,7 @@ describe('devVendor', () => {
     const androidSource = fs.readFileSync(
       path.join(
         repoRoot,
-        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+        'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
       ),
       'utf8',
     );
@@ -666,7 +666,8 @@ describe('devVendor', () => {
       expect(androidInputs).toEqual(
         expect.arrayContaining([
           'apps/mobile/android/app-update-noop/src/main/java/com/margelo/nitro/reactnativeappupdate/ReactNativeAppUpdatePackage.kt',
-          'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+          'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
+          'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
           'apps/mobile/android/gradle.properties',
           'apps/mobile/package.json',
           'patches/react-native+0.86.2.patch',
@@ -674,7 +675,7 @@ describe('devVendor', () => {
         ]),
       );
       expect(iosInputs).not.toContain(
-        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/MainApplication.java',
+        'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
       );
       expect(androidInputs).not.toContain('apps/mobile/ios/AppDelegate.swift');
       for (const inputs of [iosInputs, androidInputs]) {

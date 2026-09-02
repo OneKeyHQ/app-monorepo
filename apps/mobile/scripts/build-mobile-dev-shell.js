@@ -3,6 +3,7 @@
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const devVendorConfig = require('../dev-vendor.config');
@@ -15,6 +16,10 @@ const {
 const MOBILE_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(MOBILE_ROOT, '../..');
 const WEB_EMBED_BUILD = path.join(REPO_ROOT, 'apps/web-embed/web-build');
+const IOS_PRODUCTION_INFO_PLIST = path.join(
+  MOBILE_ROOT,
+  'ios/OneKeyWallet/Info.plist',
+);
 
 function runChecked(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -101,11 +106,56 @@ function getNativeBuildEnvironment(env = process.env) {
   };
 }
 
-function getIosBuildSettings(nativeContractKey) {
+function createIosDevShellInfoPlist({ nativeContractKey, outputPath }) {
+  if (!/^[0-9a-f]{64}$/u.test(nativeContractKey)) {
+    throw new Error('[buildMobileDevShell] Invalid iOS native contract key.');
+  }
+  const productionInfoPlist = fs.readFileSync(
+    IOS_PRODUCTION_INFO_PLIST,
+    'utf8',
+  );
+  const devOnlyKeys = [
+    'ONEKEY_DEV_BG_HMR',
+    'ONEKEY_DEV_VENDOR_SCHEMA_VERSION',
+    'ONEKEY_DEV_VENDOR_STRATEGY_VERSION',
+    'ONEKEY_NATIVE_CONTRACT_KEY',
+  ];
+  for (const key of devOnlyKeys) {
+    if (productionInfoPlist.includes(`<key>${key}</key>`)) {
+      throw new Error(
+        `[buildMobileDevShell] Production Info.plist contains dev-only key: ${key}`,
+      );
+    }
+  }
+  const closingTags = '\n</dict>\n</plist>';
+  const closingIndex = productionInfoPlist.lastIndexOf(closingTags);
+  if (closingIndex < 0) {
+    throw new Error('[buildMobileDevShell] Production Info.plist is invalid.');
+  }
+  const devShellEntries = [
+    '\t<key>ONEKEY_DEV_BG_HMR</key>',
+    '\t<false/>',
+    '\t<key>ONEKEY_DEV_VENDOR_SCHEMA_VERSION</key>',
+    `\t<integer>${devVendorConfig.SCHEMA_VERSION}</integer>`,
+    '\t<key>ONEKEY_DEV_VENDOR_STRATEGY_VERSION</key>',
+    `\t<integer>${devVendorConfig.STRATEGY_VERSION}</integer>`,
+    '\t<key>ONEKEY_NATIVE_CONTRACT_KEY</key>',
+    `\t<string>${nativeContractKey}</string>`,
+  ].join('\n');
+  const devShellInfoPlist = `${productionInfoPlist.slice(
+    0,
+    closingIndex,
+  )}\n${devShellEntries}${closingTags}\n`;
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, devShellInfoPlist);
+  return outputPath;
+}
+
+function getIosBuildSettings(infoPlistPath) {
   return [
-    `ONEKEY_NATIVE_CONTRACT_KEY=${nativeContractKey}`,
-    `ONEKEY_DEV_VENDOR_SCHEMA_VERSION=${devVendorConfig.SCHEMA_VERSION}`,
-    `ONEKEY_DEV_VENDOR_STRATEGY_VERSION=${devVendorConfig.STRATEGY_VERSION}`,
+    // cspell:disable-next-line
+    `INFOPLIST_FILE=${infoPlistPath}`,
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG ONEKEY_DEV_SHELL',
   ];
 }
 
@@ -164,51 +214,62 @@ function buildIosSimulator({ artifactPath, nativeContractKey }) {
     );
   }
   const iosDirectory = path.join(MOBILE_ROOT, 'ios');
-  runChecked(
-    'xcodebuild',
-    [
-      '-workspace',
-      'OneKeyWallet.xcworkspace',
-      '-configuration',
-      'Debug',
-      '-scheme',
-      'OneKeyWallet',
-      '-destination',
-      'generic/platform=iOS Simulator',
-      '-derivedDataPath',
-      './outputs',
-      'ARCHS=arm64',
-      'ONLY_ACTIVE_ARCH=YES',
-      ...getIosBuildSettings(nativeContractKey),
-      'CODE_SIGNING_ALLOWED=NO',
-    ],
-    {
-      cwd: iosDirectory,
-      env: getNativeBuildEnvironment(),
-    },
+  const temporaryDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-ios-dev-shell-build-'),
   );
-  const appDirectory = path.join(
-    iosDirectory,
-    'outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet.app',
-  );
-  assertDirectory(appDirectory, 'iOS Simulator app');
-  const architectures = runForOutput('lipo', [
-    '-archs',
-    path.join(appDirectory, 'OneKeyWallet'),
-  ]);
-  if (architectures !== 'arm64') {
-    throw new Error(
-      `[buildMobileDevShell] iOS Simulator app architecture is invalid: ${architectures}.`,
+  try {
+    const infoPlistPath = createIosDevShellInfoPlist({
+      nativeContractKey,
+      outputPath: path.join(temporaryDirectory, 'Info.plist'),
+    });
+    runChecked(
+      'xcodebuild',
+      [
+        '-workspace',
+        'OneKeyWallet.xcworkspace',
+        '-configuration',
+        'Debug',
+        '-scheme',
+        'OneKeyWallet',
+        '-destination',
+        'generic/platform=iOS Simulator',
+        '-derivedDataPath',
+        './outputs',
+        'ARCHS=arm64',
+        'ONLY_ACTIVE_ARCH=YES',
+        ...getIosBuildSettings(infoPlistPath),
+        'CODE_SIGNING_ALLOWED=NO',
+      ],
+      {
+        cwd: iosDirectory,
+        env: getNativeBuildEnvironment(),
+      },
     );
+    const appDirectory = path.join(
+      iosDirectory,
+      'outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet.app',
+    );
+    assertDirectory(appDirectory, 'iOS Simulator app');
+    const architectures = runForOutput('lipo', [
+      '-archs',
+      path.join(appDirectory, 'OneKeyWallet'),
+    ]);
+    if (architectures !== 'arm64') {
+      throw new Error(
+        `[buildMobileDevShell] iOS Simulator app architecture is invalid: ${architectures}.`,
+      );
+    }
+    runChecked('ditto', [
+      '-c',
+      '-k',
+      '--sequesterRsrc',
+      '--keepParent',
+      appDirectory,
+      artifactPath,
+    ]);
+  } finally {
+    fs.rmSync(temporaryDirectory, { force: true, recursive: true });
   }
-  runChecked('ditto', [
-    '-c',
-    '-k',
-    '--sequesterRsrc',
-    '--keepParent',
-    appDirectory,
-    artifactPath,
-  ]);
 }
 
 async function buildMobileDevShell({
@@ -292,6 +353,7 @@ if (require.main === module) {
 
 module.exports = {
   buildMobileDevShell,
+  createIosDevShellInfoPlist,
   getIosBuildSettings,
   getNativeBuildEnvironment,
   parseArgs,
