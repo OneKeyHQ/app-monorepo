@@ -28,6 +28,7 @@ import {
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
   firmwareUpdatesDetectStatusPersistAtom,
+  hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
 
@@ -118,9 +119,11 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   hardwareUiStateAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
   hardwareUiStateCompletedAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
 }));
@@ -333,7 +336,9 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -383,7 +388,9 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     }
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -1618,6 +1625,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
       } as never),
     ).rejects.toThrow('hardware processing unavailable');
 
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
     expect(
       jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
@@ -1762,6 +1770,9 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
   });
 
   it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const startedSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateStarted')
+      .mockImplementation((params) => params);
     const setForceTransportType = jest.fn().mockResolvedValue(undefined);
     const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
     const resolveHardwareTransport = jest.fn().mockResolvedValue({
@@ -1794,13 +1805,20 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       updatingConnectId: 'PRO2_BLE_ID',
       updateInfos: {},
     } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
 
     await expect(
-      service.runUpdateWorkflowV2({
-        backuped: true,
-        usbConnected: true,
-        releaseResult,
-      }),
+      service.runUpdateWorkflowV2(
+        {
+          backuped: true,
+          usbConnected: true,
+          releaseResult,
+        },
+        workflowId,
+      ),
     ).rejects.toThrow('stop after transport lock');
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
@@ -1811,6 +1829,15 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       forceTransportType: EHardwareTransportType.WEBUSB,
     });
     expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(startedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transportType: EHardwareTransportType.WEBUSB,
+        updateFlow: 'v2',
+      }),
+    );
+    expect(service.updateWorkflowTracking?.transportType).toBe(
+      EHardwareTransportType.WEBUSB,
+    );
     expect(clearForceTransportType).toHaveBeenCalledTimes(1);
   });
 });
@@ -1824,37 +1851,28 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     jest.restoreAllMocks();
   });
 
-  it('excludes time spent waiting for the user to retry', async () => {
-    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+  it('clears stale transfer samples before starting a V2 workflow', async () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
+    jest
+      .spyOn(service, 'runUpdateWorkflowV2')
+      .mockReturnValue(new Promise(() => undefined));
 
-    const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    await service.startUpdateWorkflowV2({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
     });
 
-    nowSpy.mockReturnValue(1600);
-    service.pauseUpdateWorkflowTracking(workflowId);
-
-    nowSpy.mockReturnValue(10_000);
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
-      retryCount: 0,
-      durationMs: 600,
-    });
-
-    service.resumeUpdateWorkflowTracking(workflowId);
-    nowSpy.mockReturnValue(10_300);
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
-      retryCount: 0,
-      durationMs: 900,
-    });
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
-  it('tracks failed and successful attempts with one sequence', async () => {
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+  it('does not report a workflow that only ends in cancellation', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
       .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
@@ -1865,106 +1883,113 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
         },
       } as unknown as IBackgroundApi,
     });
-
+    const releaseResult = {
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
     const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
+      updateFlow: 'v2',
+      releaseResult,
     });
-
-    await service.trackUpdateTaskAttemptResult({
+    service.recordUpdateWorkflowTransportType(
       workflowId,
-      status: 'failed',
-      error: new Error('first failure'),
-    });
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      EHardwareTransportType.WEBUSB,
     );
 
-    service.recordUpdateWorkflowRetry(workflowId);
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('second failure'),
-    });
-    service.recordUpdateWorkflowRetry(workflowId);
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'success',
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: false,
+        releaseResult,
+      },
+      error: new Error('ARTIFACT_CANCELLED'),
     });
 
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ attempt: 1, status: 'failed' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ attempt: 2, status: 'failed' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({ attempt: 3, status: 'success' }),
-    );
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 2 }),
-    );
+    expect(resultSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps attempt numbers stable when analytics resolves out of order', async () => {
-    let resolveFirstTransport!: (value: EHardwareTransportType) => void;
-    const firstTransport = new Promise<EHardwareTransportType>((resolve) => {
-      resolveFirstTransport = resolve;
-    });
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+  it('reports the last real failure when the user exits from retry', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
       .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
-            .mockReturnValueOnce(firstTransport)
-            .mockResolvedValueOnce(EHardwareTransportType.BLE),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
         },
       } as unknown as IBackgroundApi,
     });
+    const releaseResult = {
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
     const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
+      updateFlow: 'v2',
+      releaseResult,
+    });
+    service.recordUpdateWorkflowFailure(
+      workflowId,
+      Object.assign(new Error('transfer failed'), {
+        code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+      }),
+    );
+
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: false,
+        releaseResult,
+      },
+      error: new Error('ARTIFACT_CANCELLED'),
     });
 
-    const firstAttempt = service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('first failure'),
-    });
-    const secondAttempt = service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'success',
-    });
-    await secondAttempt;
-    resolveFirstTransport(EHardwareTransportType.BLE);
-    await firstAttempt;
+    expect(resultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        failureType: 'transfer',
+        errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+      }),
+    );
+  });
 
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ attempt: 2, status: 'success' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ attempt: 1, status: 'failed' }),
-    );
+  it('reports distinct transfer and total workflow durations', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 2_440_562,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 16_760,
+          elapsedMs: 145_620,
+        },
+      },
+    } as never);
+    jest.mocked(hardwareUiStateCompletedAtom.get).mockResolvedValue(undefined);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    });
+    nowSpy.mockReturnValue(212_960);
+
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
+      retryCount: 0,
+      totalDurationMs: 211_960,
+      transferredBytes: 2_440_562,
+      totalBytes: 2_440_562,
+      averageTransferRateBytesPerSecond: 16_760,
+      transferDurationMs: 145_620,
+      lastFailureType: undefined,
+      lastErrorCode: undefined,
+    });
   });
 
   it('ignores a late task failure after a new workflow starts', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
-      .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -1990,17 +2015,16 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     await service.runUpdateTask({ id: 1 });
 
-    expect(attemptResultSpy).not.toHaveBeenCalled();
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledTimes(1);
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      expect.objectContaining({
+        retryCount: 0,
+        lastFailureType: undefined,
+      }),
     );
   });
 
   it('ignores task results after the user exits the workflow', async () => {
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
-      .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -2012,15 +2036,18 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     });
 
     await service.exitUpdateWorkflow();
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('late hardware cancellation'),
-    });
+    expect(
+      service.recordUpdateWorkflowFailure(
+        workflowId,
+        new Error('late hardware cancellation'),
+      ),
+    ).toBe(false);
 
-    expect(attemptResultSpy).not.toHaveBeenCalled();
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      expect.objectContaining({
+        retryCount: 0,
+        lastFailureType: undefined,
+      }),
     );
   });
 
@@ -2057,18 +2084,13 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
-  it('does not wait for attempt analytics before exposing retry state', async () => {
+  it('records a task failure before exposing retry state', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
           closeHardwareUiStateDialog: jest.fn(),
-        },
-        serviceSetting: {
-          getHardwareTransportType: jest.fn(
-            () => new Promise<EHardwareTransportType>(() => undefined),
-          ),
         },
       } as unknown as IBackgroundApi,
     });
@@ -2091,6 +2113,9 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     });
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
+    );
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
+      expect.objectContaining({ lastFailureType: 'unknown' }),
     );
   });
 });

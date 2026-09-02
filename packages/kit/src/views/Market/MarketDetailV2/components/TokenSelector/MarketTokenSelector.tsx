@@ -146,7 +146,7 @@ function BaseMarketTokenSelectorContent({
     data: topCoins,
     handleItemPress: handleTopCoinPress,
     isLoading: isTopCoinsLoading,
-  } = useMarketTopCoins();
+  } = useMarketTopCoins({ replaceCurrentDetail: true });
   const routeParams = route.params as
     | {
         showFavoriteButton?: boolean | string;
