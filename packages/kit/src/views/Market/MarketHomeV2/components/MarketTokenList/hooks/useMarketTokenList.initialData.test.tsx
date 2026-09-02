@@ -7,13 +7,19 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenListResponse,
+} from '@onekeyhq/shared/types/marketV2';
+
+import { transformApiItemToToken } from '../utils/tokenListHelpers';
 
 import { fetchMarketTokenListForPlatform } from './marketTokenListPlatformApi';
 import { useMarketTokenList } from './useMarketTokenList';
 
 const mockTrackNetworkLoading = jest.fn();
 let mockLocale = 'en-US';
+let mockNetworkList: IMarketBasicConfigNetwork[] = [];
 
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
@@ -35,7 +41,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
-  useMarketBasicConfig: () => ({ minLiquidity: 5000 }),
+  useMarketBasicConfig: () => ({
+    minLiquidity: 5000,
+    networkList: mockNetworkList,
+  }),
 }));
 
 jest.mock(
@@ -71,29 +80,27 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 
 jest.mock('../utils/tokenListHelpers', () => ({
   getNetworkLogoUri: () => 'network-logo',
-  transformApiItemToToken: (item: {
-    address: string;
-    name: string;
-    symbol: string;
-  }) => ({
-    id: item.address,
-    name: item.name,
-    symbol: item.symbol,
-    address: item.address,
-    decimals: 18,
-    price: 1,
-    change24h: 0,
-    marketCap: 0,
-    liquidity: 0,
-    transactions: 0,
-    uniqueTraders: 0,
-    holders: 0,
-    turnover: 0,
-    tokenImageUri: '',
-    networkLogoUri: 'network-logo',
-    networkId: 'evm--1',
-    chainId: 'evm--1',
-  }),
+  transformApiItemToToken: jest.fn(
+    (item: { address: string; name: string; symbol: string }) => ({
+      id: item.address,
+      name: item.name,
+      symbol: item.symbol,
+      address: item.address,
+      decimals: 18,
+      price: 1,
+      change24h: 0,
+      marketCap: 0,
+      liquidity: 0,
+      transactions: 0,
+      uniqueTraders: 0,
+      holders: 0,
+      turnover: 0,
+      tokenImageUri: '',
+      networkLogoUri: 'network-logo',
+      networkId: 'evm--1',
+      chainId: 'evm--1',
+    }),
+  ),
 }));
 
 jest.mock('./marketTokenListPlatformApi', () => ({
@@ -134,6 +141,7 @@ describe('useMarketTokenList initial data', () => {
     type: 'trending',
   });
   const mockFetchMarketTokenList = jest.mocked(fetchMarketTokenListForPlatform);
+  const mockTransformApiItemToToken = jest.mocked(transformApiItemToToken);
 
   beforeEach(() => {
     Object.defineProperty(globalThis, 'cancelIdleCallback', {
@@ -143,9 +151,11 @@ describe('useMarketTokenList initial data', () => {
     mutablePlatformEnv.isNative = false;
     mutablePlatformEnv.isWeb = true;
     mockLocale = 'en-US';
+    mockNetworkList = [];
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
     mockFetchMarketTokenList.mockReset();
+    mockTransformApiItemToToken.mockClear();
     mockTrackNetworkLoading.mockReset();
   });
 
@@ -260,6 +270,54 @@ describe('useMarketTokenList initial data', () => {
 
     await waitFor(() => {
       expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('passes dynamic Market network logos to token transformation', async () => {
+    mockNetworkList = [
+      {
+        networkId: 'evm--143',
+        index: 1,
+        name: 'Monad',
+        logoUrl: 'https://example.com/monad.png',
+        explorerUrl: 'https://example.com',
+        chainId: '143',
+      },
+    ];
+    mockFetchMarketTokenList.mockResolvedValue({
+      list: [
+        {
+          address: '0xmonad',
+          name: 'Monad Token',
+          symbol: 'MON',
+          decimals: 18,
+          networkId: 'evm--143',
+        },
+      ],
+      total: 1,
+    });
+
+    function Probe() {
+      useMarketTokenList({
+        networkId: 'evm--143',
+        pollingInterval: 0,
+        type: 'trending',
+      });
+      return null;
+    }
+
+    render(<Probe />);
+
+    await waitFor(() => {
+      const transformOptions = mockTransformApiItemToToken.mock.calls.find(
+        ([item]) => item.address === '0xmonad',
+      )?.[1];
+      expect(transformOptions?.networkLogoUri).toBe(
+        'https://example.com/monad.png',
+      );
+      expect(transformOptions?.networkLogoUriMap?.get('evm--143')).toBe(
+        'https://example.com/monad.png',
+      );
     });
   });
 });

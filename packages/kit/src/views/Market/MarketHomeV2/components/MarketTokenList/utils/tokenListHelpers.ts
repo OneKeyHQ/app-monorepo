@@ -215,20 +215,24 @@ export function transformApiItemToToken(
   item: IMarketTokenListItem & { isNative?: boolean },
   {
     chainId,
+    networkLogoUriMap,
     networkLogoUri,
     sortIndex,
     timeRange,
   }: {
     chainId: string;
+    networkLogoUriMap?: ReadonlyMap<string, string>;
     networkLogoUri: string;
     sortIndex?: number;
     timeRange?: IMarketTimeRangeValue;
   },
 ): IMarketToken {
-  // Use token's own networkId to get network logo, fallback to passed chainId
   const tokenNetworkId = item.networkId || chainId;
   const tokenNetworkLogoUri = item.networkId
-    ? getNetworkLogoUri(item.networkId)
+    ? networkLogoUriMap?.get(item.networkId) ||
+      (item.networkId === chainId
+        ? networkLogoUri
+        : getNetworkLogoUri(item.networkId))
     : networkLogoUri;
 
   const priceChangeValue = item.stock
