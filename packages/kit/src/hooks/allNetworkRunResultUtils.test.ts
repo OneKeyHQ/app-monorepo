@@ -1,4 +1,5 @@
 import {
+  isAllNetworkFanOutExhausted,
   resolveAllNetworkFailedRunRestore,
   resolveAllNetworkPublishedResult,
 } from './allNetworkRunResultUtils';
@@ -199,6 +200,61 @@ describe('resolveAllNetworkFailedRunRestore', () => {
     ).toEqual({
       nextLastPublished: previous,
       shouldRestoreResult: false,
+    });
+  });
+});
+
+describe('isAllNetworkFanOutExhausted', () => {
+  const signature = 'account-1|all--networks|wallet-1|0|0';
+
+  test('an owner with no accounts issues no requests and is not exhausted', () => {
+    expect(
+      isAllNetworkFanOutExhausted({ requestCount: 0, resultCount: 0 }),
+    ).toBe(false);
+  });
+
+  test('a fan-out whose every request failed is exhausted', () => {
+    // `continueOnError` maps each rejection to `null`; after filtering, the
+    // fan-out resolves with an empty array instead of throwing.
+    expect(
+      isAllNetworkFanOutExhausted({ requestCount: 3, resultCount: 0 }),
+    ).toBe(true);
+  });
+
+  test('a partially failed fan-out still publishes its results', () => {
+    expect(
+      isAllNetworkFanOutExhausted({ requestCount: 3, resultCount: 1 }),
+    ).toBe(false);
+  });
+
+  test('restores the superseded successful run when the queued refresh is exhausted', () => {
+    const firstRun = [{ networkId: 'evm--1' }];
+
+    // Refresh 1 succeeds but a second manual refresh queued behind it
+    // supersedes the result; the accepted run had cleared the retained
+    // snapshot, so the superseded result becomes the last-good snapshot.
+    const superseded = resolveAllNetworkPublishedResult({
+      completedResult: firstRun,
+      hasQueuedRerun: true,
+      lastPublished: undefined,
+      runSignature: signature,
+      retainSupersededResult: true,
+    });
+    expect(superseded.publishedResult).toBeUndefined();
+
+    // Refresh 2 issues requests but every one of them fails.
+    expect(
+      isAllNetworkFanOutExhausted({ requestCount: 2, resultCount: 0 }),
+    ).toBe(true);
+    expect(
+      resolveAllNetworkFailedRunRestore({
+        previousPublished: superseded.nextLastPublished,
+        ownerUnchanged: true,
+        currentRunSignature: signature,
+      }),
+    ).toEqual({
+      nextLastPublished: { result: firstRun, runSignature: signature },
+      shouldRestoreResult: true,
     });
   });
 });

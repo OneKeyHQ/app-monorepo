@@ -840,10 +840,17 @@ function HomeOverviewContainer() {
       isTokenWorthReady: isCurrentAccountWorthReady,
       isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
       isDeFiReady: isCurrentAccountDeFiReady,
+      isDeFiRefreshing: isRefreshingDeFiList,
       deFiGraceExpired,
     });
+  // An expired grace stays expired until DeFi reports for this owner (or the
+  // owner changes). Clearing it whenever the grace disarms would flip the
+  // header from the live total back to the stale confirmed one for the length
+  // of every later refresh.
   useEffect(() => {
     setDeFiGraceExpired(false);
+  }, [currentOverviewOwnerKey, isCurrentAccountDeFiReady]);
+  useEffect(() => {
     if (!shouldArmDeFiGrace) {
       return undefined;
     }

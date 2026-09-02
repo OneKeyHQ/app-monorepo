@@ -60,6 +60,23 @@ export function resolveAllNetworkPublishedResult<T>({
  * unconditional: the skip path and the publish path both re-check the run
  * signature before serving it.
  */
+/**
+ * Every per-network request of a fan-out failed. `continueOnError` turns each
+ * rejection into `null`, so such a fan-out resolves with no results instead of
+ * throwing — by the result alone it looks exactly like an owner with no
+ * accounts. The request count tells the two apart: "no accounts" issues no
+ * requests at all.
+ */
+export function isAllNetworkFanOutExhausted({
+  requestCount,
+  resultCount,
+}: {
+  requestCount: number;
+  resultCount: number;
+}): boolean {
+  return requestCount > 0 && resultCount === 0;
+}
+
 export function resolveAllNetworkFailedRunRestore<T>({
   previousPublished,
   ownerUnchanged,

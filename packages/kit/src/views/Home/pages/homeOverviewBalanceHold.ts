@@ -12,6 +12,12 @@ export interface IHomeOverviewBalanceHoldInput {
   isTokenSnapshotCommitted: boolean;
   /** `overviewDeFiDataState.isReady !== undefined` for this owner. */
   isDeFiReady: boolean;
+  /**
+   * The DeFi list run for this owner is in flight. Its start resets DeFi
+   * readiness and its finish always writes it back, so readiness is on its
+   * way; the grace must not start from a stale token commit meanwhile.
+   */
+  isDeFiRefreshing: boolean;
   /** The DeFi grace timer armed after the token commit has elapsed. */
   deFiGraceExpired: boolean;
 }
@@ -35,6 +41,14 @@ export interface IHomeOverviewBalanceHoldPlan {
  * showed live values. The hold is therefore bounded: once the token side has
  * committed a complete snapshot, DeFi gets a short grace window and then the
  * live total is shown with whatever DeFi value is currently known.
+ *
+ * `updateAll` is never reset by a warm refresh, so the token commit alone
+ * cannot tell a fresh snapshot from the previous one. While a DeFi run is in
+ * flight its readiness was reset by that run and will be written back when it
+ * finishes; starting the grace then would drop DeFi from the header after the
+ * window even though it is merely reloading. The grace therefore only arms
+ * when DeFi is neither ready nor refreshing, i.e. when nothing is going to
+ * report it.
  */
 export function resolveHomeOverviewBalanceHold({
   isAllNetworks,
@@ -42,12 +56,14 @@ export function resolveHomeOverviewBalanceHold({
   isTokenWorthReady,
   isTokenSnapshotCommitted,
   isDeFiReady,
+  isDeFiRefreshing,
   deFiGraceExpired,
 }: IHomeOverviewBalanceHoldInput): IHomeOverviewBalanceHoldPlan {
   if (!isAllNetworks) {
     return { shouldHold: false, shouldArmDeFiGrace: false };
   }
-  const shouldArmDeFiGrace = isTokenSnapshotCommitted && !isDeFiReady;
+  const shouldArmDeFiGrace =
+    isTokenSnapshotCommitted && !isDeFiReady && !isDeFiRefreshing;
   const isReleased =
     isTokenWorthReady &&
     (isDeFiReady || (isTokenSnapshotCommitted && deFiGraceExpired));

@@ -38,6 +38,7 @@ import { perfTokenListView } from '../components/TokenListView/perfTokenListView
 
 import {
   type IAllNetworkLastPublishedResult,
+  isAllNetworkFanOutExhausted,
   resolveAllNetworkFailedRunRestore,
   resolveAllNetworkPublishedResult,
 } from './allNetworkRunResultUtils';
@@ -744,6 +745,9 @@ function useAllNetworkRequests<T>(params: {
       let onStartedError: unknown;
       let onStartedTask: Promise<void> | undefined;
       let completedResult: Array<T> | null = null;
+      // Per-network requests actually issued by this run; distinguishes an
+      // owner with no accounts from a fan-out whose every request failed.
+      let fanOutRequestCount = 0;
       let hasQueuedRerun = false;
 
       try {
@@ -994,6 +998,7 @@ function useAllNetworkRequests<T>(params: {
               });
           });
 
+          fanOutRequestCount = requestFactories.length;
           try {
             // L4a: sliding-window executor (worker-pool) replaces the
             // batch-barrier so a slow network no longer idles the rest of its
@@ -1040,6 +1045,7 @@ function useAllNetworkRequests<T>(params: {
             const factories = Array.from(accountsInfoBackendIndexed).map(
               makeColdFactory,
             );
+            fanOutRequestCount += factories.length;
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
@@ -1058,6 +1064,7 @@ function useAllNetworkRequests<T>(params: {
             const factories = Array.from(accountsInfoBackendNotIndexed).map(
               makeColdFactory,
             );
+            fanOutRequestCount += factories.length;
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
@@ -1140,6 +1147,44 @@ function useAllNetworkRequests<T>(params: {
         // result can be classified as superseded before publication.
         isFetching.current = false;
         hasQueuedRerun = scheduleQueuedRerun();
+      }
+
+      if (
+        clearRetainedResultOnAcceptedRun &&
+        isAllNetworkFanOutExhausted({
+          requestCount: fanOutRequestCount,
+          resultCount: completedResult?.length ?? 0,
+        })
+      ) {
+        // Every per-network request failed. `continueOnError` turned each
+        // rejection into `null`, so the fan-out resolved with no results and
+        // never reached the catch above. Publishing that empty result would
+        // overwrite the retained last-good snapshot (e.g. a superseded
+        // successful run) with nothing, and the consumer skips its
+        // authoritative commit on an empty result — so it would never mark
+        // the snapshot complete. Treat it exactly like a failed fan-out:
+        // keep the retained snapshot and serve it again under the same
+        // owner/signature guard as the throw path.
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-fan-out-exhausted',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          accountsCount: fanOutRequestCount,
+          resultCount: 0,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+        });
+        const { nextLastPublished, shouldRestoreResult } =
+          resolveAllNetworkFailedRunRestore({
+            previousPublished: previousPublishedResult,
+            ownerUnchanged: liveRunOwnerKeyRef.current === runnerOwnerKey,
+            currentRunSignature,
+          });
+        lastPublishedResultRef.current = nextLastPublished;
+        return shouldRestoreResult && previousPublishedResult
+          ? previousPublishedResult.result
+          : undefined;
       }
 
       const resolved = resolveAllNetworkPublishedResult({

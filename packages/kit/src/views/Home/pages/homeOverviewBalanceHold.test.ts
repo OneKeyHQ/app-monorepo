@@ -10,6 +10,7 @@ const base = {
   isTokenWorthReady: true,
   isTokenSnapshotCommitted: true,
   isDeFiReady: false,
+  isDeFiRefreshing: false,
   deFiGraceExpired: false,
 };
 
@@ -65,5 +66,28 @@ describe('resolveHomeOverviewBalanceHold', () => {
         deFiGraceExpired: true,
       }),
     ).toEqual({ shouldHold: true, shouldArmDeFiGrace: false });
+  });
+
+  it('does not start the grace from a stale token commit while DeFi is refreshing', () => {
+    // A warm refresh never resets `updateAll`, so the token side still looks
+    // committed while the DeFi run has reset its readiness. The run will
+    // write readiness back when it finishes; the header must keep holding
+    // instead of dropping DeFi after the window.
+    expect(
+      resolveHomeOverviewBalanceHold({ ...base, isDeFiRefreshing: true }),
+    ).toEqual({ shouldHold: true, shouldArmDeFiGrace: false });
+  });
+
+  it('keeps the released live total while DeFi refreshes after the grace expired', () => {
+    // DeFi never reported for this owner and the grace already released the
+    // header; a later DeFi run must not pin it back on the stale confirmed
+    // total for the length of the run.
+    expect(
+      resolveHomeOverviewBalanceHold({
+        ...base,
+        isDeFiRefreshing: true,
+        deFiGraceExpired: true,
+      }),
+    ).toEqual({ shouldHold: false, shouldArmDeFiGrace: false });
   });
 });
