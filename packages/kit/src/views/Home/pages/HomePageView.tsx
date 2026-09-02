@@ -46,9 +46,11 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useUnifiedNetworkSelectorTrigger } from '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
+import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
 import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
@@ -206,19 +208,21 @@ export function HomePageView({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { md: isSmallScreen } = useMedia();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const {
-    activeAccount: {
-      account,
-      accountName,
-      network,
-      deriveInfo,
-      wallet,
-      ready,
-      device,
-      indexedAccount,
-      vaultSettings: cachedVaultSettings,
-    },
-  } = useActiveAccount({ num: 0 });
+    account,
+    accountName,
+    network,
+    deriveInfo,
+    wallet,
+    ready,
+    device,
+    indexedAccount,
+    vaultSettings: cachedVaultSettings,
+  } = activeAccount;
+  const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
+    num: 0,
+  });
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -426,6 +430,15 @@ export function HomePageView({
         autoCreateAddress
         createAllDeriveTypes
         createAllEnabledNetworks
+        onCreateAddress={
+          network?.isAllNetworks
+            ? () =>
+                showUnifiedNetworkSelector({
+                  recordNetworkHistoryEnabled: true,
+                  defaultTab: 'portfolio',
+                })
+            : undefined
+        }
         name={accountName}
         chain={network?.name ?? ''}
         type={
@@ -437,7 +450,15 @@ export function HomePageView({
         }
       />
     ),
-    [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
+    [
+      accountName,
+      deriveInfo?.label,
+      deriveInfo?.labelKey,
+      intl,
+      network?.isAllNetworks,
+      network?.name,
+      showUnifiedNetworkSelector,
+    ],
   );
 
   // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
@@ -1030,12 +1051,13 @@ export function HomePageView({
 
     if (
       !account &&
-      !(
-        vaultSettings?.mergeDeriveAssetsEnabled &&
-        networkAccounts &&
-        networkAccounts.networkAccounts &&
-        networkAccounts.networkAccounts.length > 0
-      )
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts &&
+          networkAccounts.networkAccounts &&
+          networkAccounts.networkAccounts.length > 0
+        ))
     ) {
       return (
         <YStack flex={1}>
@@ -1071,6 +1093,7 @@ export function HomePageView({
     watchingAccountEnabled,
     emptyAccountView,
     network?.id,
+    network?.isAllNetworks,
     tabs,
   ]);
 
@@ -1143,6 +1166,10 @@ export function HomePageView({
               <RiskApprovalAlert />
               <WatchOnlyAlert />
               <NetworkAlert />
+              <NotificationPermissionRecoveryAlert
+                scene="home"
+                initialDelayMs={6000}
+              />
             </Stack>
             {content}
             {platformEnv.isNative ? (

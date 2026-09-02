@@ -17,6 +17,7 @@ import {
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentTransferSnapshot,
+  isValidPrimeInfiniPaymentContract,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import type {
   IPrimeInfiniPayment,
@@ -94,7 +95,12 @@ function buildPrimeInfiniPaymentAsset({
     !normalizedChain ||
     !normalizedToken ||
     !normalizedNetworkId ||
-    !normalizedContractAddress ||
+    !isValidPrimeInfiniPaymentContract({
+      chain: normalizedChain,
+      networkId: normalizedNetworkId,
+      token: normalizedToken,
+      contractAddress: normalizedContractAddress,
+    }) ||
     !Object.prototype.hasOwnProperty.call(
       getListedNetworkMap(),
       normalizedNetworkId,

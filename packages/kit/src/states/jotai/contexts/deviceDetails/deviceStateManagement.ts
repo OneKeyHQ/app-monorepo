@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import {
+  hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
@@ -36,21 +37,22 @@ export function getDeviceStateSnapshotFromEvent({
     typeof currentState.updatedAt === 'number' &&
     typeof event.state.updatedAt === 'number'
   ) {
-    // 'settings-read' events are authoritative hardware read-backs. When the
-    // SDK cache already holds a device-side change the app never observed
-    // (e.g. BLE initialize runs before event listeners attach), the SDK
-    // force-emits them without bumping revision/updatedAt, so an event with
-    // stamps EQUAL to the current state must still be applied. A lower
-    // revision at the same timestamp is still an out-of-order older event
-    // and must not roll the newer snapshot back.
+    // Explicit hardware read-backs may reveal changes already present in the
+    // SDK cache without advancing its metadata.
+    const acceptsEqualMetadata =
+      event.source === 'settings-read' ||
+      hasAuthoritativeDeviceInfoVersionChange({
+        currentState,
+        incomingState: event.state,
+        changedKeys: event.changedKeys,
+        source: event.source,
+      });
     const isStale =
-      event.source === 'settings-read'
-        ? event.state.updatedAt < currentState.updatedAt ||
-          (event.state.updatedAt === currentState.updatedAt &&
-            event.state.revision < currentState.revision)
-        : event.state.updatedAt < currentState.updatedAt ||
-          (event.state.updatedAt === currentState.updatedAt &&
-            event.state.revision <= currentState.revision);
+      event.state.updatedAt < currentState.updatedAt ||
+      (event.state.updatedAt === currentState.updatedAt &&
+        (event.state.revision < currentState.revision ||
+          (event.state.revision === currentState.revision &&
+            !acceptsEqualMetadata)));
     if (isStale) {
       return undefined;
     }
