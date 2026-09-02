@@ -55,10 +55,7 @@ import {
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
-import {
-  calculateMarketStockEstimatedShares,
-  hasValidMarketStockTokenToAssetRatio,
-} from './utils/marketStockQuoteDisplayUtils';
+import { calculateMarketStockEstimatedShares } from './utils/marketStockQuoteDisplayUtils';
 
 import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings';
 
@@ -372,12 +369,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     stockTokenAmount: estimatedStockTokenAmount,
     tokenToAssetRatio: stockTokenToAssetRatio,
   });
-  const hasValidStockTokenToAssetRatio = hasValidMarketStockTokenToAssetRatio(
-    stockTokenToAssetRatio,
-  );
-  const shouldShowStockEstimatedShares = Boolean(
-    (quoteLoading && hasValidStockTokenToAssetRatio) || estimatedShares,
-  );
   let stockEstimatedReceiveContent: ReactNode = (
     <SizableText size="$bodyMdMedium">--</SizableText>
   );
@@ -572,20 +563,18 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             {stockEstimatedReceiveContent}
           </XStack>
 
-          {shouldShowStockEstimatedShares ? (
-            <XStack
-              testID="stock-trade-estimated-shares"
-              px="$0.5"
-              pt="$0"
-              pb="$2"
-              alignItems="center"
-              justifyContent="space-between"
-              gap="$2"
-            >
-              <SizableText size="$bodyMd">Est. shares</SizableText>
-              {stockEstimatedSharesContent}
-            </XStack>
-          ) : null}
+          <XStack
+            testID="stock-trade-estimated-shares"
+            px="$0.5"
+            pt="$0"
+            pb="$2"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$2"
+          >
+            <SizableText size="$bodyMd">Shares</SizableText>
+            {stockEstimatedSharesContent}
+          </XStack>
         </YStack>
 
         {quoteError ? (

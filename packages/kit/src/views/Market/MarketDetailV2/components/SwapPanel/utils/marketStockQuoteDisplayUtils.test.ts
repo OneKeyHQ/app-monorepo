@@ -5,6 +5,7 @@ import {
   buildMarketStockQuoteDisplay,
   calculateMarketStockEstimatedShares,
   hasValidMarketStockTokenToAssetRatio,
+  resolveMarketStockTokenToAssetRatio,
 } from './marketStockQuoteDisplayUtils';
 
 const currencyMap = {
@@ -97,6 +98,39 @@ describe('marketStockQuoteDisplayUtils', () => {
     expect(hasValidMarketStockTokenToAssetRatio()).toBe(false);
     expect(hasValidMarketStockTokenToAssetRatio('0')).toBe(false);
     expect(hasValidMarketStockTokenToAssetRatio('NaN')).toBe(false);
+  });
+
+  it('prefers an explicit token-to-share ratio', () => {
+    expect(
+      resolveMarketStockTokenToAssetRatio({
+        tokenPrice: '325.58',
+        tokenToAssetRatio: '0.9985',
+        underlyingStockPrice: '325.13',
+      }),
+    ).toBe('0.9985');
+  });
+
+  it('derives an estimated ratio from USD prices when metadata is missing', () => {
+    expect(
+      resolveMarketStockTokenToAssetRatio({
+        tokenPrice: '325.58550216796433111',
+        underlyingStockPrice: '325.13',
+      }),
+    ).toBe('1.00140098473830262083');
+  });
+
+  it('does not derive a ratio from invalid prices', () => {
+    expect(
+      resolveMarketStockTokenToAssetRatio({
+        tokenPrice: '325.58',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveMarketStockTokenToAssetRatio({
+        tokenPrice: '0',
+        underlyingStockPrice: '325.13',
+      }),
+    ).toBeUndefined();
   });
 
   it('treats a payment token fallback price as the selected display currency', () => {

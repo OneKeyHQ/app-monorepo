@@ -18,6 +18,7 @@ import {
   Divider,
   HeightTransition,
   Icon,
+  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -34,8 +35,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   filterSwapHistoryPendingList,
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -85,6 +88,7 @@ import {
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
+import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
@@ -138,6 +142,8 @@ const PreSwapDialogContent = ({
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
   const [, setSettings] = useSettingsAtom();
+  const [settingsPersist] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [slippageEditorOpen, setSlippageEditorOpen] = useState(false);
   const [slippageSavingScope, setSlippageSavingScope] = useState<
     ISwapReviewSlippageSaveScope | undefined
@@ -238,6 +244,25 @@ const PreSwapDialogContent = ({
       toAmount: preSwapData?.toTokenAmount || '0',
     };
   }, [preSwapData]);
+  const stockReviewDisplay = useMemo(
+    () =>
+      buildSwapStockReviewDisplay({
+        currencyMap,
+        fromAmount,
+        fromToken: preSwapData?.fromToken,
+        targetCurrency: settingsPersist.currencyInfo.id,
+        toAmount,
+        toToken: preSwapData?.toToken,
+      }),
+    [
+      currencyMap,
+      fromAmount,
+      preSwapData?.fromToken,
+      preSwapData?.toToken,
+      settingsPersist.currencyInfo.id,
+      toAmount,
+    ],
+  );
   const [limitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
   // A limit order whose rate the market already beats will likely fill
@@ -853,6 +878,53 @@ const PreSwapDialogContent = ({
               rateDifference={preSwapData.rateDifference}
             />
           </YStack>
+
+          {stockReviewDisplay ? (
+            <YStack testID="swap-stock-review-info" gap="$3">
+              <XStack
+                testID="swap-stock-review-estimated-shares"
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$3"
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.trade_stocks_equivalent_shares_formula,
+                  })}
+                </SizableText>
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="balance"
+                  formatterOptions={{
+                    tokenSymbol: stockReviewDisplay.underlyingSymbol,
+                  }}
+                >
+                  {stockReviewDisplay.estimatedShares}
+                </NumberSizeableText>
+              </XStack>
+              {stockReviewDisplay.sharePrice ? (
+                <XStack
+                  testID="swap-stock-review-share-price"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  gap="$3"
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.global_price })}
+                  </SizableText>
+                  <NumberSizeableText
+                    size="$bodyMdMedium"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settingsPersist.currencyInfo.symbol,
+                    }}
+                  >
+                    {stockReviewDisplay.sharePrice}
+                  </NumberSizeableText>
+                </XStack>
+              ) : null}
+            </YStack>
+          ) : null}
 
           {showMarketableFillTip ? (
             <Alert
