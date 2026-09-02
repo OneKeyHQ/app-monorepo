@@ -315,6 +315,11 @@ export function useUniversalStake({
           networkId,
         });
 
+        // Past this point the wrap has been signed and broadcast, so the flow
+        // has started whatever happens next: these bail-outs resolve true so
+        // the caller clears the form. Resolving false would keep the amount
+        // primed and turn a single tap into a second wrap of the same funds —
+        // the wrap step has no resume, it always starts from the beginning.
         const wrapTxId =
           wrapConfirmResult.data[0]?.signedTx?.txid ??
           wrapConfirmResult.data[0]?.decodedTx?.txid;
@@ -324,7 +329,7 @@ export function useUniversalStake({
               id: ETranslations.global_failed,
             }),
           });
-          return false;
+          return true;
         }
 
         const wrapStatus = await waitForTxFinalStatus({
@@ -333,12 +338,14 @@ export function useUniversalStake({
           txid: wrapTxId,
         });
         if (wrapStatus !== EOnChainHistoryTxStatus.Success) {
+          // Covers a reverted wrap and a status poll that timed out; the two
+          // are not distinguishable here, so assume the funds moved.
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.global_failed,
             }),
           });
-          return false;
+          return true;
         }
 
         const postWrapStakingInfo = stakingInfo
@@ -426,11 +433,13 @@ export function useUniversalStake({
             });
           } catch (error) {
             onFail?.(error as Error);
-            return false;
+            return true;
           }
 
           if (approveConfirmResult.status !== 'success') {
-            return false;
+            // Declining the approval leaves the user holding the wrapped
+            // token; the stake can be finished from the wrapped balance.
+            return true;
           }
 
           await timerUtils.wait(150);
@@ -442,7 +451,7 @@ export function useUniversalStake({
                 id: ETranslations.global_failed,
               }),
             });
-            return false;
+            return true;
           }
 
           onStepChange?.(3);

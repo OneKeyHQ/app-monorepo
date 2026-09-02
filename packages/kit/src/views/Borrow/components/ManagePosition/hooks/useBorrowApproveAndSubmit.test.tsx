@@ -166,6 +166,8 @@ const approveTarget: IManagePositionApproveTarget = {
 
 describe('useBorrowApproveAndSubmit', () => {
   beforeEach(() => {
+    // Only the call log; the default "accepted" implementation stays.
+    mockEnsureRiskAccepted.mockClear();
     mockBag.allowance = '0';
     mockBag.loadingAllowance = false;
     mockBag.fetchAllowanceResponse.mockReset();
@@ -310,6 +312,40 @@ describe('useBorrowApproveAndSubmit', () => {
         await result.current.onApprove();
       });
 
+      expect(mockBag.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens a single approval when the button is tapped twice while the disclaimer is being read', async () => {
+      // The gate is a bg round-trip, and `approveLoading` only disables the
+      // button on the next render, so without a synchronous lock both taps get
+      // through and two approvals are sent.
+      let releaseGate: (accepted: boolean) => void = () => {};
+      mockEnsureRiskAccepted.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          releaseGate = resolve;
+        }),
+      );
+      const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+      const { result } = renderHook(() =>
+        useBorrowApproveAndSubmit({
+          providerName: 'aave_v3',
+          tokenSymbol: 'USDC',
+          approveTarget,
+          currentAllowance: '0',
+          amountValue: '10',
+          onSubmit,
+        }),
+      );
+
+      await act(async () => {
+        const first = result.current.onApprove();
+        const second = result.current.onApprove();
+        releaseGate(true);
+        await Promise.all([first, second]);
+      });
+
+      expect(mockEnsureRiskAccepted).toHaveBeenCalledTimes(1);
       expect(mockBag.navigationToTxConfirm).toHaveBeenCalledTimes(1);
     });
   });

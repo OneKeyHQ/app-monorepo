@@ -693,6 +693,15 @@ export function UniversalWithdraw({
   const useApprove =
     (isPendleProvider || isQueuedWithdraw) && !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
+  // Synchronous mirror of `approving`. React only disables the button on the
+  // next render, and the disclaimer gate below adds a bg round-trip in front of
+  // it, so the state alone leaves a window where two quick taps both get
+  // through. Every write goes through updateApproving so the two stay in sync.
+  const approvingRef = useRef(false);
+  const updateApproving = useCallback((next: boolean) => {
+    approvingRef.current = next;
+    setApproving(next);
+  }, []);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
@@ -794,10 +803,14 @@ export function UniversalWithdraw({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !approveAmountValue) return;
+    // Claim the lock before the first await, so a second tap arriving while the
+    // disclaimer is being read cannot open a parallel approval.
+    if (approvingRef.current) return;
+    approvingRef.current = true;
     // OK-59196: the approve transaction is the user's first on-chain action in
     // the two-step withdraw flow and never reaches useUniversalWithdraw, so the
-    // one-time disclaimer has to gate it here too. Before the approving lock:
-    // bailing after it would leave the button stuck loading.
+    // one-time disclaimer has to gate it here too. It runs before the visible
+    // loading state: bailing after that would leave the button stuck loading.
     if (
       !(await ensureRiskAccepted({
         provider: providerName ?? '',
@@ -805,10 +818,11 @@ export function UniversalWithdraw({
         networkId,
       }))
     ) {
+      approvingRef.current = false;
       return;
     }
     Keyboard.dismiss();
-    setApproving(true);
+    updateApproving(true);
 
     let approveAllowance = allowance;
     try {
@@ -822,7 +836,7 @@ export function UniversalWithdraw({
     const amountBN = new BigNumber(approveAmountValue);
     if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
       // Already approved
-      setApproving(false);
+      updateApproving(false);
       return;
     }
 
@@ -856,15 +870,15 @@ export function UniversalWithdraw({
             }
             await onPressRef.current?.();
           } finally {
-            setApproving(false);
+            updateApproving(false);
           }
         })();
       },
       onFail() {
-        setApproving(false);
+        updateApproving(false);
       },
       onCancel() {
-        setApproving(false);
+        updateApproving(false);
       },
     });
   }, [
@@ -878,6 +892,7 @@ export function UniversalWithdraw({
     navigationToTxConfirm,
     fetchAllowanceResponse,
     trackAllowance,
+    updateApproving,
     waitForAllowanceAfterApprove,
   ]);
   const actionSymbol = useMemo(
@@ -1015,6 +1030,20 @@ export function UniversalWithdraw({
         withdrawAllRef.current &&
         !withdrawSignatureRef.current
       ) {
+        // OK-59196: this message is signed for the provider before anything
+        // reaches useUniversalWithdraw, so the disclaimer has to gate it here —
+        // otherwise declining happens after the signature already exists. Not a
+        // duplicate of the gate inside the hook: once accepted this resolves
+        // immediately. Mirrors the stake side in UniversalStake.
+        if (
+          !(await ensureRiskAccepted({
+            provider: providerName ?? '',
+            symbol: actionSymbol ?? '',
+            networkId,
+          }))
+        ) {
+          return;
+        }
         try {
           const { signature, message } = await signPersonalMessage({
             networkId: networkId || '',
@@ -1105,6 +1134,7 @@ export function UniversalWithdraw({
     }
   }, [
     amountValue,
+    ensureRiskAccepted,
     onConfirm,
     onQuoteReset,
     resetAmount,
