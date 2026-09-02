@@ -50,17 +50,32 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
         }) || ''
       }`;
 
-let watchListMutationQueue: Promise<unknown> = Promise.resolve();
+let watchListQueue: Promise<unknown> = Promise.resolve();
+const watchOps = new Map<string, symbol>();
 
-function runWatchListMutation<T>(mutation: () => Promise<T>) {
-  const result = watchListMutationQueue.then(mutation, mutation);
-  watchListMutationQueue = result.catch(() => undefined);
+function runWatchOp<T>(
+  keys: string[],
+  mutation: (version: symbol) => Promise<T>,
+) {
+  const version = Symbol('watchList');
+  keys.forEach((key) => watchOps.set(key, version));
+  const run = () => mutation(version).finally(() => finishOp(version, keys));
+  const result = watchListQueue.then(run, run);
+  watchListQueue = result.catch(() => undefined);
   return result;
 }
 
-const CHART_PRICE_FRESHNESS_MS = 10_000;
+function finishOp(version: symbol, keys: string[]) {
+  keys.forEach((key) => {
+    if (watchOps.get(key) === version) {
+      watchOps.delete(key);
+    }
+  });
+}
 
-function isSameMarketTokenDetail({
+const CHART_TTL = 10_000;
+
+function isSameTokenDetail({
   tokenDetail,
   tokenAddress,
   networkId,
@@ -257,7 +272,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         tokenDetailPreview.networkId === networkId
           ? tokenDetailPreview
           : undefined;
-      // contextAtomMethod does not bind the class instance.
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), nextPreview);
       set(tokenDetailWebsocketAtom(), undefined);
@@ -310,7 +324,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
         }
       } finally {
-        // Preserve a newer request's loading state.
         if (!isStale) {
           set(tokenDetailLoadingAtom(), false);
         }
@@ -346,7 +359,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        // Check staleness before validation can reset loading.
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (currentAddress !== tokenAddress && currentAddress !== '') {
@@ -367,7 +379,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           responseData.data.token.name === ''
         ) {
           if (
-            isSameMarketTokenDetail({
+            isSameTokenDetail({
               tokenDetail: currentTokenDetail,
               tokenAddress,
               networkId,
@@ -393,7 +405,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
         const isSameToken =
           currentTokenDetail &&
-          isSameMarketTokenDetail({
+          isSameTokenDetail({
             tokenDetail: currentTokenDetail,
             tokenAddress,
             networkId,
@@ -403,7 +415,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           isSameToken &&
           typeof chartPriceUpdatedAt === 'number' &&
           Number.isFinite(chartPriceUpdatedAt) &&
-          Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
+          Date.now() - chartPriceUpdatedAt < CHART_TTL;
 
         const finalTokenData = hasFreshKLinePrice
           ? {
@@ -454,6 +466,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+    if (watchOps.size) {
+      return;
+    }
     return this.flushWatchListV2Atom.call(set, data.data);
   });
 
@@ -492,17 +507,18 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       }
 
       const prevKeys = new Set(prev.data.map(uniqByFn));
-      const insertedItems = new Set(
-        params.filter((item) => !prevKeys.has(uniqByFn(item))),
+      const newKeys = new Set(
+        params.filter((item) => !prevKeys.has(uniqByFn(item))).map(uniqByFn),
       );
-      const sortedNewData = sortUtils.buildSortedList({
+      const keys = params.map(uniqByFn);
+      const data = sortUtils.buildSortedList({
         oldList: prev.data,
         saveItems: params,
         uniqByFn,
       });
-      set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
+      set(marketWatchListV2Atom(), { ...prev, data });
 
-      await runWatchListMutation(async () => {
+      await runWatchOp(keys, async (version) => {
         try {
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: params,
@@ -512,12 +528,18 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           const current = get(marketWatchListV2Atom());
           set(marketWatchListV2Atom(), {
             ...current,
-            data: current.data.filter((item) => !insertedItems.has(item)),
+            data: current.data.filter(
+              (item) =>
+                !newKeys.has(uniqByFn(item)) ||
+                watchOps.get(uniqByFn(item)) !== version,
+            ),
           });
           throw error;
         }
-        await this.refreshWatchListV2.call(set).catch(() => undefined);
       });
+      if (!watchOps.size) {
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      }
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
         ERookieTaskType.MARKET,
       );
@@ -549,7 +571,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      await runWatchListMutation(async () => {
+      const key = uniqByFn({ chainId, contractAddress });
+
+      await runWatchOp([key], async (version) => {
         try {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [{ chainId, contractAddress }],
@@ -557,11 +581,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           });
         } catch (error) {
           const current = get(marketWatchListV2Atom());
-          const currentKeys = new Set(current.data.map(uniqByFn));
-          const removed = prev.data.filter(
-            (item) =>
-              !newData.includes(item) && !currentKeys.has(uniqByFn(item)),
-          );
+          const removed =
+            watchOps.get(key) === version
+              ? prev.data.filter((item) => !newData.includes(item))
+              : [];
           const data = sortUtils.buildSortedList({
             oldList: current.data,
             saveItems: removed,
@@ -570,8 +593,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(marketWatchListV2Atom(), { ...current, data });
           throw error;
         }
-        await this.refreshWatchListV2.call(set).catch(() => undefined);
       });
+      if (!watchOps.size) {
+        await this.refreshWatchListV2.call(set).catch(() => undefined);
+      }
     },
   );
 
@@ -685,7 +710,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
-      // Read the current sortIndex instead of caller state.
       const resolveFromAtom = (
         item: IMarketWatchListItemV2 | undefined,
       ): IMarketWatchListItemV2 | undefined => {

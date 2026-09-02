@@ -37,7 +37,7 @@ jest.mock('@onekeyhq/components', () => ({
     icon: string;
     disabled?: boolean;
     loading?: boolean;
-    onPress: () => Promise<void>;
+    onPress: (event: { stopPropagation: () => void }) => Promise<void>;
     testID: string;
   }) => (
     <button
@@ -46,7 +46,7 @@ jest.mock('@onekeyhq/components', () => ({
       data-loading={String(Boolean(loading))}
       data-testid={testID}
       disabled={disabled}
-      onClick={() => void onPress()}
+      onClick={(event) => void onPress(event)}
       type="button"
     />
   ),
@@ -270,6 +270,35 @@ describe('MarketAsyncStarV2', () => {
     mockIsInWatchListV2.mockReturnValue(false);
     mockAddIntoWatchListV2.mockResolvedValue(true);
     mockRemoveFromWatchListV2.mockResolvedValue(true);
+  });
+
+  it('does not propagate a favorite press to its row', async () => {
+    const onRowPress = jest.fn();
+    render(
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onRowPress}
+        onKeyDown={() => undefined}
+      >
+        <MarketAsyncStarV2
+          identities={[]}
+          resolveIdentity={() =>
+            Promise.resolve({ chainId: 'btc--0', contractAddress: '' })
+          }
+          identityKey="btc"
+          from={EWatchlistFrom.Homepage}
+          testID="async-star"
+        />
+      </div>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('async-star'));
+      await Promise.resolve();
+    });
+
+    expect(onRowPress).not.toHaveBeenCalled();
   });
 
   it('fills immediately without showing a loading spinner', async () => {

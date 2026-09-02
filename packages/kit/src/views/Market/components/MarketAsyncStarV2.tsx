@@ -14,6 +14,8 @@ import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV
 
 import { useWatchListV2Action } from './watchListHooksV2';
 
+import type { GestureResponderEvent } from 'react-native';
+
 export type IMarketWatchlistIdentity = {
   chainId: string;
   contractAddress: string;
@@ -326,82 +328,88 @@ export function MarketAsyncStarV2({
     [from, tokenSymbol],
   );
 
-  const handlePress = useCallback(async () => {
-    if (!isMounted || isResolvingRef.current) {
-      return;
-    }
-    const requestIdentityKey = identityKey;
-    isResolvingRef.current = true;
-    if (checked) {
-      setOptimisticChecked(false);
+  const handlePress = useCallback(
+    async (event?: GestureResponderEvent) => {
+      event?.stopPropagation();
+      if (!isMounted || isResolvingRef.current) {
+        return;
+      }
+      const requestIdentityKey = identityKey;
+      isResolvingRef.current = true;
+      if (checked) {
+        setOptimisticChecked(false);
+        try {
+          const results = await Promise.all(
+            checkedIdentities.map(async (identity) => {
+              const removed = await actions.removeFromWatchListV2(
+                identity.chainId,
+                identity.contractAddress,
+              );
+              if (removed) {
+                logRemoved(identity);
+              }
+              return removed;
+            }),
+          );
+          if (
+            results.some((removed) => !removed) &&
+            identityKeyRef.current === requestIdentityKey
+          ) {
+            setOptimisticChecked(undefined);
+          }
+        } finally {
+          isResolvingRef.current = false;
+        }
+        return;
+      }
+
+      setOptimisticChecked(true);
       try {
-        const results = await Promise.all(
-          checkedIdentities.map(async (identity) => {
-            const removed = await actions.removeFromWatchListV2(
-              identity.chainId,
-              identity.contractAddress,
-            );
-            if (removed) {
-              logRemoved(identity);
-            }
-            return removed;
-          }),
-        );
+        const identity = await resolveIdentity({ intent: 'interaction' });
+        if (!identity?.chainId) {
+          throw new OneKeyLocalError('No watchlist identity');
+        }
+        if (identityKeyRef.current !== requestIdentityKey) {
+          return;
+        }
+        setResolvedIdentity(identity);
+
         if (
-          results.some((removed) => !removed) &&
-          identityKeyRef.current === requestIdentityKey
+          actions.isInWatchListV2(identity.chainId, identity.contractAddress)
         ) {
           setOptimisticChecked(undefined);
+          return;
         }
+
+        const added = await actions.addIntoWatchListV2([identity]);
+        if (added) {
+          logAdded(identity);
+        } else {
+          setOptimisticChecked(undefined);
+        }
+      } catch (_error) {
+        setOptimisticChecked(undefined);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
       } finally {
         isResolvingRef.current = false;
       }
-      return;
-    }
-
-    setOptimisticChecked(true);
-    try {
-      const identity = await resolveIdentity({ intent: 'interaction' });
-      if (!identity?.chainId) {
-        throw new OneKeyLocalError('No watchlist identity');
-      }
-      if (identityKeyRef.current !== requestIdentityKey) {
-        return;
-      }
-      setResolvedIdentity(identity);
-
-      if (actions.isInWatchListV2(identity.chainId, identity.contractAddress)) {
-        setOptimisticChecked(undefined);
-        return;
-      }
-
-      const added = await actions.addIntoWatchListV2([identity]);
-      if (added) {
-        logAdded(identity);
-      } else {
-        setOptimisticChecked(undefined);
-      }
-    } catch (_error) {
-      setOptimisticChecked(undefined);
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.global_an_error_occurred,
-        }),
-      });
-    } finally {
-      isResolvingRef.current = false;
-    }
-  }, [
-    actions,
-    checked,
-    checkedIdentities,
-    identityKey,
-    intl,
-    isMounted,
-    logAdded,
-    logRemoved,
-    resolveIdentity,
-  ]);
+    },
+    [
+      actions,
+      checked,
+      checkedIdentities,
+      identityKey,
+      intl,
+      isMounted,
+      logAdded,
+      logRemoved,
+      resolveIdentity,
+    ],
+  );
 
   return (
     <IconButton
