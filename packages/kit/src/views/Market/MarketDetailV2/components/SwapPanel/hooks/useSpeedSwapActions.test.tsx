@@ -182,6 +182,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
   useDebounce: (value: string) => value,
 }));
