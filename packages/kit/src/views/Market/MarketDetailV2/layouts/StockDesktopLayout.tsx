@@ -21,7 +21,9 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import {
+  type IMarketDetailChartDisplayMode,
   type IMarketPriceSource,
+  useMarketDetailChartDisplayModePersistAtom,
   useMarketPriceSourceAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -79,7 +81,6 @@ import {
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
-type IStockChartMode = 'simple' | 'pro';
 
 // Height of the whole chart block, and of the toolbar row that leads it in
 // Simple mode (Figma 25476:88857 / 25476:88858).
@@ -101,6 +102,7 @@ const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
     '1Y': 32,
     All: 34,
   };
+const STOCK_SIMPLE_CHART_RANGE_GAP = 2;
 
 function StockPageHeader({
   showFavoriteButton,
@@ -463,8 +465,8 @@ function StockChartModeControl({
   mode,
   onChange,
 }: {
-  mode: IStockChartMode;
-  onChange: (mode: IStockChartMode) => void;
+  mode: IMarketDetailChartDisplayMode;
+  onChange: (mode: IMarketDetailChartDisplayMode) => void;
 }) {
   const intl = useIntl();
 
@@ -506,7 +508,7 @@ function StockChartModeControl({
   );
 }
 
-function StockChart({
+export function StockChart({
   marketTradingView,
   priceMode,
   chartMode,
@@ -526,35 +528,27 @@ function StockChart({
   onEnterChartFullscreen: () => void;
 }) {
   const intl = useIntl();
-  const [mode, setMode] = useState<IStockChartMode>('simple');
+  const [{ mode }, setChartDisplayMode] =
+    useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple';
   const chartRanges =
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const effectiveRange =
-    priceMode === 'token' && range === 'All' ? '1Y' : range;
-  const rangeSelectorWidth = priceMode === 'share' ? 214 : 178;
+  const rangeSelectorWidth = chartRanges.reduce(
+    (total, item, index) =>
+      total +
+      STOCK_SIMPLE_CHART_RANGE_WIDTHS[item] +
+      (index > 0 ? STOCK_SIMPLE_CHART_RANGE_GAP : 0),
+    0,
+  );
+  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
+    setChartDisplayMode({ mode: nextMode });
+  };
 
-  // Simple leads the chart with its own toolbar row (Figma 25476:88858): range
-  // selector on the left, Simple/Pro on the right.
-  //
-  // Pro has no toolbar row of its own — a second row above the widget wasted a
-  // line and read as detached from the chart. The widget takes the full block
-  // and the switch is laid over the trailing edge of the widget's own interval
-  // row, so both modes show it on the same line and the chart body below never
-  // shifts between them.
-  //
-  // Pro also carries the chart-source selector and expand button, because the
-  // widget's control row gives up its own trailing controls under this overlay.
-  // They stay to the left of the Simple/Pro switch so the switch lands on the
-  // same pixel in both modes.
-  //
-  // Fullscreen only ever happens from Pro (Simple is a plain line chart): the
-  // block drops its fixed height to fill the fixed-position wrapper, and this
-  // whole overlay steps aside so nothing floats over the expanded chart — the
-  // widget's own control row is restored there and its toggle is the way out.
+  // Keep the Pro controls on TradingView's interval row so switching modes
+  // does not shift the chart body; fullscreen restores the widget controls.
   return (
     <YStack
       width="100%"
@@ -572,7 +566,12 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack width={rangeSelectorWidth} alignItems="center" gap="$0.5">
+          <XStack
+            testID="stock-chart-range-selector"
+            width={rangeSelectorWidth}
+            alignItems="center"
+            gap="$0.5"
+          >
             {chartRanges.map((item) => {
               const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
@@ -592,7 +591,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
+                    variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -605,13 +604,13 @@ function StockChart({
             })}
           </XStack>
           <Stack testID="stock-chart-mode-control">
-            <StockChartModeControl mode={mode} onChange={setMode} />
+            <StockChartModeControl mode={mode} onChange={handleModeChange} />
           </Stack>
         </XStack>
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={effectiveRange}
+          range={range}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />
@@ -630,7 +629,7 @@ function StockChart({
               onChartSwitch={onChartSwitch}
               onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              <StockChartModeControl mode={mode} onChange={setMode} />
+              <StockChartModeControl mode={mode} onChange={handleModeChange} />
             </MarketDetailProChartControls>
           )}
         </>
