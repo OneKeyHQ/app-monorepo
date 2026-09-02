@@ -225,43 +225,37 @@ export function useAddHiddenWallet() {
           }
 
           await closeHardwareUiStateDialog();
-          const passphraseEnabled = await new Promise<boolean>(
-            (resolve, reject) => {
-              Dialog.show({
-                title: intl.formatMessage({
-                  id: ETranslations.passphrase_disabled_dialog_title,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.passphrase_disabled_dialog_desc,
-                }),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_enable,
-                }),
-                onCancel: (close) => {
-                  void close();
-                  resolve(false);
-                },
-                onConfirm: async () => {
-                  try {
-                    await backgroundApiProxy.serviceHardware.setPassphraseEnabled(
-                      {
-                        walletId,
-                        passphraseEnabled: true,
-                      },
-                    );
-                    resolve(true);
-                  } catch (enableError) {
-                    reject(enableError);
-                  }
-                },
-              });
-            },
-          );
-          if (!passphraseEnabled) {
-            return;
-          }
-
-          await createWallet();
+          await new Promise<void>((resolve, reject) => {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_desc,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_enable,
+              }),
+              onCancel: (close) => {
+                void close();
+                resolve();
+              },
+              onConfirm: async () => {
+                try {
+                  await backgroundApiProxy.serviceHardware.setPassphraseEnabled(
+                    {
+                      walletId,
+                      passphraseEnabled: true,
+                    },
+                  );
+                  resolve();
+                } catch (enableError) {
+                  reject(enableError);
+                }
+              },
+            });
+          });
+          return;
         }
         Toast.success({
           title: intl.formatMessage({

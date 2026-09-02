@@ -114,12 +114,10 @@ describe('useAddHiddenWallet', () => {
     });
   });
 
-  it('enables Passphrase and retries hidden wallet creation once', async () => {
-    mockCreateHWHiddenWallet
-      .mockRejectedValueOnce({
-        className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
-      })
-      .mockResolvedValueOnce(undefined);
+  it('enables Passphrase without retrying hidden wallet creation', async () => {
+    mockCreateHWHiddenWallet.mockRejectedValueOnce({
+      className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+    });
     const wallet = { id: 'hw-test' } as IDBWallet;
     const { result } = renderHook(() => useAddHiddenWallet());
 
@@ -132,8 +130,8 @@ describe('useAddHiddenWallet', () => {
       walletId: wallet.id,
       passphraseEnabled: true,
     });
-    expect(mockCreateHWHiddenWallet).toHaveBeenCalledTimes(2);
+    expect(mockCreateHWHiddenWallet).toHaveBeenCalledTimes(1);
     expect(mockCloseHardwareUiStateDialog).toHaveBeenCalledTimes(2);
-    expect(Toast.success).toHaveBeenCalledTimes(1);
+    expect(Toast.success).not.toHaveBeenCalled();
   });
 });
