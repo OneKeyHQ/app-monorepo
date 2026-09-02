@@ -27,6 +27,7 @@ import {
   calculateProfitLoss,
   formatHlSize,
   formatPriceToSignificantDigits,
+  getValidPerpsPrice,
   parseDexCoin,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -81,7 +82,7 @@ const ClosePositionForm = memo(
     const assetId = tokenInfo?.assetId;
 
     const midPrice = useMemo(() => {
-      return allMids?.mids?.[position.coin] || '0';
+      return getValidPerpsPrice(allMids?.mids?.[position.coin]);
     }, [allMids?.mids, position.coin]);
 
     const tokenDisplayName = useMemo(() => {
@@ -219,7 +220,7 @@ const ClosePositionForm = memo(
 
     const handleUseMid = useCallback(() => {
       const latestMidPrice = midPrice;
-      if (latestMidPrice && latestMidPrice !== '0') {
+      if (latestMidPrice) {
         setFormData((prev) => ({
           ...prev,
           limitPrice: formatPriceToSignificantDigits(latestMidPrice),
@@ -263,8 +264,11 @@ const ClosePositionForm = memo(
         }
 
         if (formData.type === 'market') {
-          const latestMidPrice = midPrice;
-          if (!latestMidPrice || latestMidPrice === '0') {
+          const latestMidPrice =
+            await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+              position.coin,
+            );
+          if (!latestMidPrice) {
             Toast.error({
               title: 'Unable to get current market price',
             });
@@ -319,7 +323,7 @@ const ClosePositionForm = memo(
       formData.limitPrice,
       calculatedAmount,
       assetId,
-      midPrice,
+      position.coin,
       isLongPosition,
       hyperliquidActions,
       onClose,
@@ -532,7 +536,9 @@ const ClosePositionForm = memo(
             variant="primary"
             onPress={handleSubmit}
             disabled={!isFormValid || isSubmitting}
-            loading={isSubmitting}
+            loading={
+              isSubmitting || (formData.type === 'market' && !isPriceValid)
+            }
           >
             {intl.formatMessage({
               id: ETranslations.perp_confirm_order,

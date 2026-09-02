@@ -524,6 +524,15 @@ function formatHlSize(size: BigNumber.Value, szDecimals: number): string {
   return out === '0' ? '' : out;
 }
 
+function getValidPerpsPrice(price?: string | null): string | undefined {
+  if (!price) {
+    return undefined;
+  }
+
+  const priceBN = new BigNumber(price);
+  return priceBN.isFinite() && priceBN.gt(0) ? price : undefined;
+}
+
 /**
  * Format a price value into a HyperLiquid wire-safe string.
  *
@@ -2225,6 +2234,7 @@ export {
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
   formatHlPrice,
+  getValidPerpsPrice,
 };
 export default {
   formatAssetCtx,
@@ -2291,4 +2301,5 @@ export default {
   formatSpotPriceToValid,
   formatHlSize,
   formatHlPrice,
+  getValidPerpsPrice,
 };
