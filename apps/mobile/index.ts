@@ -19,9 +19,9 @@ type IAppModule = typeof import('./App');
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
 require('@onekeyhq/shared/src/polyfills');
-const { assertRuntimePolyfillsReady } =
+const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
-assertRuntimePolyfillsReady();
+markRuntimePolyfillsReady();
 
 // ── On-device Storybook workbench: independent top-level entry ──
 //

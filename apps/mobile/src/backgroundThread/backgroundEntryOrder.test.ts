@@ -11,7 +11,7 @@ jest.mock('@onekeyhq/shared/src/polyfills', () => {
 });
 
 jest.mock('@onekeyhq/shared/src/polyfills/runtimeCapabilities', () => ({
-  assertRuntimePolyfillsReady: jest.fn(() => {
+  markRuntimePolyfillsReady: jest.fn(() => {
     mockLoadOrder.push('polyfills-ready');
   }),
 }));
