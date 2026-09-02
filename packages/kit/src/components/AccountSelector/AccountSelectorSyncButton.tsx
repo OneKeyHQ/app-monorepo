@@ -2,6 +2,8 @@ import { Button } from '@onekeyhq/components';
 
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
+import { AccountSelectorTestIDs } from './testIDs';
+
 import type { IAccountSelectorSyncFromSceneParams } from '../../states/jotai/contexts/accountSelector';
 
 export function AccountSelectorSyncButton(
@@ -11,7 +13,7 @@ export function AccountSelectorSyncButton(
   const { from } = params;
   return (
     <Button
-      testID="account-selector-sync-btn"
+      testID={AccountSelectorTestIDs.syncButton}
       size="small"
       onPress={() => {
         void actions.current.syncFromScene(params);

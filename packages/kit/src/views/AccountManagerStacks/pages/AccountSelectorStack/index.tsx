@@ -72,6 +72,7 @@ export default function AccountSelectorStackPage({
 
   return (
     <AccountSelectorProviderMirror
+      perfDebugName="account-selector-modal"
       enabledNum={[num]}
       config={{
         sceneName,

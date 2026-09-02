@@ -29,6 +29,25 @@ export class RequestScene extends BaseScene {
     return [params];
   }
 
+  // A balance fetch that only decorates a UI surface must not reject into a
+  // fire-and-forget caller, but a failure still has to leave a trace: the
+  // surface just renders without fiat values, which looks identical to an
+  // account that holds nothing.
+  @LogToLocal({ level: 'error' })
+  public fetchAccountTokensFailed({
+    errorMessage,
+    errorName,
+    flag,
+    networkId,
+  }: {
+    errorMessage?: string;
+    errorName?: string;
+    flag: string;
+    networkId?: string;
+  }) {
+    return [{ errorMessage, errorName, flag, networkId }];
+  }
+
   @LogToLocal({ level: 'error' })
   public fetchTokensDetailsAccountAddressAndXpubBothEmpty({
     params,

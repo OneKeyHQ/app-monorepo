@@ -66,6 +66,7 @@ describe('useAutoSelectNetwork', () => {
     expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
       num: 0,
       networkId: 'onekeyall--0',
+      reason: 'autoSelectNetwork',
     });
 
     // Let the rejection settle, then fire the retry timer.
@@ -79,6 +80,7 @@ describe('useAutoSelectNetwork', () => {
     expect(mockUpdateSelectedAccountNetwork).toHaveBeenLastCalledWith({
       num: 0,
       networkId: 'onekeyall--0',
+      reason: 'autoSelectNetwork',
     });
 
     unmount();

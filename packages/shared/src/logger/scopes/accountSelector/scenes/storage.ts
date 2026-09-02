@@ -1,13 +1,34 @@
-import { cloneDeep } from 'lodash';
+import { LogToConsoleDevOnly } from '../../../base/decorators';
 
-import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { AccountSelectorDevOnlyScene } from './devOnlyScene';
 
-import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole } from '../../../base/decorators';
+type ISelectedAccountLike = {
+  deriveType?: string;
+  focusedWallet?: unknown;
+  indexedAccountId?: string;
+  networkId?: string;
+  othersWalletAccountId?: string;
+  walletId?: string;
+};
 
-export class AccountSelectorStorageScene extends BaseScene {
-  @LogToConsole()
+function buildSelectionSummary(selectedAccount: ISelectedAccountLike) {
+  let accountKind = 'none';
+  if (selectedAccount.indexedAccountId) {
+    accountKind = 'indexed';
+  } else if (selectedAccount.othersWalletAccountId) {
+    accountKind = 'others';
+  }
+  return {
+    accountKind,
+    deriveType: selectedAccount.deriveType,
+    hasFocusedWallet: Boolean(selectedAccount.focusedWallet),
+    hasNetwork: Boolean(selectedAccount.networkId),
+    hasWallet: Boolean(selectedAccount.walletId),
+  };
+}
+
+export class AccountSelectorStorageScene extends AccountSelectorDevOnlyScene {
+  @LogToConsoleDevOnly()
   public updateSelectedAccount({
     sceneName,
     num,
@@ -15,60 +36,65 @@ export class AccountSelectorStorageScene extends BaseScene {
     oldSelectedAccount,
     newSelectedAccount,
   }: {
-    sceneName: EAccountSelectorSceneName | undefined;
+    sceneName: string | undefined;
     num: number;
     sceneUrl: string | undefined;
-    oldSelectedAccount: IAccountSelectorSelectedAccount;
-    newSelectedAccount: IAccountSelectorSelectedAccount;
+    oldSelectedAccount: ISelectedAccountLike;
+    newSelectedAccount: ISelectedAccountLike;
   }) {
-    return cloneDeep([
+    return [
       sceneName,
       num,
-      sceneUrl,
-      { oldSelectedAccount, newSelectedAccount },
-    ]);
+      {
+        current: buildSelectionSummary(newSelectedAccount),
+        hasSceneUrl: Boolean(sceneUrl),
+        previous: buildSelectionSummary(oldSelectedAccount),
+      },
+    ];
   }
 
-  @LogToConsole()
+  @LogToConsoleDevOnly()
   public syncFromScene({
     sceneName,
     num,
     sceneUrl,
   }: {
-    sceneName: EAccountSelectorSceneName | undefined;
+    sceneName: string | undefined;
     num: number;
     sceneUrl: string | undefined;
   }) {
-    return cloneDeep([sceneName, num, sceneUrl]);
+    return [sceneName, num, { hasSceneUrl: Boolean(sceneUrl) }];
   }
 
-  @LogToConsole()
+  @LogToConsoleDevOnly()
   public autoSelectNextAccount({
     sceneName,
     num,
     sceneUrl,
   }: {
-    sceneName: EAccountSelectorSceneName | undefined;
+    sceneName: string | undefined;
     num: number;
     sceneUrl: string | undefined;
   }) {
-    return cloneDeep([sceneName, num, sceneUrl]);
+    return [sceneName, num, { hasSceneUrl: Boolean(sceneUrl) }];
   }
 
-  @LogToConsole()
+  @LogToConsoleDevOnly()
   public syncSceneData({
     selectedAccount,
     eventPayloadUpdatedAt,
     currentUpdatedAt,
   }: {
-    selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccount: ISelectedAccountLike;
     eventPayloadUpdatedAt: number | undefined;
     currentUpdatedAt: number | undefined;
   }) {
-    return cloneDeep({
-      selectedAccount,
-      eventPayloadUpdatedAt,
-      currentUpdatedAt,
-    });
+    return [
+      {
+        selection: buildSelectionSummary(selectedAccount),
+        eventPayloadUpdatedAt,
+        currentUpdatedAt,
+      },
+    ];
   }
 }
