@@ -466,6 +466,10 @@ function useAllNetworkRequests<T>(params: {
   >(undefined);
   // Render-updated owner identity used to detect a stale runner closure.
   const liveRunOwnerKeyRef = useRef('');
+  // Invariant: only an accepted run writes this ref, and acceptance is
+  // serialized by `isFetching` (set at accept, released only in `finally`;
+  // a queued rerun starts from a later macrotask). A failed run's restore
+  // therefore never overwrites a snapshot published by a newer owner's run.
   const lastPublishedResultRef = useRef<
     IAllNetworkLastPublishedResult<T> | undefined
   >(undefined);
