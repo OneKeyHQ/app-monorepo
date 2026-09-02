@@ -23014,6 +23014,7 @@
     "packages/kit/src/views/Swap/utils/swapStepHistory.ts": 7002,
     "packages/kit/src/views/Swap/utils/swapStockAnalytics.ts": 7003,
     "packages/kit/src/views/Swap/utils/swapStockPositionsUtils.ts": 7004,
+    "packages/kit/src/views/Swap/utils/swapStockReviewUtils.ts": 7974,
     "packages/kit/src/views/Swap/utils/swapStockTradeControl.ts": 7005,
     "packages/kit/src/views/Swap/utils/swapTokenTaxUtils.ts": 7970,
     "packages/kit/src/views/Swap/utils/swapTypeUtils.ts": 7006,
