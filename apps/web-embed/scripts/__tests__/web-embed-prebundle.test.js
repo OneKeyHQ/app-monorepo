@@ -42,6 +42,7 @@ const {
 } = require('../web-embed-prebundle');
 
 describe('web-embed-prebundle', () => {
+  const repoRoot = path.resolve(__dirname, '../../../..');
   let temporaryDirectory;
 
   beforeEach(() => {
@@ -61,6 +62,37 @@ describe('web-embed-prebundle', () => {
     expect(inputKey).toMatch(/^[0-9a-f]{64}$/u);
     expect(getInputKey()).toBe(inputKey);
     expect(getReleaseTag()).toBe(`web-embed-prebundle-v1-${inputKey}`);
+  });
+
+  it('fails closed when the publish tag lookup has a registry error', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/web-embed-prebundle.yml'),
+      'utf8',
+    );
+    const lookupIndex = workflow.indexOf(
+      'if oras manifest fetch --descriptor "$reference" >/dev/null 2>"$descriptor_error"; then',
+    );
+    const missingIndex = workflow.indexOf(
+      `elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then`,
+      lookupIndex,
+    );
+    const pushIndex = workflow.indexOf('oras push', missingIndex);
+    const errorIndex = workflow.indexOf(
+      'cat "$descriptor_error" >&2',
+      pushIndex,
+    );
+
+    expect(workflow).toContain(
+      'descriptor_error="$RUNNER_TEMP/web-embed-prebundle-descriptor-error.txt"',
+    );
+    expect(lookupIndex).toBeGreaterThan(-1);
+    expect(missingIndex).toBeGreaterThan(lookupIndex);
+    expect(pushIndex).toBeGreaterThan(missingIndex);
+    expect(errorIndex).toBeGreaterThan(pushIndex);
+    expect(workflow.indexOf('exit 1', errorIndex)).toBeGreaterThan(errorIndex);
+    expect(workflow).not.toContain(
+      'if ! oras manifest fetch --descriptor "$reference"',
+    );
   });
 
   it('ignores dynamic .env.expo values but hashes real build inputs', () => {

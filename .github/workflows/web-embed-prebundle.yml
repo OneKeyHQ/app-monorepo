@@ -191,7 +191,10 @@ jobs:
           set -euo pipefail
           release_dir="apps/web-embed/out-dir-bundle/web-embed-prebundle-release"
           reference="$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG"
-          if ! oras manifest fetch --descriptor "$reference" >/dev/null 2>&1; then
+          descriptor_error="$RUNNER_TEMP/web-embed-prebundle-descriptor-error.txt"
+          if oras manifest fetch --descriptor "$reference" >/dev/null 2>"$descriptor_error"; then
+            echo "Web-embed prebundle was published by another run: $reference"
+          elif grep -Eiq 'manifest unknown|not found' "$descriptor_error"; then
             (
               cd "$release_dir"
               oras push \
@@ -205,6 +208,9 @@ jobs:
                 "web-embed-prebundle-release.json:application/vnd.onekey.web-embed-prebundle.metadata.v1+json" \
                 "web-embed-prebundle-attestations.jsonl:application/vnd.onekey.web-embed-prebundle.attestation.v1+jsonl"
             )
+          else
+            cat "$descriptor_error" >&2
+            exit 1
           fi
           oras manifest fetch "$reference" | jq -e \
             --arg artifact_type "$OCI_ARTIFACT_TYPE" \
