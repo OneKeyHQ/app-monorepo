@@ -88,13 +88,12 @@ export function calculateProgressInRange({
 }
 
 export function resolveFirmwareInstallProgress({
-  installPhaseProgress,
   firmwareProgress,
 }: {
   installPhaseProgress: number | undefined;
   firmwareProgress: number | undefined;
 }) {
-  return Number.isFinite(installPhaseProgress)
-    ? installPhaseProgress
-    : firmwareProgress;
+  // Phase progress resets for prepare, install, and verify, so it cannot drive
+  // the aggregate installation progress bar.
+  return firmwareProgress;
 }

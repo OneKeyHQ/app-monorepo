@@ -40,19 +40,25 @@ describe('firmwareUpdateProgressUtils', () => {
     ).toBe(90);
   });
 
-  test('安装阶段优先使用 phase progress，并在缺失时回退总体进度', () => {
+  test('uses aggregate install progress across phase transitions', () => {
     expect(
       resolveFirmwareInstallProgress({
-        installPhaseProgress: 45,
-        firmwareProgress: 0,
+        installPhaseProgress: 100,
+        firmwareProgress: 42,
+      }),
+    ).toBe(42);
+    expect(
+      resolveFirmwareInstallProgress({
+        installPhaseProgress: 0,
+        firmwareProgress: 45,
       }),
     ).toBe(45);
     expect(
       resolveFirmwareInstallProgress({
-        installPhaseProgress: undefined,
-        firmwareProgress: 30,
+        installPhaseProgress: 100,
+        firmwareProgress: undefined,
       }),
-    ).toBe(30);
+    ).toBeUndefined();
   });
 
   test('formats stable transfer speed and ETA after warm-up', () => {
