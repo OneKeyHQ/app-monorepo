@@ -1,7 +1,4 @@
 /* eslint-disable import-js/order */
-// fix missing setimmediate
-import 'setimmediate';
-
 import '@onekeyhq/shared/src/polyfills';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
