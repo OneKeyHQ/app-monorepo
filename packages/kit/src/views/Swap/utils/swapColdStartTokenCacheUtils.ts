@@ -1,4 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartContext,
@@ -1013,4 +1015,58 @@ export function buildSwapSelectedAccountSyncedFromHome({
     deriveType:
       homeSelectedAccount.deriveType ?? swapSelectedAccount.deriveType,
   };
+}
+
+/**
+ * Prepares the swap selection a home change should commit, running the same
+ * others-wallet account/network pair fix as the Effects-path delivery of that
+ * change (`syncHomeAndSwapSelectedAccount`, previously the only fixing path).
+ * Both deliveries carry one event revision, so producing an equal value here
+ * lets the compare-if-newer gate settle the later write on noop instead of
+ * SkipEqualEventConflict pinning an unfixed pair.
+ */
+export async function prepareSwapSelectedAccountSyncedFromHome({
+  fixOthersWalletAccountNetworkPair,
+  homeSelectedAccount,
+  swapSelectedAccount,
+}: {
+  /**
+   * Bridge to `serviceAccountSelector.fixOthersWalletAccountNetworkPair`,
+   * injected so this module stays free of runtime background imports.
+   */
+  fixOthersWalletAccountNetworkPair: (params: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source: string;
+  }) => Promise<IAccountSelectorSelectedAccount>;
+  homeSelectedAccount: IAccountSelectorSelectedAccount;
+  swapSelectedAccount: IAccountSelectorSelectedAccount;
+}): Promise<IAccountSelectorSelectedAccount> {
+  const candidate = buildSwapSelectedAccountSyncedFromHome({
+    homeSelectedAccount,
+    swapSelectedAccount,
+  });
+  const { walletId, networkId, othersWalletAccountId } = candidate;
+  if (
+    // Local mirror of fixOthersWalletAccountNetworkPair's own early exits:
+    // the dominant inputs (HD wallets, incomplete pairs, all-network) resolve
+    // to "no fix" here without paying the RPC round-trip.
+    !walletId ||
+    !networkId ||
+    !othersWalletAccountId ||
+    !accountUtils.isOthersWallet({ walletId }) ||
+    networkUtils.isAllNetwork({ networkId })
+  ) {
+    return candidate;
+  }
+  try {
+    return await fixOthersWalletAccountNetworkPair({
+      selectedAccount: candidate,
+      source: 'syncSwapSelectedAccountFromHome',
+    });
+  } catch {
+    // The fix already returns its input on internal lookup failures; this
+    // catch covers the RPC layer itself (background unreachable), keeping the
+    // sync non-blocking with the unfixed candidate.
+    return candidate;
+  }
 }

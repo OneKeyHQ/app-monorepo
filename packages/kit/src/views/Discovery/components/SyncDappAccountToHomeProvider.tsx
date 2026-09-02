@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -46,12 +47,25 @@ export function useSyncDappAccountToHomeAccount() {
       if (isOtherWallet) {
         setTimeout(
           () => {
-            void actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount: undefined,
-              othersWalletAccount: account,
-              autoChangeToAccountMatchedNetworkId: networkId,
-            });
+            // Background alignment of the dApp account onto Home, not something
+            // the user asked for right now, so a failure must stay silent: a
+            // Toast here would interrupt whatever the user is doing in the dApp.
+            // Home simply keeps its previous account; the log is the only trace.
+            void actions.current
+              .confirmAccountSelect({
+                num: 0,
+                indexedAccount: undefined,
+                othersWalletAccount: account,
+                autoChangeToAccountMatchedNetworkId: networkId,
+                entry: 'syncDappAccountToHome:othersWallet',
+              })
+              .catch((error: unknown) => {
+                defaultLogger.app.error.log(
+                  `syncDappAccountToWallet confirmAccountSelect (others) failed: ${
+                    (error as Error)?.message ?? String(error)
+                  }`,
+                );
+              });
           },
           platformEnv.isExtension ? 200 : 0,
         );
@@ -61,13 +75,25 @@ export function useSyncDappAccountToHomeAccount() {
         });
         setTimeout(
           () => {
-            void actions.current.confirmAccountSelect({
-              num: 0,
-              indexedAccount,
-              othersWalletAccount: undefined,
-              autoChangeToAccountMatchedNetworkId: undefined,
-              forceSelectToNetworkId: networkId,
-            });
+            // Same background flow as the others-wallet branch above: swallow
+            // the failure, keep Home on its previous account, and leave a log
+            // entry instead of an unhandled rejection.
+            void actions.current
+              .confirmAccountSelect({
+                num: 0,
+                indexedAccount,
+                othersWalletAccount: undefined,
+                autoChangeToAccountMatchedNetworkId: undefined,
+                entry: 'syncDappAccountToHome:indexedAccount',
+                forceSelectToNetworkId: networkId,
+              })
+              .catch((error: unknown) => {
+                defaultLogger.app.error.log(
+                  `syncDappAccountToWallet confirmAccountSelect (indexed) failed: ${
+                    (error as Error)?.message ?? String(error)
+                  }`,
+                );
+              });
           },
           platformEnv.isExtension ? 200 : 0,
         );
@@ -113,7 +139,16 @@ function SyncDappAccountToHomeCmp({
         void tourVisited(1);
       }
     };
-    void sync();
+    // Background alignment: the account lookups inside can reject on their own,
+    // and this is not something the user asked for, so it stays silent in the
+    // log rather than surfacing or becoming an unhandled rejection.
+    void sync().catch((error) => {
+      defaultLogger.app.error.log(
+        `SyncDappAccountToHome failed: ${
+          (error as Error | undefined)?.message || String(error)
+        }`,
+      );
+    });
   }, [
     dAppAccountInfos,
     actions,

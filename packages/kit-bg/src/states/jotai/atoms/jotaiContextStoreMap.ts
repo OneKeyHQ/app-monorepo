@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback } from 'react';
 
+import { useSetAtom } from 'jotai';
 import { cloneDeep, isEqual } from 'lodash';
 
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -82,7 +83,7 @@ function flushContextTrackerMapWrite() {
 }
 
 export function useJotaiContextTrackerMap() {
-  const [, setMap] = useJotaiContextStoreMapAtom();
+  const setMap = useSetAtom(jotaiContextStoreMapAtom.atom());
 
   const setMapFinal = useCallback(
     (mapUpdate: IJotaiContextStoreMap) => {
