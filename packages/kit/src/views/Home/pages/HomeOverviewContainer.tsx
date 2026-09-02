@@ -60,9 +60,14 @@ import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
+import { resolveHomeOverviewBalanceHold } from './homeOverviewBalanceHold';
+
 // Grace period (ms) after an account switch during which the previous
 // balance is shown as a placeholder to avoid a skeleton flash.
 const BALANCE_REUSE_GRACE_MS = 180;
+// After the token side commits a complete All Networks snapshot, wait this
+// long for DeFi readiness before showing the live total without it.
+const ALL_NETWORKS_DEFI_GRACE_MS = 5000;
 
 const HOME_OVERVIEW_REFRESH_TABS = [
   EHomeTab.TOKENS,
@@ -723,6 +728,16 @@ function HomeOverviewContainer() {
   const isCurrentAllNetworksBalanceFullyReady =
     !network?.isAllNetworks ||
     (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
+  const isCurrentAccountWorthOwner =
+    !!accountWorth.accountId &&
+    (accountWorth.accountId === (account?.id ?? '') ||
+      accountWorth.accountId === (account?.indexedAccountId ?? ''));
+  // `updateAll` marks a complete snapshot for this owner (cache hydrate or an
+  // authoritative fan-out commit) as opposed to per-network progressive merges.
+  const isCurrentTokenSnapshotCommitted =
+    isCurrentAccountWorthOwner &&
+    accountWorth.initialized &&
+    accountWorth.updateAll === true;
 
   const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
     useState(false);
@@ -813,11 +828,32 @@ function HomeOverviewContainer() {
   ]);
 
   // During All Networks progressive loading, hold the previous confirmed
-  // balance until both token and DeFi data finish loading.
-  const shouldHoldCurrentConfirmedBalance =
-    !!network?.isAllNetworks &&
-    !!currentConfirmedBalance &&
-    !isCurrentAllNetworksBalanceFullyReady;
+  // balance until token and DeFi data finish loading. The hold is bounded:
+  // DeFi readiness only arrives through the cache-only DeFi hook, and when
+  // that hook does not run the header must not stay pinned to a stale
+  // persisted total for the whole session (see resolveHomeOverviewBalanceHold).
+  const [deFiGraceExpired, setDeFiGraceExpired] = useState(false);
+  const { shouldHold: shouldHoldCurrentConfirmedBalance, shouldArmDeFiGrace } =
+    resolveHomeOverviewBalanceHold({
+      isAllNetworks: !!network?.isAllNetworks,
+      hasConfirmedBalance: !!currentConfirmedBalance,
+      isTokenWorthReady: isCurrentAccountWorthReady,
+      isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
+      isDeFiReady: isCurrentAccountDeFiReady,
+      deFiGraceExpired,
+    });
+  useEffect(() => {
+    setDeFiGraceExpired(false);
+    if (!shouldArmDeFiGrace) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setDeFiGraceExpired(true);
+    }, ALL_NETWORKS_DEFI_GRACE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [currentOverviewOwnerKey, shouldArmDeFiGrace]);
 
   const lastConfirmedLatestUsd =
     canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
