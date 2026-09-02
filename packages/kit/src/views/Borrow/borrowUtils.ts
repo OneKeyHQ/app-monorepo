@@ -42,6 +42,7 @@ export const BorrowNavigation = {
       marketAddress: string;
       reserveAddress: string;
       symbol: string;
+      logoURI?: string;
     },
   ) {
     await safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowReserveDetails, {
@@ -50,6 +51,7 @@ export const BorrowNavigation = {
       marketAddress: params.marketAddress,
       reserveAddress: params.reserveAddress,
       symbol: params.symbol,
+      logoURI: params.logoURI,
     });
   },
 
@@ -217,6 +219,7 @@ export const BorrowNavigation = {
     provider,
     marketAddress,
     reserveAddress,
+    logoURI,
     isDevMode = false,
   }: {
     networkId: string;
@@ -224,6 +227,7 @@ export const BorrowNavigation = {
     provider: string;
     marketAddress: string;
     reserveAddress: string;
+    logoURI?: string;
     isDevMode?: boolean;
   }): string {
     let origin = WEB_APP_URL;
@@ -234,16 +238,19 @@ export const BorrowNavigation = {
       origin = WEB_APP_URL_DEV;
     }
 
-    // URL Format: /borrow/{networkId}/{symbol}/{provider}?marketAddress=xxx&reserveAddress=xxx
-    // Example: https://app.onekey.so/borrow/evm--1/usdc/aave?marketAddress=0x...&reserveAddress=0x...
+    // URL Format: /borrow/{networkId}/{symbol}/{provider}?marketAddress=xxx&reserveAddress=xxx&logoURI=xxx
+    // Example: https://app.onekey.so/borrow/evm--1/USDC/aave?marketAddress=0x...&reserveAddress=0x...&logoURI=https%3A%2F%2F...
     //
     // Deep link route is configured in packages/kit/src/routes/Tab/Earn/router.ts
     // as BorrowReserveDetailsShare with rewrite: '/borrow/:networkId/:symbol/:provider'
-    const baseUrl = `/borrow/${networkId}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    const baseUrl = `/borrow/${networkId}/${symbol}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     queryParams.append('marketAddress', marketAddress);
     queryParams.append('reserveAddress', reserveAddress);
+    if (logoURI) {
+      queryParams.append('logoURI', logoURI);
+    }
 
     const queryString = queryParams.toString();
     return `${origin}${baseUrl}?${queryString}`;
