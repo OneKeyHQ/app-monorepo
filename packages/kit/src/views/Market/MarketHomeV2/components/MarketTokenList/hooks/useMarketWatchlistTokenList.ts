@@ -9,12 +9,14 @@ import {
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
   SORT_MAP,
+  buildMarketNetworkLogoUriMap,
   getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
@@ -58,6 +60,11 @@ export function useMarketWatchlistTokenList({
   pageSize = 100,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 30 }),
 }: IUseMarketWatchlistTokenListParams) {
+  const { networkList } = useMarketBasicConfig();
+  const networkLogoUriMap = useMemo(
+    () => buildMarketNetworkLogoUriMap(networkList),
+    [networkList],
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
@@ -207,12 +214,14 @@ export function useMarketWatchlistTokenList({
           const key = `${networkId}:${normalizedAddress}`;
           const tokenInfo = tokenMap[key];
           const chainId = tokenInfo?.chainId || networkId;
-          const networkLogoUri = getNetworkLogoUri(chainId);
+          const networkLogoUri =
+            networkLogoUriMap.get(chainId) || getNetworkLogoUri(chainId);
           const sortIndex = tokenInfo?.sortIndex;
 
           spotTransformed.push(
             transformApiItemToToken(item, {
               chainId,
+              networkLogoUriMap,
               networkLogoUri,
               sortIndex,
             }),
@@ -256,7 +265,14 @@ export function useMarketWatchlistTokenList({
     if (isInitialLoad) {
       setIsInitialLoad(false);
     }
-  }, [apiResult, watchlist, spotItems, perpsTokenMap, isInitialLoad]);
+  }, [
+    apiResult,
+    watchlist,
+    spotItems,
+    perpsTokenMap,
+    isInitialLoad,
+    networkLogoUriMap,
+  ]);
 
   // Sorting
   const sortedData = useMemo(() => {

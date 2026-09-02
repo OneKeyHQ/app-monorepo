@@ -1,6 +1,11 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { fetchStockSimpleChartPoints } from './stockSimpleChartData';
+import {
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
+  TOKEN_SIMPLE_CHART_RANGES,
+  fetchStockSimpleChartPoints,
+  resolveStockSimpleChartRequestScope,
+} from './stockSimpleChartData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -114,6 +119,57 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(result).toEqual([[nowSeconds - 60, 100]]);
   });
 
+  it('normalizes a stale token All range to a bounded one-year request', async () => {
+    serviceMarketV2.fetchMarketTokenKline.mockResolvedValue({
+      total: 0,
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'token',
+      range: 'All',
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+    });
+
+    expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toEqual([
+      [
+        {
+          interval: '1D',
+          networkId: 'evm--1',
+          tokenAddress: '0xaapl',
+          timeFrom: nowSeconds - 365 * 24 * 60 * 60,
+          timeTo: nowSeconds,
+          autoHandleError: false,
+        },
+      ],
+    ]);
+  });
+
+  it('keeps All available for the stock share data source', async () => {
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'AAPL',
+      period: 'all',
+      currency: 'USD',
+      points: [],
+    });
+
+    await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'share',
+      range: 'All',
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+    });
+
+    expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+      [{ stockId: 'AAPL', period: 'all', points: 100 }],
+    ]);
+  });
+
   it('uses CoinGecko chart data when V2 detail is unsupported', async () => {
     serviceMarket.fetchTokenChart.mockResolvedValue([
       [(nowSeconds - 2 * 24 * 60 * 60) * 1000, 80],
@@ -134,5 +190,56 @@ describe('fetchStockSimpleChartPoints', () => {
     ]);
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toHaveLength(0);
     expect(result).toEqual([[nowSeconds - 60, 84]]);
+  });
+});
+
+describe('stock simple chart request identity', () => {
+  it('exposes All only for the share data source', () => {
+    expect(TOKEN_SIMPLE_CHART_RANGES).not.toContain('All');
+    expect(STOCK_SHARE_SIMPLE_CHART_RANGES).toContain('All');
+  });
+
+  it('ignores token variants while showing share prices', () => {
+    const firstVariant = resolveStockSimpleChartRequestScope({
+      coinGeckoId: 'first',
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'share',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '0xfirst',
+    });
+    const secondVariant = resolveStockSimpleChartRequestScope({
+      coinGeckoId: 'second',
+      isNative: false,
+      networkId: 'evm--8453',
+      priceMode: 'share',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '0xsecond',
+    });
+
+    expect(secondVariant).toEqual(firstVariant);
+  });
+
+  it('keeps token variants in token-price request identity', () => {
+    const firstVariant = resolveStockSimpleChartRequestScope({
+      isNative: false,
+      networkId: 'evm--1',
+      priceMode: 'token',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '0xfirst',
+    });
+    const secondVariant = resolveStockSimpleChartRequestScope({
+      isNative: false,
+      networkId: 'evm--8453',
+      priceMode: 'token',
+      range: '1D',
+      stockId: 'AAPL',
+      tokenAddress: '0xsecond',
+    });
+
+    expect(secondVariant).not.toEqual(firstVariant);
   });
 });

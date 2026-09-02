@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "El dispositivo está en modo Bootloader. Haga clic en el botón de abajo para otorgar acceso USB y continuar con la transferencia del paquete de instalación.",
   "firmware_update.status_completed": "Completado",
   "firmware_update.status_validating": "Validando",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "Cambiar el firmware borrará los datos del dispositivo. Vuelve a conectar tu dispositivo y haz clic en el botón de abajo para autorizar USB y continuar.",
   "first_deposit_gets_account_ready_to_trade__desc": "Tu primer depósito prepara tu cuenta para operar. Retira en cualquier momento.",
   "for_reference_only": "Solo para referencia",

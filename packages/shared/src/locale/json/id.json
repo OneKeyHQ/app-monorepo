@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "Perangkat dalam mode Bootloader. Klik tombol di bawah untuk memberikan akses USB agar dapat melanjutkan transfer paket instalasi.",
   "firmware_update.status_completed": "Selesai",
   "firmware_update.status_validating": "Memvalidasi",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "Mengganti firmware akan menghapus data perangkat. Harap sambungkan kembali perangkat Anda dan klik tombol di bawah ini untuk mengotorisasi USB dan melanjutkan.",
   "first_deposit_gets_account_ready_to_trade__desc": "Setoran pertama Anda menyiapkan akun Anda untuk berdagang. Tarik kapan saja.",
   "for_reference_only": "Hanya untuk referensi",

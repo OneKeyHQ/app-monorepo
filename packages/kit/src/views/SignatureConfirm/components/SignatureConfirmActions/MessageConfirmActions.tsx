@@ -17,6 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isPrimaryTypePermitSign } from '@onekeyhq/shared/src/signMessage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -33,6 +34,11 @@ import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureC
 
 import { useHyperliquidReferralPromotion } from '../../hooks/useHyperliquidReferralPromotion';
 import { SignatureConfirmTestIDs } from '../../testIDs';
+import {
+  hasAddressRiskTags,
+  isTrustedPermitSign,
+  shouldHideGenericPermitAlert,
+} from '../SecurityCheckCard/utils';
 
 type IProps = {
   accountId: string;
@@ -279,6 +285,32 @@ function MessageConfirmActions(props: IProps) {
       return false;
     }
 
+    const genericPermitAlert = intl.formatMessage({
+      id: ETranslations.dapp_connect_permit_sign_alert,
+    });
+    const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
+    const shouldHidePermitWarning = isTrustedPermitSign({
+      isPermitSignMethod,
+      isSiteVerified: urlSecurityInfo?.level === EHostSecurityLevel.Security,
+    });
+
+    if (shouldHidePermitWarning) {
+      const hasSpecificParserAlert = messageDisplay?.alerts.some(
+        (alert) =>
+          Boolean(alert) &&
+          !shouldHideGenericPermitAlert({
+            alert,
+            genericPermitAlert,
+            isPermitSignMethod,
+            isSiteVerified: true,
+          }),
+      );
+      return (
+        hasSpecificParserAlert ||
+        hasAddressRiskTags(messageDisplay?.components ?? [])
+      );
+    }
+
     if (isConfirmationRequired) {
       return true;
     }
@@ -297,8 +329,11 @@ function MessageConfirmActions(props: IProps) {
 
     return false;
   }, [
+    intl,
     messageDisplay?.alerts,
+    messageDisplay?.components,
     showContinueOperateLocal,
+    unsignedMessage,
     urlSecurityInfo?.level,
     walletInternalSign,
     isConfirmationRequired,
