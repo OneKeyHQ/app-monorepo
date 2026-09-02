@@ -82,7 +82,11 @@ function scheduleMarketIdentityRequest<T>(
         });
     },
   };
-  marketIdentityRequestQueue.push(job);
+  if (job.interactive) {
+    marketIdentityRequestQueue.unshift(job);
+  } else {
+    marketIdentityRequestQueue.push(job);
+  }
   drainMarketIdentityRequestQueue();
 
   return {

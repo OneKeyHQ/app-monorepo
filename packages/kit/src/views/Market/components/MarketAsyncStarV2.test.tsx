@@ -140,6 +140,55 @@ describe('createCachedMarketIdentityResolver', () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it('starts a new interaction ahead of queued prefetches', async () => {
+    const activeResolvers: Array<(value: string) => void> = [];
+    const blockingResolver = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load: () =>
+        new Promise<string>((resolve) => {
+          activeResolvers.push(resolve);
+        }),
+    });
+    const queuedResolvers = new Map<string, (value: string) => void>();
+    const queuedLoad = jest.fn(
+      (key: string) =>
+        new Promise<string>((resolve) => {
+          queuedResolvers.set(key, resolve);
+        }),
+    );
+    const queuedResolver = createCachedMarketIdentityResolver({
+      failureCacheTtlMs: 30_000,
+      load: queuedLoad,
+    });
+    const activeRequests = [
+      blockingResolver('one'),
+      blockingResolver('two'),
+      blockingResolver('three'),
+    ];
+    const prefetch = queuedResolver('prefetch', { intent: 'prefetch' });
+    const interaction = queuedResolver('interaction', {
+      intent: 'interaction',
+    });
+
+    activeResolvers[0]('one');
+    await activeRequests[0];
+    await Promise.resolve();
+    expect(queuedLoad.mock.calls.map(([key]) => key)).toEqual(['interaction']);
+
+    queuedResolvers.get('interaction')?.('interaction');
+    await interaction;
+    await Promise.resolve();
+    expect(queuedLoad.mock.calls.map(([key]) => key)).toEqual([
+      'interaction',
+      'prefetch',
+    ]);
+
+    queuedResolvers.get('prefetch')?.('prefetch');
+    activeResolvers[1]('two');
+    activeResolvers[2]('three');
+    await Promise.all([prefetch, ...activeRequests.slice(1)]);
+  });
+
   it('skips a queued prefetch after its consumer is canceled', async () => {
     const activeResolvers: Array<(value: string) => void> = [];
     const blockingResolver = createCachedMarketIdentityResolver({
