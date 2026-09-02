@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "Thiết bị đang ở chế độ Bootloader. Nhấp vào nút bên dưới để cấp quyền truy cập USB và tiếp tục chuyển gói cài đặt.",
   "firmware_update.status_completed": "Hoàn thành",
   "firmware_update.status_validating": "Xác thực",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "Chuyển đổi firmware sẽ xóa dữ liệu trên thiết bị. Vui lòng kết nối lại thiết bị của bạn và nhấp vào nút bên dưới để cấp quyền USB và tiếp tục.",
   "first_deposit_gets_account_ready_to_trade__desc": "Khoản nạp đầu tiên của bạn sẽ giúp tài khoản sẵn sàng giao dịch. Rút tiền bất cứ lúc nào.",
   "for_reference_only": "Chỉ để tham khảo",

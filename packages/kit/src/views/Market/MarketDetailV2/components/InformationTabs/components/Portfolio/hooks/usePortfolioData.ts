@@ -46,7 +46,9 @@ export function usePortfolioData({
     [tokenAddress, networkId, accountAddress, xpub],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      pollingInterval: accountAddress
+        ? timerUtils.getTimeDurationMs({ seconds: 5 })
+        : undefined,
     },
   );
 

@@ -144,12 +144,16 @@ export enum EAtomNames {
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
+  marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
   accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
+
+  // batch tx sign
+  batchTxSignAtom = 'batchTxSignAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

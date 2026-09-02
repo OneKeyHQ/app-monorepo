@@ -21,7 +21,6 @@ import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPre
 
 import {
   COLUMN_WIDTH_CHANGE,
-  COLUMN_WIDTH_LIQUIDITY,
   COLUMN_WIDTH_MARKET_CAP,
   COLUMN_WIDTH_NAME,
   COLUMN_WIDTH_PRICE,
@@ -323,13 +322,6 @@ const MarketTokenSelectorList = memo(
             color="$textSubdued"
           >
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
-          </SizableText>
-          <SizableText
-            width={COLUMN_WIDTH_LIQUIDITY}
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
           <SizableText
             width={COLUMN_WIDTH_TURNOVER}

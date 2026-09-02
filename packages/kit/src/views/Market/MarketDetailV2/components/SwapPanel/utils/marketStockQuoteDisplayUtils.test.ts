@@ -4,7 +4,6 @@ import { ESwapRateDifferenceUnit } from '@onekeyhq/shared/types/swap/types';
 import {
   buildMarketStockQuoteDisplay,
   calculateMarketStockEstimatedShares,
-  hasValidMarketStockTokenToAssetRatio,
 } from './marketStockQuoteDisplayUtils';
 
 const currencyMap = {
@@ -90,13 +89,6 @@ describe('marketStockQuoteDisplayUtils', () => {
         tokenToAssetRatio: '0',
       }),
     ).toBeUndefined();
-  });
-
-  it('only accepts a positive finite token-to-share ratio', () => {
-    expect(hasValidMarketStockTokenToAssetRatio('0.9985')).toBe(true);
-    expect(hasValidMarketStockTokenToAssetRatio()).toBe(false);
-    expect(hasValidMarketStockTokenToAssetRatio('0')).toBe(false);
-    expect(hasValidMarketStockTokenToAssetRatio('NaN')).toBe(false);
   });
 
   it('treats a payment token fallback price as the selected display currency', () => {

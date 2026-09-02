@@ -768,6 +768,7 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      enableNativeChartSettings
                       maxSelectableSubIndicatorCount={
                         MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                       }

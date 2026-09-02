@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "장치는 부트로더 모드에 있습니다. 설치 패키지 전송을 진행하려면 아래 버튼을 클릭하여 USB 액세스를 허용하세요.",
   "firmware_update.status_completed": "완료됨",
   "firmware_update.status_validating": "유효성 검사 중",
+  "firmware_update_estimated_time__desc": "Est. {time}",
   "firmware_update_switch_firmware_reconnect_device": "펌웨어를 전환하면 기기 데이터가 삭제됩니다. 기기를 다시 연결한 후 아래 버튼을 클릭해 USB 권한을 부여하고 계속 진행하세요.",
   "first_deposit_gets_account_ready_to_trade__desc": "첫 입금으로 계정이 거래 준비를 마칩니다. 언제든지 출금할 수 있습니다.",
   "for_reference_only": "참고용으로만 사용하세요",

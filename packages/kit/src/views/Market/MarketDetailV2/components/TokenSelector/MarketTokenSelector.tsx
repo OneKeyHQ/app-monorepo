@@ -33,7 +33,7 @@ import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jo
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IMarketToken as ILegacyMarketToken } from '@onekeyhq/shared/types/market';
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
@@ -45,6 +45,7 @@ import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
+  marketAssetId?: string;
   selectorSubtitle?: string;
   tokenDetailPreview?: IMarketTokenDetailPreview;
 };
@@ -58,28 +59,35 @@ function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   return value;
 }
 
+function toFiniteNumber(value: string) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
 function convertTopCoinToSelectorToken(
-  item: ILegacyMarketToken,
+  item: IMarketAssetListItem,
 ): IMarketTokenSelectorItem {
   return {
-    id: `coingecko_${item.coingeckoId}`,
-    name: item.name,
+    id: `market_asset_${item.assetId}`,
+    marketAssetId: item.assetId,
+    name: item.symbol.toUpperCase(),
     symbol: item.symbol.toUpperCase(),
-    address: item.coingeckoId,
+    address: '',
     decimals: 0,
-    price: item.price,
-    change24h: item.priceChangePercentage24H,
-    marketCap: item.marketCap,
+    price: toFiniteNumber(item.price),
+    change24h: toFiniteNumber(item.priceChange24hPercent),
+    priceChangeRaw: item.priceChange24hPercent,
+    marketCap: toFiniteNumber(item.marketCap),
     liquidity: 0,
     transactions: 0,
     uniqueTraders: 0,
     holders: 0,
-    turnover: item.totalVolume,
-    tokenImageUri: item.image || item.iconUrl,
+    turnover: toFiniteNumber(item.volume24h),
+    tokenImageUri: item.logoUrl,
     networkLogoUri: '',
-    networkId: 'coingecko',
-    chainId: 'coingecko',
-    selectorSubtitle: item.name,
+    networkId: '',
+    chainId: '',
+    selectorSubtitle: item.symbol.toUpperCase(),
   };
 }
 
@@ -135,7 +143,7 @@ function BaseMarketTokenSelectorContent({
     data: topCoins,
     handleItemPress: handleTopCoinPress,
     isLoading: isTopCoinsLoading,
-  } = useMarketTopCoins();
+  } = useMarketTopCoins({ replaceCurrentDetail: true });
   const routeParams = route.params as
     | {
         showFavoriteButton?: boolean | string;
@@ -223,7 +231,7 @@ function BaseMarketTokenSelectorContent({
     [topCoins],
   );
   const topCoinsById = useMemo(
-    () => new Map(topCoins.map((item) => [item.coingeckoId, item])),
+    () => new Map(topCoins.map((item) => [item.assetId, item])),
     [topCoins],
   );
 
@@ -292,7 +300,9 @@ function BaseMarketTokenSelectorContent({
   const handleSelectToken = useCallback(
     (item: IMarketTokenSelectorItem) => {
       if (isTopCoinsSelection && !searchValueDebounce) {
-        const topCoin = topCoinsById.get(item.address);
+        const topCoin = item.marketAssetId
+          ? topCoinsById.get(item.marketAssetId)
+          : undefined;
         if (topCoin) {
           void closePopover?.();
           void handleTopCoinPress(topCoin);

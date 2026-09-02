@@ -133,10 +133,6 @@ jest.mock('../hooks/useTokenDetail', () => ({
   })),
 }));
 
-jest.mock('../utils/fetchCoinGeckoKLineFallback', () => ({
-  buildCoinGeckoKLineFallback: jest.fn(),
-}));
-
 jest.mock('../utils/getMarketDetailTradingViewNativeSource', () => ({
   getMarketDetailTradingViewNativeSource: jest.fn(() => ({ kind: 'token' })),
 }));
@@ -223,5 +219,42 @@ describe('DesktopLayout', () => {
       timeFrom: 100,
       timeTo: 200,
     });
+  });
+
+  it('keeps the embedded share chart independent of the token variant', () => {
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    const marketTradingView = mockStockDesktopLayout.mock.calls.at(-1)?.[0]
+      ?.marketTradingView as {
+      key: string;
+      props: {
+        decimal?: number;
+        isNative?: boolean;
+        networkId: string;
+        tokenAddress: string;
+        tokenSymbol?: string;
+      };
+    };
+
+    expect(marketTradingView.key).toBe('stock-share:AAPL');
+    expect(marketTradingView.props).toEqual(
+      expect.objectContaining({
+        decimal: undefined,
+        isNative: false,
+        networkId: '',
+        tokenAddress: '',
+        tokenSymbol: 'AAPL',
+      }),
+    );
   });
 });

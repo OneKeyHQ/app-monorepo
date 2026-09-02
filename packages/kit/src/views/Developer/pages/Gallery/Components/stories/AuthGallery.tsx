@@ -70,7 +70,7 @@ export function AuthApiTests() {
   const [storageValue, setStorageValue] = useState('test');
 
   useEffect(() => {
-    appStorage.syncStorage.set(
+    void appStorage.syncStorage.set(
       EAppSyncStorageKeys.last_onekey_id_login_email,
       email,
     );

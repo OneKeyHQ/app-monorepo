@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   IconButton,
   SizableText,
   Stack,
@@ -33,6 +34,16 @@ type IMarketCategoryTokenListProps = {
   onViewMore: () => void;
 };
 
+function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
+  if (item.marketAsset) {
+    return `market-${item.marketAsset.assetId}`;
+  }
+  if (item.perpsCoin) {
+    return `perps-${item.perpsCoin}`;
+  }
+  return `${item.chainId}-${item.contractAddress}`;
+}
+
 function MarketCategoryTokenList({
   tokens,
   isLoading,
@@ -48,6 +59,10 @@ function MarketCategoryTokenList({
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     const renderStarButton = (record: IFavoriteTokenDisplay) => {
+      if (record.marketAsset) {
+        return <Icon name="StarOutline" size="$5" color="$iconSubdued" />;
+      }
+
       const checked = isTokenInWatchList(record);
       return (
         <IconButton
@@ -114,11 +129,7 @@ function MarketCategoryTokenList({
         showHeader={shouldUseTableLayout}
         dataSource={tokens}
         columns={columns}
-        keyExtractor={(item) =>
-          item.perpsCoin
-            ? `perps-${item.perpsCoin}`
-            : `${item.chainId}-${item.contractAddress}`
-        }
+        keyExtractor={getMarketCategoryTokenKey}
         estimatedItemSize={56}
         rowProps={{
           mx: '$2',
