@@ -7,9 +7,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   BluetoothUnavailableWhileUsbConnectedError,
+  DeviceNotSame,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1282,7 +1284,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         : undefined;
       if (!authorizedPayload || !device) {
         this.setRejectedPayloadResult(eventPayload);
-        return false;
+        return this.resolveInteractivePortfolioSyncResult(false);
       }
       const targetKey = this.getSyncTargetKey(authorizedPayload);
       const eligibility = await this.getPortfolioSyncEligibility(
@@ -1295,16 +1297,18 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           eventPayload: authorizedPayload,
           targetKey,
         });
-        return false;
+        return this.resolveInteractivePortfolioSyncResult(false);
       }
       return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async (oneKeyOperationLease?: IOneKeyHardwareOperationLease) => {
           const generation = this.advanceSyncGeneration(targetKey);
-          return Boolean(
-            await this.syncSettledPortfolio(authorizedPayload, generation, {
-              oneKeyOperationLease,
-              syncMode,
-            }),
+          return this.resolveInteractivePortfolioSyncResult(
+            Boolean(
+              await this.syncSettledPortfolio(authorizedPayload, generation, {
+                oneKeyOperationLease,
+                syncMode,
+              }),
+            ),
           );
         },
         {
@@ -1377,6 +1381,31 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   private setLastResult(result: IPortfolioSyncLastResult) {
     this.lastResult = result;
+  }
+
+  private resolveInteractivePortfolioSyncResult(uploaded: boolean): boolean {
+    if (uploaded) {
+      return true;
+    }
+    const status = this.lastResult?.status;
+    if (status === 'identity-mismatch') {
+      throw new DeviceNotSame();
+    }
+    if (
+      status === 'disabled' ||
+      status === 'device-locked' ||
+      status === 'error' ||
+      status === 'identity-unavailable' ||
+      (status === 'uploaded' &&
+        this.lastResult?.upload?.portfolioUpdated === false)
+    ) {
+      throw new OneKeyLocalError({
+        autoToast: true,
+        key: ETranslations.global_sync_error,
+        message: 'Portfolio sync did not complete',
+      });
+    }
+    return false;
   }
 
   private get portfolioSyncDb() {
@@ -2345,8 +2374,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         artifacts.contentHash ===
         this.inFlightReservationByTargetKey.get(targetKey)?.contentHash;
       const isDuplicate =
-        isInFlightDuplicate ||
-        (syncMode === 'silent' && isPersistedDuplicate);
+        isInFlightDuplicate || (syncMode === 'silent' && isPersistedDuplicate);
       if (isDuplicate) {
         if (desktopBleExecution) {
           this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);

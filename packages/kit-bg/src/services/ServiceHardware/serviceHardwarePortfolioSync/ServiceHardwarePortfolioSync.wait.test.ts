@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  DeviceNotSame,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1122,9 +1125,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       configurable: true,
       value: {
         usb: {
-          getDevices: jest.fn().mockResolvedValue([
-            { serialNumber: 'PRO2_CONNECT_ID' } as USBDevice,
-          ]),
+          getDevices: jest
+            .fn()
+            .mockResolvedValue([
+              { serialNumber: 'PRO2_CONNECT_ID' } as USBDevice,
+            ]),
         },
       },
     });
@@ -1139,9 +1144,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         busyResults: [false],
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
       });
-      prepareHardwareTransport.mockResolvedValue(
-        EHardwareTransportType.WEBUSB,
-      );
+      prepareHardwareTransport.mockResolvedValue(EHardwareTransportType.WEBUSB);
       getCurrentTransportType.mockResolvedValue(EHardwareTransportType.WEBUSB);
 
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
@@ -1149,8 +1152,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       expect(prepareHardwareTransport).toHaveBeenCalledWith(
         expect.objectContaining({
           connectId: 'PRO2_CONNECT_ID',
-          hardwareCallContext:
-            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
           requestedTransportType: 'usb',
         }),
       );
@@ -1239,7 +1241,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
   });
 
-  test('returns false when an explicit upload is not applied by the device', async () => {
+  test('throws when an explicit upload is not applied by the device', async () => {
     const { service, uploadPortfolioPackage } = prepareHardwareSync({
       busyResults: [false],
       hardwareTransportType: EHardwareTransportType.BLE,
@@ -1251,7 +1253,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         eventPayload: buildHardwarePayload(),
         syncMode: 'interactive',
       }),
-    ).resolves.toBe(false);
+    ).rejects.toThrow('Portfolio sync did not complete');
   });
 
   test('keeps explicit sync successful when upload metadata persistence fails', async () => {
@@ -1331,7 +1333,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
-  test('returns false when explicit sync verifies a different device', async () => {
+  test('throws when explicit sync verifies a different device', async () => {
     const {
       getDeviceState,
       service,
@@ -1349,7 +1351,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         eventPayload: buildHardwarePayload(),
         syncMode: 'interactive',
       }),
-    ).resolves.toBe(false);
+    ).rejects.toBeInstanceOf(DeviceNotSame);
 
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,

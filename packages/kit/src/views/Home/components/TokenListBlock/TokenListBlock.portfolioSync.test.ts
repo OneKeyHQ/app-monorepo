@@ -18,7 +18,7 @@ describe('TokenListBlock portfolio sync producer', () => {
       'backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled',
     );
     const emptySnapshotGateIndex = source.indexOf(
-      '!shouldDeferEmptyHardwarePortfolioSync({',
+      'shouldDeferEmptyHardwarePortfolioSync({',
     );
 
     expect(source).not.toContain('useDevSettingsPersistAtom');
@@ -77,13 +77,22 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain(
       'const isInteractivePortfolioSync = Boolean(portfolioSyncRequest);',
     );
-    expect(source).toContain(
-      '!isInteractivePortfolioSync &&\n      assetStatusAggregationComplete',
+    expect(source).toMatch(
+      /!isInteractivePortfolioSync &&\s+assetStatusAggregationComplete/,
     );
     expect(source).toContain('return renderPortfolioSyncButton();');
     expect(source).toContain('useFirmwareUpdateWorkflowRunningAtom');
     expect(source).toContain('completePortfolioSyncRequest');
     expect(source).toContain("setPortfolioSyncFeedback('success')");
+    expect(source).toContain('keepPortfolioSyncRequest');
+    expect(source).toContain('skipPortfolioSyncRequestFinish');
+    expect(source).toContain('allowEmptyInteractivePortfolioSyncRef');
+    expect(source).toContain(
+      'if (portfolioSyncRequest && !skipPortfolioSyncRequestFinish)',
+    );
+    expect(source).toContain(
+      'if (portfolioSyncRequest && !keepPortfolioSyncRequest)',
+    );
     expect(source).not.toContain('<TokenSelectorLpTokenSwitch');
     expect(buttonSource).toContain('testID="home-sync-portfolio"');
     expect(buttonSource).toContain("state === 'loading'");
