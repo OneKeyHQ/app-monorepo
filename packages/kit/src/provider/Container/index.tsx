@@ -17,7 +17,7 @@ import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
-import { DeviceStageContainer } from './DeviceStageContainer';
+import { DeviceStageContainerLazy } from './DeviceStageContainer/Lazy';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -67,7 +67,7 @@ function DetailRouter() {
       <VerifyTxContainer />
       <HardwareUiStateContainerLazy />
       <ThirdPartyHardwareUiStateContainerLazy />
-      <DeviceStageContainer />
+      <DeviceStageContainerLazy />
       <PrimeLoginContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
