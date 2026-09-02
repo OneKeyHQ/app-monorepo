@@ -20,7 +20,6 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
-import { getLatestHomeSelectedAccount } from '../hooks/useSwapGlobal';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensFromHomeAccount,
@@ -162,9 +161,13 @@ function SwapColdStartCacheSync() {
     // side panel are separate runtimes, and the popup dies without a
     // beforeunload. Read the home selection once on mount so a cold start that
     // never sees an event still leaves the placeholder tokens behind.
-    void getLatestHomeSelectedAccount()
+    let isActive = true;
+    void import('../utils/swapHomeSelectedAccountUtils')
+      .then(({ getLatestHomeSelectedAccount }) =>
+        getLatestHomeSelectedAccount(),
+      )
       .then((homeSelectedAccount) => {
-        if (initialSelectedTokensSyncedRef.current) {
+        if (!isActive || initialSelectedTokensSyncedRef.current) {
           return;
         }
         handleHomeSelectedAccountUpdate({
@@ -176,6 +179,7 @@ function SwapColdStartCacheSync() {
       .catch(() => undefined);
 
     return () => {
+      isActive = false;
       appEventBus.off(
         EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
         handleHomeSelectedAccountUpdate,
