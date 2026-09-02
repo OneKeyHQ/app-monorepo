@@ -1491,6 +1491,8 @@ export function ConnectYourDevicePage() {
       try {
         void backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
           connectId: device.connectId ?? '',
+          deviceType: device.deviceType ?? undefined,
+          deviceName: device.name ?? undefined,
         });
 
         const handleBootloaderMode = (existsFirmware: boolean) => {

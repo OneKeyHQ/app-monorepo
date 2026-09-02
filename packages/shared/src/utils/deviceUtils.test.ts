@@ -160,6 +160,27 @@ describe('buildDeviceStageName', () => {
     ).toBe('Pro 2 6136');
   });
 
+  it('shows the Pro 2 name in the same canonical form as every other surface', () => {
+    // The onboarding scan list, the device list and About all render
+    // hd-core's canonical "Pro 2 6136"; the stage must not diverge.
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          onekey_ble_name: 'Pro 2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).toBe('Pro 2 6136');
+    expect(
+      deviceUtils.buildDeviceStageName({
+        features: {
+          bleName: 'OneKey Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).toBe('OneKey Pro 2 6136');
+  });
+
   it('leaves a non-Pro2 Bluetooth name exactly as advertised', () => {
     expect(
       deviceUtils.buildDeviceStageName({
