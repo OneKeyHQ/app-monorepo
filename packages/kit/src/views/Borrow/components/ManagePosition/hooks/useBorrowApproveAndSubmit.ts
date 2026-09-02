@@ -8,20 +8,26 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import type { IManagePositionProps } from '../types';
 
 export function useBorrowApproveAndSubmit({
+  providerName,
+  tokenSymbol,
   approveTarget,
   currentAllowance,
   amountValue,
   onSubmit,
   onBeforeNavigateConfirm,
 }: {
+  providerName?: string;
+  tokenSymbol?: string;
   approveTarget?: IManagePositionProps['approveTarget'];
   currentAllowance?: string;
   amountValue: string;
@@ -33,6 +39,7 @@ export function useBorrowApproveAndSubmit({
   onApprove: () => Promise<void>;
 } {
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
 
   const useApprove =
     !!approveTarget?.spenderAddress && !approveTarget?.token?.isNative;
@@ -196,6 +203,28 @@ export function useBorrowApproveAndSubmit({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !amountValue) return;
+    // OK-59196: the approve transaction is the user's first on-chain action in
+    // the two-step borrow flow and never reaches the borrow hooks, so the
+    // one-time disclaimer has to gate it here too. Before the approving lock:
+    // bailing after it would leave the button stuck loading.
+    // Fails open when the call site did not pass a provider — a broken gate
+    // must not block a trade — but that is loud in dev, because a silently
+    // skipped disclaimer is exactly how this shipped half-wired once.
+    if (!providerName && platformEnv.isDev) {
+      console.error(
+        '[useBorrowApproveAndSubmit] risk disclaimer skipped: pass providerName from the call site',
+      );
+    }
+    if (providerName) {
+      const riskAccepted = await ensureRiskAccepted({
+        provider: providerName,
+        symbol: tokenSymbol,
+        networkId: approveTarget.networkId,
+      });
+      if (!riskAccepted) {
+        return;
+      }
+    }
     const requestSnapshotKey = approveSnapshotKey;
     const requestOnSubmit = onSubmit;
     Keyboard.dismiss();
@@ -313,12 +342,15 @@ export function useBorrowApproveAndSubmit({
     amountValue,
     approveSnapshotKey,
     approveTarget,
+    ensureRiskAccepted,
     fetchAllowanceResponse,
     intl,
     isCurrentApproveRequest,
     navigationToTxConfirm,
     onBeforeNavigateConfirm,
     onSubmit,
+    providerName,
+    tokenSymbol,
     trackAllowance,
     waitForAllowanceAfterApprove,
   ]);

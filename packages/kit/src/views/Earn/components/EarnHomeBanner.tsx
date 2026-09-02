@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -11,9 +11,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
 
@@ -24,10 +21,9 @@ import {
 import { EarnTestIDs } from '../testIDs';
 
 const BANNER_HEIGHT = 200;
-// Upper bound on how long the outer tab pager may stay locked for a banner
-// drag. Comfortably longer than any real swipe, short enough that a cancelled
-// gesture does not strand tab switching.
-const BANNER_DRAG_RELEASE_TIMEOUT = 1500;
+// Total height of the banner block (card + pagination row), also handed to the
+// header's gesture wrapper so it can exclude this area from the tab-switch pan.
+export const EARN_HOME_BANNER_BLOCK_HEIGHT = 248;
 // $pagePadding ($5) split into container padding + per-card margin, so the
 // card still lands on the design's 353pt width while its drop shadow has room
 // to fall inside the pager's clipping viewport. Both halves are s()-scaled
@@ -334,64 +330,14 @@ export function EarnHomeBanner({
     [],
   );
 
-  // OK-59246: the banner pager is nested inside the Discovery outer pager
-  // (market / DeFi / browser) — both are horizontal react-native-pager-views,
-  // and the outer one would win the gesture and switch top tabs mid-swipe.
-  // Report drag state so the outer pager pauses its own scrolling while the
-  // user is swiping the banner.
-  //
-  // Only a real finger drag counts. `settling` is also emitted by the 5s
-  // autoplay's programmatic setPage() — and autoplay never pauses on native
-  // (the Carousel's visibility observer is web-only) — so treating it as a
-  // drag would disable the outer pager for ~300ms every 5s even while the
-  // user sits on another top tab. After the finger lifts the gesture owner
-  // is already decided, so `settling` needs no gating either.
-  // Safety net for the outer-pager lock below. The lock is released by the
-  // 'settling'/'idle' that normally follows a drag, but a gesture cancelled by
-  // the OS (call, app switch, the pager being unmounted mid-swipe) can skip
-  // them, and a stuck lock means horizontal tab switching is dead until
-  // remount — one of the symptoms behind OK-60606.
-  const bannerDragReleaseTimerRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const setOuterPagerBlocked = useCallback((dragging: boolean) => {
-    if (bannerDragReleaseTimerRef.current) {
-      clearTimeout(bannerDragReleaseTimerRef.current);
-      bannerDragReleaseTimerRef.current = null;
-    }
-    appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-      dragging,
-    });
-    if (dragging) {
-      bannerDragReleaseTimerRef.current = setTimeout(() => {
-        bannerDragReleaseTimerRef.current = null;
-        appEventBus.emit(EAppEventBusNames.EarnHomeBannerDragStateChanged, {
-          dragging: false,
-        });
-      }, BANNER_DRAG_RELEASE_TIMEOUT);
-    }
-  }, []);
-
-  const handleBannerPageScrollStateChanged = useCallback(
-    (event: { nativeEvent: { pageScrollState: string } }) => {
-      // A single banner has nothing to page to, so its pager still reports
-      // 'dragging' while consuming a gesture it cannot act on. Locking the
-      // outer pager for that leaves both frozen and the user unable to switch
-      // tabs from anywhere over the card (OK-60606).
-      if (validBanners.length <= 1) {
-        return;
-      }
-      setOuterPagerBlocked(event.nativeEvent.pageScrollState === 'dragging');
-    },
-    [setOuterPagerBlocked, validBanners.length],
-  );
-  useEffect(
-    () => () => {
-      // Never leave the outer pager blocked if the banner unmounts mid-drag
-      setOuterPagerBlocked(false);
-    },
-    [setOuterPagerBlocked],
-  );
+  // OK-59246 used to be handled here by reporting drag state on an event bus so
+  // OuterTabPagerView could flip its own scrollEnabled mid-gesture. That is
+  // gone: the tab-switch gesture over this area is now the header's RNGH pan
+  // (excluded by EARN_HOME_BANNER_BLOCK_HEIGHT in EarnMobileHomeContent), and
+  // `infinite` below keeps this pager off its content edges, which is where the
+  // platform pager hands the horizontal gesture to its parent in the first
+  // place. Mutating a native pager's props during a drag is what OK-61515 is
+  // most likely about, so the lock is not replaced by another one.
 
   if (validBanners.length === 0) {
     return null;
@@ -400,20 +346,20 @@ export function EarnHomeBanner({
   return (
     <YStack
       testID={EarnTestIDs.banner}
-      h={248}
+      h={EARN_HOME_BANNER_BLOCK_HEIGHT}
       px={BANNER_CONTAINER_PADDING}
       pb="$4"
     >
       <Carousel
         data={validBanners}
         renderItem={renderItem}
-        pagerProps={
-          platformEnv.isNative
-            ? { onPageScrollStateChanged: handleBannerPageScrollStateChanged }
-            : undefined
-        }
         autoPlayInterval={5000}
         loop={validBanners.length > 1}
+        // OK-61479: swiping past the last card must wrap instead of dead-ending.
+        // It also keeps the pager off its content edges, where iOS/Android hand
+        // the horizontal gesture up to the parent pager and switch the top tab
+        // mid-swipe (OK-61516).
+        infinite
         showPagination={validBanners.length > 1}
         // Extra 16px of height: render room for the card's drop shadow;
         // otherwise the Carousel viewport clips it and the depth effect is

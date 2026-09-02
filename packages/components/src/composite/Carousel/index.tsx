@@ -81,6 +81,7 @@ export function Carousel<T>({
   showPagination = true,
   renderPaginationItem = defaultRenderPaginationItem,
   disableAnimation = false,
+  infinite = false,
   pagerProps,
   defaultIndex = 0,
 }: ICarouselProps<T>) {
@@ -91,15 +92,40 @@ export function Carousel<T>({
 
   const debouncedSetPageIndex = useDebouncedCallback(setPageIndex, 50);
 
+  // PagerView has no looping mode, so infinite paging clones the two edges and
+  // renders [last, ...data, first]. Landing on a clone jumps — without
+  // animation, onto the identical real page — so the wrap is invisible. A
+  // single page has nothing to wrap around, so it stays a plain pager.
+  const isInfinite = infinite && data.length > 1;
+  const pages = useMemo(
+    () =>
+      isInfinite ? [data[data.length - 1], ...data, data[0]] : data.slice(),
+    [data, isInfinite],
+  );
+  // `pageIndex` / `currentPage` / the pagination dots all speak logical
+  // indexes; only the pager itself sees the cloned ones.
+  const toRenderedIndex = useCallback(
+    (logicalIndex: number) => (isInfinite ? logicalIndex + 1 : logicalIndex),
+    [isInfinite],
+  );
+  const toLogicalIndex = useCallback(
+    (renderedIndex: number) =>
+      isInfinite
+        ? (renderedIndex - 1 + data.length) % data.length
+        : renderedIndex,
+    [data.length, isInfinite],
+  );
+
   const setPage = useCallback(
     (page: number) => {
+      const renderedPage = toRenderedIndex(page);
       if (disableAnimation) {
-        pagerRef.current?.setPageWithoutAnimation(page);
+        pagerRef.current?.setPageWithoutAnimation(renderedPage);
       } else {
-        pagerRef.current?.setPage(page);
+        pagerRef.current?.setPage(renderedPage);
       }
     },
-    [disableAnimation],
+    [disableAnimation, toRenderedIndex],
   );
 
   const isResizingRef = useRef(false);
@@ -121,14 +147,44 @@ export function Carousel<T>({
     };
   }, [pageWidthProp]);
 
+  // Step one rendered page in `direction`, so a wrap animates onto the adjacent
+  // clone instead of scrolling the whole strip back the long way; the
+  // onPageSelected handler then swaps the clone for the real page.
+  const scrollToAdjacentInfinitePage = useCallback(
+    (direction: 1 | -1) => {
+      pagerRef.current?.setPage(
+        toRenderedIndex(currentPage.current) + direction,
+      );
+      const nextPage =
+        (currentPage.current + direction + data.length) % data.length;
+      currentPage.current = nextPage;
+      debouncedSetPageIndex(nextPage);
+    },
+    [data.length, debouncedSetPageIndex, toRenderedIndex],
+  );
+
   const scrollToPreviousPage = useCallback(() => {
+    if (isInfinite) {
+      scrollToAdjacentInfinitePage(-1);
+      return;
+    }
     const previousPage =
       currentPage.current > 0 ? currentPage.current - 1 : data.length - 1;
     setPage(previousPage);
     currentPage.current = previousPage;
     debouncedSetPageIndex(previousPage);
-  }, [data.length, debouncedSetPageIndex, setPage]);
+  }, [
+    data.length,
+    debouncedSetPageIndex,
+    isInfinite,
+    scrollToAdjacentInfinitePage,
+    setPage,
+  ]);
   const scrollToNextPage = useCallback(() => {
+    if (isInfinite) {
+      scrollToAdjacentInfinitePage(1);
+      return;
+    }
     if (currentPage.current >= data.length - 1) {
       pagerRef.current?.setPageWithoutAnimation(0);
       currentPage.current = 0;
@@ -139,7 +195,13 @@ export function Carousel<T>({
     setPage(nextPage);
     currentPage.current = nextPage;
     debouncedSetPageIndex(nextPage);
-  }, [data.length, debouncedSetPageIndex, setPage]);
+  }, [
+    data.length,
+    debouncedSetPageIndex,
+    isInfinite,
+    scrollToAdjacentInfinitePage,
+    setPage,
+  ]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPageVisibleRef = useRef(true);
@@ -228,11 +290,32 @@ export function Carousel<T>({
       if (isResizingRef.current) {
         return;
       }
-      currentPage.current = e.nativeEvent.position;
-      debouncedSetPageIndex(currentPage.current);
-      onPageChanged?.(currentPage.current);
+      const renderedIndex = e.nativeEvent.position;
+      const logicalIndex = toLogicalIndex(renderedIndex);
+      currentPage.current = logicalIndex;
+      debouncedSetPageIndex(logicalIndex);
+      onPageChanged?.(logicalIndex);
+      if (
+        isInfinite &&
+        (renderedIndex === 0 || renderedIndex === data.length + 1)
+      ) {
+        // A clone is on screen: swap it for the real page it duplicates, with
+        // no animation so nothing is visible, which puts content back on both
+        // sides of the finger. The re-entrant onPageSelected this triggers
+        // resolves to the same logical index, so it is a no-op.
+        pagerRef.current?.setPageWithoutAnimation(
+          toRenderedIndex(logicalIndex),
+        );
+      }
     },
-    [debouncedSetPageIndex, onPageChanged],
+    [
+      data.length,
+      debouncedSetPageIndex,
+      isInfinite,
+      onPageChanged,
+      toLogicalIndex,
+      toRenderedIndex,
+    ],
   );
   const [layout, setLayout] = useState<{ width: number; height: number }>({
     width: 0,
@@ -324,7 +407,7 @@ export function Carousel<T>({
               <PagerView
                 ref={pagerRef as RefObject<NativePagerView>}
                 style={pagerViewStyle}
-                initialPage={defaultIndex}
+                initialPage={toRenderedIndex(defaultIndex)}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
                 // Only effective on native; web PagerView ignores this and uses "none"
@@ -333,9 +416,9 @@ export function Carousel<T>({
                 disableAnimation={disableAnimation}
                 {...pagerProps}
               >
-                {data.map((item, index) => (
+                {pages.map((item, index) => (
                   <Stack key={index} style={pageItemStyle}>
-                    {renderItem({ item, index })}
+                    {renderItem({ item, index: toLogicalIndex(index) })}
                   </Stack>
                 ))}
               </PagerView>

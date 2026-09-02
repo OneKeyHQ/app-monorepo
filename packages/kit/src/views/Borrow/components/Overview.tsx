@@ -315,7 +315,7 @@ export const Overview = ({
             }),
           ],
         };
-        await handleBorrowClaim({
+        return handleBorrowClaim({
           provider,
           marketAddress,
           ids: [item.id],
@@ -341,7 +341,7 @@ export const Overview = ({
             }),
           ],
         };
-        await handleBorrowClaim({
+        return handleBorrowClaim({
           provider,
           marketAddress,
           ids: allIds,

@@ -28,6 +28,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -852,6 +853,7 @@ function useProtocolPositionActionSubmit({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToMessageConfirmAsync, navigationToTxConfirm } =
     useSignatureConfirm({
       accountId,
@@ -871,9 +873,24 @@ function useProtocolPositionActionSubmit({
       onSettleResult,
       onConfirmFail,
       onConfirmCancel,
-    }: IProtocolPositionActionSubmitParams) => {
+    }: IProtocolPositionActionSubmitParams): Promise<boolean> => {
       if (selectedAssets.length === 0) {
         throw new OneKeyLocalError('DeFi action asset is missing');
+      }
+
+      // OK-59196: DeFi Portfolio one-click withdraw / claim / remove-liquidity
+      // build their own transactions and never reach the earn or borrow hooks,
+      // so this is the only place the one-time disclaimer can gate them.
+      // Returns false so a caller holding a submit guard can release it: no
+      // callback fires and nothing throws on this path.
+      if (
+        !(await ensureRiskAccepted({
+          provider: action.protocolId,
+          symbol: selectedAssets[0]?.symbol,
+          networkId,
+        }))
+      ) {
+        return false;
       }
 
       // The wire action for build-transaction; `action.action` keeps the
@@ -1083,6 +1100,8 @@ function useProtocolPositionActionSubmit({
         if (txConfirmInitError) {
           throw normalizeProtocolPositionActionError(txConfirmInitError);
         }
+
+        return true;
       } catch (error) {
         if (!isUserRejectedErrorMessage({ error, intl })) {
           if (isErrorToastSuppressed?.(error)) {
@@ -1096,6 +1115,7 @@ function useProtocolPositionActionSubmit({
     },
     [
       accountId,
+      ensureRiskAccepted,
       intl,
       navigationToMessageConfirmAsync,
       navigationToTxConfirm,
@@ -2013,7 +2033,7 @@ function ProtocolPositionActionDialogContent({
     };
     try {
       await Keyboard.dismissWithDelay(80);
-      await submitProtocolPositionAction({
+      const started = await submitProtocolPositionAction({
         action,
         selectedAssets,
         hasRewards,
@@ -2034,6 +2054,12 @@ function ProtocolPositionActionDialogContent({
         onConfirmFail: releaseSubmitGuardOnceWithError,
         onConfirmCancel: releaseSubmitGuardOnce,
       });
+      // false means the flow never started (the risk disclaimer was declined,
+      // say): no callback fires and nothing throws, so the guard taken above is
+      // ours to release or the footer stays stuck loading forever.
+      if (started === false) {
+        releaseSubmitGuardOnce();
+      }
     } catch (error) {
       if (
         !isActionDialogClosed &&
