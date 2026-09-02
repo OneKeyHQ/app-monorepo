@@ -169,6 +169,7 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockFromToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
   });
@@ -186,11 +187,13 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockProToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalledWith({
       num: 0,
       networkId: mockFromToken.networkId,
+      reason: 'swapTypeNetworkSync',
     });
   });
 });
