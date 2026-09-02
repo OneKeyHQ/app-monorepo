@@ -43,6 +43,85 @@ export type IJotaiContextStoreMap = {
   // check buildJotaiContextStoreId()
   [storeId: string]: IJotaiContextStoreMapValue;
 };
+export type IJotaiContextStoreRegistrationUpdate = {
+  action: 'add' | 'remove';
+  data: IJotaiContextStoreData;
+  registrationId: string;
+  revision: number;
+  storeId: string;
+};
+export type IJotaiContextStoreRegistrationUpdateResult = {
+  map: IJotaiContextStoreMap;
+  registrationCount: number;
+};
+
+type IJotaiContextStoreRegistration = {
+  data: IJotaiContextStoreData;
+  revision: number;
+  storeId: string;
+};
+
+export class JotaiContextStoreRegistrationRegistry {
+  private readonly registrations = new Map<
+    string,
+    IJotaiContextStoreRegistration
+  >();
+
+  private buildMap(): IJotaiContextStoreMap {
+    const map: IJotaiContextStoreMap = {};
+    for (const { data, storeId } of this.registrations.values()) {
+      const current = map[storeId];
+      const enabledNum = new Set([
+        ...(current?.accountSelectorInfo?.enabledNum ?? []),
+        ...(data.accountSelectorInfo?.enabledNum ?? []),
+      ]);
+      map[storeId] = {
+        storeName: data.storeName,
+        accountSelectorInfo: data.accountSelectorInfo
+          ? {
+              ...data.accountSelectorInfo,
+              enabledNum: [...enabledNum].toSorted((a, b) => a - b),
+            }
+          : current?.accountSelectorInfo,
+        count: (current?.count ?? 0) + 1,
+      };
+    }
+    return map;
+  }
+
+  update(
+    update: IJotaiContextStoreRegistrationUpdate,
+  ): IJotaiContextStoreRegistrationUpdateResult {
+    const latestRevision =
+      this.registrations.get(update.registrationId)?.revision ?? -1;
+    if (update.revision > latestRevision) {
+      if (update.action === 'add') {
+        this.registrations.set(update.registrationId, {
+          data: {
+            ...update.data,
+            accountSelectorInfo: update.data.accountSelectorInfo
+              ? {
+                  ...update.data.accountSelectorInfo,
+                  enabledNum: [...update.data.accountSelectorInfo.enabledNum],
+                }
+              : undefined,
+          },
+          revision: update.revision,
+          storeId: update.storeId,
+        });
+      } else {
+        this.registrations.delete(update.registrationId);
+      }
+    }
+
+    const map = this.buildMap();
+    return {
+      map,
+      registrationCount: map[update.storeId]?.count ?? 0,
+    };
+  }
+}
+
 export const {
   target: jotaiContextStoreMapAtom,
   use: useJotaiContextStoreMapAtom,
@@ -52,6 +131,10 @@ export const {
 });
 
 let memoMap: IJotaiContextStoreMap = {};
+
+export function syncJotaiContextTrackerMap(map: IJotaiContextStoreMap) {
+  memoMap = map;
+}
 
 // Every Provider mount and unmount rewrites this map, and on split-runtime
 // targets each write to the global atom is a request to the background
@@ -87,7 +170,7 @@ export function useJotaiContextTrackerMap() {
 
   const setMapFinal = useCallback(
     (mapUpdate: IJotaiContextStoreMap) => {
-      memoMap = mapUpdate;
+      syncJotaiContextTrackerMap(mapUpdate);
       const wasScheduled = Boolean(pendingWrite);
       // Any instance's setter writes the same global atom; keep the newest so
       // a batch is never flushed through a Provider that has since unmounted.
@@ -103,4 +186,24 @@ export function useJotaiContextTrackerMap() {
 
 export function getJotaiContextTrackerMap() {
   return memoMap;
+}
+
+const backgroundRegistrationRegistry =
+  new JotaiContextStoreRegistrationRegistry();
+let backgroundRegistrationUpdateQueue = Promise.resolve();
+
+export function updateJotaiContextStoreRegistration(
+  update: IJotaiContextStoreRegistrationUpdate,
+): Promise<IJotaiContextStoreRegistrationUpdateResult> {
+  const updateTask = backgroundRegistrationUpdateQueue.then(async () => {
+    const result = backgroundRegistrationRegistry.update(update);
+    syncJotaiContextTrackerMap(result.map);
+    await jotaiContextStoreMapAtom.set(result.map);
+    return result;
+  });
+  backgroundRegistrationUpdateQueue = updateTask.then(
+    () => undefined,
+    () => undefined,
+  );
+  return updateTask;
 }
