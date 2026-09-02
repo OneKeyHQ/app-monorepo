@@ -19,6 +19,7 @@ import {
   getSwapSelectedTokensColdStartContextNetworkId,
   getSwapSelectedTokensHomeAccountSyncAction,
   getSwapTokenSupportTypes,
+  isSwapAccountSelectionSyncAccepted,
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
@@ -36,6 +37,21 @@ import {
 } from './swapColdStartTokenCacheUtils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+describe('isSwapAccountSelectionSyncAccepted', () => {
+  it.each(['commit', 'noop'])('accepts %s', (outcome) => {
+    expect(isSwapAccountSelectionSyncAccepted(outcome)).toBe(true);
+  });
+
+  it.each([
+    'skip-older-event',
+    'skip-equal-event-conflict',
+    'skip-unversioned-event',
+    'stale',
+  ])('rejects %s', (outcome) => {
+    expect(isSwapAccountSelectionSyncAccepted(outcome)).toBe(false);
+  });
+});
 
 function buildActiveAccount(
   overrides: Partial<IAccountSelectorActiveAccountInfo> = {},

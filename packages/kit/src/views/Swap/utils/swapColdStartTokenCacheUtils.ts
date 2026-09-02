@@ -812,6 +812,10 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
   return { type: 'clear' };
 }
 
+export function isSwapAccountSelectionSyncAccepted(outcome: string) {
+  return outcome === 'commit' || outcome === 'noop';
+}
+
 export function shouldSkipSwapDefaultSelectedTokenSync({
   hasImportParams,
   hasSelectedTokens,
