@@ -257,10 +257,17 @@ export function useImage(
     if (cachedImageRef) {
       return cachedImageRef;
     }
-    if (platformEnv.isNativeAndroid) {
-      return null;
-    }
     const imageUri = resolvedSource?.uri;
+    if (platformEnv.isNativeAndroid) {
+      // Glide rejects bare cache paths and cannot share decoded refs across
+      // views (see cache.ts), but it keeps its own memory + disk cache keyed
+      // by the original URL. Once a URL is known to be cached, hand it
+      // straight to expo-image so Glide serves it synchronously instead of
+      // round-tripping through `Image.loadAsync` on every mount.
+      return imageUri && getCachedImagePath(imageUri)
+        ? { uri: imageUri }
+        : null;
+    }
     const cachedPath = getCachedImagePath(imageUri);
     if (cachedPath) {
       return {

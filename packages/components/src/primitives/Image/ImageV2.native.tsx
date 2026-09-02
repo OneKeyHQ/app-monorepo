@@ -191,11 +191,18 @@ export function ImageV2({
     return skeleton || <Skeleton width={style.width} height={style.height} />;
   }
 
+  // expo-image defaults to `cachePolicy: 'disk'`, which on Android maps to
+  // Glide `skipMemoryCache(true)`, so every mount re-decodes from disk. Keep
+  // decoded bitmaps in Glide's bounded LRU so remounted URL sources paint on
+  // the first frame. Callers can still override it through `imageProps`.
+  const cachePolicy = platformEnv.isNativeAndroid ? 'memory-disk' : undefined;
+
   if (animated) {
     return (
       <AnimatedExpoImage
         source={image}
         style={style}
+        cachePolicy={cachePolicy}
         onError={handleError}
         onLoad={onLoad}
         onLoadEnd={onLoadEnd}
@@ -211,6 +218,7 @@ export function ImageV2({
     <ExpoImage
       source={image}
       style={style}
+      cachePolicy={cachePolicy}
       onError={handleError}
       onLoad={onLoad}
       onLoadEnd={onLoadEnd}
