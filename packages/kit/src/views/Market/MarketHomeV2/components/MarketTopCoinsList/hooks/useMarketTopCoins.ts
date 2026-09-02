@@ -21,10 +21,13 @@ function toFiniteNumber(value: string) {
   return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
-export function useMarketTopCoins() {
+export function useMarketTopCoins({
+  replaceCurrentDetail = false,
+}: { replaceCurrentDetail?: boolean } = {}) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+    replaceCurrentDetail,
   });
   const isNavigatingRef = useRef(false);
 

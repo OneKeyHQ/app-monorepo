@@ -47,7 +47,10 @@ import {
   useStockDetail,
 } from './hooks';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
+import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
+
+import type { NavigationAction } from '@react-navigation/routers';
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -262,9 +265,15 @@ function MarketDetailV2(
     handleChartFullscreenChange(false);
     setIsTradingViewNative((currentValue) => !currentValue);
   }, [handleChartFullscreenChange]);
-  const handleFullscreenRemove = useCallback(() => {
-    handleChartFullscreenChange(false);
-  }, [handleChartFullscreenChange]);
+  const handleFullscreenRemove = useCallback(
+    ({ data }: { data: { action: NavigationAction } }) => {
+      handleChartFullscreenChange(false);
+      if (shouldReplayFullscreenNavigationAction(data.action)) {
+        navigation.dispatch(data.action);
+      }
+    },
+    [handleChartFullscreenChange, navigation],
+  );
 
   usePreventRemove(effectiveIsChartFullscreen, handleFullscreenRemove);
 

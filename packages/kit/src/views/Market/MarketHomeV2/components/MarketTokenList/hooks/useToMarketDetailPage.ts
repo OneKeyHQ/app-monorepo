@@ -1,5 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
+import { useRoute } from '@react-navigation/native';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ESplitViewType,
@@ -59,11 +61,17 @@ interface IUseToDetailPageOptions {
    * matching information architecture (for example Top Coins vs Trending).
    */
   marketTokenCategory?: string;
+  /**
+   * Avoid stacking another detail page when switching assets from Market detail.
+   * A different detail route is replaced, while the same route is updated in place.
+   */
+  replaceCurrentDetail?: boolean;
 }
 
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const currentRouteName = useRoute().name;
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const media = useMedia();
@@ -158,6 +166,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;
+      const shouldReplaceCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
+      );
 
       // Check if in extension popup/side panel
       if (
@@ -234,7 +245,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         }
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
-        if (splitViewType !== ESplitViewType.UNKNOWN) {
+        if (
+          splitViewType !== ESplitViewType.UNKNOWN &&
+          !options?.replaceCurrentDetail
+        ) {
           navigation.switchTab(ETabRoutes.Discovery);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
@@ -246,18 +260,26 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           await marketDetailShellPreloadPromise;
         }
         if (stockId) {
-          navigation.push(ETabMarketRoutes.MarketStockDetail, params);
+          if (shouldReplaceCurrentDetail) {
+            navigation.replace(ETabMarketRoutes.MarketStockDetail, params);
+          } else {
+            navigation.push(ETabMarketRoutes.MarketStockDetail, params);
+          }
+        } else if (shouldReplaceCurrentDetail) {
+          navigation.replace(ETabMarketRoutes.MarketDetailV2, params);
         } else {
           navigation.push(ETabMarketRoutes.MarketDetailV2, params);
         }
       }
     },
     [
+      currentRouteName,
       navigation,
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
       options?.from,
       options?.marketTokenCategory,
+      options?.replaceCurrentDetail,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,
