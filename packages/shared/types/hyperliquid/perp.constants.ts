@@ -1,5 +1,51 @@
 import type { IHex } from './sdk';
 
+interface IUsdcWithdrawDestinationConfigBase {
+  name: string;
+  networkId: string;
+  signatureChainId: IHex;
+}
+
+export interface ICctpWithdrawDestinationConfig extends IUsdcWithdrawDestinationConfigBase {
+  id: 'ethereum' | 'avalanche' | 'optimism' | 'arbitrum' | 'base';
+  transferType: 'cctp';
+  domain: 0 | 1 | 2 | 3 | 6;
+  addressEncoding: 'hex';
+  fallbackFee: number;
+  supportsLegacyBridge: boolean;
+}
+
+export interface IHyperEvmWithdrawDestinationConfig extends IUsdcWithdrawDestinationConfigBase {
+  id: 'hyperevm';
+  transferType: 'hyperEvm';
+}
+
+export type IUsdcWithdrawDestinationConfig =
+  | ICctpWithdrawDestinationConfig
+  | IHyperEvmWithdrawDestinationConfig;
+
+export type IUsdcWithdrawFeeComponent =
+  | {
+      kind: 'cctpForwarding' | 'legacyBridge';
+      amount: string;
+      token: 'USDC';
+      debitedFrom: 'withdrawAmount';
+      isEstimate: boolean;
+    }
+  | {
+      kind: 'hyperEvmGas';
+      amount: string;
+      token: 'USDC';
+      debitedFrom: 'spotHypeOrSourceUsdc';
+      isEstimate: true;
+      displayAsLessThan: true;
+    };
+
+export interface IUsdcWithdrawFeeQuote {
+  components: IUsdcWithdrawFeeComponent[];
+  quotedAt: number;
+}
+
 export const MAX_DECIMALS_PERP = 6;
 export const MAX_DECIMALS_SPOT = 8;
 export const MAX_SIGNIFICANT_FIGURES = 5;
@@ -22,31 +68,92 @@ export const WITHDRAW_FEE = 1;
 // withdrawal or a plain transfer to HyperEVM.
 export const HYPEREVM_SYSTEM_ADDRESS =
   '0x2000000000000000000000000000000000000000' as IHex;
+export const USDC_WITHDRAW_GAS_RESERVE = 0.01;
 
-// Circle CCTP domain ids (NOT EVM chain ids). Arbitrum is the only destination
-// we withdraw to today.
-export const CCTP_DOMAIN_ARBITRUM = 3;
+// Keep the allowlist here so the UI and BG signer cannot disagree on a route or
+// EIP-712 signing chain. External chains use Circle CCTP domain ids; HyperEVM is
+// a native HyperCore sendAsset transfer and does not have a CCTP destination.
+export const USDC_WITHDRAW_DESTINATIONS = [
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    networkId: 'evm--1',
+    transferType: 'cctp',
+    domain: 0,
+    addressEncoding: 'hex',
+    signatureChainId: '0x1',
+    fallbackFee: 1.2,
+    supportsLegacyBridge: false,
+  },
+  {
+    id: 'avalanche',
+    name: 'Avalanche',
+    networkId: 'evm--43114',
+    transferType: 'cctp',
+    domain: 1,
+    addressEncoding: 'hex',
+    signatureChainId: '0xa86a',
+    fallbackFee: 0.2,
+    supportsLegacyBridge: false,
+  },
+  {
+    id: 'optimism',
+    name: 'OP Mainnet',
+    networkId: 'evm--10',
+    transferType: 'cctp',
+    domain: 2,
+    addressEncoding: 'hex',
+    signatureChainId: '0xa',
+    fallbackFee: 0.2,
+    supportsLegacyBridge: false,
+  },
+  {
+    id: 'arbitrum',
+    name: 'Arbitrum',
+    networkId: 'evm--42161',
+    transferType: 'cctp',
+    domain: 3,
+    addressEncoding: 'hex',
+    signatureChainId: '0xa4b1',
+    fallbackFee: 0.2,
+    supportsLegacyBridge: true,
+  },
+  {
+    id: 'base',
+    name: 'Base',
+    networkId: 'evm--8453',
+    transferType: 'cctp',
+    domain: 6,
+    addressEncoding: 'hex',
+    signatureChainId: '0x2105',
+    fallbackFee: 0.2,
+    supportsLegacyBridge: false,
+  },
+  {
+    id: 'hyperevm',
+    name: 'HyperEVM',
+    networkId: 'evm--999',
+    transferType: 'hyperEvm',
+    // HyperEVM sendAsset accepts any valid EVM chain id for replay protection.
+    signatureChainId: '0xa4b1',
+  },
+] as const satisfies readonly IUsdcWithdrawDestinationConfig[];
+
+export type IUsdcWithdrawDestinationId =
+  (typeof USDC_WITHDRAW_DESTINATIONS)[number]['id'];
+
+export function getUsdcWithdrawDestination(
+  id: string,
+): IUsdcWithdrawDestinationConfig | undefined {
+  return USDC_WITHDRAW_DESTINATIONS.find((item) => item.id === id);
+}
+
+export const DEFAULT_USDC_WITHDRAW_DESTINATION_ID: IUsdcWithdrawDestinationId =
+  'arbitrum';
 export const CCTP_WITHDRAW_GAS_LIMIT = 200_000;
 // Empty hook data makes CoreDepositWallet attach the default forwarding hook, so
 // Circle delivers to the recipient instead of leaving them to claim it.
 export const CCTP_WITHDRAW_HOOK_DATA = '0x';
-
-// Circle's forwarding fee, deducted from the withdrawn amount. Source of truth is
-// `calculateCrossChainWithdrawalFee(true, domain)` on CoreDepositWallet
-// (HyperEVM 0x6B9E773128f453f5c2C60935Ee2DE2CBc5390A24). Mirrored as constants
-// because we only withdraw to Arbitrum, where the value has held since launch;
-// read it live once multiple destinations are selectable.
-const CCTP_WITHDRAW_FEE_DEFAULT = 0.2;
-const CCTP_WITHDRAW_FEE_BY_DOMAIN: Record<number, number> = {
-  0: 1.2, // Ethereum
-  5: 0.5, // Solana
-};
-
-export function getCctpWithdrawFee(destinationDomain: number): number {
-  return (
-    CCTP_WITHDRAW_FEE_BY_DOMAIN[destinationDomain] ?? CCTP_WITHDRAW_FEE_DEFAULT
-  );
-}
 
 export const USDC_TOKEN_INFO = {
   address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as IHex,

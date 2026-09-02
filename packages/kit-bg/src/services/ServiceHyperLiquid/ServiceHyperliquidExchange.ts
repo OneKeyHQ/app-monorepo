@@ -7,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   DISABLE_PERPS_WALLET_BIND,
   type EHyperLiquidAgentName,
@@ -48,10 +49,12 @@ import {
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
-  CCTP_DOMAIN_ARBITRUM,
-  CCTP_WITHDRAW_GAS_LIMIT,
-  CCTP_WITHDRAW_HOOK_DATA,
+  HYPEREVM_SYSTEM_ADDRESS,
   SPOT_ASSET_ID_OFFSET,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type {
+  IUsdcWithdrawDestinationId,
+  IUsdcWithdrawFeeQuote,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IApiErrorResponse,
@@ -97,14 +100,24 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { getUsdcWithdrawRoute } from './usdcWithdrawRoute';
-import type { IUsdcWithdrawRoute } from './usdcWithdrawRoute';
+import {
+  buildCctpWithdrawDestination,
+  getLiveUsdcWithdrawFee,
+  getUsdcWithdrawFee,
+  requireUsdcWithdrawDestination,
+} from './cctpWithdraw';
+import {
+  getLiveUsdcWithdrawRoute,
+  getUsdcWithdrawRoute,
+} from './usdcWithdrawRoute';
 import { createLoggedHyperLiquidClient } from './utils/logHyperLiquidApiFailure';
 
+import type { IHyperEvmRpcCall } from './cctpWithdraw';
 import type {
   WalletHyperliquidOnekey,
   WalletHyperliquidProxy,
 } from './ServiceHyperliquidWallet';
+import type { IUsdcWithdrawRoute } from './usdcWithdrawRoute';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 interface IOrderLogOptions {
@@ -1750,6 +1763,29 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return getUsdcWithdrawRoute();
   }
 
+  private _callHyperEvmRpc: IHyperEvmRpcCall = async (method, params) => {
+    const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall<unknown>(
+      {
+        networkId: getNetworkIdsMap().hyperevm,
+        request: {
+          jsonrpc: '2.0',
+          id: 0,
+          method,
+          params,
+        },
+        origin: 'onekey://perps',
+      },
+    );
+    return result;
+  };
+
+  @backgroundMethod()
+  async getUsdcWithdrawFee(params: {
+    destinationId: IUsdcWithdrawDestinationId;
+  }): Promise<IUsdcWithdrawFeeQuote> {
+    return getUsdcWithdrawFee(params.destinationId, this._callHyperEvmRpc);
+  }
+
   // `sendToEvmWithData` requires an explicit source balance, where `withdraw3`
   // let Hyperliquid pick one. Mirror perpsComputedAccountValueAtom: unified and
   // portfolio-margin accounts report the spot-side USDC balance as withdrawable,
@@ -1772,6 +1808,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
+    const destinationConfig = requireUsdcWithdrawDestination(
+      params.destinationId,
+    );
     const wallet =
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
@@ -1780,7 +1819,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       new ExchangeClient({
         transport: new HttpTransport(),
         wallet,
-        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+        signatureChainId: destinationConfig.signatureChainId,
       }),
     );
     const context = await this._buildLogContext();
@@ -1792,27 +1831,86 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     let sourceDex: '' | 'spot' | undefined;
     try {
       const [resolvedRoute, userAddress] = await Promise.all([
-        getUsdcWithdrawRoute(),
+        destinationConfig.transferType === 'cctp'
+          ? getLiveUsdcWithdrawRoute()
+          : Promise.resolve(undefined),
         wallet.getAddress(),
       ]);
       route = resolvedRoute;
+      if (
+        destinationConfig.transferType === 'cctp' &&
+        (!params.expectedRoute || route !== params.expectedRoute)
+      ) {
+        throw new OneKeyLocalError(
+          'Withdrawal route changed. Review the updated fee and try again.',
+        );
+      }
+      if (
+        destinationConfig.transferType === 'cctp' &&
+        route === 'bridge' &&
+        !destinationConfig.supportsLegacyBridge
+      ) {
+        throw new OneKeyLocalError(
+          `${destinationConfig.name} withdrawals require the CCTP route`,
+        );
+      }
+      if (destinationConfig.transferType === 'cctp' && route === 'cctp') {
+        const liveFeeQuote = await getLiveUsdcWithdrawFee(
+          params.destinationId,
+          this._callHyperEvmRpc,
+        );
+        const cctpFee = liveFeeQuote.components.find(
+          (component) => component.kind === 'cctpForwarding',
+        );
+        if (!cctpFee?.amount) {
+          throw new OneKeyLocalError('Unable to quote CCTP withdrawal fee');
+        }
+        if (
+          !params.expectedCctpFee ||
+          !new BigNumber(params.expectedCctpFee).eq(cctpFee.amount)
+        ) {
+          throw new OneKeyLocalError(
+            'Withdrawal fee changed. Review the updated fee and try again.',
+          );
+        }
+        if (new BigNumber(params.amount).lte(cctpFee.amount)) {
+          throw new OneKeyLocalError(
+            'Withdrawal amount must exceed the CCTP fee',
+          );
+        }
+      }
       await convertHyperLiquidResponse(async () => {
+        if (destinationConfig.transferType === 'hyperEvm') {
+          sourceDex = await this._resolveWithdrawSourceDex(userAddress);
+          return exchangeClient.sendAsset({
+            destination: HYPEREVM_SYSTEM_ADDRESS,
+            sourceDex,
+            destinationDex: 'spot',
+            token: 'USDC',
+            amount: params.amount,
+            fromSubAccount: '',
+          });
+        }
         if (route === 'cctp') {
           sourceDex = await this._resolveWithdrawSourceDex(userAddress);
+          const destination = buildCctpWithdrawDestination({
+            destinationId: params.destinationId,
+            ownerAddress: userAddress,
+          });
           return exchangeClient.sendToEvmWithData({
             token: 'USDC',
             amount: params.amount,
             sourceDex,
-            destinationRecipient: params.destination,
-            addressEncoding: 'hex',
-            destinationChainId: CCTP_DOMAIN_ARBITRUM,
-            gasLimit: CCTP_WITHDRAW_GAS_LIMIT,
-            data: CCTP_WITHDRAW_HOOK_DATA,
+            destinationRecipient: destination.destinationRecipient,
+            addressEncoding: destination.addressEncoding,
+            destinationChainId: destination.destinationChainId,
+            gasLimit: destination.gasLimit,
+            data: destination.data,
           });
         }
         return exchangeClient.withdraw3({
           amount: params.amount,
-          destination: params.destination,
+          destination: userAddress,
         });
       });
       defaultLogger.perp.hyperliquid.withdraw({
