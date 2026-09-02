@@ -1,5 +1,7 @@
 import { HttpTransport } from '@nktkas/hyperliquid';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { requestLoggedHyperLiquidTransport } from './utils/logHyperLiquidApiFailure';
 
 // Hyperliquid moved USDC to Circle CCTP and marked the legacy Arbitrum bridge
@@ -15,7 +17,7 @@ interface IUsdcRoutingResponse {
   withdrawalRoute?: string;
 }
 
-const ROUTE_CACHE_TTL_MS = 5 * 60 * 1000;
+const ROUTE_CACHE_TTL_MS = 30 * 1000;
 
 // An unreachable or unparsable response tells us nothing new, so fall back to the
 // rail that has been working in production all along. It costs the legacy $1 fee
@@ -33,7 +35,11 @@ function parseRoute(value: unknown): IUsdcWithdrawRoute | undefined {
   return value === 'cctp' || value === 'bridge' ? value : undefined;
 }
 
-async function fetchWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
+async function fetchWithdrawRoute({
+  allowFallback,
+}: {
+  allowFallback: boolean;
+}): Promise<IUsdcWithdrawRoute> {
   const response =
     await requestLoggedHyperLiquidTransport<IUsdcRoutingResponse>(
       new HttpTransport(),
@@ -41,7 +47,11 @@ async function fetchWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
       { type: 'usdcRouting' },
       { action: 'usdcRouting' },
     );
-  return parseRoute(response?.withdrawalRoute) ?? FALLBACK_ROUTE;
+  const route = parseRoute(response?.withdrawalRoute);
+  if (!route && !allowFallback) {
+    throw new OneKeyLocalError('Unsupported Hyperliquid withdrawal route');
+  }
+  return route ?? FALLBACK_ROUTE;
 }
 
 export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
@@ -50,7 +60,7 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
     return cachedRoute.route;
   }
   if (!inFlightRequest) {
-    inFlightRequest = fetchWithdrawRoute()
+    inFlightRequest = fetchWithdrawRoute({ allowFallback: true })
       .then((route) => {
         cachedRoute = { route, fetchedAt: Date.now() };
         lastResolvedRoute = route;
@@ -66,6 +76,15 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
       });
   }
   return inFlightRequest;
+}
+
+// A submission must be bound to the route that Hyperliquid is serving now.
+// Falling back here could silently change both the rail and the charged fee.
+export async function getLiveUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
+  const route = await fetchWithdrawRoute({ allowFallback: false });
+  cachedRoute = { route, fetchedAt: Date.now() };
+  lastResolvedRoute = route;
+  return route;
 }
 
 export function clearUsdcWithdrawRouteCacheForTest() {
