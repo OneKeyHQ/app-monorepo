@@ -240,6 +240,7 @@ export function useAddHiddenWallet() {
                 void close();
                 resolve();
               },
+              onClose: () => resolve(),
               onConfirm: async () => {
                 try {
                   await backgroundApiProxy.serviceHardware.setPassphraseEnabled(

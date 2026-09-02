@@ -44,8 +44,8 @@ const getDeduplicationId = (
 // can require interpolation values that are not part of the toast payload.
 const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
   ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+  ETranslations.hardware_device_passphrase_state_error,
   ETranslations.hardware_device_pin_state_error,
-  ETranslations.feedback_try_repairing_device_in_settings,
 ]);
 
 export function ErrorToastContainer() {

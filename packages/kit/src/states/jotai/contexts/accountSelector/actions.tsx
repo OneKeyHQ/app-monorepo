@@ -2235,7 +2235,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           wallet,
           indexedAccount,
           hidden,
-          isOverrideWallet,
         }) => {
           if (hidden && hidden.wallet && hidden.indexedAccount) {
             // hidden wallet account should be first create before normal wallet account
@@ -2266,8 +2265,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.autoSelectToCreatedWallet.call(set, {
               wallet: hidden.wallet,
               indexedAccount: hidden.indexedAccount,
-              isOverrideWallet,
-              isAttachPinMode: params.isAttachPinMode,
             });
           }
 

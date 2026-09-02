@@ -20,10 +20,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { openBLESettings } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -243,27 +241,6 @@ function ClearPendingTransactionsButton() {
   );
 }
 
-function OpenBluetoothSettingsButton() {
-  const intl = useIntl();
-
-  return (
-    <Button
-      testID="error-toast-open-bluetooth-settings-btn"
-      variant="primary"
-      size="small"
-      onPress={() => {
-        if (platformEnv.isDesktop) {
-          void globalThis.desktopApiProxy.bluetooth.openBluetoothSettings();
-          return;
-        }
-        void openBLESettings();
-      }}
-    >
-      {intl.formatMessage({ id: ETranslations.global_go_to_settings })}
-    </Button>
-  );
-}
-
 export function getErrorAction({
   errorCode,
   connectId,
@@ -290,13 +267,6 @@ export function getErrorAction({
   // Pending queue too long: clear pending transactions button
   if (i18nKey === ETranslations.send_engine_pending_queue_too_long) {
     return <ClearPendingTransactionsButton />;
-  }
-
-  if (
-    i18nKey === ETranslations.feedback_try_repairing_device_in_settings &&
-    (platformEnv.isDesktop || platformEnv.isNative)
-  ) {
-    return <OpenBluetoothSettingsButton />;
   }
 
   // Default: show contact support + copy diagnostic info buttons

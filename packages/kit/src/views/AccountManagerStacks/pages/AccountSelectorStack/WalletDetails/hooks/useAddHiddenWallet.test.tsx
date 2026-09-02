@@ -134,4 +134,25 @@ describe('useAddHiddenWallet', () => {
     expect(mockCloseHardwareUiStateDialog).toHaveBeenCalledTimes(2);
     expect(Toast.success).not.toHaveBeenCalled();
   });
+
+  it('settles when the Passphrase dialog is dismissed', async () => {
+    mockCreateHWHiddenWallet.mockRejectedValueOnce({
+      className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+    });
+    jest.mocked(Dialog.show).mockImplementation((options) => {
+      void options.onClose?.();
+      return {} as never;
+    });
+    const wallet = { id: 'hw-test' } as IDBWallet;
+    const { result } = renderHook(() => useAddHiddenWallet());
+
+    await act(async () => {
+      await result.current.createHiddenWallet({ wallet });
+    });
+
+    expect(mockSetPassphraseEnabled).not.toHaveBeenCalled();
+    expect(mockCreateHWHiddenWallet).toHaveBeenCalledTimes(1);
+    expect(mockCloseHardwareUiStateDialog).toHaveBeenCalledTimes(2);
+    expect(result.current.isLoading).toBe(false);
+  });
 });

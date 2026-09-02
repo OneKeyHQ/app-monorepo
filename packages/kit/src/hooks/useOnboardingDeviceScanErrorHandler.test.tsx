@@ -31,7 +31,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
-import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  DeviceBondError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useOnboardingDeviceScanErrorHandler } from './useOnboardingDeviceScanErrorHandler';
@@ -88,5 +91,19 @@ describe('useOnboardingDeviceScanErrorHandler', () => {
     expect(toastError).toHaveBeenCalledWith({
       title: ETranslations.device_communication_failed,
     });
+  });
+
+  it('does not duplicate the global dialog for a Bluetooth bond error', () => {
+    const stopScan = jest.fn();
+    const { result } = renderHook(() =>
+      useOnboardingDeviceScanErrorHandler({ stopScan }),
+    );
+
+    act(() => {
+      result.current.handleScanError(new DeviceBondError());
+    });
+
+    expect(stopScan).toHaveBeenCalledTimes(1);
+    expect(toastError).not.toHaveBeenCalled();
   });
 });
