@@ -958,6 +958,11 @@ function DeFiListBlock({
     clearAllNetworkData: handleClearAllNetworkData,
     isDeFiRequests: true,
     disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
+    // The cache-only instance is the sole writer of the header's DeFi
+    // readiness and only reads local caches. usePromiseResult skips
+    // deps-triggered runs while the route is unfocused, which left readiness
+    // unset for entire sessions; let this instance run regardless of focus.
+    shouldAlwaysFetch: refreshCacheOnly,
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {
