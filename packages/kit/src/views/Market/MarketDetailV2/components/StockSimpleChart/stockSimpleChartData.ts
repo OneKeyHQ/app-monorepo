@@ -4,6 +4,61 @@ import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marke
 
 export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
 
+export const TOKEN_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
+  ...TOKEN_SIMPLE_CHART_RANGES,
+  'All',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+type IStockSimpleChartRequestParams = {
+  coinGeckoId?: string;
+  isNative: boolean;
+  networkId: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockId?: string;
+  tokenAddress: string;
+};
+
+export function resolveStockSimpleChartRequestScope({
+  coinGeckoId,
+  isNative,
+  networkId,
+  priceMode,
+  range,
+  stockId,
+  tokenAddress,
+}: IStockSimpleChartRequestParams): IStockSimpleChartRequestParams {
+  if (priceMode === 'share') {
+    return {
+      coinGeckoId: undefined,
+      isNative: false,
+      networkId: '',
+      priceMode,
+      range,
+      stockId,
+      tokenAddress: '',
+    };
+  }
+
+  return {
+    coinGeckoId,
+    isNative,
+    networkId,
+    priceMode,
+    range: range === 'All' ? '1Y' : range,
+    stockId: undefined,
+    tokenAddress,
+  };
+}
+
 const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   IStockSimpleChartRange,
   number | undefined
@@ -46,23 +101,19 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   All: 'all',
 };
 
-export async function fetchStockSimpleChartPoints({
-  coinGeckoId,
-  isNative,
-  networkId,
-  priceMode,
-  range,
-  stockId,
-  tokenAddress,
-}: {
-  coinGeckoId?: string;
-  isNative: boolean;
-  networkId: string;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
-  stockId?: string;
-  tokenAddress: string;
-}): Promise<IMarketTokenChart> {
+export async function fetchStockSimpleChartPoints(
+  params: IStockSimpleChartRequestParams,
+): Promise<IMarketTokenChart> {
+  const {
+    coinGeckoId,
+    isNative,
+    networkId,
+    priceMode,
+    range,
+    stockId,
+    tokenAddress,
+  } = resolveStockSimpleChartRequestScope(params);
+
   const isSharePrice = priceMode === 'share';
   if (isSharePrice && !stockId) {
     return [];
