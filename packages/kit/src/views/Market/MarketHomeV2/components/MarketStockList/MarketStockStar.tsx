@@ -34,6 +34,7 @@ export function MarketStockStar({ stock }: { stock: IMarketStockPublicItem }) {
     <MarketAsyncStarV2
       identities={identities}
       resolveIdentity={resolveIdentity}
+      identityKey={stock.stockId}
       from={EWatchlistFrom.Homepage}
       tokenSymbol={stock.symbol}
       testID={MarketTestIDs.stockStarButton(stock.stockId)}

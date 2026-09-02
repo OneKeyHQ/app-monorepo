@@ -136,6 +136,7 @@ export function TokenPriceHeader() {
 export function TokenDesktopLayout({
   marketTradingView,
   swapToken,
+  swapTargetKey,
   portfolioData,
   isRefreshing,
   isBTCNetwork,
@@ -153,6 +154,7 @@ export function TokenDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapTargetKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isBTCNetwork: boolean;
@@ -255,7 +257,10 @@ export function TokenDesktopLayout({
           flexShrink={0}
         >
           {disableTrade ? null : (
-            <MarketEmbeddedSwap swapToken={swapToken} />
+            <MarketEmbeddedSwap
+              swapToken={swapToken}
+              swapTargetKey={swapTargetKey}
+            />
           )}
         </YStack>
       </XStack>

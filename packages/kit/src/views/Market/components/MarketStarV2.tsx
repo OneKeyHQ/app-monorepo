@@ -53,8 +53,17 @@ export const useStarV2Checked = ({
   }, [watchListData, isMounted, chainId, contractAddress]);
 
   const handlePress = useCallback(async () => {
+    if (!isMounted) {
+      return;
+    }
     if (checked) {
-      actions.removeFromWatchListV2(chainId, contractAddress);
+      const removed = await actions.removeFromWatchListV2(
+        chainId,
+        contractAddress,
+      );
+      if (!removed) {
+        return;
+      }
       // Dex analytics
       defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
         network: chainId,
@@ -63,7 +72,12 @@ export const useStarV2Checked = ({
         removeFrom: from,
       });
     } else {
-      actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
+      const added = await actions.addIntoWatchListV2([
+        { chainId, contractAddress, isNative },
+      ]);
+      if (!added) {
+        return;
+      }
       // Dex analytics
       defaultLogger.dex.watchlist.dexAddToWatchlist({
         network: chainId,
@@ -72,14 +86,24 @@ export const useStarV2Checked = ({
         addFrom: from,
       });
     }
-  }, [checked, actions, chainId, contractAddress, from, tokenSymbol, isNative]);
+  }, [
+    actions,
+    chainId,
+    checked,
+    contractAddress,
+    from,
+    isMounted,
+    isNative,
+    tokenSymbol,
+  ]);
 
   return useMemo(
     () => ({
       checked,
+      disabled: !isMounted,
       onPress: handlePress,
     }),
-    [checked, handlePress],
+    [checked, handlePress, isMounted],
   );
 };
 
@@ -94,7 +118,7 @@ function BasicMarketStarV2({
   ...props
 }: IMarketStarV2Props) {
   const intl = useIntl();
-  const { onPress, checked } = useStarV2Checked({
+  const { onPress, checked, disabled } = useStarV2Checked({
     chainId,
     contractAddress,
     from,
@@ -121,6 +145,7 @@ function BasicMarketStarV2({
         ...(customIconSize ? { size: customIconSize } : {}),
       }}
       onPress={onPress}
+      disabled={disabled}
       {...(props as IXStackProps)}
     />
   );

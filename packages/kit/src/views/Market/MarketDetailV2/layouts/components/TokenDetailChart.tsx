@@ -10,20 +10,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../../components/StockSimpleChart';
 
 import { MarketDetailProChartControls } from './MarketDetailProChartControls';
 
 type ITokenChartMode = 'simple' | 'pro';
-
-const TOKEN_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
 
 function TokenChartModeControl({
   mode,
@@ -83,7 +75,6 @@ export function TokenDetailChart({
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
-  const intl = useIntl();
   const [mode, setMode] = useState<ITokenChartMode>('simple');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
@@ -104,7 +95,7 @@ export function TokenDetailChart({
                 <Button
                   key={item}
                   testID={`market-token-chart-range-${item}`}
-                  minWidth={item === 'All' ? 46 : 40}
+                  minWidth={40}
                   height={32}
                   m="$0"
                   px="$2"
@@ -114,9 +105,7 @@ export function TokenDetailChart({
                   borderRadius="$full"
                   onPress={() => setRange(item)}
                 >
-                  {item === 'All'
-                    ? intl.formatMessage({ id: ETranslations.global_all })
-                    : item}
+                  {item}
                 </Button>
               ))}
             </XStack>

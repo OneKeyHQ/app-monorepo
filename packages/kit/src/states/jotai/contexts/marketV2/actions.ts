@@ -507,11 +507,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
-        watchList: params,
-        callerName: 'jotaiContextActions_addIntoWatchListV2',
-      });
+      // Persist the optimistic update and restore local state if persistence fails.
+      try {
+        await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+          watchList: params,
+          callerName: 'jotaiContextActions_addIntoWatchListV2',
+        });
+      } catch (error) {
+        const current = get(marketWatchListV2Atom());
+        if (current.data === sortedNewData) {
+          set(marketWatchListV2Atom(), prev);
+        } else {
+          try {
+            await this.refreshWatchListV2.call(set);
+          } catch {
+            // Keep concurrent local changes when the authoritative refresh fails.
+          }
+        }
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
       // Record MARKET task completion for rookie guide
       void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
@@ -546,11 +560,25 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      // Asynchronously call API without waiting for result
-      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId, contractAddress }],
-        callerName: 'jotaiContextActions_removeFromWatchListV2',
-      });
+      // Persist the optimistic update and restore local state if persistence fails.
+      try {
+        await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+          items: [{ chainId, contractAddress }],
+          callerName: 'jotaiContextActions_removeFromWatchListV2',
+        });
+      } catch (error) {
+        const current = get(marketWatchListV2Atom());
+        if (current.data === newData) {
+          set(marketWatchListV2Atom(), prev);
+        } else {
+          try {
+            await this.refreshWatchListV2.call(set);
+          } catch {
+            // Keep concurrent local changes when the authoritative refresh fails.
+          }
+        }
+        throw error;
+      }
       await this.refreshWatchListV2.call(set);
     },
   );

@@ -21,14 +21,17 @@ function toFiniteNumber(value: string) {
   return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
+type IUseMarketTopCoinNavigationOptions = {
+  replaceCurrentDetail?: boolean;
+};
+
 export async function resolveMarketTopCoinNavigationTarget(
-  item: IMarketAssetListItem,
+  item: Pick<IMarketAssetListItem, 'assetId'>,
 ) {
-  const detail =
-    await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-      assetId: item.assetId,
-      currency: 'usd',
-    });
+  const detail = await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+    assetId: item.assetId,
+    currency: 'usd',
+  });
   const { asset, market, selectedVariant } = detail;
   const networkInfo = selectedVariant?.networkId
     ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)
@@ -58,13 +61,75 @@ export async function resolveMarketTopCoinNavigationTarget(
   };
 }
 
-export function useMarketTopCoins() {
+export function useMarketTopCoinResolver() {
   const intl = useIntl();
+  const isResolvingRef = useRef(false);
+
+  return useCallback(
+    async (item: IMarketAssetListItem) => {
+      if (isResolvingRef.current) {
+        return undefined;
+      }
+      isResolvingRef.current = true;
+      try {
+        return await resolveMarketTopCoinNavigationTarget(item);
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return undefined;
+      } finally {
+        isResolvingRef.current = false;
+      }
+    },
+    [intl],
+  );
+}
+
+export function useMarketTopCoinNavigation({
+  replaceCurrentDetail = false,
+}: IUseMarketTopCoinNavigationOptions = {}) {
+  const intl = useIntl();
+  const resolveMarketTopCoin = useMarketTopCoinResolver();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+    replaceCurrentDetail,
   });
   const isNavigatingRef = useRef(false);
 
+  const handleItemPress = useCallback(
+    async (item: IMarketAssetListItem) => {
+      if (isNavigatingRef.current) {
+        return;
+      }
+      isNavigatingRef.current = true;
+      try {
+        const token = await resolveMarketTopCoin(item);
+        if (token) {
+          await toMarketDetailPage(token);
+        }
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+      } finally {
+        isNavigatingRef.current = false;
+      }
+    },
+    [intl, resolveMarketTopCoin, toMarketDetailPage],
+  );
+
+  return handleItemPress;
+}
+
+export function useMarketTopCoins(
+  options: IUseMarketTopCoinNavigationOptions = {},
+) {
+  const handleItemPress = useMarketTopCoinNavigation(options);
   const { result, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceMarket.fetchMarketAssetList({
@@ -81,29 +146,6 @@ export function useMarketTopCoins() {
     },
   );
   const data = result?.list ?? EMPTY_MARKET_ASSET_LIST;
-
-  const handleItemPress = useCallback(
-    async (item: IMarketAssetListItem) => {
-      if (isNavigatingRef.current) {
-        return;
-      }
-      isNavigatingRef.current = true;
-      try {
-        await toMarketDetailPage(
-          await resolveMarketTopCoinNavigationTarget(item),
-        );
-      } catch (_error) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      } finally {
-        isNavigatingRef.current = false;
-      }
-    },
-    [intl, toMarketDetailPage],
-  );
 
   return {
     data,

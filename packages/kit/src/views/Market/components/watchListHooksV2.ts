@@ -17,20 +17,36 @@ export const useWatchListV2Action = () => {
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
   const removeFromWatchListV2 = useCallback(
-    (chainId: string, contractAddress: string) => {
-      void actions.current.removeFromWatchListV2(chainId, contractAddress);
+    async (chainId: string, contractAddress: string) => {
+      if (!isMounted) {
+        return false;
+      }
+      try {
+        await actions.current.removeFromWatchListV2(chainId, contractAddress);
+        return true;
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return false;
+      }
     },
-    [actions],
+    [actions, intl, isMounted],
   );
 
   const addIntoWatchListV2 = useCallback(
-    (
+    async (
       items: Array<{
         chainId: string;
         contractAddress: string;
         isNative?: boolean;
       }>,
     ) => {
+      if (!isMounted) {
+        return false;
+      }
       // Calculate sortIndex to make new items appear at the top
       const firstSortIndex =
         isMounted && watchListData.length > 0
@@ -47,13 +63,15 @@ export const useWatchListV2Action = () => {
       );
 
       try {
-        void actions.current.addIntoWatchListV2(watchListItems);
+        await actions.current.addIntoWatchListV2(watchListItems);
+        return true;
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           }),
         });
+        return false;
       }
     },
     [actions, intl, isMounted, watchListData],

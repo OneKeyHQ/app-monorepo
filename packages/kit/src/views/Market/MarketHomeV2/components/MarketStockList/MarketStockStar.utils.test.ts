@@ -48,12 +48,13 @@ describe('MarketStockStar utilities', () => {
     ).toEqual([{ chainId: 'evm--56', contractAddress: '0xaapl' }]);
   });
 
-  it('prefers the backend default when it is tradable', () => {
+  it('prefers the backend default even when it is temporarily unavailable', () => {
     const first = createVariant();
     const defaultVariant = createVariant({
       tokenId: 'spot_token:ondo:evm--56:0x2',
       networkId: 'evm--56',
       contractAddress: '0x2',
+      isPaused: true,
     });
     const response: IMarketStockTokenVariantsResponse = {
       stockId: 'AAPL',
@@ -75,8 +76,24 @@ describe('MarketStockStar utilities', () => {
       selectMarketStockWatchlistVariant({
         stockId: 'AAPL',
         items: [pausedDefault, fallback],
-        defaultTokenId: pausedDefault.tokenId,
+        defaultTokenId: 'missing',
       }),
     ).toBe(fallback);
+  });
+
+  it('falls back to the first variant when none are tradable', () => {
+    const paused = createVariant({ isPaused: true });
+    const disabled = createVariant({
+      tokenId: 'spot_token:ondo:evm--56:0x2',
+      tradingEnabled: false,
+    });
+
+    expect(
+      selectMarketStockWatchlistVariant({
+        stockId: 'AAPL',
+        items: [paused, disabled],
+        defaultTokenId: 'missing',
+      }),
+    ).toBe(paused);
   });
 });

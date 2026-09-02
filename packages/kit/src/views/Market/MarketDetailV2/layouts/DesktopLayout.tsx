@@ -135,6 +135,20 @@ export interface IDesktopLayoutProps {
   showFavoriteButton?: boolean;
 }
 
+export function getMarketSwapTargetKey({
+  marketTokenId,
+  networkId,
+  tokenAddress,
+  isNative,
+}: {
+  marketTokenId?: string;
+  networkId: string;
+  tokenAddress: string;
+  isNative: boolean;
+}) {
+  return marketTokenId || `${networkId}:${isNative ? 'native' : tokenAddress}`;
+}
+
 export function DesktopLayout({
   isChartFullscreen,
   isTradingViewNative,
@@ -225,6 +239,12 @@ export function DesktopLayout({
       isNative,
     ],
   );
+  const swapTargetKey = getMarketSwapTargetKey({
+    marketTokenId,
+    networkId: routeNetworkId,
+    tokenAddress: routeTokenAddress,
+    isNative: routeIsNative,
+  });
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -346,15 +366,27 @@ export function DesktopLayout({
     return (
       <LazyDesktopMarketTradingView
         key={isStockSharePrice ? `stock-share:${stockId ?? ''}` : 'token'}
-        tokenAddress={effectiveMarketTradingViewParams?.tokenAddress ?? ''}
-        networkId={effectiveMarketTradingViewParams?.networkId ?? ''}
+        tokenAddress={
+          isStockSharePrice
+            ? ''
+            : (effectiveMarketTradingViewParams?.tokenAddress ?? '')
+        }
+        networkId={
+          isStockSharePrice
+            ? ''
+            : (effectiveMarketTradingViewParams?.networkId ?? '')
+        }
         tokenSymbol={
           isStockSharePrice
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
-        isNative={effectiveMarketTradingViewParams?.isNative}
-        decimal={marketTradingViewParams?.decimal}
+        isNative={
+          isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
+        }
+        decimal={
+          isStockSharePrice ? undefined : marketTradingViewParams?.decimal
+        }
         dataSource={
           isStockSharePrice
             ? 'polling'
@@ -457,6 +489,7 @@ export function DesktopLayout({
       <TokenDesktopLayout
         marketTradingView={marketTradingView}
         swapToken={swapToken}
+        swapTargetKey={swapTargetKey}
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
         isBTCNetwork={isBTCNetwork}

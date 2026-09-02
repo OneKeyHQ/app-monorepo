@@ -39,6 +39,8 @@ function isSameIdentity(
 export function MarketAsyncStarV2({
   identities,
   resolveIdentity,
+  identityKey,
+  resolveOnMount = false,
   from,
   tokenSymbol,
   testID,
@@ -47,6 +49,8 @@ export function MarketAsyncStarV2({
 }: {
   identities: IMarketWatchlistIdentity[];
   resolveIdentity: () => Promise<IMarketWatchlistIdentity | undefined>;
+  identityKey: string;
+  resolveOnMount?: boolean;
   from: EWatchlistFrom;
   tokenSymbol?: string;
   testID: string;
@@ -60,6 +64,34 @@ export function MarketAsyncStarV2({
     useState<IMarketWatchlistIdentity>();
   const [optimisticChecked, setOptimisticChecked] = useState<boolean>();
   const isResolvingRef = useRef(false);
+  const identityKeyRef = useRef(identityKey);
+
+  useEffect(() => {
+    identityKeyRef.current = identityKey;
+    isResolvingRef.current = false;
+    setResolvedIdentity(undefined);
+    setOptimisticChecked(undefined);
+  }, [identityKey]);
+
+  useEffect(() => {
+    if (!resolveOnMount || !isMounted || watchListData.length === 0) {
+      return;
+    }
+    const requestIdentityKey = identityKey;
+    void resolveIdentity()
+      .then((identity) => {
+        if (identity && identityKeyRef.current === requestIdentityKey) {
+          setResolvedIdentity(identity);
+        }
+      })
+      .catch(() => undefined);
+  }, [
+    identityKey,
+    isMounted,
+    resolveIdentity,
+    resolveOnMount,
+    watchListData.length,
+  ]);
 
   const candidateIdentities = useMemo(() => {
     if (
@@ -117,35 +149,68 @@ export function MarketAsyncStarV2({
   );
 
   const handlePress = useCallback(async () => {
-    if (isResolvingRef.current) {
+    if (!isMounted || isResolvingRef.current) {
       return;
     }
+    const requestIdentityKey = identityKey;
+    isResolvingRef.current = true;
     if (checked) {
       setOptimisticChecked(false);
-      checkedIdentities.forEach((identity) => {
-        actions.removeFromWatchListV2(
-          identity.chainId,
-          identity.contractAddress,
+      try {
+        const results = await Promise.all(
+          checkedIdentities.map(async (identity) => {
+            const removed = await actions.removeFromWatchListV2(
+              identity.chainId,
+              identity.contractAddress,
+            );
+            if (removed) {
+              logRemoved(identity);
+            }
+            return removed;
+          }),
         );
-        logRemoved(identity);
-      });
+        if (
+          results.some((removed) => !removed) &&
+          identityKeyRef.current === requestIdentityKey
+        ) {
+          setOptimisticChecked(undefined);
+        }
+      } finally {
+        isResolvingRef.current = false;
+      }
       return;
     }
 
-    isResolvingRef.current = true;
     setOptimisticChecked(true);
     try {
       const identity = await resolveIdentity();
       if (!identity?.chainId) {
         throw new OneKeyLocalError('No watchlist identity');
       }
+      if (identityKeyRef.current !== requestIdentityKey) {
+        return;
+      }
       setResolvedIdentity(identity);
 
-      if (
-        !actions.isInWatchListV2(identity.chainId, identity.contractAddress)
-      ) {
-        actions.addIntoWatchListV2([identity]);
+      if (actions.isInWatchListV2(identity.chainId, identity.contractAddress)) {
+        setOptimisticChecked(false);
+        const removed = await actions.removeFromWatchListV2(
+          identity.chainId,
+          identity.contractAddress,
+        );
+        if (removed) {
+          logRemoved(identity);
+        } else {
+          setOptimisticChecked(undefined);
+        }
+        return;
+      }
+
+      const added = await actions.addIntoWatchListV2([identity]);
+      if (added) {
         logAdded(identity);
+      } else {
+        setOptimisticChecked(undefined);
       }
     } catch (_error) {
       setOptimisticChecked(undefined);
@@ -161,7 +226,9 @@ export function MarketAsyncStarV2({
     actions,
     checked,
     checkedIdentities,
+    identityKey,
     intl,
+    isMounted,
     logAdded,
     logRemoved,
     resolveIdentity,
@@ -180,6 +247,7 @@ export function MarketAsyncStarV2({
       iconProps={{
         color: displayedChecked ? '$iconActive' : '$iconSubdued',
       }}
+      disabled={!isMounted}
       onPress={handlePress}
       size={size}
       variant="tertiary"

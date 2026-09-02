@@ -16,9 +16,11 @@ export function selectMarketStockWatchlistVariant(
   response: IMarketStockTokenVariantsResponse,
 ) {
   const defaultVariant = response.items.find(
-    (item) =>
-      item.tokenId === response.defaultTokenId &&
-      isStockTokenVariantTradable(item),
+    (item) => item.tokenId === response.defaultTokenId,
   );
-  return defaultVariant ?? response.items.find(isStockTokenVariantTradable);
+  return (
+    defaultVariant ??
+    response.items.find(isStockTokenVariantTradable) ??
+    response.items[0]
+  );
 }

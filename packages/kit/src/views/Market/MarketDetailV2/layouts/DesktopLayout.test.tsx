@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 
-import { DesktopLayout } from './DesktopLayout';
+import { DesktopLayout, getMarketSwapTargetKey } from './DesktopLayout';
 
 const mockStockDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
@@ -156,6 +156,24 @@ describe('DesktopLayout', () => {
     mockStockDesktopLayout.mockClear();
   });
 
+  it('builds the swap target key from stable route identity', () => {
+    expect(
+      getMarketSwapTargetKey({
+        marketTokenId: 'bitcoin',
+        networkId: 'evm--1',
+        tokenAddress: '',
+        isNative: false,
+      }),
+    ).toBe('bitcoin');
+    expect(
+      getMarketSwapTargetKey({
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      }),
+    ).toBe('evm--1:0xbtc');
+  });
+
   it('forwards disableTrade to the stock desktop layout', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
@@ -219,5 +237,42 @@ describe('DesktopLayout', () => {
       timeFrom: 100,
       timeTo: 200,
     });
+  });
+
+  it('keeps the embedded share chart independent of the token variant', () => {
+    render(
+      <DesktopLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    const marketTradingView = mockStockDesktopLayout.mock.calls.at(-1)?.[0]
+      ?.marketTradingView as {
+      key: string;
+      props: {
+        decimal?: number;
+        isNative?: boolean;
+        networkId: string;
+        tokenAddress: string;
+        tokenSymbol?: string;
+      };
+    };
+
+    expect(marketTradingView.key).toBe('stock-share:AAPL');
+    expect(marketTradingView.props).toEqual(
+      expect.objectContaining({
+        decimal: undefined,
+        isNative: false,
+        networkId: '',
+        tokenAddress: '',
+        tokenSymbol: 'AAPL',
+      }),
+    );
   });
 });

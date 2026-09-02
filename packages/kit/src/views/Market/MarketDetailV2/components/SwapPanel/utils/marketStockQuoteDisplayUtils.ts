@@ -1,11 +1,10 @@
-import BigNumber from 'bignumber.js';
-
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
   resolveStockTokenPrice,
 } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockFiatValueUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { calculateSwapStockEstimatedShares } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
   IFetchQuoteResult,
@@ -19,25 +18,10 @@ export function calculateMarketStockEstimatedShares({
   stockTokenAmount?: string;
   tokenToAssetRatio?: string;
 }) {
-  const amountBN = new BigNumber(stockTokenAmount ?? '');
-  const ratioBN = new BigNumber(tokenToAssetRatio ?? '');
-  if (
-    !amountBN.isFinite() ||
-    !amountBN.gt(0) ||
-    !ratioBN.isFinite() ||
-    !ratioBN.gt(0)
-  ) {
-    return undefined;
-  }
-
-  return amountBN.multipliedBy(ratioBN).toFixed();
-}
-
-export function hasValidMarketStockTokenToAssetRatio(
-  tokenToAssetRatio?: string,
-) {
-  const ratioBN = new BigNumber(tokenToAssetRatio ?? '');
-  return ratioBN.isFinite() && ratioBN.gt(0);
+  return calculateSwapStockEstimatedShares({
+    stockTokenAmount,
+    tokenToAssetRatio,
+  });
 }
 
 export function buildMarketStockQuoteDisplay({

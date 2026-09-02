@@ -32,7 +32,15 @@ const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
   </Stack>,
 );
 
-export function MarketEmbeddedSwap({ swapToken }: { swapToken: ISwapToken }) {
+export function MarketEmbeddedSwap({
+  swapToken,
+  swapTargetKey,
+  testID = MarketTestIDs.detailEmbeddedSwap,
+}: {
+  swapToken: ISwapToken;
+  swapTargetKey: string;
+  testID?: string;
+}) {
   const { defaultTokens } = useSpeedSwapInit(swapToken.networkId, true);
   const defaultFromToken = useMemo(
     () =>
@@ -55,22 +63,12 @@ export function MarketEmbeddedSwap({ swapToken }: { swapToken: ISwapToken }) {
     }),
     [defaultFromToken, swapToken],
   );
-  const swapTargetKey = [
-    swapToken.networkId,
-    swapToken.isNative ? 'native' : swapToken.contractAddress,
-  ].join(':');
-
   return (
     <AccountSelectorProviderMirror
       config={{ sceneName: EAccountSelectorSceneName.swap }}
       enabledNum={[0, 1]}
     >
-      <Stack
-        testID={MarketTestIDs.detailEmbeddedSwap}
-        width="100%"
-        minHeight={520}
-        overflow="hidden"
-      >
+      <Stack testID={testID} width="100%" minHeight={520} overflow="hidden">
         <LazyEmbeddedSwap
           key={swapTargetKey}
           pageType={EPageType.modal}

@@ -19,8 +19,7 @@ export const MarketTestIDs = {
   stockList: 'market-stock-list',
   stockRow: (stockId: string) => `market-stock-row-${stockId}`,
   stockStarButton: (stockId: string) => `market-stock-star-${stockId}`,
-  topCoinsStarButton: (assetId: string) =>
-    `market-top-coins-star-${assetId}`,
+  topCoinsStarButton: (assetId: string) => `market-top-coins-star-${assetId}`,
   perpsList: 'market-perps-list',
 
   // Watchlist
