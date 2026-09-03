@@ -4,12 +4,14 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 
 import {
+  EHardwareUiStateAction,
   deviceStageAtom,
   firmwareUpdateWorkflowRunningAtom,
 } from '../../states/jotai/atoms';
 
 import {
   DeviceStageBurstScope,
+  createLatestStateFeed,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -23,11 +25,13 @@ jest.mock('../../states/jotai/atoms', () => {
   // Real enum objects: the burst scope builds its action-to-step maps at
   // module scope, so stubbed members would collapse every key into a
   // single "undefined".
-  const { EHardwareUiStateAction, EThirdPartyHardwareUiAction } =
-    jest.requireActual('../../states/jotai/atoms');
+  const {
+    EHardwareUiStateAction: HardwareUiStateAction,
+    EThirdPartyHardwareUiAction: ThirdPartyHardwareUiAction,
+  } = jest.requireActual('../../states/jotai/atoms');
   return {
-    EHardwareUiStateAction,
-    EThirdPartyHardwareUiAction,
+    EHardwareUiStateAction: HardwareUiStateAction,
+    EThirdPartyHardwareUiAction: ThirdPartyHardwareUiAction,
     deviceStageAtom: {
       get: jest.fn(),
       set: jest.fn(),
@@ -269,6 +273,9 @@ describe('DeviceStageBurstScope', () => {
     firmwareWorkflowAtom.get.mockResolvedValue(true);
     await scope.end();
     expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    // Silenced, the exit still lands: the update page owns the screen and
+    // the capsule must not stand over it behind its touch wall.
+    expect(stage?.step).toBe('off');
 
     // The update page cleared the flag in its own finally; the next burst
     // must behave like any other.
@@ -347,5 +354,129 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token: holderB });
     await letTheExitRun();
     expect(stage?.step).toBe('off');
+  });
+
+  it('lets a follow-up burst keep the stage when the previous exit is already past its read', async () => {
+    // The scheduled exit reads the atom, then writes off. A burst that
+    // claims the stage between the two — the hidden-wallet follow-up at
+    // the edge of the grace window — used to have its opening hidden while
+    // its device call ran on without a PIN or confirm surface.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.end();
+
+    let releaseExitRead: (() => void) | undefined;
+    stageAtom.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseExitRead = () => resolve(stage);
+        }),
+    );
+    // The exit fires and parks on its read.
+    jest.advanceTimersByTime(OFF_GRACE_MS);
+    expect(releaseExitRead).toBeDefined();
+
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+
+    releaseExitRead?.();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(stage?.step).toBe('connecting');
+  });
+
+  it('drops an ask that read the stage before the person closed it', async () => {
+    // A queued REQUEST_PIN was already reading the atom when the close
+    // landed. Painting it would reopen a stage no burst stands behind — the
+    // call it belongs to was cancelled with the close.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    let releaseAskRead: (() => void) | undefined;
+    stageAtom.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseAskRead = () => resolve(stage);
+        }),
+    );
+    const ask = scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(releaseAskRead).toBeDefined();
+
+    await scope.userClose();
+    expect(stage?.step).toBe('off');
+
+    releaseAskRead?.();
+    await ask;
+    expect(stage?.step).toBe('off');
+  });
+
+  it('clears a painted stage the moment the firmware workflow takes the screen', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+
+    await scope.silenceForFirmwareWorkflow();
+    expect(stage?.step).toBe('off');
+
+    // The burst's own bookkeeping still lands on its end.
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    await scope.end();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    expect(stage?.step).toBe('off');
+  });
+});
+
+describe('createLatestStateFeed', () => {
+  const flush = () =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+  it('runs one read at a time and once more for the triggers that arrived meanwhile', async () => {
+    let release: (() => void) | undefined;
+    const run = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const feed = createLatestStateFeed(run);
+
+    feed();
+    expect(run).toHaveBeenCalledTimes(1);
+    // Three atoms fire for one call boundary: one rerun, not three.
+    feed();
+    feed();
+    feed();
+    expect(run).toHaveBeenCalledTimes(1);
+
+    release?.();
+    await flush();
+    expect(run).toHaveBeenCalledTimes(2);
+
+    release?.();
+    await flush();
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps feeding after a read that failed', async () => {
+    const run = jest
+      .fn<Promise<void>, []>()
+      .mockRejectedValueOnce(new Error('bridge not ready'))
+      .mockResolvedValue(undefined);
+    const feed = createLatestStateFeed(run);
+
+    feed();
+    await flush();
+    feed();
+    await flush();
+    expect(run).toHaveBeenCalledTimes(2);
   });
 });
