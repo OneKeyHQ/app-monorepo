@@ -308,7 +308,9 @@ export async function handleKLineDataRequest({
       const shouldForceEmptyKLineData =
         context.forceEmptyKLineData ||
         (await shouldMockEmptyKLineData(resolution));
-      const shouldSuppressKLineError = Boolean(context.emptyKLineDataOnError);
+      const shouldSuppressKLineError = Boolean(
+        context.emptyKLineDataOnError || context.primaryKLineDataUnavailable,
+      );
       const fetchedKLineData = shouldForceEmptyKLineData
         ? buildEmptyKLineData()
         : await fetchTradingViewV2DataWithSlicing({

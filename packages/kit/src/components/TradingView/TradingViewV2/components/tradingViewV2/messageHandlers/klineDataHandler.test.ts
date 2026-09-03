@@ -121,6 +121,38 @@ describe('handleKLineDataRequest', () => {
     expect(context.onKLineDataReady).not.toHaveBeenCalled();
   });
 
+  it('responds with empty history when the only K-line source fails', async () => {
+    mockFetchTradingViewV2DataWithSlicing.mockResolvedValueOnce(null);
+    const { context, sendMessageViaInjectedScript } = buildContext();
+    context.primaryKLineDataUnavailable = true;
+
+    await handleKLineDataRequest({
+      data: buildHistoryMessage({ firstDataRequest: true }),
+      context,
+    });
+
+    expect(mockFetchTradingViewV2DataWithSlicing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoHandleError: false,
+        primaryKLineDataUnavailable: true,
+      }),
+    );
+    expect(sendMessageViaInjectedScript).toHaveBeenCalledWith({
+      type: 'kLineData',
+      payload: expect.objectContaining({
+        type: 'history',
+        kLineData: {
+          points: [],
+          total: 0,
+        },
+      }),
+    });
+    expect(context.onKLineLoadError).toHaveBeenCalledWith({
+      status: 'empty',
+      period: '1m',
+    });
+  });
+
   it.each([
     ['1', '1m'],
     ['60', '1H'],
