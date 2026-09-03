@@ -6,6 +6,7 @@ import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -24,6 +25,7 @@ import {
 import {
   type IBorrowBuildTxParams,
   attachBorrowOrderId,
+  getRiskGateSymbol,
   handleBorrowSuccess,
   parseBorrowEncodedTx,
   useUniversalBorrowRepay,
@@ -146,6 +148,8 @@ export function useUniversalBorrowSupply({
     networkId,
   });
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       amount,
@@ -155,7 +159,20 @@ export function useUniversalBorrowSupply({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses. Returns false so the caller can tell a rejection apart from a
+      // completed hand-off and leave the form untouched.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildSupplyTransaction({
           networkId,
@@ -186,8 +203,10 @@ export function useUniversalBorrowSupply({
         },
         onFail,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
   );
 }
 
@@ -203,6 +222,8 @@ export function useUniversalBorrowBorrow({
     networkId,
   });
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       amount,
@@ -212,7 +233,20 @@ export function useUniversalBorrowBorrow({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses. Returns false so the caller can tell a rejection apart from a
+      // completed hand-off and leave the form untouched.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildBorrowTransaction({
           networkId,
@@ -243,8 +277,10 @@ export function useUniversalBorrowBorrow({
         },
         onFail,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
   );
 }
 
@@ -256,6 +292,7 @@ export function useUniversalBorrowRepayWithCollateral({
   accountId: string;
 }) {
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -314,6 +351,18 @@ export function useUniversalBorrowRepayWithCollateral({
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       try {
         let setupLutFinalizationResult:
           | 'finalized'
@@ -485,7 +534,7 @@ export function useUniversalBorrowRepayWithCollateral({
         return false;
       }
     },
-    [accountId, intl, networkId, waitForTxConfirmResult],
+    [accountId, ensureRiskAccepted, intl, networkId, waitForTxConfirmResult],
   );
 }
 
@@ -510,6 +559,8 @@ export function useUniversalBorrowClaim({
     networkId,
   });
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       provider,
@@ -518,7 +569,19 @@ export function useUniversalBorrowClaim({
       stakingInfo,
       onSuccess,
       onFail,
-    }: IBorrowClaimTxParams) => {
+    }: IBorrowClaimTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildClaimTransaction({
           networkId,
@@ -548,7 +611,9 @@ export function useUniversalBorrowClaim({
         },
         onFail,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
   );
 }
