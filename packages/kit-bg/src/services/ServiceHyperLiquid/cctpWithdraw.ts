@@ -174,8 +174,8 @@ export async function getUsdcWithdrawFee(
   };
 }
 
-// Submission must not rely on a cached or static CCTP fallback fee. The contract
-// can update per-domain USDC fees, while direct HyperEVM sends have no CCTP fee.
+// The contract can update per-domain fees, so submission must not quote a cached
+// or fallback value.
 export async function getLiveUsdcWithdrawFee(
   destinationId: IUsdcWithdrawDestinationId,
   rpcCall: IHyperEvmRpcCall,

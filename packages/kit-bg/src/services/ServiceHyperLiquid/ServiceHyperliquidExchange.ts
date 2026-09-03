@@ -1756,8 +1756,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     );
   }
 
-  // The withdraw form needs the rail to show the right fee; the result is cached
-  // in the route module, so repeat opens do not re-request it.
   @backgroundMethod()
   async getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
     return getUsdcWithdrawRoute();
@@ -1786,12 +1784,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return getUsdcWithdrawFee(params.destinationId, this._callHyperEvmRpc);
   }
 
-  // `sendToEvmWithData` requires an explicit source balance, where `withdraw3`
-  // let Hyperliquid pick one. Mirror perpsComputedAccountValueAtom: unified and
-  // portfolio-margin accounts report the spot-side USDC balance as withdrawable,
-  // every other mode reports the perp clearinghouse. Sourcing from a balance the
-  // withdraw form never validated against would let the action exceed what the
-  // user was shown as available.
+  // Mirrors perpsComputedAccountValueAtom so the action spends the same balance
+  // the withdraw form validated the amount against.
   private async _resolveWithdrawSourceDex(
     userAddress: string | undefined,
   ): Promise<'' | 'spot'> {
@@ -1823,11 +1817,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       }),
     );
     const context = await this._buildLogContext();
-    // Resolved inside the try so a failure here is reported like any other
-    // withdrawal failure instead of escaping without a log.
+    // Declared outside the try so a failure before the action still logs them.
     let route: IUsdcWithdrawRoute | undefined;
-    // Which balance the action drew from is the field most worth having when a
-    // withdrawal misbehaves, and the one a signature prompt may not surface.
     let sourceDex: '' | 'spot' | undefined;
     try {
       const [resolvedRoute, userAddress] = await Promise.all([

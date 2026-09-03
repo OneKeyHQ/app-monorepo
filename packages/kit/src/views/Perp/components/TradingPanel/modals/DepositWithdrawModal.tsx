@@ -141,10 +141,8 @@ function formatWithdrawFeeComponent(
   return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
 }
 
-// The fee of a destination is known before the quote comes back, so switching
-// destinations can render the new number straight away. Without it the row
-// blanks to a placeholder between the two values and reads as a flicker, even
-// when both destinations charge the same.
+// A destination's fee is known before its quote returns, so the row can skip the
+// placeholder frame between two values that reads as a flicker.
 function buildWithdrawFeePreviewQuote({
   destination,
   route,
@@ -447,8 +445,7 @@ function DepositWithdrawContent({
     withdrawFeeState && withdrawFeeState.key === withdrawFeeKey
       ? withdrawFeeState.quote
       : undefined;
-  // Submission still binds to the confirmed quote; this one only feeds the row,
-  // so a destination switch never blanks the number it is replacing.
+  // Display only; submission still binds to the confirmed quote below.
   const withdrawFeeDisplayQuote = useMemo(
     () =>
       withdrawFeeQuote ??
@@ -1660,10 +1657,8 @@ function DepositWithdrawContent({
 
   const isInsufficientBalance = useMemo(() => {
     const checkBN = selectedAction === 'deposit' ? tokenAmountBN : amountBN;
-    // Withdrawals validate against the gas-reserved maximum, so compare against
-    // the same ceiling. Otherwise an amount inside the reserve leaves the submit
-    // button disabled with nothing explaining why — and the displayed balance is
-    // the untrimmed one, so typing it lands there every time.
+    // Same ceiling the amount is validated against, or typing the displayed
+    // balance disables submit with nothing explaining why.
     const limitBN =
       selectedAction === 'deposit'
         ? availableBalanceBN
@@ -2213,12 +2208,8 @@ function DepositWithdrawContent({
     [setPerpsCustomSettings],
   );
 
-  // The selector always needs the active external withdrawal rail, including
-  // when HyperEVM is selected. Kept on the same refresh as the fee quote: a rail
-  // that flips while the form is open makes submission fail with "route
-  // changed", and without a refresh the retry that error asks for can never
-  // succeed. The background service serves its cached value, so most ticks cost
-  // nothing.
+  // Refreshed alongside the fee: a rail that flips while the form is open fails
+  // submission with "route changed", and the retry it asks for needs this.
   useEffect(() => {
     if (selectedAction !== 'withdraw') {
       return;
@@ -2290,8 +2281,7 @@ function DepositWithdrawContent({
         .getUsdcWithdrawFee({ destinationId: withdrawDestinationId })
         .then((feeQuote) => {
           if (!cancelled) {
-            // The periodic refresh usually returns what is already on screen;
-            // reusing the object keeps that tick from re-rendering the row.
+            // Reusing the object keeps an unchanged refresh from re-rendering.
             setWithdrawFeeState((current) =>
               current?.key === withdrawFeeKey &&
               isSameWithdrawFeeQuote(current.quote, feeQuote)

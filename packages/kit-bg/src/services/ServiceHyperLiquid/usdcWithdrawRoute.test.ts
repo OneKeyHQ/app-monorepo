@@ -83,8 +83,7 @@ describe('usdc withdraw route resolution', () => {
     }
   });
 
-  // A failure must not be cached, or one flaky response would pin every later
-  // withdrawal to the more expensive rail for the whole cache window.
+  // Caching a failure would pin later withdrawals to the pricier rail.
   it('retries after a failed lookup', async () => {
     requestMock.mockRejectedValueOnce(new Error('network down'));
     await expect(getUsdcWithdrawRoute()).resolves.toBe('bridge');
@@ -93,8 +92,7 @@ describe('usdc withdraw route resolution', () => {
     expect(requestMock).toHaveBeenCalledTimes(2);
   });
 
-  // Downgrading a user to the deprecated rail because one lookup failed would
-  // silently quadruple their fee.
+  // One failed lookup must not quadruple the user's fee.
   it('keeps the last confirmed rail when a later lookup fails', async () => {
     requestMock.mockResolvedValue({ withdrawalRoute: 'cctp' });
     await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');
@@ -105,8 +103,7 @@ describe('usdc withdraw route resolution', () => {
     jest.spyOn(Date, 'now').mockRestore();
   });
 
-  // A 200 we cannot read is not a rail change; treating it as one would pin the
-  // user to the more expensive bridge for the whole cache window.
+  // An unreadable 200 is not a rail change.
   it('keeps the confirmed rail when a later response is unreadable', async () => {
     requestMock.mockResolvedValue({ withdrawalRoute: 'cctp' });
     await expect(getUsdcWithdrawRoute()).resolves.toBe('cctp');

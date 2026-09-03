@@ -195,10 +195,8 @@ const getDisplayType = (
   delta: IUserNonFundingLedgerUpdate['delta'],
   currentAddress?: string | null,
 ): string => {
-  // A `send` carries both directions on the same ledger. Outgoing ones include
-  // CCTP withdrawals and Core -> HyperEVM transfers, which would otherwise render
-  // as money coming in. Transfers between the user's own balances keep the
-  // existing rendering, since neither direction describes them.
+  // `send` carries both directions, and the shared config renders money coming
+  // in — so a withdrawal would show as a credit. Self-transfers are neither.
   if (deltaType === 'send') {
     const isSentToOthers =
       'user' in delta &&

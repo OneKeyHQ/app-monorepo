@@ -240,10 +240,9 @@ export function buildPerpPortfolioFillsStats({
   };
 }
 
-// "Total deposits minus total withdrawals during this period", per the stat's
-// own tooltip, so an account's internal perp/spot moves must not count. USDC
-// leaves HyperCore as a `send` to the HyperEVM system address and comes back as
-// a `spotTransfer` from it, and both legs are needed or a round trip drifts.
+// Per its own tooltip this is deposits minus withdrawals, so internal perp/spot
+// moves must not count. USDC leaves HyperCore as a `send` to the system address
+// and returns as a `spotTransfer` from it; both legs or a round trip drifts.
 export function sumPerpsNetDeposits(
   updates: IUserNonFundingLedgerUpdatesResponse | undefined | null,
 ): number | null {

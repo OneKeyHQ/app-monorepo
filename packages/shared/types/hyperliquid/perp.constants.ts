@@ -63,9 +63,8 @@ export const MIN_DEPOSIT_AMOUNT = 5;
 // Legacy Arbitrum bridge (`withdraw3`) fee. Kept for the `bridge` route.
 export const WITHDRAW_FEE = 1;
 
-// HyperCore system address that receives Core -> HyperEVM sends. A `send` delta
-// with this destination is USDC leaving HyperCore, whether it is a CCTP
-// withdrawal or a plain transfer to HyperEVM.
+// Receives every Core -> HyperEVM send, so a `send` here is USDC leaving
+// HyperCore whether by CCTP withdrawal or a plain transfer.
 export const HYPEREVM_SYSTEM_ADDRESS =
   '0x2000000000000000000000000000000000000000' as IHex;
 export const USDC_WITHDRAW_GAS_RESERVE = 0.01;

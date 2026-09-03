@@ -4,14 +4,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { requestLoggedHyperLiquidTransport } from './utils/logHyperLiquidApiFailure';
 
-// Hyperliquid moved USDC to Circle CCTP and marked the legacy Arbitrum bridge
-// deprecated, but kept serving the active rail from `info/usdcRouting` so it can
-// be switched back. Follow that switch instead of pinning a rail in the bundle.
+// Hyperliquid deprecated the legacy Arbitrum bridge for CCTP but kept a switch to
+// revert, so follow `info/usdcRouting` instead of pinning a rail in the bundle.
 export type IUsdcWithdrawRoute = 'bridge' | 'cctp';
 
-// `usdcRouting` is absent from the pinned @nktkas/hyperliquid info client, so the
-// request goes through the transport directly rather than bumping the SDK on a
-// release branch.
+// Absent from the pinned SDK's info client, so the request goes through the
+// transport rather than bumping @nktkas/hyperliquid on a release branch.
 interface IUsdcRoutingResponse {
   depositRoute?: string;
   withdrawalRoute?: string;
@@ -19,15 +17,13 @@ interface IUsdcRoutingResponse {
 
 const ROUTE_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// An unreachable or unparsable response tells us nothing new, so fall back to the
-// rail that has been working in production all along. It costs the legacy $1 fee
-// instead of risking a rail Hyperliquid may have turned off.
+// A failed lookup teaches us nothing, so fall back to the rail that has always
+// worked rather than one Hyperliquid may have turned off.
 const FALLBACK_ROUTE: IUsdcWithdrawRoute = 'bridge';
 
 let cachedRoute: { route: IUsdcWithdrawRoute; fetchedAt: number } | undefined;
-// A rail Hyperliquid confirmed earlier beats the blind fallback: once cctp has
-// been observed live, a later lookup failure must not silently downgrade the
-// user to a rail that is on its way out.
+// A rail seen live beats the blind fallback, so one failed lookup cannot
+// downgrade the user to the 5x more expensive bridge.
 let lastResolvedRoute: IUsdcWithdrawRoute | undefined;
 let inFlightRequest: Promise<IUsdcWithdrawRoute> | undefined;
 
@@ -35,10 +31,8 @@ function parseRoute(value: unknown): IUsdcWithdrawRoute | undefined {
   return value === 'cctp' || value === 'bridge' ? value : undefined;
 }
 
-// Resolves to undefined when Hyperliquid answers with something we cannot read,
-// which callers must not confuse with a genuine switch to the legacy bridge:
-// `requestLoggedHyperLiquidTransport` reports `{ status: 'err' }` bodies but
-// still returns them, and a missing or unknown `withdrawalRoute` lands here too.
+// Undefined for anything unreadable, which callers must not confuse with a real
+// switch to the bridge: error-shaped bodies are logged but still returned.
 async function fetchWithdrawRoute(): Promise<IUsdcWithdrawRoute | undefined> {
   const response =
     await requestLoggedHyperLiquidTransport<IUsdcRoutingResponse>(
@@ -59,8 +53,7 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
     inFlightRequest = fetchWithdrawRoute()
       .then((route) => {
         if (!route) {
-          // Neither cache nor remember an unreadable answer, or one malformed
-          // response would pin the user to the fallback rail for the whole TTL.
+          // Caching this would pin the user to the fallback for the whole TTL.
           return lastResolvedRoute ?? FALLBACK_ROUTE;
         }
         cachedRoute = { route, fetchedAt: Date.now() };
@@ -68,8 +61,7 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
         return route;
       })
       .catch(() => {
-        // requestLoggedHyperLiquidTransport already reported the failure; a
-        // withdrawal must still resolve to a usable rail.
+        // Already reported upstream; a withdrawal still needs a usable rail.
         return lastResolvedRoute ?? FALLBACK_ROUTE;
       })
       .finally(() => {
@@ -79,8 +71,8 @@ export async function getUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
   return inFlightRequest;
 }
 
-// A submission must be bound to the route that Hyperliquid is serving now.
-// Falling back here could silently change both the rail and the charged fee.
+// Submission binds to the rail being served now; a fallback here would silently
+// change both the rail and the charged fee.
 export async function getLiveUsdcWithdrawRoute(): Promise<IUsdcWithdrawRoute> {
   const route = await fetchWithdrawRoute();
   if (!route) {

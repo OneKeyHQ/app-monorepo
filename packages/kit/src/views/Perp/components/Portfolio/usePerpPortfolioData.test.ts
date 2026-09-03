@@ -243,8 +243,8 @@ describe('sumPerpsNetDeposits', () => {
     ).toBe(60);
   });
 
-  // The source balance must not matter: withdrawals from a unified account are
-  // sourced from spot, and dropping those would hide every withdrawal we make.
+  // Unified accounts withdraw from spot, so filtering on source would hide
+  // every withdrawal the app itself makes.
   it('counts a withdrawal whichever balance it is sourced from', () => {
     const fromSpot = sumPerpsNetDeposits(
       ledger([
@@ -303,8 +303,8 @@ describe('sumPerpsNetDeposits', () => {
     ).toBe(0);
   });
 
-  // Moving between one's own perp and spot balances is neither a deposit nor a
-  // withdrawal, and counting it double-subtracted spot-sourced withdrawals.
+  // Neither a deposit nor a withdrawal, and counting it double-subtracted
+  // spot-sourced withdrawals.
   it('ignores transfers between the account own balances', () => {
     expect(
       sumPerpsNetDeposits(
