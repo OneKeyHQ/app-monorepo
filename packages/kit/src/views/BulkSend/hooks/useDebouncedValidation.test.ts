@@ -277,6 +277,32 @@ describe('useDebouncedValidation', () => {
     expect(validateFn).not.toHaveBeenCalled();
   });
 
+  it('cancel(rejectedPromise) settles pending callers as invalid instead of hanging', async () => {
+    const validateFn = jest.fn<Promise<string | boolean>, [string]>(
+      async () => 'debounced result',
+    );
+    const { result } = renderHook(() =>
+      useDebouncedValidation(validateFn, 300),
+    );
+
+    let pendingResolved: string | boolean | undefined;
+    act(() => {
+      void result.current.validate('0xslow').then((v) => {
+        pendingResolved = v;
+      });
+    });
+    act(() => {
+      result.current.cancel(Promise.reject(new Error('replacement failed')));
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // The form would otherwise stay "validating" and keep Next disabled.
+    expect(pendingResolved).toBe(false);
+  });
+
   it('settles pending validations with the last known result on unmount', async () => {
     const validateFn = jest.fn<Promise<string | boolean>, [string]>(
       async () => 'bad address',

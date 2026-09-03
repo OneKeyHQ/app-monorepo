@@ -26,8 +26,9 @@ class ServiceBulkSend extends ServiceBase {
    * Resolves the account / network / token / sender the addresses page is
    * seeded with in a single background round trip, so the page can paint
    * its first frame complete instead of filling the form in stages
-   * (OK-61587). Every lookup degrades independently: a failed token or
-   * sender lookup leaves that field undefined and keeps the rest.
+   * (OK-61587). Every lookup degrades independently: a failed account
+   * remap, token or sender lookup leaves that field undefined and keeps
+   * the rest, so the page always receives a seed to mount on.
    */
   @backgroundMethod()
   async getAddressesInputSeed({
@@ -72,7 +73,17 @@ class ServiceBulkSend extends ServiceBase {
       (isAllNetwork &&
         !accountUtils.isOthersAccount({ accountId: selectedAccountId ?? '' }))
     ) {
-      await resolveAccountOnSelectedNetwork();
+      try {
+        await resolveAccountOnSelectedNetwork();
+      } catch {
+        // The caller-provided account belongs to the uncorrected network (or
+        // is the All Networks pseudo account), so it cannot seed token /
+        // sender lookups on `selectedNetworkId`. Resolve a partial seed
+        // without an account instead of rejecting: a rejected seed left the
+        // page initializing forever (sender skeleton, Next disabled), while
+        // a partial one mounts the form and lets the user pick the sender.
+        selectedAccountId = undefined;
+      }
     }
 
     const [network, token] = await Promise.all([

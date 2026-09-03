@@ -139,6 +139,25 @@ describe('ServiceFiatCrypto.getTokensListWithNetworks', () => {
     expect(getVaultSettings).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the token list when the network metadata lookup fails', async () => {
+    // The metadata used to load separately, so a failure only left rows
+    // unlabeled; folding it into this response must not hide the tokens.
+    getNetworksByIds.mockRejectedValueOnce(
+      new Error('network config unreadable'),
+    );
+    const service = createService();
+
+    const result = await service.getTokensListWithNetworks({
+      networkId: 'onekeyall--0',
+      type: 'buy',
+      accountId: 'hd-1--m/44h/60h/0h/0/0',
+    });
+
+    expect(result.tokens.map((t) => t.symbol)).toEqual(['BTC', 'ETH', 'USDT']);
+    expect(result.networksMap).toEqual({});
+    expect(result.mergeDeriveAssetsNetworkIds).toEqual(['btc--0']);
+  });
+
   it('treats a network whose vault settings cannot be loaded as non-merging', async () => {
     getVaultSettings.mockImplementation(async ({ networkId }) => {
       if (networkId === 'btc--0') {

@@ -55,10 +55,11 @@ import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import { parseBulkSendAddressLines } from './addressLineUtils';
 import {
+  buildBulkSendFallbackSeed,
   buildBulkSendSeedSource,
   buildBulkSendSeedTokenKey,
   computeBulkSendNextDisabled,
-  isBulkSendSeedEqual,
+  resolveBulkSendSeedApplyPlan,
 } from './bulkSendSeedUtils';
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
@@ -122,6 +123,7 @@ function BaseBulkSendAddressesInput({
     isInitializing,
     seededAccountId,
     seededNetworkId,
+    seededSender,
     isSenderFieldMounted,
   } = useBulkSendAddressesInputContext();
 
@@ -327,15 +329,28 @@ function BaseBulkSendAddressesInput({
     },
   );
 
+  const senderAddressRequestIdRef = useRef(0);
   const fetchSelectedAccountAddress = useCallback(async () => {
-    if (selectedAccountId && selectedNetworkId) {
+    if (!selectedAccountId || !selectedNetworkId) {
+      return;
+    }
+    // Only the latest selection may write the field: a slow lookup for a
+    // previous account must not land over a newer pick.
+    senderAddressRequestIdRef.current += 1;
+    const requestId = senderAddressRequestIdRef.current;
+    try {
       const address =
         await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId: selectedAccountId,
           networkId: selectedNetworkId,
         });
+      if (senderAddressRequestIdRef.current !== requestId) {
+        return;
+      }
       form.setValue('senderAddresses', address);
       void form.trigger('senderAddresses');
+    } catch {
+      // Keep whatever the field holds; validation reports its state.
     }
   }, [form, selectedAccountId, selectedNetworkId]);
 
@@ -386,12 +401,17 @@ function BaseBulkSendAddressesInput({
     if (!isOneToMany || !selectedAccountId || !selectedNetworkId) {
       return;
     }
-    // The seed already wrote the address for this selection in the same
-    // commit as the token; only a selection made on the page (account /
-    // network / address type picker) needs the extra lookup.
+    // The seed wrote the address for its own selection in the same commit
+    // as the token, so the lookup is redundant only while the field still
+    // holds that address. Switching to another account and back (account /
+    // network / address type picker) or a mode reset leaves a different
+    // value in the field and must refresh it; skipping on the seed identity
+    // alone kept the previous account's address in the form.
     if (
       selectedAccountId === seededAccountId &&
-      selectedNetworkId === seededNetworkId
+      selectedNetworkId === seededNetworkId &&
+      Boolean(seededSender?.address) &&
+      form.getValues('senderAddresses') === seededSender?.address
     ) {
       return;
     }
@@ -399,10 +419,12 @@ function BaseBulkSendAddressesInput({
   }, [
     isOneToMany,
     fetchSelectedAccountAddress,
+    form,
     selectedAccountId,
     selectedNetworkId,
     seededAccountId,
     seededNetworkId,
+    seededSender?.address,
   ]);
 
   useEffect(() => {
@@ -823,14 +845,31 @@ function BulkSendAddressesInputProvider() {
       // Echo the key so a late result for a previous selection can never
       // be applied under the current one.
       const key = seedKey;
-      const seed =
-        await backgroundApiProxy.serviceBulkSend.getAddressesInputSeed(
-          seedSourceRef.current,
-        );
-      return { key, seed };
+      const source = seedSourceRef.current;
+      try {
+        const seed =
+          await backgroundApiProxy.serviceBulkSend.getAddressesInputSeed(
+            source,
+          );
+        return { key, seed, isFallback: false };
+      } catch {
+        // A rejected request must still settle the initializing gate, or
+        // the sender stays a skeleton and Next stays disabled for the life
+        // of the page. Mount on the raw source and let the user pick.
+        return {
+          key,
+          seed: buildBulkSendFallbackSeed(source),
+          isFallback: true,
+        };
+      }
     },
     [seedKey],
-    { swrKey: seedKey, checkIsFocused: false },
+    {
+      swrKey: seedKey,
+      checkIsFocused: false,
+      // Never snapshot the fallback: the next entry retries the lookup.
+      swrShouldPersist: (result) => !result.isFallback,
+    },
   );
   const seed = seedResult?.key === seedKey ? seedResult.seed : undefined;
 
@@ -902,13 +941,22 @@ function BulkSendAddressesInputProvider() {
   const isInitializing = appliedSeed?.key !== seedKey;
 
   useEffect(() => {
-    if (!seed) {
+    const plan = resolveBulkSendSeedApplyPlan({
+      seed,
+      seedKey,
+      appliedSeed,
+      selectedAccountId,
+      selectedNetworkId,
+      hasUserSelectedAsset,
+    });
+    if (plan.action === 'skip' || !seed) {
       return;
     }
-    if (
-      appliedSeed?.key === seedKey &&
-      isBulkSendSeedEqual(appliedSeed.seed, seed)
-    ) {
+    if (plan.action === 'record') {
+      // The user already moved to another sender / network on the page:
+      // remember this seed so it is not re-evaluated, but leave the
+      // selection and the sender field alone.
+      setAppliedSeed({ key: seedKey, seed });
       return;
     }
     const sender =
@@ -917,11 +965,13 @@ function BulkSendAddressesInputProvider() {
     // sender address paint together instead of in stages.
     setSelectedAccountId(seed.accountId);
     setSelectedNetworkId(seed.networkId);
-    setSelectedToken(seed.token);
+    if (!plan.keepUserToken) {
+      setSelectedToken(seed.token);
+      setHasUserSelectedAsset(false);
+    }
     setSelectedIndexedAccountId(seed.indexedAccountId);
     setSeededNetwork(seed.network);
     setSeededSender(sender);
-    setHasUserSelectedAsset(false);
     if (bulkSendMode === EBulkSendMode.OneToMany) {
       form.setValue('senderAddresses', sender?.address ?? '');
       if (sender?.address) {
@@ -929,7 +979,16 @@ function BulkSendAddressesInputProvider() {
       }
     }
     setAppliedSeed({ key: seedKey, seed });
-  }, [appliedSeed, bulkSendMode, form, seed, seedKey]);
+  }, [
+    appliedSeed,
+    bulkSendMode,
+    form,
+    hasUserSelectedAsset,
+    seed,
+    seedKey,
+    selectedAccountId,
+    selectedNetworkId,
+  ]);
 
   const context = useMemo(
     () => ({

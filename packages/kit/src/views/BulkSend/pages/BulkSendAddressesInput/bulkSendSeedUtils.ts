@@ -1,3 +1,4 @@
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import type {
   EBulkSendMode,
   IBulkSendAddressesInputSeed,
@@ -130,4 +131,79 @@ export function computeBulkSendNextDisabled({
     return baseDisabled || isTokenLoading;
   }
   return baseDisabled;
+}
+
+/**
+ * Seed used when the background lookup rejects (bridge / db failure). It
+ * echoes the request so the page leaves its initializing gate and mounts the
+ * form; every derived field is left for the user to pick. Callers must not
+ * persist it as an SWR snapshot, so the next entry retries the lookup.
+ */
+export function buildBulkSendFallbackSeed(
+  source: IBulkSendAddressesInputSeedParams,
+): IBulkSendAddressesInputSeed {
+  const { fixedNetworkId, isSupported } =
+    bulkSendUtils.fixBulkSendSupportedNetworkId({
+      networkId: source.networkId ?? '',
+      bulkSendMode: source.bulkSendMode,
+    });
+  return {
+    // The source account is only valid on its own network; once the network
+    // had to be corrected it cannot seed lookups there (see ServiceBulkSend).
+    accountId: isSupported ? source.accountId || undefined : undefined,
+    indexedAccountId: source.indexedAccountId || undefined,
+    networkId: fixedNetworkId || undefined,
+    isSupportedNetwork: isSupported,
+    token: source.tokenInfo,
+  };
+}
+
+export type IBulkSendSeedApplyPlan =
+  | { action: 'skip' }
+  | { action: 'record' }
+  | { action: 'apply'; keepUserToken: boolean };
+
+/**
+ * Decides what a (re)validated seed may write. The seed only provides the
+ * page's initial selection: once the user picked another sender / network on
+ * the page, a later seed for a different account (a revalidated snapshot
+ * whose metadata changed, or a re-keyed request after a mode switch) is
+ * recorded but must not overwrite that choice. A seed for the selection the
+ * user is on may refresh it, keeping an asset the user picked explicitly.
+ */
+export function resolveBulkSendSeedApplyPlan({
+  seed,
+  seedKey,
+  appliedSeed,
+  selectedAccountId,
+  selectedNetworkId,
+  hasUserSelectedAsset,
+}: {
+  seed: IBulkSendAddressesInputSeed | undefined;
+  seedKey: string;
+  appliedSeed: { key: string; seed: IBulkSendAddressesInputSeed } | undefined;
+  selectedAccountId: string | undefined;
+  selectedNetworkId: string | undefined;
+  hasUserSelectedAsset: boolean;
+}): IBulkSendSeedApplyPlan {
+  if (!seed) {
+    return { action: 'skip' };
+  }
+  if (
+    appliedSeed?.key === seedKey &&
+    isBulkSendSeedEqual(appliedSeed.seed, seed)
+  ) {
+    return { action: 'skip' };
+  }
+  const hasUserChangedSelection =
+    appliedSeed !== undefined &&
+    ((selectedAccountId ?? '') !== (appliedSeed.seed.accountId ?? '') ||
+      (selectedNetworkId ?? '') !== (appliedSeed.seed.networkId ?? ''));
+  const isSeedForCurrentSelection =
+    (seed.accountId ?? '') === (selectedAccountId ?? '') &&
+    (seed.networkId ?? '') === (selectedNetworkId ?? '');
+  if (hasUserChangedSelection && !isSeedForCurrentSelection) {
+    return { action: 'record' };
+  }
+  return { action: 'apply', keepUserToken: hasUserSelectedAsset };
 }

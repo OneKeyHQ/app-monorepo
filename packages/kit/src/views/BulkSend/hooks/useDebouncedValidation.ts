@@ -45,9 +45,17 @@ export function useDebouncedValidation<T extends string>(
       if (resolves.length === 0) {
         return;
       }
-      void Promise.resolve(result).then((settled) => {
-        resolves.forEach((resolve) => resolve(settled));
-      });
+      void Promise.resolve(result).then(
+        (settled) => {
+          resolves.forEach((resolve) => resolve(settled));
+        },
+        () => {
+          // A replacement validation that rejects must still settle the
+          // callers it replaced, or the form stays "validating" and blocks
+          // Next. Mirror the in-hook catch: a thrown validator is invalid.
+          resolves.forEach((resolve) => resolve(false));
+        },
+      );
     },
     [],
   );

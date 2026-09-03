@@ -129,7 +129,13 @@ class ServiceFiatCrypto extends ServiceBase {
     const networkIds = uniq(tokens.map((token) => token.networkId));
     const { serviceNetwork } = this.backgroundApi;
     const [{ networks }, mergeDeriveFlags] = await Promise.all([
-      serviceNetwork.getNetworksByIds({ networkIds }),
+      // Network metadata only decorates the rows (name / icon). Before it
+      // moved into this response the page loaded it separately, so a failed
+      // lookup merely left rows unlabeled; keep that contract instead of
+      // letting it hide a token list the fiat API already returned.
+      serviceNetwork
+        .getNetworksByIds({ networkIds })
+        .catch((): { networks: IServerNetwork[] } => ({ networks: [] })),
       Promise.all(
         networkIds.map(async (networkId): Promise<boolean> => {
           try {

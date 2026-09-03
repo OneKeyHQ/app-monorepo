@@ -1,11 +1,16 @@
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
-import type { IBulkSendAddressesInputSeed } from '@onekeyhq/shared/types/bulkSend';
+import type {
+  IBulkSendAddressesInputSeed,
+  IBulkSendAddressesInputSeedSender,
+} from '@onekeyhq/shared/types/bulkSend';
 
 import {
+  buildBulkSendFallbackSeed,
   buildBulkSendSeedSource,
   buildSeededSenderBadgeLabel,
   computeBulkSendNextDisabled,
   isBulkSendSeedEqual,
+  resolveBulkSendSeedApplyPlan,
 } from './bulkSendSeedUtils';
 
 const ETH_ACCOUNT_ID = "hd-1--m/44'/60'/0'/0/0";
@@ -161,5 +166,133 @@ describe('computeBulkSendNextDisabled', () => {
     expect(
       computeBulkSendNextDisabled({ ...ready, isFormValidating: true }),
     ).toBe(true);
+  });
+});
+
+describe('buildBulkSendFallbackSeed', () => {
+  it('echoes the request on a supported network so the page can mount', () => {
+    expect(
+      buildBulkSendFallbackSeed({
+        networkId: 'evm--1',
+        accountId: 'hd-1--m/44h/60h/0h/0/0',
+        indexedAccountId: 'hd-1--0',
+        bulkSendMode: EBulkSendMode.OneToMany,
+      }),
+    ).toEqual({
+      accountId: 'hd-1--m/44h/60h/0h/0/0',
+      indexedAccountId: 'hd-1--0',
+      networkId: 'evm--1',
+      isSupportedNetwork: true,
+      token: undefined,
+    });
+  });
+
+  it('drops the account once the network had to be corrected', () => {
+    // The All Networks pseudo account cannot seed lookups on the corrected
+    // network; mirror ServiceBulkSend and let the user pick the sender.
+    expect(
+      buildBulkSendFallbackSeed({
+        networkId: 'onekeyall--0',
+        accountId: 'hd-1--all',
+        indexedAccountId: 'hd-1--0',
+        bulkSendMode: EBulkSendMode.OneToMany,
+      }),
+    ).toEqual({
+      accountId: undefined,
+      indexedAccountId: 'hd-1--0',
+      networkId: 'evm--1',
+      isSupportedNetwork: false,
+      token: undefined,
+    });
+  });
+});
+
+describe('resolveBulkSendSeedApplyPlan', () => {
+  const homeSender: IBulkSendAddressesInputSeedSender = {
+    address: '0xhome',
+    accountName: 'Account #1',
+    walletName: 'Wallet 1',
+  };
+  const homeSeed: IBulkSendAddressesInputSeed = {
+    accountId: 'hd-1--m/44h/60h/0h/0/0',
+    indexedAccountId: 'hd-1--0',
+    networkId: 'evm--1',
+    isSupportedNetwork: true,
+    sender: homeSender,
+  };
+  const userAccountId = 'hd-1--m/44h/60h/0h/0/1';
+  const key = 'bulkSendSeed:v1:home';
+
+  function plan(
+    overrides: Partial<Parameters<typeof resolveBulkSendSeedApplyPlan>[0]>,
+  ) {
+    return resolveBulkSendSeedApplyPlan({
+      seed: homeSeed,
+      seedKey: key,
+      appliedSeed: { key, seed: homeSeed },
+      selectedAccountId: homeSeed.accountId,
+      selectedNetworkId: homeSeed.networkId,
+      hasUserSelectedAsset: false,
+      ...overrides,
+    });
+  }
+
+  it('applies the first seed and skips an identical revalidation', () => {
+    expect(
+      plan({
+        appliedSeed: undefined,
+        selectedAccountId: undefined,
+        selectedNetworkId: undefined,
+      }),
+    ).toEqual({ action: 'apply', keepUserToken: false });
+    expect(plan({})).toEqual({ action: 'skip' });
+    expect(plan({ seed: undefined })).toEqual({ action: 'skip' });
+  });
+
+  it('re-applies a revalidated seed while the user kept the seeded selection', () => {
+    const refreshed = {
+      ...homeSeed,
+      sender: { ...homeSender, walletName: 'Renamed wallet' },
+    };
+    expect(plan({ seed: refreshed })).toEqual({
+      action: 'apply',
+      keepUserToken: false,
+    });
+  });
+
+  it('records a seed for another account once the user changed the sender', () => {
+    // A revalidated snapshot whose metadata changed used to restore the
+    // entry sender / asset over the user's pick; so did the re-keyed
+    // request after a mode switch.
+    const refreshed = {
+      ...homeSeed,
+      sender: { ...homeSender, walletName: 'Renamed wallet' },
+    };
+    expect(plan({ seed: refreshed, selectedAccountId: userAccountId })).toEqual(
+      { action: 'record' },
+    );
+    expect(
+      plan({
+        seed: refreshed,
+        seedKey: 'bulkSendSeed:v1:home:many',
+        selectedAccountId: userAccountId,
+      }),
+    ).toEqual({ action: 'record' });
+  });
+
+  it('refreshes a seed for the selection the user is on and keeps a picked asset', () => {
+    const userSeed = {
+      ...homeSeed,
+      accountId: userAccountId,
+      sender: { ...homeSender, address: '0xuser' },
+    };
+    expect(
+      plan({
+        seed: userSeed,
+        seedKey: 'bulkSendSeed:v1:user',
+        selectedAccountId: userAccountId,
+        hasUserSelectedAsset: true,
+      }),
+    ).toEqual({ action: 'apply', keepUserToken: true });
   });
 });

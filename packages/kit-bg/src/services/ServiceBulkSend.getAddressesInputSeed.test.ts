@@ -159,6 +159,32 @@ describe('ServiceBulkSend.getAddressesInputSeed', () => {
     expect(seed.sender?.address).toBe(ETH_ADDRESS);
   });
 
+  it('resolves a partial seed when the account remap rejects', async () => {
+    // This was the only seed lookup without a fallback: an unsupported /
+    // All Networks home selection whose account lookup threw rejected the
+    // whole request and left the page initializing forever.
+    getNetworkAccountsInSameIndexedAccountId.mockRejectedValueOnce(
+      new Error('Network not found'),
+    );
+
+    const seed = await createService().getAddressesInputSeed({
+      networkId: 'onekeyall--0',
+      accountId: 'hd-1--all',
+      indexedAccountId: 'hd-1--0',
+      bulkSendMode: EBulkSendMode.OneToMany,
+    });
+
+    expect(seed.networkId).toBe('evm--1');
+    expect(seed.network?.id).toBe('evm--1');
+    expect(seed.indexedAccountId).toBe('hd-1--0');
+    // The All Networks pseudo account cannot seed lookups on evm--1.
+    expect(seed.accountId).toBeUndefined();
+    expect(seed.token).toBeUndefined();
+    expect(seed.sender).toBeUndefined();
+    expect(getNativeToken).not.toHaveBeenCalled();
+    expect(getAccountAddressInfoForApi).not.toHaveBeenCalled();
+  });
+
   it('keeps a caller-provided token and only fills the network name', async () => {
     const seed = await createService().getAddressesInputSeed({
       networkId: 'evm--1',

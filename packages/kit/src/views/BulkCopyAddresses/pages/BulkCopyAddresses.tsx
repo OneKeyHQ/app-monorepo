@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
@@ -77,6 +77,9 @@ type IBulkCopyAccountsResult = {
   // False until a load for the current wallet / network has completed, so
   // the list can tell "not loaded yet" from "loaded and empty" (OK-61586).
   loaded: boolean;
+  // A completed load whose enumeration rejected: rendered as a retryable
+  // error instead of an endless skeleton, and never persisted or exported.
+  loadFailed: boolean;
   networkAccounts: IBulkCopyNetworkAccounts[];
   networkAccountsByDeriveType: Record<
     string,
@@ -86,6 +89,7 @@ type IBulkCopyAccountsResult = {
 
 const EMPTY_ACCOUNTS_RESULT: IBulkCopyAccountsResult = {
   loaded: false,
+  loadFailed: false,
   networkAccounts: [],
   networkAccountsByDeriveType: {},
 };
@@ -288,14 +292,22 @@ function BulkCopyAddresses({
     },
   );
 
-  const {
-    result: {
-      networkAccountsByDeriveType,
-      networkAccounts,
-      loaded: accountsLoaded,
-    },
-  } = usePromiseResult<IBulkCopyAccountsResult>(
-    async () => {
+  const accountsScopeKey =
+    selectedWalletId && selectedNetworkId
+      ? swrKeys.bulkCopyAddressesAccounts({
+          walletId: selectedWalletId,
+          networkId: selectedNetworkId,
+        })
+      : undefined;
+  // Scope of the last enumeration that completed in this session. A
+  // persisted snapshot may paint the first frame, but export must never
+  // forward it before a load for the same wallet / network confirmed the
+  // accounts still exist (wallet / account mutations while the page was
+  // unmounted, or a snapshot from a previous run).
+  const freshAccountsScopeKeyRef = useRef<string | undefined>(undefined);
+
+  const loadAccounts =
+    useCallback(async (): Promise<IBulkCopyAccountsResult> => {
       if (copyType !== EBulkCopyType.Account) {
         return EMPTY_ACCOUNTS_RESULT;
       }
@@ -306,40 +318,59 @@ function BulkCopyAddresses({
 
       const { dbIndexedAccounts } = selectedWallet;
 
-      const accountsRequest = dbIndexedAccounts?.map(async (indexedAccount) => {
-        return backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: selectedNetworkId,
-            indexedAccountId: indexedAccount.id,
-            excludeEmptyAccount: true,
-          },
-        );
-      });
+      const settled = await Promise.allSettled(
+        (dbIndexedAccounts ?? []).map((indexedAccount) =>
+          backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId: selectedNetworkId,
+              indexedAccountId: indexedAccount.id,
+              excludeEmptyAccount: true,
+            },
+          ),
+        ),
+      );
 
-      const resp = await Promise.all(accountsRequest ?? []);
+      const resp: IBulkCopyNetworkAccounts[] = [];
+      for (const item of settled) {
+        if (item.status === 'rejected') {
+          // One failed indexed account used to reject the whole enumeration
+          // and leave `loaded: false` (an endless skeleton). Surface it as
+          // a retryable error rather than exporting a partial set.
+          return { ...EMPTY_ACCOUNTS_RESULT, loaded: true, loadFailed: true };
+        }
+        resp.push(item.value);
+      }
 
+      freshAccountsScopeKeyRef.current = accountsScopeKey;
       return {
         loaded: true,
+        loadFailed: false,
         networkAccounts: resp,
         networkAccountsByDeriveType: groupBy(
           flatten(map(resp, 'networkAccounts')),
           'deriveType',
         ),
       };
+    }, [accountsScopeKey, copyType, selectedNetworkId, selectedWallet]);
+
+  const {
+    result: {
+      networkAccountsByDeriveType,
+      networkAccounts,
+      loaded: accountsLoaded,
+      loadFailed: accountsLoadFailed,
     },
-    [selectedNetworkId, selectedWallet, copyType],
+    run: runAccounts,
+  } = usePromiseResult<IBulkCopyAccountsResult>(
+    async () => loadAccounts(),
+    [loadAccounts],
     {
       initResult: EMPTY_ACCOUNTS_RESULT,
       // Snapshot per (wallet, network) so a re-entry renders the previous
-      // account groups on the first frame; only completed loads are kept.
-      swrKey:
-        selectedWalletId && selectedNetworkId
-          ? swrKeys.bulkCopyAddressesAccounts({
-              walletId: selectedWalletId,
-              networkId: selectedNetworkId,
-            })
-          : undefined,
-      swrShouldPersist: (result) => result.loaded,
+      // account groups on the first frame; only completed, successful loads
+      // are kept.
+      swrKey: accountsScopeKey,
+      swrShouldPersist: (result) => result.loaded && !result.loadFailed,
     },
   );
 
@@ -349,6 +380,7 @@ function BulkCopyAddresses({
         isAccountMode: copyType === EBulkCopyType.Account,
         hasSelectedWallet: Boolean(selectedWallet),
         accountsLoaded,
+        accountsLoadFailed,
         hasAccounts:
           Boolean(networkAccountsByDeriveType) &&
           !isEmpty(networkAccountsByDeriveType),
@@ -362,6 +394,7 @@ function BulkCopyAddresses({
       copyType,
       selectedWallet,
       accountsLoaded,
+      accountsLoadFailed,
       networkAccountsByDeriveType,
       form.formState.errors,
     ],
@@ -616,6 +649,23 @@ function BulkCopyAddresses({
       return null;
     }
 
+    if (accountsViewState.showError) {
+      return (
+        <Empty
+          illustration="WalletOpen"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          buttonProps={{
+            children: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPress: () => {
+              void runAccounts();
+            },
+          }}
+        />
+      );
+    }
+
     if (accountsViewState.showEmpty) {
       return (
         <Empty
@@ -657,7 +707,13 @@ function BulkCopyAddresses({
         )}
       </Stack>
     );
-  }, [accountsViewState, copyType, intl, networkAccountsByDeriveType]);
+  }, [
+    accountsViewState,
+    copyType,
+    intl,
+    networkAccountsByDeriveType,
+    runAccounts,
+  ]);
 
   const renderBulkCopyByRange = useCallback(() => {
     if (copyType !== EBulkCopyType.Range) {
@@ -809,14 +865,26 @@ function BulkCopyAddresses({
   const handleExportAddresses = useCallback(
     async ({ exportWithoutDevice }: { exportWithoutDevice?: boolean }) => {
       if (copyType === EBulkCopyType.Account) {
-        let accountsData = networkAccountsByDeriveType;
+        let enumeratedAccounts = networkAccountsByDeriveType;
+        if (freshAccountsScopeKeyRef.current !== accountsScopeKey) {
+          // Still on the persisted snapshot: re-enumerate before exporting
+          // so a wallet / account removed or renamed since the snapshot was
+          // taken is never forwarded to the export modal.
+          const fresh = await loadAccounts();
+          if (fresh.loadFailed) {
+            void runAccounts();
+            return;
+          }
+          enumeratedAccounts = fresh.networkAccountsByDeriveType;
+        }
+        let accountsData = enumeratedAccounts;
         if (isHwWallet && !exportWithoutDevice) {
           accountsData = await handleGenerateAddressesByAccounts();
-          if (networkAccountsByDeriveType) {
+          if (enumeratedAccounts) {
             for (const [deriveType, accounts] of Object.entries(accountsData)) {
               accountsData[deriveType] =
                 accounts.filter((account) =>
-                  networkAccountsByDeriveType?.[deriveType]?.some(
+                  enumeratedAccounts?.[deriveType]?.some(
                     (item) =>
                       item.account &&
                       account.account &&
@@ -848,6 +916,9 @@ function BulkCopyAddresses({
     [
       copyType,
       networkAccountsByDeriveType,
+      accountsScopeKey,
+      loadAccounts,
+      runAccounts,
       selectedWalletId,
       navigation,
       selectedNetworkId,
