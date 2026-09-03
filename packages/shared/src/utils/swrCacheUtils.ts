@@ -689,6 +689,10 @@ const NS = {
   earnProtocolDetail: 'earnProtocolDetail',
   fiatCryptoTokenList: 'fiatCryptoTokenList',
   bulkSendAddressesInputSeed: 'bulkSendSeed',
+  bulkCopyAddressesWallets: 'bulkCopyWallets',
+  bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
+  bulkCopyAddressesAccounts: 'bulkCopyAccounts',
+  chainSelectorInputNetworks: 'chainSelNets',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -1221,6 +1225,34 @@ export const swrKeys = {
       indexedAccountId ?? '',
       bulkSendMode,
       tokenKey ?? '',
+    ].join(':'),
+  // Bulk copy addresses page: wallet picker list, per-wallet compatible
+  // network ids and the per-(wallet, network) account groups, so re-entries
+  // paint the previous structure instead of an empty state (OK-61586).
+  bulkCopyAddressesWallets: () => [NS.bulkCopyAddressesWallets, 'v1'].join(':'),
+  bulkCopyAddressesNetworkIds: ({ walletId }: { walletId: string }) =>
+    [NS.bulkCopyAddressesNetworkIds, 'v1', walletId].join(':'),
+  bulkCopyAddressesAccounts: ({
+    walletId,
+    networkId,
+  }: {
+    walletId: string;
+    networkId: string;
+  }) => [NS.bulkCopyAddressesAccounts, 'v1', walletId, networkId].join(':'),
+  // ChainSelectorInput: the (filtered) network list behind the trigger, so
+  // the current network name renders on the first frame.
+  chainSelectorInputNetworks: ({
+    excludeAllNetworkItem,
+    networkIds,
+  }: {
+    excludeAllNetworkItem?: boolean;
+    networkIds?: string[];
+  }) =>
+    [
+      NS.chainSelectorInputNetworks,
+      'v1',
+      excludeAllNetworkItem ? '1' : '0',
+      networkIds?.length ? networkIds.join(',') : '',
     ].join(':'),
 };
 

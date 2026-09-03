@@ -2,11 +2,12 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import type { Input } from '@onekeyhq/components';
-import { Icon, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, SizableText, Skeleton, Stack } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { NetworkAvatar } from '../NetworkAvatar';
 
@@ -47,13 +48,24 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       return networks;
     },
     [excludeAllNetworkItem, networkIds],
-    { initResult: [] },
+    {
+      initResult: [],
+      // Snapshot the list so the selected network name paints on the first
+      // frame of later visits instead of an empty box (OK-61586).
+      swrKey: swrKeys.chainSelectorInputNetworks({
+        excludeAllNetworkItem,
+        networkIds,
+      }),
+    },
   );
 
   const current = useMemo(() => {
     const item = selectorNetworks.find((o) => o.id === value);
     return item;
   }, [selectorNetworks, value]);
+  // A value is set but the list has not resolved yet: show a size-stable
+  // placeholder rather than an empty selector.
+  const isResolvingCurrent = Boolean(value) && selectorNetworks.length === 0;
 
   useEffect(() => {
     if (selectorNetworks.length && !current) {
@@ -134,16 +146,26 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       })}
       {...rest}
     >
-      <NetworkAvatar networkId={current?.id} size="$6" />
-      <SizableText
-        testID="network-selector-input-text"
-        px={sharedStyles.px}
-        flex={1}
-        size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-        color={sharedStyles.color}
-      >
-        {current?.name ?? ''}
-      </SizableText>
+      {isResolvingCurrent ? (
+        <Skeleton w="$6" h="$6" radius="round" />
+      ) : (
+        <NetworkAvatar networkId={current?.id} size="$6" />
+      )}
+      {isResolvingCurrent ? (
+        <Stack px={sharedStyles.px} flex={1}>
+          <Skeleton.BodyLg width="$24" />
+        </Stack>
+      ) : (
+        <SizableText
+          testID="network-selector-input-text"
+          px={sharedStyles.px}
+          flex={1}
+          size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+          color={sharedStyles.color}
+        >
+          {current?.name ?? ''}
+        </SizableText>
+      )}
       {!isReadOnly ? (
         <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
       ) : null}

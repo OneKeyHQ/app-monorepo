@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { flatten, groupBy, isEmpty, isNaN, map } from 'lodash';
@@ -42,6 +42,7 @@ import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkC
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IBatchCreateAccount } from '@onekeyhq/shared/types/account';
 
@@ -57,11 +58,37 @@ import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 import { BulkCopyAddressesTestIDs } from '../testIDs';
 import { buildBulkCopyByAccountsFlowParams } from '../utils/buildBulkCopyByAccountsParams';
+import { computeBulkCopyByAccountsViewState } from '../utils/bulkCopyAddressesViewState';
 
 enum EBulkCopyType {
   Account = 'account',
   Range = 'range',
 }
+
+type IBulkCopyWallet = IDBWallet & { parentWalletName?: string };
+
+type IBulkCopyNetworkAccounts = Awaited<
+  ReturnType<
+    typeof backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes
+  >
+>;
+
+type IBulkCopyAccountsResult = {
+  // False until a load for the current wallet / network has completed, so
+  // the list can tell "not loaded yet" from "loaded and empty" (OK-61586).
+  loaded: boolean;
+  networkAccounts: IBulkCopyNetworkAccounts[];
+  networkAccountsByDeriveType: Record<
+    string,
+    IBulkCopyNetworkAccounts['networkAccounts']
+  >;
+};
+
+const EMPTY_ACCOUNTS_RESULT: IBulkCopyAccountsResult = {
+  loaded: false,
+  networkAccounts: [],
+  networkAccountsByDeriveType: {},
+};
 
 function BulkCopyAddressesProcessingInfo({
   progressCurrent,
@@ -102,9 +129,6 @@ function BulkCopyAddresses({
     EBulkCopyType.Account,
   );
   const [isGeneratingAddresses, setIsGeneratingAddresses] = useState(false);
-  const walletsMap = useRef<
-    Record<string, IDBWallet & { parentWalletName?: string }>
-  >({});
   const sharedStyles = getSharedInputStyles({
     size: 'large',
   });
@@ -132,70 +156,77 @@ function BulkCopyAddresses({
   const isHwWallet = accountUtils.isHwWallet({ walletId: selectedWalletId });
 
   const { result: availableWallets, run: refreshAvailableWallets } =
-    usePromiseResult(async () => {
-      const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-        ignoreEmptySingletonWalletAccounts: true,
-        ignoreNonBackedUpWallets: true,
-        nestedHiddenWallets: true,
-        includingAccounts: true,
-      });
-
-      const availableWalletsTemp: (IDBWallet & {
-        parentWalletName?: string;
-      })[] = [];
-
-      const isWalletDeactivatedBotWallet = async (id: string) => {
-        if (!accountUtils.isBotWallet({ walletId: id })) {
-          return false;
-        }
-        return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-          walletId: id,
+    usePromiseResult(
+      async () => {
+        const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+          ignoreEmptySingletonWalletAccounts: true,
+          ignoreNonBackedUpWallets: true,
+          nestedHiddenWallets: true,
+          includingAccounts: true,
         });
-      };
 
-      // Reset the map alongside the list so a deactivated wallet that was
-      // previously selectable cannot stay reachable through walletsMap when its
-      // status flips.
-      walletsMap.current = {};
+        const availableWalletsTemp: IBulkCopyWallet[] = [];
 
-      for (const wallet of wallets) {
-        if (
-          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-          !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
-          !wallet.deprecated
-        ) {
-          // eslint-disable-next-line no-await-in-loop
-          const isWalletDeactivated = await isWalletDeactivatedBotWallet(
-            wallet.id,
-          );
-          if (!wallet.isMocked && !isWalletDeactivated) {
-            availableWalletsTemp.push(wallet);
-            walletsMap.current[wallet.id] = wallet;
+        const isWalletDeactivatedBotWallet = async (id: string) => {
+          if (!accountUtils.isBotWallet({ walletId: id })) {
+            return false;
           }
-          if (wallet.hiddenWallets?.length) {
-            for (const hiddenWallet of wallet.hiddenWallets) {
-              if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-                // eslint-disable-next-line no-await-in-loop
-                const isHiddenWalletDeactivated =
-                  await isWalletDeactivatedBotWallet(hiddenWallet.id);
-                if (!isHiddenWalletDeactivated) {
-                  availableWalletsTemp.push({
-                    ...hiddenWallet,
-                    parentWalletName: wallet.name,
-                  });
-                  walletsMap.current[hiddenWallet.id] = {
-                    ...hiddenWallet,
-                    parentWalletName: wallet.name,
-                  };
+          return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+            walletId: id,
+          });
+        };
+
+        for (const wallet of wallets) {
+          if (
+            !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+            !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+            !wallet.deprecated
+          ) {
+            // eslint-disable-next-line no-await-in-loop
+            const isWalletDeactivated = await isWalletDeactivatedBotWallet(
+              wallet.id,
+            );
+            if (!wallet.isMocked && !isWalletDeactivated) {
+              availableWalletsTemp.push(wallet);
+            }
+            if (wallet.hiddenWallets?.length) {
+              for (const hiddenWallet of wallet.hiddenWallets) {
+                if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
+                  // eslint-disable-next-line no-await-in-loop
+                  const isHiddenWalletDeactivated =
+                    await isWalletDeactivatedBotWallet(hiddenWallet.id);
+                  if (!isHiddenWalletDeactivated) {
+                    availableWalletsTemp.push({
+                      ...hiddenWallet,
+                      parentWalletName: wallet.name,
+                    });
+                  }
                 }
               }
             }
           }
         }
-      }
 
-      return availableWalletsTemp;
-    }, []);
+        return availableWalletsTemp;
+      },
+      [],
+      {
+        // Snapshot so a re-entry paints the wallet picker immediately; the
+        // fresh list replaces it as soon as the request resolves (OK-61586).
+        swrKey: swrKeys.bulkCopyAddressesWallets(),
+      },
+    );
+
+  // Derived from the current list (cached or fresh) so a deactivated wallet
+  // that was previously selectable cannot stay reachable once its status
+  // flips, and a cached list resolves the selection on the first frame.
+  const walletsMap = useMemo(() => {
+    const walletsMapTemp: Record<string, IBulkCopyWallet> = {};
+    for (const wallet of availableWallets ?? []) {
+      walletsMapTemp[wallet.id] = wallet;
+    }
+    return walletsMapTemp;
+  }, [availableWallets]);
 
   // Keep the available-wallet list reactive: bot wallet activate /
   // deactivate emits WalletUpdate (debounced) — without this the picker
@@ -215,52 +246,62 @@ function BulkCopyAddresses({
     if (!availableWallets || availableWallets.length === 0) {
       return;
     }
-    if (!selectedWalletId || !walletsMap.current[selectedWalletId]) {
+    if (!selectedWalletId || !walletsMap[selectedWalletId]) {
       form.setValue('selectedWalletId', availableWallets[0].id);
     }
-  }, [availableWallets, selectedWalletId, form]);
+  }, [availableWallets, selectedWalletId, form, walletsMap]);
 
-  const selectedWallet = walletsMap.current[selectedWalletId ?? ''];
+  const selectedWallet = walletsMap[selectedWalletId ?? ''];
 
   const { vaultSettings } = useAccountData({
     networkId: selectedNetworkId,
   });
 
-  const { result: availableNetworksIds } = usePromiseResult(async () => {
-    if (!selectedWalletId) {
-      return [];
-    }
+  const { result: availableNetworksIds } = usePromiseResult(
+    async () => {
+      if (!selectedWalletId) {
+        return [];
+      }
 
-    const { networks } = await backgroundApiProxy.serviceNetwork.getAllNetworks(
-      {
-        excludeAllNetworkItem: true,
-      },
-    );
-    const networkIds = networks.map((network) => network.id);
-    const { networkIdsCompatible } =
-      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
-        {
-          walletId: selectedWalletId,
-          networkIds,
-        },
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeAllNetworkItem: true,
+        });
+      const networkIds = networks.map((network) => network.id);
+      const { networkIdsCompatible } =
+        await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          {
+            walletId: selectedWalletId,
+            networkIds,
+          },
+        );
+      // exclude lightning network
+      return networkIdsCompatible.filter(
+        (id) => !networkUtils.isLightningNetworkByNetworkId(id),
       );
-    // exclude lightning network
-    return networkIdsCompatible.filter(
-      (id) => !networkUtils.isLightningNetworkByNetworkId(id),
-    );
-  }, [selectedWalletId]);
+    },
+    [selectedWalletId],
+    {
+      swrKey: selectedWalletId
+        ? swrKeys.bulkCopyAddressesNetworkIds({ walletId: selectedWalletId })
+        : undefined,
+    },
+  );
 
   const {
-    result: { networkAccountsByDeriveType, networkAccounts },
-    isLoading: isLoadingAccounts,
-  } = usePromiseResult(
+    result: {
+      networkAccountsByDeriveType,
+      networkAccounts,
+      loaded: accountsLoaded,
+    },
+  } = usePromiseResult<IBulkCopyAccountsResult>(
     async () => {
       if (copyType !== EBulkCopyType.Account) {
-        return {};
+        return EMPTY_ACCOUNTS_RESULT;
       }
 
       if (!selectedNetworkId || !selectedWallet) {
-        return {};
+        return EMPTY_ACCOUNTS_RESULT;
       }
 
       const { dbIndexedAccounts } = selectedWallet;
@@ -278,6 +319,7 @@ function BulkCopyAddresses({
       const resp = await Promise.all(accountsRequest ?? []);
 
       return {
+        loaded: true,
         networkAccounts: resp,
         networkAccountsByDeriveType: groupBy(
           flatten(map(resp, 'networkAccounts')),
@@ -287,12 +329,42 @@ function BulkCopyAddresses({
     },
     [selectedNetworkId, selectedWallet, copyType],
     {
-      watchLoading: true,
-      initResult: {
-        networkAccounts: [],
-        networkAccountsByDeriveType: {},
-      },
+      initResult: EMPTY_ACCOUNTS_RESULT,
+      // Snapshot per (wallet, network) so a re-entry renders the previous
+      // account groups on the first frame; only completed loads are kept.
+      swrKey:
+        selectedWalletId && selectedNetworkId
+          ? swrKeys.bulkCopyAddressesAccounts({
+              walletId: selectedWalletId,
+              networkId: selectedNetworkId,
+            })
+          : undefined,
+      swrShouldPersist: (result) => result.loaded,
     },
+  );
+
+  const accountsViewState = useMemo(
+    () =>
+      computeBulkCopyByAccountsViewState({
+        isAccountMode: copyType === EBulkCopyType.Account,
+        hasSelectedWallet: Boolean(selectedWallet),
+        accountsLoaded,
+        hasAccounts:
+          Boolean(networkAccountsByDeriveType) &&
+          !isEmpty(networkAccountsByDeriveType),
+        // The wallet / network fields carry no rules, so "no errors" is the
+        // real validity here; `formState.isValid` is false on the first
+        // frame until react-hook-form's mount validation settles, which
+        // would flip the export button grey → black on a cached entry.
+        isFormValid: isEmpty(form.formState.errors),
+      }),
+    [
+      copyType,
+      selectedWallet,
+      accountsLoaded,
+      networkAccountsByDeriveType,
+      form.formState.errors,
+    ],
   );
 
   const handleGenerateAddresses = useCallback(
@@ -523,7 +595,7 @@ function BulkCopyAddresses({
   );
 
   const renderBulkCopyByAccounts = useCallback(() => {
-    if (isLoadingAccounts) {
+    if (accountsViewState.showSkeleton) {
       return (
         <Skeleton.Group show>
           {Array.from({ length: 3 }).map((_, index) => (
@@ -544,7 +616,7 @@ function BulkCopyAddresses({
       return null;
     }
 
-    if (!networkAccountsByDeriveType || isEmpty(networkAccountsByDeriveType)) {
+    if (accountsViewState.showEmpty) {
       return (
         <Empty
           illustration="WalletOpen"
@@ -585,7 +657,7 @@ function BulkCopyAddresses({
         )}
       </Stack>
     );
-  }, [copyType, intl, isLoadingAccounts, networkAccountsByDeriveType]);
+  }, [accountsViewState, copyType, intl, networkAccountsByDeriveType]);
 
   const renderBulkCopyByRange = useCallback(() => {
     if (copyType !== EBulkCopyType.Range) {
@@ -792,19 +864,15 @@ function BulkCopyAddresses({
 
   const isDisabled = useMemo(() => {
     return copyType === EBulkCopyType.Account
-      ? !form.formState.isValid ||
-          isLoadingAccounts ||
-          !networkAccountsByDeriveType ||
-          isEmpty(networkAccountsByDeriveType)
+      ? accountsViewState.isExportDisabled
       : !form.formState.isValid ||
           !formRange.formState.isValid ||
           !selectedWallet ||
           isGeneratingAddresses;
   }, [
     copyType,
+    accountsViewState.isExportDisabled,
     form.formState.isValid,
-    isLoadingAccounts,
-    networkAccountsByDeriveType,
     formRange.formState.isValid,
     isGeneratingAddresses,
     selectedWallet,
@@ -897,15 +965,25 @@ function BulkCopyAddresses({
                         bg: '$bgActive',
                       }}
                     >
-                      <WalletAvatar wallet={selectedWallet} size="$6" />
-                      <SizableText
-                        flex={1}
-                        px={sharedStyles.px}
-                        size="$bodyLg"
-                        numberOfLines={1}
-                      >
-                        {label}
-                      </SizableText>
+                      {selectedWallet ? (
+                        <WalletAvatar wallet={selectedWallet} size="$6" />
+                      ) : (
+                        <Skeleton w="$6" h="$6" radius="round" />
+                      )}
+                      {selectedWallet ? (
+                        <SizableText
+                          flex={1}
+                          px={sharedStyles.px}
+                          size="$bodyLg"
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </SizableText>
+                      ) : (
+                        <Stack flex={1} px={sharedStyles.px}>
+                          <Skeleton.BodyLg width="$32" />
+                        </Stack>
+                      )}
                       <Icon
                         name="ChevronDownSmallOutline"
                         mr="$-0.5"
