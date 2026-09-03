@@ -261,12 +261,12 @@ export function DesktopLayout({
                   onChange={currentFilterBarProps.onTimeRangeChange}
                 />
               )}
-              {showNetworkSelector ? (
+              <XStack display={showNetworkSelector ? 'flex' : 'none'}>
                 <CompactNetworkSelector
                   selectedNetworkId={currentFilterBarProps.selectedNetworkId}
                   onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
                 />
-              ) : null}
+              </XStack>
             </XStack>
           </XStack>
           <div

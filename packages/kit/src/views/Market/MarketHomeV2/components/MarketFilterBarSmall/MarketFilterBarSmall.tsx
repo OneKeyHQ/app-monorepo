@@ -29,12 +29,12 @@ function MarketFilterBarSmall({
         justifyContent={showNetworkSelector ? 'space-between' : 'flex-end'}
         alignItems="center"
       >
-        {showNetworkSelector ? (
+        <XStack display={showNetworkSelector ? 'flex' : 'none'}>
           <MobileNetworkDropdown
             selectedNetworkId={selectedNetworkId}
             onNetworkIdChange={onNetworkIdChange}
           />
-        ) : null}
+        </XStack>
         {onTimeRangeChange ? (
           <TimeRangeDropdown
             value={timeRange}
