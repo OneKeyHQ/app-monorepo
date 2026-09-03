@@ -20,6 +20,7 @@ jest.mock('os', () => ({
   __esModule: true,
   default: {
     availableParallelism: jest.fn(() => 8),
+    cpus: jest.fn(() => Array.from({ length: 4 }, () => ({}))),
     totalmem: jest.fn(() => 16 * 1024 ** 3),
   },
 }));
@@ -70,6 +71,24 @@ describe('desktopApi contract', () => {
     expect(buildDesktopApiGlobal()).toMatchObject(getDesktopPlatformInfo());
     expect(os.availableParallelism).toHaveBeenCalledTimes(1);
     expect(os.totalmem).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the CPU list when availableParallelism is unavailable', () => {
+    const availableParallelism = os.availableParallelism;
+    Object.defineProperty(os, 'availableParallelism', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(buildDesktopPlatformInfo().logicalProcessorCount).toBe(4);
+      expect(os.cpus).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(os, 'availableParallelism', {
+        configurable: true,
+        value: availableParallelism,
+      });
+    }
   });
 
   it('IPC payload has all fields platformEnv reads', () => {

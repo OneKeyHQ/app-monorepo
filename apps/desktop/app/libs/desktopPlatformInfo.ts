@@ -43,7 +43,10 @@ export const buildDesktopPlatformInfo = (): IDesktopApiPlatformInfo => ({
     typeof process.getSystemVersion === 'function'
       ? process.getSystemVersion()
       : '',
-  logicalProcessorCount: os.availableParallelism(),
+  logicalProcessorCount:
+    typeof os.availableParallelism === 'function'
+      ? os.availableParallelism()
+      : os.cpus().length,
   totalMemoryBytes: os.totalmem(),
   isMas: Boolean((process as { mas?: boolean }).mas),
   channel: getChannel(),
