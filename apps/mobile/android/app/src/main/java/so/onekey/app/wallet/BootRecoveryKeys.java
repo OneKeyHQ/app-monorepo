@@ -2,7 +2,7 @@ package so.onekey.app.wallet;
 
 final class BootRecoveryKeys {
     static final String PREFS_NAME = "onekey_recovery";
-    // Activity-stage counter: incremented in MainActivity.onCreate, reset on
+    // Activity-stage counter: incremented in MainLauncherActivity.onCreate, reset on
     // graceful onStop / RecoveryActivity / JS markBootSuccess. Also serves
     // as a freshness signal for BOOT_FAIL_TIMESTAMPS — when 0, the timestamps
     // list is considered stale (some reset path zeroed it, but the Nitro
@@ -18,7 +18,7 @@ final class BootRecoveryKeys {
     // mental complexity (two-stage counters, two reset semantics) for
     // negligible production value.
     static final String CONSECUTIVE_BOOT_FAIL_COUNT = "consecutive_boot_fail_count";
-    // Comma-separated MainActivity.onCreate timestamps used by
+    // Comma-separated MainLauncherActivity.onCreate timestamps used by
     // BootRecoveryStore to compute a TIME-WINDOWED failure count. Without
     // this, Activity recreations that are NOT consecutive-in-time (memory-
     // pressure resurrection hours later, locale/fontScale config change
