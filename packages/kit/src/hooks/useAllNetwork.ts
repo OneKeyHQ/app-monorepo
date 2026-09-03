@@ -335,13 +335,8 @@ function useAllNetworkRequests<T>(params: {
     networkId?: string;
     hasCache: boolean;
   }) => Promise<void> | void;
-  // Fires once per network as its live fetch settles (only on the steady-state
-  // sliding-window branch). Lets the consumer paint progressively (L2) instead
-  // of waiting for the whole fan-out. The monotonic run `generation` lets the
-  // consumer's LWW materialized view reject a stale earlier run's settle.
+  // Enables progressive rendering while generation rejects stale results.
   onRequestSettled?: (result: T, generation: number) => void;
-  // Fires only when a completed fan-out is published to `result`. Consumers
-  // can use this to distinguish a retained result from the next refresh.
   onResultPublished?: (
     result: Array<T> | null | undefined,
     generation: number,
@@ -378,10 +373,7 @@ function useAllNetworkRequests<T>(params: {
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
   const runCountRef = useRef(0);
-  // Monotonic run generation for the consumer's LWW materialized view. Unlike
-  // `runCountRef` (reset to 0 on owner/enabled-network change), this is NEVER
-  // reset — it must stay monotonic across same-owner re-runs so the LWW
-  // generation guard (out-of-order/stale-write rejection) holds.
+  // Never reset: consumers use this generation to reject stale writes.
   const runGenerationRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
@@ -920,11 +912,7 @@ function useAllNetworkRequests<T>(params: {
           reason: requestKind,
         });
       } finally {
-        // Wait for onStarted to settle before firing onFinished, so
-        // the started/finished events for this run land in monotonic
-        // order (true -> false). Without this, an early throw above
-        // can fire onFinished while onStarted is still in flight,
-        // letting a stale "isRefreshing: true" arrive after "false".
+        // Preserve started/finished ordering even when the run throws.
         if (onStartedTask) {
           try {
             await onStartedTask;
@@ -932,9 +920,6 @@ function useAllNetworkRequests<T>(params: {
             console.error(e);
           }
         }
-        // Fire onFinished from finally so the "isRefreshing: false" signal
-        // (consumed by DeFi tab's runAfterTokensDone) is always emitted —
-        // even when the work above threw before reaching the prior call site.
         try {
           await onFinished?.({
             accountId: currentAccountId,
@@ -943,9 +928,7 @@ function useAllNetworkRequests<T>(params: {
         } catch (e) {
           console.error(e);
         }
-        // Keep the run marked active through onFinished. A refresh requested
-        // during async cleanup must queue behind this run so its completed
-        // result can be classified as superseded before publication.
+        // Queue refreshes through cleanup to prevent stale publication.
         isFetching.current = false;
         hasQueuedRerun = rerunAfterCurrentRef.current;
         if (hasQueuedRerun) {

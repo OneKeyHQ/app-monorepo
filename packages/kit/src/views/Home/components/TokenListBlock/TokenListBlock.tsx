@@ -13,7 +13,6 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Skeleton,
   Stack,
   onVisibilityStateChange,
@@ -145,6 +144,7 @@ import {
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
+import { PortfolioSyncButton } from './PortfolioSyncButton';
 import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
@@ -3254,48 +3254,26 @@ function TokenListBlock({
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
-  const renderHeaderActions = useCallback(() => {
+  const renderPortfolioSyncButton = useCallback(() => {
     if (!showPortfolioSyncButton) {
       return null;
     }
-
-    const synced = !isPortfolioSyncing && portfolioSyncFeedback === 'success';
-    let label = ETranslations.portfolio_sync_to_device__action;
-    if (isPortfolioSyncing) {
-      label = ETranslations.global_syncing;
-    } else if (synced) {
-      label = ETranslations.global_synced;
-    }
-
     return (
-      <Button
-        testID="home-sync-portfolio"
-        variant="secondary"
-        size="small"
-        icon={synced ? 'CheckRadioSolid' : 'OnekeyDeviceCustom'}
-        iconColor={synced ? '$iconSuccess' : undefined}
-        color={synced ? '$textSuccess' : undefined}
+      <PortfolioSyncButton
         onPress={handleSyncPortfolio}
         disabled={Boolean(
           !hasPortfolioSyncTarget ||
           hardwareUiState ||
-          firmwareUpdateWorkflowRunning ||
-          isPortfolioSyncing ||
-          synced,
+          firmwareUpdateWorkflowRunning,
         )}
-        loading={isPortfolioSyncing}
-        opacity={isPortfolioSyncing || synced ? 1 : undefined}
-        accessibilityLiveRegion="polite"
-      >
-        {intl.formatMessage({ id: label })}
-      </Button>
+        state={isPortfolioSyncing ? 'loading' : portfolioSyncFeedback}
+      />
     );
   }, [
     handleSyncPortfolio,
     firmwareUpdateWorkflowRunning,
     hasPortfolioSyncTarget,
     hardwareUiState,
-    intl,
     isPortfolioSyncing,
     portfolioSyncFeedback,
     showPortfolioSyncButton,
@@ -3328,6 +3306,10 @@ function TokenListBlock({
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);
+
+  const renderHeaderActions = useCallback(() => {
+    return renderPortfolioSyncButton();
+  }, [renderPortfolioSyncButton]);
 
   const renderContent = useCallback(() => {
     return (
