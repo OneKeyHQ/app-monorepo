@@ -12,6 +12,7 @@ const MIN_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
 // The market K-line endpoint caps wide responses near 300 points.
 const MARKET_KLINE_MAX_POINTS_PER_REQUEST = 200;
 const MARKET_KLINE_MAX_REQUEST_COUNT = 100;
+const EXCLUSIVE_LOWER_BOUNDARY_PADDING_SECONDS = 1;
 
 type IRuntimeKLineDataPoint = Partial<
   Record<keyof IMarketTokenKLineDataPoint, unknown>
@@ -421,7 +422,7 @@ export async function fetchMarketKLineDataWithSlicing({
         : MIN_KLINE_TIME_SPAN_SECONDS,
     });
     const requestFactories = slices.map(
-      (slice) =>
+      (slice, index) =>
         async (): Promise<
           PromiseSettledResult<IMarketKLineDataResponse | null>
         > => {
@@ -433,7 +434,12 @@ export async function fetchMarketKLineDataWithSlicing({
                   tokenAddress,
                   networkId,
                   interval: slice.interval,
-                  timeFrom: slice.from,
+                  // The endpoint excludes timeFrom. Internal boundaries are
+                  // covered by slice overlap; pad the first boundary by one second.
+                  timeFrom:
+                    index === 0
+                      ? slice.from - EXCLUSIVE_LOWER_BOUNDARY_PADDING_SECONDS
+                      : slice.from,
                   timeTo: slice.to,
                   autoHandleError,
                 }),

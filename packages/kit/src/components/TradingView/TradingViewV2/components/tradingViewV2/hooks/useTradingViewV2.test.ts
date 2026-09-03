@@ -95,7 +95,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       tokenAddress: '0x123',
       networkId: 'evm--1',
       interval: '1m',
-      timeFrom: 900,
+      timeFrom: 899,
       timeTo: 1060,
       autoHandleError: undefined,
     });
@@ -115,6 +115,31 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
         { t: 1080, c: 1080 },
       ],
     );
+  });
+
+  it('includes the requested lower-bound candle for an exclusive endpoint', async () => {
+    mockSliceRequest.mockReturnValue([{ from: 960, to: 1080, interval: '1m' }]);
+    mockFetchMarketTokenKline.mockImplementation(
+      async ({ timeFrom, timeTo }) => ({
+        points: [buildPoint(960), buildPoint(1020), buildPoint(1080)].filter(
+          (point) => point.t > timeFrom && point.t < timeTo,
+        ),
+        total: 3,
+      }),
+    );
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 960,
+      timeTo: 1080,
+    });
+
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledWith(
+      expect.objectContaining({ timeFrom: 959, timeTo: 1080 }),
+    );
+    expect(result?.points.map((point) => point.t)).toEqual([960, 1020]);
   });
 
   it('keeps a wide request continuous when the backend caps each response', async () => {
@@ -295,8 +320,8 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       { from: 1060, to: 1120, interval: '1m' },
     ]);
     let firstSliceRequestCount = 0;
-    mockFetchMarketTokenKline.mockImplementation(async ({ timeFrom }) => {
-      if (timeFrom === 1000) {
+    mockFetchMarketTokenKline.mockImplementation(async ({ timeTo }) => {
+      if (timeTo === 1060) {
         firstSliceRequestCount += 1;
         if (firstSliceRequestCount === 1) {
           throw new OneKeyLocalError('transient failure');
