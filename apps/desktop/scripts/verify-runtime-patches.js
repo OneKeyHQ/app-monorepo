@@ -115,11 +115,7 @@ process.stdout.write(
   `Verified electron-updater ${runtimePackage.version} runtime patch.\n`,
 );
 
-for (const {
-  packageName,
-  relativePaths,
-  requiredMarkers,
-} of thirdPartyRuntimePatchPackages) {
+for (const { packageName, files } of thirdPartyRuntimePatchPackages) {
   const runtimeRoot = path.join(__dirname, '../app/node_modules', packageName);
   const runtimeJsonPath = path.join(runtimeRoot, 'package.json');
   let workspaceJsonPath;
@@ -151,7 +147,7 @@ for (const {
       `${packageName} version mismatch: runtime=${runtimeMetadata.version}, workspace=${workspaceMetadata.version}.`,
     );
   }
-  for (const relativePath of relativePaths) {
+  for (const { relativePath, requiredMarkers } of files) {
     const runtimeFilePath = path.join(runtimeRoot, relativePath);
     const workspaceFilePath = path.join(workspaceRoot, relativePath);
     const runtimeFileContent = readRequiredFile(

@@ -1,5 +1,38 @@
+diff --git a/node_modules/@stoprocent/noble/lib/common/include/Emit.h b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
+index 1d25bb1..c4f8fb1 100644
+--- a/node_modules/@stoprocent/noble/lib/common/include/Emit.h
++++ b/node_modules/@stoprocent/noble/lib/common/include/Emit.h
+@@ -17,7 +17,7 @@ public:
+     void ScanState(bool start);
+     void Scan(const std::string& uuid, int rssi, const Peripheral& peripheral);
+     void Connected(const std::string& uuid, const std::string& error = "");
+-    void Disconnected(const std::string& uuid);
++    void Disconnected(const std::string& uuid, const std::string& error = "");
+     void MTU(const std::string& uuid, int mtu);
+     void RSSI(const std::string& uuid, int rssi, const std::string& error = "");
+     void ServicesDiscovered(const std::string& uuid, const std::vector<std::string>& serviceUuids, const std::string& error = "");
+diff --git a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
+index a1caca6..ad670bc 100644
+--- a/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
++++ b/node_modules/@stoprocent/noble/lib/common/src/Emit.cc
+@@ -154,11 +154,11 @@ void Emit::Connected(const std::string& uuid, const std::string& error)
+     });
+ }
+
+-void Emit::Disconnected(const std::string& uuid)
++void Emit::Disconnected(const std::string& uuid, const std::string& error)
+ {
+-    mCallback->call([uuid](Napi::Env env, std::vector<napi_value>& args) {
+-        // emit('disconnect', deviceUuid);
+-        args = { _s("disconnect"), _u(uuid) };
++    mCallback->call([uuid, error](Napi::Env env, std::vector<napi_value>& args) {
++        // emit('disconnect', deviceUuid, error);
++        args = { _s("disconnect"), _u(uuid), error.empty() ? env.Null() : _e(error) };
+     });
+ }
+
 diff --git a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
-index b82f1e9..295c285 100644
+index b82f1e9..27bfcc4 100644
 --- a/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
 +++ b/node_modules/@stoprocent/noble/lib/mac/src/ble_manager.mm
 @@ -196,7 +196,15 @@
@@ -17,5 +50,37 @@ index b82f1e9..295c285 100644
 +    }
 +    emit.Connected(uuid, errorMessage);
  }
- 
+
  - (BOOL)disconnect:(NSString*) uuid {
+@@ -210,7 +218,15 @@
+ -(void) centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+     std::string uuid = getUuid(peripheral);
+     [self.peripherals removeObjectForKey:getNSUuid(peripheral)];
+-    emit.Disconnected(uuid);
++    std::string errorMessage = "";
++    if (error) {
++        NSString *message = [NSString stringWithFormat:@"%@:%ld %@", error.domain, (long)error.code, error.localizedDescription];
++        const char *utf8Message = [message UTF8String];
++        if (utf8Message) {
++            errorMessage = std::string(utf8Message);
++        }
++    }
++    emit.Disconnected(uuid, errorMessage);
+ }
+
+ - (BOOL)updateRSSI:(NSString*) uuid {
+diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
+index 94b4dc7..1475dc5 100644
+--- a/node_modules/@stoprocent/noble/lib/noble.js
++++ b/node_modules/@stoprocent/noble/lib/noble.js
+@@ -430,6 +430,10 @@ class Noble extends NobleEventEmitter {
+     const peripheral = this._peripherals.get(peripheralId);
+
+     if (peripheral) {
++      if (peripheral.state === 'connecting' && reason instanceof Error) {
++        this.emit(`connect:${peripheralId}`, reason);
++        peripheral.emit('connect', reason);
++      }
+       peripheral.state = 'disconnected';
+       peripheral.emit('disconnect', reason);
+       this.emit(`disconnect:${peripheralId}`, reason);

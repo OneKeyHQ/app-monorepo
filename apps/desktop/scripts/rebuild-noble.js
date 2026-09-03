@@ -15,18 +15,38 @@ const nobleEntry = require.resolve('@stoprocent/noble', {
   paths: [moduleDir],
 });
 const nobleRoot = path.dirname(nobleEntry);
-const patchedSourcePath = path.join(nobleRoot, 'lib/mac/src/ble_manager.mm');
-const patchedSource = fs.readFileSync(patchedSourcePath, 'utf8');
+const patchedSources = [
+  [
+    'lib/common/include/Emit.h',
+    'Disconnected(const std::string& uuid, const std::string& error',
+  ],
+  ['lib/common/src/Emit.cc', 'error.empty() ? env.Null() : _e(error)'],
+  ['lib/mac/src/ble_manager.mm', 'emit.Disconnected(uuid, errorMessage)'],
+  [
+    'lib/noble.js',
+    "peripheral.state === 'connecting' && reason instanceof Error",
+  ],
+].map(([relativePath, marker]) => ({
+  filePath: path.join(nobleRoot, relativePath),
+  marker,
+}));
 
-if (!patchedSource.includes('error.domain, (long)error.code')) {
-  // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone Node build script
-  throw new Error(`Noble source patch is missing: ${patchedSourcePath}`);
+for (const { filePath, marker } of patchedSources) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  if (!source.includes(marker)) {
+    // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone Node build script
+    throw new Error(
+      `Noble source patch is missing marker "${marker}": ${filePath}`,
+    );
+  }
 }
 
 const requiredBinaries = ['binding.node', 'noble.node'].map((binaryName) =>
   path.join(nobleRoot, 'build/Release', binaryName),
 );
-const sourceModifiedAt = fs.statSync(patchedSourcePath).mtimeMs;
+const sourceModifiedAt = Math.max(
+  ...patchedSources.map(({ filePath }) => fs.statSync(filePath).mtimeMs),
+);
 const isCurrentBuild = requiredBinaries.every(
   (binaryPath) =>
     fs.existsSync(binaryPath) &&
