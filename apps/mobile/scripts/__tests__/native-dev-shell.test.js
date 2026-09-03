@@ -1078,8 +1078,8 @@ describe('native-dev-shell', () => {
   it('reclaims a stale named lock after its PID is reused', () => {
     const lockRoot = path.join(temporaryDirectory, 'pid-reuse-locks');
     const kind = 'test-pid-reuse';
-    const oldProcessStartedAtMs = 1_000;
-    const currentProcessStartedAtMs = 5_000;
+    const oldProcessStartedAtMs = 1000;
+    const currentProcessStartedAtMs = 5000;
     acquireNamedLock({
       getProcessStartedAt: () => oldProcessStartedAtMs,
       key: 'shared',
