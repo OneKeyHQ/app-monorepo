@@ -1,11 +1,5 @@
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Dialog,
-  Icon,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { sortTransactionSecurityFeatures } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type {
@@ -13,7 +7,7 @@ import type {
   ITransactionSecurityFeature,
 } from '@onekeyhq/shared/types/transactionSecurity';
 
-import { SignatureConfirmTestIDs } from '../../testIDs';
+import { normalizeSecurityFindingTitle } from './utils';
 
 function getLevelStyle(level: EHostSecurityLevel): {
   icon: IKeyOfIcons;
@@ -21,7 +15,7 @@ function getLevelStyle(level: EHostSecurityLevel): {
 } {
   if (level === EHostSecurityLevel.High) {
     return {
-      icon: 'ErrorSolid',
+      icon: 'ErrorOutline',
       iconColor: '$iconCritical',
     };
   }
@@ -44,7 +38,9 @@ function getLevelStyle(level: EHostSecurityLevel): {
 }
 
 function FeatureRow({ feature }: { feature: ITransactionSecurityFeature }) {
-  const title = feature.title?.trim() || feature.address || feature.code;
+  const title = normalizeSecurityFindingTitle(
+    feature.title?.trim() || feature.address || feature.code,
+  );
   if (!title) {
     return null;
   }
@@ -88,66 +84,12 @@ export function TransactionSecurityFeatureList({
   }
   return (
     <YStack gap="$3.5">
-      {features.map((feature) => (
+      {features.map((feature, index) => (
         <FeatureRow
-          key={`${feature.code}-${feature.address ?? ''}`}
+          key={`${feature.code}-${feature.address ?? ''}-${index}`}
           feature={feature}
         />
       ))}
     </YStack>
   );
-}
-
-function TransactionSecurityDetails({
-  result,
-}: {
-  result: ITransactionSecurityCheckResult;
-}) {
-  const style = getLevelStyle(result.level);
-  return (
-    <YStack
-      testID={SignatureConfirmTestIDs.TransactionSecurityDetails}
-      gap="$4"
-    >
-      <XStack gap="$3" alignItems="flex-start">
-        <YStack
-          w="$8"
-          h="$8"
-          borderRadius="$full"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          alignItems="center"
-          justifyContent="center"
-          flexShrink={0}
-        >
-          <Icon name={style.icon} size="$5" color={style.iconColor} />
-        </YStack>
-        <YStack gap="$1" flex={1} minWidth={0}>
-          {result.detail.title ? (
-            <SizableText size="$headingMd">{result.detail.title}</SizableText>
-          ) : null}
-          {result.detail.content ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {result.detail.content}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </XStack>
-      <TransactionSecurityFeatureList result={result} />
-    </YStack>
-  );
-}
-
-export function showTransactionSecurityDetails({
-  result,
-  title,
-}: {
-  result: ITransactionSecurityCheckResult;
-  title: string;
-}) {
-  Dialog.show({
-    title,
-    showFooter: false,
-    renderContent: <TransactionSecurityDetails result={result} />,
-  });
 }

@@ -412,6 +412,7 @@ function TxConfirm() {
         origin: sourceInfo?.origin,
         urlSecurityInfo,
         decodedTxs,
+        isParserPending: !decodedTxsInit || isBuildingDecodedTxs,
         transactionSecurityInfo,
         isTransactionSecurityPending,
         isPrimeUser,
@@ -419,7 +420,9 @@ function TxConfirm() {
       }),
     [
       decodedTxs,
+      decodedTxsInit,
       intl,
+      isBuildingDecodedTxs,
       isPrimeUser,
       isTransactionSecurityPending,
       sourceInfo?.origin,

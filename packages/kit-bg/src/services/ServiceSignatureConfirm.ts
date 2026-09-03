@@ -9,9 +9,11 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  canAttemptTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityJsonRpc,
   createCheckFailedTransactionSecurityResult,
+  createUnableToAssessTransactionSecurityResult,
   resolveTransactionSecurityServerResult,
 } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
@@ -55,6 +57,7 @@ import {
   type IRecentRecipientEntry,
   RECENT_RECIPIENTS_BUCKET_CAP,
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -694,29 +697,34 @@ class ServiceSignatureConfirm extends ServiceBase {
       return undefined;
     }
 
+    const { isLoggedIn, isLoggedInOnServer, primeSubscription } =
+      await primePersistAtom.get();
+    if (!isLoggedIn || !isLoggedInOnServer || !primeSubscription?.isActive) {
+      return undefined;
+    }
+
+    if (
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
+    ) {
+      return undefined;
+    }
+
+    if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
+      return undefined;
+    }
+
+    let authHeaders;
     try {
-      const isPrimeSubscriptionActive =
-        await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
-      if (!isPrimeSubscriptionActive) {
-        return undefined;
-      }
+      authHeaders = await this.getOneKeyIdAuthHeaders();
+    } catch {
+      return createCheckFailedTransactionSecurityResult();
+    }
+    const authToken = authHeaders['X-Onekey-Request-Token']?.trim();
+    if (!authToken) {
+      return createCheckFailedTransactionSecurityResult();
+    }
 
-      if (
-        await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
-      ) {
-        return undefined;
-      }
-
-      if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
-        return undefined;
-      }
-
-      const authHeaders = await this.getOneKeyIdAuthHeaders();
-      const authToken = authHeaders['X-Onekey-Request-Token']?.trim();
-      if (!authToken) {
-        return undefined;
-      }
-
+    try {
       let accountAddress = params.accountAddress;
       if (!accountAddress) {
         accountAddress =
@@ -745,39 +753,35 @@ class ServiceSignatureConfirm extends ServiceBase {
           await vault.buildParseTransactionParams({
             encodedTx,
           });
+        // The UI starts a scan when the raw payload looks attemptable
+        // (EVM objects still carry gas). After vault normalize, leftover
+        // extra keys must not skip back to a silent success.
+        if (!canSubmitTransactionSecurityEncodedTx(encodedTxToCheck)) {
+          return canAttemptTransactionSecurityEncodedTx(encodedTx)
+            ? createUnableToAssessTransactionSecurityResult()
+            : undefined;
+        }
         body.encodedTx = encodedTxToCheck;
       } else if (jsonRpc) {
         body.jsonRpc = jsonRpc;
-      }
-
-      if (
-        body.encodedTx &&
-        !canSubmitTransactionSecurityEncodedTx(body.encodedTx)
-      ) {
-        return undefined;
       }
       const walletTypeHeaders =
         await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
           accountId,
         });
       const client = await this.getClient(EServiceEndpointEnum.Utility);
-
-      try {
-        const resp = await client.post<{
-          data: ITransactionSecurityCheckResultRaw;
-        }>('/utility/v1/transaction/check', body, {
-          timeout: 5000,
-          headers: {
-            ...walletTypeHeaders,
-            'X-Onekey-Request-Token': authToken,
-          },
-        });
-        return resolveTransactionSecurityServerResult(resp.data.data);
-      } catch {
-        return createCheckFailedTransactionSecurityResult();
-      }
+      const resp = await client.post<{
+        data: ITransactionSecurityCheckResultRaw;
+      }>('/utility/v1/transaction/check', body, {
+        timeout: 5000,
+        headers: {
+          ...walletTypeHeaders,
+          'X-Onekey-Request-Token': authToken,
+        },
+      });
+      return resolveTransactionSecurityServerResult(resp.data.data);
     } catch {
-      return undefined;
+      return createCheckFailedTransactionSecurityResult();
     }
   }
 

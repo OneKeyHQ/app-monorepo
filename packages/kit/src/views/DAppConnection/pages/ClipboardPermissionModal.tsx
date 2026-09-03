@@ -135,7 +135,7 @@ function ClipboardPermissionModal() {
               disabled:
                 textLoading ||
                 (!isRead && textToWrite === undefined) ||
-                (showContinueOperate ? !continueOperate : false),
+                !continueOperate,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

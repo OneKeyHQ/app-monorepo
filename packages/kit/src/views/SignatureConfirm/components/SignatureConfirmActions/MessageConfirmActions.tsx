@@ -39,6 +39,7 @@ type IProps = {
   continueOperate: boolean;
   setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
   securityCheckConfirmation: ISecurityCheckConfirmation;
+  securityCheckRequestKey: string;
   sourceInfo?: IDappSourceInfo;
   walletInternalSign?: boolean;
   skipBackupCheck?: boolean;
@@ -55,6 +56,7 @@ function MessageConfirmActions(props: IProps) {
     continueOperate: continueOperateLocal,
     setContinueOperate: setContinueOperateLocal,
     securityCheckConfirmation,
+    securityCheckRequestKey,
     sourceInfo,
     walletInternalSign,
     skipBackupCheck,
@@ -73,7 +75,31 @@ function MessageConfirmActions(props: IProps) {
 
   const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [continueOperate, setContinueOperate] = useState(false);
+  const [securityCheckAcknowledgement, setSecurityCheckAcknowledgement] =
+    useState<{
+      requestKey: string;
+      confirmation: ISecurityCheckConfirmation;
+      accepted: boolean;
+    }>({
+      requestKey: securityCheckRequestKey,
+      confirmation: securityCheckConfirmation,
+      accepted: false,
+    });
+  if (
+    securityCheckAcknowledgement.requestKey !== securityCheckRequestKey ||
+    securityCheckAcknowledgement.confirmation !== securityCheckConfirmation
+  ) {
+    setSecurityCheckAcknowledgement({
+      requestKey: securityCheckRequestKey,
+      confirmation: securityCheckConfirmation,
+      accepted: false,
+    });
+  }
+  const continueOperate = Boolean(
+    securityCheckAcknowledgement.accepted &&
+    securityCheckAcknowledgement.requestKey === securityCheckRequestKey &&
+    securityCheckAcknowledgement.confirmation === securityCheckConfirmation,
+  );
 
   // Get user address for referral promotion check
   const { result: accountAddress } = usePromiseResult(
@@ -330,12 +356,17 @@ function MessageConfirmActions(props: IProps) {
               label={intl.formatMessage({
                 id: showTakeRiskAlert
                   ? ETranslations.dapp_connect_proceed_at_my_own_risk
-                  : ETranslations.dapp_connect_security_checks_reviewed_authorization_details__text,
+                  : ETranslations.global_i_understand,
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setContinueOperate(!!checked);
-                setContinueOperateLocal(!!checked);
+                const isChecked = !!checked;
+                setSecurityCheckAcknowledgement({
+                  requestKey: securityCheckRequestKey,
+                  confirmation: securityCheckConfirmation,
+                  accepted: isChecked,
+                });
+                setContinueOperateLocal(isChecked);
               }}
             />
           ) : null}

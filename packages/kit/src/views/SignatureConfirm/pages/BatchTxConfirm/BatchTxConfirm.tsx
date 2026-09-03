@@ -18,7 +18,6 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -58,6 +57,7 @@ import {
   SecurityCheckCard,
   buildSecurityCheckModel,
 } from '../../components/SecurityCheckCard';
+import { useSecurityCheckPrimeUser } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import { BatchSigningProgress, SummaryRow, TransactionRow } from './components';
@@ -115,17 +115,17 @@ function BatchTxConfirm() {
     showContinueOperate,
     continueOperate,
   });
-  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
+  const { isPrimeUser } = useSecurityCheckPrimeUser();
   const securityCheckModel = useMemo(
     () =>
       buildSecurityCheckModel({
         kind: 'transaction',
         origin: sourceInfo?.origin,
         urlSecurityInfo,
-        isPrimeUser: isPrimeSubscriptionActive,
+        isPrimeUser,
         intl,
       }),
-    [intl, isPrimeSubscriptionActive, sourceInfo?.origin, urlSecurityInfo],
+    [intl, isPrimeUser, sourceInfo?.origin, urlSecurityInfo],
   );
   // Execution-time recheck for every signing exit: portal Dialogs (the
   // Sign-all confirmation) capture their onConfirm closure at open time and

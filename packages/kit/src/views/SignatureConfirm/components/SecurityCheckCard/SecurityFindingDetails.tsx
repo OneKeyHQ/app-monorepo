@@ -9,23 +9,16 @@ import type { ISecurityCheckFinding } from './securityCheckModel';
 
 function SecurityFindingDetails({
   finding,
-  description,
 }: {
   finding: ISecurityCheckFinding;
-  description?: string;
 }) {
-  if (finding.action?.type === 'transactionSecurity') {
-    return (
-      <YStack testID={SignatureConfirmTestIDs.SecurityFindingDetails}>
-        <TransactionSecurityFeatureList result={finding.action.result} />
-      </YStack>
-    );
-  }
-
   return (
     <YStack testID={SignatureConfirmTestIDs.SecurityFindingDetails} gap="$4">
-      {description ? (
-        <SizableText size="$bodyMd">{description}</SizableText>
+      {finding.description ? (
+        <SizableText size="$bodyMd">{finding.description}</SizableText>
+      ) : null}
+      {finding.action?.type === 'transactionSecurity' ? (
+        <TransactionSecurityFeatureList result={finding.action.result} />
       ) : null}
       {finding.action?.type === 'site' ? (
         <DAppRiskyAlertDetail
@@ -38,16 +31,12 @@ function SecurityFindingDetails({
 
 export function showSecurityFindingDetails({
   finding,
-  description,
 }: {
   finding: ISecurityCheckFinding;
-  description?: string;
 }) {
   Dialog.show({
     title: finding.title,
     showFooter: false,
-    renderContent: (
-      <SecurityFindingDetails finding={finding} description={description} />
-    ),
+    renderContent: <SecurityFindingDetails finding={finding} />,
   });
 }

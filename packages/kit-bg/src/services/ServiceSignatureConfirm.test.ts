@@ -34,6 +34,12 @@ jest.mock('../vaults/factory', () => ({
   },
 }));
 
+jest.mock('../states/jotai/atoms/prime', () => ({
+  primePersistAtom: {
+    get: jest.fn(),
+  },
+}));
+
 // eslint-disable-next-line import-js/order, import/first
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
@@ -52,6 +58,8 @@ import {
   EDecodedTxStatus,
   type IDecodedTx,
 } from '@onekeyhq/shared/types/tx';
+// eslint-disable-next-line import-js/order, import/first
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 // eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
 // eslint-disable-next-line import-js/order, import/first
@@ -143,11 +151,17 @@ function buildService(parsedTx: IParseTransactionResp) {
   return service;
 }
 
+function mockActivePrimePersist() {
+  (primePersistAtom.get as jest.Mock).mockResolvedValue({
+    isLoggedIn: true,
+    isLoggedInOnServer: true,
+    primeSubscription: { isActive: true },
+  });
+}
+
 function buildTransactionSecurityService(post: jest.Mock) {
+  mockActivePrimePersist();
   const backgroundApi = {
-    servicePrime: {
-      isPrimeSubscriptionActive: jest.fn().mockResolvedValue(true),
-    },
     serviceNetwork: {
       isCustomNetwork: jest.fn().mockResolvedValue(false),
     },
@@ -357,7 +371,30 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     );
   });
 
-  it('does not call the server when reading the Prime token throws', async () => {
+  it('does not call the server when Prime is not active locally', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+    (primePersistAtom.get as jest.Mock).mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      primeSubscription: { isActive: false },
+    });
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+    expect(service.getOneKeyIdAuthHeaders).not.toHaveBeenCalled();
+  });
+
+  it('returns check_failed when reading the Prime token throws', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
     (service.getOneKeyIdAuthHeaders as jest.Mock).mockRejectedValue(
@@ -373,7 +410,13 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
           params: ['0xmessage', accountAddress],
         },
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'check_failed',
+        features: [],
+      },
+    });
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -400,7 +443,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     });
   });
 
-  it('does not call the server when Prime has no request token', async () => {
+  it('returns check_failed when Prime has no request token', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
     (service.getOneKeyIdAuthHeaders as jest.Mock).mockResolvedValue({});
@@ -414,11 +457,17 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
           params: ['0xmessage', accountAddress],
         },
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'check_failed',
+        features: [],
+      },
+    });
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('skips when request setup throws before the scan', async () => {
+  it('returns check_failed when request setup throws before the scan', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
     (vaultFactory.getVault as unknown as jest.Mock).mockRejectedValue(
@@ -435,7 +484,13 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
           value: '0x0',
         } as IEncodedTx,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'check_failed',
+        features: [],
+      },
+    });
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -470,6 +525,36 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
         } as IEncodedTx,
       }),
     ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('returns unable_to_assess when an attemptable payload is still unsubmittable after normalize', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+      buildParseTransactionParams: jest.fn(async ({ encodedTx }) => ({
+        encodedTx,
+      })),
+    });
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        encodedTx: {
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+          gas: '0x5208',
+        } as IEncodedTx,
+      }),
+    ).resolves.toEqual({
+      level: 'unknown',
+      detail: {
+        code: 'unable_to_assess',
+        features: [],
+      },
+    });
     expect(post).not.toHaveBeenCalled();
   });
 

@@ -8,6 +8,8 @@ import {
   type ITransactionSecurityJsonRpc,
 } from '@onekeyhq/shared/types/transactionSecurity';
 
+import { stableStringify } from './stringUtils';
+
 export function buildTransactionSecurityJsonRpc({
   jsonRpcRequest,
 }: {
@@ -183,6 +185,31 @@ export function canAttemptTransactionSecurityEncodedTx(encodedTx: unknown) {
   );
 }
 
+function getEncodedTxIdentityField(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return stableStringify(value);
+}
+
+// Vault-normalized EVM scans keep {to,data,value,from}. Gas/nonce changes
+// must not look like a new payload. String payloads keep the full hex —
+// fee is not separable without a chain decoder, so a new string is a new scan.
+export function getTransactionSecurityEncodedTxIdentity(encodedTx: unknown) {
+  if (typeof encodedTx === 'string') {
+    return encodedTx;
+  }
+  if (!isEncodedTxRecord(encodedTx)) {
+    return '';
+  }
+  return ['from', 'to', 'data', 'value']
+    .map((key) => `${key}:${getEncodedTxIdentityField(encodedTx[key])}`)
+    .join('|');
+}
+
 function normalizeFeature(
   feature: ITransactionSecurityFeatureRaw,
 ): ITransactionSecurityFeature | undefined {
@@ -217,13 +244,19 @@ export function normalizeTransactionSecurityResult(
     .filter((feature): feature is ITransactionSecurityFeature =>
       Boolean(feature),
     );
+  const level = normalizeTransactionSecurityLevel(result.level);
 
-  if (!code && !title && !content && features.length === 0 && !result.level) {
+  if (level === EHostSecurityLevel.Security && !code) {
     return undefined;
+  }
+  if (!code && !title && !content && features.length === 0) {
+    if (!result.level) {
+      return undefined;
+    }
   }
 
   return {
-    level: normalizeTransactionSecurityLevel(result.level),
+    level,
     detail: {
       code: code || ETransactionSecurityResultCode.UnableToAssess,
       title: title || undefined,
@@ -271,12 +304,16 @@ export function hasTransactionSecurityFeatures(
 export function mergeTransactionSecurityResults(
   results: Array<ITransactionSecurityCheckResult | undefined>,
 ): ITransactionSecurityCheckResult | undefined {
+  const hasUncoveredCheck = results.some((result) => !result);
+  const hasFailedCheck = results.some((result) =>
+    isTransactionSecurityCheckFailed(result),
+  );
   const validResults = results.filter(
     (result): result is ITransactionSecurityCheckResult =>
       Boolean(result) && !isTransactionSecurityCheckFailed(result),
   );
   if (!validResults.length) {
-    return results.some((result) => isTransactionSecurityCheckFailed(result))
+    return hasFailedCheck
       ? createCheckFailedTransactionSecurityResult()
       : undefined;
   }
@@ -287,15 +324,39 @@ export function mergeTransactionSecurityResults(
       : best,
   );
 
-  const seen = new Set<string>();
+  if (primary.level === EHostSecurityLevel.Security) {
+    if (hasFailedCheck) {
+      return createCheckFailedTransactionSecurityResult();
+    }
+    if (hasUncoveredCheck) {
+      return createUnableToAssessTransactionSecurityResult();
+    }
+  } else if (hasFailedCheck && primary.level === EHostSecurityLevel.Unknown) {
+    return createCheckFailedTransactionSecurityResult();
+  }
+
+  const featureIndexes = new Map<string, number>();
   const features: ITransactionSecurityFeature[] = [];
   validResults.forEach((result) => {
     result.detail.features.forEach((feature) => {
-      const key = `${feature.code}:${feature.address ?? ''}`;
-      if (seen.has(key)) {
+      const key = stableStringify([
+        'feature',
+        feature.code,
+        feature.address ?? '',
+        feature.title ?? '',
+        feature.content ?? '',
+      ]);
+      const existingIndex = featureIndexes.get(key);
+      if (existingIndex !== undefined) {
+        if (
+          FEATURE_LEVEL_WEIGHT[feature.level] >
+          FEATURE_LEVEL_WEIGHT[features[existingIndex].level]
+        ) {
+          features[existingIndex] = feature;
+        }
         return;
       }
-      seen.add(key);
+      featureIndexes.set(key, features.length);
       features.push(feature);
     });
 
@@ -304,15 +365,15 @@ export function mergeTransactionSecurityResults(
       result.level !== EHostSecurityLevel.Security &&
       result.detail.features.length === 0
     ) {
-      const key = [
+      const key = stableStringify([
         'summary',
         result.level,
         result.detail.code,
         result.detail.title,
         result.detail.content ?? '',
-      ].join(':');
-      if (!seen.has(key)) {
-        seen.add(key);
+      ]);
+      if (!featureIndexes.has(key)) {
+        featureIndexes.set(key, features.length);
         features.push({
           level: result.level,
           code: result.detail.code,

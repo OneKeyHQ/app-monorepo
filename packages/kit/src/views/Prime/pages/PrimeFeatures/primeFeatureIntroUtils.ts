@@ -62,7 +62,7 @@ function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
 export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
   {
     id: EPrimeFeatures.TransactionSecurityCheck,
-    listIcon: 'Shield2CheckOutline',
+    listIcon: 'DocumentSearch2Outline',
     title: ETranslations.prime_feature_transaction_security_check__title,
     description: ETranslations.prime_feature_transaction_security_check__desc,
     media: {

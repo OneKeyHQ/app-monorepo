@@ -19,6 +19,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildTransactionSecurityJsonRpc } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -69,6 +70,28 @@ export function useDappCloseHandler(
   return handleOnClose;
 }
 
+function buildMessageParseFallback({
+  networkId,
+  accountAddress,
+}: {
+  networkId: string;
+  accountAddress?: string;
+}): ISignatureConfirmDisplay {
+  const components: ISignatureConfirmDisplay['components'] = [
+    convertNetworkToSignatureConfirmNetwork({ networkId }),
+  ];
+  if (accountAddress) {
+    components.push(
+      convertAddressToSignatureConfirmAddress({
+        address: accountAddress,
+        showAccountName: networkUtils.isLightningNetworkByNetworkId(networkId),
+      }),
+    );
+  }
+  components.push({ type: EParseTxComponentType.Divider });
+  return { title: '', components, alerts: [] };
+}
+
 function MessageConfirm() {
   const route =
     useRoute<
@@ -111,11 +134,19 @@ function MessageConfirm() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+      const accountAddress = await backgroundApiProxy.serviceAccount
+        .getAccountAddressForApi({
           networkId,
           accountId,
-        });
+        })
+        .catch(() => undefined);
+
+      if (!accountAddress) {
+        return {
+          p: buildMessageParseFallback({ networkId }),
+          isMessageParseFallback: true,
+        };
+      }
 
       const resp = await promiseAllSettledEnhanced(
         [
@@ -142,27 +173,11 @@ function MessageConfirm() {
       if (!isMessageParseFallback) {
         p = m.display;
       } else {
-        p = {
-          title: '',
-          components: [
-            convertNetworkToSignatureConfirmNetwork({
-              networkId,
-            }),
-            convertAddressToSignatureConfirmAddress({
-              address: accountAddress,
-              showAccountName:
-                networkUtils.isLightningNetworkByNetworkId(networkId),
-            }),
-            {
-              type: EParseTxComponentType.Divider,
-            },
-          ],
-          alerts: [],
-        };
+        p = buildMessageParseFallback({ networkId, accountAddress });
       }
 
       if (
-        p.components[p.components.length - 1].type !==
+        p.components[p.components.length - 1]?.type !==
         EParseTxComponentType.Divider
       ) {
         p.components.push({
@@ -185,14 +200,26 @@ function MessageConfirm() {
     ],
     {
       watchLoading: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
     },
   );
+
+  const messageParseResult =
+    result ??
+    (isLoading === false
+      ? {
+          p: buildMessageParseFallback({ networkId }),
+          isMessageParseFallback: true,
+        }
+      : undefined);
+  const isMessageParserPending = isLoading === true || !messageParseResult;
 
   const {
     p: parsedMessage,
     isConfirmationRequired,
     isMessageParseFallback,
-  } = result ?? {};
+  } = messageParseResult ?? {};
 
   const showMessageHeaderInfo = useMemo(
     () => !walletInternalSign,
@@ -206,14 +233,14 @@ function MessageConfirm() {
 
   const securityCheckRequestKey = useMemo(
     () =>
-      [
-        sourceInfo?.id ?? '',
+      stableStringify({
+        requestId: sourceInfo?.id ?? '',
         accountId,
         networkId,
-        sourceInfo?.origin ?? '',
-        unsignedMessage.type,
-        unsignedMessage.message,
-      ].join('|'),
+        origin: sourceInfo?.origin ?? '',
+        type: unsignedMessage.type,
+        message: unsignedMessage.message,
+      }),
     [
       accountId,
       networkId,
@@ -255,6 +282,7 @@ function MessageConfirm() {
         isRiskSignMethod,
         isConfirmationRequired,
         isMessageParseFallback,
+        isParserPending: isMessageParserPending,
         transactionSecurityInfo,
         isTransactionSecurityPending,
         isPrimeUser,
@@ -264,6 +292,7 @@ function MessageConfirm() {
       intl,
       isConfirmationRequired,
       isMessageParseFallback,
+      isMessageParserPending,
       isPrimeUser,
       isRiskSignMethod,
       isTransactionSecurityPending,
@@ -276,7 +305,7 @@ function MessageConfirm() {
   );
 
   const renderMessageConfirmContent = useCallback(() => {
-    if (isLoading) {
+    if (isMessageParserPending) {
       return <SignatureConfirmLoading />;
     }
 
@@ -318,7 +347,7 @@ function MessageConfirm() {
       </YStack>
     );
   }, [
-    isLoading,
+    isMessageParserPending,
     parsedMessage,
     showMessageHeaderInfo,
     sourceInfo?.origin,
@@ -396,6 +425,7 @@ function MessageConfirm() {
         continueOperate={continueOperate}
         setContinueOperate={setContinueOperate}
         securityCheckConfirmation={securityCheckModel.confirmation}
+        securityCheckRequestKey={securityCheckRequestKey}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
         skipBackupCheck={skipBackupCheck}

@@ -16,7 +16,7 @@ const BORDER = 2;
 const SPIN_MS = 800;
 const SIZE_STYLE = { width: SIZE, height: SIZE } as const;
 
-function CheckingMark() {
+function CheckingMark({ accessibilityLabel }: { accessibilityLabel: string }) {
   const reducedMotion = useReducedMotion();
   const rotation = useSharedValue(0);
 
@@ -38,7 +38,7 @@ function CheckingMark() {
 
   return (
     <Animated.View
-      accessibilityLabel="Checking"
+      accessibilityLabel={accessibilityLabel}
       pointerEvents="none"
       style={[SIZE_STYLE, animatedStyle]}
     >

@@ -213,7 +213,6 @@ function LaserBorder({
         ) : null}
         {hasLaserInset ? (
           <Stack
-            width="100%"
             m={BORDER_PX}
             borderRadius={borderRadius - BORDER_PX}
             bg="$bg"

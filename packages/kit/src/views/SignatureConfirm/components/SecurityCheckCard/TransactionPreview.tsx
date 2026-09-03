@@ -65,8 +65,6 @@ function SimulationAssetText({ asset }: { asset: ISimulationAsset }) {
   // numeric amount for non-ERC1155 NFTs — keep the lone '-'/'+' so an outgoing
   // unique NFT still reads as leaving the wallet.
   const sign = getSimulationAssetSign(asset);
-  // Match the original simulation card (Assets.tsx) scheme: incoming green, else
-  // default text ($text — Assets.tsx's '$textText' is a typo for the same color).
   const color = direction === ETransferDirection.In ? '$textSuccess' : '$text';
   return (
     <SizableText
@@ -195,14 +193,18 @@ function TransactionPreview({ simulationComponents }: IProps) {
       if (!networkIds.length) {
         return {};
       }
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds,
-        });
-      return networks.reduce<Record<string, string>>((names, network) => {
-        names[network.id] = network.name;
-        return names;
-      }, {});
+      try {
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+            networkIds,
+          });
+        return networks.reduce<Record<string, string>>((names, network) => {
+          names[network.id] = network.name;
+          return names;
+        }, {});
+      } catch {
+        return {};
+      }
     },
     [networkIds],
     {

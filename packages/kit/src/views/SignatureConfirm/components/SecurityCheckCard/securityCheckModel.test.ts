@@ -14,19 +14,12 @@ import {
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import {
-  CHECK_FAILED_FINDING_ID,
   buildSecurityCheckModel,
+  canRetryTransactionSecurityCheck,
   getCardSecurityFindings,
-  getTargetedScanGapTitle,
-  getVisibleSecurityFindings,
-  hasSecurityFindingDetails,
-  isRedundantSecurityFinding,
-  shouldGlowSimulationNest,
-  shouldNestSimulationPreview,
-  shouldShowAllSecurityFindings,
-  shouldShowPrimeCredit,
-  shouldShowTargetedScanGap,
-  shouldUseCheckFailedStatus,
+  getSecurityCheckCoverage,
+  shouldShowPrimeInvite,
+  sortSecurityFindings,
 } from './securityCheckModel';
 
 import type { IntlShape } from 'react-intl';
@@ -65,7 +58,7 @@ function buildTransactionSecurityResult(
 
 describe('securityCheckModel', () => {
   it('keeps request confirmation separate from a safe verdict', () => {
-    const model = buildSecurityCheckModel({
+    const messageModel = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
@@ -76,15 +69,7 @@ describe('securityCheckModel', () => {
       ),
       intl,
     });
-
-    expect(model.status).toBe('success');
-    expect(model.confirmation).toBe('request');
-    expect(model.hasTransactionSecurityCheck).toBe(true);
-    expect(model.findings).toEqual([]);
-  });
-
-  it('keeps an unlimited approval as request on a safe verdict', () => {
-    const model = buildSecurityCheckModel({
+    const transactionModel = buildSecurityCheckModel({
       kind: 'transaction',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
@@ -101,9 +86,17 @@ describe('securityCheckModel', () => {
       intl,
     });
 
-    expect(model.status).toBe('success');
-    expect(model.confirmation).toBe('request');
-    expect(model.findings).toEqual([]);
+    expect(messageModel).toMatchObject({
+      status: 'success',
+      confirmation: 'request',
+      hasTransactionSecurityCheck: true,
+      findings: [],
+    });
+    expect(transactionModel).toMatchObject({
+      status: 'success',
+      confirmation: 'request',
+      findings: [],
+    });
   });
 
   it('uses a Prime risk result for both the card and confirmation gate', () => {
@@ -165,7 +158,7 @@ describe('securityCheckModel', () => {
 
     expect(model.findings).toHaveLength(1);
     expect(model.findings[0]?.title).toBe(
-      'The spender can move your full USDC balance.',
+      'The spender can move your full USDC balance',
     );
     expect(model.findings[0]?.description).toBe(
       'This approval stays valid until you revoke it.',
@@ -202,8 +195,8 @@ describe('securityCheckModel', () => {
     ]);
   });
 
-  it('includes address risk in the overall verdict without duplicating it', () => {
-    const model = buildSecurityCheckModel({
+  it('uses address risk as a fallback when the targeted scan has no conclusion', () => {
+    const withoutScan = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
@@ -220,13 +213,96 @@ describe('securityCheckModel', () => {
       },
       intl,
     });
+    const unknownScan = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        components: [
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Spender',
+            address: '0xrisk',
+            tags: [{ value: 'Malicious address', displayType: 'critical' }],
+          },
+        ],
+      },
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Unknown,
+      ),
+      intl,
+    });
 
-    expect(model.status).toBe('warning');
-    expect(model.confirmation).toBe('risk');
-    expect(model.findings).toEqual([]);
-    expect(model.statusSourceTitle).toBe(
-      ETranslations.dapp_connect_signature_analysis__title,
-    );
+    expect(withoutScan).toMatchObject({
+      status: 'warning',
+      confirmation: 'risk',
+      findings: [],
+    });
+    expect(unknownScan).toMatchObject({
+      status: 'critical',
+      confirmation: 'risk',
+    });
+  });
+
+  it('prefers a conclusive targeted scan over address tags', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        components: [
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Spender',
+            address: '0xrisk',
+            tags: [{ value: 'Suspicious address', displayType: 'warning' }],
+          },
+        ],
+      },
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Security,
+      ),
+      intl,
+    });
+
+    expect(model.status).toBe('success');
+    expect(model.confirmation).toBe('none');
+  });
+
+  it('keeps the legacy message risk gate for an untrusted Permit or tagged trusted Permit', () => {
+    const untrustedPermit = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+      messageDisplay: parsedMessage,
+      unsignedMessage: permitMessage,
+      isRiskSignMethod: true,
+      intl,
+    });
+    const trustedPermitWithAddressRisk = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: {
+        ...parsedMessage,
+        components: [
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Spender',
+            address: '0xrisk',
+            tags: [{ value: 'Suspicious address', displayType: 'warning' }],
+          },
+        ],
+      },
+      unsignedMessage: permitMessage,
+      intl,
+    });
+
+    expect(untrustedPermit.confirmation).toBe('risk');
+    expect(trustedPermitWithAddressRisk.confirmation).toBe('risk');
+    expect(trustedPermitWithAddressRisk.status).toBe('warning');
   });
 
   it('keeps an existing warning visible while Prime is still checking', () => {
@@ -264,7 +340,83 @@ describe('securityCheckModel', () => {
     expect(model.isPending).toBe(true);
     expect(model.hasTransactionSecurityCheck).toBe(true);
     expect(model.findings).toEqual([]);
-    expect(model.shouldShowNoIssue).toBe(false);
+  });
+
+  it('blocks confirmation while the site or parser check is pending', () => {
+    const sitePending = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      messageDisplay: parsedMessage,
+      intl,
+    });
+    const malformedSitePending = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: {} as IHostSecurity,
+      messageDisplay: parsedMessage,
+      intl,
+    });
+    const parserPending = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      isParserPending: true,
+      intl,
+    });
+
+    expect(sitePending).toMatchObject({
+      status: 'loading',
+      confirmation: 'pending',
+      isPending: true,
+    });
+    expect(malformedSitePending).toMatchObject({
+      status: 'loading',
+      confirmation: 'pending',
+      isPending: true,
+    });
+    expect(parserPending).toMatchObject({
+      status: 'loading',
+      confirmation: 'pending',
+      isPending: true,
+    });
+    expect(
+      parserPending.coverage.find((item) => item.source === 'parser')?.state,
+    ).toBe('pending');
+  });
+
+  it('requires review when message or transaction parsing falls back', () => {
+    const messageFallback = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      isMessageParseFallback: true,
+      intl,
+    });
+    const transactionFallback = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [
+        {
+          isLocalParsed: true,
+          txDisplay: { title: 'Transaction', components: [], alerts: [] },
+        } as unknown as IDecodedTx,
+      ],
+      intl,
+    });
+
+    expect(messageFallback).toMatchObject({
+      status: 'unknown',
+      confirmation: 'request',
+    });
+    expect(transactionFallback).toMatchObject({
+      status: 'unknown',
+      confirmation: 'request',
+    });
+    expect(getCardSecurityFindings(messageFallback.findings).featured?.id).toBe(
+      'message-parse-fallback',
+    );
   });
 
   it('does not treat a failed request scan as SignGuard coverage', () => {
@@ -286,12 +438,43 @@ describe('securityCheckModel', () => {
     expect(model.status).toBe('check_failed');
     expect(model.confirmation).toBe('none');
     expect(model.hasTransactionSecurityCheck).toBe(false);
-    expect(model.defaultExpanded).toBe(false);
     expect(model.findings[0]?.title).toBe(
       ETranslations.kyt_risk_check_failed__title,
     );
     expect(model.findings[0]?.description).toBeUndefined();
     expect(model.findings[0]?.id).toBe('tx-security-check-failed');
+    expect(canRetryTransactionSecurityCheck(model.findings)).toBe(true);
+  });
+
+  it('keeps retry available when a failed scan sits next to another finding', () => {
+    const checkFailed = {
+      level: EHostSecurityLevel.Unknown,
+      detail: {
+        code: ETransactionSecurityResultCode.CheckFailed,
+        features: [],
+      },
+    };
+    const unverified = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: checkFailed,
+      intl,
+    });
+    const warning = buildSecurityCheckModel({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Medium } as IHostSecurity,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: checkFailed,
+      intl,
+    });
+
+    expect(unverified.status).toBe('unknown');
+    expect(warning.status).toBe('warning');
+    expect(canRetryTransactionSecurityCheck(unverified.findings)).toBe(true);
+    expect(canRetryTransactionSecurityCheck(warning.findings)).toBe(true);
   });
 
   it('returns to loading when a failed scan is retried', () => {
@@ -352,33 +535,28 @@ describe('securityCheckModel', () => {
       intl,
     });
 
-    expect(
-      model.groupedFindings.operation.map((finding) => finding.status),
-    ).toEqual(['warning', 'unknown']);
-    expect(
-      model.groupedFindings.operation.map((finding) => finding.id),
-    ).toEqual([
+    const operationFindings = sortSecurityFindings(
+      model.findings.filter((finding) => finding.category === 'operation'),
+    );
+    expect(operationFindings.map((finding) => finding.status)).toEqual([
+      'warning',
+      'unknown',
+    ]);
+    expect(operationFindings.map((finding) => finding.id)).toEqual([
       'parser-alert-0-Review this request',
       'tx-security-unable_to_assess',
     ]);
   });
 
-  it('does not attribute basic checks to transaction security', () => {
-    const model = buildSecurityCheckModel({
+  it('attributes transaction-security coverage only after a completed request scan', () => {
+    const localModel = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
       messageDisplay: parsedMessage,
       intl,
     });
-
-    expect(model.status).toBe('success');
-    expect(model.hasTransactionSecurityCheck).toBe(false);
-    expect(model.showTargetedScanGap).toBe(true);
-  });
-
-  it('does not show a targeted-scan gap after a real request scan', () => {
-    const model = buildSecurityCheckModel({
+    const scannedModel = buildSecurityCheckModel({
       kind: 'message',
       origin: 'https://app.example.com',
       urlSecurityInfo: verifiedSite,
@@ -389,8 +567,14 @@ describe('securityCheckModel', () => {
       intl,
     });
 
-    expect(model.status).toBe('success');
-    expect(model.showTargetedScanGap).toBe(false);
+    expect(localModel).toMatchObject({
+      status: 'success',
+      hasTransactionSecurityCheck: false,
+    });
+    expect(scannedModel).toMatchObject({
+      status: 'success',
+      hasTransactionSecurityCheck: true,
+    });
   });
 
   it('drops a Prime warning description that only restates the badge', () => {
@@ -417,81 +601,224 @@ describe('securityCheckModel', () => {
   });
 });
 
-describe('security check display helpers', () => {
-  it('shows Prime credit only on safe results without a targeted scan', () => {
+describe('security check coverage', () => {
+  const parsedTx = {
+    isLocalParsed: false,
+    txDisplay: { title: 'Approval', components: [], alerts: [] },
+  } as unknown as IDecodedTx;
+
+  it('lists site, parser, and locked Prime coverage for a free user', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [parsedTx],
+      isPrimeUser: false,
+    });
+
+    expect(coverage).toEqual([
+      { source: 'site', state: 'completed' },
+      { source: 'parser', state: 'completed' },
+      { source: 'requestScan', state: 'locked' },
+    ]);
+  });
+
+  it('marks Prime coverage completed after a targeted scan', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Security,
+      ),
+      isPrimeUser: true,
+    });
+
+    expect(coverage).toEqual([
+      { source: 'site', state: 'completed' },
+      { source: 'parser', state: 'completed' },
+      { source: 'requestScan', state: 'completed' },
+    ]);
+  });
+
+  it('marks Prime coverage notApplicable when a Prime user has no scan', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [parsedTx],
+      isPrimeUser: true,
+    });
+
+    expect(coverage.find((item) => item.source === 'requestScan')?.state).toBe(
+      'notApplicable',
+    );
+  });
+
+  it('keeps Prime coverage pending while checking', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      isTransactionSecurityPending: true,
+      isPrimeUser: true,
+    });
+
+    expect(coverage.find((item) => item.source === 'requestScan')?.state).toBe(
+      'pending',
+    );
+  });
+
+  it('marks parser unknown on local parse fallback', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      decodedTxs: [{ ...parsedTx, isLocalParsed: true }],
+      isPrimeUser: false,
+    });
+
+    expect(coverage.find((item) => item.source === 'parser')?.state).toBe(
+      'unknown',
+    );
+  });
+
+  it('marks site and parser notApplicable when those checks cannot run', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'transaction',
+      isPrimeUser: false,
+    });
+
+    expect(coverage).toEqual([
+      { source: 'site', state: 'notApplicable' },
+      { source: 'parser', state: 'notApplicable' },
+      { source: 'requestScan', state: 'locked' },
+    ]);
+  });
+
+  it('does not label an unverified site as checked', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: { level: EHostSecurityLevel.Unknown } as IHostSecurity,
+      messageDisplay: parsedMessage,
+      isPrimeUser: false,
+    });
+
+    expect(coverage.find((item) => item.source === 'site')?.state).toBe(
+      'unknown',
+    );
+  });
+
+  it('does not flash a Prime unlock before persist membership is known', () => {
+    const coverage = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+    });
+
+    expect(coverage.find((item) => item.source === 'requestScan')?.state).toBe(
+      'notApplicable',
+    );
+  });
+
+  it('marks Prime coverage failed or unknown from the scan result', () => {
+    const failed = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: {
+        level: EHostSecurityLevel.Unknown,
+        detail: {
+          code: ETransactionSecurityResultCode.CheckFailed,
+          features: [],
+        },
+      },
+      isPrimeUser: true,
+    });
+    const unverified = getSecurityCheckCoverage({
+      kind: 'message',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      messageDisplay: parsedMessage,
+      transactionSecurityInfo: buildTransactionSecurityResult(
+        EHostSecurityLevel.Unknown,
+      ),
+      isPrimeUser: true,
+    });
+
+    expect(failed.find((item) => item.source === 'requestScan')?.state).toBe(
+      'failed',
+    );
     expect(
-      shouldShowPrimeCredit({ status: 'success', isPrimeUser: false }),
+      unverified.find((item) => item.source === 'requestScan')?.state,
+    ).toBe('unknown');
+  });
+});
+
+describe('security check display helpers', () => {
+  it('shows the Prime invite only on safe results without a targeted scan', () => {
+    expect(
+      shouldShowPrimeInvite({ status: 'success', isPrimeUser: false }),
     ).toBe(true);
-    expect(shouldShowPrimeCredit({ status: 'info', isPrimeUser: false })).toBe(
+    expect(shouldShowPrimeInvite({ status: 'info', isPrimeUser: false })).toBe(
       true,
     );
     expect(
-      shouldShowPrimeCredit({
+      shouldShowPrimeInvite({
         status: 'success',
         isPrimeUser: false,
         hasTransactionSecurityCheck: true,
       }),
     ).toBe(false);
     expect(
-      shouldShowPrimeCredit({ status: 'critical', isPrimeUser: false }),
+      shouldShowPrimeInvite({ status: 'critical', isPrimeUser: false }),
     ).toBe(false);
     expect(
-      shouldShowPrimeCredit({ status: 'warning', isPrimeUser: false }),
+      shouldShowPrimeInvite({ status: 'warning', isPrimeUser: false }),
     ).toBe(false);
     expect(
-      shouldShowPrimeCredit({ status: 'loading', isPrimeUser: false }),
+      shouldShowPrimeInvite({ status: 'loading', isPrimeUser: false }),
     ).toBe(false);
     expect(
-      shouldShowPrimeCredit({ status: 'check_failed', isPrimeUser: false }),
+      shouldShowPrimeInvite({ status: 'success', isPrimeUser: true }),
     ).toBe(false);
-    expect(
-      shouldShowPrimeCredit({ status: 'unknown', isPrimeUser: false }),
-    ).toBe(false);
-    expect(
-      shouldShowPrimeCredit({ status: 'success', isPrimeUser: true }),
-    ).toBe(false);
-    expect(shouldShowPrimeCredit({ status: 'success' })).toBe(false);
+    expect(shouldShowPrimeInvite({ status: 'success' })).toBe(false);
   });
 
-  it('shows a targeted-scan gap only on success without a request scan', () => {
+  it('does not call a site-only batch result a successful transaction check', () => {
+    const model = buildSecurityCheckModel({
+      kind: 'transaction',
+      origin: 'https://app.example.com',
+      urlSecurityInfo: verifiedSite,
+      isPrimeUser: false,
+      intl,
+    });
+
+    expect(model).toMatchObject({
+      status: undefined,
+      confirmation: 'none',
+      findings: [],
+    });
+    expect(model.coverage).toEqual([
+      { source: 'site', state: 'completed' },
+      { source: 'parser', state: 'notApplicable' },
+      { source: 'requestScan', state: 'locked' },
+    ]);
     expect(
-      shouldShowTargetedScanGap({
-        status: 'success',
-        hasTransactionSecurityCheck: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowTargetedScanGap({
-        status: 'success',
-        hasTransactionSecurityCheck: true,
+      shouldShowPrimeInvite({
+        status: model.status,
+        isPrimeUser: model.isPrimeUser,
+        hasTransactionSecurityCheck: model.hasTransactionSecurityCheck,
       }),
     ).toBe(false);
-    expect(
-      shouldShowTargetedScanGap({
-        status: 'warning',
-        hasTransactionSecurityCheck: false,
-      }),
-    ).toBe(false);
-    expect(getTargetedScanGapTitle(intl)).toBe(
-      `${ETranslations.prime_feature_transaction_security_check__title} · ${ETranslations.global_not_available}`,
-    );
   });
 
-  it('keeps the simulation preview flat on the card plane', () => {
-    expect(
-      shouldNestSimulationPreview({ hasAssets: true, status: 'success' }),
-    ).toBe(false);
-    expect(
-      shouldNestSimulationPreview({ hasAssets: true, status: 'warning' }),
-    ).toBe(false);
-    expect(
-      shouldNestSimulationPreview({ hasAssets: true, status: 'unknown' }),
-    ).toBe(false);
-    expect(shouldGlowSimulationNest('warning')).toBe(false);
-    expect(shouldGlowSimulationNest('critical')).toBe(false);
-  });
-
-  it('features the worst decision finding and keeps unknown off the card', () => {
+  it('features the worst decision finding and keeps non-decision context visible', () => {
     const siteWarning = {
       id: 'site-medium',
       category: 'site' as const,
@@ -534,97 +861,14 @@ describe('security check display helpers', () => {
     expect(card.listed.map((finding) => finding.id)).toEqual([
       'extra',
       'allowance',
+      'unverified',
     ]);
-    expect(card.shownCount).toBe(3);
-    expect(card.decisionCount).toBe(4);
-    expect(
-      shouldShowAllSecurityFindings({
-        findings: [
-          siteWarning,
-          spenderWarning,
-          allowanceWarning,
-          extraWarning,
-          unknown,
-        ],
-        shownCount: card.shownCount,
-        statusLabel: 'Warning',
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowAllSecurityFindings({
-        findings: [unknown],
-        shownCount: 0,
-        statusLabel: 'Unverified',
-      }),
-    ).toBe(false);
-  });
-
-  it('hides a check-failed row that only restates the badge', () => {
-    const checkFailed = {
-      id: CHECK_FAILED_FINDING_ID,
-      category: 'operation' as const,
-      status: 'unknown' as const,
-      title: 'Check failed',
-    };
-    expect(shouldUseCheckFailedStatus([checkFailed])).toBe(true);
-    expect(
-      getVisibleSecurityFindings([checkFailed], 'Check failed').map(
-        (finding) => finding.id,
-      ),
-    ).toEqual([]);
-  });
-
-  it('hides findings that only repeat the badge', () => {
-    const parrot = {
-      id: 'site-unknown',
-      category: 'site' as const,
-      status: 'unknown' as const,
-      title: 'Unverified',
-    };
-    const fact = {
-      id: 'check-failed',
-      category: 'operation' as const,
-      status: 'unknown' as const,
-      title: 'Check failed',
-    };
-    expect(
-      isRedundantSecurityFinding({
-        finding: parrot,
-        statusLabel: 'Unverified',
-      }),
-    ).toBe(true);
-    expect(
-      getVisibleSecurityFindings([parrot, fact], 'Unverified').map(
-        (finding) => finding.id,
-      ),
-    ).toEqual(['check-failed']);
-  });
-
-  it('opens details only when a finding has description or an action', () => {
-    const titleOnly = {
-      id: 'parser',
-      category: 'operation' as const,
-      status: 'warning' as const,
-      title: 'The spender is an EOA',
-    };
-    const withDescription = {
-      ...titleOnly,
-      description: 'This approval stays valid until you revoke it.',
-    };
-    const withAction = {
-      ...titleOnly,
-      action: {
-        type: 'site' as const,
-        origin: 'https://app.uniswap.org',
-        urlSecurityInfo: { level: EHostSecurityLevel.High } as IHostSecurity,
-      },
-    };
-
-    expect(hasSecurityFindingDetails(titleOnly)).toBe(false);
-    expect(hasSecurityFindingDetails(titleOnly, '   ')).toBe(false);
-    expect(
-      hasSecurityFindingDetails(withDescription, withDescription.description),
-    ).toBe(true);
-    expect(hasSecurityFindingDetails(withAction)).toBe(true);
+    expect(card.allDecisionFindings.map((finding) => finding.id)).toEqual([
+      'site-medium',
+      'extra',
+      'allowance',
+      'spender',
+    ]);
+    expect(card.hasHiddenDecisionFindings).toBe(true);
   });
 });

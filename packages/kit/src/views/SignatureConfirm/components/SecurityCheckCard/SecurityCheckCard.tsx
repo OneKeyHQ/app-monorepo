@@ -8,6 +8,8 @@ import {
   Dialog,
   Divider,
   Icon,
+  IconButton,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -16,6 +18,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -24,17 +27,17 @@ import { CheckingMark } from '../SignatureConfirmComponents/CheckingMark';
 
 import { ConfirmCardFrame } from './ConfirmCardFrame';
 import {
+  canRetryTransactionSecurityCheck,
   getCardSecurityFindings,
-  getCeremonialFindingDescriptions,
-  getVisibleSecurityFindings,
-  omitCeremonialDescription,
-  shouldShowAllSecurityFindings,
-  shouldShowPrimeCredit,
+  shouldShowPrimeInvite,
 } from './securityCheckModel';
 import { showSecurityFindingDetails } from './SecurityFindingDetails';
 
 import type {
   ISecurityCheckCategory,
+  ISecurityCheckCoverageItem,
+  ISecurityCheckCoverageSource,
+  ISecurityCheckCoverageState,
   ISecurityCheckFinding,
   ISecurityCheckStatus,
   ISecurityCheckViewModel,
@@ -59,6 +62,114 @@ const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
 const FINDING_DETAILS_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
 const INVITE_HOVER_STYLE = { opacity: 0.7 } as const;
 const INVITE_PRESS_STYLE = { opacity: 0.5 } as const;
+const COVERAGE_CONTENT_PADDING = {
+  px: '$5',
+  pb: '$5',
+  pt: platformEnv.isNative ? '$0' : '$5',
+} as const;
+const COVERAGE_PANEL_PROPS = { minWidth: 300 } as const;
+const COVERAGE_STATE_ID: Record<ISecurityCheckCoverageState, ETranslations> = {
+  pending: ETranslations.global_checking,
+  completed: ETranslations.security_check_checked__title,
+  failed: ETranslations.kyt_risk_check_failed__title,
+  unknown: ETranslations.global_unverified,
+  notApplicable: ETranslations.global_not_available,
+  locked: ETranslations.prime_get_prime,
+};
+const COVERAGE_SOURCE_ICON: Record<ISecurityCheckCoverageSource, IKeyOfIcons> =
+  {
+    site: 'GlobusOutline',
+    parser: 'FileTextOutline',
+    requestScan: 'DocumentSearch2Outline',
+  };
+
+function getCoverageStateTone(state: ISecurityCheckCoverageState): {
+  icon?: IKeyOfIcons;
+  iconColor: IIconProps['color'];
+  textColor: IIconProps['color'];
+  pending?: boolean;
+} {
+  if (state === 'pending') {
+    return {
+      iconColor: '$iconSubdued',
+      textColor: '$textSubdued',
+      pending: true,
+    };
+  }
+  if (state === 'completed') {
+    return {
+      icon: 'CheckRadioOutline',
+      iconColor: '$icon',
+      textColor: '$text',
+    };
+  }
+  if (state === 'failed') {
+    return {
+      icon: 'XCircleOutline',
+      iconColor: '$iconSubdued',
+      textColor: '$textSubdued',
+    };
+  }
+  if (state === 'unknown') {
+    return {
+      icon: 'QuestionmarkOutline',
+      iconColor: '$iconSubdued',
+      textColor: '$textSubdued',
+    };
+  }
+  if (state === 'notApplicable') {
+    return {
+      icon: 'MinusCircleOutline',
+      iconColor: '$iconDisabled',
+      textColor: '$textSubdued',
+    };
+  }
+  return {
+    icon: 'LockOutline',
+    iconColor: '$iconSubdued',
+    textColor: '$textSubdued',
+  };
+}
+
+function isMutedCoverageState(state: ISecurityCheckCoverageState) {
+  return state === 'locked' || state === 'notApplicable';
+}
+
+function useOpenPrimeTransactionSecurity() {
+  const navigation = useAppNavigation();
+  return useCallback(() => {
+    defaultLogger.prime.subscription.primeEntryClick({
+      featureName: EPrimeFeatures.TransactionSecurityCheck,
+      entryPoint: 'signatureConfirm',
+      isPrimeActive: false,
+    });
+    navigation.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeDashboard,
+      params: {
+        fromFeature: EPrimeFeatures.TransactionSecurityCheck,
+      },
+    });
+  }, [navigation]);
+}
+
+function getOperationAnalysisTitleId(kind: ISecurityCheckViewModel['kind']) {
+  return kind === 'message'
+    ? ETranslations.dapp_connect_signature_analysis__title
+    : ETranslations.dapp_connect_transaction_analysis__title;
+}
+
+function getCoverageTitleId(
+  source: ISecurityCheckCoverageSource,
+  kind: ISecurityCheckViewModel['kind'],
+) {
+  if (source === 'site') {
+    return ETranslations.dapp_connect_site_security__title;
+  }
+  if (source === 'requestScan') {
+    return ETranslations.prime_feature_transaction_security_check__title;
+  }
+  return getOperationAnalysisTitleId(kind);
+}
 
 function getStatusTone(status: ISecurityCheckStatus): {
   titleIcon: IKeyOfIcons;
@@ -106,25 +217,83 @@ function getStatusTone(status: ISecurityCheckStatus): {
   };
 }
 
+function SecurityCheckCoverageRow({
+  source,
+  state,
+  kind,
+  onPress,
+}: {
+  source: ISecurityCheckCoverageSource;
+  state: ISecurityCheckCoverageState;
+  kind: ISecurityCheckViewModel['kind'];
+  onPress?: () => void;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({
+    id: getCoverageTitleId(source, kind),
+  });
+  const statusLabel = intl.formatMessage({ id: COVERAGE_STATE_ID[state] });
+  const stateTone = getCoverageStateTone(state);
+  const muted = isMutedCoverageState(state);
+
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      width="100%"
+      userSelect="none"
+      hoverStyle={onPress ? INVITE_HOVER_STYLE : undefined}
+      pressStyle={onPress ? INVITE_PRESS_STYLE : undefined}
+      hitSlop={onPress ? FINDING_DETAILS_HIT_SLOP : undefined}
+      role={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `${title}, ${statusLabel}` : undefined}
+      onPress={onPress}
+    >
+      <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
+        <Icon
+          name={COVERAGE_SOURCE_ICON[source]}
+          size="$4"
+          color={muted ? '$iconDisabled' : '$iconSubdued'}
+        />
+        <SizableText
+          size="$bodyMdMedium"
+          color={muted ? '$textSubdued' : '$text'}
+          flex={1}
+          minWidth={0}
+          numberOfLines={1}
+        >
+          {title}
+        </SizableText>
+      </XStack>
+      <XStack alignItems="center" gap="$1" flexShrink={0}>
+        {stateTone.pending ? (
+          <CheckingMark accessibilityLabel={statusLabel} />
+        ) : null}
+        {!stateTone.pending && stateTone.icon ? (
+          <Icon name={stateTone.icon} size="$3.5" color={stateTone.iconColor} />
+        ) : null}
+        <SizableText size="$bodySm" color={stateTone.textColor}>
+          {statusLabel}
+        </SizableText>
+        {onPress ? (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$4"
+            color="$iconSubdued"
+          />
+        ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
 function PrimeInviteRow() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const openPrime = useOpenPrimeTransactionSecurity();
   const inviteLabel = intl.formatMessage({
     id: ETranslations.know_more_about_this_transaction__desc,
   });
-  const handlePress = useCallback(() => {
-    defaultLogger.prime.subscription.primeEntryClick({
-      featureName: EPrimeFeatures.TransactionSecurityCheck,
-      entryPoint: 'signatureConfirm',
-      isPrimeActive: false,
-    });
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        fromFeature: EPrimeFeatures.TransactionSecurityCheck,
-      },
-    });
-  }, [navigation]);
 
   return (
     <XStack
@@ -139,10 +308,10 @@ function PrimeInviteRow() {
       hitSlop={FINDING_DETAILS_HIT_SLOP}
       role="button"
       accessibilityLabel={inviteLabel}
-      onPress={handlePress}
+      onPress={openPrime}
     >
       <XStack alignItems="center" gap="$1.5" flex={1} minWidth={0}>
-        <Stack width="$5" flexShrink={0} />
+        <Stack width="$4" flexShrink={0} />
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -163,6 +332,72 @@ function PrimeInviteRow() {
   );
 }
 
+export function SecurityCheckCoverageList({
+  kind,
+  coverage,
+  onLockedPress,
+}: {
+  kind: ISecurityCheckViewModel['kind'];
+  coverage: ISecurityCheckCoverageItem[];
+  onLockedPress?: () => void;
+}) {
+  const openPrime = useOpenPrimeTransactionSecurity();
+  const handleLockedPress = onLockedPress ?? openPrime;
+  return (
+    <YStack {...COVERAGE_CONTENT_PADDING} gap="$3">
+      {coverage.map((item) => (
+        <SecurityCheckCoverageRow
+          key={item.source}
+          source={item.source}
+          state={item.state}
+          kind={kind}
+          onPress={item.state === 'locked' ? handleLockedPress : undefined}
+        />
+      ))}
+    </YStack>
+  );
+}
+
+function SecurityCheckCoverageTooltip({
+  title,
+  kind,
+  coverage,
+}: {
+  title: string;
+  kind: ISecurityCheckViewModel['kind'];
+  coverage: ISecurityCheckCoverageItem[];
+}) {
+  const openPrime = useOpenPrimeTransactionSecurity();
+  return (
+    <Popover
+      title={title}
+      hoverable
+      placement="bottom-start"
+      floatingPanelProps={COVERAGE_PANEL_PROPS}
+      renderTrigger={
+        <IconButton
+          icon="InfoCircleOutline"
+          variant="tertiary"
+          iconSize="$4"
+          iconColor="$iconSubdued"
+          accessibilityLabel={title}
+          testID={SignatureConfirmTestIDs.SecurityCheckCoverage}
+        />
+      }
+      renderContent={({ closePopover }) => (
+        <SecurityCheckCoverageList
+          kind={kind}
+          coverage={coverage}
+          onLockedPress={() => {
+            closePopover();
+            openPrime();
+          }}
+        />
+      )}
+    />
+  );
+}
+
 function SecurityCheckFindingRow({
   finding,
   featured,
@@ -172,15 +407,10 @@ function SecurityCheckFindingRow({
   featured?: boolean;
   emphasizeTitle?: boolean;
 }) {
-  const intl = useIntl();
   const style = getStatusTone(finding.status);
-  const description = omitCeremonialDescription(
-    finding.description,
-    getCeremonialFindingDescriptions(intl),
-  );
   const handlePress = useCallback(() => {
-    showSecurityFindingDetails({ finding, description });
-  }, [description, finding]);
+    showSecurityFindingDetails({ finding });
+  }, [finding]);
   const titleSize = featured || emphasizeTitle ? '$bodyMdMedium' : '$bodyMd';
 
   return (
@@ -190,6 +420,13 @@ function SecurityCheckFindingRow({
       onPress={finding.action ? handlePress : undefined}
       hoverStyle={finding.action ? INVITE_HOVER_STYLE : undefined}
       pressStyle={finding.action ? INVITE_PRESS_STYLE : undefined}
+      hitSlop={finding.action ? FINDING_DETAILS_HIT_SLOP : undefined}
+      role={finding.action ? 'button' : undefined}
+      accessibilityLabel={
+        finding.action
+          ? [finding.title, finding.description].filter(Boolean).join(', ')
+          : undefined
+      }
     >
       {featured ? null : (
         <YStack
@@ -204,12 +441,9 @@ function SecurityCheckFindingRow({
       )}
       <YStack gap={featured ? '$1.5' : '$1'} flex={1} minWidth={0}>
         <SizableText size={titleSize}>{finding.title}</SizableText>
-        {description ? (
-          <SizableText
-            size={featured ? '$bodySm' : '$bodyXs'}
-            color="$textSubdued"
-          >
-            {description}
+        {finding.description ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {finding.description}
           </SizableText>
         ) : null}
       </YStack>
@@ -245,10 +479,7 @@ function SecurityCheckCategoryGroup({
     category === 'site'
       ? intl.formatMessage({ id: ETranslations.global_website })
       : intl.formatMessage({
-          id:
-            kind === 'message'
-              ? ETranslations.dapp_connect_signature_analysis__title
-              : ETranslations.dapp_connect_transaction_analysis__title,
+          id: getOperationAnalysisTitleId(kind),
         });
 
   return (
@@ -272,22 +503,21 @@ function SecurityCheckCategoryGroup({
 }
 
 function showAllSecurityFindings({
-  model,
-  statusLabel,
+  kind,
   title,
+  findings,
+  orderedCategories,
 }: {
-  model: ISecurityCheckViewModel;
-  statusLabel: string;
+  kind: ISecurityCheckViewModel['kind'];
   title: string;
+  findings: ISecurityCheckFinding[];
+  orderedCategories: ISecurityCheckCategory[];
 }) {
   const groupedFindings = {
-    site: getVisibleSecurityFindings(model.groupedFindings.site, statusLabel),
-    operation: getVisibleSecurityFindings(
-      model.groupedFindings.operation,
-      statusLabel,
-    ),
+    site: findings.filter((finding) => finding.category === 'site'),
+    operation: findings.filter((finding) => finding.category === 'operation'),
   };
-  const categories = model.orderedCategories.filter(
+  const categories = orderedCategories.filter(
     (category) => groupedFindings[category].length > 0,
   );
 
@@ -301,7 +531,7 @@ function showAllSecurityFindings({
             key={category}
             category={category}
             findings={groupedFindings[category]}
-            kind={model.kind}
+            kind={kind}
             showLabel={categories.length > 1}
           />
         ))}
@@ -312,27 +542,27 @@ function showAllSecurityFindings({
 
 function SecurityCheckHeader({
   model,
+  status,
   title,
   statusLabel,
   onRetry,
 }: {
   model: ISecurityCheckViewModel;
+  status: ISecurityCheckStatus;
   title: string;
   statusLabel: string;
   onRetry?: () => void;
 }) {
   const intl = useIntl();
-  const showChecking = model.status === 'loading' || model.isPending;
-  const style = model.status ? getStatusTone(model.status) : undefined;
-  const showBadge = Boolean(
-    model.status &&
-    model.status !== 'loading' &&
-    model.status !== 'success' &&
-    style,
-  );
-  const showLoadingLabel = model.status === 'loading';
-  const showSuccessLabel = model.status === 'success';
-  const canRetry = model.status === 'check_failed' && Boolean(onRetry);
+  const showChecking = model.isPending;
+  const style = getStatusTone(status);
+  const showBadge = status !== 'loading' && status !== 'success';
+  const showLoadingLabel = status === 'loading';
+  const showSuccessLabel = status === 'success';
+  const canRetry =
+    Boolean(onRetry) &&
+    !model.isPending &&
+    canRetryTransactionSecurityCheck(model.findings);
   const retryLabel = intl.formatMessage({ id: ETranslations.global_retry });
 
   return (
@@ -342,40 +572,61 @@ function SecurityCheckHeader({
       gap="$2"
       width="100%"
       flexWrap="wrap"
-      onPress={canRetry ? onRetry : undefined}
-      hoverStyle={canRetry ? INVITE_HOVER_STYLE : undefined}
-      pressStyle={canRetry ? INVITE_PRESS_STYLE : undefined}
-      hitSlop={canRetry ? FINDING_DETAILS_HIT_SLOP : undefined}
-      role={canRetry ? 'button' : undefined}
-      accessibilityLabel={canRetry ? retryLabel : undefined}
-      testID={canRetry ? SignatureConfirmTestIDs.SecurityCheckRetry : undefined}
-      userSelect={canRetry ? 'none' : undefined}
     >
       <XStack alignItems="center" gap="$1.5" minWidth={0}>
-        {showChecking ? <CheckingMark /> : null}
-        {!showChecking && style ? (
+        {showChecking ? (
+          <CheckingMark
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.global_checking,
+            })}
+          />
+        ) : (
           <Icon
             name={style.titleIcon}
-            size="$5"
+            size="$4"
             color={style.iconColor}
             accessibilityLabel={statusLabel}
           />
-        ) : null}
+        )}
         <SizableText size="$headingSm">{title}</SizableText>
+        <SecurityCheckCoverageTooltip
+          title={title}
+          kind={model.kind}
+          coverage={model.coverage}
+        />
       </XStack>
       {showLoadingLabel || showSuccessLabel || showBadge ? (
-        <XStack alignItems="center" gap="$2" ml="auto" maxWidth="100%">
+        <XStack
+          alignItems="center"
+          gap="$2"
+          ml="auto"
+          maxWidth="100%"
+          onPress={canRetry ? onRetry : undefined}
+          hoverStyle={canRetry ? INVITE_HOVER_STYLE : undefined}
+          pressStyle={canRetry ? INVITE_PRESS_STYLE : undefined}
+          hitSlop={canRetry ? FINDING_DETAILS_HIT_SLOP : undefined}
+          role={canRetry ? 'button' : undefined}
+          accessibilityLabel={canRetry ? retryLabel : undefined}
+          testID={
+            canRetry ? SignatureConfirmTestIDs.SecurityCheckRetry : undefined
+          }
+          userSelect={canRetry ? 'none' : undefined}
+        >
           {showLoadingLabel ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {`${statusLabel}...`}
             </SizableText>
           ) : null}
           {showSuccessLabel ? (
-            <SizableText size="$bodySmMedium" color="$text" flexShrink={1}>
+            <SizableText
+              size="$bodySmMedium"
+              color="$textSubdued"
+              flexShrink={1}
+            >
               {statusLabel}
             </SizableText>
           ) : null}
-          {showBadge && style ? (
+          {showBadge ? (
             <Badge badgeType={style.badgeType} badgeSize="sm">
               {statusLabel}
             </Badge>
@@ -425,19 +676,21 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
     () => getCardSecurityFindings(model.findings),
     [model.findings],
   );
-  const showViewAll = shouldShowAllSecurityFindings({
-    findings: model.findings,
-    shownCount: cardFindings.shownCount,
-    statusLabel,
-  });
+  const showViewAll = cardFindings.hasHiddenDecisionFindings;
   const handleViewAll = useCallback(() => {
     showAllSecurityFindings({
-      model,
-      statusLabel,
+      kind: model.kind,
       title: headerTitle,
+      findings: cardFindings.allDecisionFindings,
+      orderedCategories: model.orderedCategories,
     });
-  }, [headerTitle, model, statusLabel]);
-  const showPrime = shouldShowPrimeCredit({
+  }, [
+    cardFindings.allDecisionFindings,
+    headerTitle,
+    model.kind,
+    model.orderedCategories,
+  ]);
+  const showPrime = shouldShowPrimeInvite({
     status: model.status,
     isPrimeUser: model.isPrimeUser,
     hasTransactionSecurityCheck: model.hasTransactionSecurityCheck,
@@ -458,6 +711,7 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
         <YStack gap="$2">
           <SecurityCheckHeader
             model={model}
+            status={model.status}
             title={headerTitle}
             statusLabel={statusLabel}
             onRetry={onRetry}

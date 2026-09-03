@@ -153,9 +153,6 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
-  const [riskAcceptedForUnsignedTxs, setRiskAcceptedForUnsignedTxs] = useState<
-    IUnsignedTxPro[] | null
-  >(null);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -166,9 +163,28 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  // Risk acknowledgement belongs to the exact transaction revision. Editing
-  // an approval or other payload replaces this array and requires a new check.
-  const continueOperate = riskAcceptedForUnsignedTxs === unsignedTxs;
+  const [securityCheckAcknowledgement, setSecurityCheckAcknowledgement] =
+    useState({
+      unsignedTxs,
+      confirmation: securityCheckConfirmation,
+      accepted: false,
+    });
+  if (
+    securityCheckAcknowledgement.unsignedTxs !== unsignedTxs ||
+    securityCheckAcknowledgement.confirmation !== securityCheckConfirmation
+  ) {
+    setSecurityCheckAcknowledgement({
+      unsignedTxs,
+      confirmation: securityCheckConfirmation,
+      accepted: false,
+    });
+  }
+  // Acknowledgement belongs to this transaction revision and verdict. Editing
+  // the payload or receiving a new verdict requires explicit review again.
+  const continueOperate =
+    securityCheckAcknowledgement.accepted &&
+    securityCheckAcknowledgement.unsignedTxs === unsignedTxs &&
+    securityCheckAcknowledgement.confirmation === securityCheckConfirmation;
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
@@ -1233,11 +1249,15 @@ function TxConfirmActions(props: IProps) {
               label={intl.formatMessage({
                 id: showTakeRiskAlert
                   ? ETranslations.dapp_connect_proceed_at_my_own_risk
-                  : ETranslations.dapp_connect_security_checks_reviewed_authorization_details__text,
+                  : ETranslations.global_i_understand,
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setRiskAcceptedForUnsignedTxs(checked ? unsignedTxs : null);
+                setSecurityCheckAcknowledgement({
+                  unsignedTxs,
+                  confirmation: securityCheckConfirmation,
+                  accepted: Boolean(checked),
+                });
               }}
             />
           ) : null}

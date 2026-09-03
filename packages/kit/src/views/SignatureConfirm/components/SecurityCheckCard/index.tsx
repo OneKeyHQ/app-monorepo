@@ -1,7 +1,8 @@
 export { default as SecurityCheckCard } from './SecurityCheckCard';
+export { SecurityCheckCoverageList } from './SecurityCheckCard';
 export { default as TransactionPreview } from './TransactionPreview';
-export type {
-  ISecurityCheckConfirmation,
-  ISecurityCheckViewModel,
+export type { ISecurityCheckConfirmation } from './securityCheckModel';
+export {
+  buildSecurityCheckModel,
+  getSecurityCheckCoverage,
 } from './securityCheckModel';
-export { buildSecurityCheckModel } from './securityCheckModel';

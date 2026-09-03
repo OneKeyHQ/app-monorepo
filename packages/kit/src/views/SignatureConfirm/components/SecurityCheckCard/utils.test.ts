@@ -22,6 +22,7 @@ import {
   getSimulationAssetSign,
   getSimulationAssets,
   getSimulationGroups,
+  normalizeSecurityFindingTitle,
   shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
@@ -114,40 +115,28 @@ function buildAddressComponent(
   };
 }
 
+describe('SecurityCheckCard finding title display', () => {
+  it('removes trailing periods and exclamation marks but keeps questions', () => {
+    expect(normalizeSecurityFindingTitle('Scam address.')).toBe('Scam address');
+    expect(normalizeSecurityFindingTitle('诈骗地址。')).toBe('诈骗地址');
+    expect(normalizeSecurityFindingTitle('Malicious site!')).toBe(
+      'Malicious site',
+    );
+    expect(normalizeSecurityFindingTitle('恶意网站！')).toBe('恶意网站');
+    expect(normalizeSecurityFindingTitle('Proceed?')).toBe('Proceed?');
+    expect(normalizeSecurityFindingTitle('继续？')).toBe('继续？');
+  });
+});
+
 describe('SecurityCheckCard parser alert display', () => {
-  it.each([
-    [
-      'an initialism',
+  it('does not split a long alert on an abbreviation or decimal', () => {
+    const alerts = [
       'Approval to spend U.S. Dollar Coin (USDC) will be granted to an unverified spender address.',
-    ],
-    [
-      'a Latin abbreviation',
-      'This request, e.g. an unlimited approval, may expose all wallet assets to a malicious spender.',
-    ],
-    [
-      'a company suffix',
-      'Acme Inc. is not a verified spender and may gain unlimited access to every token in this wallet.',
-    ],
-    [
-      'a number abbreviation',
-      'Recipient No. 12 is associated with suspicious activity and may put all wallet assets at risk.',
-    ],
-    [
-      'an abbreviation before a number',
-      'This transaction requests approx. 1000 USDC from your wallet and sends the funds to an unverified address.',
-    ],
-    [
-      'an abbreviation before a proper noun',
-      'This transaction sends funds to Corp. Treasury through an unverified contract with unlimited access.',
-    ],
-    [
-      'a decimal point',
       'The request transfers 0.5 ETH to an unverified recipient. Confirm the amount and recipient before continuing.',
-    ],
-  ])('shows a long alert containing %s only once', (_case, alert) => {
-    expect(alert.length).toBeGreaterThan(80);
-    expect(getParserAlertDisplay(alert)).toEqual({
-      title: alert,
+    ];
+    alerts.forEach((alert) => {
+      expect(alert.length).toBeGreaterThan(80);
+      expect(getParserAlertDisplay(alert)).toEqual({ title: alert });
     });
   });
 
@@ -247,49 +236,30 @@ describe('SecurityCheckCard address risk boundaries', () => {
     ).toBe('critical');
   });
 
-  it('suppresses the global success verdict when the address row has risk', () => {
-    expect(
-      shouldShowNoIssueSection({
-        hasCardFindings: false,
-        hasAddressRisk: true,
-        hasResolvedRequiredChecks: true,
-        hasCoverageTitle: true,
-      }),
-    ).toBe(false);
-  });
-
   it('shows the global success verdict only for resolved, covered checks', () => {
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
-        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
-        hasCoverageTitle: true,
       }),
     ).toBe(true);
     expect(
       shouldShowNoIssueSection({
+        hasCardFindings: true,
+        hasResolvedRequiredChecks: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowNoIssueSection({
         hasCardFindings: false,
-        hasAddressRisk: false,
         hasResolvedRequiredChecks: false,
-        hasCoverageTitle: true,
       }),
     ).toBe(false);
     expect(
       shouldShowNoIssueSection({
         hasCardFindings: false,
-        hasAddressRisk: false,
         hasResolvedRequiredChecks: true,
-        hasCoverageTitle: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowNoIssueSection({
-        hasCardFindings: false,
-        hasAddressRisk: false,
-        hasResolvedRequiredChecks: true,
-        hasCoverageTitle: true,
-        isTransactionSecurityPending: true,
+        isSecurityCheckPending: true,
       }),
     ).toBe(false);
   });

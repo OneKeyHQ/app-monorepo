@@ -2,9 +2,9 @@
 
 > 状态：本地草案（Draft）
 >
-> 版本：0.1
+> 版本：0.2
 >
-> 更新日期：2026-08-21
+> 更新日期：2026-09-04
 >
 > 适用范围：dApp 发起的交易确认与消息签名确认；钱包内部流程复用卡片时遵循相同判定规则
 
@@ -16,7 +16,7 @@
 - 每类信息属于高风险、警告、未知还是普通提示
 - 多个来源结论冲突时，总结论如何计算
 - Prime 针对性检测与网站安全检测、解析提示如何组合
-- 什么情况下隐藏、展示、展开、要求二次确认或阻断操作
+- 什么情况下隐藏、展示、收纳、要求二次确认或阻断操作
 - 每个状态应如何验收
 
 本文使用以下约束词：
@@ -60,7 +60,7 @@
 | 网站安全检测      | 当前域名是否已知恶意、可疑或无法验证               | `origin`、网站安全等级、攻击类型                     | 是                  |
 | Prime 针对性检测  | 这一次具体交易或 JSON-RPC 签名请求是否包含已知风险 | `encodedTx` 或 `method + params`、风险特征           | 是                  |
 | 交易/签名解析     | 用户实际将执行什么、解析器发现了哪些异常           | parser alerts、typed data、Permit、order、custom hex | 是；纯事实只算 Info |
-| 地址风险标签      | 收款方、授权对象、合约等地址是否有风险标签         | address tags                                         | 是                  |
+| 地址风险标签      | 收款方、授权对象、合约等地址是否有风险标签         | address tags                                         | 仅在针对性检测无明确结论时兜底；标签留在地址旁 |
 | 交易模拟/资产变化 | 执行后可能发生哪些资产变化                         | simulation assets                                    | 否；属于事实预览    |
 | 二次确认标记      | 该请求是否要求用户人工核对关键条款                 | `isConfirmationRequired`                             | 否；只决定确认门槛  |
 
@@ -88,28 +88,38 @@
 
 ```ts
 type SecurityCheckCoverage = {
-  source: 'site' | 'requestScan' | 'parser' | 'address' | 'simulation';
-  scopeKey: string;
-  state: 'notApplicable' | 'pending' | 'completed' | 'failed';
+  source: 'site' | 'requestScan' | 'parser';
+  state:
+    | 'notApplicable'
+    | 'pending'
+    | 'completed'
+    | 'failed'
+    | 'unknown'
+    | 'locked';
 };
 ```
 
-- `notApplicable` 不生成 Unknown，也不阻断
-- `pending` 进入临时阻断
-- `completed` 才能贡献 Success 覆盖
-- `failed` 生成 Unknown，但是否二次确认仍按第 5.2 节决定
+- 卡片覆盖只记录会改变理解的来源：网站、解析、Prime 针对性检测。地址标签和模拟不属于卡片覆盖。
+- `notApplicable` 不生成 Unknown，也不阻断；Prime 用户未执行扫描时用它，不得标成已完成
+- `pending` 进入临时阻断；检查中不得展示 Prime 开通引导
+- `completed` 才能贡献 Success 覆盖；覆盖清单文案用 `security_check_checked__title`（Checked / 已检查），不得用 Done / 完成，避免被读成安全结论
+- `failed` / `unknown` 生成对应 Finding，但是否二次确认仍按第 5.2 节决定
+- `locked` 表示非 Prime 未执行针对性检测，不得暗示已经检查
 - Batch 必须逐项记录覆盖，不能通过过滤 `undefined` 推断“全量完成”
+- 标题旁信息图标 MUST 列出上述三项及其真实状态；覆盖清单只出现在该信息弹层
+- 卡片 body MUST NOT 再单独画 Prime coverage 状态行
+- 卡片外 MAY 在 `success` / `info`、非 Prime、且未跑针对性检测时展示开通邀请（Know more about this transaction · Prime）
 
 ## 4. 严重度与总体状态
 
 ### 4.1 Finding 严重度
 
-| 严重度     | 用户含义                         | 归类标准                                   | 典型例子                                                                  | 默认展开                     | 默认确认门槛        |
-| ---------- | -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- | ---------------------------- | ------------------- |
-| `critical` | 已发现高可信、高影响风险         | 已知恶意或可直接造成重大资产风险           | 恶意网站、恶意地址、Prime `high`、危险裸签名方法                          | 是                           | `risk`              |
-| `warning`  | 发现可信的可疑行为，需要谨慎复核 | 有具体异常证据，但未达到高危确定性         | 可疑网站、Prime `medium`、parser 具体告警、危险 custom data               | 是                           | `risk`              |
-| `unknown`  | 本次检查未能给出结论             | 必要检查失败、超时、无法解析或来源无法验证 | Prime `unknown`、`unable_to_assess`、raw/local parse fallback、未验证网站 | 操作未知为是；仅网站未知为否 | 见 5.2              |
-| `info`     | 与决策相关的客观事实，不代表风险 | 请求类型、授权范围、对象、金额、期限       | Permit/typed data/order、无限授权条款、spender、deadline                  | 否                           | `none` 或 `request` |
+| 严重度     | 用户含义                         | 归类标准                                   | 典型例子                                                                  | 默认确认门槛        |
+| ---------- | -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- | ------------------- |
+| `critical` | 已发现高可信、高影响风险         | 已知恶意或可直接造成重大资产风险           | 恶意网站、Prime `high`、危险裸签名方法                                    | `risk`              |
+| `warning`  | 发现可信的可疑行为，需要谨慎复核 | 有具体异常证据，但未达到高危确定性         | 可疑网站、Prime `medium`、parser 具体告警、危险 custom data               | `risk`              |
+| `unknown`  | 本次检查未能给出结论             | 必要检查失败、超时、无法解析或来源无法验证 | Prime `unknown`、`unable_to_assess`、raw/local parse fallback、未验证网站 | 见 5.2              |
+| `info`     | 与决策相关的客观事实，不代表风险 | 请求类型、授权范围、对象、金额、期限       | Permit/typed data/order、无限授权条款、spender、deadline                  | `none` 或 `request` |
 
 归类约束：
 
@@ -126,8 +136,8 @@ type SecurityCheckCoverage = {
 
 | 总体状态   | 计算规则                                                          | 建议标签     | 颜色/图标                      |
 | ---------- | ----------------------------------------------------------------- | ------------ | ------------------------------ |
-| `critical` | 存在任一 `critical` Finding                                       | 风险         | 红色 / `ErrorSolid`            |
-| `warning`  | 无 `critical`，存在任一 `warning` Finding                         | 需确认       | 黄色 / `InfoSquareOutline`     |
+| `critical` | 存在任一 `critical` Finding，或生效的地址风险兜底为 `critical`     | 风险         | 红色 / `ErrorSolid`            |
+| `warning`  | 无 `critical`，存在任一 `warning` Finding，或地址风险兜底为 `warning` | 需确认       | 黄色 / `InfoSquareOutline`     |
 | `unknown`  | 无更高风险，存在任一 `unknown` Finding                            | 未验证       | 中性灰 / `QuestionmarkOutline` |
 | `success`  | 所有适用且必要的检查均完成，且无 `critical`、`warning`、`unknown` | 未检测到问题 | 绿色 / `CheckRadioOutline`     |
 | `info`     | 无足够覆盖形成 `success`，但存在需要展示的事实信息                | 提示         | 信息色 / `InfoCircleOutline`   |
@@ -143,8 +153,8 @@ critical > warning > unknown > success > info > no-status
 
 - `info` Finding 不得把一个已成立的 `success` 降级为“警告”；成功摘要与信息条款可以同时存在。
 - 检查进行中时若已存在风险 Finding，摘要继续展示当前最高风险，并额外显示中性小转圈；不得用 Loading 覆盖已知风险。
-- `success` 的覆盖范围 MUST 通过副标题展示，例如“网站安全 · 签名分析 · 针对性检测”。
-- 非 Prime 或不支持针对性检测时，只能展示实际完成的基础覆盖，不能暗示已完成 Prime 针对性检测。
+- `success` 的覆盖范围 MUST 通过标题旁信息提示展示，不得只写“安全检查”而不说明覆盖。
+- 非 Prime 或不支持针对性检测时，不得把 Prime 项标成已完成；非 Prime 可展示 `locked` 用于说明未执行并引导开通。
 
 ### 4.3 来源到严重度、门槛的标准映射
 
@@ -157,15 +167,15 @@ critical > warning > unknown > success > info > no-status
 | Prime 请求 `high`                                   | `critical`              | `risk`              | 当前 payload 的高风险结论                             |
 | Prime 请求 `medium`                                 | `warning`               | `risk`              | 当前 payload 的可疑结论                               |
 | Prime 请求 `unknown` 或检查失败                     | `unknown`               | `none`              | 两者文案和埋点必须区分；均不得显示绿色                |
-| Prime 请求 `security`                               | 无负面 Finding          | 由其他信号决定      | 贡献当前 payload 的针对性覆盖                         |
+| Prime 请求 `security`                               | 无负面 Finding          | 由其他信号决定      | 贡献当前 payload 的针对性覆盖，并优先于地址标签兜底   |
 | 被策略明确判定为危险的签名方法                      | `critical`              | `risk`              | 例如被标记为 risky 的裸签名请求                       |
 | Parser 返回具体异常证据                             | `warning` 或 `critical` | `risk`              | 严重度必须来自稳定 code/结构化等级，不能只靠文案      |
 | Permit、Order、typed data、无限授权等条款事实       | `info`                  | `none` 或 `request` | 高影响不等于恶意；是否核对由 confirmation 标记决定    |
 | raw message、local parse fallback、无法解释 payload | `unknown`               | `request`           | 用户必须知悉钱包无法完整解释请求                      |
-| 地址 warning/critical 标签                          | 对应 `warning/critical` | `risk`              | 风险标签保留在地址旁，同时必须进入总体状态            |
+| 地址 warning/critical 标签                          | 不生成 Finding          | `risk` 或 `none`    | 针对性检测缺失/失败/无结论时抬高总体状态并要求确认；有明确针对性结论时只留在地址旁 |
 | 正常模拟资产变化                                    | 不生成 Finding          | `none`              | 仅作为事实预览，不代表风险也不代表安全                |
 
-UI 仍只需要“网站”和“本次请求”两个详情分组；地址标签留在地址旁，simulation 留在资产预览中，但它们对总体状态的贡献必须遵守上表。
+UI 仍只需要“网站”和“本次请求”两个详情分组；地址标签留在地址旁，simulation 留在资产预览中。卡片总体状态由 Finding 与生效的地址风险兜底共同决定。
 
 ## 5. 用户确认与阻断规则
 
@@ -207,7 +217,7 @@ UI 仍只需要“网站”和“本次请求”两个详情分组；地址标�
 规则：
 
 - 卡片内展示“需要核对什么”和具体条款
-- Footer checkbox 使用具体核对文案，例如“我已核对授权对象、代币、额度和有效期”
+- Footer checkbox 使用中性“我知道了”，避免 raw/local parse fallback 被误写成已核对授权条款
 - 勾选后使用正常主按钮，不使用风险红色按钮
 - 如果同一请求同时存在 `warning/critical`，确认状态升级为 `risk`，只保留一个风险 checkbox
 - 兼容可信 Permit 流程：标准 Permit/Permit2 来自安全等级为 `security` 的网站，且没有具体风险 Finding 或地址风险时，`isConfirmationRequired` 不单独触发 checkbox；Permit 条款仍展示为 `info`
@@ -220,7 +230,7 @@ Prime 是权益和检查能力；针对性检测是信号来源。它们都不�
 
 - 卡片标题不展示 Prime Badge
 - Blockaid 不对用户露出
-- SignGuard/技术支持仅在存在可见交易模拟，或针对性检测实际进入 Pending/返回结果时展示；仅有网站检测、解析信息或地址标签时隐藏
+- SignGuard 仅跟随可见的交易模拟卡片展示；针对性检测状态通过安全检查 coverage 表达，不在安全检查卡片重复增加品牌标识
 - 归属文案不得表达担保，例如不得使用“Prime 安全”“100% 安全”
 
 ### 6.2 适用条件
@@ -234,6 +244,8 @@ Prime 是权益和检查能力；针对性检测是信号来源。它们都不�
 
 不满足条件时是 `not-applicable`，不是 `unknown`。
 
+Prime 权益初始化尚未完成、但其余条件已构成可扫描请求时，客户端 MUST 暂按 `pending` 处理；不得先按非 Prime 放行，再补做检测。
+
 ### 6.3 结果映射
 
 | 服务端结果               | Finding/总体语义                   | confirmation   |
@@ -244,18 +256,18 @@ Prime 是权益和检查能力；针对性检测是信号来源。它们都不�
 | `unknown`                | `unknown`，文案为“未验证”          | 由其他信号决定 |
 | 超时、异常、空结果       | `unknown`，文案为“无法完成检查”    | 由其他信号决定 |
 
-顶层 `level` MUST 不低于 `features[]` 中的最高风险等级。客户端 SHOULD 防御性取顶层与 feature 的最高风险，避免出现“摘要安全但详情高危”。
+顶层 `level` 是 Blockaid 对本次请求的最终 validation 结论；`features[]` 是解释该结论的证据。客户端 MUST 分别规范化两者，但不得用单条 feature 的等级重算或覆盖顶层结论。
 
 ## 7. 多来源聚合与冲突规则
 
 ### 7.1 聚合顺序
 
-1. 收集网站、针对性检测、parser 和地址 Finding
+1. 收集网站、针对性检测、parser Finding 与地址风险兜底
 2. 先按稳定 `code + address + 关键参数` 去重
 3. 仅按第 7.2 节规则抑制泛化提示
 4. 计算最高风险总体状态
 5. 独立计算确认状态
-6. 最后决定是否展示、展开和按钮状态
+6. 最后决定卡片展示、Finding 收纳和按钮状态
 
 确认状态优先级：
 
@@ -283,13 +295,13 @@ Prime 来源不得越过更高严重度 Finding 排到最前。
 以下信息永远不能被安全结果抑制：
 
 - 网站 `medium/high/unknown` 事实
-- 地址风险标签
+- 地址风险标签本身（始终留在地址旁；是否进入总体状态按本节兜底规则判断）
 - Prime 或 parser 返回的具体风险证据
 - 授权对象、代币、额度、有效期、recipient、value 等交易事实
 - 无限授权、资产转出等需要用户核对的事实
 - raw data、custom hex、parse fallback 等覆盖不足事实
 
-特别说明：网站已认证只能说明网站来源，Prime `security` 只能说明本次针对性检测未命中已知威胁；两者都不能抑制授权事实或具体风险证据。
+特别说明：网站已认证只能说明网站来源。Prime `security` 是本次请求的明确针对性结论，可优先于泛化地址标签，但不能抑制 parser 的具体异常证据、授权事实或覆盖不足事实。
 
 ### 7.3 典型冲突结果
 
@@ -300,9 +312,10 @@ Prime 来源不得越过更高严重度 Finding 排到最前。
 | Prime `security` + 可信站点泛化 Permit 提示 | `success` 或由其他信号决定 | `none`         | 隐藏泛化警告，保留 Permit 条款 Info         |
 | Prime `security` + 无限授权            | `success`                  | `request`      | 展示无限授权事实和核对 checkbox，不称为风险 |
 | Prime `security` + parser 具体 warning | `warning`                  | `risk`         | 保留具体 warning                            |
+| Prime `security` + 地址 warning 标签   | `success` 或由其他 Finding 决定 | `none` 或由其他 Finding 决定 | 地址标签仍在地址旁，不覆盖针对性结论 |
 | Prime `unknown` + 网站 `security`      | `unknown`                  | `none`         | 明确本次请求无结论，但不自动增加风险门槛    |
 | 网站 `unknown` + 请求解析正常且无风险  | `unknown`                  | `none`         | 中性展示网站未验证，不使用红色按钮          |
-| Prime 不适用 + 基础检查完成且无问题    | `success`                  | 由信息项决定   | 覆盖副标题只列基础检查，不出现针对性检测    |
+| Prime 不适用 + 基础检查完成且无问题    | `success`                  | 由信息项决定   | 覆盖清单把针对性检测标为不可用，不得标成已完成 |
 | Prime 不适用 + 泛化 Permit 提示        | 由其他有效信号决定         | 由具体条款决定 | 合并为 Permit 条款 Info，不制造泛化 warning |
 | Info 二次确认 + Warning                | `warning`                  | `risk`         | 只显示一个风险 checkbox，信息条款仍保留     |
 
@@ -315,28 +328,31 @@ Prime 来源不得越过更高严重度 Finding 排到最前。
 - 有 `critical/warning/unknown/info` Finding
 - 有必要检查处于 `loading`
 - 已形成可解释的 `success` 总结论
-- 有需要合并展示的交易模拟资产变化
 
 以上条件均不满足时隐藏卡片。
 
+交易模拟资产变化由独立的 `TransactionPreview` 卡片展示，不参与安全检查卡片是否出现的判定。
+
 ### 8.2 Header 与详情
 
-- 标题固定为“安全检查”
-- 副标题展示实际覆盖来源，不展示营销口号
+- 标题固定为“安全检查”，右侧可放信息图标，不得把 Prime 徽章挂在标题上
+- 覆盖清单放在信息提示里，按真实状态列出网站、解析和 Prime 针对性检测，不展示营销口号
 - 右侧只显示一个总体状态
-- 有 Finding 时使用可折叠结构；纯 Loading 或纯 Success 使用静态紧凑行
-- `critical/warning` 默认展开
-- 操作层 `unknown` 默认展开；仅网站 `unknown` 默认收起
-- `info` 默认收起
-- 状态在用户停留期间升级时 MUST 自动展开；用户手动收起后，状态未升级不得反复抢焦点
+- 主卡最多直接展示 3 条 `critical/warning` decision Finding；超过 3 条时显示不带数量的 `View all`
+- `View all` Dialog MUST 接收并展示全部 decision Finding，不能只传主卡未展示的剩余项
+- `unknown/info` 属于必要上下文，始终保留在主卡，不计入上述 3 条 decision Finding 限额
+- 纯 Loading 或纯 Success 使用静态紧凑行
 
 ### 8.3 Finding 行
 
 - 标题必须是事实或可执行结论，避免重复“请注意”“存在风险”
-- 描述只补充原因、影响或核对方式；无新增信息时不展示描述
+- Finding 标题统一移除末尾 `.`、`。`、`!`、`！`，保留 `?`、`？`
+- 描述只补充原因、影响或核对方式，保留完整标点；无新增信息时不展示描述
+- 同层级描述统一使用 `$bodySm`
 - 有 features 时，卡片保持紧凑，通过 Details 展示 feature 列表
 - feature 按 `high > medium > unknown > security` 排序
 - feature 图标和颜色使用自身等级，不继承父级颜色
+- 可点击 Finding 行必须提供 button role、扩大点击区域和包含标题/描述的 accessibility label
 
 ### 8.4 Loading
 
@@ -349,8 +365,8 @@ Prime 来源不得越过更高严重度 Finding 排到最前。
 
 - 批量交易总体状态取所有子请求的最高风险
 - 任一子请求处于必要检查 Pending 时，整批确认保持 `pending`
-- feature 按 `code + address` 去重，但不同 address、amount、spender 或 deadline 不得误合并
-- 用户编辑交易、授权额度、接收方、网络或签名内容后，旧检测结果和旧 checkbox 授权 MUST 失效
+- feature 按 `code + address + title + content` 去重；相同证据保留最高等级，不同文案或地址不得误合并
+- 用户编辑交易、授权额度、接收方、网络或签名内容，或确认等级发生变化后，旧检测结果和旧 checkbox 授权 MUST 失效
 - 异步旧请求返回时不得覆盖当前请求结果
 
 ## 10. 服务端与客户端契约
@@ -381,7 +397,7 @@ type TransactionSecurityResult = {
 - `undefined/not-applicable` 与 `unknown/unable_to_assess` MUST 保持可区分
 - `code` 是稳定测试和埋点标识；`title/content` 是展示文案
 - `features` 为空不代表请求安全，最终以顶层 level 和适用覆盖为准
-- 客户端不得自行维护会快速漂移的 JSON-RPC method 白名单；支持范围由服务端判定
+- 客户端前置白名单必须与已验证的服务端契约同步；服务端仍是最终适用性判定
 - 服务端返回旧枚举时，客户端兼容映射：`Malicious -> high`、`Warning -> medium`、`Benign -> security`
 
 ## 11. QA 验收矩阵
@@ -392,75 +408,37 @@ type TransactionSecurityResult = {
 | ----- | ---------------------------------------- | --------------------- | ----------------- | ---------------------------------------------------- |
 | P0-01 | 无 Finding、无覆盖、无模拟               | 无                    | `none`            | 卡片隐藏                                             |
 | P0-02 | 针对性检测 Pending，暂无 Finding         | `loading`             | `pending`         | 中性转圈；Confirm 禁用；无 checkbox                  |
-| P0-03 | Pending 期间已有 parser warning          | `warning` + spinner   | `pending`         | Warning 保留并展开；Confirm 禁用                     |
-| P0-04 | Prime `high`                             | `critical`            | `risk`            | 红色风险；展开；勾选后危险按钮可用                   |
+| P0-03 | Pending 期间已有 parser warning          | `warning` + spinner   | `pending`         | Warning 保留；Confirm 禁用                           |
+| P0-04 | Prime `high`                             | `critical`            | `risk`            | 红色风险；勾选后危险按钮可用                         |
 | P0-05 | Prime `medium`                           | `warning`             | `risk`            | 黄色需确认；勾选后可继续                             |
 | P0-06 | Prime `security`，无其他问题             | `success`             | `none`            | 紧凑“未检测到问题”；正常确认                         |
 | P0-07 | Prime `unknown` 与超时/异常两组场景      | `unknown`             | `none`            | 分别显示“未验证”/“无法完成检查”；不得绿色；正常确认  |
-| P0-08 | 非 Prime/不支持，基础检查正常            | `success`             | 由信息项决定      | 覆盖副标题不包含针对性检测                           |
+| P0-08 | 非 Prime/不支持，基础检查正常            | `success`             | 由信息项决定      | 覆盖清单把针对性检测标为锁定或不可用，不得标成已完成 |
 | P0-09 | 网站 `high` + Prime `security`           | `critical`            | `risk`            | 网站风险不得被覆盖                                   |
 | P0-10 | 网站 `security` + Prime `high`           | `critical`            | `risk`            | 本次请求风险优先                                     |
 | P0-11 | Prime `security` + 可信站点泛化 Permit 提示 | `success`             | `none`            | 泛化 warning 隐藏；Permit 事实保留；无 checkbox      |
 | P0-12 | Prime `security` + 具体 parser warning   | `warning`             | `risk`            | 具体 warning 保留                                    |
 | P0-13 | 全部适用检查完成且安全，仅有无限授权条款 | `success`             | `request`         | Success 摘要 + Info 条款 + 核对 checkbox；非红色按钮 |
-| P0-14 | 地址 warning/critical，卡片无其他风险    | 对应 warning/critical | `risk`            | 总体结论必须反映地址风险                             |
-| P0-15 | 仅网站 Unknown                           | `unknown`             | `none`            | 中性、默认收起、正常按钮                             |
-| P0-16 | raw/local parse fallback                 | `unknown`             | `request`         | 默认展开；提示核对 raw data                          |
+| P0-14 | 地址 warning/critical，针对性检测无明确结论 | 对应 warning/critical | `risk`          | 地址标签作为兜底；有明确针对性结论时只留在地址旁     |
+| P0-15 | 仅网站 Unknown                           | `unknown`             | `none`            | 中性展示、正常按钮                                   |
+| P0-16 | raw/local parse fallback                 | `unknown`             | `request`         | 提示核对 raw data                                    |
 | P0-17 | 同时存在 Info confirmation 与 Warning    | `warning`             | `risk`            | 仅一个风险 checkbox                                  |
 | P0-18 | 用户修改请求后旧请求返回                 | 当前请求状态          | 重新计算          | 旧结果丢弃；旧 checkbox 失效                         |
 
 ### 11.2 P1 细节用例
 
 - Details 中 feature 严重度、图标、颜色和顺序正确
-- 相同 `code + address` feature 去重；不同地址不去重
+- 相同语义 feature 去重并保留最高等级；不同地址或文案不去重
 - 批量交易取最高风险，任一 Pending 时 Confirm 禁用
-- 风险升级时自动展开；同等级刷新不反复展开
-- 用户手动收起后状态未升级时保持收起
+- 批量交易已知风险优先；无已知风险但任一子检查失败时不得合成 success
+- decision Finding 超过 3 条时才显示 `View all`，Dialog 展示全部 decision Finding
+- 确认等级变化后旧 checkbox 授权不得复用
 - success、unknown、warning、critical 的中英文文案不承诺绝对安全
-- SignGuard 在可见交易模拟或针对性检测参与时展示，其他基础检查隐藏
+- SignGuard 仅在可见交易模拟卡片展示
 - MessageConfirm 与 TxConfirm 的 checkbox、按钮状态和颜色一致
 - 钱包内部签名若不展示风险 checkbox，不得因此绕过本应生效的安全策略；应有单独明确规则和测试
 
-## 12. 当前实现对照（2026-08-21）
-
-### 12.1 已符合
-
-- 已将 Finding 严重度、总体状态和 confirmation 分为不同字段
-- 总体风险优先级为 `critical > warning > unknown > info > success > loading`
-- Pending 时 MessageConfirm 和 TxConfirm 均禁用确认
-- Pending 期间已有 Finding 时保留 Finding，并追加中性 spinner
-- Prime `high/medium/security/unknown` 已映射到统一等级
-- Warning、Unknown、Success、Info 已使用克制且可区分的图标与颜色
-- 请求 identity 变化时会忽略旧异步结果；Tx 在交易内容变化后会重置确认
-- SignGuard 仅归属可见交易模拟和实际参与的针对性检测
-- 泛化 Permit 告警已合并为一条结构化 Permit Info，具体 parser 风险仍保留
-- 地址标签最高风险已进入总体状态，地址明细仍只在地址旁展示
-- `request` 使用核对文案和正常按钮，只有 `risk` 使用风险文案和危险按钮
-- Info Finding 可与已成立的 success 总结论同时展示
-
-### 12.2 与目标规范存在差异
-
-| #   | 当前差异                                                                       | 目标规则                                                     | 代码位置                                                            |
-| --- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| G2  | raw/local parse fallback 仅产生 Unknown，不保证进入二次核对                    | 无法解释请求内容时应为 `unknown + request`                   | `securityCheckModel.ts`、解析结果契约                               |
-| G6  | coverage 标题没有区分是否实际执行 Prime 针对性检测                             | 副标题必须准确列出实际覆盖                                   | `securityCheckModel.ts`                                             |
-| G7  | Prime Finding 排序优先于严重度                                                 | 先按严重度，再按具体性和来源排序                             | `securityCheckModel.ts`                                             |
-| G9  | 服务端判定为不适用前，部分边界场景仍可能短暂 Pending                           | 只有实际适用且已发起的检查进入 Pending                       | `MessageConfirm.tsx`、`TxConfirm.tsx`、`ServiceSignatureConfirm.ts` |
-| G10 | 客户端信任顶层 level，没有防御性合并 feature 最高风险                          | 顶层与 feature 取最高风险                                    | `transactionSecurityUtils.ts`                                       |
-| G11 | Batch 合并会过滤 `undefined` 子结果，部分覆盖时仍可能得到 request-scan success | 所有适用子请求全量覆盖后才能形成针对性 success               | `transactionSecurityUtils.ts`、`TxConfirm.tsx`                      |
-| G12 | Message 的 checkbox 是组件本地 boolean，没有显式绑定 request identity          | 消息内容或请求 identity 变化后必须重置 acknowledgement       | `MessageConfirmActions.tsx`                                         |
-| G13 | Security Check 的 Pending 只覆盖 Prime 检查，不覆盖网站检查与 Message parser   | 所有被定义为“必要”的异步检查都应进入统一 progress/gate       | `MessageConfirm.tsx`、`securityCheckModel.ts`                       |
-| G14 | 服务端 `unknown` 与超时/异常都可能回退为同一 Unverified 展示                   | 区分“无结论”和“检查失败”的 code、文案与埋点                  | `ServiceSignatureConfirm.ts`、`securityCheckModel.ts`               |
-
-以上剩余差异应按风险和依赖拆成后续实现任务。
-
-### 12.3 当前自动化缺口
-
-- Card accordion、状态 badge、Finding 行和 footer 集成没有完整自动化覆盖
-- 非 Prime、自定义网络、encodedTx service 和 batch 页面链路缺少端到端状态测试
-- P0 自动化可先使用可访问文本与现有 testID；实现规则变更时只补必要的最小测试钩子
-
-## 13. 发布验收口径
+## 12. 发布验收口径
 
 安全检查卡片可发布必须同时满足：
 

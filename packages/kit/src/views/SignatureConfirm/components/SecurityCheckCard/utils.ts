@@ -1,4 +1,5 @@
 import type { IBadgeType } from '@onekeyhq/components';
+import { ADDRESS_RISK_TAG_DISPLAY_TYPES } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   EParseTxComponentType,
@@ -21,8 +22,8 @@ function findParserAlertSentenceEnd(text: string) {
   return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
-// Address details stay next to the address row. The card only consumes their
-// highest severity so its overall verdict cannot contradict those details.
+// Address details stay next to the address row. The card consumes only their
+// severity as a fallback when a targeted request scan has no conclusion.
 export function getAddressRiskStatus(components: IDisplayComponent[]) {
   let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
 
@@ -31,9 +32,12 @@ export function getAddressRiskStatus(components: IDisplayComponent[]) {
       return;
     }
     component.tags.forEach((tag) => {
+      if (!ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType)) {
+        return;
+      }
       if (tag.displayType === 'critical') {
         status = 'critical';
-      } else if (tag.displayType === 'warning' && !status) {
+      } else if (!status) {
         status = 'warning';
       }
     });
@@ -44,24 +48,25 @@ export function getAddressRiskStatus(components: IDisplayComponent[]) {
 
 export function shouldShowNoIssueSection({
   hasCardFindings,
-  hasAddressRisk,
   hasResolvedRequiredChecks,
-  hasCoverageTitle,
-  isTransactionSecurityPending,
+  isSecurityCheckPending,
 }: {
   hasCardFindings: boolean;
-  hasAddressRisk: boolean;
   hasResolvedRequiredChecks: boolean;
-  hasCoverageTitle: boolean;
-  isTransactionSecurityPending?: boolean;
+  isSecurityCheckPending?: boolean;
 }) {
   return (
-    !hasCardFindings &&
-    !hasAddressRisk &&
-    hasResolvedRequiredChecks &&
-    hasCoverageTitle &&
-    !isTransactionSecurityPending
+    !hasCardFindings && hasResolvedRequiredChecks && !isSecurityCheckPending
   );
+}
+
+export function normalizeAlertText(text?: string) {
+  return text?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
+}
+
+export function normalizeSecurityFindingTitle(title: string) {
+  const trimmedTitle = title.trim();
+  return trimmedTitle.replace(/[。.！!]+$/u, '') || trimmedTitle;
 }
 
 export function shouldHideGenericPermitAlert({
@@ -75,14 +80,12 @@ export function shouldHideGenericPermitAlert({
   isPermitSignMethod: boolean;
   isSiteVerified: boolean;
 }) {
-  const normalize = (value: string) =>
-    value.trim().replace(/\s+/g, ' ').toLowerCase();
-  const normalizedAlert = normalize(alert);
+  const normalizedAlert = normalizeAlertText(alert);
   return (
     isPermitSignMethod &&
     isSiteVerified &&
     Boolean(normalizedAlert) &&
-    normalizedAlert === normalize(genericPermitAlert)
+    normalizedAlert === normalizeAlertText(genericPermitAlert)
   );
 }
 

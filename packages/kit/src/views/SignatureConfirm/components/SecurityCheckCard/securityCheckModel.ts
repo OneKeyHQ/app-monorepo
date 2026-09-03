@@ -22,6 +22,8 @@ import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 import {
   getAddressRiskStatus,
   getParserAlertDisplay,
+  normalizeAlertText,
+  normalizeSecurityFindingTitle,
   shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
@@ -87,20 +89,30 @@ export type ISecurityCheckFinding = {
   action?: ISecurityCheckFindingAction;
 };
 
+export type ISecurityCheckCoverageSource = 'site' | 'parser' | 'requestScan';
+
+export type ISecurityCheckCoverageState =
+  | 'pending'
+  | 'completed'
+  | 'failed'
+  | 'unknown'
+  | 'notApplicable'
+  | 'locked';
+
+export type ISecurityCheckCoverageItem = {
+  source: ISecurityCheckCoverageSource;
+  state: ISecurityCheckCoverageState;
+};
+
 export type ISecurityCheckViewModel = {
   kind: ISecurityCheckKind;
   status?: ISecurityCheckStatus;
   confirmation: ISecurityCheckConfirmation;
   findings: ISecurityCheckFinding[];
-  groupedFindings: Record<ISecurityCheckCategory, ISecurityCheckFinding[]>;
   orderedCategories: ISecurityCheckCategory[];
-  coverageTitle: string;
-  statusSourceTitle: string;
+  coverage: ISecurityCheckCoverageItem[];
   isPending: boolean;
   hasTransactionSecurityCheck: boolean;
-  shouldShowNoIssue: boolean;
-  showTargetedScanGap: boolean;
-  defaultExpanded: boolean;
   isPrimeUser?: boolean;
 };
 
@@ -116,13 +128,107 @@ type IBuildSecurityCheckModelParams = {
   isRiskSignMethod?: boolean;
   isConfirmationRequired?: boolean;
   isMessageParseFallback?: boolean;
+  isParserPending?: boolean;
   transactionSecurityInfo?: ITransactionSecurityCheckResult;
   isTransactionSecurityPending?: boolean;
   isPrimeUser?: boolean;
   intl: IIntl;
 };
 
-export function shouldShowPrimeCredit({
+function getSiteCoverage({
+  origin,
+  urlSecurityInfo,
+}: Pick<
+  IBuildSecurityCheckModelParams,
+  'origin' | 'urlSecurityInfo'
+>): ISecurityCheckCoverageState {
+  if (!origin) {
+    return 'notApplicable';
+  }
+  if (!urlSecurityInfo?.level) {
+    return 'pending';
+  }
+  return urlSecurityInfo.level === EHostSecurityLevel.Unknown
+    ? 'unknown'
+    : 'completed';
+}
+
+function getParserCoverage({
+  kind,
+  decodedTxs,
+  messageDisplay,
+  isMessageParseFallback,
+  isParserPending,
+}: Pick<
+  IBuildSecurityCheckModelParams,
+  | 'kind'
+  | 'decodedTxs'
+  | 'messageDisplay'
+  | 'isMessageParseFallback'
+  | 'isParserPending'
+>): ISecurityCheckCoverageState {
+  if (isParserPending) {
+    return 'pending';
+  }
+  if (kind === 'transaction') {
+    if (!decodedTxs?.length) {
+      return 'notApplicable';
+    }
+    return decodedTxs.some((decodedTx) => decodedTx.isLocalParsed)
+      ? 'unknown'
+      : 'completed';
+  }
+  if (!messageDisplay) {
+    return 'notApplicable';
+  }
+  return isMessageParseFallback ? 'unknown' : 'completed';
+}
+
+function getRequestScanCoverage({
+  isPrimeUser,
+  isTransactionSecurityPending,
+  transactionSecurityInfo,
+}: Pick<
+  IBuildSecurityCheckModelParams,
+  'isPrimeUser' | 'isTransactionSecurityPending' | 'transactionSecurityInfo'
+>): ISecurityCheckCoverageState {
+  if (isTransactionSecurityPending) {
+    return 'pending';
+  }
+  if (transactionSecurityInfo) {
+    if (isTransactionSecurityCheckFailed(transactionSecurityInfo)) {
+      return 'failed';
+    }
+    return transactionSecurityInfo.level === EHostSecurityLevel.Unknown
+      ? 'unknown'
+      : 'completed';
+  }
+  return isPrimeUser === false ? 'locked' : 'notApplicable';
+}
+
+export function getSecurityCheckCoverage(
+  params: Pick<
+    IBuildSecurityCheckModelParams,
+    | 'kind'
+    | 'origin'
+    | 'urlSecurityInfo'
+    | 'decodedTxs'
+    | 'messageDisplay'
+    | 'isMessageParseFallback'
+    | 'isParserPending'
+    | 'transactionSecurityInfo'
+    | 'isTransactionSecurityPending'
+    | 'isPrimeUser'
+  >,
+): ISecurityCheckCoverageItem[] {
+  return [
+    { source: 'site', state: getSiteCoverage(params) },
+    { source: 'parser', state: getParserCoverage(params) },
+    { source: 'requestScan', state: getRequestScanCoverage(params) },
+  ];
+}
+
+export function shouldShowPrimeInvite({
   status,
   isPrimeUser,
   hasTransactionSecurityCheck = false,
@@ -137,37 +243,14 @@ export function shouldShowPrimeCredit({
   return status === 'success' || status === 'info';
 }
 
-export function shouldShowTargetedScanGap({
-  status,
-  hasTransactionSecurityCheck,
-}: {
-  status?: ISecurityCheckStatus;
-  hasTransactionSecurityCheck: boolean;
-}) {
-  return status === 'success' && !hasTransactionSecurityCheck;
-}
-
-export function getTargetedScanGapTitle(intl: IIntl) {
-  return [
-    intl.formatMessage({
-      id: ETranslations.prime_feature_transaction_security_check__title,
-    }),
-    intl.formatMessage({ id: ETranslations.global_not_available }),
-  ].join(' · ');
-}
-
-export function shouldNestSimulationPreview({
-  hasAssets: _hasAssets,
-  status: _status,
-}: {
-  hasAssets: boolean;
-  status?: ISecurityCheckStatus;
-}) {
-  return false;
-}
-
 export function isCheckFailedFinding(finding: ISecurityCheckFinding) {
   return finding.id === CHECK_FAILED_FINDING_ID;
+}
+
+export function canRetryTransactionSecurityCheck(
+  findings: ISecurityCheckFinding[],
+) {
+  return findings.some(isCheckFailedFinding);
 }
 
 export function shouldUseCheckFailedStatus(findings: ISecurityCheckFinding[]) {
@@ -181,10 +264,6 @@ export function shouldUseCheckFailedStatus(findings: ISecurityCheckFinding[]) {
         finding.status === 'warning' ||
         finding.status === 'unknown'),
   );
-}
-
-export function shouldGlowSimulationNest(_status?: ISecurityCheckStatus) {
-  return false;
 }
 
 export function isDecisionSecurityFinding(finding: ISecurityCheckFinding) {
@@ -205,61 +284,22 @@ export function sortSecurityFindings(findings: ISecurityCheckFinding[]) {
   });
 }
 
-const CARD_DECISION_LISTED_LIMIT = 2;
+const CARD_DECISION_FINDING_LIMIT = 3;
 
 export function getCardSecurityFindings(findings: ISecurityCheckFinding[]) {
-  const decisionFindings = sortSecurityFindings(
-    findings.filter(isDecisionSecurityFinding),
-  );
+  const sortedFindings = sortSecurityFindings(findings);
+  const decisionFindings = sortedFindings.filter(isDecisionSecurityFinding);
+  const visibleFindings = [
+    ...decisionFindings.slice(0, CARD_DECISION_FINDING_LIMIT),
+    ...sortedFindings.filter((finding) => !isDecisionSecurityFinding(finding)),
+  ];
   return {
-    featured: decisionFindings[0],
-    listed: decisionFindings.slice(1, CARD_DECISION_LISTED_LIMIT + 1),
-    shownCount: Math.min(
-      decisionFindings.length,
-      CARD_DECISION_LISTED_LIMIT + 1,
-    ),
-    decisionCount: decisionFindings.length,
+    allDecisionFindings: decisionFindings,
+    featured: visibleFindings[0],
+    listed: visibleFindings.slice(1),
+    hasHiddenDecisionFindings:
+      decisionFindings.length > CARD_DECISION_FINDING_LIMIT,
   };
-}
-
-export function isRedundantSecurityFinding({
-  finding,
-  statusLabel,
-}: {
-  finding: ISecurityCheckFinding;
-  statusLabel: string;
-}) {
-  if (finding.action || finding.description) {
-    return false;
-  }
-  if (isCheckFailedFinding(finding)) {
-    return true;
-  }
-  return finding.title.trim() === statusLabel.trim();
-}
-
-export function getVisibleSecurityFindings(
-  findings: ISecurityCheckFinding[],
-  statusLabel: string,
-) {
-  return findings.filter(
-    (finding) => !isRedundantSecurityFinding({ finding, statusLabel }),
-  );
-}
-
-export function shouldShowAllSecurityFindings({
-  findings,
-  shownCount,
-  statusLabel,
-}: {
-  findings: ISecurityCheckFinding[];
-  shownCount: number;
-  statusLabel: string;
-}) {
-  return (
-    shownCount > 0 &&
-    getVisibleSecurityFindings(findings, statusLabel).length > shownCount
-  );
 }
 
 export function getCeremonialFindingDescriptions(intl: IIntl) {
@@ -283,13 +323,6 @@ export function omitCeremonialDescription(
     return undefined;
   }
   return text;
-}
-
-export function hasSecurityFindingDetails(
-  finding: ISecurityCheckFinding,
-  description?: string,
-) {
-  return Boolean(description?.trim() || finding.action);
 }
 
 const SITE_RISK_FINDING_CONFIG: Partial<
@@ -354,19 +387,19 @@ function getSiteFinding({
 }
 
 function getTransactionSecurityFinding({
-  kind,
   transactionSecurityInfo,
   intl,
-}: Pick<
-  IBuildSecurityCheckModelParams,
-  'kind' | 'transactionSecurityInfo' | 'intl'
->): ISecurityCheckFinding | undefined {
+}: Pick<IBuildSecurityCheckModelParams, 'transactionSecurityInfo' | 'intl'>):
+  | ISecurityCheckFinding
+  | undefined {
   if (
     !transactionSecurityInfo ||
     transactionSecurityInfo.level === EHostSecurityLevel.Security
   ) {
     return undefined;
   }
+
+  const ceremonial = getCeremonialFindingDescriptions(intl);
 
   if (isTransactionSecurityCheckFailed(transactionSecurityInfo)) {
     return {
@@ -380,11 +413,7 @@ function getTransactionSecurityFinding({
         }),
       description: omitCeremonialDescription(
         transactionSecurityInfo.detail.content,
-        [
-          intl.formatMessage({
-            id: ETranslations.global_an_error_occurred_desc,
-          }),
-        ],
+        ceremonial,
       ),
     };
   }
@@ -398,14 +427,7 @@ function getTransactionSecurityFinding({
     intl.formatMessage({ id: fallbackTitleId });
   const description = omitCeremonialDescription(
     transactionSecurityInfo.detail.content,
-    [
-      intl.formatMessage({
-        id:
-          kind === 'message'
-            ? ETranslations.dapp_connect_security_checks_signature_review_required__desc
-            : ETranslations.dapp_connect_security_checks_tx_review_required__desc,
-      }),
-    ],
+    ceremonial,
   );
   let status: ISecurityCheckFindingStatus = 'unknown';
   if (transactionSecurityInfo.level === EHostSecurityLevel.High) {
@@ -455,10 +477,6 @@ function getCustomHexFindings({
       });
     });
   return findings;
-}
-
-function normalizeAlertText(text?: string) {
-  return text?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
 }
 
 function isEquivalentParserAlert(
@@ -655,14 +673,6 @@ function dedupeFindings(findings: ISecurityCheckFinding[]) {
   });
 }
 
-function sortFindingsByStatus(findings: ISecurityCheckFinding[]) {
-  return findings.toSorted(
-    (a, b) =>
-      SECURITY_CHECK_STATUS_WEIGHT[b.status] -
-      SECURITY_CHECK_STATUS_WEIGHT[a.status],
-  );
-}
-
 function getHighestFindingStatus(findings: ISecurityCheckFinding[]) {
   return findings.reduce<ISecurityCheckFindingStatus | undefined>(
     (status, finding) =>
@@ -675,57 +685,6 @@ function getHighestFindingStatus(findings: ISecurityCheckFinding[]) {
   );
 }
 
-function getCategorySourceLabel({
-  category,
-  kind,
-  intl,
-}: {
-  category: ISecurityCheckCategory;
-  kind: ISecurityCheckKind;
-  intl: IIntl;
-}) {
-  let id = ETranslations.dapp_connect_transaction_analysis__title;
-  if (category === 'site') {
-    id = ETranslations.dapp_connect_site_security__title;
-  } else if (kind === 'message') {
-    id = ETranslations.dapp_connect_signature_analysis__title;
-  }
-  return intl.formatMessage({ id });
-}
-
-function getCoverageTitle({
-  kind,
-  origin,
-  urlSecurityInfo,
-  decodedTxs,
-  messageDisplay,
-  intl,
-}: IBuildSecurityCheckModelParams) {
-  const labels: string[] = [];
-  if (origin && urlSecurityInfo?.level) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_site_security__title,
-      }),
-    );
-  }
-  if (kind === 'transaction' && decodedTxs?.length) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_transaction_analysis__title,
-      }),
-    );
-  }
-  if (kind === 'message' && messageDisplay) {
-    labels.push(
-      intl.formatMessage({
-        id: ETranslations.dapp_connect_signature_analysis__title,
-      }),
-    );
-  }
-  return labels.join(' · ');
-}
-
 function hasResolvedRequiredChecks({
   kind,
   origin,
@@ -733,6 +692,7 @@ function hasResolvedRequiredChecks({
   decodedTxs,
   messageDisplay,
   isMessageParseFallback,
+  isParserPending,
 }: IBuildSecurityCheckModelParams) {
   if (!origin) {
     return false;
@@ -740,10 +700,12 @@ function hasResolvedRequiredChecks({
   const siteResolved = Boolean(urlSecurityInfo?.level);
   const operationResolved =
     kind === 'transaction'
-      ? Boolean(decodedTxs?.length) &&
-        !decodedTxs?.some((decodedTx) => decodedTx.isLocalParsed)
+      ? Boolean(
+          decodedTxs?.length &&
+          !decodedTxs.some((decodedTx) => decodedTx.isLocalParsed),
+        )
       : Boolean(messageDisplay) && !isMessageParseFallback;
-  return siteResolved && operationResolved;
+  return siteResolved && operationResolved && !isParserPending;
 }
 
 function getDisplayComponents({
@@ -765,9 +727,10 @@ export function buildSecurityCheckModel(
     unsignedMessage,
     urlSecurityInfo,
     isConfirmationRequired,
+    isRiskSignMethod,
+    isMessageParseFallback,
     isTransactionSecurityPending,
     transactionSecurityInfo,
-    intl,
   } = params;
   const findings = dedupeFindings(
     [
@@ -775,12 +738,15 @@ export function buildSecurityCheckModel(
       getTransactionSecurityFinding(params),
       ...getOperationFindings(params),
     ].filter((finding): finding is ISecurityCheckFinding => Boolean(finding)),
-  );
+  ).map((finding) => ({
+    ...finding,
+    title: normalizeSecurityFindingTitle(finding.title),
+  }));
   const groupedFindings = {
-    site: sortFindingsByStatus(
+    site: sortSecurityFindings(
       findings.filter((finding) => finding.category === 'site'),
     ),
-    operation: sortFindingsByStatus(
+    operation: sortSecurityFindings(
       findings.filter((finding) => finding.category === 'operation'),
     ),
   };
@@ -796,21 +762,32 @@ export function buildSecurityCheckModel(
   });
   const highestFindingStatus = getHighestFindingStatus(findings);
   const addressRiskStatus = getAddressRiskStatus(getDisplayComponents(params));
-  const hasAddressRisk = Boolean(addressRiskStatus);
+  const hasConclusiveRequestScan = Boolean(
+    transactionSecurityInfo &&
+    !isTransactionSecurityCheckFailed(transactionSecurityInfo) &&
+    transactionSecurityInfo.level !== EHostSecurityLevel.Unknown,
+  );
+  // A conclusive request scan owns the verdict for this payload. Address tags
+  // remain visible on their rows and are the fallback when that scan has no
+  // usable conclusion.
+  const effectiveAddressRiskStatus = hasConclusiveRequestScan
+    ? undefined
+    : addressRiskStatus;
   const highestStatus =
-    addressRiskStatus &&
+    effectiveAddressRiskStatus &&
     (!highestFindingStatus ||
-      SECURITY_CHECK_STATUS_WEIGHT[addressRiskStatus] >
+      SECURITY_CHECK_STATUS_WEIGHT[effectiveAddressRiskStatus] >
         SECURITY_CHECK_STATUS_WEIGHT[highestFindingStatus])
-      ? addressRiskStatus
+      ? effectiveAddressRiskStatus
       : highestFindingStatus;
-  const coverageTitle = getCoverageTitle(params);
+  const coverage = getSecurityCheckCoverage(params);
+  const isSecurityCheckPending = coverage.some(
+    ({ state }) => state === 'pending',
+  );
   const shouldShowNoIssue = shouldShowNoIssueSection({
     hasCardFindings: findings.some((finding) => finding.status !== 'info'),
-    hasAddressRisk,
     hasResolvedRequiredChecks: hasResolvedRequiredChecks(params),
-    hasCoverageTitle: Boolean(coverageTitle),
-    isTransactionSecurityPending,
+    isSecurityCheckPending,
   });
   const hasRiskFinding =
     highestStatus === 'critical' || highestStatus === 'warning';
@@ -823,19 +800,28 @@ export function buildSecurityCheckModel(
     );
   const requestNeedsConfirmation =
     kind === 'transaction'
-      ? decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
-      : isConfirmationRequired && !isTrustedPermit;
+      ? Boolean(
+          params.origin &&
+          decodedTxs?.some((decodedTx) => decodedTx.isLocalParsed),
+        ) || decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
+      : Boolean(
+          isMessageParseFallback ||
+          (isConfirmationRequired && !isTrustedPermit),
+        );
   let confirmation: ISecurityCheckConfirmation = 'none';
-  if (isTransactionSecurityPending) {
+  if (isSecurityCheckPending) {
     confirmation = 'pending';
-  } else if (hasRiskFinding || hasAddressRisk) {
+  } else if (
+    hasRiskFinding ||
+    (kind === 'message' && isRiskSignMethod && !isTrustedPermit)
+  ) {
     confirmation = 'risk';
   } else if (requestNeedsConfirmation) {
     confirmation = 'request';
   }
   let status: ISecurityCheckStatus | undefined = highestStatus;
   if (
-    isTransactionSecurityPending &&
+    isSecurityCheckPending &&
     (!status || shouldUseCheckFailedStatus(findings))
   ) {
     status = 'loading';
@@ -847,19 +833,6 @@ export function buildSecurityCheckModel(
   ) {
     status = 'check_failed';
   }
-  const statusSourceCategories = CATEGORY_ORDER.filter(
-    (category) =>
-      findings.some(
-        (finding) => finding.category === category && finding.status === status,
-      ) ||
-      (category === 'operation' && addressRiskStatus === status),
-  );
-  const statusSourceTitle =
-    status === 'success' || status === 'loading'
-      ? coverageTitle
-      : statusSourceCategories
-          .map((category) => getCategorySourceLabel({ category, kind, intl }))
-          .join(' · ') || coverageTitle;
   const hasTransactionSecurityCheck = Boolean(
     (transactionSecurityInfo &&
       !isTransactionSecurityCheckFailed(transactionSecurityInfo)) ||
@@ -871,27 +844,10 @@ export function buildSecurityCheckModel(
     status,
     confirmation,
     findings,
-    groupedFindings,
     orderedCategories,
-    coverageTitle,
-    statusSourceTitle,
-    isPending: Boolean(isTransactionSecurityPending),
+    coverage,
+    isPending: isSecurityCheckPending,
     hasTransactionSecurityCheck,
-    shouldShowNoIssue,
-    showTargetedScanGap: shouldShowTargetedScanGap({
-      status,
-      hasTransactionSecurityCheck,
-    }),
     isPrimeUser: params.isPrimeUser,
-    defaultExpanded:
-      hasAddressRisk ||
-      findings.some(
-        (finding) =>
-          finding.status === 'critical' ||
-          finding.status === 'warning' ||
-          (finding.status === 'unknown' &&
-            finding.category !== 'site' &&
-            !isCheckFailedFinding(finding)),
-      ),
   };
 }

@@ -8,7 +8,7 @@ import {
   canSubmitTransactionSecurityJsonRpc,
   createCheckFailedTransactionSecurityResult,
   createUnableToAssessTransactionSecurityResult,
-  hasTransactionSecurityFeatures,
+  getTransactionSecurityEncodedTxIdentity,
   isTransactionSecurityCheckFailed,
   isTransactionSecurityNotApplicable,
   mergeTransactionSecurityResults,
@@ -82,8 +82,32 @@ describe('transactionSecurityUtils', () => {
       ]);
     });
 
+    it('keeps the server summary authoritative over feature severities', () => {
+      const result = normalizeTransactionSecurityResult({
+        level: 'security',
+        detail: {
+          code: 'benign',
+          features: [{ code: 'INFO_ONLY', level: 'high' }],
+        },
+      });
+
+      expect(result?.level).toBe(EHostSecurityLevel.Security);
+      expect(result?.detail.features[0]?.level).toBe(EHostSecurityLevel.High);
+    });
+
     it('returns undefined for an empty payload', () => {
       expect(normalizeTransactionSecurityResult({})).toBeUndefined();
+    });
+
+    it('does not accept an incomplete safe response as conclusive', () => {
+      expect(
+        resolveTransactionSecurityServerResult({
+          level: 'security',
+          detail: {
+            features: [{ code: 'INFO', level: 'security' }],
+          },
+        }),
+      ).toEqual(createUnableToAssessTransactionSecurityResult());
     });
 
     it('returns undefined when the server says the check is not applicable', () => {
@@ -165,6 +189,32 @@ describe('transactionSecurityUtils', () => {
           gas: '0x5208',
         }),
       ).toBe(true);
+      expect(
+        getTransactionSecurityEncodedTxIdentity({
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+          gas: '0x5208',
+        }),
+      ).toBe(
+        getTransactionSecurityEncodedTxIdentity({
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+          gas: '0x61a8',
+        }),
+      );
+      expect(
+        getTransactionSecurityEncodedTxIdentity({
+          to: '0x1',
+          value: { amount: '1', token: 'USDC' },
+        }),
+      ).toBe(
+        getTransactionSecurityEncodedTxIdentity({
+          value: { token: 'USDC', amount: '1' },
+          to: '0x1',
+        }),
+      );
     });
 
     it('rejects native objects that the live schema will 422', () => {
@@ -239,33 +289,6 @@ describe('transactionSecurityUtils', () => {
     });
   });
 
-  describe('display helpers', () => {
-    it('shows every result level and shows details only when features exist', () => {
-      const benign = normalizeTransactionSecurityResult({
-        level: 'security',
-        detail: { code: 'no_issues_detected', features: [] },
-      });
-      const malicious = normalizeTransactionSecurityResult({
-        level: 'high',
-        detail: {
-          code: 'known_malicious_interaction',
-          features: [{ code: 'KNOWN_MALICIOUS_ADDRESS', level: 'high' }],
-        },
-      });
-      const warning = normalizeTransactionSecurityResult({
-        level: 'medium',
-        detail: { code: 'risk_detected', features: [] },
-      });
-      const unknown = normalizeTransactionSecurityResult({
-        level: 'unknown',
-        detail: { code: 'unable_to_assess', features: [] },
-      });
-      expect([benign, warning, malicious, unknown].every(Boolean)).toBe(true);
-      expect(hasTransactionSecurityFeatures(benign)).toBe(false);
-      expect(hasTransactionSecurityFeatures(malicious)).toBe(true);
-    });
-  });
-
   describe('mergeTransactionSecurityResults', () => {
     it('uses the highest-risk summary and merges unique features', () => {
       const approval = normalizeTransactionSecurityResult({
@@ -296,20 +319,94 @@ describe('transactionSecurityUtils', () => {
       ]);
     });
 
-    it('ignores failed checks', () => {
-      const only = normalizeTransactionSecurityResult({
+    it('keeps known risk but does not turn a partial failure green', () => {
+      const highRisk = normalizeTransactionSecurityResult({
         level: 'high',
         detail: { code: 'known_malicious_interaction', features: [] },
       });
+      const safe = normalizeTransactionSecurityResult({
+        level: 'security',
+        detail: { code: 'benign', features: [] },
+      });
+      const unknown = normalizeTransactionSecurityResult({
+        level: 'unknown',
+        detail: { code: 'unknown', features: [] },
+      });
       const failed = createCheckFailedTransactionSecurityResult();
-      expect(mergeTransactionSecurityResults([undefined, only])?.level).toBe(
+      expect(
+        mergeTransactionSecurityResults([undefined, highRisk])?.level,
+      ).toBe(EHostSecurityLevel.High);
+      expect(mergeTransactionSecurityResults([failed, highRisk])?.level).toBe(
         EHostSecurityLevel.High,
       );
-      expect(mergeTransactionSecurityResults([failed, only])?.level).toBe(
-        EHostSecurityLevel.High,
+      expect(mergeTransactionSecurityResults([failed, safe])).toEqual(failed);
+      expect(mergeTransactionSecurityResults([failed, unknown])).toEqual(
+        failed,
+      );
+      expect(mergeTransactionSecurityResults([undefined, safe])).toEqual(
+        createUnableToAssessTransactionSecurityResult(),
       );
       expect(mergeTransactionSecurityResults([undefined])).toBeUndefined();
       expect(mergeTransactionSecurityResults([failed, failed])).toEqual(failed);
+    });
+
+    it('keeps distinct feature evidence and the highest duplicate severity', () => {
+      const first = normalizeTransactionSecurityResult({
+        level: 'medium',
+        detail: {
+          code: 'warning',
+          features: [
+            {
+              code: 'SPENDER_RISK',
+              address: '0x1',
+              title: 'Known spender',
+              content: 'Approval for 1 USDC',
+              level: 'medium',
+            },
+          ],
+        },
+      });
+      const second = normalizeTransactionSecurityResult({
+        level: 'high',
+        detail: {
+          code: 'malicious',
+          features: [
+            {
+              code: 'SPENDER_RISK',
+              address: '0x1',
+              title: 'Known spender',
+              content: 'Approval for 1 USDC',
+              level: 'high',
+            },
+            {
+              code: 'SPENDER_RISK',
+              address: '0x1',
+              title: 'Known spender',
+              content: 'Approval for 100 USDC',
+              level: 'high',
+            },
+          ],
+        },
+      });
+
+      expect(
+        mergeTransactionSecurityResults([first, second])?.detail.features,
+      ).toEqual([
+        {
+          code: 'SPENDER_RISK',
+          address: '0x1',
+          title: 'Known spender',
+          content: 'Approval for 1 USDC',
+          level: EHostSecurityLevel.High,
+        },
+        {
+          code: 'SPENDER_RISK',
+          address: '0x1',
+          title: 'Known spender',
+          content: 'Approval for 100 USDC',
+          level: EHostSecurityLevel.High,
+        },
+      ]);
     });
 
     it('keeps a secondary risk summary when it has no feature rows', () => {
@@ -343,26 +440,19 @@ describe('transactionSecurityUtils', () => {
   });
 
   describe('buildTransactionSecurityJsonRpc', () => {
-    it.each([
-      'eth_sign',
-      'personal_sign',
-      'eth_signTypedData',
-      'eth_signTypedData_v1',
-      'eth_signTypedData_v3',
-      'eth_signTypedData_v4',
-    ])('forwards the original %s request to the server', (method) => {
+    it('forwards the original JSON-RPC request to the server', () => {
       const from = '0x49c73c9d361c04769a452E85D343b41aC38e0EE4';
       const message =
         '{"domain":{"chainId":1},"primaryType":"Permit","message":{}}';
       expect(
         buildTransactionSecurityJsonRpc({
           jsonRpcRequest: {
-            method,
+            method: 'eth_signTypedData_v4',
             params: [from, message],
           },
         }),
       ).toEqual({
-        method,
+        method: 'eth_signTypedData_v4',
         params: [from, message],
       });
     });

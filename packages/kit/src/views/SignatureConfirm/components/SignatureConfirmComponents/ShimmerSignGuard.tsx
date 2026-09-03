@@ -69,10 +69,15 @@ function ShimmerSignGuard({
 
   return (
     <Stack
+      accessibilityRole="image"
       accessibilityLabel="SignGuard"
       style={{ width, height, overflow: 'hidden' }}
     >
-      <SignGuardIcon width={width} height={height} />
+      <SignGuardIcon
+        width={width}
+        height={height}
+        accessibilityRole={undefined}
+      />
       {reducedMotion ? null : (
         <Animated.View
           pointerEvents="none"
@@ -95,7 +100,12 @@ function ShimmerSignGuard({
               contentStyle,
             ]}
           >
-            <SignGuardIcon sheen width={width} height={height} />
+            <SignGuardIcon
+              sheen
+              width={width}
+              height={height}
+              accessibilityRole={undefined}
+            />
           </Animated.View>
         </Animated.View>
       )}

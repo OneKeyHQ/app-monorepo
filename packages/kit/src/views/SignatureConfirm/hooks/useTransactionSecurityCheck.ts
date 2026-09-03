@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePrimeInitAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   canAttemptTransactionSecurityEncodedTx,
   createCheckFailedTransactionSecurityResult,
@@ -15,6 +16,7 @@ import type {
 
 import {
   getTransactionSecurityEncodedTxs,
+  resolvePrimeUserForSecurityCheck,
   resolveTransactionSecurityCheckState,
   shouldRunTransactionSecurityCheck,
 } from './transactionSecurityCheck';
@@ -36,18 +38,20 @@ async function fetchTransactionSecurityCheck({
   jsonRpc?: ITransactionSecurityJsonRpc;
 }): Promise<ITransactionSecurityCheckResult | undefined> {
   try {
-    const sendableEncodedTxs = encodedTxs?.filter((encodedTx) =>
-      canAttemptTransactionSecurityEncodedTx(encodedTx.encodedTx),
-    );
-    if (sendableEncodedTxs?.length) {
+    if (encodedTxs?.length) {
       const results = await Promise.all(
-        sendableEncodedTxs.map((encodedTx) =>
-          backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity({
-            accountId: encodedTx.accountId ?? accountId,
-            networkId: encodedTx.networkId ?? networkId,
-            encodedTx: encodedTx.encodedTx,
-          }),
-        ),
+        encodedTxs.map((encodedTx) => {
+          if (!canAttemptTransactionSecurityEncodedTx(encodedTx.encodedTx)) {
+            return Promise.resolve(undefined);
+          }
+          return backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
+            {
+              accountId: encodedTx.accountId ?? accountId,
+              networkId: encodedTx.networkId ?? networkId,
+              encodedTx: encodedTx.encodedTx,
+            },
+          );
+        }),
       );
       return mergeTransactionSecurityResults(results);
     }
@@ -67,6 +71,18 @@ async function fetchTransactionSecurityCheck({
   }
 }
 
+export function useSecurityCheckPrimeUser() {
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
+  const [{ isReady: isPersistReady }] = usePrimeInitAtom();
+  return {
+    isPrimeSubscriptionActive: isPrimeSubscriptionActive === true,
+    isPrimeUser: resolvePrimeUserForSecurityCheck({
+      isPrimeSubscriptionActive,
+      isPersistReady,
+    }),
+  };
+}
+
 export function useTransactionSecurityCheck({
   requestKey,
   origin,
@@ -75,19 +91,26 @@ export function useTransactionSecurityCheck({
   unsignedTxs,
   jsonRpc,
 }: ITransactionSecurityCheckParams) {
-  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
-  const encodedTxs = useMemo(
-    () => getTransactionSecurityEncodedTxs(unsignedTxs),
-    [unsignedTxs],
-  );
-  const shouldCheck = shouldRunTransactionSecurityCheck({
-    isPrimeSubscriptionActive: !!isPrimeSubscriptionActive,
+  const { isPrimeSubscriptionActive, isPrimeUser } =
+    useSecurityCheckPrimeUser();
+  const encodedTxsRef = useRef(getTransactionSecurityEncodedTxs());
+  const encodedTxs = useMemo(() => {
+    const next = getTransactionSecurityEncodedTxs(
+      unsignedTxs,
+      encodedTxsRef.current,
+    );
+    encodedTxsRef.current = next;
+    return next;
+  }, [unsignedTxs]);
+  const hasScannableRequest = shouldRunTransactionSecurityCheck({
+    isPrimeSubscriptionActive: true,
     origin,
     accountId,
     networkId,
     encodedTxs,
     jsonRpc,
   });
+  const shouldCheck = isPrimeSubscriptionActive && hasScannableRequest;
   const {
     result: resolved,
     isLoading,
@@ -114,6 +137,7 @@ export function useTransactionSecurityCheck({
     {
       watchLoading: true,
       undefinedResultIfReRun: true,
+      checkIsFocused: false,
     },
   );
   const retry = useCallback(() => {
@@ -127,17 +151,19 @@ export function useTransactionSecurityCheck({
     () => ({
       ...resolveTransactionSecurityCheckState({
         shouldCheck,
+        isEligibilityPending: isPrimeUser === undefined && hasScannableRequest,
         requestKey,
         resolvedRequestKey: resolved?.requestKey,
         result: resolved?.result,
         isLoading,
       }),
-      isPrimeUser: isPrimeSubscriptionActive,
+      isPrimeUser,
       retry: shouldCheck ? retry : undefined,
     }),
     [
+      hasScannableRequest,
       isLoading,
-      isPrimeSubscriptionActive,
+      isPrimeUser,
       requestKey,
       resolved,
       retry,
