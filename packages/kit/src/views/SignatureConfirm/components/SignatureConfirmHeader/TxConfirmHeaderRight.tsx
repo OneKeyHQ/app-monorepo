@@ -1,15 +1,15 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IImageProps } from '@onekeyhq/components';
 import {
   Button,
   HeaderButtonGroup,
   Image,
   Popover,
   SizableText,
-  Skeleton,
   YStack,
   useMedia,
   useThemeName,
@@ -142,38 +142,37 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
       : mevProtectionProvider?.logoURI;
   }, [mevProtectionProvider, theme]);
 
-  const [providerImageSize, setProviderImageSize] = useState<
+  const [providerImageInfo, setProviderImageInfo] = useState<
     | {
+        uri: string;
         width: number;
         height: number;
       }
     | undefined
   >(undefined);
 
-  useEffect(() => {
-    if (imageUri) {
-      void Image.loadImage({ uri: imageUri }).then((imageRef) => {
-        if (imageRef) {
-          setProviderImageSize({
-            width: imageRef.width,
-            height: imageRef.height,
-          });
-        }
+  const handleProviderImageLoad = useCallback(
+    ({ source }: Parameters<NonNullable<IImageProps['onLoad']>>[0]) => {
+      setProviderImageInfo({
+        uri: imageUri,
+        width: source.width,
+        height: source.height,
       });
-    } else {
-      // Reset stale size when the badge is hidden so a later provider with a
-      // different logo does not render with the previous provider's dimensions.
-      setProviderImageSize(undefined);
-    }
-  }, [imageUri]);
+    },
+    [imageUri],
+  );
+
+  const providerImageSize =
+    providerImageInfo?.uri === imageUri ? providerImageInfo : undefined;
+
+  const providerImageWidth = providerImageSize
+    ? (DEFAULT_IMAGE_HEIGHT / providerImageSize.height) *
+      providerImageSize.width
+    : DEFAULT_IMAGE_HEIGHT;
 
   if (!mevProtectionProvider) {
     return null;
   }
-
-  const ratio = providerImageSize
-    ? DEFAULT_IMAGE_HEIGHT / providerImageSize.height
-    : 1;
 
   return (
     <HeaderButtonGroup>
@@ -205,18 +204,16 @@ function TxConfirmHeaderRight(props: ITxConfirmHeaderRightProps) {
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
                   {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
-                {providerImageSize ? (
-                  <Image
-                    width={providerImageSize.width * ratio}
-                    height={DEFAULT_IMAGE_HEIGHT}
-                    resizeMode="contain"
-                    source={{
-                      uri: imageUri,
-                    }}
-                  />
-                ) : (
-                  <Skeleton height={DEFAULT_IMAGE_HEIGHT} width="100%" />
-                )}
+                <Image
+                  width={providerImageWidth}
+                  height={DEFAULT_IMAGE_HEIGHT}
+                  resizeMode="contain"
+                  recyclingKey={imageUri}
+                  source={{
+                    uri: imageUri,
+                  }}
+                  onLoad={handleProviderImageLoad}
+                />
               </YStack>
               <SizableText
                 size="$bodyMd"
