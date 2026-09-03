@@ -1470,6 +1470,45 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
+  test('keeps the explicit result scoped when another sync updates lastResult', async () => {
+    const { runExclusiveOneKeyOperation, service, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+    uploadPortfolioPackage.mockResolvedValueOnce({ portfolioUpdated: false });
+    const originalRunExclusive =
+      runExclusiveOneKeyOperation.getMockImplementation();
+    expect(originalRunExclusive).toBeDefined();
+    const originalRunExclusiveImpl = originalRunExclusive as NonNullable<
+      typeof originalRunExclusive
+    >;
+    runExclusiveOneKeyOperation.mockImplementationOnce(async (operation) => {
+      const result = await originalRunExclusiveImpl(operation);
+      (
+        service as unknown as {
+          setLastResult: (result: {
+            status: 'duplicate';
+            updatedAt: number;
+          }) => void;
+        }
+      ).setLastResult({ status: 'duplicate', updatedAt: Date.now() });
+      return result;
+    });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toThrow('Portfolio sync did not complete');
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'duplicate' }),
+    );
+  });
+
   test('keeps explicit sync successful when upload metadata persistence fails', async () => {
     const { service, updateTargetState, uploadPortfolioPackage } =
       prepareHardwareSync({

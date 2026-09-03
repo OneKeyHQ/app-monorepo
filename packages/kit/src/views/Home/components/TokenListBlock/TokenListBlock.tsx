@@ -404,6 +404,7 @@ function TokenListBlock({
     tokenSelectorFilterMode,
   };
   const refreshWalletTokenListRef = useRef<(() => void) | undefined>(undefined);
+  const singleNetworkRefreshGenerationRef = useRef(0);
   const portfolioSyncRequestIdRef = useRef(0);
   const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
     undefined,
@@ -659,6 +660,7 @@ function TokenListBlock({
       let accountId = account?.id ?? '';
       let portfolioTotalFiat = '0';
       let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
+      let singleNetworkRefreshGeneration = 0;
       let skipPortfolioSyncRequestFinish = false;
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
@@ -678,6 +680,9 @@ function TokenListBlock({
 
         if (network.isAllNetworks) return;
 
+        singleNetworkRefreshGenerationRef.current += 1;
+        singleNetworkRefreshGeneration =
+          singleNetworkRefreshGenerationRef.current;
         portfolioSyncRequest = getPortfolioSyncRequestForTarget(
           portfolioSyncTargetKey,
         );
@@ -976,7 +981,9 @@ function TokenListBlock({
         if (e instanceof CanceledError) {
           // A successor refresh aborts this fetch after capturing the same
           // request. Finishing here would clear it before that run transfers.
-          skipPortfolioSyncRequestFinish = true;
+          skipPortfolioSyncRequestFinish =
+            singleNetworkRefreshGeneration <
+            singleNetworkRefreshGenerationRef.current;
           console.log('fetchAccountTokens canceled');
         } else {
           const activePortfolioSyncRequest = getCurrentPortfolioSyncRequest();

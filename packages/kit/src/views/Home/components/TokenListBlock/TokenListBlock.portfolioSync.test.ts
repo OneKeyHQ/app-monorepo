@@ -86,6 +86,12 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain("setPortfolioSyncFeedback('success')");
     expect(source).toContain('keepPortfolioSyncRequest');
     expect(source).toContain('skipPortfolioSyncRequestFinish');
+    expect(source).toContain(
+      'const singleNetworkRefreshGenerationRef = useRef(0);',
+    );
+    expect(source).toMatch(
+      /skipPortfolioSyncRequestFinish =\s+singleNetworkRefreshGeneration <\s+singleNetworkRefreshGenerationRef\.current;/,
+    );
     expect(source).not.toContain('allowEmptyInteractivePortfolioSyncRef');
     expect(source).toMatch(
       /const allowEmptyInteractivePortfolioSyncRequestIdRef = useRef<\s+number \| undefined\s+>\(undefined\);/,

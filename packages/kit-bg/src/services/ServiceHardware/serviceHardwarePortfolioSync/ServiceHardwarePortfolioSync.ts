@@ -444,7 +444,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }
 
   private setRejectedPayloadResult(eventPayload: IPortfolioSyncSettledPayload) {
-    this.setLastResult({
+    return this.setLastResult({
       status: 'disabled',
       updatedAt: Date.now(),
       walletId: eventPayload.walletId,
@@ -454,7 +454,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private setMobileBleSuspendedResult(
     eventPayload: IPortfolioSyncSettledPayload,
   ) {
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'ble-suspended',
       totalTokenCount: eventPayload.tokens.length,
@@ -466,7 +466,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private setDesktopSuspendedResult(
     eventPayload: IPortfolioSyncSettledPayload,
   ) {
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'desktop-suspended',
       totalTokenCount: eventPayload.tokens.length,
@@ -1051,7 +1051,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       targetKey,
       walletId: eventPayload.walletId,
     });
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'device-locked',
       totalTokenCount: eventPayload.tokens.length,
@@ -1180,7 +1180,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       targetKey,
       walletId: eventPayload.walletId,
     });
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: eligibility,
       totalTokenCount: eventPayload.tokens.length,
@@ -1206,7 +1206,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       targetKey,
       walletId: eventPayload.walletId,
     });
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'identity-mismatch',
       totalTokenCount: eventPayload.tokens.length,
@@ -1235,7 +1235,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       targetKey,
       walletId: eventPayload.walletId,
     });
-    this.setLastResult({
+    return this.setLastResult({
       deviceConnectId: eventPayload.deviceConnectId,
       status: 'identity-unavailable',
       totalTokenCount: eventPayload.tokens.length,
@@ -1340,8 +1340,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         ? await localDb.getDeviceSafe(authorizedPayload.deviceDbId)
         : undefined;
       if (!authorizedPayload || !device) {
-        this.setRejectedPayloadResult(eventPayload);
-        return this.resolveInteractivePortfolioSyncResult(false);
+        return this.resolveInteractivePortfolioSyncResult(
+          this.setRejectedPayloadResult(eventPayload),
+        );
       }
       const targetKey = this.getSyncTargetKey(authorizedPayload);
       const eligibility = await this.getPortfolioSyncEligibility(
@@ -1349,7 +1350,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         { requireConnected: false },
       );
       if (eligibility !== 'eligible') {
-        this.handleIneligibleSync({
+        const result = this.handleIneligibleSync({
           eligibility,
           eventPayload: authorizedPayload,
           targetKey,
@@ -1367,7 +1368,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             totalTokenCount: authorizedPayload.tokens.length,
           },
         });
-        return this.resolveInteractivePortfolioSyncResult(false);
+        return this.resolveInteractivePortfolioSyncResult(result);
       }
       const pendingDebouncedSync = this.syncDebouncedByTargetKey.get(targetKey);
       pendingDebouncedSync?.cancel();
@@ -1401,13 +1402,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               throw error;
             }
             return this.resolveInteractivePortfolioSyncResult(
-              Boolean(
-                await this.syncSettledPortfolio(authorizedPayload, generation, {
-                  oneKeyOperationLease,
-                  syncStartedAt,
-                  syncMode,
-                }),
-              ),
+              await this.syncSettledPortfolio(authorizedPayload, generation, {
+                oneKeyOperationLease,
+                syncStartedAt,
+                syncMode,
+              }),
             );
           },
           {
@@ -1513,13 +1512,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   private setLastResult(result: IPortfolioSyncLastResult) {
     this.lastResult = result;
+    return result;
   }
 
-  private resolveInteractivePortfolioSyncResult(uploaded: boolean): boolean {
-    if (uploaded) {
+  private resolveInteractivePortfolioSyncResult(
+    result: IPortfolioSyncLastResult | undefined,
+  ): boolean {
+    if (result?.status === 'uploaded' && result.upload?.portfolioUpdated) {
       return true;
     }
-    const status = this.lastResult?.status;
+    const status = result?.status;
     if (status === 'identity-mismatch') {
       throw new DeviceNotSame();
     }
@@ -1528,8 +1530,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       status === 'device-locked' ||
       status === 'error' ||
       status === 'identity-unavailable' ||
-      (status === 'uploaded' &&
-        this.lastResult?.upload?.portfolioUpdated === false)
+      (status === 'uploaded' && result?.upload?.portfolioUpdated === false)
     ) {
       throw new OneKeyLocalError({
         autoToast: true,
@@ -1976,7 +1977,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     targetKey: string;
     telemetry: IPortfolioSyncTelemetry;
     updatedAt: number;
-  }): Promise<boolean | undefined> {
+  }): Promise<IPortfolioSyncLastResult | undefined> {
     if (!this.isCurrentSyncGeneration(targetKey, generation)) {
       this.releaseInFlightReservation({
         contentHash: artifacts.contentHash,
@@ -2000,7 +2001,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           targetKey,
         });
         this.scheduleDesktopBleBusyRetry({ eventPayload, targetKey });
-        this.setLastResult(
+        return this.setLastResult(
           this.buildResultBase({
             artifacts,
             eventPayload,
@@ -2009,7 +2010,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             updatedAt,
           }),
         );
-        return;
       }
       await activeUpload.catch(() => undefined);
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
@@ -2057,8 +2057,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           targetKey,
         });
         this.cancelHardwareBusyRetry(deviceConnectId);
-        this.setRejectedPayloadResult(eventPayload);
-        return;
+        return this.setRejectedPayloadResult(eventPayload);
       }
       const eligibility = await this.getPortfolioSyncEligibility(eventPayload, {
         requireConnected: syncMode === 'silent',
@@ -2077,12 +2076,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           generation,
           targetKey,
         });
-        this.handleIneligibleSync({
+        return this.handleIneligibleSync({
           eligibility,
           eventPayload,
           targetKey,
         });
-        return;
       }
       const hardwareTransportType = desktopBleExecution
         ? EHardwareTransportType.DesktopWebBle
@@ -2107,8 +2105,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           targetKey,
         });
         this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
-        this.setDesktopSuspendedResult(eventPayload);
-        return;
+        return this.setDesktopSuspendedResult(eventPayload);
       }
       if (
         syncMode === 'silent' &&
@@ -2120,8 +2117,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           targetKey,
         });
         this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
-        this.setMobileBleSuspendedResult(eventPayload);
-        return;
+        return this.setMobileBleSuspendedResult(eventPayload);
       }
       const hardwareBusy =
         syncMode === 'silent'
@@ -2143,7 +2139,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           generation,
           targetKey,
         });
-        this.setLastResult(
+        const result = this.setLastResult(
           this.buildResultBase({
             artifacts,
             eventPayload,
@@ -2180,7 +2176,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             targetKey,
           });
         }
-        return;
+        return result;
       }
 
       if (desktopBleExecution) {
@@ -2213,13 +2209,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           targetKey,
         });
         if (deviceIdentityStatus === 'unavailable') {
-          this.handleDeviceIdentityUnavailable({ eventPayload, targetKey });
+          return this.handleDeviceIdentityUnavailable({
+            eventPayload,
+            targetKey,
+          });
         } else if (deviceIdentityStatus === 'locked') {
-          this.handleDeviceLockedSkip({ eventPayload, targetKey });
-        } else {
-          this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
+          return this.handleDeviceLockedSkip({ eventPayload, targetKey });
         }
-        return;
+        return this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
       }
 
       const lastAttemptAt = Date.now();
@@ -2293,9 +2290,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           generation,
           targetKey,
         });
-        return upload;
+        return;
       }
-      this.setLastResult({
+      const result = this.setLastResult({
         ...this.buildResultBase({
           artifacts,
           eventPayload,
@@ -2315,7 +2312,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           generation,
           targetKey,
         });
-        return upload;
+        return result;
       }
       if (!eventPayload.walletId) {
         throw new OneKeyLocalError(
@@ -2354,7 +2351,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       ) {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
       }
-      return upload;
+      return result;
     };
     const uploadPromise = desktopBleExecution
       ? (async () => {
@@ -2369,7 +2366,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               generation,
               targetKey,
             });
-            this.setLastResult(
+            const result = this.setLastResult(
               this.buildResultBase({
                 artifacts,
                 eventPayload,
@@ -2382,8 +2379,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               contentHash: artifacts.contentHash,
             });
             this.scheduleDesktopBleBusyRetry({ eventPayload, targetKey });
+            return result;
           }
-          return attempt.acquired ? attempt.result : undefined;
+          return attempt.result;
         })()
       : this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
           runUpload,
@@ -2391,8 +2389,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         );
     this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {
-      const upload = await uploadPromise;
-      return upload?.portfolioUpdated === true;
+      return await uploadPromise;
     } finally {
       if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
         this.activeUploadByTargetKey.delete(targetKey);
@@ -2404,7 +2401,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     incomingPayload: IPortfolioSyncSettledPayload,
     requestedGeneration?: number,
     options?: IPortfolioSyncExecutionOptions,
-  ): Promise<boolean | undefined> {
+  ): Promise<IPortfolioSyncLastResult | undefined> {
     const updatedAt = Date.now();
     const syncMode = options?.syncMode ?? 'silent';
     const telemetry: IPortfolioSyncTelemetry = {
@@ -2415,8 +2412,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const eventPayload =
       await this.resolveAuthorizedPortfolioPayload(incomingPayload);
     if (!eventPayload) {
-      this.setRejectedPayloadResult(incomingPayload);
-      return;
+      return this.setRejectedPayloadResult(incomingPayload);
     }
     const targetKey = this.getSyncTargetKey(eventPayload);
     const generation =
@@ -2437,12 +2433,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
       if (!isHardwareWallet || !deviceConnectId) {
         debugPortfolioSyncLog('skip-non-hardware');
-        this.setLastResult({
+        return this.setLastResult({
           status: 'disabled',
           updatedAt,
           walletId: eventPayload.walletId,
         });
-        return;
       }
 
       const eligibility = await this.getPortfolioSyncEligibility(eventPayload, {
@@ -2452,12 +2447,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return;
       }
       if (eligibility !== 'eligible') {
-        this.handleIneligibleSync({
+        return this.handleIneligibleSync({
           eligibility,
           eventPayload,
           targetKey,
         });
-        return;
       }
       this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
 
@@ -2471,8 +2465,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (!this.isCurrentSyncGeneration(targetKey, generation)) {
           return;
         }
-        this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
-        return;
+        return this.handleDeviceIdentityMismatch({ eventPayload, targetKey });
       }
 
       const desktopBleExecution = options?.desktopBleExecution;
@@ -2511,8 +2504,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       ) {
         this.cancelHardwareBusyRetry(deviceConnectId);
         this.rememberPendingDesktopBlePayload({ eventPayload, targetKey });
-        this.setDesktopSuspendedResult(eventPayload);
-        return;
+        return this.setDesktopSuspendedResult(eventPayload);
       }
       if (
         syncMode === 'silent' &&
@@ -2520,8 +2512,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       ) {
         this.cancelHardwareBusyRetry(deviceConnectId);
         this.rememberPendingMobileBlePayload({ eventPayload, targetKey });
-        this.setMobileBleSuspendedResult(eventPayload);
-        return;
+        return this.setMobileBleSuspendedResult(eventPayload);
       }
       if (!desktopBleExecution) {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
@@ -2567,7 +2558,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           deviceConnectId,
           totalTokenCount: eventPayload.tokens.length,
         });
-        this.setLastResult({
+        return this.setLastResult({
           cooldownRemainingMs,
           deviceConnectId,
           status: 'cooldown',
@@ -2575,7 +2566,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           updatedAt,
           walletId: eventPayload.walletId,
         });
-        return;
       }
 
       const { currencyMap, displayCurrency } =
@@ -2627,7 +2617,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           tokenCount: artifacts.portfolio.tokens.length,
           totalTokenCount: eventPayload.tokens.length,
         });
-        this.setLastResult(
+        return this.setLastResult(
           this.buildResultBase({
             artifacts,
             eventPayload,
@@ -2635,7 +2625,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             updatedAt,
           }),
         );
-        return;
       }
 
       this.inFlightReservationByTargetKey.set(targetKey, {
@@ -2670,7 +2659,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         debugPortfolioSyncLog('skip-hardware-busy', {
           contentHash: artifacts.contentHash,
         });
-        this.setLastResult(
+        const result = this.setLastResult(
           this.buildResultBase({
             artifacts,
             eventPayload,
@@ -2692,7 +2681,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             targetKey,
           });
         }
-        return;
+        return result;
       }
 
       failureStage = 'pack';
