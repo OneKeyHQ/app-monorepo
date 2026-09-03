@@ -22,6 +22,8 @@ import {
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
+import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatformApi';
+
 import type { IMarketToken } from '../MarketTokenData';
 
 // Cached token list shared with the edit dialog so it opens instantly.
@@ -108,10 +110,9 @@ export function useMarketWatchlistTokenList({
         contractAddress: item.contractAddress,
         isNative: item.isNative ?? false,
       }));
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList,
-        });
+      const response = await fetchMarketTokenListBatchForPlatform({
+        tokenAddressList,
+      });
       return response;
     },
     [watchlist, spotItems, isInitialLoad],

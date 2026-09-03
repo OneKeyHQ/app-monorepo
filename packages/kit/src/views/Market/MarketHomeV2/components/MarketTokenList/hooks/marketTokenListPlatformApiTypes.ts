@@ -22,8 +22,19 @@ type IFetchMarketTokenListForPlatformOptions = {
   forceRemote?: boolean;
 };
 
+type IMarketTokenBatchRequestParams = {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
+};
+
 export type {
   IFetchMarketTokenListForPlatformOptions,
+  IMarketTokenBatchRequestParams,
   IMarketTokenListRequestParams,
   IMarketTokenListResponseWithSource,
 };

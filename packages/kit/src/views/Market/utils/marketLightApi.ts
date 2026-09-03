@@ -1,15 +1,18 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EServiceEndpointEnum,
   type IApiClientResponse,
 } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBannerItem,
   IMarketBannerListResponse,
   IMarketBasicConfigResponse,
+  IMarketTokenBatchListResponse,
   IMarketTokenListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -41,6 +44,16 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
 
 type IFetchMarketTokenListLightOptions = {
   forceRemote?: boolean;
+};
+
+type IMarketTokenBatchRequestParams = {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
 };
 
 const getUtilityEndpoint = () =>
@@ -166,6 +179,77 @@ const fetchMarketTokenListLight = async (
   return seedPromise.catch(() => remotePromise);
 };
 
+const fetchMarketAssetListLight = memoizee(
+  async ({
+    currency = 'usd',
+    type = 'top_coins',
+    page = 1,
+    limit = 100,
+  }: {
+    currency?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  } = {}) => {
+    const client = await getUtilityClient();
+    const response = await client.get<IApiClientResponse<IMarketAssetListData>>(
+      '/utility/v1/market/asset/list',
+      {
+        params: {
+          currency,
+          type,
+          page,
+          limit,
+        },
+      },
+    );
+    return response.data.data;
+  },
+  {
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
+    promise: true,
+  },
+);
+
+const fetchMarketTokenListBatchFromApi = async ({
+  tokenAddressList,
+  requestLocale,
+}: IMarketTokenBatchRequestParams) => {
+  const client = await getUtilityClient();
+  const locale = (requestLocale?.trim() || appLocale.intl.locale).toLowerCase();
+  const response = await client.post<
+    IApiClientResponse<IMarketTokenBatchListResponse>
+  >(
+    '/utility/v2/market/token/list/batch',
+    {
+      tokenAddressList,
+      currency: 'usd',
+    },
+    {
+      headers: {
+        'x-onekey-request-currency': 'usd',
+        'x-onekey-request-locale': locale,
+      },
+    },
+  );
+  return response.data.data;
+};
+
+const fetchMarketTokenListBatchRemoteLight = memoizee(
+  fetchMarketTokenListBatchFromApi,
+  {
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    promise: true,
+  },
+);
+
+const fetchMarketTokenListBatchLight = (
+  params: IMarketTokenBatchRequestParams,
+) =>
+  params.skipCache
+    ? fetchMarketTokenListBatchFromApi(params)
+    : fetchMarketTokenListBatchRemoteLight(params);
+
 const fetchMarketBasicConfigLight = memoizee(
   async () => {
     markMarketPerf('market-light-api-basic-config-start');
@@ -209,8 +293,10 @@ const fetchMarketBannerListLight = memoizee(
 );
 
 export {
+  fetchMarketAssetListLight,
   fetchMarketBannerListLight,
   fetchMarketBasicConfigLight,
+  fetchMarketTokenListBatchLight,
   fetchMarketTokenListLight,
   preloadMarketHomeTokenListSeed,
 };
