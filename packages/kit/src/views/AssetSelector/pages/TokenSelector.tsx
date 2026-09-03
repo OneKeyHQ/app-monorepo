@@ -462,11 +462,13 @@ function TokenSelector() {
   const allNetworksCrossSearchEnabled =
     !!searchAll && isSelectorAllNetworks && !showLpTokensOnly;
   // Others (imported / watch-only / external) accounts hold one credential on
-  // one impl, so cross-network results must be narrowed to the networks that
-  // credential can actually derive an address on. HD/HW accounts are unfiltered
-  // — they can create an account on any network.
+  // one impl, so cross-network results — single-network cross mode and the
+  // onekeyall search in All Networks alike — must be narrowed to the networks
+  // that credential can actually derive an address on. Same rule as the
+  // All-Networks account fan-out, so every row left is selectable. HD/HW
+  // accounts are unfiltered — they can create an account on any network.
   const othersAccountForNetworkFilter =
-    crossNetworkSearchEnabled &&
+    (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
     account &&
     accountId &&
     accountUtils.isOthersAccount({ accountId })
