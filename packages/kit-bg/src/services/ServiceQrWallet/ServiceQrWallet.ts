@@ -23,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -128,8 +129,20 @@ class ServiceQrWallet extends ServiceBase {
     }
     this.stageAirGapSession = undefined;
     // The wait paints before the flow resumes, so the card the person
-    // answered never lingers behind the decode.
-    await this.backgroundApi.serviceHardwareUI.deviceStageBurst.qrNoteScanCompleted();
+    // answered never lingers behind the decode — but the paint is
+    // cosmetic and the resolve is the contract. A stage write can reject
+    // (the native jotai bridge, or bridgeExtBg, not ready yet), and the
+    // session is already gone by here: letting that rejection skip the
+    // resolve would leave the signing call hanging until the callback
+    // expiry with nothing left that could answer it.
+    try {
+      await this.backgroundApi.serviceHardwareUI.deviceStageBurst.qrNoteScanCompleted();
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        'stage-air-gap-scan-completed-paint',
+        error instanceof Error ? error.message : 'Unknown stage error',
+      );
+    }
     await this.backgroundApi.servicePromise.resolveCallback({
       id: session.promiseId,
       data: result,
