@@ -211,7 +211,14 @@ function DeviceStageContainerCmp() {
       if (current?.vendor) {
         sendVendorUiResponse(true, { pin });
       } else {
-        // No active SDK call in demo scripts — the response is best-effort.
+        // Fire-and-forget on purpose, and not only because the gallery's
+        // demo scripts run these steps with no SDK instance: hd-core's
+        // `uiResponse` is a synchronous void, so a resolved promise would
+        // not mean the device received the PIN. The one rejection this can
+        // raise is a missing active SDK instance, which only happens when
+        // the call is already being torn down — the wrapper's end() then
+        // repaints the stage with an error outcome. A wrong PIN comes back
+        // as the SDK rejecting the call with PinInvalid, not from here.
         void serviceHardwareUI
           .sendPinToDevice({
             pin,
