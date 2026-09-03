@@ -11,19 +11,15 @@ export function getFoundDeviceKey(item: IConnectYourDeviceItem): string {
   );
 }
 
-// Keep the user's pick while it is still listed; otherwise fall back to the
-// first (highest-priority) row so the connect button always has a target.
+// A pick that is no longer listed yields no selection (the connect button
+// disables) rather than silently retargeting another device; only an empty
+// pick takes the first row, and the footer commits that default to state.
 export function resolveSelectedFoundDevice(
   devices: IConnectYourDeviceItem[],
   pickedKey: string | undefined,
 ): IConnectYourDeviceItem | undefined {
   if (pickedKey) {
-    const picked = devices.find(
-      (item) => getFoundDeviceKey(item) === pickedKey,
-    );
-    if (picked) {
-      return picked;
-    }
+    return devices.find((item) => getFoundDeviceKey(item) === pickedKey);
   }
   return devices[0];
 }

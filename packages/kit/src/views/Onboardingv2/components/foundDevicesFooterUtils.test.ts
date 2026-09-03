@@ -60,7 +60,7 @@ describe('resolveSelectedFoundDevice', () => {
     expect(resolveSelectedFoundDevice([first, second], 'c2')).toBe(second);
   });
 
-  it('falls back to the first device when the picked one disappears', () => {
-    expect(resolveSelectedFoundDevice([first], 'c2')).toBe(first);
+  it('yields no selection when the picked device is no longer listed', () => {
+    expect(resolveSelectedFoundDevice([first], 'c2')).toBeUndefined();
   });
 });

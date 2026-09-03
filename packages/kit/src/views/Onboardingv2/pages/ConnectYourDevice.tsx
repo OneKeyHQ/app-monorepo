@@ -1001,10 +1001,14 @@ function ConnectYourDevicePage({
   }, [deviceTypeItems, intl]);
   const [tabValue, setTabValue] = useState(tabOptions[0]?.value);
 
+  // Page-entry event: report once per mount, carrying the initial channel, so
+  // USB/Bluetooth tab switches do not inflate the funnel denominator.
+  const pageReportedRef = useRef(false);
   useEffect(() => {
-    if (!tabValue) {
+    if (!tabValue || pageReportedRef.current) {
       return;
     }
+    pageReportedRef.current = true;
     const deviceTypeLabel =
       deviceTypeItems.length > 0
         ? deviceTypeItems.join(',')

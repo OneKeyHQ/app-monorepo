@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -77,6 +77,18 @@ export function FoundDevicesFooter({
   const { gtMd } = useMedia();
   const [pickedKey, setPickedKey] = useState<string | undefined>();
   const [isConnecting, setIsConnecting] = useState(false);
+  // Closes the gap between a press and the isConnecting re-render so rapid
+  // taps cannot start two connections.
+  const connectingRef = useRef(false);
+
+  // Commit the default pick to state: every scan round replaces and re-sorts
+  // the list, so a purely derived "first row" could move the check mark
+  // under the user's finger.
+  useEffect(() => {
+    if (!pickedKey && devices.length > 0) {
+      setPickedKey(getFoundDeviceKey(devices[0]));
+    }
+  }, [devices, pickedKey]);
 
   const selected = useMemo(
     () => resolveSelectedFoundDevice(devices, pickedKey),
@@ -85,16 +97,18 @@ export function FoundDevicesFooter({
   const selectedKey = selected ? getFoundDeviceKey(selected) : undefined;
 
   const handleConnect = useCallback(async () => {
-    if (!selected || isConnecting) {
+    if (!selected || connectingRef.current) {
       return;
     }
+    connectingRef.current = true;
     setIsConnecting(true);
     try {
       await onConnect(selected);
     } finally {
+      connectingRef.current = false;
       setIsConnecting(false);
     }
-  }, [isConnecting, onConnect, selected]);
+  }, [onConnect, selected]);
 
   return (
     <>
@@ -142,6 +156,7 @@ export function FoundDevicesFooter({
               mx="$5"
               mt="$1"
               mb="$3"
+              disabled={!selected}
               loading={isConnecting}
               onPress={handleConnect}
             >
