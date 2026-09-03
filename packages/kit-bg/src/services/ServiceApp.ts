@@ -409,6 +409,7 @@ class ServiceApp extends ServiceBase {
     tokenAddress: string;
     network: string;
     marketTokenId?: string;
+    marketVariantId?: string;
     skipMarketDataFetch?: boolean;
     disableTrade?: boolean;
     isNative?: boolean;
@@ -420,6 +421,7 @@ class ServiceApp extends ServiceBase {
       tokenAddress,
       network,
       marketTokenId,
+      marketVariantId,
       skipMarketDataFetch,
       disableTrade,
       isNative,
@@ -443,6 +445,9 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
+    }
+    if (marketVariantId) {
+      routeParams.marketVariantId = marketVariantId;
     }
     if (skipMarketDataFetch) {
       routeParams.skipMarketDataFetch = true;
