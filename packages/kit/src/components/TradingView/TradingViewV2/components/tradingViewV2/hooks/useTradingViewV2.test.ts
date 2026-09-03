@@ -1,4 +1,5 @@
 import { sliceKLineRequest } from '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { PROMISE_CONCURRENCY_LIMIT } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IMarketTokenKLineDataPoint,
@@ -268,12 +269,10 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
       { from: 2000, to: 2060, interval: '1m' },
       { from: 2060, to: 2120, interval: '1m' },
     ]);
-    mockFetchMarketTokenKline
-      .mockResolvedValueOnce({
-        points: [buildPoint(2040, 1)],
-        total: 1,
-      })
-      .mockResolvedValueOnce(null);
+    mockFetchMarketTokenKline.mockResolvedValue(null).mockResolvedValueOnce({
+      points: [buildPoint(2040, 1)],
+      total: 1,
+    });
 
     const result = await fetchTradingViewV2DataWithSlicing({
       tokenAddress: '0x123',
@@ -288,6 +287,62 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     expect(onPrimaryKLineDataUnavailable).toHaveBeenCalledTimes(1);
     expect(fallback).toHaveBeenCalledTimes(1);
     expect(result?.points).toEqual([buildPoint(2040, 4)]);
+  });
+
+  it('retries a failed slice and returns complete history', async () => {
+    mockSliceRequest.mockReturnValue([
+      { from: 1000, to: 1060, interval: '1m' },
+      { from: 1060, to: 1120, interval: '1m' },
+    ]);
+    let firstSliceRequestCount = 0;
+    mockFetchMarketTokenKline.mockImplementation(async ({ timeFrom }) => {
+      if (timeFrom === 1000) {
+        firstSliceRequestCount += 1;
+        if (firstSliceRequestCount === 1) {
+          throw new OneKeyLocalError('transient failure');
+        }
+        return { points: [buildPoint(1020, 1)], total: 1 };
+      }
+      return { points: [buildPoint(1080, 2)], total: 1 };
+    });
+
+    const result = await fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 1000,
+      timeTo: 1120,
+    });
+
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledTimes(3);
+    expect(result?.points).toEqual([buildPoint(1020, 1), buildPoint(1080, 2)]);
+  });
+
+  it('caps initial requests and retries at one hundred calls', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockSliceRequest.mockReturnValue(
+      Array.from({ length: 99 }, (_, index) => ({
+        from: index * 60,
+        to: (index + 2) * 60,
+        interval: '1m',
+      })),
+    );
+    mockFetchMarketTokenKline.mockRejectedValue(new Error('primary failed'));
+
+    await expect(
+      fetchTradingViewV2DataWithSlicing({
+        tokenAddress: '0x123',
+        networkId: 'evm--1',
+        interval: '1m',
+        timeFrom: 0,
+        timeTo: 100 * 60,
+      }),
+    ).resolves.toBeNull();
+
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledTimes(100);
+    consoleErrorSpy.mockRestore();
   });
 
   it('limits concurrent sliced requests', async () => {

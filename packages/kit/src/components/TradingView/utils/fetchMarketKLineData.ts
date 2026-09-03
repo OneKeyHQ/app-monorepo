@@ -11,7 +11,7 @@ import { sliceKLineRequest } from './sliceKLineRequest';
 const MIN_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
 // The market K-line endpoint caps wide responses near 300 points.
 const MARKET_KLINE_MAX_POINTS_PER_REQUEST = 200;
-const MARKET_KLINE_MAX_SLICE_COUNT = 100;
+const MARKET_KLINE_MAX_REQUEST_COUNT = 100;
 
 type IRuntimeKLineDataPoint = Partial<
   Record<keyof IMarketTokenKLineDataPoint, unknown>
@@ -204,6 +204,12 @@ function hasValidKLineResponse(
   data?: IMarketKLineDataResponse | null,
 ): data is IMarketKLineDataResponse {
   return Array.isArray(data?.points);
+}
+
+function hasValidKLineSliceRequestResult(
+  result: PromiseSettledResult<IMarketKLineDataResponse | null> | null,
+): result is PromiseFulfilledResult<IMarketKLineDataResponse> {
+  return result?.status === 'fulfilled' && hasValidKLineResponse(result.value);
 }
 
 function normalizeKLineResponse(
@@ -409,28 +415,77 @@ export async function fetchMarketKLineDataWithSlicing({
       ...(!isNativeToken
         ? { maxDataLength: MARKET_KLINE_MAX_POINTS_PER_REQUEST }
         : {}),
-      maxSliceCount: MARKET_KLINE_MAX_SLICE_COUNT,
+      maxSliceCount: MARKET_KLINE_MAX_REQUEST_COUNT,
       minTimeSpanSeconds: isNativeToken
         ? undefined
         : MIN_KLINE_TIME_SPAN_SECONDS,
     });
-    const dataResults = await promiseAllSettledSlidingWindow(
-      slices.map(
-        (slice) => () =>
-          backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-            tokenAddress,
-            networkId,
-            interval: slice.interval,
-            timeFrom: slice.from,
-            timeTo: slice.to,
-            autoHandleError,
-          }),
-      ),
+    const requestFactories = slices.map(
+      (slice) =>
+        async (): Promise<
+          PromiseSettledResult<IMarketKLineDataResponse | null>
+        > => {
+          try {
+            return {
+              status: 'fulfilled',
+              value:
+                await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
+                  tokenAddress,
+                  networkId,
+                  interval: slice.interval,
+                  timeFrom: slice.from,
+                  timeTo: slice.to,
+                  autoHandleError,
+                }),
+            };
+          } catch (reason) {
+            return { status: 'rejected', reason };
+          }
+        },
+    );
+    const requestResults = await promiseAllSettledSlidingWindow(
+      requestFactories,
       { concurrency: PROMISE_CONCURRENCY_LIMIT },
     );
-    const validDataResults = dataResults.filter(hasValidKLineResponse);
+    const failedRequests = requestResults.flatMap((result, index) => {
+      const requestFactory = requestFactories[index];
+      return !hasValidKLineSliceRequestResult(result)
+        ? [{ index, requestFactory }]
+        : [];
+    });
+    const remainingRequestCount = Math.max(
+      0,
+      MARKET_KLINE_MAX_REQUEST_COUNT - requestFactories.length,
+    );
+    // Initial requests take priority; retries can only use the remaining budget.
+    const retryRequests = failedRequests.slice(0, remainingRequestCount);
 
-    if (validDataResults.length !== dataResults.length) {
+    if (retryRequests.length > 0) {
+      const retryResults = await promiseAllSettledSlidingWindow(
+        retryRequests.map(({ requestFactory }) => requestFactory),
+        { concurrency: PROMISE_CONCURRENCY_LIMIT },
+      );
+      retryRequests.forEach(({ index }, retryIndex) => {
+        const retryResult = retryResults[retryIndex];
+        if (retryResult) {
+          requestResults[index] = retryResult;
+        }
+      });
+    }
+
+    const rejectedResult = requestResults.find(
+      (result): result is PromiseRejectedResult =>
+        result?.status === 'rejected',
+    );
+    if (rejectedResult) {
+      throw rejectedResult.reason;
+    }
+
+    const validDataResults = requestResults
+      .filter(hasValidKLineSliceRequestResult)
+      .map((result) => result.value);
+
+    if (validDataResults.length !== slices.length) {
       return finalizeKLineResponse(
         await fetchFallbackIfNeeded({
           data: null,
