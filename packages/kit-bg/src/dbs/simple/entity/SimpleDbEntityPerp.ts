@@ -195,6 +195,9 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   override enableCache = true;
 
+  // Server/WS rebuildable cache; dropping a corrupted record is safe (OK-59997).
+  protected override readonly enableUnreadableRecordSelfHeal = true;
+
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
       return false;

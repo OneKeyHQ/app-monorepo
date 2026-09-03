@@ -15,6 +15,7 @@
     "@react-navigation/native": "7.1.28",
     "@react-navigation/native-stack": "7.11.0",
     "@react-navigation/stack": "7.6.16",
+    "@tamagui/spacer": "2.7.7",
     "ethereum-blockies-base64": "^1.0.2",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.18.1",
@@ -24,8 +25,7 @@
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.15.4",
-    "@tamagui/spacer": "2.7.7"
+    "react-native-svg": "15.15.4"
   },
   "devDependencies": {
     "@svgr/core": "8.1.0",

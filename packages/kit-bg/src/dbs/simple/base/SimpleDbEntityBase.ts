@@ -32,11 +32,11 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly enableCache: boolean;
 
-  // Default on: a durable unreadable IndexedDB blob cannot be recovered, and
-  // leaving it blocks builder-based setRawData forever. Opt out only for
-  // diagnostic entities that must fail loudly. Matcher + exponential backoff
-  // still guard against transient IO deletes (OK-59997 / OK-61648).
-  protected readonly enableUnreadableRecordSelfHeal: boolean = true;
+  // Opt-in only for rebuildable caches. A durable Chromium blob failure is
+  // unrecoverable, but deleting a user-authored / credential / lock record
+  // then letting a merge builder write a partial empty object is worse
+  // (OK-59997 / OK-61648). Matcher + backoff still guard transient IO.
+  protected readonly enableUnreadableRecordSelfHeal: boolean = false;
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);
