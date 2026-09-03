@@ -23876,6 +23876,7 @@
     "packages/shared/src/utils/oneKeyIdAccountUtils.ts": 7759,
     "packages/shared/src/utils/openUrlUtils.ts": 7760,
     "packages/shared/src/utils/overlayUtils.ts": 7761,
+    "packages/shared/src/utils/passphraseUtils.ts": 8041,
     "packages/shared/src/utils/passwordUtils.ts": 7762,
     "packages/shared/src/utils/pendingTaskUtils.ts": 7763,
     "packages/shared/src/utils/perpsDexUtils.ts": 7764,
