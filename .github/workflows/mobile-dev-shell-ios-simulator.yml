@@ -1,6 +1,19 @@
 name: Mobile Dev Shell iOS Simulator
 
 on:
+  push:
+    branches:
+      - x
+    paths:
+      - '.github/workflows/mobile-dev-shell-ios-simulator.yml'
+      - 'apps/mobile/dev-vendor.config.js'
+      - 'apps/mobile/ios/**'
+      - 'apps/mobile/package.json'
+      - 'apps/mobile/plugins/devVendor.js'
+      - 'apps/mobile/react-native.config.js'
+      - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'patches/**'
+      - 'yarn.lock'
   workflow_dispatch:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:

@@ -182,6 +182,17 @@ describe('build-mobile-dev-shell', () => {
       expect(source).toContain(
         `group: mobile-dev-shell-${platform}-${'$'}{{ github.ref }}`,
       );
+      expect(source).toContain('push:\n    branches:\n      - x\n    paths:');
+      expect(source).toContain("- 'apps/mobile/package.json'");
+      expect(source).toContain("- 'apps/mobile/dev-vendor.config.js'");
+      expect(source).toContain("- 'patches/**'");
+      expect(source).toContain("- 'yarn.lock'");
+      expect(source).not.toContain('workflow_run:');
+      expect(source).toContain(
+        platform === 'android'
+          ? "- 'apps/mobile/android/**'"
+          : "- 'apps/mobile/ios/**'",
+      );
       expect(source).toContain("github.ref != 'refs/heads/x'");
       expect(source).toContain(
         `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,

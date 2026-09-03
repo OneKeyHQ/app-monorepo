@@ -20052,7 +20052,7 @@
     "packages/kit/src/components/WebView/NativeWebView.tsx": 4081,
     "packages/kit/src/components/WebView/WebViewWithFeatures.tsx": 4082,
     "packages/kit/src/components/WebView/index.tsx": 4083,
-    "packages/kit/src/components/WebView/injectedNative.js.txt": 7986,
+    "packages/kit/src/components/WebView/injectedNative.js.txt": 7987,
     "packages/kit/src/components/WebView/translateBridge.ts": 4084,
     "packages/kit/src/components/WebView/useWebViewTranslate.ts": 4085,
     "packages/kit/src/components/WebView/utils.ts": 4086,
