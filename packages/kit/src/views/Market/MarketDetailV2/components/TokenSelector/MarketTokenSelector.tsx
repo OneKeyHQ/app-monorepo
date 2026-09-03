@@ -121,6 +121,8 @@ const SelectorTabItem = memo(
       >
         <SizableText
           size="$headingXs"
+          textTransform="none"
+          letterSpacing={0}
           color={isFocused ? '$text' : '$textSubdued'}
         >
           {name}

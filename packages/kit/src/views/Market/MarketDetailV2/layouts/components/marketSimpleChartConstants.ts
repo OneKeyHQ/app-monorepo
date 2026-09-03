@@ -1,8 +1,8 @@
 import type { IStockSimpleChartRange } from '../../components/StockSimpleChart';
 
 // Shared by the stock and Top Coins detail charts so the two toolbars cannot
-// drift apart. Both render the same 456px chart block: a 40px toolbar row, a
-// 16px gap, then the 400px simple chart.
+// drift apart. Both render the same chart block (456px by default, user
+// resizable): a 40px toolbar row, a 16px gap, then the simple chart.
 
 // Pro drops the toolbar row and lays the Simple/Pro switch over the trailing
 // edge of the TradingView widget's own interval row instead. Both that row and

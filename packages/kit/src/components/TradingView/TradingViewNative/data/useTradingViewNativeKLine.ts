@@ -1620,6 +1620,7 @@ export function useTradingViewNativeKLine({
   source: ITradingViewNativeSource;
 }) {
   const sourceKind = source.kind;
+  const assetId = source.kind === 'asset' ? source.assetId : '';
   const stockId = source.kind === 'stock' ? source.stockId : '';
   const hyperliquidCoin = source.kind === 'hyperliquid' ? source.coin : '';
   const hyperliquidEnvironment =
@@ -1636,6 +1637,12 @@ export function useTradingViewNativeKLine({
   const marketRealtime =
     source.kind === 'market' ? source.realtime : 'disabled';
   const rawHistoryProvider = useMemo(() => {
+    if (sourceKind === 'asset') {
+      return createTradingViewNativeDataProvider({
+        kind: 'asset',
+        assetId,
+      });
+    }
     if (sourceKind === 'hyperliquid') {
       return createTradingViewNativeDataProvider({
         kind: 'hyperliquid',
@@ -1659,6 +1666,7 @@ export function useTradingViewNativeKLine({
       realtime: 'disabled',
     });
   }, [
+    assetId,
     hyperliquidCoin,
     hyperliquidEnvironment,
     marketFallbackCoinGeckoId,

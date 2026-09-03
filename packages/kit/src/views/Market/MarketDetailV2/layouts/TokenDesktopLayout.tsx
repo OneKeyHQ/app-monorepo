@@ -28,6 +28,7 @@ import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/Tok
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { formatPriceChangeDisplay } from '../utils/statValue';
 
+import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
@@ -36,7 +37,6 @@ const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
 const TOKEN_DETAIL_TRADE_COLUMN_WIDTH = 384;
 const TOKEN_DETAIL_COLUMN_GAP = 24;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
-const TOKEN_DETAIL_CHART_HEIGHT = 456;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
 const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;
 
@@ -210,16 +210,11 @@ export function TokenDesktopLayout({
             gap="$6"
           >
             <TokenPriceHeader />
-            <Stack
+            <MarketDesktopChartContainer
               testID="market-token-detail-standard-chart"
-              width="100%"
-              height={isChartFullscreen ? undefined : TOKEN_DETAIL_CHART_HEIGHT}
-              overflow="hidden"
-              bg="$bgApp"
-              zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
-              style={
-                isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
-              }
+              isFullscreen={isChartFullscreen}
+              fullscreenZIndex={chartFullscreenZIndex}
+              fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
             >
               {isChartFullscreen && platformEnv.isDesktop ? (
                 <Stack height={48} bg="$bgApp" flexShrink={0} />
@@ -232,7 +227,7 @@ export function TokenDesktopLayout({
                 onChartSwitch={onChartSwitch}
                 onEnterChartFullscreen={onEnterChartFullscreen}
               />
-            </Stack>
+            </MarketDesktopChartContainer>
 
             {isBTCMainnet ? null : (
               <YStack gap="$0">

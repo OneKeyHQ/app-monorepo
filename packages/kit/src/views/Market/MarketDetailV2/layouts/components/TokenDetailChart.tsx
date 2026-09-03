@@ -67,6 +67,7 @@ function TokenChartModeControl({
 }
 
 export function TokenDetailChart({
+  marketAssetId,
   marketTradingView,
   isChartFullscreen,
   chartMode,
@@ -74,6 +75,7 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  marketAssetId?: string;
   marketTradingView: ReactNode;
   isChartFullscreen: boolean;
   chartMode: ITradingViewChartMode;
@@ -91,8 +93,8 @@ export function TokenDetailChart({
   };
 
   return (
-    // Simple mode stacks a 40px toolbar, a 16px gap and the 400px chart into
-    // the 456px block, matching the stock detail chart. Without the gap the
+    // Simple mode stacks a 40px toolbar, a 16px gap and the flexible chart
+    // into the block, matching the stock detail chart. Without the gap the
     // toolbar sits flush against the chart's top price label and the spare
     // 16px collects at the bottom of the block instead.
     <YStack
@@ -142,7 +144,11 @@ export function TokenDetailChart({
             </XStack>
             <TokenChartModeControl mode={mode} onChange={handleModeChange} />
           </XStack>
-          <StockSimpleChart range={range} priceMode="token" />
+          <StockSimpleChart
+            marketAssetId={marketAssetId}
+            range={range}
+            priceMode="token"
+          />
         </>
       ) : (
         <>

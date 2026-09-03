@@ -79,8 +79,21 @@ jest.mock('@onekeyhq/components', () => {
         onChange={(event) => onChangeText(event.currentTarget.value)}
       />
     ),
-    SizableText: ({ children }: { children?: ReactNode }) => (
-      <span>{children}</span>
+    SizableText: ({
+      children,
+      letterSpacing,
+      textTransform,
+    }: {
+      children?: ReactNode;
+      letterSpacing?: number;
+      textTransform?: string;
+    }) => (
+      <span
+        data-letter-spacing={letterSpacing}
+        data-text-transform={textTransform}
+      >
+        {children}
+      </span>
     ),
     XStack: StackComponent,
     YStack: StackComponent,
@@ -270,6 +283,16 @@ describe('MarketTokenSelector stock default category', () => {
       expect.objectContaining({ assetId: 'btc' }),
     );
     expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it('preserves category label casing', () => {
+    renderOpenStockSelector();
+
+    // The injected category name is bound to ETranslations.market_top_coins;
+    // the intl mock above renders the raw key id.
+    const topCoinsLabel = screen.getByText('market.top_coins');
+    expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
+    expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
   });
 
   function renderOpenStockSelector() {
