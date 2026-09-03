@@ -1224,7 +1224,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
    * here — the hardware UI event carries a connectId, not a walletId.
    * No firmware support probe: a PIN request is in flight, so the device
    * cannot take another call; the REQUEST_PIN gate re-checks support
-   * from features on the next request anyway. */
+   * from features on the next request anyway. Turning app entry ON still
+   * stamps `inputPinOnSoftwareSupport`, the marker that distinguishes a
+   * person's choice from the creation-time default: the switch is only
+   * offered once the background has already established the device is a
+   * supported button model, and without the marker the startup migration
+   * (migrateClassicPinInputDefault) would flip this choice back to
+   * device entry if it ran after the switch. */
   @backgroundMethod()
   async setInputPinOnSoftwareByConnectId({
     connectId,
@@ -1244,6 +1250,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       settings: {
         ...device.settings,
         inputPinOnSoftware,
+        inputPinOnSoftwareSupport: inputPinOnSoftware
+          ? true
+          : device.settings?.inputPinOnSoftwareSupport,
       },
     });
   }
