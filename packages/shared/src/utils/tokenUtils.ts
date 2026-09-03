@@ -27,6 +27,7 @@ import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   IToken,
   ITokenData,
   ITokenFiat,
@@ -169,6 +170,49 @@ export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
   });
 
   return Array.from(queries);
+}
+
+/**
+ * Normalize raw token search hits before they are deduped:
+ * - A hit that omits `info.networkId` belongs to the request's scoped network,
+ *   so stamp it there. Under an all-networks request it cannot be resolved to
+ *   a concrete network (it could never open a receive address), so drop it.
+ * - Defense-in-depth (OK-60860): the backend index may still return tokens on
+ *   delisted networks (dropped from the catalog via status TRASH) or on
+ *   networks this app version does not know at all; drop those too. The
+ *   catalog is optional so a transient lookup failure fails open.
+ */
+export function normalizeTokenSearchResults({
+  items,
+  requestNetworkId,
+  availableNetworkIds,
+}: {
+  items: IFetchTokenDetailItem[];
+  requestNetworkId: string;
+  availableNetworkIds?: Set<string>;
+}): IFetchTokenDetailItem[] {
+  const isAllNetworkRequest = networkUtils.isAllNetwork({
+    networkId: requestNetworkId,
+  });
+  const result: IFetchTokenDetailItem[] = [];
+  items.forEach((item) => {
+    let { networkId } = item.info;
+    if (!networkId) {
+      if (isAllNetworkRequest) {
+        return;
+      }
+      networkId = requestNetworkId;
+    }
+    if (availableNetworkIds && !availableNetworkIds.has(networkId)) {
+      return;
+    }
+    result.push(
+      networkId === item.info.networkId
+        ? item
+        : { ...item, info: { ...item.info, networkId } },
+    );
+  });
+  return result;
 }
 
 enum ESearchStrength {
