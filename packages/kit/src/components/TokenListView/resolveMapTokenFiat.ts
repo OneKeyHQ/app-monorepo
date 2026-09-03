@@ -19,18 +19,34 @@ const ZERO_TOKEN_FIAT: ITokenFiat = Object.freeze({
 // zero placeholder above.
 export function resolveMapTokenFiat({
   $key,
+  networkId,
   tokenListMap,
   aggregateTokenFiatMap,
   zeroFillMissingFiat,
+  zeroFillNetworkIds,
 }: {
   $key: string;
+  networkId?: string;
   tokenListMap: Record<string, ITokenFiat> | undefined;
   aggregateTokenFiatMap: Record<string, ITokenFiat> | undefined;
   zeroFillMissingFiat: boolean;
+  // When set, only rows on these networks may take the zero placeholder: a
+  // missing record is "not held" solely on networks the host's fetch covered.
+  // A row elsewhere has holdings nobody fetched and stays blank (unknown).
+  zeroFillNetworkIds?: ReadonlySet<string>;
 }): ITokenFiat | undefined {
   const fiat = tokenListMap?.[$key] ?? aggregateTokenFiatMap?.[$key];
   if (fiat) {
     return fiat;
   }
-  return zeroFillMissingFiat ? ZERO_TOKEN_FIAT : undefined;
+  if (!zeroFillMissingFiat) {
+    return undefined;
+  }
+  if (
+    zeroFillNetworkIds &&
+    (!networkId || !zeroFillNetworkIds.has(networkId))
+  ) {
+    return undefined;
+  }
+  return ZERO_TOKEN_FIAT;
 }
