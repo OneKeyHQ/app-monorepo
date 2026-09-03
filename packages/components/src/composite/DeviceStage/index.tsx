@@ -487,6 +487,7 @@ export function DeviceStage({
   passphraseIntroKeepShortcut,
   passphraseMode,
   passphraseKeepAccessible,
+  passphraseAllowUtf8,
   onPassphraseSubmit,
   onPassphraseAttachPin,
   onSwitchToDevice,
@@ -1564,6 +1565,7 @@ export function DeviceStage({
           <PassphraseForm
             mode={passphraseMode}
             initialKeepAccessible={passphraseKeepAccessible}
+            allowProtocolV2Utf8={passphraseAllowUtf8}
             onSubmit={onPassphraseSubmit}
             onSwitchToDevice={onSwitchToDevice}
             onAttachPin={vendor ? undefined : onPassphraseAttachPin}
@@ -1580,6 +1582,7 @@ export function DeviceStage({
       onSwitchToDevice,
       panelMeasureHandlers,
       passphraseAnimated,
+      passphraseAllowUtf8,
       passphraseEpoch,
       passphraseKeepAccessible,
       passphraseMode,

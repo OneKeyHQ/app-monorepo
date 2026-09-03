@@ -28,7 +28,10 @@ import {
   YStack,
 } from '../../primitives';
 
-import { resolvePassphraseEntryFailure } from './passphraseRules';
+import {
+  normalizePassphraseEntry,
+  resolvePassphraseEntryFailure,
+} from './passphraseRules';
 import { PreferenceCapsule } from './PreferenceCapsule';
 
 /**
@@ -362,6 +365,12 @@ export interface IPassphraseFormProps {
    * ON — the first-run default.
    */
   initialKeepAccessible?: boolean;
+  /**
+   * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
+   * is handed out, no character rule to show. Off, the printable-ASCII
+   * rule and its bullets apply. The driver decides it from the request.
+   */
+  allowProtocolV2Utf8?: boolean;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
   error?: string;
   /** Fresh-visit signal, the PIN pad's own: parked presenters bump it
@@ -383,6 +392,7 @@ export function PassphraseForm({
   onAttachPin,
   error,
   initialKeepAccessible,
+  allowProtocolV2Utf8,
   resetSignal,
 }: IPassphraseFormProps) {
   const intl = useIntl();
@@ -422,15 +432,16 @@ export function PassphraseForm({
     // the same ratified grammar as the PIN pad's empty confirm. The
     // rules themselves, and why an empty entry is refused in both
     // modes, live in resolvePassphraseEntryFailure.
-    const failure = resolvePassphraseEntryFailure(value);
+    const entryOptions = { allowProtocolV2Utf8 };
+    const failure = resolvePassphraseEntryFailure(value, entryOptions);
     if (failure) {
       setValidationError(
         intl.formatMessage({ id: failure.id }, failure.values),
       );
       return;
     }
-    onSubmit?.(value, exitOptions);
-  }, [exitOptions, intl, onSubmit, value]);
+    onSubmit?.(normalizePassphraseEntry(value, entryOptions), exitOptions);
+  }, [allowProtocolV2Utf8, exitOptions, intl, onSubmit, value]);
   const handleSwitchToDevice = useCallback(() => {
     onSwitchToDevice?.(exitOptions);
   }, [exitOptions, onSwitchToDevice]);
@@ -485,40 +496,45 @@ export function PassphraseForm({
         {/* The character rules as bullets; each dot box matches one text
             line, so the dot centers on the first line and the text owns
             any wrap. */}
-        <YStack gap="$1">
-          <XStack gap="$1" alignItems="flex-start">
-            <Stack p="$2">
-              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-            </Stack>
-            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.device_stage_allowed_characters__desc },
-                {
-                  link: (chunks: ReactNode[]) => (
-                    <Anchor
-                      key="link"
-                      href="https://www.ascii-code.com/"
-                      size="$bodyMd"
-                      color="$textSubdued"
-                    >
-                      {chunks}
-                    </Anchor>
-                  ),
-                },
-              )}
-            </SizableText>
-          </XStack>
-          <XStack gap="$1" alignItems="flex-start">
-            <Stack p="$2">
-              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-            </Stack>
-            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.passphrase_character_limit,
-              })}
-            </SizableText>
-          </XStack>
-        </YStack>
+        {/* The two bullets state the ASCII rule; a protocol V2 device has
+            no character rule to state, so they stay off there — the
+            shipped dialog dropped its own description the same way. */}
+        {allowProtocolV2Utf8 ? null : (
+          <YStack gap="$1">
+            <XStack gap="$1" alignItems="flex-start">
+              <Stack p="$2">
+                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+              </Stack>
+              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.device_stage_allowed_characters__desc },
+                  {
+                    link: (chunks: ReactNode[]) => (
+                      <Anchor
+                        key="link"
+                        href="https://www.ascii-code.com/"
+                        size="$bodyMd"
+                        color="$textSubdued"
+                      >
+                        {chunks}
+                      </Anchor>
+                    ),
+                  },
+                )}
+              </SizableText>
+            </XStack>
+            <XStack gap="$1" alignItems="flex-start">
+              <Stack p="$2">
+                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+              </Stack>
+              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.passphrase_character_limit,
+                })}
+              </SizableText>
+            </XStack>
+          </YStack>
+        )}
         {shownError ? (
           <SizableText size="$bodyMd" color="$textCritical">
             {shownError}
