@@ -68,12 +68,16 @@ export function StockPriceLineChart({
   height,
   pulseLastPoint,
   testID,
+  hoverLabelShowsPrice = true,
   onHoverChange,
 }: {
   data: IMarketTokenChart;
   height: number;
   pulseLastPoint?: boolean;
   testID?: string;
+  // The hover card answers "when" and, by default, "how much". Hosts that must
+  // not repeat the figure pass false to keep the card time-only.
+  hoverLabelShowsPrice?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
@@ -265,14 +269,16 @@ export function StockPriceLineChart({
           <SizableText size="$bodyXs" color="$textDisabled">
             {hoverTimeText}
           </SizableText>
-          <SizableText
-            testID="stock-price-line-chart-hover-label-price"
-            size="$bodySmMedium"
-            color="$text"
-            numberOfLines={1}
-          >
-            {priceFormatter(hoverData.price)}
-          </SizableText>
+          {hoverLabelShowsPrice ? (
+            <SizableText
+              testID="stock-price-line-chart-hover-label-price"
+              size="$bodySmMedium"
+              color="$text"
+              numberOfLines={1}
+            >
+              {priceFormatter(hoverData.price)}
+            </SizableText>
+          ) : null}
         </Stack>
       ) : null}
     </Stack>
