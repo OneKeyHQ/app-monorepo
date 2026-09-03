@@ -55,13 +55,7 @@ function resolveDefaultLayoutTarget(): IMarketDetailLayoutPreloadTarget {
   return platformEnv.isNative ? 'mobile' : 'desktop';
 }
 
-export function preloadMarketDetailV2Layout(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
-) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
+function preloadMarketDetailV2Layout(target: IMarketDetailLayoutPreloadTarget) {
   if (target === 'desktop') {
     void import(
       /* webpackChunkName: "market-detail-v2-desktop-layout" */ '../layouts/DesktopLayout'
@@ -74,24 +68,16 @@ export function preloadMarketDetailV2Layout(
   ).catch(() => undefined);
 }
 
-export function preloadMarketDetailV2TradingView() {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
+function preloadMarketDetailV2TradingView() {
   void import(
     /* webpackChunkName: "market-detail-v2-tradingview" */ '../components/MarketTradingView/MarketTradingView'
   ).catch(() => undefined);
 }
 
-export function preloadMarketDetailV2SwapPanel(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+function preloadMarketDetailV2SwapPanel(
+  target: IMarketDetailLayoutPreloadTarget,
   isStockRoute?: boolean,
 ) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
   void (
     target === 'desktop' && !isStockRoute
       ? import(
@@ -108,13 +94,9 @@ export function preloadMarketDetailV2SwapPanel(
   }
 }
 
-export function preloadMarketDetailV2InfoPanel(
-  target: IMarketDetailLayoutPreloadTarget = resolveDefaultLayoutTarget(),
+function preloadMarketDetailV2InfoPanel(
+  target: IMarketDetailLayoutPreloadTarget,
 ) {
-  if (shouldSkipMarketDetailPreload()) {
-    return;
-  }
-
   if (target === 'desktop') {
     void import(
       /* webpackChunkName: "market-detail-v2-desktop-info-tabs" */ '../components/InformationTabs/layout/DesktopInformationTabs'
@@ -127,6 +109,10 @@ export function preloadMarketDetailV2BodyModules({
   includeHeavyModules,
   isStockRoute,
 }: IPreloadOptions) {
+  if (shouldSkipMarketDetailPreload()) {
+    return;
+  }
+
   preloadMarketDetailV2Layout(layout);
 
   if (!includeHeavyModules) {
