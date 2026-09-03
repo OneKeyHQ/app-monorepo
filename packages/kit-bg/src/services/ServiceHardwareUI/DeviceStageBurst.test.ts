@@ -416,6 +416,36 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('keeps an ask on stage when a detached wait note lands after it', async () => {
+    // showCheckingDeviceDialog / showDeviceProcessLoadingDialog `void`
+    // their notes, so a fast device's REQUEST_PIN can paint first. The
+    // late wait must not take the PIN card down: the device is waiting.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+
+    await scope.noteStep('connecting', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('pinOnApp');
+    await scope.noteStep('processing', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('pinOnApp');
+
+    // A wait still refreshes a wait, and an ask still lands.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('processing');
+    await scope.noteStep('connecting', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('connecting');
+    await scope.noteStep('enterPin', { connectId: CONNECT_ID });
+    expect(stage?.step).toBe('enterPin');
+  });
+
   it('clears a painted stage the moment the firmware workflow takes the screen', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID });

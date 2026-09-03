@@ -1067,6 +1067,18 @@ export class DeviceStageBurstScope {
     if (!(await this.isEnabled())) {
       return;
     }
+    if (PROGRESS_WRITABLE_STEPS.has(step)) {
+      // An app-authored wait obeys the rule an SDK progress tick obeys
+      // (see onHardwareUiEvent): it may refresh a wait, never repaint an
+      // ask. The checking / loading notes are detached — `void`ed by the
+      // show* methods, a bridge hop or two behind — so a fast device's
+      // REQUEST_PIN can land first; letting the late wait through took the
+      // PIN card down while the device still waited for its PIN.
+      const current = await deviceStageAtom.get();
+      if (current && ASK_STEPS.has(current.step)) {
+        return;
+      }
+    }
     this.clearOffTimer();
     // Any newer beat cancels a pending handover: a Retry's authFailure,
     // an error notice, the loading beat a flow shows next.
