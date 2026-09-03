@@ -975,4 +975,137 @@ describe('ServiceDApp connection approval transaction', () => {
     ).not.toContainEqual(nextConnection);
     expectNoApprovalSideEffects({ ...harness, emitSpy });
   });
+
+  it('rolls back Home when the request settles after Home persistence', async () => {
+    const origin = 'https://cancel-after-home-sync.test';
+    const harness = createHarness({
+      alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+    });
+    const previousHome = buildSelectedAccount('previous-home');
+    const alignedHome = buildSelectedAccount('aligned-home');
+    await harness.accountSelector.saveSelectedAccount({
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+      selectedAccount: previousHome,
+    });
+    jest
+      .spyOn(harness.service, 'buildHomeSelectedAccountByDappAccount')
+      .mockResolvedValue(alignedHome);
+    const saveSelectedAccountIfCurrent =
+      harness.accountSelector.saveSelectedAccountIfCurrent.bind(
+        harness.accountSelector,
+      );
+    jest
+      .spyOn(harness.accountSelector, 'saveSelectedAccountIfCurrent')
+      .mockImplementation(async (...args) => {
+        const result = await saveSelectedAccountIfCurrent(...args);
+        if (result.persisted) {
+          harness.setCallbackPending(false);
+        }
+        return result;
+      });
+    jest.clearAllMocks();
+
+    await expect(
+      harness.service.approveConnectionSession({
+        accountInfo: buildConnectionAccount('approval-a'),
+        accountSelectorNum: 0,
+        approvalId: 'approval-cancel-after-home',
+        expectedSelectedAccount: buildSelectedAccount('approval-a'),
+        mode: 'save',
+        origin,
+        requestId: 111,
+      }),
+    ).resolves.toEqual({
+      approved: false,
+      reason: 'request-settled',
+    });
+
+    await expect(
+      harness.accountSelector.getSelectedAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    ).resolves.toEqual(previousHome);
+    await expect(harness.dappConnection.getRawData()).resolves.toBeNull();
+    expectNoApprovalSideEffects({ ...harness, emitSpy });
+  });
+
+  it('does not roll back Home over a newer user intent after approval preselection', async () => {
+    const origin = 'https://newer-home-intent-after-preselection.test';
+    const harness = createHarness({
+      alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+    });
+    const previousHome = buildSelectedAccount('previous-home');
+    const alignedHome = buildSelectedAccount('aligned-home');
+    const explicitHome = buildSelectedAccount('explicit-home');
+    await harness.accountSelector.saveSelectedAccount({
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+      selectedAccount: previousHome,
+    });
+    jest
+      .spyOn(harness.service, 'buildHomeSelectedAccountByDappAccount')
+      .mockResolvedValue(alignedHome);
+    const saveSelectedAccountIfCurrent =
+      harness.accountSelector.saveSelectedAccountIfCurrent.bind(
+        harness.accountSelector,
+      );
+    let explicitIntentEpoch: number | undefined;
+    jest
+      .spyOn(harness.accountSelector, 'saveSelectedAccountIfCurrent')
+      .mockImplementation(async (...args) => {
+        const result = await saveSelectedAccountIfCurrent(...args);
+        if (result.persisted) {
+          explicitIntentEpoch =
+            await harness.accountSelector.recordSelectedAccountIntent({
+              num: 0,
+              sceneName: EAccountSelectorSceneName.home,
+              selectedAccount: explicitHome,
+            });
+          harness.setCallbackPending(false);
+        }
+        return result;
+      });
+    jest.clearAllMocks();
+
+    await expect(
+      harness.service.approveConnectionSession({
+        accountInfo: buildConnectionAccount('approval-a'),
+        accountSelectorNum: 0,
+        approvalId: 'approval-newer-home-after-preselection',
+        expectedSelectedAccount: buildSelectedAccount('approval-a'),
+        mode: 'save',
+        origin,
+        requestId: 112,
+      }),
+    ).resolves.toEqual({
+      approved: false,
+      reason: 'request-settled',
+    });
+    await expect(
+      harness.accountSelector.getSelectedAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    ).resolves.toEqual(alignedHome);
+
+    expect(explicitIntentEpoch).toBeDefined();
+    await expect(
+      harness.accountSelector.saveSelectedAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        selectedAccount: explicitHome,
+        selectionIntentEpoch: explicitIntentEpoch,
+      }),
+    ).resolves.toEqual({ persisted: true });
+    await expect(
+      harness.accountSelector.getSelectedAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    ).resolves.toEqual(explicitHome);
+    await expect(harness.dappConnection.getRawData()).resolves.toBeNull();
+    expectNoApprovalSideEffects({ ...harness, emitSpy });
+  });
 });
