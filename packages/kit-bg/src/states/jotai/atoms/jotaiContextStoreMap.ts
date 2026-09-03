@@ -81,13 +81,21 @@ type IJotaiContextStoreRegistration = {
   storeId: string;
 };
 
+type IJotaiContextStoreRuntimeRevision = {
+  expiresAt: number;
+  revision: number;
+};
+
 export class JotaiContextStoreRegistrationRegistry {
   private readonly registrations = new Map<
     string,
     IJotaiContextStoreRegistration
   >();
 
-  private readonly runtimeRevisions = new Map<string, number>();
+  private readonly runtimeRevisions = new Map<
+    string,
+    IJotaiContextStoreRuntimeRevision
+  >();
 
   private lastMapFingerprint = JSON.stringify({});
 
@@ -110,6 +118,11 @@ export class JotaiContextStoreRegistrationRegistry {
     for (const [registrationId, registration] of this.registrations) {
       if (registration.expiresAt <= now) {
         this.registrations.delete(registrationId);
+      }
+    }
+    for (const [runtimeId, runtimeRevision] of this.runtimeRevisions) {
+      if (runtimeRevision.expiresAt <= now) {
+        this.runtimeRevisions.delete(runtimeId);
       }
     }
   }
@@ -162,6 +175,12 @@ export class JotaiContextStoreRegistrationRegistry {
         registration.expiresAt,
       );
     }
+    for (const runtimeRevision of this.runtimeRevisions.values()) {
+      nextExpiresAt = Math.min(
+        nextExpiresAt ?? runtimeRevision.expiresAt,
+        runtimeRevision.expiresAt,
+      );
+    }
     return nextExpiresAt === undefined
       ? undefined
       : Math.max(0, nextExpiresAt - this.now());
@@ -178,8 +197,8 @@ export class JotaiContextStoreRegistrationRegistry {
     const now = this.now();
     this.pruneExpired(now);
     if (update.action === 'reconcile-runtime') {
-      const latestRuntimeRevision =
-        this.runtimeRevisions.get(update.runtimeId) ?? -1;
+      const runtimeRevision = this.runtimeRevisions.get(update.runtimeId);
+      const latestRuntimeRevision = runtimeRevision?.revision ?? -1;
       if (update.revision > latestRuntimeRevision) {
         for (const [registrationId, registration] of this.registrations) {
           if (registration.runtimeId === update.runtimeId) {
@@ -205,8 +224,12 @@ export class JotaiContextStoreRegistrationRegistry {
             storeId: registration.storeId,
           });
         });
-        this.runtimeRevisions.set(update.runtimeId, update.revision);
-      } else if (update.revision === latestRuntimeRevision) {
+        this.runtimeRevisions.set(update.runtimeId, {
+          expiresAt: now + this.leaseMs,
+          revision: update.revision,
+        });
+      } else if (runtimeRevision && update.revision === latestRuntimeRevision) {
+        runtimeRevision.expiresAt = now + this.leaseMs;
         for (const registration of this.registrations.values()) {
           if (registration.runtimeId === update.runtimeId) {
             registration.expiresAt = now + this.leaseMs;
