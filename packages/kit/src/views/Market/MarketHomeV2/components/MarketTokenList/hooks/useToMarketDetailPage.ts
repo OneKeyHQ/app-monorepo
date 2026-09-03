@@ -36,6 +36,7 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   symbol: string;
   isNative?: boolean;
   marketTokenId?: string;
+  marketVariantId?: string;
   skipMarketDataFetch?: boolean;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -111,15 +112,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      const stockId = resolveMarketStockId(item);
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        isStockRoute: Boolean(stockId),
         layout: preloadLayout,
       });
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
-      const stockId = resolveMarketStockId(item);
       const showFavoriteButton =
         typeof item.showFavoriteButton === 'boolean'
           ? item.showFavoriteButton
@@ -132,6 +134,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         from: options?.from,
         ...(item.marketTokenId
           ? { marketTokenId: item.marketTokenId }
+          : undefined),
+        ...(item.marketVariantId
+          ? { marketVariantId: item.marketVariantId }
           : undefined),
         ...(item.skipMarketDataFetch
           ? { skipMarketDataFetch: true }

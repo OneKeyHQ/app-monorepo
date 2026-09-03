@@ -133,6 +133,7 @@ export const OnboardingTestIDs = {
     'onboarding-connect-your-device-create-qr-wallet-btn',
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
+  connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
