@@ -354,6 +354,14 @@ export interface IPassphraseFormProps {
    * it opens obeys the same Keep-accessible choice, hence the option.
    */
   onAttachPin?: (options?: { keepAccessible: boolean }) => void;
+  /**
+   * Where the Keep-accessible switch starts, in create mode: the person's
+   * remembered choice, which the integration layer keeps in a persisted
+   * setting. Read at mount and on each `resetSignal`, never live, so a
+   * background settings sync cannot flip the switch mid-entry. Omitted,
+   * ON — the first-run default.
+   */
+  initialKeepAccessible?: boolean;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
   error?: string;
   /** Fresh-visit signal, the PIN pad's own: parked presenters bump it
@@ -374,22 +382,28 @@ export function PassphraseForm({
   onSwitchToDevice,
   onAttachPin,
   error,
+  initialKeepAccessible,
   resetSignal,
 }: IPassphraseFormProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
   const [secure, setSecure] = useState(true);
-  // The live flow's first-run default: keep the wallet. Remembering the
-  // person's previous choice is the integration layer's (it lives in a
-  // persisted setting there).
-  const [keepAccessible, setKeepAccessible] = useState(true);
+  // The seed is the person's remembered choice (the integration layer's
+  // persisted setting); ON is the first-run default. It is sampled, not
+  // bound: a fresh activation reads whatever the preference is then, but
+  // a setting that changes while the form is up must not move the switch
+  // under the person's hand.
+  const seedKeepAccessible = initialKeepAccessible ?? true;
+  const seedKeepAccessibleRef = useRef(seedKeepAccessible);
+  seedKeepAccessibleRef.current = seedKeepAccessible;
+  const [keepAccessible, setKeepAccessible] = useState(seedKeepAccessible);
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
   useEffect(() => {
     setValue('');
     setSecure(true);
-    setKeepAccessible(true);
+    setKeepAccessible(seedKeepAccessibleRef.current);
     setValidationError(undefined);
   }, [resetSignal]);
   const toggleSecure = useCallback(() => setSecure((state) => !state), []);
