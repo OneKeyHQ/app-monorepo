@@ -121,7 +121,6 @@ class WindowsTaskbarBadge {
   }
 
   private clearOverlay(window: BrowserWindow) {
-    this.latestRequestedCount = 0;
     this.currentCount = 0;
     this.currentOverlayIcon = null;
     window.setOverlayIcon(null, '');

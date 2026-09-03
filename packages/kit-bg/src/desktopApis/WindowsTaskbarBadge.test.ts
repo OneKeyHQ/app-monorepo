@@ -128,12 +128,19 @@ describe('WindowsTaskbarBadge', () => {
     }
 
     await badge.update(8);
-    systemPreferences.emit('accent-color-changed', 'ffffffff');
     window.emit('show');
-    await flushPromises();
 
     expect(window.webContents.executeJavaScript).toHaveBeenCalledTimes(2);
     expect(window.setOverlayIcon).toHaveBeenLastCalledWith(null, '');
+
+    systemPreferences.emit('accent-color-changed', 'ffffffff');
+    await flushPromises();
+
+    expect(window.webContents.executeJavaScript).toHaveBeenCalledTimes(3);
+    expect(window.setOverlayIcon).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'Unread notifications: 8',
+    );
   });
 
   test('keeps a newer badge when a stale render fails', async () => {
