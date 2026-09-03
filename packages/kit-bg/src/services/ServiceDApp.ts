@@ -2293,82 +2293,91 @@ class ServiceDApp extends ServiceBase {
     void this.setIsAlignPrimaryAccountProcessing({
       processing: true,
     });
-    const connectedAccount =
-      connectedAccountInfos ?? (await this.findInjectedAccountByOrigin(origin));
+    try {
+      const connectedAccount =
+        connectedAccountInfos ??
+        (await this.findInjectedAccountByOrigin(origin));
 
-    const { simpleDb } = this.backgroundApi;
-    const homeSelectedAccount =
-      await simpleDb.accountSelector.getSelectedAccount({
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
+      const { simpleDb } = this.backgroundApi;
+      const homeSelectedAccount =
+        await simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        });
+      const expectedHomeSelectedAccount = homeSelectedAccount ?? {
+        deriveType: undefined,
+        focusedWallet: undefined,
+        indexedAccountId: undefined,
+        networkId: undefined,
+        othersWalletAccountId: undefined,
+        walletId: undefined,
+      };
+      const newSelectedAccount =
+        await this.buildHomeSelectedAccountByDappAccount({
+          dAppAccountInfos: connectedAccount,
+          homeSelectedAccount: expectedHomeSelectedAccount,
+        });
+      if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
+        let saveResult: { persisted: boolean };
+        if (shouldContinue) {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfCurrent(
+              {
+                beforePublish: finalizeApproval
+                  ? runFinalizeApproval
+                  : undefined,
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+                shouldCommit: shouldContinue,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        } else {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+              {
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        }
+        if (!saveResult.persisted) {
+          void this.setIsAlignPrimaryAccountProcessing({
+            processing: false,
+          });
+          return false;
+        }
+        try {
+          appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+            expectedSelectedAccount: expectedHomeSelectedAccount,
+            selectedAccount: newSelectedAccount,
+          });
+        } catch {
+          // Persistence succeeded; event delivery remains best-effort.
+        }
+        // force reset processing to false after 200ms
+        setTimeout(() => {
+          void this.setIsAlignPrimaryAccountProcessing({
+            processing: false,
+          });
+        }, 200);
+        return true;
+      }
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
       });
-    const expectedHomeSelectedAccount = homeSelectedAccount ?? {
-      deriveType: undefined,
-      focusedWallet: undefined,
-      indexedAccountId: undefined,
-      networkId: undefined,
-      othersWalletAccountId: undefined,
-      walletId: undefined,
-    };
-    const newSelectedAccount = await this.buildHomeSelectedAccountByDappAccount(
-      {
-        dAppAccountInfos: connectedAccount,
-        homeSelectedAccount: expectedHomeSelectedAccount,
-      },
-    );
-    if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
-      let saveResult: { persisted: boolean };
-      if (shouldContinue) {
-        saveResult =
-          await simpleDb.accountSelector.saveSelectedAccountIfCurrent(
-            {
-              beforePublish: finalizeApproval ? runFinalizeApproval : undefined,
-              expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
-              sceneName: EAccountSelectorSceneName.home,
-              num: 0,
-              selectedAccount: newSelectedAccount,
-              shouldCommit: shouldContinue,
-            },
-            accountSelectorPersistenceLockToken,
-          );
-      } else {
-        saveResult =
-          await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
-            {
-              expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
-              sceneName: EAccountSelectorSceneName.home,
-              num: 0,
-              selectedAccount: newSelectedAccount,
-            },
-            accountSelectorPersistenceLockToken,
-          );
-      }
-      if (!saveResult.persisted) {
-        void this.setIsAlignPrimaryAccountProcessing({
-          processing: false,
-        });
-        return false;
-      }
-      try {
-        appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
-          expectedSelectedAccount: expectedHomeSelectedAccount,
-          selectedAccount: newSelectedAccount,
-        });
-      } catch {
-        // Persistence succeeded; event delivery remains best-effort.
-      }
-      // force reset processing to false after 200ms
-      setTimeout(() => {
-        void this.setIsAlignPrimaryAccountProcessing({
-          processing: false,
-        });
-      }, 200);
-      return true;
+      return runFinalizeApproval();
+    } catch (error) {
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
+      });
+      throw error;
     }
-    void this.setIsAlignPrimaryAccountProcessing({
-      processing: false,
-    });
-    return runFinalizeApproval();
   }
 
   @backgroundMethod()
