@@ -307,10 +307,91 @@ describe('SimpleDbEntityBase guarded transaction visibility', () => {
           return guardCheckCount === 1;
         },
       }),
-    ).rejects.toThrow('transient rollback failure');
+    ).resolves.toMatchObject({ committed: false });
 
     expect(rollbackAttemptCount).toBe(2);
     await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
+  });
+
+  test('drops the rollback cache when both restore attempts fail', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {};
+    let rollbackAttemptCount = 0;
+    let transactionStarted = false;
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        if (transactionStarted && readStoredData(value).v === 1) {
+          rollbackAttemptCount += 1;
+          throw new OneKeyLocalError('persistent rollback failure');
+        }
+        store[key] = value;
+      },
+      removeItem: async (key: string) => {
+        delete store[key];
+      },
+    };
+    await entity.setRawData({ v: 1 });
+    transactionStarted = true;
+    let guardCheckCount = 0;
+
+    const transaction = entity.runTransaction({
+      build: async () => ({ data: { v: 2 } }),
+      shouldCommit: () => {
+        guardCheckCount += 1;
+        return guardCheckCount === 1;
+      },
+    });
+
+    await expect(transaction).rejects.toThrow(
+      'Failed to restore SimpleDB data after retry: persistent rollback failure',
+    );
+    await expect(transaction).rejects.toMatchObject({
+      cause: {
+        firstRestoreError: expect.objectContaining({
+          message: 'persistent rollback failure',
+        }),
+        retryError: expect.objectContaining({
+          message: 'persistent rollback failure',
+        }),
+      },
+    });
+
+    expect(rollbackAttemptCount).toBe(2);
+    expect(readStoredData(store[entity.entityKey])).toEqual({ v: 2 });
+    await expect(entity.getRawData()).resolves.toEqual({ v: 2 });
+  });
+
+  test('restores a persisted value whose legacy timestamp is zero', async () => {
+    const entity = new TestEntity({ enableCache: true });
+    const store: Record<string, unknown> = {
+      [entity.entityKey]: JSON.stringify({ data: { v: 1 }, updatedAt: 0 }),
+    };
+    const removeItem = jest.fn(async (key: string) => {
+      delete store[key];
+    });
+    (entity as any).appStorage = {
+      getItem: async (key: string) => (key in store ? store[key] : null),
+      setItem: async (key: string, value: unknown) => {
+        store[key] = value;
+      },
+      removeItem,
+    };
+    await expect(entity.getRawData()).resolves.toEqual({ v: 1 });
+    let guardCheckCount = 0;
+
+    await expect(
+      entity.runTransaction({
+        build: async () => ({ data: { v: 2 } }),
+        shouldCommit: () => {
+          guardCheckCount += 1;
+          return guardCheckCount === 1;
+        },
+      }),
+    ).resolves.toMatchObject({ committed: false });
+
+    expect(removeItem).not.toHaveBeenCalled();
     expect(readStoredData(store[entity.entityKey])).toEqual({ v: 1 });
   });
 });

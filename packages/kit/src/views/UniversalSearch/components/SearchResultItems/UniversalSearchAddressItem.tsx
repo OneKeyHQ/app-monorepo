@@ -93,32 +93,39 @@ export function UniversalSearchAddressItem({
 
     navigation.pop();
     try {
+      let confirmed: boolean;
       if (
         accountUtils.isOthersAccount({
           accountId: item.payload.account?.id,
         })
       ) {
-        await accountSelectorActions.current.confirmAccountSelect({
+        confirmed = await accountSelectorActions.current.confirmAccountSelect({
           num: 0,
           indexedAccount: undefined,
           othersWalletAccount: item.payload.account,
           entry: 'universalSearch:othersWallet',
           forceSelectToNetworkId: item.payload.network?.id,
+          throwOnError: true,
         });
       } else {
-        await accountSelectorActions.current.confirmAccountSelect({
+        confirmed = await accountSelectorActions.current.confirmAccountSelect({
           num: 0,
           indexedAccount: item.payload.indexedAccount,
           othersWalletAccount: undefined,
           entry: 'universalSearch:indexedAccount',
           forceSelectToNetworkId: item.payload.network?.id,
+          throwOnError: true,
         });
       }
+      // `false` also represents a stale request superseded by a newer user
+      // action, so abort silently instead of reporting that expected race as
+      // an error. Rejections below are real execution failures.
+      if (!confirmed) {
+        // Recent-search recording below is independent from selection state.
+      }
     } catch {
-      // confirmAccountSelect rejects when persisting the selection fails. The
-      // search modal is already popped, so the user lands on the previous
-      // account with no hint that the switch failed. Surface it, then fall
-      // through: the click still happened and still belongs in recent searches.
+      // The search modal is already popped, so surface execution failures and
+      // still record the click in recent searches.
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_an_error_occurred,

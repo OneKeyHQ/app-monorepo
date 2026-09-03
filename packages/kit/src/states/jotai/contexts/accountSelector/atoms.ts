@@ -165,6 +165,11 @@ export const {
   use: useAccountSelectorStorageInitDoneAtom,
 } = contextAtom<boolean>(false);
 
+// Tracks selection writes within one Account Selector store. Storage init uses
+// this to distinguish local writes from unrelated sibling-scene activity.
+export const { atom: accountSelectorSelectionMutationRevisionAtom } =
+  contextAtom<number>(0);
+
 export const {
   atom: accountSelectorActiveAccountInitDoneAtom,
   use: useAccountSelectorActiveAccountInitDoneAtom,

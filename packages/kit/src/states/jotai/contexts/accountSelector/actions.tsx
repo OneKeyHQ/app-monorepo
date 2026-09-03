@@ -25,7 +25,10 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -94,6 +97,7 @@ import {
   accountSelectorActiveAccountInitDoneAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
+  accountSelectorSelectionMutationRevisionAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorStoreScopeIdAtom,
@@ -367,6 +371,16 @@ type ISceneSyncPreparationResult = {
   selectedAccount: IAccountSelectorSelectedAccount;
 };
 
+type IInitFromStorageParams = {
+  isBackgroundCasRetry?: boolean;
+  preferStorageAfterCasRejection?: boolean;
+  previouslyInitDoneNums?: string[];
+  sceneName: EAccountSelectorSceneName;
+  sceneUrl?: string;
+  selectionMutationRevisionAtStart?: number;
+  trigger?: string;
+};
+
 function prepareSceneSyncSelectedAccount({
   availableNetworks,
   currentSelectedAccount,
@@ -488,8 +502,6 @@ export type IFinalizeWalletSetupCreateWalletResult = {
 };
 
 class AccountSelectorActions extends ContextJotaiActionsBase {
-  private selectionMutationRevision = 0;
-
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
     this.setSelectedAccountsAtom(
@@ -515,15 +527,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     revisionPolicy: ISelectionWriteRevisionPolicy,
     parentOperationId?: number,
   ) {
+    let selectionChanged = false;
     set(selectedAccountsAtom(), (currentValue) => {
       const newValue = fn(currentValue);
       const isForcedRefresh = reason === 'refresh';
-      const selectionChanged = !isEqual(currentValue, newValue);
+      selectionChanged = !isEqual(currentValue, newValue);
       if (!isForcedRefresh && !selectionChanged) {
         return currentValue;
-      }
-      if (selectionChanged) {
-        this.selectionMutationRevision += 1;
       }
       if (isAccountSelectorPerfDebugEnabled()) {
         const nums = new Set([
@@ -562,6 +572,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
       return newValue;
     });
+    if (selectionChanged) {
+      set(accountSelectorSelectionMutationRevisionAtom(), (value) => value + 1);
+    }
   }
 
   buildAccountSelectorColdStartScopeKey({
@@ -1546,12 +1559,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   };
 
   clearUnavailableWalletSelectionsInStorage = async ({
+    persistChanges = true,
     selectedAccountsMapInDB,
     sceneName,
     sceneUrl,
     shouldContinue,
     storageInitGeneration,
   }: {
+    persistChanges?: boolean;
     selectedAccountsMapInDB: IAccountSelectorSelectedAccountsMap | undefined;
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
@@ -1605,6 +1620,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       return {
         aborted: false,
         selectedAccountsMap: selectedAccountsMapInDB,
+      };
+    }
+
+    // A recovery pass follows a rejected persistence CAS. It may clean the
+    // freshly read snapshot for local use, but must not retry the same write
+    // against a newer background intent and spin indefinitely.
+    if (!persistChanges) {
+      return {
+        aborted: false,
+        selectedAccountsMap,
       };
     }
 
@@ -2640,6 +2665,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // budget assertions and therefore cannot carry a caller suffix.
         entry?: string;
         reason?: string;
+        throwOnError?: boolean;
       },
     ) => {
       const {
@@ -2650,6 +2676,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         forceSelectToNetworkId,
         entry = 'unspecified',
         reason = 'confirmAccountSelect',
+        throwOnError = false,
       } = params;
       if (othersWalletAccount && indexedAccount) {
         throw new OneKeyLocalError(
@@ -2707,6 +2734,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           sceneName: requestContextData?.sceneName,
           walletKind: describeWalletKind(rejectedWalletId),
         });
+        if (
+          throwOnError &&
+          (outcome === 'wallet-check-error' || outcome === 'unavailable-wallet')
+        ) {
+          throw new OneKeyLocalError(`Account selection rejected: ${outcome}`);
+        }
         return false;
       };
       this.confirmAccountSelectLatestRequestIdMap.set(
@@ -4489,19 +4522,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   initFromStorageGenerationMap = new Map<string, number>();
 
+  initFromStoragePreviouslyDoneNumsMap = new Map<string, Set<string>>();
+
+  private initFromStorageImpl!: (
+    get: IJotaiGetter,
+    set: IJotaiSetter,
+    params: IInitFromStorageParams,
+  ) => Promise<void>;
+
   initFromStorage = contextAtomMethod(
-    async (
+    (this.initFromStorageImpl = async (
       get,
       set,
       {
+        isBackgroundCasRetry = false,
+        preferStorageAfterCasRejection = false,
+        previouslyInitDoneNums: previouslyInitDoneNumsFromParent,
         sceneName,
         sceneUrl,
+        selectionMutationRevisionAtStart:
+          selectionMutationRevisionAtParentStart,
         trigger = 'direct',
-      }: {
-        sceneName: EAccountSelectorSceneName;
-        sceneUrl?: string;
-        trigger?: string;
-      },
+      }: IInitFromStorageParams,
     ) => {
       const initScopeKey = `${sceneName}:${sceneUrl || ''}`;
       const generation =
@@ -4509,7 +4551,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.initFromStorageGenerationMap.set(initScopeKey, generation);
       const isLatestGeneration = () =>
         this.initFromStorageGenerationMap.get(initScopeKey) === generation;
-      const selectionMutationRevisionAtStart = this.selectionMutationRevision;
+      const selectionMutationRevisionAtStart =
+        selectionMutationRevisionAtParentStart ??
+        get(accountSelectorSelectionMutationRevisionAtom());
       const perfEnabled = isAccountSelectorPerfDebugEnabled();
       const operationId = perfEnabled
         ? getNextAccountSelectorPerfOperationId()
@@ -4577,6 +4621,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           trigger,
         });
       };
+      // Remember which nums were already settled so the finally block can
+      // restore every one of them, not just home.
+      const previouslyInitDoneNums = previouslyInitDoneNumsFromParent ?? [
+        ...new Set([
+          ...(this.initFromStoragePreviouslyDoneNumsMap.get(initScopeKey) ??
+            []),
+          ...Object.keys(get(accountSelectorActiveAccountInitDoneAtom())),
+        ]),
+      ];
+      this.initFromStoragePreviouslyDoneNumsMap.set(
+        initScopeKey,
+        new Set(previouslyInitDoneNums),
+      );
+      const restartAfterBackgroundCasRejection = async () => {
+        // A newer UI init already owns the scope. Let it finish instead of
+        // creating a generation that would supersede its result.
+        if (!isLatestGeneration()) {
+          return;
+        }
+        await this.initFromStorageImpl(get, set, {
+          isBackgroundCasRetry: true,
+          preferStorageAfterCasRejection: true,
+          previouslyInitDoneNums,
+          sceneName,
+          sceneUrl,
+          selectionMutationRevisionAtStart,
+          trigger: 'background-cas-retry',
+        });
+      };
       const abortIfStale = () => {
         if (isLatestGeneration()) {
           return false;
@@ -4594,13 +4667,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           trigger,
         });
       }
-      set(accountSelectorStorageInitDoneAtom(), () => false);
-      // Remember which nums were already settled so the finally block can
-      // restore every one of them, not just home.
-      const previouslyInitDoneNums = Object.keys(
-        get(accountSelectorActiveAccountInitDoneAtom()),
-      );
-      set(accountSelectorActiveAccountInitDoneAtom(), {});
+      if (!isBackgroundCasRetry) {
+        set(accountSelectorStorageInitDoneAtom(), () => false);
+        set(accountSelectorActiveAccountInitDoneAtom(), {});
+      }
       try {
         const { serviceAccountSelector } = backgroundApiProxy;
         const storageInitGeneration =
@@ -4716,6 +4786,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
           const storageCleanupResult =
             await this.clearUnavailableWalletSelectionsInStorage({
+              persistChanges: !preferStorageAfterCasRejection,
               selectedAccountsMapInDB,
               sceneName,
               sceneUrl,
@@ -4725,12 +4796,98 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (storageCleanupResult.aborted) {
             phase = EStorageInitPhase.BackgroundCasRejectedStorageCleanup;
             logResult(`stale-${phase}`);
+            await restartAfterBackgroundCasRejection();
             return;
           }
           selectedAccountsMapInDB = storageCleanupResult.selectedAccountsMap;
           if (abortIfStale()) {
             return;
           }
+        }
+
+        if (preferStorageAfterCasRejection) {
+          const keepCurrentSelectionIfChanged = () => {
+            const selectionChangedDuringInit =
+              get(accountSelectorSelectionMutationRevisionAtom()) !==
+              selectionMutationRevisionAtStart;
+            if (selectionChangedDuringInit) {
+              set(accountSelectorStorageReadyAtom(), () => true);
+              set(accountSelectorStorageInitDoneAtom(), () => true);
+              logResult(EStorageInitOutcomeBase.KeptCurrentSelection);
+            }
+            return selectionChangedDuringInit;
+          };
+          if (keepCurrentSelectionIfChanged()) {
+            return;
+          }
+          const backgroundGenerationIsCurrent =
+            await backgroundApiProxy.simpleDb.accountSelector.isAccountSelectorStorageInitGenerationCurrent(
+              {
+                generation: storageInitGeneration,
+                sceneName,
+                sceneUrl,
+              },
+            );
+          if (abortIfStale()) {
+            return;
+          }
+          if (!backgroundGenerationIsCurrent) {
+            phase = EStorageInitPhase.BackgroundCasRejectedStorageCleanup;
+            logResult(`stale-${phase}`);
+            await restartAfterBackgroundCasRejection();
+            return;
+          }
+          if (keepCurrentSelectionIfChanged()) {
+            return;
+          }
+          startPhase(EStorageInitPhase.ApplyStorage);
+          const authoritativeStorageMap = selectedAccountsMapInDB ?? {};
+          const currentSelectedAccountsMap = get(selectedAccountsAtom());
+          const changedNums = Array.from(
+            new Set([
+              ...Object.keys(authoritativeStorageMap),
+              ...Object.keys(currentSelectedAccountsMap),
+            ]),
+          ).filter(
+            (numText) =>
+              !isSameSelectedAccount(
+                authoritativeStorageMap[Number(numText)],
+                currentSelectedAccountsMap[Number(numText)],
+              ),
+          );
+          if (
+            !isSameSelectedAccountsMap(
+              authoritativeStorageMap,
+              currentSelectedAccountsMap,
+            )
+          ) {
+            this.setSelectedAccountsAtom(
+              set,
+              () => authoritativeStorageMap,
+              'initFromStorageAfterBackgroundCasRejection',
+              'untracked',
+              operationId,
+            );
+            set(accountSelectorUpdateMetaAtom(), (currentMeta) => {
+              const nextMeta = { ...currentMeta };
+              changedNums.forEach((numText) => {
+                delete nextMeta[Number(numText)];
+              });
+              return nextMeta;
+            });
+            storageApplied = true;
+          }
+          set(accountSelectorStorageReadyAtom(), () => true);
+          set(accountSelectorStorageInitDoneAtom(), () => true);
+          let outcome: IStorageInitOutcome =
+            EStorageInitOutcomeBase.ReadyNoStorage;
+          if (storageApplied) {
+            outcome = EStorageInitOutcomeBase.RestoredStorage;
+          } else if (selectedAccountsMapInDB) {
+            outcome = EStorageInitOutcomeBase.StorageAlreadyCurrent;
+          }
+          logResult(outcome);
+          return;
         }
 
         // OK-57139: the dApp connection record loaded above is the single
@@ -4771,6 +4928,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (recentCleanupResult.aborted) {
             phase = EStorageInitPhase.BackgroundCasRejectedRecentCleanup;
             logResult(`stale-${phase}`);
+            await restartAfterBackgroundCasRejection();
             return;
           }
           recentSelectionCacheSelectedAccountsMap =
@@ -4783,7 +4941,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ? Object.keys(recentSelectionCacheSelectedAccountsMap).length
           : 0;
         if (
-          this.selectionMutationRevision === selectionMutationRevisionAtStart &&
+          get(accountSelectorSelectionMutationRevisionAtom()) ===
+            selectionMutationRevisionAtStart &&
           recentSelectionCache &&
           recentSelectionCacheSelectedAccountsMap &&
           this.shouldKeepColdStartSelectedAccounts({
@@ -4839,7 +4998,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         startPhase(EStorageInitPhase.CurrentSelection);
         const currentSelectedAccountsMap = get(selectedAccountsAtom());
-        const currentSelectionMutationRevision = this.selectionMutationRevision;
+        const currentSelectionMutationRevision = get(
+          accountSelectorSelectionMutationRevisionAtom(),
+        );
         const repairedSelectedAccountsMap =
           await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
             selectedAccountsMap: currentSelectedAccountsMap,
@@ -4858,6 +5019,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (currentCleanupResult.aborted) {
           phase = EStorageInitPhase.BackgroundCasRejectedCurrentCleanup;
           logResult(`stale-${phase}`);
+          await restartAfterBackgroundCasRejection();
           return;
         }
         let selectedAccountsMap =
@@ -4866,12 +5028,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           return;
         }
         const selectionChangedAfterCurrentSnapshot =
-          this.selectionMutationRevision !== currentSelectionMutationRevision;
+          get(accountSelectorSelectionMutationRevisionAtom()) !==
+          currentSelectionMutationRevision;
         if (selectionChangedAfterCurrentSnapshot) {
           selectedAccountsMap = get(selectedAccountsAtom());
         }
         const selectionChangedDuringInit =
-          this.selectionMutationRevision !== selectionMutationRevisionAtStart;
+          get(accountSelectorSelectionMutationRevisionAtom()) !==
+          selectionMutationRevisionAtStart;
         const updateMeta = get(accountSelectorUpdateMetaAtom());
         if (
           selectionChangedDuringInit ||
@@ -4956,6 +5120,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
       } finally {
         if (isLatestGeneration()) {
+          this.initFromStoragePreviouslyDoneNumsMap.delete(initScopeKey);
           set(accountSelectorStorageReadyAtom(), () => true);
           set(accountSelectorStorageInitDoneAtom(), () => true);
           // Home reads account selector num 0. Finalize it here so an init error
@@ -4974,7 +5139,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           logResult(`stale-${phase}`);
         }
       }
-    },
+    }),
   );
 
   mutexSaveToStorage = new Semaphore(1);

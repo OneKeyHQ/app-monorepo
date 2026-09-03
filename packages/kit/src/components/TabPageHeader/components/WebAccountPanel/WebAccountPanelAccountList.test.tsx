@@ -151,12 +151,22 @@ describe('WebAccountPanelAccountList account select', () => {
     expect(mockOnRequestClose).not.toHaveBeenCalled();
   });
 
+  it('silently keeps the panel open when confirmAccountSelect returns false', async () => {
+    mockConfirmAccountSelect.mockResolvedValue(false);
+
+    await pressRow('web-account-panel-account-hd-1--0');
+
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockOnRequestClose).not.toHaveBeenCalled();
+  });
+
   it('closes the panel when an indexed-account selection is persisted', async () => {
     await pressRow('web-account-panel-account-hd-1--0');
 
     expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
     expect(mockConfirmAccountSelect.mock.calls[0][0]).toMatchObject({
       entry: 'webAccountPanel:indexedAccount',
+      throwOnError: true,
     });
     expect(mockToastError).not.toHaveBeenCalled();
     expect(mockOnRequestClose).toHaveBeenCalledTimes(1);
@@ -169,6 +179,7 @@ describe('WebAccountPanelAccountList account select', () => {
     expect(mockConfirmAccountSelect.mock.calls[0][0]).toMatchObject({
       entry: 'webAccountPanel:othersWallet',
       autoChangeToAccountMatchedNetworkId: 'evm--1',
+      throwOnError: true,
     });
     expect(mockOnRequestClose).toHaveBeenCalledTimes(1);
   });
