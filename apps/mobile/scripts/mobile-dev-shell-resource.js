@@ -27,6 +27,9 @@ const MAX_ARTIFACT_BYTES = 1536 * 1024 * 1024;
 const MAX_CACHED_SHELLS = 4;
 const CACHE_LEASE_DIRECTORY = '.leases';
 const CURRENT_PROCESS_STARTED_AT_MS = Date.now() - process.uptime() * 1000;
+const ANDROID_APPLICATION_ID = 'so.onekey.app.wallet';
+const ANDROID_REINSTALL_REQUIRED_PATTERN =
+  /\bINSTALL_FAILED_(?:UPDATE_INCOMPATIBLE|VERSION_DOWNGRADE)\b/u;
 
 function compareStrings(left, right) {
   if (left < right) return -1;
@@ -889,14 +892,29 @@ async function restoreMobileDevShell({
   }
 }
 
-function runChecked(command, args, options = {}) {
-  const result = spawnSync(command, args, { stdio: 'inherit', ...options });
+function getCommandFailureDetails(result) {
+  return [result.stdout, result.stderr, result.error?.message]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join('\n')
+    .trim();
+}
+
+function assertCommandSucceeded(command, args, result) {
   if (result.status !== 0 || result.error) {
+    const details = getCommandFailureDetails(result);
     throw new Error(
-      `[mobileDevShellResource] Command failed: ${command} ${args[0] || ''}`,
+      `[mobileDevShellResource] Command failed: ${command} ${args[0] || ''}${details ? `: ${details}` : ''}`,
       { cause: result.error },
     );
   }
+}
+
+function runChecked(command, args, options = {}, spawnCommand = spawnSync) {
+  const result = spawnCommand(command, args, {
+    stdio: 'inherit',
+    ...options,
+  });
+  assertCommandSucceeded(command, args, result);
 }
 
 function assertDeviceId(deviceId) {
@@ -922,10 +940,45 @@ function assertDeviceId(deviceId) {
   return deviceId;
 }
 
-async function installMobileDevShell({ artifactPath, deviceId, platform }) {
+async function installMobileDevShell({
+  artifactPath,
+  deviceId,
+  platform,
+  spawnCommand = spawnSync,
+}) {
   const targetDeviceId = assertDeviceId(deviceId);
   if (platform === 'android') {
-    runChecked('adb', ['-s', targetDeviceId, 'install', '-r', artifactPath]);
+    const replaceArgs = [
+      '-s',
+      targetDeviceId,
+      'install',
+      '-r',
+      '-d',
+      artifactPath,
+    ];
+    const replaceResult = spawnCommand('adb', replaceArgs, {
+      encoding: 'utf8',
+    });
+    if (replaceResult.status === 0 && !replaceResult.error) return;
+    const failureDetails = getCommandFailureDetails(replaceResult);
+    if (!ANDROID_REINSTALL_REQUIRED_PATTERN.test(failureDetails)) {
+      assertCommandSucceeded('adb', replaceArgs, replaceResult);
+    }
+    console.error(
+      `[ONEKEY_USER_NOTICE] Removing incompatible Android app ${ANDROID_APPLICATION_ID} from ${targetDeviceId} before installing the development shell; app data on that target will be cleared.`,
+    );
+    runChecked(
+      'adb',
+      ['-s', targetDeviceId, 'uninstall', ANDROID_APPLICATION_ID],
+      {},
+      spawnCommand,
+    );
+    runChecked(
+      'adb',
+      ['-s', targetDeviceId, 'install', artifactPath],
+      {},
+      spawnCommand,
+    );
     return;
   }
   const temporaryDirectory = await fs.promises.mkdtemp(

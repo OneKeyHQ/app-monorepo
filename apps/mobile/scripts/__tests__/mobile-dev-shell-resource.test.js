@@ -9,6 +9,7 @@ const {
   assertDeviceId,
   createMobileShellCacheLease,
   getGhAttestationVerifyArgs,
+  installMobileDevShell,
   restoreMobileDevShell,
   runWithCacheLeaseCleanup,
   touchAndPruneMobileShellCache,
@@ -157,6 +158,88 @@ describe('mobile-dev-shell-resource', () => {
     expect(assertDeviceId('emulator-5554')).toBe('emulator-5554');
     expect(() => assertDeviceId()).toThrow('explicit device ID');
     expect(() => assertDeviceId('bad\ndevice')).toThrow('explicit device ID');
+  });
+
+  it('allows an Android shell downgrade during replacement', async () => {
+    const spawnCommand = jest.fn(() => ({ status: 0 }));
+
+    await installMobileDevShell({
+      artifactPath: '/tmp/dev-shell.apk',
+      deviceId: 'emulator-5554',
+      platform: 'android',
+      spawnCommand,
+    });
+
+    expect(spawnCommand).toHaveBeenCalledTimes(1);
+    expect(spawnCommand).toHaveBeenCalledWith(
+      'adb',
+      ['-s', 'emulator-5554', 'install', '-r', '-d', '/tmp/dev-shell.apk'],
+      { encoding: 'utf8' },
+    );
+  });
+
+  it.each([
+    ['a signing conflict', 'INSTALL_FAILED_UPDATE_INCOMPATIBLE'],
+    ['a blocked version downgrade', 'INSTALL_FAILED_VERSION_DOWNGRADE'],
+  ])('reinstalls an Android shell after %s', async (_reason, failureCode) => {
+    const spawnCommand = jest
+      .fn()
+      .mockReturnValueOnce({
+        status: 1,
+        stderr: `Failure [${failureCode}]`,
+      })
+      .mockReturnValue({ status: 0 });
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await installMobileDevShell({
+        artifactPath: '/tmp/dev-shell.apk',
+        deviceId: 'emulator-5554',
+        platform: 'android',
+        spawnCommand,
+      });
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining('app data on that target will be cleared'),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    expect(spawnCommand.mock.calls).toEqual([
+      [
+        'adb',
+        ['-s', 'emulator-5554', 'install', '-r', '-d', '/tmp/dev-shell.apk'],
+        { encoding: 'utf8' },
+      ],
+      [
+        'adb',
+        ['-s', 'emulator-5554', 'uninstall', 'so.onekey.app.wallet'],
+        { stdio: 'inherit' },
+      ],
+      [
+        'adb',
+        ['-s', 'emulator-5554', 'install', '/tmp/dev-shell.apk'],
+        { stdio: 'inherit' },
+      ],
+    ]);
+  });
+
+  it('does not uninstall an Android app for unrelated install failures', async () => {
+    const spawnCommand = jest.fn(() => ({
+      status: 1,
+      stderr: 'Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]',
+    }));
+
+    await expect(
+      installMobileDevShell({
+        artifactPath: '/tmp/dev-shell.apk',
+        deviceId: 'emulator-5554',
+        platform: 'android',
+        spawnCommand,
+      }),
+    ).rejects.toThrow('INSTALL_FAILED_INSUFFICIENT_STORAGE');
+    expect(spawnCommand).toHaveBeenCalledTimes(1);
   });
 
   it('preserves the operation error when cache lease cleanup also fails', async () => {
