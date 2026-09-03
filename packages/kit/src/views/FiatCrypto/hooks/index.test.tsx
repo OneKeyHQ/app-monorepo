@@ -37,6 +37,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
 });
 
 import { useGetTokensListWithNetworks } from '.';
+
 import { renderHook } from '@testing-library/react-native';
 
 const promiseResultMock = (
