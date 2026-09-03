@@ -187,6 +187,7 @@ export function useAddHiddenWallet() {
 
   const createHwHiddenWallet = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
+      let stageError: unknown;
       try {
         setIsLoading(true);
         // Teach BEFORE the hardware is touched (v6.5.2's order): the
@@ -272,15 +273,18 @@ export function useAddHiddenWallet() {
           }),
         });
       } catch (error) {
-        // This hold is the outer burst layer, so the wrapper's own end
-        // could not land the failure — hand it over so the stage speaks
-        // the error, disconnect probe included, before leaving.
-        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst({
-          error,
-        });
+        stageError = error;
         throw error;
       } finally {
-        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst();
+        // One leave for one join. This hold is the outer burst layer, so
+        // the wrapper's own end could not land a failure — the error rides
+        // out with the leave so the stage speaks it, disconnect probe
+        // included. Leaving once more from the catch would have run a
+        // second end() against whatever layer a concurrent begin() had
+        // opened in between, and closed that stage instead.
+        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst({
+          error: stageError,
+        });
         setIsLoading(false);
         const device =
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
