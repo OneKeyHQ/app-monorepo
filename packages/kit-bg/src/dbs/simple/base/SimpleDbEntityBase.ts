@@ -32,11 +32,12 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly enableCache: boolean;
 
-  // Opt-in only for rebuildable caches. A durable Chromium blob failure is
-  // unrecoverable, but deleting a user-authored / credential / lock record
-  // then letting a merge builder write a partial empty object is worse
-  // (OK-59997 / OK-61648). Matcher + backoff still guard transient IO.
-  protected readonly enableUnreadableRecordSelfHeal: boolean = false;
+  // Default on: this Chromium signature means the record is already
+  // unreadable, and builder setRawData cannot repair it. Leaving the dead
+  // key blocks the whole entity (and often the app). Matcher + 50/500/1000ms
+  // retries + write-overlap veto still avoid transient-IO deletes
+  // (OK-59997 / OK-61648). Opt out only for diagnostic loud-fail entities.
+  protected readonly enableUnreadableRecordSelfHeal: boolean = true;
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);

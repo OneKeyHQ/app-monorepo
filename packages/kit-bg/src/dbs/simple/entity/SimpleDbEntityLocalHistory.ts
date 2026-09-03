@@ -55,12 +55,6 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   override enableCache = false;
 
-  // Confirmed history re-syncs from chain. Pending txs are local-only until
-  // confirmation; a permanently unreadable record still blocks all history
-  // writes, so dropping on the Chromium blob signature is preferable to a
-  // stuck app (OK-61648).
-  protected override readonly enableUnreadableRecordSelfHeal = true;
-
   @backgroundMethod()
   override async getRawData() {
     const data = await super.getRawData();

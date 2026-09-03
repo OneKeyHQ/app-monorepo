@@ -39,10 +39,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   override enableCache = false;
 
-  // Token metadata + account lists are API-rebuildable (custom/hidden tokens
-  // live in `customTokens`). Safe to drop on Chromium blob corruption (OK-61648).
-  protected override readonly enableUnreadableRecordSelfHeal = true;
-
   // Bound the global token-metadata map. Applied on every write (here, on read it
   // re-fetches on miss) so growth is capped regardless of whether the periodic
   // orphan sweep runs. Object key order is insertion order, so the oldest entries
