@@ -44,8 +44,13 @@ root-level `patch-package` patch does not modify the copy installed here.
 After Electron Builder installs appDir dependencies, `yarn install-app-deps`
 copies the patched `electron-updater` files from the workspace dependency into
 the packaged runtime dependency and verifies both copies before packaging
-continues. The root-level `patch-package` patch remains the single source of
-truth.
+continues.
+
+The Noble patch in `patches/` is applied directly by this package's
+`postinstall`. Because it changes native macOS sources, the Desktop install flow
+then runs a targeted check that only force-rebuilds this appDir Noble copy when
+needed. It also verifies that the runtime-selected binary contains both x64 and
+arm64 architectures.
 
 Security scanner caveat:
 
