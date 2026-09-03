@@ -221,7 +221,9 @@ const SwapHeaderContainer = ({
     if (
       hadPendingSwapProEntryOnMountRef.current ||
       !defaultSwapType ||
-      (pageType === 'modal' && enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST)
+      (pageType === 'modal' &&
+        (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
     ) {
       return;
     }

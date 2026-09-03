@@ -442,15 +442,21 @@ export function FirmwareChangeFirmwareWarn({
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
+  onRetryClick,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
+  onRetryClick?: () => void | Promise<void>;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
+    if (onRetryClick) {
+      await onRetryClick();
+      return;
+    }
     if (platformEnv.isDesktop) {
       const usbPreflightParams =
         await getFirmwareUpdateUSBPreflightParams(result);
@@ -493,7 +499,7 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+  }, [result, showCheckList, onConfirmClick, onRetryClick, setStepInfo, intl]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 
@@ -506,7 +512,9 @@ export function FirmwareChangeLogView({
     <>
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({
-          id: ETranslations.update_update_now,
+          id: onRetryClick
+            ? ETranslations.global_retry
+            : ETranslations.update_update_now,
         })}
         onConfirm={handleConfirmClick}
         confirmButtonProps={{

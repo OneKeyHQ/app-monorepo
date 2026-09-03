@@ -97,6 +97,7 @@ function SwapPanelWrapContent({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
+  const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
@@ -272,6 +273,16 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
+  const stockTokenToAssetRatio =
+    selectedTokenVariant?.tokenToAssetRatio ??
+    tokenDetail?.stock?.tokenToAssetRatio;
+  const currentStockInfo =
+    isStockRoute && tokenDetail?.stock
+      ? {
+          ...tokenDetail.stock,
+          tokenToAssetRatio: stockTokenToAssetRatio,
+        }
+      : undefined;
   const currentMarketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
@@ -298,9 +309,7 @@ function SwapPanelWrapContent({
         currency: 'usd',
         isNative: false,
         isStock: isStockRoute,
-        stock: selectedVariantMatchesTokenDetail
-          ? tokenDetail?.stock
-          : undefined,
+        stock: currentStockInfo,
       }
     : {
         networkId: networkId || '',
@@ -313,12 +322,22 @@ function SwapPanelWrapContent({
         currency: marketTokenCurrency,
         isNative: !!tokenDetail?.isNative,
         isStock: isStockRoute,
-        stock: isStockRoute ? tokenDetail?.stock : undefined,
+        stock: currentStockInfo,
       };
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
       : sellAmount.toFixed();
+  const currentMarketTokenKey = currentMarketToken.networkId
+    ? `${currentMarketToken.networkId}:${
+        currentMarketToken.isNative
+          ? 'native'
+          : currentMarketToken.contractAddress
+      }`
+    : undefined;
+  const isCurrentStockTokenReady =
+    Boolean(currentMarketTokenKey) &&
+    readyStockTokenKey === currentMarketTokenKey;
   const useSpeedSwapActionsParams = {
     slippageItem: {
       key: effectiveSlippageMode,
@@ -835,6 +854,34 @@ function SwapPanelWrapContent({
     speedSwapInitLoading,
   ]);
 
+  useEffect(() => {
+    if (
+      stockDetailDesktopLayout &&
+      !isActionLoading &&
+      isReady &&
+      speedConfigReady &&
+      !speedSwapInitLoading &&
+      originalSupportSpeedSwap !== undefined &&
+      savedPreferenceLoading === false &&
+      currentMarketTokenKey &&
+      selectedTokenVariant &&
+      paymentToken?.networkId
+    ) {
+      setReadyStockTokenKey(currentMarketTokenKey);
+    }
+  }, [
+    currentMarketTokenKey,
+    isActionLoading,
+    isReady,
+    originalSupportSpeedSwap,
+    paymentToken?.networkId,
+    savedPreferenceLoading,
+    selectedTokenVariant,
+    speedConfigReady,
+    speedSwapInitLoading,
+    stockDetailDesktopLayout,
+  ]);
+
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -852,7 +899,7 @@ function SwapPanelWrapContent({
       onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       stockQuoteDisplay={stockQuoteDisplay}
-      stockTokenToAssetRatio={selectedTokenVariant?.tokenToAssetRatio}
+      stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
@@ -872,7 +919,9 @@ function SwapPanelWrapContent({
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
-      hasInitialReady={hasInitialReady}
+      hasInitialReady={
+        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
+      }
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}

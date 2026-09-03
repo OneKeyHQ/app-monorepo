@@ -1325,6 +1325,7 @@
   "firmware_update.grant_usb_instruction": "设备处于 Bootloader 模式。点击下面的按钮授予 USB 访问权限以继续安装包传输。",
   "firmware_update.status_completed": "已完成",
   "firmware_update.status_validating": "验证中",
+  "firmware_update_estimated_time__desc": "预计 {time}",
   "firmware_update_switch_firmware_reconnect_device": "切换固件将清除设备数据。请重新连接您的设备并点击下方按钮以授权 USB 并继续。",
   "first_deposit_gets_account_ready_to_trade__desc": "首次充值后即可开始交易，可随时取回。",
   "for_reference_only": "仅供参考",

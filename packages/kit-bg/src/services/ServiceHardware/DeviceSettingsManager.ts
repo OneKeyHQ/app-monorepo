@@ -598,22 +598,24 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     }
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
-        // Protocol V2 exposes PIN selection, and non-sensitive settings may
-        // be unlocked by either the main PIN or an Attach PIN. Protocol V1
-        // has no PIN type parameter, so omit it and preserve the device-defined
-        // legacy unlock behavior.
-        await this.serviceHardware.unlockDevice({
-          connectId: dbDevice.connectId,
-          ...(this._isProtocolV2Product(dbDevice)
-            ? { pinType: DeviceSessionPinType.Any }
-            : {}),
-        });
+      async (oneKeyOperationLease) => {
+        const isProtocolV2 = this._isProtocolV2Product(dbDevice);
+        // Protocol V2 settings cannot be read while locked. Read runtime state
+        // first so the shared helper only asks for a PIN when unlock is needed.
+        const unlockedState =
+          await this.serviceHardware.getDeviceStateWithUnlock({
+            connectId: dbDevice.connectId,
+            ...(isProtocolV2 ? { pinType: DeviceSessionPinType.Any } : {}),
+            params: { scope: isProtocolV2 ? 'runtime' : 'settings' },
+            oneKeyOperationLease,
+          });
 
-        const state = await this.serviceHardware.getDeviceStateByWallet({
-          walletId,
-          params: { scope: 'settings' },
-        });
+        const state = isProtocolV2
+          ? await this.serviceHardware.getDeviceStateByWallet({
+              walletId,
+              params: { scope: 'settings' },
+            })
+          : unlockedState;
         const supportFeatures =
           await this.serviceHardware.getDeviceSupportFeatures(
             dbDevice.connectId,

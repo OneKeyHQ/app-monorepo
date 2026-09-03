@@ -18,6 +18,7 @@ import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 import localDb from '../../dbs/local/localDb';
 import {
   hardwareUiStateAtom,
+  hardwareUiStateCompletedAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 
@@ -87,6 +88,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getDeviceByQuery: jest.fn(),
     updateDevice: jest.fn(),
     updateDeviceState: jest.fn(),
+    updateDeviceVersionInfo: jest.fn(),
   },
 }));
 
@@ -612,6 +614,66 @@ describe('ServiceHardware.getDeviceState', () => {
     });
   });
 
+  it.each(['V1', 'V2'] as const)(
+    'persists a %s firmware snapshot even when the SDK emits no state event',
+    async (protocol) => {
+      const { service, getDeviceState, state } = createService({
+        unlocked: false,
+      });
+      const firmwareState = {
+        ...state,
+        protocol,
+        versions: {
+          firmware: '4.21.0',
+          bluetooth: '2.3.7',
+          bootloader: '2.8.4',
+        },
+      };
+      jest.mocked(localDb.getDeviceByQuery).mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'PRO_USB',
+        connectProtocol: protocol,
+        deviceStateInfo: {
+          ...firmwareState,
+          versions: {
+            firmware: '4.16.1',
+            bluetooth: '2.3.4',
+            bootloader: '2.8.2',
+          },
+        },
+      } as never);
+      getDeviceState.mockResolvedValue({
+        success: true,
+        payload: firmwareState,
+      });
+      jest.mocked(localDb.updateDeviceState).mockResolvedValue({
+        kind: 'updated',
+        state: firmwareState,
+      } as never);
+
+      await service.getDeviceState({
+        connectId: 'PRO_USB',
+        params: { scope: 'firmware' },
+      });
+
+      expect(localDb.updateDeviceState).toHaveBeenCalledWith({
+        changedKeys: [
+          'versions.firmware',
+          'versions.bluetooth',
+          'versions.bootloader',
+        ],
+        connectId: 'PRO2_USB',
+        revision: firmwareState.revision,
+        source: 'device-info',
+        state: firmwareState,
+      });
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HardwareDeviceStateUpdate,
+        expect.objectContaining({ state: firmwareState }),
+      );
+    },
+  );
+
   it('projects legacy App features from DeviceState without calling SDK getFeatures', async () => {
     const { service, getDeviceState } = createService({ unlocked: true });
 
@@ -743,6 +805,35 @@ describe('ServiceHardware.getDeviceState', () => {
   });
 });
 
+describe('ServiceHardware.updateDeviceVersionAfterFirmwareUpdate', () => {
+  it('refreshes live firmware state before updating compatibility data', async () => {
+    const { service, state } = createService({ unlocked: false });
+    const getDeviceState = jest
+      .spyOn(service, 'getDeviceState')
+      .mockResolvedValue(state as never);
+    jest
+      .mocked(localDb.updateDeviceVersionInfo)
+      .mockResolvedValue(undefined as never);
+
+    await service.updateDeviceVersionAfterFirmwareUpdate({
+      releaseResult: {
+        originalConnectId: 'PRO2_USB',
+        updateInfos: {},
+      },
+    } as never);
+
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'PRO2_USB',
+      params: { scope: 'firmware' },
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      silentMode: true,
+    });
+    expect(getDeviceState.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(localDb.updateDeviceVersionInfo).mock.invocationCallOrder[0],
+    );
+  });
+});
+
 describe('ServiceHardware.getDeviceManagementSnapshot', () => {
   it('refreshes readable settings on the initial device-details load', async () => {
     const { service, getDeviceState } = createService({
@@ -775,7 +866,9 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 
     await expect(
       service.getDeviceManagementSnapshot({ connectId: 'PRO2' }),
-    ).resolves.toEqual({ state: baseState });
+    ).resolves.toEqual({
+      state: baseState,
+    });
     expect(getDeviceState).toHaveBeenNthCalledWith(1, {
       connectId: 'PRO2_USB',
       params: { scope: 'settings' },
@@ -1233,6 +1326,10 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
     const replacementSdk = createInstance();
     const setHardwareUiStateMock = jest.mocked(hardwareUiStateAtom.set);
     setHardwareUiStateMock.mockClear();
+    const setCompletedUiStateMock = jest.mocked(
+      hardwareUiStateCompletedAtom.set,
+    );
+    setCompletedUiStateMock.mockClear();
     const service = new ServiceHardware({
       backgroundApi: {} as unknown as IBackgroundApi,
     });
@@ -1248,6 +1345,13 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         },
         progress: 25,
         progressType: 'transferData',
+        transferredBytes: 256_000,
+        totalBytes: 1_024_000,
+        rateBytesPerSecond: 16_384,
+        elapsedMs: 15_625,
+        installTargetId: 10,
+        installPhase: 'install',
+        installPhaseProgress: 45,
       },
     });
 
@@ -1263,6 +1367,51 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       payload: {
         firmwareProgress: 25,
         firmwareProgressType: 'transferData',
+        firmwareTransferMetrics: {
+          transferredBytes: 256_000,
+          totalBytes: 1_024_000,
+          rateBytesPerSecond: 16_384,
+          elapsedMs: 15_625,
+        },
+        firmwareInstallTargetId: 10,
+        firmwareInstallPhase: 'install',
+        firmwareInstallPhaseProgress: 45,
+      },
+    });
+
+    const completedProgressUpdater =
+      setCompletedUiStateMock.mock.calls.at(-1)?.[0];
+    const completedProgressState =
+      typeof completedProgressUpdater === 'function'
+        ? completedProgressUpdater(undefined)
+        : completedProgressUpdater;
+
+    await replacementSdk.listeners.get(UI_EVENT)?.({
+      type: UI_REQUEST.FIRMWARE_TIP,
+      payload: {
+        device: {
+          connectId: 'PRO2_USB',
+          deviceType: EDeviceType.Pro2,
+        },
+        data: { message: 'FirmwareUpdating' },
+      },
+    });
+
+    const completedTipUpdater = setCompletedUiStateMock.mock.calls.at(-1)?.[0];
+    const completedTipState =
+      typeof completedTipUpdater === 'function'
+        ? completedTipUpdater(completedProgressState)
+        : completedTipUpdater;
+    expect(completedTipState).toMatchObject({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: 'PRO2_USB',
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 256_000,
+          totalBytes: 1_024_000,
+          rateBytesPerSecond: 16_384,
+          elapsedMs: 15_625,
+        },
       },
     });
   });
@@ -1312,6 +1461,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         },
         progress: 0,
         progressType: 'installingFirmware',
+        installTargetId: 10,
+        installPhase: 'prepare',
+        installPhaseProgress: 0,
       },
     });
     const progressUpdater = setHardwareUiStateMock.mock.calls.at(-1)?.[0];
@@ -1326,6 +1478,9 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       payload: {
         firmwareProgress: 0,
         firmwareProgressType: 'installingFirmware',
+        firmwareInstallTargetId: 10,
+        firmwareInstallPhase: 'prepare',
+        firmwareInstallPhaseProgress: 0,
         firmwareTipData: { message: 'ConfirmOnDevice' },
       },
     });

@@ -12,6 +12,19 @@ import {
   useModalExitPrevent,
 } from '../hooks/useFirmwareUpdateHooks';
 
+export async function cancelFirmwareUpdateWorkflow() {
+  await Promise.allSettled([
+    backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow(),
+    backgroundApiProxy.serviceHardware.cancel({ immediate: true }),
+  ]);
+}
+
+export async function cancelFirmwareUpdateAttempt() {
+  await Promise.allSettled([
+    backgroundApiProxy.serviceHardware.cancel({ immediate: true }),
+  ]);
+}
+
 export function ForceExtensionUpdatingFromExpandTab() {
   useExtensionUpdatingFromExpandTab();
 
@@ -20,8 +33,12 @@ export function ForceExtensionUpdatingFromExpandTab() {
 
 export function FirmwareUpdateExitPrevent({
   shouldPreventRemove = true,
+  preserveWorkflowOnCancel = false,
+  onCancelAttempt,
 }: {
   shouldPreventRemove?: boolean;
+  preserveWorkflowOnCancel?: boolean;
+  onCancelAttempt?: () => void;
 }) {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.update_quit_update });
@@ -36,8 +53,13 @@ export function FirmwareUpdateExitPrevent({
   });
 
   const onConfirmCallback = useCallback(() => {
-    void backgroundApiProxy.serviceHardware.cancel({});
-  }, []);
+    if (preserveWorkflowOnCancel) {
+      onCancelAttempt?.();
+      void cancelFirmwareUpdateAttempt();
+      return;
+    }
+    void cancelFirmwareUpdateWorkflow();
+  }, [onCancelAttempt, preserveWorkflowOnCancel]);
 
   // Prevents screen locking
   useKeepAwake();
@@ -50,6 +72,7 @@ export function FirmwareUpdateExitPrevent({
     onConfirm: onConfirmCallback,
     onConfirmText: cancelUpdateText,
     onCancelText: continueUpdateText,
+    shouldRemoveOnConfirm: !preserveWorkflowOnCancel,
   });
 
   // Prevent App exit

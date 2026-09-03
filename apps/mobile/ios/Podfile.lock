@@ -2790,7 +2790,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleUpdate (3.0.95):
+  - ReactNativeBundleUpdate (3.0.96):
     - hermes-engine
     - MMKV (= 2.4.0)
     - NitroModules
@@ -4518,7 +4518,7 @@ SPEC CHECKSUMS:
   ReactCommon: df0928b8d2064de53c42645dcf684c6e7bdea48c
   ReactNativeAppUpdate: 242775af0fd041adc0aa4b1a92db97e942d0dbbc
   ReactNativeBundleCrypto: ccbdba0275cd34e791e5521cddc1d48e2679e96e
-  ReactNativeBundleUpdate: 0401a362ef9ae4b11b7a38041d9bffe7a4276752
+  ReactNativeBundleUpdate: 18dbeb3776e29494b889d9aa29d0262e6b781077
   ReactNativeCameraKit: 21f6c85397cfcb494dfa453a6fb4c9933a7c1bef
   ReactNativeCheckBiometricAuthChanged: c26b1ae572be2a5d4b3410ea3912a0afcdee80ec
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf

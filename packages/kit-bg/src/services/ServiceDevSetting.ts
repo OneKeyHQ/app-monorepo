@@ -57,16 +57,16 @@ class ServiceDevSetting extends ServiceBase {
     const networkThrottleEnabledForNativeSync = platformEnv.isNative
       ? this.getExpectedNetworkThrottleEnabled(devSettings)
       : false;
-    appStorage.syncStorage.set(
+    await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
     // Also write to the dedicated dev-setting MMKV instance for native code access
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
       networkThrottleEnabledForNativeSync,
     );
@@ -394,7 +394,7 @@ class ServiceDevSetting extends ServiceBase {
     if (!(await this.isSkipBundleGPGVerificationAllowed())) {
       return;
     }
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,
       enabled,
     );

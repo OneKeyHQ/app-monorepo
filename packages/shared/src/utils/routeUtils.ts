@@ -236,6 +236,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
       {
         showUrl: true,

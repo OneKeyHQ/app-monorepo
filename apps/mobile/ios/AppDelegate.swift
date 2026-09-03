@@ -1,5 +1,6 @@
 internal import CryptoKit
 internal import Expo
+import MMKV
 import React
 import ReactAppDependencyProvider
 // NOTE: Cannot directly import Nitro modules (ReactNativeDeviceUtils, ReactNativeBundleUpdate,
@@ -207,6 +208,10 @@ class AppDelegate: ExpoAppDelegate {
       window?.makeKeyAndVisible()
       return true
     }
+
+    // The migration bridge uses MMKV's Objective-C wrapper, whose
+    // initialization state is separate from react-native-mmkv's C++ factory.
+    MMKV.initialize(rootDir: nil)
 
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")
@@ -421,8 +426,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       let manifestData = try Data(contentsOf: manifestURL)
       guard
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
-        (manifest["schemaVersion"] as? NSNumber)?.intValue == 2,
-        (manifest["strategyVersion"] as? NSNumber)?.intValue == 2,
+        (manifest["schemaVersion"] as? NSNumber)?.intValue == 3,
+        (manifest["strategyVersion"] as? NSNumber)?.intValue == 4,
         manifest["platform"] as? String == "ios",
         let fingerprint = manifest["fingerprint"] as? String,
         fingerprint.range(

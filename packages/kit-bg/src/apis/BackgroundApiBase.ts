@@ -38,6 +38,7 @@ import {
   parseAsyncStorageWriteForwarderRequestStatus,
   serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -478,6 +479,35 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       originNodeId: originNodeId ?? '',
     });
     return Promise.resolve(true);
+  }
+
+  @backgroundMethod()
+  async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    if (
+      request.scope === 'recovery' &&
+      request.operation === 'resetMigrationTarget' &&
+      request.target === 'jotai'
+    ) {
+      const { resetNativeJotaiStorageAfterMigrationMismatch } =
+        await import('../states/jotai/jotaiStorage');
+      await resetNativeJotaiStorageAfterMigrationMismatch();
+      this.allAtoms = jotaiInit();
+      await this.allAtoms;
+      return undefined;
+    }
+    if (request.scope === 'bootstrap') {
+      // Bootstrap does not release the UI until Jotai's separate legacy
+      // namespace and the general app-storage namespace are both migrated.
+      try {
+        await this.allAtoms;
+      } catch {
+        this.allAtoms = jotaiInit();
+        await this.allAtoms;
+      }
+    }
+    const { executeNativeStorageRequest } =
+      await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+    return executeNativeStorageRequest(request);
   }
 
   @backgroundMethod()

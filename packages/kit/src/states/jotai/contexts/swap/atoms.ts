@@ -53,7 +53,6 @@ import {
   type ISwapTips,
   type ISwapToken,
   type ISwapTokenCatch,
-  type ISwapTokenMetadata,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
@@ -560,19 +559,6 @@ export const {
       quoteActionLock.source === ESwapQuoteSource.MARKET,
   });
 });
-
-export const { atom: swapTokenMetadataAtom, use: useSwapTokenMetadataAtom } =
-  contextAtomComputed<{
-    swapTokenMetadata?: ISwapTokenMetadata;
-  }>((get) => {
-    const quoteList = get(swapQuoteListAtom());
-    const swapTokenMetadata = quoteList.find(
-      (item) => item.tokenMetadata,
-    )?.tokenMetadata;
-    return {
-      swapTokenMetadata,
-    };
-  });
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);

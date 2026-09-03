@@ -1020,6 +1020,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
+            testID: SettingTestIDs.devModeItem,
             tabBarItemStyle: {
               backgroundColor: '$bgCritical',
             },

@@ -3,19 +3,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const metroRoot = path.resolve(__dirname, '../../../node_modules/metro/src');
-const baseJSBundle = require(
-  path.join(metroRoot, 'DeltaBundler/Serializers/baseJSBundle'),
-).default;
-const bundleToString = require(
-  path.join(metroRoot, 'lib/bundleToString'),
-).default;
-
 const devVendorConfig = require('../dev-vendor.config');
 
 const {
   REPO_ROOT,
   compareModuleKeys,
+  getModuleIdDomain,
   loadRegistry,
 } = require('./moduleIdRegistry');
 
@@ -78,20 +71,78 @@ function hashRepoFiles(relativePaths, repoRoot = REPO_ROOT) {
     }
     hash.update(relativePath);
     hash.update('\0');
-    hash.update(fs.readFileSync(absolutePath));
+    hash.update(
+      Buffer.from(
+        fs
+          .readFileSync(absolutePath)
+          .toString('latin1')
+          .replaceAll('\r\n', '\n'),
+        'latin1',
+      ),
+    );
     hash.update('\0');
   }
   return hash.digest('hex');
 }
 
-function computeConfigInputsDigest(repoRoot = REPO_ROOT, env = process.env) {
+function computeRegistryInputsDigest(registry = loadRegistry()) {
+  const selectRelevantEntries = (entries) =>
+    Object.entries(entries)
+      .filter(([moduleKey]) =>
+        ['nodeModules', 'virtual'].includes(getModuleIdDomain(moduleKey)),
+      )
+      .toSorted(([first], [second]) => compareModuleKeys(first, second));
+
+  return sha256(
+    JSON.stringify({
+      allocationVersion: registry.allocationVersion,
+      modules: selectRelevantEntries(registry.modules),
+      ranges: registry.ranges,
+      registryEpoch: registry.registryEpoch,
+      tombstones: selectRelevantEntries(registry.tombstones),
+    }),
+  );
+}
+
+function computeConfigInputsDigest(
+  repoRoot = REPO_ROOT,
+  env = process.env,
+  registry = loadRegistry(),
+) {
   return sha256(
     JSON.stringify({
       files: hashRepoFiles(getFingerprintInputPaths(repoRoot), repoRoot),
+      registry: computeRegistryInputsDigest(registry),
       transformationEnvironment:
         devVendorConfig.getTransformationEnvironment(env),
     }),
   );
+}
+
+function computeReleaseCompatibilityKey(
+  repoRoot = REPO_ROOT,
+  env = process.env,
+  registry = loadRegistry(),
+) {
+  return sha256(
+    JSON.stringify({
+      configInputsDigest: computeConfigInputsDigest(repoRoot, env, registry),
+      releaseInputsDigest: hashRepoFiles(
+        devVendorConfig.releaseFingerprintFiles,
+        repoRoot,
+      ),
+      registryEpoch: registry.registryEpoch,
+      schemaVersion: devVendorConfig.SCHEMA_VERSION,
+      strategyVersion: devVendorConfig.STRATEGY_VERSION,
+    }),
+  );
+}
+
+function getReleaseTag(repoRoot = REPO_ROOT, env = process.env) {
+  return `${devVendorConfig.releaseTagPrefix}-${computeReleaseCompatibilityKey(
+    repoRoot,
+    env,
+  )}`;
 }
 
 function computeModulesDigest(modules, repoRoot = REPO_ROOT) {
@@ -127,6 +178,12 @@ function computeFingerprint(manifestFields) {
         id,
         path: modulePath,
       })),
+      prependModules: manifestFields.prependModules.map(
+        ({ id, path: modulePath }) => ({
+          id,
+          path: modulePath,
+        }),
+      ),
     }),
   );
 }
@@ -253,6 +310,10 @@ function verifyManifest({
     throw new Error('[devVendor] Manifest modules must be an array.');
   }
   assertSortedUniqueModules(manifest.modules);
+  if (!Array.isArray(manifest.prependModules)) {
+    throw new Error('[devVendor] Manifest prependModules must be an array.');
+  }
+  assertSortedUniqueModules(manifest.prependModules);
 
   const registry = loadRegistry();
   if (manifest.registryEpoch !== registry.registryEpoch) {
@@ -260,7 +321,10 @@ function verifyManifest({
       `[devVendor] Registry epoch mismatch for ${platform}. Rebuild the dev vendor cache.`,
     );
   }
-  for (const moduleRecord of manifest.modules) {
+  for (const moduleRecord of [
+    ...manifest.modules,
+    ...manifest.prependModules,
+  ]) {
     if (registry.modules[moduleRecord.path] !== moduleRecord.id) {
       throw new Error(
         `[devVendor] Stable module ID mismatch for ${moduleRecord.path}. Rebuild the dev vendor cache.`,
@@ -529,6 +593,13 @@ function composeDevVendorBundle({
 }
 
 function serializeDefault(entryPoint, prepend, graph, bundleOptions) {
+  const metroRoot = path.resolve(__dirname, '../../../node_modules/metro/src');
+  const baseJSBundle = require(
+    path.join(metroRoot, 'DeltaBundler/Serializers/baseJSBundle'),
+  ).default;
+  const bundleToString = require(
+    path.join(metroRoot, 'lib/bundleToString'),
+  ).default;
   return bundleToString(baseJSBundle(entryPoint, prepend, graph, bundleOptions))
     .code;
 }
@@ -672,11 +743,14 @@ module.exports = {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeRegistryInputsDigest,
+  computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
   getManifestPath,
   getPlatformOutputDirectory,
+  getReleaseTag,
   getStubPath,
   hashRepoFiles,
   isDevVendorEnabled,
