@@ -31,6 +31,7 @@ import {
   meta,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
 
+import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 /** Shallow equality for the small fixed-key field slices selected below. */
@@ -72,6 +73,7 @@ function useTokenFiatField<T>(
     tokenListMap: contextTokenListMap,
     aggregateTokenFiatMap: contextAggregateTokenFiatMap,
     useCellSeam,
+    zeroFillMissingFiat = false,
   } = useTokenListViewContext();
   // useTokenListContextData throws when no store is mounted, so `store` is
   // always defined here.
@@ -92,8 +94,12 @@ function useTokenFiatField<T>(
 
   // Non-cell paths keep reading the whole context map; the field is projected
   // off it so callers get the same shape on both paths.
-  const mapToken =
-    contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
+  const mapToken = resolveMapTokenFiat({
+    $key,
+    tokenListMap: contextTokenListMap,
+    aggregateTokenFiatMap: contextAggregateTokenFiatMap,
+    zeroFillMissingFiat,
+  });
 
   return useCellSeam ? cellField : select(mapToken);
 }

@@ -47,6 +47,12 @@ export interface ITokenListViewContextValue {
   // they keep reading `tokenListMap ?? globalMap` (spec §5: the seam holds for
   // the home path only — do NOT break TokenSelector).
   useCellSeam?: boolean;
+  // Non-cell paths only: when a row `$key` is in neither `tokenListMap` nor
+  // `aggregateTokenFiatMap`, the leaves render a zero fiat record instead of
+  // nothing. Set by the Receive selector while a search is active, where
+  // backend hits and aggregate sub rows the account does not hold sit next to
+  // account rows and a blank balance column reads as missing data (OK-61367).
+  zeroFillMissingFiat?: boolean;
 }
 
 export const TokenListViewContext = createContext<ITokenListViewContextValue>({
@@ -56,6 +62,7 @@ export const TokenListViewContext = createContext<ITokenListViewContextValue>({
   tokenListMap: undefined,
   aggregateTokenFiatMap: undefined,
   useCellSeam: false,
+  zeroFillMissingFiat: false,
 });
 
 export const useTokenListViewContext = () => useContext(TokenListViewContext);
