@@ -1707,7 +1707,15 @@ class ServiceHardware extends ServiceBase {
             // OK-59934: feed the DeviceStage burst scope. It ignores events
             // while disabled; call-end closes morph to processing inside a
             // burst instead of exiting the stage.
-            void this.backgroundApi.serviceHardwareUI.deviceStageBurst.onHardwareUiEvent(
+            // Awaited, not voided: the stage write is the handler's last
+            // statement, and awaiting it puts its rejection into the catch
+            // below instead of letting it escape as an unhandled rejection
+            // in the bg runtime — deviceStageAtom.set does reject when the
+            // native jotai bridge or bridgeExtBg is not ready yet. The cost
+            // is a handful of microtasks; the chain touches only in-memory
+            // atoms, never the queue, the legacy atom or the SDK, so it
+            // cannot deadlock the queue it runs inside.
+            await this.backgroundApi.serviceHardwareUI.deviceStageBurst.onHardwareUiEvent(
               {
                 action: appliedUiRequestType,
                 connectId: appliedConnectId,
