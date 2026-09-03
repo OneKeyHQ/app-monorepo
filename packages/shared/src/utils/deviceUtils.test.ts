@@ -243,11 +243,13 @@ describe('deviceUtils', () => {
     expect(deviceUtils.isFirmwareVerifySupported(NEO_DEVICE_TYPE)).toBe(true);
   });
 
-  it('classifies Neo as a Protocol V2 product without aliasing it to Pro 2', () => {
+  it('classifies only Neo and Pro 2 as Protocol V2 products', () => {
     expect(NEO_DEVICE_TYPE).toBe('neo');
-    expect(isProtocolV2ProductType(NEO_DEVICE_TYPE)).toBe(true);
-    expect(isProtocolV2ProductType(EDeviceType.Pro2)).toBe(true);
-    expect(isProtocolV2ProductType(EDeviceType.Pro)).toBe(false);
+    expect(
+      Object.values(EDeviceType).filter((deviceType) =>
+        isProtocolV2ProductType(deviceType),
+      ),
+    ).toEqual([EDeviceType.Pro2, EDeviceType.Neo]);
   });
 
   test('keeps Neo out of camera-dependent QR wallet onboarding', () => {
