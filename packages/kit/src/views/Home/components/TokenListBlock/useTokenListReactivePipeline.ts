@@ -35,6 +35,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LwwMaterializedView } from '@onekeyhq/shared/src/utils/lwwMaterializedView';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -93,6 +94,7 @@ export interface ICacheSeedItem {
   aggregateTokenMap?: Record<string, ITokenFiat>;
   accountId: string;
   networkId: string;
+  assetSnapshotMeta?: IAssetSnapshotMeta;
 }
 
 /** A settled LIVE round (structurally a superset of `IAllNetworkSnapshotRound`). */
@@ -318,6 +320,7 @@ export function useTokenListReactivePipeline(
         mergeDeriveAssetsByNetworkId: {},
         accountId: ownerAccountId,
         createAtNetwork: ownerCreateAtNetwork,
+        expectedAccountValueKeys: enabledKeysRef.current,
       });
       ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
     },
@@ -379,6 +382,7 @@ export function useTokenListReactivePipeline(
               map: item.tokenListMap,
             },
             accountWorth: item.tokenListValue,
+            assetSnapshotMeta: item.assetSnapshotMeta,
             aggregateTokenListMap: item.aggregateTokenListMap,
             aggregateTokenMap: item.aggregateTokenMap,
             ownerAccountId,
@@ -460,6 +464,7 @@ export function useTokenListReactivePipeline(
       mergeDeriveAssetsByNetworkId: {},
       accountId: ownerAccountId,
       createAtNetwork: ownerCreateAtNetwork,
+      expectedAccountValueKeys: enabledKeysRef.current,
     });
   }, [ownerAccountId, ownerCreateAtNetwork, resolveRoundsWithMergeFlag]);
 

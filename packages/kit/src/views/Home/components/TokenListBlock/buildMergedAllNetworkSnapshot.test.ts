@@ -406,4 +406,35 @@ describe('buildMergedAllNetworkSnapshot', () => {
     ]);
     expect(snap.smallBalanceFiatValue).toBe('1');
   });
+
+  it('does not mark a materialized subset as a complete snapshot', () => {
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          networkId: 'evm--1',
+          assetSnapshotMeta: { localSeq: 2 },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+      expectedAccountValueKeys: new Set([
+        accountUtils.buildAccountValueKey({
+          accountId: 'acc1',
+          networkId: 'evm--1',
+        }),
+        accountUtils.buildAccountValueKey({
+          accountId: 'acc1',
+          networkId: 'evm--56',
+        }),
+      ]),
+    });
+
+    expect(snap.assetSnapshotMeta).toBeUndefined();
+    expect(snap.assetSnapshotMetaByKey).toEqual({
+      [accountUtils.buildAccountValueKey({
+        accountId: 'acc1',
+        networkId: 'evm--1',
+      })]: { localSeq: 2 },
+    });
+  });
 });

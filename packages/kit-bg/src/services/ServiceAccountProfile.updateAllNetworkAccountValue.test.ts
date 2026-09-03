@@ -106,6 +106,8 @@ const mockAtomState: {
         accountId: string;
         value: Record<string, string> | string;
         currency: string;
+        assetSnapshotMetaByKey?: Record<string, { localSeq: number }>;
+        assetSnapshotMeta?: { localSeq: number };
       }
     | undefined;
 } = { current: undefined };
@@ -125,7 +127,12 @@ jest.mock('../states/jotai/atoms', () => ({
 }));
 
 type ISimpleDbAccountValueEntry =
-  | { value?: Record<string, string>; currency?: 'usd' }
+  | {
+      value?: Record<string, string>;
+      currency?: 'usd';
+      assetSnapshotMetaByNetwork?: Record<string, { localSeq: number }>;
+      assetSnapshotMeta?: { localSeq: number };
+    }
   | undefined;
 const mockGetAllNetworkAccountsValue = jest.fn<
   Promise<ISimpleDbAccountValueEntry[]>,
@@ -135,6 +142,9 @@ const mockSimpleDbUpdateAllNetworkAccountValue = jest.fn<
   Promise<void>,
   unknown[]
 >(async () => undefined);
+const mockSimpleDbUpdateAccountValue = jest.fn<Promise<void>, unknown[]>(
+  async () => undefined,
+);
 
 jest.mock('../dbs/simple/simpleDb', () => ({
   __esModule: true,
@@ -144,6 +154,8 @@ jest.mock('../dbs/simple/simpleDb', () => ({
         mockGetAllNetworkAccountsValue(...args),
       updateAllNetworkAccountValue: (...args: unknown[]) =>
         mockSimpleDbUpdateAllNetworkAccountValue(...args),
+      updateAccountValue: (...args: unknown[]) =>
+        mockSimpleDbUpdateAccountValue(...args),
     },
   },
 }));
@@ -162,16 +174,21 @@ const TRON_ACCOUNT_B = "hd-1--m/44'/195'/0'/0/0";
 
 function makeService({
   accountsInSameIndexedAccountId = {},
+  unresolvedNetworkId,
 }: {
   accountsInSameIndexedAccountId?: Record<
     string,
     Array<{ id: string; address?: string; xpub?: string }>
   >;
+  unresolvedNetworkId?: string;
 } = {}) {
   const backgroundApi = {
     serviceAccount: {
       getAccountXpub: jest.fn(async () => undefined),
-      getAccountAddressForApi: jest.fn(async () => 'mock-address'),
+      getAccountAddressForApi: jest.fn(
+        async ({ networkId }: { networkId: string }) =>
+          networkId === unresolvedNetworkId ? undefined : 'mock-address',
+      ),
       getAccountsInSameIndexedAccountId: jest.fn(
         async ({ indexedAccountId }: { indexedAccountId: string }) => ({
           accounts: accountsInSameIndexedAccountId[indexedAccountId] ?? [],
@@ -192,6 +209,7 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
     mockAtomState.current = undefined;
     mockGetAllNetworkAccountsValue.mockReset();
     mockSimpleDbUpdateAllNetworkAccountValue.mockReset();
+    mockSimpleDbUpdateAccountValue.mockReset();
   });
 
   it('seeds the atom from persisted per-network values when the atom belongs to another account (single-chain account switch)', async () => {
@@ -264,7 +282,33 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
     expect(mockGetAllNetworkAccountsValue).not.toHaveBeenCalled();
   });
 
-  it('replaces the atom without seeding when updateAll is set (authoritative all-networks refresh)', async () => {
+  it('uses the aggregate marker when a partial key marker is missing', async () => {
+    const valueKey = `${TRON_ACCOUNT_A}_${TRON_ID}`;
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: { [valueKey]: '10' },
+      currency: 'usd',
+      assetSnapshotMeta: { localSeq: 10 },
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [valueKey]: '1' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: { [valueKey]: { localSeq: 5 } },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [valueKey]: '10' },
+      currency: 'usd',
+      assetSnapshotMeta: { localSeq: 10 },
+    });
+  });
+
+  it('replaces the atom without seeding for a versioned full snapshot', async () => {
     mockAtomState.current = {
       accountId: INDEXED_A,
       value: { [`${EVM_ACCOUNT_A}_${EVM_ID}`]: '55' },
@@ -278,14 +322,57 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
       value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17' },
       currency: 'usd',
       updateAll: true,
+      assetSnapshotMeta: { localSeq: 1 },
     });
 
     expect(mockAtomState.current).toEqual({
       accountId: INDEXED_A,
       value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17' },
       currency: 'usd',
+      assetSnapshotMeta: { localSeq: 1 },
+      assetSnapshotMetaByKey: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: { localSeq: 1 },
+      },
     });
     expect(mockGetAllNetworkAccountsValue).not.toHaveBeenCalled();
+  });
+
+  it('does not replace a switched owner with a stale full snapshot', async () => {
+    mockAtomState.current = {
+      accountId: INDEXED_B,
+      value: { [`${TRON_ACCOUNT_B}_${TRON_ID}`]: '0' },
+      currency: 'usd',
+    };
+    mockGetAllNetworkAccountsValue.mockResolvedValue([
+      {
+        value: { [TRON_ID]: '10' },
+        currency: 'usd',
+        assetSnapshotMetaByNetwork: { [TRON_ID]: { localSeq: 10 } },
+      },
+    ]);
+
+    const service = makeService({
+      accountsInSameIndexedAccountId: {
+        [INDEXED_A]: [{ id: TRON_ACCOUNT_A, address: 'mock-address' }],
+      },
+    });
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '1' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMeta: { localSeq: 5 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '10' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: { localSeq: 10 },
+      },
+    });
   });
 
   it('keeps the atom write alive when persisted seeding finds nothing', async () => {
@@ -310,6 +397,45 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
       accountId: INDEXED_A,
       value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17' },
       currency: 'usd',
+    });
+  });
+
+  it('does not overlay a stale partial response on newer persisted values after an account switch', async () => {
+    mockAtomState.current = {
+      accountId: INDEXED_B,
+      value: { [`${TRON_ACCOUNT_B}_${TRON_ID}`]: '0' },
+      currency: 'usd',
+    };
+    mockGetAllNetworkAccountsValue.mockResolvedValue([
+      {
+        value: { [TRON_ID]: '4.17' },
+        currency: 'usd',
+        assetSnapshotMetaByNetwork: { [TRON_ID]: { localSeq: 10 } },
+      },
+    ]);
+
+    const service = makeService({
+      accountsInSameIndexedAccountId: {
+        [INDEXED_A]: [{ id: TRON_ACCOUNT_A, address: 'mock-address' }],
+      },
+    });
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '1' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: { localSeq: 5 },
+      },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: { localSeq: 10 },
+      },
     });
   });
 
@@ -338,6 +464,194 @@ describe('ServiceAccountProfile.updateAllNetworkAccountValue', () => {
       ],
       currency: 'usd',
       updateAll: undefined,
+    });
+  });
+
+  it('downgrades a full replacement when one value cannot resolve its address', async () => {
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '1',
+        [`${EVM_ACCOUNT_A}_${EVM_ID}`]: '2',
+      },
+      currency: 'usd',
+    };
+    const service = makeService({ unresolvedNetworkId: EVM_ID });
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17',
+        [`${EVM_ACCOUNT_A}_${EVM_ID}`]: '55',
+      },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMeta: { localSeq: 10 },
+    });
+
+    const persistedParams = mockSimpleDbUpdateAllNetworkAccountValue.mock
+      .calls[0]?.[0] as {
+      items: unknown[];
+      updateAll?: boolean;
+      snapshotMeta?: unknown;
+    };
+    expect(persistedParams.items).toHaveLength(1);
+    expect(persistedParams.updateAll).toBe(false);
+    expect(persistedParams.snapshotMeta).toBeUndefined();
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: '4.17',
+        [`${EVM_ACCOUNT_A}_${EVM_ID}`]: '2',
+      },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [`${TRON_ACCOUNT_A}_${TRON_ID}`]: { localSeq: 10 },
+      },
+    });
+  });
+
+  it('rejects a stale scalar update when an Others account has a per-key marker', async () => {
+    const accountId = 'imported--account-1';
+    const valueKey = `${accountId}_${TRON_ID}`;
+    mockAtomState.current = {
+      accountId,
+      value: '10',
+      currency: 'usd',
+      assetSnapshotMetaByKey: { [valueKey]: { localSeq: 10 } },
+    };
+
+    const service = makeService();
+
+    await service.updateAccountValue({
+      accountId,
+      networkAccountId: accountId,
+      networkId: TRON_ID,
+      value: '1',
+      currency: 'usd',
+      shouldUpdateActiveAccountValue: true,
+      assetSnapshotMeta: { localSeq: 5 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId,
+      value: '10',
+      currency: 'usd',
+      assetSnapshotMetaByKey: { [valueKey]: { localSeq: 10 } },
+    });
+  });
+
+  it('does not change an Others active atom to the all-network map shape', async () => {
+    const accountId = 'imported--account-1';
+    const valueKey = `${accountId}_${TRON_ID}`;
+    mockAtomState.current = {
+      accountId,
+      value: '10',
+      currency: 'usd',
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId,
+      value: { [valueKey]: '5' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId,
+      value: '10',
+      currency: 'usd',
+    });
+    expect(mockSimpleDbUpdateAllNetworkAccountValue).toHaveBeenCalled();
+  });
+
+  it('lets a full snapshot evict an omitted network after progressive writes admitted the same responses', async () => {
+    const SOL_ID = 'sol--101';
+    const SOL_ACCOUNT_A = "hd-1--m/44'/501'/0'/0/1";
+    const tronKey = `${TRON_ACCOUNT_A}_${TRON_ID}`;
+    const evmKey = `${EVM_ACCOUNT_A}_${EVM_ID}`;
+    const solKey = `${SOL_ACCOUNT_A}_${SOL_ID}`;
+    // Progressive per-network writes from the current round already landed
+    // (tron seq 2, evm seq 3); sol is a retained key from an older round.
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55', [solKey]: '9' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+        [solKey]: { localSeq: 1 },
+      },
+      assetSnapshotMeta: { localSeq: 1 },
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+      },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 3 },
+      },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+    expect(mockSimpleDbUpdateAllNetworkAccountValue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updateAll: true,
+        snapshotMeta: { localSeq: 2 },
+      }),
+    );
+  });
+
+  it('still refuses a full snapshot when an omitted key carries a newer marker', async () => {
+    const tronKey = `${TRON_ACCOUNT_A}_${TRON_ID}`;
+    const evmKey = `${EVM_ACCOUNT_A}_${EVM_ID}`;
+    mockAtomState.current = {
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 9 },
+      },
+    };
+
+    const service = makeService();
+
+    await service.updateAllNetworkAccountValue({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4' },
+      currency: 'usd',
+      updateAll: true,
+      assetSnapshotMetaByKey: { [tronKey]: { localSeq: 2 } },
+      assetSnapshotMeta: { localSeq: 2 },
+    });
+
+    expect(mockAtomState.current).toEqual({
+      accountId: INDEXED_A,
+      value: { [tronKey]: '4', [evmKey]: '55' },
+      currency: 'usd',
+      assetSnapshotMetaByKey: {
+        [tronKey]: { localSeq: 2 },
+        [evmKey]: { localSeq: 9 },
+      },
     });
   });
 });

@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
@@ -11,6 +12,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  getNewestAssetSnapshotMeta,
+  isAssetSnapshotNewer,
+  isAssetSnapshotSameOrNewer,
+} from '@onekeyhq/shared/src/utils/assetSnapshotFreshness';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -26,6 +32,7 @@ import {
   EAddressInteractionStatus,
   EServerInteractedStatus,
 } from '@onekeyhq/shared/types/address';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -136,6 +143,12 @@ class ServiceAccountProfile extends ServiceBase {
     string,
     Promise<IAccountBadgeResult>
   >();
+
+  // Active account value updates can arrive from the all-network and
+  // single-network paths at the same time. Keep the atom read/admission/set
+  // sequence atomic within the background runtime so an older continuation
+  // cannot overwrite a newer owner snapshot.
+  private activeAccountValueUpdateMutex = new Semaphore(1);
 
   _fetchAccountDetailsControllers: AbortController[] = [];
 
@@ -1022,10 +1035,32 @@ class ServiceAccountProfile extends ServiceBase {
     value: Record<string, string>;
     currency: string;
     updateAll?: boolean;
+    assetSnapshotMetaByKey?: Record<string, IAssetSnapshotMeta>;
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
-    const { currency, value, updateAll, accountId } = params;
+    const {
+      currency,
+      value,
+      updateAll,
+      accountId,
+      assetSnapshotMetaByKey,
+      assetSnapshotMeta,
+    } = params;
 
     const usdValueMap = await this.convertMapToUsd(value, currency);
+    const inputValueKeys = Object.keys(usdValueMap);
+    // The persistence API is keyed by resolved address/network items and an
+    // empty item list cannot identify which account entry should be cleared.
+    // Treat an empty full result as a no-op so the active atom and SimpleDB do
+    // not diverge (normal zero-balance networks still carry an explicit key).
+    if (inputValueKeys.length === 0) {
+      return;
+    }
+    // A full snapshot needs one response marker for the complete set. Per-key
+    // markers alone cannot prove that an omitted key was observed by the same
+    // refresh, so such input is handled as a partial merge below.
+    const hasCompleteSnapshotMeta =
+      updateAll === true && Boolean(assetSnapshotMeta);
 
     // Atom snapshot stays in the compound-key shape because consumers look
     // entries up via `buildAccountValueKey(accountId, networkId)`.
@@ -1034,7 +1069,9 @@ class ServiceAccountProfile extends ServiceBase {
       xpub?: string;
       networkId: string;
       value: string;
+      assetSnapshotMeta?: IAssetSnapshotMeta;
     };
+    const resolvedValueKeys = new Set<string>();
     const resolveCache = new Map<
       string,
       Promise<{ accountAddress?: string; xpub?: string } | null>
@@ -1057,60 +1094,203 @@ class ServiceAccountProfile extends ServiceBase {
           }
           const r = await pending;
           if (!r) return null;
+          resolvedValueKeys.add(accountValueKey);
+          const incomingMeta =
+            assetSnapshotMetaByKey?.[accountValueKey] ??
+            (hasCompleteSnapshotMeta ? assetSnapshotMeta : undefined);
           return {
             accountAddress: r.accountAddress,
             xpub: r.xpub,
             networkId: parsed.networkId,
             value: usdValue,
+            ...(incomingMeta ? { assetSnapshotMeta: incomingMeta } : {}),
           };
         },
       ),
     );
     const writeItems = resolved.filter((x): x is IWriteItem => x !== null);
 
-    if (updateAll) {
-      await activeAccountValueAtom.set({
-        accountId,
-        value: usdValueMap,
-        currency: 'usd',
+    // A full replacement is safe only when every input value resolved to a
+    // writable address. If one network lookup failed, treating the partial
+    // result as complete would delete that network's last known value.
+    const inputValueCount = inputValueKeys.length;
+    const effectiveUpdateAll =
+      updateAll === true
+        ? writeItems.length === inputValueCount && hasCompleteSnapshotMeta
+        : updateAll;
+    // Others accounts expose a scalar active value (their create network),
+    // while this method materializes a compound-key map for persistence. Do
+    // not let the map writer change the active atom's value shape or race the
+    // scalar writer from HomeOverviewContainer.
+    const shouldUpdateActiveAccountValue = !accountUtils.isOthersAccount({
+      accountId,
+    });
+
+    const buildAcceptedValues = (
+      existingMetaByKey: Record<string, IAssetSnapshotMeta>,
+      aggregateMeta?: IAssetSnapshotMeta,
+      // An admitted full snapshot is authoritative for every key it supplies,
+      // including keys whose marker equals the stored one.
+      admitsEqualMarker = false,
+    ) => {
+      const acceptedValueMap: Record<string, string> = {};
+      const acceptedMetaByKey: Record<string, IAssetSnapshotMeta> = {};
+      Object.entries(usdValueMap).forEach(([key, usdValue]) => {
+        // Address resolution can fail for one network while the others in the
+        // same refresh still succeed. Do not expose an unresolved value in the
+        // active atom when it cannot be persisted alongside the resolved rows.
+        if (!resolvedValueKeys.has(key)) {
+          return;
+        }
+        const incomingMeta =
+          assetSnapshotMetaByKey?.[key] ??
+          (hasCompleteSnapshotMeta ? assetSnapshotMeta : undefined);
+        const existingMeta = getNewestAssetSnapshotMeta(
+          existingMetaByKey[key],
+          aggregateMeta,
+        );
+        const incomingIsFresh = admitsEqualMarker
+          ? isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
+          : isAssetSnapshotNewer(incomingMeta, existingMeta);
+        if (!existingMeta || incomingIsFresh) {
+          acceptedValueMap[key] = usdValue;
+          if (incomingMeta) {
+            acceptedMetaByKey[key] = incomingMeta;
+          }
+        }
       });
-    } else {
-      const current = await activeAccountValueAtom.get();
-      let baseValue: Record<string, string> = {};
-      if (
-        current?.accountId === accountId &&
-        typeof current.value === 'object' &&
-        current.value !== null
-      ) {
-        baseValue = current.value;
-      } else {
-        // Partial (single-network) write for an account the atom doesn't
-        // currently hold — e.g. an account switch while home is on a
-        // single-chain view, or a cold start outside All Networks. Replacing
-        // the atom with the one-network map would make cross-network
-        // consumers (menu-bar tray, account selector active row) sum a single
-        // network — and read $0 when that network is disabled in the
-        // All-Networks enabled set. Seed the base from the persisted
-        // per-network values instead; the fresh entries overlay their keys.
-        const persisted = await this.getAllNetworkAccountsValueByAccountId({
-          accountId,
+      return { acceptedValueMap, acceptedMetaByKey };
+    };
+    if (shouldUpdateActiveAccountValue) {
+      await this.activeAccountValueUpdateMutex.runExclusive(async () => {
+        const current = await activeAccountValueAtom.get();
+        const sameActiveAccount = current?.accountId === accountId;
+        const currentMetaByKey = sameActiveAccount
+          ? (current?.assetSnapshotMetaByKey ?? {})
+          : {};
+
+        // A switched owner must be admitted against that owner's persisted
+        // snapshot, not the previous owner's atom contents. This also makes the
+        // full and partial paths share one base and one freshness decision.
+        let baseValue: Record<string, string> =
+          sameActiveAccount &&
+          typeof current?.value === 'object' &&
+          current.value !== null
+            ? current.value
+            : {};
+        let baseMetaByKey: Record<string, IAssetSnapshotMeta> =
+          sameActiveAccount ? currentMetaByKey : {};
+        let baseAggregateMeta = sameActiveAccount
+          ? current?.assetSnapshotMeta
+          : undefined;
+
+        if (!sameActiveAccount) {
+          const persisted = await this.getAllNetworkAccountsValueByAccountId({
+            accountId,
+          });
+          baseValue = persisted.value ?? {};
+          baseMetaByKey = persisted.assetSnapshotMetaByKey ?? {};
+          baseAggregateMeta = persisted.assetSnapshotMeta;
+        }
+
+        // The progressive (partial) path may already have written this
+        // round's responses, so a full snapshot's per-key markers can EQUAL
+        // the stored ones. Equal markers must not block the replacement,
+        // otherwise a full refresh could never evict an omitted network.
+        const incomingKeysAreFresh = [...resolvedValueKeys].every((key) => {
+          const incomingMeta =
+            assetSnapshotMetaByKey?.[key] ??
+            (hasCompleteSnapshotMeta ? assetSnapshotMeta : undefined);
+          const existingMeta = getNewestAssetSnapshotMeta(
+            baseMetaByKey[key],
+            baseAggregateMeta,
+          );
+          return (
+            !existingMeta ||
+            isAssetSnapshotSameOrNewer(incomingMeta, existingMeta)
+          );
         });
-        baseValue = persisted.value ?? {};
-      }
-      await activeAccountValueAtom.set({
-        accountId,
-        value: {
-          ...baseValue,
-          ...usdValueMap,
-        },
-        currency: 'usd',
+        // Do not use owner mismatch as an unconditional replacement signal:
+        // the switched-to account may already have a newer persisted value.
+        // Keys omitted by the full snapshot are evicted, so their markers
+        // must be strictly older than the oldest marker the snapshot covers;
+        // supplied keys were admitted per key above.
+        const canReplaceFullSnapshot =
+          effectiveUpdateAll &&
+          (assetSnapshotMeta
+            ? incomingKeysAreFresh &&
+              isAssetSnapshotSameOrNewer(
+                assetSnapshotMeta,
+                baseAggregateMeta,
+              ) &&
+              Object.entries(baseMetaByKey)
+                .filter(([key]) => !resolvedValueKeys.has(key))
+                .every(([, baseMeta]) =>
+                  isAssetSnapshotNewer(assetSnapshotMeta, baseMeta),
+                )
+            : !baseAggregateMeta && Object.keys(baseMetaByKey).length === 0);
+        const { acceptedValueMap, acceptedMetaByKey } = buildAcceptedValues(
+          baseMetaByKey,
+          baseAggregateMeta,
+          canReplaceFullSnapshot,
+        );
+
+        if (effectiveUpdateAll) {
+          const nextValue = canReplaceFullSnapshot
+            ? acceptedValueMap
+            : { ...baseValue, ...acceptedValueMap };
+          const nextMetaByKey = canReplaceFullSnapshot
+            ? acceptedMetaByKey
+            : { ...baseMetaByKey, ...acceptedMetaByKey };
+          const nextActiveSnapshotMeta = canReplaceFullSnapshot
+            ? assetSnapshotMeta
+            : baseAggregateMeta;
+
+          await activeAccountValueAtom.set({
+            accountId,
+            value: nextValue,
+            currency: 'usd',
+            ...(Object.keys(nextMetaByKey).length > 0
+              ? { assetSnapshotMetaByKey: nextMetaByKey }
+              : {}),
+            ...(nextActiveSnapshotMeta
+              ? { assetSnapshotMeta: nextActiveSnapshotMeta }
+              : {}),
+          });
+        } else {
+          // Partial writes never evict an omitted network. Overlay only values
+          // admitted against the selected owner base.
+          // A partial write must not promote a per-network marker to the
+          // aggregate marker. Preserve only a marker already known to cover the
+          // complete persisted snapshot.
+          const nextActiveSnapshotMeta = baseAggregateMeta;
+          const nextMetaByKey = { ...baseMetaByKey, ...acceptedMetaByKey };
+
+          await activeAccountValueAtom.set({
+            accountId,
+            value: {
+              ...baseValue,
+              ...acceptedValueMap,
+            },
+            currency: 'usd',
+            ...(Object.keys(nextMetaByKey).length > 0
+              ? { assetSnapshotMetaByKey: nextMetaByKey }
+              : {}),
+            ...(nextActiveSnapshotMeta
+              ? { assetSnapshotMeta: nextActiveSnapshotMeta }
+              : {}),
+          });
+        }
       });
     }
 
     await simpleDb.accountValue.updateAllNetworkAccountValue({
       items: writeItems,
       currency: 'usd',
-      updateAll,
+      updateAll: effectiveUpdateAll,
+      ...(effectiveUpdateAll && assetSnapshotMeta
+        ? { snapshotMeta: assetSnapshotMeta }
+        : {}),
     });
 
     // Check DEPOSIT task for rookie guide (fire-and-forget)
@@ -1438,6 +1618,10 @@ class ServiceAccountProfile extends ServiceBase {
       accountId,
       value: undefined as Record<string, string> | undefined,
       currency: undefined as 'usd' | undefined,
+      assetSnapshotMetaByKey: undefined as
+        | Record<string, IAssetSnapshotMeta>
+        | undefined,
+      assetSnapshotMeta: undefined as IAssetSnapshotMeta | undefined,
     };
     if (!accountId) {
       return empty;
@@ -1467,7 +1651,29 @@ class ServiceAccountProfile extends ServiceBase {
           });
           value[compoundKey] = v;
         }
-        return { accountId, value, currency: entry.currency };
+        const assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
+        for (const networkId of Object.keys(entry.value)) {
+          const snapshotMeta = getNewestAssetSnapshotMeta(
+            entry.assetSnapshotMetaByNetwork?.[networkId],
+            entry.assetSnapshotMeta,
+          );
+          if (snapshotMeta) {
+            assetSnapshotMetaByKey[
+              accountUtils.buildAccountValueKey({ accountId, networkId })
+            ] = snapshotMeta;
+          }
+        }
+        return {
+          accountId,
+          value,
+          currency: entry.currency,
+          ...(entry.assetSnapshotMeta
+            ? { assetSnapshotMeta: entry.assetSnapshotMeta }
+            : {}),
+          ...(Object.keys(assetSnapshotMetaByKey).length > 0
+            ? { assetSnapshotMetaByKey }
+            : {}),
+        };
       }
 
       // HD/HW indexed account path.
@@ -1503,7 +1709,26 @@ class ServiceAccountProfile extends ServiceBase {
       });
 
       const value: Record<string, string> = {};
+      const assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
       let currency: 'usd' | undefined;
+      let aggregateSnapshotMeta: IAssetSnapshotMeta | undefined;
+      const hasCompleteAggregateMeta =
+        entries.length === items.length &&
+        entries.every(
+          (entry) => Boolean(entry?.value) && Boolean(entry?.assetSnapshotMeta),
+        );
+      if (hasCompleteAggregateMeta) {
+        aggregateSnapshotMeta = entries.reduce<IAssetSnapshotMeta | undefined>(
+          (oldest, entry) => {
+            const meta = entry?.assetSnapshotMeta;
+            if (!meta) return oldest;
+            return !oldest || isAssetSnapshotNewer(oldest, meta)
+              ? meta
+              : oldest;
+          },
+          undefined,
+        );
+      }
       entries.forEach((entry, idx) => {
         if (!entry?.value) return;
         const dbAccountId = items[idx].dbAccountId;
@@ -1513,6 +1738,13 @@ class ServiceAccountProfile extends ServiceBase {
             networkId,
           });
           value[compoundKey] = v;
+          const snapshotMeta = getNewestAssetSnapshotMeta(
+            entry.assetSnapshotMetaByNetwork?.[networkId],
+            entry.assetSnapshotMeta,
+          );
+          if (snapshotMeta) {
+            assetSnapshotMetaByKey[compoundKey] = snapshotMeta;
+          }
         }
         currency = entry.currency;
       });
@@ -1520,7 +1752,17 @@ class ServiceAccountProfile extends ServiceBase {
       if (Object.keys(value).length === 0) {
         return empty;
       }
-      return { accountId, value, currency };
+      return {
+        accountId,
+        value,
+        currency,
+        ...(aggregateSnapshotMeta
+          ? { assetSnapshotMeta: aggregateSnapshotMeta }
+          : {}),
+        ...(Object.keys(assetSnapshotMetaByKey).length > 0
+          ? { assetSnapshotMetaByKey }
+          : {}),
+      };
     } catch {
       return empty;
     }
@@ -1580,12 +1822,95 @@ class ServiceAccountProfile extends ServiceBase {
     value: string;
     currency: string;
     shouldUpdateActiveAccountValue?: boolean;
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
     if (params.shouldUpdateActiveAccountValue) {
-      await activeAccountValueAtom.set({
-        accountId: params.accountId,
-        value: params.value,
-        currency: params.currency,
+      await this.activeAccountValueUpdateMutex.runExclusive(async () => {
+        const valueKey = accountUtils.buildAccountValueKey({
+          accountId: params.networkAccountId,
+          networkId: params.networkId,
+        });
+        const current = await activeAccountValueAtom.get();
+        const isOthersAccount = accountUtils.isOthersAccount({
+          accountId: params.accountId,
+        });
+        const sameActiveAccount = current?.accountId === params.accountId;
+        let baseValue: Record<string, string> | undefined;
+        let baseScalarValue: string | undefined;
+        let baseCurrency: string | undefined;
+        let baseMetaByKey: Record<string, IAssetSnapshotMeta> = {};
+        let baseAggregateMeta: IAssetSnapshotMeta | undefined;
+        if (sameActiveAccount) {
+          baseCurrency = current?.currency;
+          baseAggregateMeta = current.assetSnapshotMeta;
+          baseMetaByKey = current.assetSnapshotMetaByKey ?? {};
+          if (typeof current.value === 'object' && current.value !== null) {
+            baseValue = current.value;
+          } else if (typeof current.value === 'string') {
+            baseScalarValue = current.value;
+          }
+        } else {
+          const persisted = await this.getAllNetworkAccountsValueByAccountId({
+            accountId: params.accountId,
+          });
+          baseCurrency = persisted.currency;
+          baseMetaByKey = persisted.assetSnapshotMetaByKey ?? {};
+          baseAggregateMeta = persisted.assetSnapshotMeta;
+          if (isOthersAccount) {
+            // Others accounts use a scalar active value. The persisted helper
+            // exposes a compound-key map, so select this network explicitly.
+            baseScalarValue = persisted.value?.[valueKey];
+          } else {
+            baseValue = persisted.value;
+          }
+        }
+        const currentMeta = getNewestAssetSnapshotMeta(
+          baseMetaByKey[valueKey],
+          baseAggregateMeta,
+        );
+        const incomingIsFresh =
+          !currentMeta ||
+          isAssetSnapshotNewer(params.assetSnapshotMeta, currentMeta);
+
+        // A stale response must still switch the atom to the target owner's
+        // persisted base. Otherwise the atom keeps the previous owner's
+        // scalar/map until another response happens to arrive.
+        if (!sameActiveAccount || incomingIsFresh) {
+          const nextMetaByKey = {
+            ...baseMetaByKey,
+            ...(incomingIsFresh && params.assetSnapshotMeta
+              ? { [valueKey]: params.assetSnapshotMeta }
+              : {}),
+          };
+          let nextValue: Record<string, string> | string;
+          let nextCurrency = params.currency;
+          if (isOthersAccount) {
+            nextValue = incomingIsFresh
+              ? params.value
+              : (baseScalarValue ?? '0');
+            if (!incomingIsFresh && baseScalarValue !== undefined) {
+              nextCurrency = baseCurrency ?? 'usd';
+            }
+          } else {
+            nextValue = incomingIsFresh
+              ? { ...baseValue, [valueKey]: params.value }
+              : (baseValue ?? {});
+            if (!incomingIsFresh) {
+              nextCurrency = baseCurrency ?? 'usd';
+            }
+          }
+          await activeAccountValueAtom.set({
+            accountId: params.accountId,
+            value: nextValue,
+            currency: nextCurrency,
+            ...(Object.keys(nextMetaByKey).length > 0
+              ? { assetSnapshotMetaByKey: nextMetaByKey }
+              : {}),
+            ...(baseAggregateMeta
+              ? { assetSnapshotMeta: baseAggregateMeta }
+              : {}),
+          });
+        }
       });
     }
 
@@ -1602,6 +1927,9 @@ class ServiceAccountProfile extends ServiceBase {
       xpub: resolved.xpub,
       value: usdValue,
       currency: 'usd',
+      ...(params.assetSnapshotMeta
+        ? { assetSnapshotMeta: params.assetSnapshotMeta }
+        : {}),
     });
   }
 
@@ -1612,31 +1940,8 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     value: string;
     currency: string;
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }) {
-    const resolved = await this.resolveAddressKey({
-      accountId: params.networkAccountId,
-      networkId: params.networkId,
-    });
-    if (!resolved) return;
-
-    const [existing] = await simpleDb.accountValue.getAccountsValue({
-      items: [
-        {
-          networkId: params.networkId,
-          accountAddress: resolved.accountAddress,
-          xpub: resolved.xpub,
-        },
-      ],
-    });
-
-    const usdValue = await this.convertOneToUsd(params.value, params.currency);
-    if (
-      existing?.value &&
-      usdValue &&
-      new BigNumber(usdValue).lte(existing.value)
-    ) {
-      return;
-    }
     await this.updateAccountValue(params);
   }
 

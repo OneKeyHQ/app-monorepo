@@ -119,6 +119,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -602,6 +603,7 @@ function TokenListBlock({
           };
 
           const accountWorth: Record<string, string> = {};
+          const assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
 
           resp.forEach((item) => {
             if (item.accountId && item.networkId) {
@@ -614,6 +616,9 @@ function TokenListBlock({
               // the row-level '--' still surfaces the broken entry.
               accountWorth[key] =
                 sumTokenGroupsFiatValueIgnoringUnavailable(item);
+              if (item.assetSnapshotMeta) {
+                assetSnapshotMetaByKey[key] = item.assetSnapshotMeta;
+              }
             }
           });
 
@@ -625,10 +630,12 @@ function TokenListBlock({
 
             updateAccountWorth({
               accountId,
+              createAtNetwork: account?.createAtNetwork,
               initialized: true,
               worth: accountWorth,
               createAtNetworkWorth: '0',
               merge: false,
+              assetSnapshotMetaByKey,
             });
           }
         } else {
@@ -652,6 +659,7 @@ function TokenListBlock({
 
             updateAccountWorth({
               accountId,
+              createAtNetwork: account?.createAtNetwork,
               initialized: true,
               worth: {
                 [accountUtils.buildAccountValueKey({
@@ -661,6 +669,14 @@ function TokenListBlock({
               },
               createAtNetworkWorth: accountWorth,
               merge: false,
+              assetSnapshotMetaByKey: r.assetSnapshotMeta
+                ? {
+                    [accountUtils.buildAccountValueKey({
+                      accountId,
+                      networkId: network.id,
+                    })]: r.assetSnapshotMeta,
+                  }
+                : undefined,
             });
           }
         }
@@ -1166,6 +1182,7 @@ function TokenListBlock({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
               : (account?.id ?? ''),
+            createAtNetwork: account?.createAtNetwork,
             initialized: true,
             worth: {
               [accountUtils.buildAccountValueKey({
@@ -1175,6 +1192,14 @@ function TokenListBlock({
             },
             createAtNetworkWorth,
             merge: true,
+            assetSnapshotMetaByKey: r.assetSnapshotMeta
+              ? {
+                  [accountUtils.buildAccountValueKey({
+                    accountId,
+                    networkId,
+                  })]: r.assetSnapshotMeta,
+                }
+              : undefined,
           });
         }
 
@@ -1457,6 +1482,7 @@ function TokenListBlock({
         accountId: string;
         hasCache: boolean;
         currency?: string;
+        assetSnapshotMeta?: IAssetSnapshotMeta;
       }[];
       accountId: string;
       networkId: string;
@@ -1476,15 +1502,26 @@ function TokenListBlock({
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
+      let assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
+      // The cache callback receives only non-empty cache rows. A missing row
+      // can therefore mean either an empty cache or a network that has not
+      // settled yet; it cannot prove that this is a complete all-network
+      // snapshot. Keep per-network markers for partial LWW admission, but do
+      // not attach an aggregate marker that could authorize key deletion.
+      const cacheAssetSnapshotMeta = undefined;
       const hasAnyCache = data.some((item) => item.hasCache);
       data.forEach((item) => {
-        tokenListValue = {
-          ...tokenListValue,
-          [accountUtils.buildAccountValueKey({
-            accountId: item.accountId,
-            networkId: item.networkId,
-          })]: item.tokenListValue,
-        };
+        const key = accountUtils.buildAccountValueKey({
+          accountId: item.accountId,
+          networkId: item.networkId,
+        });
+        tokenListValue = { ...tokenListValue, [key]: item.tokenListValue };
+        if (item.assetSnapshotMeta) {
+          assetSnapshotMetaByKey = {
+            ...assetSnapshotMetaByKey,
+            [key]: item.assetSnapshotMeta,
+          };
+        }
       });
 
       if (syncTokenFilterToOverview) {
@@ -1527,6 +1564,7 @@ function TokenListBlock({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
               : (account?.id ?? ''),
+            createAtNetwork: account?.createAtNetwork,
             initialized: true,
             worth: tokenListValue,
             createAtNetworkWorth:
@@ -1538,6 +1576,8 @@ function TokenListBlock({
               ],
             updateAll: true,
             currency: cacheCurrency,
+            assetSnapshotMetaByKey,
+            assetSnapshotMeta: cacheAssetSnapshotMeta,
           });
           updateAccountOverviewState({
             isRefreshing: false,
@@ -1716,10 +1756,18 @@ function TokenListBlock({
         accountId: mergeDeriveAddressData
           ? (indexedAccount?.id ?? '')
           : (account?.id ?? ''),
+        createAtNetwork: account?.createAtNetwork,
         initialized: true,
         updateAll: true,
         worth: snapshot.accountsWorth,
         createAtNetworkWorth: snapshot.createAtNetworkWorth,
+        assetSnapshotMetaByKey: snapshot.assetSnapshotMetaByKey,
+        // `buildAuthoritativeSnapshot` materializes only settled rounds. If
+        // one enabled network failed or is still pending, the resulting map is
+        // partial and must not carry the full-snapshot deletion marker.
+        assetSnapshotMeta: assetStatusAggregationComplete
+          ? snapshot.assetSnapshotMeta
+          : undefined,
       });
 
       if (
@@ -1931,6 +1979,7 @@ function TokenListBlock({
     }
   }, [
     account?.address,
+    account?.createAtNetwork,
     account?.id,
     account?.indexedAccountId,
     accountName,
@@ -2015,6 +2064,7 @@ function TokenListBlock({
       let riskyTokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
+      let assetSnapshotMetaByKey: Record<string, IAssetSnapshotMeta> = {};
       let hasLocalTokenCache = false;
       let cachedWorthCurrency: string | undefined;
 
@@ -2049,13 +2099,20 @@ function TokenListBlock({
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
+            const valueKey = accountUtils.buildAccountValueKey({
+              accountId: r.accountId,
+              networkId: r.networkId,
+            });
             tokenListWorth = {
               ...tokenListWorth,
-              [accountUtils.buildAccountValueKey({
-                accountId: r.accountId,
-                networkId: r.networkId,
-              })]: r.tokenListValue,
+              [valueKey]: r.tokenListValue,
             };
+            if (r.assetSnapshotMeta) {
+              assetSnapshotMetaByKey = {
+                ...assetSnapshotMetaByKey,
+                [valueKey]: r.assetSnapshotMeta,
+              };
+            }
           }
           tokenListValue = new BigNumber(tokenListValue)
             .plus(r.tokenListValue ?? '0')
@@ -2085,6 +2142,7 @@ function TokenListBlock({
                 tokenListMap: r.tokenListMap,
               }),
             },
+            assetSnapshotMeta: r.assetSnapshotMeta,
           };
         });
 
@@ -2127,12 +2185,18 @@ function TokenListBlock({
           tokenListMap: localTokens.tokenListMap,
         });
         tokenListValue = localTokens.tokenListValue;
+        const valueKey = accountUtils.buildAccountValueKey({
+          accountId,
+          networkId,
+        });
         tokenListWorth = {
-          [accountUtils.buildAccountValueKey({
-            accountId,
-            networkId,
-          })]: localTokens.tokenListValue,
+          [valueKey]: localTokens.tokenListValue,
         };
+        if (localTokens.assetSnapshotMeta) {
+          assetSnapshotMetaByKey = {
+            [valueKey]: localTokens.assetSnapshotMeta,
+          };
+        }
       }
 
       // Owner-change or unmount happened while we were awaiting the local
@@ -2206,11 +2270,13 @@ function TokenListBlock({
             accountId: mergeDeriveAddressData
               ? (indexedAccount?.id ?? '')
               : (account?.id ?? ''),
+            createAtNetwork: account?.createAtNetwork,
             initialized: true,
             worth: tokenListWorth,
             createAtNetworkWorth: tokenListValue,
             merge: false,
             currency: cachedWorthCurrency,
+            assetSnapshotMetaByKey,
           });
           handleClearAllNetworkData();
           // Stamp the empty cached owner into the cell VM so an empty cached
@@ -2253,11 +2319,13 @@ function TokenListBlock({
           accountId: mergeDeriveAddressData
             ? (indexedAccount?.id ?? '')
             : (account?.id ?? ''),
+          createAtNetwork: account?.createAtNetwork,
           initialized: true,
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
           merge: false,
           currency: cachedWorthCurrency,
+          assetSnapshotMetaByKey,
         });
         updateAccountOverviewState({
           isRefreshing: false,
@@ -2287,6 +2355,7 @@ function TokenListBlock({
     };
   }, [
     account?.address,
+    account?.createAtNetwork,
     account?.id,
     // @ts-expect-error
     account?.xpub,
@@ -2613,6 +2682,7 @@ function TokenListBlock({
         updateAccountOverviewState({ isRefreshing: false, initialized: true });
         updateAccountWorth({
           accountId,
+          createAtNetwork: account?.createAtNetwork,
           initialized: true,
           worth: {
             [accountUtils.buildAccountValueKey({ accountId, networkId })]:
@@ -2620,6 +2690,14 @@ function TokenListBlock({
           },
           createAtNetworkWorth: accountWorth,
           merge: false,
+          assetSnapshotMetaByKey: r.assetSnapshotMeta
+            ? {
+                [accountUtils.buildAccountValueKey({
+                  accountId,
+                  networkId,
+                })]: r.assetSnapshotMeta,
+              }
+            : undefined,
         });
 
         if (r.allTokens) {
@@ -2650,6 +2728,7 @@ function TokenListBlock({
       }
     },
     [
+      account?.createAtNetwork,
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,

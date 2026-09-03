@@ -1,4 +1,5 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import type { IAssetSnapshotMeta } from '@onekeyhq/shared/types/assetSnapshot';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -40,6 +41,10 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     // Undefined means pre-migration hydrate stored in the user's then-active
     // display currency; consumers fall back to settings.currencyInfo.id.
     currency?: string;
+    /** Freshness marker for each account-value compound key. */
+    assetSnapshotMetaByKey?: Record<string, IAssetSnapshotMeta>;
+    /** Marker for the complete aggregate snapshot/scalar value. */
+    assetSnapshotMeta?: IAssetSnapshotMeta;
   }>(
     {
       worth: {},

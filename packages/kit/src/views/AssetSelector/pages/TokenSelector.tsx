@@ -1433,6 +1433,11 @@ function TokenSelector() {
               // USD value by the active display rate when settings != USD.
               value: { [valueKey]: totalFiatValue },
               currency: r.tokens.currency ?? 'usd',
+              ...(r.assetSnapshotMeta
+                ? {
+                    assetSnapshotMetaByKey: { [valueKey]: r.assetSnapshotMeta },
+                  }
+                : {}),
             },
           );
         }
