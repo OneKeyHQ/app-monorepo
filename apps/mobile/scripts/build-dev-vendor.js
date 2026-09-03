@@ -12,6 +12,7 @@ const {
   computeConfigInputsDigest,
   computeFingerprint,
   computeModulesDigest,
+  computeNativeContractKey,
   getManifestPath,
   getPlatformOutputDirectory,
   sha256,
@@ -332,6 +333,7 @@ async function writePlatformOutput({
     platform,
     registryEpoch: registry.registryEpoch,
     configInputsDigest,
+    nativeContractKey: computeNativeContractKey(platform),
     modulesDigest,
     modules: moduleRecords,
     prependModules,
@@ -548,42 +550,62 @@ async function preparePlatform(
         platform: targetPlatform,
         projectRoot: mobileDirPath,
       }),
+    onFallback,
+    source = 'auto',
   } = {},
 ) {
-  try {
+  if (!['auto', 'local', 'remote'].includes(source)) {
+    throw new Error(`[devVendor] Invalid prepare source: ${source}.`);
+  }
+  if (source === 'local') {
+    await build(platform);
     check(platform);
-    return { rebuilt: false, restored: false };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `[devVendor] local cache unavailable platform=${platform} reason=${reason}`,
-    );
+    return { fallback: false, source: 'local-build' };
   }
 
+  let localCacheReason;
+  if (source === 'auto') {
+    try {
+      check(platform);
+      return { fallback: false, source: 'local-cache' };
+    } catch (error) {
+      localCacheReason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[devVendor] local cache unavailable platform=${platform} reason=${localCacheReason}`,
+      );
+    }
+  }
+
+  let remoteReason;
   try {
     const restored = await restore(platform);
     check(platform);
     console.log(
       `[devVendor] restored public prebundle platform=${platform} tag=${restored?.tagName || 'unknown'}`,
     );
-    return { rebuilt: false, restored: true };
+    return { fallback: false, source: 'remote', tag: restored?.tagName };
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    remoteReason = error instanceof Error ? error.message : String(error);
     console.warn(
-      `[devVendor] public prebundle unavailable platform=${platform} reason=${reason}`,
+      `[devVendor] public prebundle unavailable platform=${platform} reason=${remoteReason}`,
     );
+    if (source === 'remote') throw error;
   }
 
+  await onFallback?.({ reason: remoteReason, resource: 'vendor' });
   try {
     await build(platform);
     check(platform);
   } catch (error) {
-    console.error(
-      '[devVendor] Prepare failed. Run `yarn app:native-bundle:legacy`, then `yarn app:ios:legacy` or `yarn app:android:legacy`.',
-    );
+    console.error(`[devVendor] Prepare failed for platform=${platform}.`);
     throw error;
   }
-  return { rebuilt: true, restored: false };
+  return {
+    fallback: true,
+    fallbackReason: remoteReason,
+    localCacheReason,
+    source: 'local-build',
+  };
 }
 
 async function main() {

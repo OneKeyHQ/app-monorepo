@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Application;
 import android.content.SharedPreferences;
-import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
@@ -41,18 +40,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
-import java.util.regex.Pattern;
-
-import org.json.JSONObject;
 
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 
-public class MainApplication extends Application implements ReactApplication {
+public class BaseMainApplication extends Application implements ReactApplication {
 
   public static boolean shouldShowRecovery = false;
 
@@ -93,41 +85,41 @@ public class MainApplication extends Application implements ReactApplication {
   @Nullable
   private ReactHost mReactHost;
   private boolean isDefaultMainProcess = true;
-  @Nullable
-  private DevVendorBundleInfo devVendorBundleInfo;
 
-  private static final String DEV_VENDOR_ASSET_ROOT = "onekey-dev-vendor";
-  private static final String DEV_VENDOR_COMMON_ASSET = DEV_VENDOR_ASSET_ROOT + "/common.hbc";
-  private static final String DEV_VENDOR_MANIFEST_ASSET = DEV_VENDOR_ASSET_ROOT + "/manifest.json";
-  private static final Pattern DEV_VENDOR_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
+  protected static final class BuildVariantBundleInfo {
+    final String commonBundlePath;
+    final String fingerprint;
+    final String mainEntryUrl;
+    final String backgroundEntryUrl;
 
-  @NonNull
-  private String sha256Asset(@NonNull String assetName) throws Exception {
-    MessageDigest digest = MessageDigest.getInstance("SHA-256");
-    byte[] buffer = new byte[8192];
-    try (InputStream input = getAssets().open(assetName)) {
-      int count;
-      while ((count = input.read(buffer)) != -1) {
-        digest.update(buffer, 0, count);
-      }
+    protected BuildVariantBundleInfo(
+      @NonNull String commonBundlePath,
+      @NonNull String fingerprint,
+      @NonNull String mainEntryUrl,
+      @NonNull String backgroundEntryUrl
+    ) {
+      this.commonBundlePath = commonBundlePath;
+      this.fingerprint = fingerprint;
+      this.mainEntryUrl = mainEntryUrl;
+      this.backgroundEntryUrl = backgroundEntryUrl;
     }
-    char[] hex = new char[64];
-    char[] digits = "0123456789abcdef".toCharArray();
-    byte[] hash = digest.digest();
-    for (int index = 0; index < hash.length; index += 1) {
-      int value = hash[index] & 0xff;
-      hex[index * 2] = digits[value >>> 4];
-      hex[index * 2 + 1] = digits[value & 0x0f];
-    }
-    return new String(hex);
   }
 
-  private static final class DevVendorBundleInfo {
-    private final String fingerprint;
+  protected void configureBuildVariantRuntime() {}
 
-    private DevVendorBundleInfo(@NonNull String fingerprint) {
-      this.fingerprint = fingerprint;
-    }
+  @Nullable
+  protected BuildVariantBundleInfo getBuildVariantBundleInfo() {
+    return null;
+  }
+
+  protected boolean startBuildVariantBackgroundRunner(
+    @NonNull BackgroundThreadManager manager,
+    @NonNull BuildVariantBundleInfo bundleInfo
+  ) {
+    return manager.ensureBackgroundRunnerWithEntryURL(
+      getApplicationContext(),
+      bundleInfo.backgroundEntryUrl
+    );
   }
 
   @Override
@@ -143,7 +135,7 @@ public class MainApplication extends Application implements ReactApplication {
           return null;
         }
         if (mReactHost == null) {
-          DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
+          BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -154,111 +146,12 @@ public class MainApplication extends Application implements ReactApplication {
               null,
               BuildConfig.DEBUG,
               null,
-              devVendor == null ? null : DEV_VENDOR_COMMON_ASSET,
-              devVendor == null ? null : buildDevVendorEntryUrl("main", devVendor.fingerprint),
-              devVendor == null ? null : devVendor.fingerprint
+              bundleInfo == null ? null : bundleInfo.commonBundlePath,
+              bundleInfo == null ? null : bundleInfo.mainEntryUrl,
+              bundleInfo == null ? null : bundleInfo.fingerprint
             );
         }
         return mReactHost;
-    }
-
-    @Nullable
-    private synchronized DevVendorBundleInfo getDevVendorBundleInfo() {
-      if (!BuildConfig.DEBUG || !BuildConfig.ONEKEY_DEV_VENDOR) {
-        return null;
-      }
-      if (devVendorBundleInfo != null) {
-        return devVendorBundleInfo;
-      }
-
-      try {
-        String manifestText;
-        try (InputStream input = getAssets().open(DEV_VENDOR_MANIFEST_ASSET)) {
-          BufferedReader reader = new BufferedReader(
-            new InputStreamReader(input, StandardCharsets.UTF_8)
-          );
-          StringBuilder manifestBuilder = new StringBuilder();
-          String line;
-          while ((line = reader.readLine()) != null) {
-            manifestBuilder.append(line);
-          }
-          manifestText = manifestBuilder.toString();
-        }
-        JSONObject manifest = new JSONObject(manifestText);
-        if (manifest.optInt("schemaVersion", -1) != 3) {
-          throw new IllegalStateException("Dev-vendor manifest schema is unsupported");
-        }
-        if (manifest.optInt("strategyVersion", -1) != 4) {
-          throw new IllegalStateException("Dev-vendor manifest strategy is unsupported");
-        }
-        if (!"android".equals(manifest.optString("platform"))) {
-          throw new IllegalStateException("Dev-vendor manifest platform is not android");
-        }
-        String fingerprint = manifest.optString("fingerprint");
-        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(fingerprint).matches()) {
-          throw new IllegalStateException("Dev-vendor manifest fingerprint is invalid");
-        }
-        JSONObject bytecode = manifest.getJSONObject("common").getJSONObject("bytecode");
-        if (!"common.hbc".equals(bytecode.optString("file"))) {
-          throw new IllegalStateException("Dev-vendor manifest bytecode name is invalid");
-        }
-        long expectedBytes = bytecode.optLong("bytes", -1L);
-        String expectedSha256 = bytecode.optString("sha256");
-        if (!DEV_VENDOR_FINGERPRINT_PATTERN.matcher(expectedSha256).matches()) {
-          throw new IllegalStateException("Dev-vendor common.hbc sha256 is invalid");
-        }
-        try (AssetFileDescriptor descriptor = getAssets().openFd(DEV_VENDOR_COMMON_ASSET)) {
-          if (expectedBytes <= 0 || descriptor.getLength() != expectedBytes) {
-            throw new IllegalStateException("Dev-vendor common.hbc size does not match manifest");
-          }
-        }
-        if (!expectedSha256.equals(sha256Asset(DEV_VENDOR_COMMON_ASSET))) {
-          throw new IllegalStateException("Dev-vendor common.hbc sha256 does not match manifest");
-        }
-        devVendorBundleInfo = new DevVendorBundleInfo(fingerprint);
-        OneKeyLog.info(
-          "DevVendor",
-          "native cache enabled platform=android fingerprint=" + fingerprint
-        );
-        return devVendorBundleInfo;
-      } catch (Exception error) {
-        throw new IllegalStateException(
-          "ONEKEY_DEV_VENDOR=true but Android common.hbc/manifest is invalid. "
-            + "Rebuild the dev-vendor cache and native app.",
-          error
-        );
-      }
-    }
-
-    @NonNull
-    private String buildDevVendorEntryUrl(
-      @NonNull String runtimeTarget,
-      @NonNull String fingerprint
-    ) {
-      String host = AndroidInfoHelpers.getServerHost(this);
-      String bundlePath = "background".equals(runtimeTarget)
-        ? "background.bundle"
-        : ".expo/.virtual-metro-entry.bundle";
-      Uri.Builder builder = new Uri.Builder()
-        .scheme("http")
-        .encodedAuthority(host)
-        .path(bundlePath)
-        .appendQueryParameter("platform", "android")
-        .appendQueryParameter("dev", "true")
-        .appendQueryParameter("lazy", "false")
-        .appendQueryParameter("minify", "false")
-        .appendQueryParameter("inlineSourceMap", "false")
-        .appendQueryParameter("modulesOnly", "true")
-        .appendQueryParameter("runModule", "true")
-        .appendQueryParameter("resolver.devVendor", "true")
-        .appendQueryParameter("resolver.devVendorNative", "true")
-        .appendQueryParameter("resolver.devVendorFingerprint", fingerprint)
-        .appendQueryParameter("resolver.runtimeTarget", runtimeTarget)
-        .appendQueryParameter("unstable_transformProfile", "hermes-stable");
-      if ("background".equals(runtimeTarget) && BuildConfig.ONEKEY_DEV_BG_HMR) {
-        builder.appendQueryParameter("resolver.devVendorBackgroundHMR", "true");
-      }
-      return builder.build().toString();
     }
 
     @Nullable
@@ -279,13 +172,11 @@ public class MainApplication extends Application implements ReactApplication {
 
     @NonNull
     private String getBackgroundRunnerEntryUrl() {
+      BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
+      if (bundleInfo != null) {
+        return bundleInfo.backgroundEntryUrl;
+      }
       if (BuildConfig.DEBUG) {
-        DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
-        if (devVendor != null) {
-          String entryUrl = buildDevVendorEntryUrl("background", devVendor.fingerprint);
-          OneKeyLog.info("BackgroundThread", "getBackgroundRunnerEntryUrl(DEV_VENDOR): " + entryUrl);
-          return entryUrl;
-        }
         String host = AndroidInfoHelpers.getServerHost(this);
         String entryUrl =
           "http://" + host
@@ -380,17 +271,11 @@ public class MainApplication extends Application implements ReactApplication {
 
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       String entryUrl = getBackgroundRunnerEntryUrl();
-      DevVendorBundleInfo devVendor = getDevVendorBundleInfo();
+      BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
       long startTime = System.currentTimeMillis();
-      boolean startScheduled = devVendor == null
+      boolean startScheduled = bundleInfo == null
         ? manager.ensureBackgroundRunnerWithEntryURL(getApplicationContext(), entryUrl)
-        : manager.ensureBackgroundRunnerWithDevVendor(
-            getApplicationContext(),
-            entryUrl,
-            DEV_VENDOR_COMMON_ASSET,
-            devVendor.fingerprint,
-            BuildConfig.ONEKEY_DEV_BG_HMR
-          );
+        : startBuildVariantBackgroundRunner(manager, bundleInfo);
       OneKeyLog.info(
         "BackgroundThread",
         "ensure background runner: trigger=" + trigger
@@ -557,26 +442,34 @@ public class MainApplication extends Application implements ReactApplication {
     // page never blocks React Native from starting during test runs.
     boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
 
-    // Read-only here. MainApplication never increments — that's MainActivity's
+    // Read-only here. MainApplication never increments — that's MainLauncherActivity's
     // job (`recordBootAttempt`). System-initiated process launches (JPush
     // wakeups, foreground-service callbacks, broadcast receivers, post-
-    // download relaunches) run Application.onCreate but NOT MainActivity,
+    // download relaunches) run Application.onCreate but NOT MainLauncherActivity,
     // so the counter stays untouched and bg-launches don't count as failures.
     //
     // No +1 prediction either: predicting `(windowed + 1) >= threshold` would
     // skip RN/JPush init on bg-launches when the previous user-launches were
     // already approaching the threshold, silently dropping the wakeup. We
-    // take the small cost of running RN init on the strike that triggers
-    // recovery — MainActivity re-evaluates post-increment and launches
-    // RecoveryActivity itself.
+    // take the small cost of Application initialization on the strike that
+    // triggers recovery. MainLauncherActivity records the user launch and
+    // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
     shouldShowRecovery = !isHarnessMode
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
-    // SoLoader and new architecture entry point must be initialized before
-    // the recovery early-return because MainActivity extends ReactActivity,
-    // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
-    // TurboModules initialization. Without these, recovery mode itself crashes.
+    OneKeyLog.info(
+      "BootRecovery",
+      "boot_fail_count(activity.windowed): " + windowedFailures
+        + ", shouldShowRecovery: " + shouldShowRecovery
+    );
+
+    if (shouldShowRecovery) {
+        // MainLauncherActivity and RecoveryActivity are plain native activities.
+        // Keep the recovery path independent from React Native initialization.
+        return;
+    }
+
     long tBeforeSoLoader = System.currentTimeMillis();
     try {
         SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
@@ -597,18 +490,7 @@ public class MainApplication extends Application implements ReactApplication {
       "android.app.new_arch_load: " + (tAfterNewArch - tAfterSoLoader) + "ms (+" + (tAfterNewArch - appLaunchMs) + "ms from launch)"
     );
 
-    OneKeyLog.info(
-      "BootRecovery",
-      "boot_fail_count(activity.windowed): " + windowedFailures
-        + ", shouldShowRecovery: " + shouldShowRecovery
-    );
-
-    if (shouldShowRecovery) {
-        // Skip heavy initialization (React Native, Expo, JPush).
-        // RecoveryActivity is a plain Android Activity and doesn't need them.
-        // This prevents crashes in RN initialization from blocking recovery.
-        return;
-    }
+    configureBuildVariantRuntime();
 
     // The migration bridge uses MMKV's Java wrapper, whose initialization
     // state is separate from the Nitro C++ factory used by react-native-mmkv.
