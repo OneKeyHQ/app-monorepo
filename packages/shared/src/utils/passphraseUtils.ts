@@ -1,3 +1,12 @@
+/**
+ * Protocol V2 devices (Pro 2 / Neo class) take the passphrase as UTF-8:
+ * the app normalizes it to NFKD so a visually identical entry always
+ * reaches the device as the same bytes, and the device's limit is on the
+ * encoded length, not the character count. Everything older takes
+ * printable ASCII only.
+ */
+export const PROTOCOL_V2_PASSPHRASE_MAX_BYTES = 50;
+
 export const normalizeProtocolV2Passphrase = (passphrase: string) =>
   passphrase.normalize('NFKD');
 
@@ -25,7 +34,8 @@ export const isPassphraseValid = (
   if (options?.allowProtocolV2Utf8) {
     const normalized = normalizeProtocolV2Passphrase(passphrase);
     return (
-      !normalized.includes('\0') && protocolV2Utf8ByteLength(normalized) <= 50
+      !normalized.includes('\0') &&
+      protocolV2Utf8ByteLength(normalized) <= PROTOCOL_V2_PASSPHRASE_MAX_BYTES
     );
   }
 

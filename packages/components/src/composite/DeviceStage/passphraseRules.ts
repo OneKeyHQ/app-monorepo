@@ -1,9 +1,27 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  PROTOCOL_V2_PASSPHRASE_MAX_BYTES,
+  normalizeProtocolV2Passphrase,
+  protocolV2Utf8ByteLength,
+} from '@onekeyhq/shared/src/utils/passphraseUtils';
 
-/** The device accepts printable ASCII only (production's validation). */
+/** Older firmware accepts printable ASCII only (production's validation);
+ * protocol V2 devices take NFKD-normalized UTF-8 up to the same budget in
+ * bytes — see `IPassphraseEntryOptions`. */
 export const PASSPHRASE_MAX_LENGTH = 50;
 // eslint-disable-next-line no-control-regex
 const PASSPHRASE_CHARSET = /^[\x20-\x7E]*$/;
+
+export type IPassphraseEntryOptions = {
+  /**
+   * The protocol V2 rule: the entry is NFKD-normalized and measured in
+   * UTF-8 bytes against the device's budget, and any character but NUL
+   * is allowed. The driver decides this from the request — the shipped
+   * dialog keyed it on the wallet-session coordinator's requests, the
+   * only source that reaches a V2 device.
+   */
+  allowProtocolV2Utf8?: boolean;
+};
 
 export type IPassphraseEntryFailure = {
   id: ETranslations;
@@ -25,9 +43,25 @@ export type IPassphraseEntryFailure = {
  */
 export function resolvePassphraseEntryFailure(
   value: string,
+  options?: IPassphraseEntryOptions,
 ): IPassphraseEntryFailure | undefined {
   if (!value.length) {
     return { id: ETranslations.device_stage_enter_passphrase_first__msg };
+  }
+  if (options?.allowProtocolV2Utf8) {
+    const normalized = normalizeProtocolV2Passphrase(value);
+    if (normalized.includes('\0')) {
+      return { id: ETranslations.hardware_unsupported_passphrase_characters };
+    }
+    if (
+      protocolV2Utf8ByteLength(normalized) > PROTOCOL_V2_PASSPHRASE_MAX_BYTES
+    ) {
+      return {
+        id: ETranslations.hardware_passphrase_enter_too_long,
+        values: { 0: PROTOCOL_V2_PASSPHRASE_MAX_BYTES },
+      };
+    }
+    return undefined;
   }
   if (value.length > PASSPHRASE_MAX_LENGTH) {
     return {
@@ -39,4 +73,15 @@ export function resolvePassphraseEntryFailure(
     return { id: ETranslations.hardware_unsupported_passphrase_characters };
   }
   return undefined;
+}
+
+/** What actually goes to the device: the NFKD form on protocol V2 (the
+ * bytes the rule above measured), the entry as typed everywhere else. */
+export function normalizePassphraseEntry(
+  value: string,
+  options?: IPassphraseEntryOptions,
+): string {
+  return options?.allowProtocolV2Utf8
+    ? normalizeProtocolV2Passphrase(value)
+    : value;
 }

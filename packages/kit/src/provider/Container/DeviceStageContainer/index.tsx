@@ -467,6 +467,12 @@ function DeviceStageContainerCmp() {
       onAuthContinueAnyway={handleAuthContinueAnyway}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseAllowUtf8={
+        // Same key the legacy dialog used: only the wallet-session
+        // coordinator's requests reach a protocol V2 device, and those
+        // take NFKD UTF-8 instead of printable ASCII.
+        stage?.payload?.source === 'wallet-session-coordinator'
+      }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy
         // dialog seeded its form (unset means ON). Hardcoding ON would
