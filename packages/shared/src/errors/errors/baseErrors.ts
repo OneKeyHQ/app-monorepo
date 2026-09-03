@@ -176,4 +176,12 @@ export class OneKeyServerApiError extends OneKeyError<
 
   override className?: EOneKeyErrorClassNames | undefined =
     EOneKeyErrorClassNames.OneKeyServerApiError;
+
+  // The auth token (X-Onekey-Request-Token) of the failed request is
+  // intentionally NOT a field on this error: even a $$-prefixed own
+  // property is captured by `console.error(e)` and error-collection
+  // contexts. It travels through the module-private WeakMap stash in
+  // shared/src/request/requestAuthTokenErrorStash.ts instead (write:
+  // global axios response interceptor; read-and-delete: ServiceBase prime
+  // invalid-token handler).
 }

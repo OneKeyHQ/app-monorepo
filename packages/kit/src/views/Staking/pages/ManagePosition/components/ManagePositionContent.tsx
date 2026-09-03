@@ -2,13 +2,25 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Page,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -18,6 +30,7 @@ import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
+import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
 import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
@@ -77,46 +90,293 @@ export interface IManagePositionContentProps {
   onStakeWithdrawSuccess?: () => void;
 }
 
-const SectionSkeleton = () => (
-  <YStack px="$5" gap="$5">
-    {/* Tab bar skeleton */}
-    <XStack gap="$4">
-      <Skeleton w={80} h="$10" borderRadius="$2" />
-      <Skeleton w={80} h="$10" borderRadius="$2" />
-    </XStack>
+// Loading shell for the manage panel. Instead of masking the whole panel with
+// gray blocks, render the fixed chrome — the type switcher when applicable,
+// the amount input frame, and the token — immediately, and reserve skeletons
+// only for the values that depend on the (slow) getManagePage response. This
+// keeps the layout stable (no jump when data lands) and makes the wait feel
+// smoother.
+const ManageSectionShell = ({
+  type,
+  symbol,
+  defaultTab,
+  fallbackTokenImageUri,
+  hasProtocolSwitch,
+  isInModalContext,
+}: {
+  type: EManagePositionType;
+  symbol: string;
+  defaultTab?: 'deposit' | 'withdraw';
+  fallbackTokenImageUri?: string;
+  // Trending entry (with a protocol switcher) renders a different card stack
+  // than the details entry, so the skeleton mirrors whichever will land.
+  hasProtocolSwitch?: boolean;
+  // In the modal the action button lives in Page.Footer (bottom-right), so the
+  // shell must not render an inline full-width button there.
+  isInModalContext?: boolean;
+}) => {
+  const intl = useIntl();
+  const { primaryLabel, secondaryLabel } = useMemo(() => {
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return {
+        primaryLabel: intl.formatMessage({ id: ETranslations.global_borrow }),
+        secondaryLabel: intl.formatMessage({ id: ETranslations.defi_repay }),
+      };
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return {
+        primaryLabel: intl.formatMessage({ id: ETranslations.defi_supply }),
+        secondaryLabel: intl.formatMessage({
+          id: ETranslations.global_withdraw,
+        }),
+      };
+    }
+    return {
+      primaryLabel: intl.formatMessage({ id: ETranslations.earn_deposit }),
+      secondaryLabel: intl.formatMessage({ id: ETranslations.global_withdraw }),
+    };
+  }, [intl, type]);
 
-    {/* Main content area skeleton */}
-    <YStack gap="$4" pt="$3">
-      {/* Amount input section */}
-      <YStack gap="$3" pt="$4">
-        <Stack bg="$bgSubdued" borderRadius="$3" p="$4">
-          <Skeleton h="$10" w="60%" borderRadius="$2" />
-        </Stack>
+  const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
+  const tabLabels = [primaryLabel, secondaryLabel];
+  const activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
+  const borrowAction = useMemo(() => {
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return activeIndex === 1 ? 'withdraw' : 'supply';
+    }
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return activeIndex === 1 ? 'repay' : 'borrow';
+    }
+    return undefined;
+  }, [activeIndex, type]);
+
+  // The loaded layout has gap $1.5 between the type switcher and the content:
+  // in the details panel that comes from
+  // ManagePositionPart's <YStack gap="$1.5"> wrapping the (fragment)
+  // NormalManageContent; in the modal there is no such wrapper. Reproduce that
+  // gap deterministically here (a single wrapping YStack means the parent gap
+  // can't apply to us), so the tab→input spacing matches the loaded state
+  // exactly and doesn't jump on load.
+  const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
+
+  return (
+    <YStack gap={isInModalContext ? undefined : '$1.5'}>
+      <XStack px="$5">
+        {tabLabels.map((label, index) => {
+          const isFocused = index === activeIndex;
+          return (
+            <XStack
+              key={label}
+              px="$2"
+              py="$1.5"
+              mr="$1"
+              bg={isFocused ? '$bgActive' : '$bg'}
+              borderRadius="$2"
+              borderCurve="continuous"
+            >
+              <SizableText
+                size="$headingMd"
+                color={isFocused ? '$text' : '$textSubdued'}
+                letterSpacing={-0.15}
+              >
+                {label}
+              </SizableText>
+            </XStack>
+          );
+        })}
+      </XStack>
+
+      {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
+          the layout is identical when real data lands. */}
+      <YStack px="$5" py="$2.5" gap="$4">
+        {/* Amount input frame — fixed chrome, only the value pends. Dimensions
+            mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
+        <YStack borderRadius="$3" bg="$bgSubdued" px="$3.5" py="$2.5" gap="$2">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {activeLabel}
+          </SizableText>
+          <XStack h="$11" ai="center" jc="space-between">
+            <Skeleton h="$6" w="$24" borderRadius="$2" />
+            <XStack ai="center" gap="$1.5">
+              {/* Everything else in this frame is a Skeleton, but the token
+                  icon was rendered straight away — entries that carry no
+                  tokenImageUri route param (e.g. a banner deep link) then drew
+                  Token's empty placeholder and popped the real logo in once
+                  tokenInfo resolved. Skeleton it at the same size instead so
+                  the swap costs no layout shift (OK-59961). */}
+              {fallbackTokenImageUri ? (
+                <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+              ) : (
+                <Skeleton w="$6" h="$6" radius="round" />
+              )}
+              {/* The symbol is the one real string this frame used to draw, and
+                  a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
+                  a full-width name sitting among skeleton bars reads worse than
+                  no name at all, and the page title already carries it. Skeleton
+                  it like everything else and let the real symbol land with the
+                  rest of the data. */}
+              <Skeleton h="$6" w="$20" borderRadius="$2" />
+            </XStack>
+          </XStack>
+          <XStack jc="space-between" ai="center">
+            <Skeleton h="$3" w="$16" borderRadius="$2" />
+            <Skeleton h="$3" w="$20" borderRadius="$2" />
+          </XStack>
+        </YStack>
+
+        {hasProtocolSwitch ? (
+          <>
+            {/* Protocol switcher card — filled, mirrors ProtocolSwitchTriggerRow */}
+            <XStack
+              ai="center"
+              jc="space-between"
+              gap="$3"
+              px="$3"
+              py="$2"
+              bg="$bgSubdued"
+              borderRadius="$2"
+            >
+              <XStack flex={1} minWidth={0} gap="$3" ai="center">
+                <Skeleton w="$9" h="$9" borderRadius="$full" />
+                {/* Mirrors ProtocolSwitchTriggerRow text column: bodyLgMedium
+                    title + bodyMd subtitle with gap $0.5 (46px total). */}
+                <YStack flex={1} minWidth={0} gap="$0.5">
+                  <Skeleton.BodyLg w={80} />
+                  <Skeleton.BodyMd w={140} />
+                </YStack>
+              </XStack>
+              <XStack ai="center" gap="$1" flexShrink={0}>
+                <Skeleton h="$5" w={72} borderRadius="$2" />
+                <Skeleton w="$5" h="$5" borderRadius="$1" />
+              </XStack>
+            </XStack>
+
+            {/* Trade / buy card — static content, not loading. Render the real
+                (disabled) labels so it matches the loaded state exactly. The
+                loaded card holds only this row, so its padding is symmetric. */}
+            <YStack
+              p="$3.5"
+              borderRadius="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+            >
+              <XStack jc="space-between" ai="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage(
+                    { id: ETranslations.earn_not_enough_token },
+                    { token: symbol },
+                  )}
+                </SizableText>
+                <XStack gap="$2">
+                  <Button
+                    testID="earn-manage-shell-trade"
+                    size="small"
+                    disabled
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_trade })}
+                  </Button>
+                  <Button testID="earn-manage-shell-buy" size="small" disabled>
+                    {intl.formatMessage({ id: ETranslations.global_buy })}
+                  </Button>
+                </XStack>
+              </XStack>
+            </YStack>
+          </>
+        ) : null}
+
+        {!hasProtocolSwitch && borrowAction ? (
+          <BorrowInfoSectionSkeleton action={borrowAction} />
+        ) : null}
+
+        {!hasProtocolSwitch && !borrowAction ? (
+          /* Summary card — single bordered box (details entry): est. rewards +
+             provider + trade/buy. Interior spacing mirrors the real card
+             (Divider my $5, inner gap $5) so nothing shifts on load. */
+          <YStack
+            p="$3.5"
+            pt="$5"
+            borderRadius="$3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+          >
+            <YStack gap="$1.5">
+              <Skeleton.BodyMd w={100} />
+              <Skeleton.BodyLg w={140} />
+            </YStack>
+            <Divider my="$5" />
+            <YStack gap="$5">
+              {/* Provider accordion-trigger placeholder. minHeight matches the
+                  measured rendered height of the real Accordion.Trigger row
+                  (22px — the web button element renders slightly taller than
+                  its 20px content), so nothing shifts when it loads. */}
+              <XStack jc="space-between" ai="center" minHeight={22}>
+                <XStack ai="center" gap="$1.5">
+                  <Skeleton w="$5" h="$5" borderRadius="$2" />
+                  <Skeleton.BodyMd w={60} />
+                </XStack>
+                <Skeleton w="$5" h="$5" borderRadius="$1" />
+              </XStack>
+              <XStack jc="space-between" ai="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage(
+                    { id: ETranslations.earn_not_enough_token },
+                    { token: symbol },
+                  )}
+                </SizableText>
+                <XStack gap="$2">
+                  <Button
+                    testID="earn-manage-shell-trade"
+                    size="small"
+                    disabled
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_trade })}
+                  </Button>
+                  <Button testID="earn-manage-shell-buy" size="small" disabled>
+                    {intl.formatMessage({ id: ETranslations.global_buy })}
+                  </Button>
+                </XStack>
+              </XStack>
+            </YStack>
+          </YStack>
+        ) : null}
+
+        {/* Inline action button only for the non-modal (details) layout. In the
+            modal the real button sits in Page.Footer, so we render nothing here
+            to avoid a stray full-width button that vanishes on load. */}
+        {isInModalContext ? null : (
+          <Button
+            testID="earn-manage-shell-confirm"
+            size="medium"
+            variant="primary"
+            disabled
+            width="100%"
+          >
+            {activeLabel}
+          </Button>
+        )}
       </YStack>
-
-      {/* Info cards */}
-      <YStack gap="$3" pt="$3">
-        <XStack jc="space-between">
-          <Skeleton.BodyMd w={80} />
-          <Skeleton.BodyMd w={60} />
-        </XStack>
-        <XStack jc="space-between">
-          <Skeleton.BodyMd w={90} />
-          <Skeleton.BodyMd w={70} />
-        </XStack>
-        <XStack jc="space-between">
-          <Skeleton.BodyMd w={70} />
-          <Skeleton.BodyMd w={50} />
-        </XStack>
-      </YStack>
-
-      {/* Action button */}
-      <Stack pt="$4">
-        <Skeleton h="$12" w="100%" borderRadius="$3" />
-      </Stack>
+      {isInModalContext ? (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirmText={activeLabel}
+            confirmButtonProps={{ disabled: true }}
+          />
+          <PercentageStageOnKeyboard
+            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+          />
+        </Page.Footer>
+      ) : null}
     </YStack>
-  </YStack>
-);
+  );
+};
 
 export function ManagePositionContent({
   networkId,
@@ -161,6 +421,7 @@ export function ManagePositionContent({
     ongoingValidator,
     run: refreshManageData,
     isLoading,
+    isStaleData,
   } = useManagePage({
     accountId,
     networkId,
@@ -209,16 +470,43 @@ export function ManagePositionContent({
     await refreshManageData();
   }, [onCreateAddress, refreshManageData]);
 
+  const networkSupportCheckTarget = useMemo(
+    () => ({
+      accountId: accountId || earnAccount?.accountId || '',
+      walletId: earnAccount?.walletId || '',
+      accountImpl: earnAccount?.account?.impl,
+    }),
+    [
+      accountId,
+      earnAccount?.account?.impl,
+      earnAccount?.accountId,
+      earnAccount?.walletId,
+    ],
+  );
+
   // Check if Bitcoin Only firmware is trying to access non-BTC network
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
+      if (
+        !networkSupportCheckTarget.accountId &&
+        !networkSupportCheckTarget.walletId
+      ) {
+        return undefined;
+      }
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: accountId?.length > 0 ? accountId : (indexedAccountId ?? ''),
+        accountId: networkSupportCheckTarget.accountId || undefined,
+        walletId: networkSupportCheckTarget.walletId || undefined,
+        accountImpl: networkSupportCheckTarget.accountImpl,
         activeNetworkId: networkId,
       });
     },
-    [accountId, networkId, indexedAccountId],
-    { initResult: undefined },
+    [
+      networkId,
+      networkSupportCheckTarget.accountId,
+      networkSupportCheckTarget.accountImpl,
+      networkSupportCheckTarget.walletId,
+    ],
+    { initResult: undefined, undefinedResultIfError: true },
   );
 
   const noAddressOrAccount = useMemo(
@@ -242,6 +530,63 @@ export function ManagePositionContent({
       onPress: showAccountSelector,
     };
   }, [intl, noConnectedWallet, showAccountSelector]);
+
+  // Label shown on the confirm button while switching protocols.
+  const switchLoadingActionLabel = useMemo(() => {
+    if (
+      [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
+    ) {
+      return intl.formatMessage({
+        id:
+          defaultTab === 'withdraw'
+            ? ETranslations.defi_repay
+            : ETranslations.global_borrow,
+      });
+    }
+    if (
+      [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
+    ) {
+      return intl.formatMessage({
+        id:
+          defaultTab === 'withdraw'
+            ? ETranslations.global_withdraw
+            : ETranslations.defi_supply,
+      });
+    }
+    return intl.formatMessage({
+      id:
+        defaultTab === 'withdraw'
+          ? ETranslations.global_withdraw
+          : ETranslations.earn_deposit,
+    });
+  }, [intl, type, defaultTab]);
+
+  // Stale request identity must always block actions, including account
+  // switches on pages without a protocol switcher. The loading tail remains
+  // specific to protocol switching so ordinary same-scope refreshes stay usable.
+  const isSwitchingProtocol = shouldBlockManagePageAction({
+    hasManagePageData: !!managePageData,
+    isStaleData,
+    isLoading,
+    hasProtocolSwitch: !!stakeProtocolSwitchConfig,
+  });
+  const switchingFooterAction = useMemo<
+    IManagePositionFooterAction | undefined
+  >(
+    () =>
+      isSwitchingProtocol
+        ? {
+            text: switchLoadingActionLabel,
+            onPress: () => {},
+            loading: true,
+            disabled: true,
+          }
+        : undefined,
+    [isSwitchingProtocol, switchLoadingActionLabel],
+  );
+
+  // No-wallet CTA takes priority; otherwise the switch-loading state (if any).
+  const footerAction = noConnectedWalletFooterAction ?? switchingFooterAction;
 
   // In the normal form footer, no-wallet state is represented by the primary
   // connect-wallet CTA. Keep warnings for connected wallets that need address
@@ -464,7 +809,16 @@ export function ManagePositionContent({
   }, [alertsHolding, alerts, shouldShowWarning, warningElement]);
 
   if (isLoading && !managePageData) {
-    return <SectionSkeleton />;
+    return (
+      <ManageSectionShell
+        type={type}
+        symbol={symbol}
+        defaultTab={defaultTab}
+        fallbackTokenImageUri={fallbackTokenImageUri}
+        hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
+        isInModalContext={isInModalContext}
+      />
+    );
   }
 
   // Pendle special rendering: use ManagePageV2 for future shared layouts.
@@ -490,7 +844,7 @@ export function ManagePositionContent({
         withdrawDisabled={withdrawDisabled}
         stakeBeforeFooter={stakeBeforeFooter}
         withdrawBeforeFooter={withdrawBeforeFooter}
-        footerActionOverride={noConnectedWalletFooterAction}
+        footerActionOverride={footerAction}
         historyAction={historyAction}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}
@@ -538,7 +892,7 @@ export function ManagePositionContent({
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
-        footerActionOverride={noConnectedWalletFooterAction}
+        footerActionOverride={footerAction}
         fallbackTokenImageUri={fallbackTokenImageUri}
       />
     );
@@ -558,7 +912,7 @@ export function ManagePositionContent({
         showApyDetail={showApyDetail}
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
-        footerActionOverride={noConnectedWalletFooterAction}
+        footerActionOverride={footerAction}
         fallbackTokenImageUri={fallbackTokenImageUri}
         protocolInfo={resolvedProtocolInfo}
         tokenInfo={resolvedTokenInfo}
@@ -588,7 +942,7 @@ export function ManagePositionContent({
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
       withdrawBeforeFooter={withdrawBeforeFooter}
-      footerActionOverride={noConnectedWalletFooterAction}
+      footerActionOverride={footerAction}
       historyAction={historyAction}
       onHistory={onHistory}
       indicatorAccountId={earnAccount?.accountId}

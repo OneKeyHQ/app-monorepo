@@ -156,6 +156,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketStockDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
       {
         showUrl: true,
@@ -231,6 +236,11 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.BatchTxConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
       {
         showUrl: true,
@@ -277,6 +287,17 @@ export const buildAllowList = (
   if (platformEnv.isExtension) {
     // Permission WebUSB
     rules[pagePath`${ERootRoutes.PermissionWebDevice}`] = {
+      showUrl: true,
+      showParams: true,
+    };
+  }
+
+  if (platformEnv.isWeb) {
+    // OAuth popup callback page (OAUTH_CALLBACK_WEB_PATH): the browser URL
+    // must keep both the path and its query (?code=...&onekey_oauth_state=...)
+    // because the opener window polls popup.location.href to read the
+    // authorization code; rewriting it to '/' would drop `code` and fail login.
+    rules[pagePath`${ERootRoutes.OAuthCallbackWeb}`] = {
       showUrl: true,
       showParams: true,
     };

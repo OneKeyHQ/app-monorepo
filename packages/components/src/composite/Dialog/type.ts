@@ -1,4 +1,5 @@
 import type {
+  ComponentProps,
   Dispatch,
   MutableRefObject,
   PropsWithChildren,
@@ -10,6 +11,7 @@ import type {
 import type {
   DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
+  Sheet as TMSheet,
   SheetProps as TMSheetProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -19,7 +21,6 @@ import type {
   IKeyOfIcons,
   IStackProps,
   IXStackProps,
-  IYStackProps,
 } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
@@ -91,7 +92,7 @@ interface IBasicDialogProps extends TMDialogProps {
   // Close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: IYStackProps;
+  sheetOverlayProps?: ComponentProps<typeof TMSheet.Overlay>;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
@@ -109,6 +110,8 @@ interface IBasicDialogProps extends TMDialogProps {
    * forceMount controls whether to force show the overlay in this case.
    */
   forceMount?: boolean;
+  /** Fall back to the initial window bottom inset when the current safe-area inset is zero. */
+  useInitialSafeAreaBottomInsetFallback?: boolean;
 }
 
 export type IDialogProps = IBasicDialogProps &

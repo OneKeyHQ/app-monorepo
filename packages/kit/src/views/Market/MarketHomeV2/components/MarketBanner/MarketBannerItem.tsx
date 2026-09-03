@@ -17,6 +17,8 @@ import {
   type IMarketBannerItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketTestIDs } from '../../testIDs';
+
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
   isSmallScreen?: boolean;
@@ -113,7 +115,7 @@ function MarketBannerItemComponent({
       alignItems="flex-start"
       justifyContent="space-between"
       onPress={handlePress}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_BORDER_COLOR}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
@@ -129,12 +131,14 @@ function MarketBannerItemComponent({
         maxWidth: 256,
         width: 'auto',
         h: 'auto',
+        minHeight: 96,
         p: '$4',
         gap: '$3',
         alignItems: 'center',
       }}
     >
       <YStack
+        testID={MarketTestIDs.bannerItem}
         gap="$0.5"
         flex={1}
         minWidth={0}

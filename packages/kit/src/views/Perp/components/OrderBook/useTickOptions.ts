@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -8,16 +8,18 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import {
-  analyzeOrderBookPrecision,
   getDisplayPriceScaleDecimals,
+  resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   type ITickParam,
+  buildReferenceTickOptions,
   buildTickOptions,
   getDefaultTickOption,
+  getTickOptionsDataDuringTransition,
+  shouldSeedOrderBookTickOption,
 } from './tickSizeUtils';
 
 interface ITickOptionsResult {
@@ -29,14 +31,30 @@ interface ITickOptionsResult {
   sizeDecimals: number;
 }
 
+const emptyTickOption: ITickParam = {
+  targetTick: 0,
+  nSigFigs: null,
+  apiTick: 0,
+  exact: true,
+  multiplier: 1,
+  label: '',
+  value: '',
+};
+
 export function useTickOptions({
   symbol,
   bids,
   asks,
+  referencePrice,
+  szDecimals,
+  isSpot,
 }: {
   symbol?: string;
   bids: IBookLevel[];
   asks: IBookLevel[];
+  referencePrice?: string;
+  szDecimals?: number;
+  isSpot: boolean;
 }): ITickOptionsResult {
   // Use ref to cache tick options calculation results by symbol
   const tickOptionsCache = useRef<{
@@ -44,6 +62,7 @@ export function useTickOptions({
     tickOptions: ITickParam[];
     defaultTickOption: ITickParam;
     priceDecimals: number;
+    isFallback?: boolean;
   } | null>(null);
 
   const [persistedTickOptions] = useOrderBookTickOptionsAtom();
@@ -53,26 +72,80 @@ export function useTickOptions({
   );
   const actions = useHyperliquidActions();
 
+  // Seeding makes the first write authoritative, so a seed that lands before
+  // the stored preferences finish loading would permanently replace the user's
+  // choice rather than transiently shadow it.
+  const [hasLoadedPersistedTickOptions, setHasLoadedPersistedTickOptions] =
+    useState(false);
   useEffect(() => {
-    void actions.current.ensureOrderBookTickOptionsLoaded();
+    let cancelled = false;
+    void (async () => {
+      await actions.current.ensureOrderBookTickOptionsLoaded();
+      if (!cancelled) {
+        setHasLoadedPersistedTickOptions(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [actions]);
 
   const topBidPrice = bids[0]?.px;
   const topAskPrice = asks[0]?.px;
+  const referenceTickOptionsData = useMemo(
+    () =>
+      symbol
+        ? buildReferenceTickOptions({
+            symbol,
+            price: referencePrice,
+            szDecimals,
+            isSpot,
+          })
+        : null,
+    [isSpot, referencePrice, symbol, szDecimals],
+  );
 
   const tickOptionsData = useMemo(() => {
     if (!symbol) return null;
 
     const marketPrice = topBidPrice || topAskPrice || '0';
-    if (marketPrice === '0') return null;
-
-    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
     const cached =
       tickOptionsCache.current?.symbol === symbol
         ? tickOptionsCache.current
         : null;
+    if (marketPrice === '0') {
+      return getTickOptionsDataDuringTransition({
+        symbol,
+        hasMarketData: false,
+        cached,
+        reference: referenceTickOptionsData,
+      });
+    }
 
-    if (cached && priceDecimals <= cached.priceDecimals) {
+    const marketTickOptionsData = buildReferenceTickOptions({
+      symbol,
+      price: marketPrice,
+      szDecimals,
+      isSpot,
+    });
+    if (marketTickOptionsData) {
+      if (
+        cached &&
+        !cached.isFallback &&
+        marketTickOptionsData.priceDecimals <= cached.priceDecimals
+      ) {
+        return cached;
+      }
+      tickOptionsCache.current = marketTickOptionsData;
+      return marketTickOptionsData;
+    }
+
+    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
+
+    if (
+      cached &&
+      (!cached.isFallback || priceDecimals <= cached.priceDecimals)
+    ) {
       return cached;
     }
 
@@ -88,46 +161,50 @@ export function useTickOptions({
     const tickLabelDecimals =
       new BigNumber(defaultTickOption.label).decimalPlaces() ?? 0;
 
+    // Derived without szDecimals, so it uses a different multiplier set than
+    // buildReferenceTickOptions and can label the same tick with a different
+    // nSigFigs. Tagged so a later reference list can displace it (OK-59102).
     const result = {
       symbol,
       tickOptions,
       defaultTickOption,
       priceDecimals: Math.max(priceDecimals, tickLabelDecimals),
+      isFallback: true,
     };
 
     // Cache the result
     tickOptionsCache.current = result;
 
     return result;
-  }, [symbol, topBidPrice, topAskPrice]);
+  }, [
+    isSpot,
+    referenceTickOptionsData,
+    symbol,
+    szDecimals,
+    topAskPrice,
+    topBidPrice,
+  ]);
 
-  // Calculate size decimals separately as it may need to update more frequently
   const sizeDecimals = useMemo(() => {
-    const { sizeDecimals: calculatedSizeDecimals } = analyzeOrderBookPrecision(
+    return resolveOrderBookSizeDecimals({
       bids,
       asks,
-    );
-    return calculatedSizeDecimals;
-  }, [bids, asks]);
+      szDecimals,
+    });
+  }, [asks, bids, szDecimals]);
 
   const baseTickOptionsData = useMemo(() => {
     // Fallback when no data available
     if (!tickOptionsData) {
-      const priceDecimals = 0;
-      const decimalsArg = 0;
-      const tickOptions = buildTickOptions(1, decimalsArg);
-      const defaultTickOption = getDefaultTickOption(tickOptions);
-
       return {
-        tickOptions,
-        defaultTickOption,
-        priceDecimals,
+        tickOptions: [],
+        defaultTickOption: emptyTickOption,
+        priceDecimals: 0,
       };
     }
 
     return tickOptionsData;
   }, [tickOptionsData]);
-
   const selectedTickOption = useMemo(() => {
     const { tickOptions, defaultTickOption } = baseTickOptionsData;
 
@@ -157,25 +234,41 @@ export function useTickOptions({
   useEffect(() => {
     if (!symbol) return;
 
-    const persisted = persistedTickOptions[symbol];
-    const currentPersist: IPerpOrderBookTickOptionPersist = {
-      value: selectedTickOption.value,
-      nSigFigs: selectedTickOption.nSigFigs ?? null,
-      mantissa: selectedTickOption.mantissa ?? null,
-    };
-
+    // Seed-only writer. The persisted tick option is a user preference, so an
+    // order book adopts it and never writes a derived correction back: two
+    // books whose instance-local lists disagree on nSigFigs for the same value
+    // would otherwise overwrite each other without ever converging (OK-59102).
     if (
-      !persisted ||
-      persisted.value !== currentPersist.value ||
-      persisted.nSigFigs !== currentPersist.nSigFigs ||
-      persisted.mantissa !== currentPersist.mantissa
+      !shouldSeedOrderBookTickOption({
+        isReady: Boolean(tickOptionsData),
+        // Read off the data rather than inferred from szDecimals: the
+        // transition branch can hand back a cached fallback list after
+        // szDecimals has arrived.
+        isFallbackList: Boolean(tickOptionsData?.isFallback),
+        hasLoadedPersistedOptions: hasLoadedPersistedTickOptions,
+        hasPersistedOption: Boolean(persistedTickOptionsForRender[symbol]),
+      })
     ) {
-      void actions.current.setOrderBookTickOption({
-        symbol,
-        option: currentPersist,
-      });
+      return;
     }
-  }, [symbol, persistedTickOptions, selectedTickOption, actions]);
+
+    void actions.current.setOrderBookTickOption({
+      symbol,
+      option: {
+        value: selectedTickOption.value,
+        nSigFigs: selectedTickOption.nSigFigs ?? null,
+        mantissa: selectedTickOption.mantissa ?? null,
+      },
+      source: 'seed',
+    });
+  }, [
+    symbol,
+    hasLoadedPersistedTickOptions,
+    persistedTickOptionsForRender,
+    selectedTickOption,
+    tickOptionsData,
+    actions,
+  ]);
 
   const handleSelectTickOption = useCallback(
     (option: ITickParam) => {

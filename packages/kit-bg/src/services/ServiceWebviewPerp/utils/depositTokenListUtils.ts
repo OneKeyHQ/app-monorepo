@@ -173,6 +173,52 @@ export function buildPerpsDepositTokensByNetwork(tokens: IPerpsDepositToken[]) {
   }, {});
 }
 
+function getPerpsDepositTokenIdentity(token: IPerpsDepositToken) {
+  return `${token.networkId.toLowerCase()}:${normalizeTokenAddress(
+    token.contractAddress,
+  )}`;
+}
+
+export function mergePerpsDepositTokensWithServerTokens({
+  walletTokens,
+  serverTokens,
+}: {
+  walletTokens: IPerpsDepositToken[];
+  serverTokens?: IPerpsDepositToken[];
+}) {
+  const serverTokensByIdentity = new Map(
+    (serverTokens ?? []).map((token) => [
+      getPerpsDepositTokenIdentity(token),
+      token,
+    ]),
+  );
+  const usedServerTokenIdentities = new Set<string>();
+  const mergedWalletTokens = walletTokens.map((walletToken) => {
+    const identity = getPerpsDepositTokenIdentity(walletToken);
+    const serverToken = serverTokensByIdentity.get(identity);
+    if (!serverToken) {
+      return walletToken;
+    }
+    usedServerTokenIdentities.add(identity);
+    return {
+      ...serverToken,
+      ...walletToken,
+      isDefault: serverToken.isDefault || walletToken.isDefault || undefined,
+    };
+  });
+  const missingServerTokens = (serverTokens ?? [])
+    .filter(
+      (token) =>
+        !usedServerTokenIdentities.has(getPerpsDepositTokenIdentity(token)),
+    )
+    .map((token) => ({
+      ...token,
+      balanceParsed: token.balanceParsed ?? '0',
+      fiatValue: token.fiatValue ?? '0',
+    }));
+  return [...mergedWalletTokens, ...missingServerTokens];
+}
+
 function findMatchedPerpsDepositToken({
   tokens,
   targetToken,
@@ -254,10 +300,12 @@ export function resolvePerpsDepositSelectedToken({
   tokens,
   currentToken,
   defaultTokens,
+  preserveCurrentToken = false,
 }: {
   tokens: IPerpsDepositToken[];
   currentToken?: IPerpsDepositToken;
   defaultTokens?: IPerpsDepositToken[];
+  preserveCurrentToken?: boolean;
 }) {
   const matchedCurrentToken = findMatchedPerpsDepositToken({
     tokens,
@@ -267,9 +315,14 @@ export function resolvePerpsDepositSelectedToken({
     getHighestPositiveFiatValuePerpsDepositToken(tokens);
   if (
     matchedCurrentToken &&
-    (!highestFiatValueToken || currentToken?.fiatValue !== undefined)
+    (preserveCurrentToken ||
+      !highestFiatValueToken ||
+      currentToken?.fiatValue !== undefined)
   ) {
     return matchedCurrentToken;
+  }
+  if (preserveCurrentToken && currentToken) {
+    return currentToken;
   }
   if (highestFiatValueToken) {
     return highestFiatValueToken;

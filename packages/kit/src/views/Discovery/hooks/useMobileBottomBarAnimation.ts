@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import {
+  Easing,
   runOnUI,
   useAnimatedStyle,
   useSharedValue,
@@ -42,8 +43,14 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
       }
 
       if (!canScroll) {
-        toolbarHeight.value = withTiming(fullBarHeight);
-        toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
+        toolbarHeight.value = withTiming(fullBarHeight, {
+          duration: DISPLAY_BOTTOM_BAR_DURATION,
+          easing: Easing.inOut(Easing.quad),
+        });
+        toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR, {
+          duration: DISPLAY_BOTTOM_BAR_DURATION,
+          easing: Easing.inOut(Easing.quad),
+        });
         return;
       }
 
@@ -68,9 +75,11 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
 
       toolbarHeight.value = withTiming(height, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
+        easing: Easing.inOut(Easing.quad),
       });
       toolbarOpacity.value = withTiming(height / fullBarHeight, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
+        easing: Easing.inOut(Easing.quad),
       });
     },
     [
@@ -95,26 +104,32 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         Math.round(contentOffsetY) > Math.round(scrollableHeight);
       const canScroll =
         Math.round(contentSize.height) >
-        Math.round(
-          layoutMeasurement.height + contentInset.top + contentInset.bottom,
-        ) +
-          MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
-          fullBarHeight;
+        Math.round(layoutMeasurement.height) +
+          MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE;
 
       runOnUI(processScroll)(contentOffsetY, canScroll, isOutOfBounds);
     },
-    [fullBarHeight, processScroll],
+    [processScroll],
   );
 
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: toolbarHeight.value,
     opacity: toolbarOpacity.value,
   }));
+  const webPageAnimatedStyle = useAnimatedStyle(() => ({
+    bottom: toolbarHeight.value,
+  }));
 
   // Reset toolbar animation state when activeTabId changes.
   useEffect(() => {
-    toolbarHeight.value = withTiming(fullBarHeight);
-    toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
+    toolbarHeight.value = withTiming(fullBarHeight, {
+      duration: DISPLAY_BOTTOM_BAR_DURATION,
+      easing: Easing.inOut(Easing.quad),
+    });
+    toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR, {
+      duration: DISPLAY_BOTTOM_BAR_DURATION,
+      easing: Easing.inOut(Easing.quad),
+    });
     runOnUI(() => {
       'worklet';
 
@@ -128,6 +143,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   return {
     handleScroll,
     toolbarAnimatedStyle,
+    webPageAnimatedStyle,
   };
 }
 

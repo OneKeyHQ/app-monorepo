@@ -7,6 +7,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { ExtOneKeyIdAuthOnMount } from '../../../components/OneKeyAuth/ExtOneKeyIdAuthOnMount';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { ProviderJotaiContextAccountOverview } from '../../../states/jotai/contexts/accountOverview';
 import {
@@ -17,7 +18,6 @@ import {
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
-import { KYTIntroOnMount } from '../../Setting/pages/Protection/KYTIntroDialog';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 
 import { HomePageView } from './HomePageView';
@@ -85,8 +85,8 @@ function HomePageContainer() {
           />
           <DAppConnectExtensionFloatingTrigger />
           <OnboardingOnMount />
+          <ExtOneKeyIdAuthOnMount />
           <NotificationRegisterDaily />
-          <KYTIntroOnMount />
           <BTCFreshAddressProvider />
           {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 

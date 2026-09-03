@@ -85,7 +85,7 @@ export function Progress({
           // https://github.com/tamagui/tamagui/issues/2753
           // https://github.com/tamagui/tamagui/issues/2847
           // Enabling animation on Native platforms causes the progress bar to fail initial rendering
-          animation={!platformEnv.isNative && animated ? 'quick' : null}
+          transition={!platformEnv.isNative && animated ? 'quick' : null}
           backgroundColor={indicatorColor}
           borderRadius="$full"
         />

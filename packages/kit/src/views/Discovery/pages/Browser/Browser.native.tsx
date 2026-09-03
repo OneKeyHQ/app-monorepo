@@ -6,10 +6,8 @@ import { Freeze } from 'react-freeze';
 import {
   BackHandler,
   type LayoutChangeEvent,
-  type StyleProp,
   StyleSheet,
   View,
-  type ViewStyle,
 } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
@@ -69,7 +67,6 @@ import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebu
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
-import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
@@ -84,6 +81,10 @@ import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import {
+  getExploreTabName,
+  getExploreUniversalSearchTabRoute,
+} from './exploreTabUtils';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
@@ -91,27 +92,41 @@ import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorro
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
 
-type IExploreTabName = 'market' | 'earn' | 'browser';
 type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
 
-function getExploreTabName(tab: ETranslations): IExploreTabName {
-  if (tab === ETranslations.global_market) {
-    return 'market';
-  }
-  if (tab === ETranslations.global_earn) {
-    return 'earn';
-  }
-  return 'browser';
-}
-
 const styles = StyleSheet.create({
+  // iOS WKWebViews must stay in the native layout tree. In nested layouts,
+  // display:none can reload the page even though React keeps it mounted.
   webPageLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 3,
   },
   webPageRootLayer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 3,
+  },
+  iosWebPageRootLayerVisible: {
+    opacity: 1,
+    zIndex: 3,
+  },
+  iosWebPageRootLayerHidden: {
+    opacity: 0,
+    zIndex: 0,
+  },
+  webPageRootToolbar: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 4,
   },
 });
 
@@ -238,6 +253,8 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
+  const universalSearchTabRoute =
+    getExploreUniversalSearchTabRoute(selectedHeaderTab);
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -245,7 +262,7 @@ function MobileBrowser() {
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle } =
+  const { handleScroll, toolbarAnimatedStyle, webPageAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -265,6 +282,8 @@ function MobileBrowser() {
   }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
   const isBrowserWebPageVisible =
     selectedHeaderTab === ETranslations.global_browser && !showDiscoveryPage;
+  const isBrowserDashboardActive =
+    selectedHeaderTab === ETranslations.global_browser && showDiscoveryPage;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -404,7 +423,7 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
   // center vertically aligns with the Wallet search bar — which sits centered in
@@ -514,13 +533,25 @@ function MobileBrowser() {
 
   const displayBottomBar = !showDiscoveryPage;
   const shouldShowRootWebPageLayer = useOuterPager && isBrowserWebPageVisible;
-  const rootWebPageLayerStyle: StyleProp<ViewStyle> = [
-    styles.webPageRootLayer,
-    {
-      bottom: BROWSER_BOTTOM_BAR_HEIGHT + bottom,
-      display: shouldShowRootWebPageLayer ? 'flex' : 'none',
-    },
-  ];
+  const browserDashboardContent = (
+    <View
+      collapsable={false}
+      pointerEvents={showDiscoveryPage ? 'auto' : 'none'}
+      accessibilityElementsHidden={!showDiscoveryPage}
+      importantForAccessibility={
+        showDiscoveryPage ? 'auto' : 'no-hide-descendants'
+      }
+      style={{
+        flex: 1,
+        opacity: showDiscoveryPage ? 1 : 0,
+      }}
+    >
+      <DashboardContent
+        isActive={isBrowserDashboardActive}
+        onScroll={handleScroll}
+      />
+    </View>
+  );
 
   return (
     <Page fullPage>
@@ -577,46 +608,68 @@ function MobileBrowser() {
               browserContent={
                 <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
-                    <View
-                      style={{
-                        display: showDiscoveryPage ? 'flex' : 'none',
-                        flex: showDiscoveryPage ? 1 : undefined,
-                      }}
-                    >
-                      <DashboardContent onScroll={handleScroll} />
-                    </View>
+                    {browserDashboardContent}
+                    {platformEnv.isNativeAndroid ? (
+                      <Animated.View
+                        collapsable={false}
+                        pointerEvents={
+                          shouldShowRootWebPageLayer ? 'auto' : 'none'
+                        }
+                        accessibilityElementsHidden={
+                          !shouldShowRootWebPageLayer
+                        }
+                        importantForAccessibility={
+                          shouldShowRootWebPageLayer
+                            ? 'auto'
+                            : 'no-hide-descendants'
+                        }
+                        style={[styles.webPageLayer, webPageAnimatedStyle]}
+                      >
+                        <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                      </Animated.View>
+                    ) : null}
                   </Stack>
-                  <Freeze freeze={!displayBottomBar}>
-                    <Animated.View
-                      style={[
-                        toolbarAnimatedStyle,
-                        {
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                        },
-                      ]}
-                    >
-                      <MobileBrowserBottomBar
-                        id={activeTabId ?? ''}
-                        onGoBackHomePage={handleGoBackHome}
-                      />
-                    </Animated.View>
-                  </Freeze>
                 </Stack>
               }
             />
-            <View
-              collapsable={false}
-              pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
-              accessibilityElementsHidden={!shouldShowRootWebPageLayer}
-              importantForAccessibility={
-                shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
-              }
-              style={rootWebPageLayerStyle}
-            >
-              {content}
-            </View>
+            {/* Resize the iOS WebView with the toolbar so fixed page content
+                stays visible above it. */}
+            {platformEnv.isNativeIOS ? (
+              <Animated.View
+                collapsable={false}
+                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                accessibilityElementsHidden={!shouldShowRootWebPageLayer}
+                importantForAccessibility={
+                  shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
+                }
+                style={[
+                  styles.webPageRootLayer,
+                  webPageAnimatedStyle,
+                  shouldShowRootWebPageLayer
+                    ? styles.iosWebPageRootLayerVisible
+                    : styles.iosWebPageRootLayerHidden,
+                ]}
+              >
+                {content}
+              </Animated.View>
+            ) : null}
+            <Freeze freeze={!displayBottomBar}>
+              <Animated.View
+                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                style={[
+                  styles.webPageRootToolbar,
+                  toolbarAnimatedStyle,
+                  {
+                    display: shouldShowRootWebPageLayer ? 'flex' : 'none',
+                  },
+                ]}
+              >
+                <MobileBrowserBottomBar
+                  id={activeTabId ?? ''}
+                  onGoBackHomePage={handleGoBackHome}
+                />
+              </Animated.View>
+            </Freeze>
           </>
         ) : (
           <>
@@ -652,7 +705,10 @@ function MobileBrowser() {
                     flex: showDiscoveryPage ? 1 : undefined,
                   }}
                 >
-                  <DashboardContent onScroll={handleScroll} />
+                  <DashboardContent
+                    isActive={isBrowserDashboardActive}
+                    onScroll={handleScroll}
+                  />
                 </View>
                 {!isTabletMainView ? (
                   <View
@@ -737,6 +793,7 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
+              tabRoute={universalSearchTabRoute}
             />
           </Stack>
           <TabPageHeader

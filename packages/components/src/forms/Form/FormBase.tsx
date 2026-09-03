@@ -303,7 +303,7 @@ function Field({
           {hint || error?.message ? (
             <SizableText
               pt="$1.5"
-              animation="quick"
+              transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={errorAnimationStyle}
               exitStyle={errorAnimationStyle}

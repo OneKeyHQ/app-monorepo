@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import {
@@ -22,9 +23,15 @@ import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDi
 
 const SPOT_PAIR_SEPARATOR = '_';
 
+// Longest prefix first so a shorter one cannot shadow it. Bare-prefix matching
+// has to stay: legacy links omit the separator (`xyzNVDA`).
 function findDexPrefix(token: string): string | null {
   const lowerToken = token.toLowerCase();
-  return DEX_PREFIXES.find((prefix) => lowerToken.startsWith(prefix)) ?? null;
+  return (
+    [...DEX_PREFIXES]
+      .toSorted((a, b) => b.length - a.length)
+      .find((prefix) => lowerToken.startsWith(prefix)) ?? null
+  );
 }
 
 function encodeCoinForUrl(params: {
@@ -46,14 +53,21 @@ function encodeCoinForUrl(params: {
   const dexPrefix = findDexPrefix(coin);
   if (dexPrefix && coin.includes(DEX_SEPARATOR)) {
     const symbol = coin.slice(dexPrefix.length + DEX_SEPARATOR.length);
-    return `${dexPrefix}${symbol.toUpperCase()}`;
+    // Without the separator a main-dex symbol starting with a registered prefix
+    // is indistinguishable from a sub-DEX token on decode.
+    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
   }
 
   return coin.toUpperCase();
 }
 
-function decodeCoinFromUrl(urlToken: string): string {
-  if (!urlToken) return '';
+function decodeCoinFromUrl(urlToken: string): {
+  coin: string;
+  // Separator-free legacy links are ambiguous; the caller must confirm the
+  // guess against the universe.
+  isAmbiguousLegacyGuess: boolean;
+} {
+  if (!urlToken) return { coin: '', isAmbiguousLegacyGuess: false };
 
   const dexPrefix = findDexPrefix(urlToken);
   if (dexPrefix && urlToken.length > dexPrefix.length) {
@@ -62,10 +76,51 @@ function decodeCoinFromUrl(urlToken: string): string {
       ? dexPrefix.length
       : dexPrefix.length + DEX_SEPARATOR.length;
     const symbol = urlToken.slice(symbolStartIndex);
-    return `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`;
+    return {
+      coin: `${dexPrefix}${DEX_SEPARATOR}${symbol.toUpperCase()}`,
+      isAmbiguousLegacyGuess: hasNoSeparator,
+    };
   }
 
-  return urlToken.toUpperCase();
+  return { coin: urlToken.toUpperCase(), isAmbiguousLegacyGuess: false };
+}
+
+async function readCompleteUniverses() {
+  const { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  return isPerpsUniverseCacheComplete(universesByDex)
+    ? universesByDex
+    : undefined;
+}
+
+// A guessed prefix is only trustworthy once the coin is known to exist.
+async function resolvePerpCoinFromUrl(urlToken: string): Promise<string> {
+  const { coin, isAmbiguousLegacyGuess } = decodeCoinFromUrl(urlToken);
+  if (!isAmbiguousLegacyGuess) {
+    return coin;
+  }
+  try {
+    let universesByDex = await readCompleteUniverses();
+    if (!universesByDex) {
+      // URL resolution runs once, so an incomplete cache would freeze an
+      // unverified guess for the whole session. The refresh is single-flight and
+      // cold start already starts one, so this joins it instead of adding a
+      // request.
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      universesByDex = await readCompleteUniverses();
+    }
+    // Still incomplete: the guess is unproven either way, and keeping it is what
+    // lets a later refresh resolve the link.
+    if (!universesByDex) {
+      return coin;
+    }
+    const exists = universesByDex.some((assets) =>
+      assets?.some((asset) => asset.name === coin),
+    );
+    return exists ? coin : urlToken.toUpperCase();
+  } catch {
+    return coin;
+  }
 }
 
 async function resolveSpotInstrumentFromUrl(urlToken: string): Promise<{
@@ -118,7 +173,7 @@ async function getInstrumentFromUrl(): Promise<{
     }
 
     return {
-      coin: decodeCoinFromUrl(urlToken),
+      coin: await resolvePerpCoinFromUrl(urlToken),
       mode,
     };
   } catch {

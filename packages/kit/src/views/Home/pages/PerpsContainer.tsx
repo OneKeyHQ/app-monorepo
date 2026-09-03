@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Button,
   DashText,
   Icon,
@@ -27,12 +28,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   LeverageBadge,
+  PerpDexBadge,
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
-import { getTradingButtonStyleValues } from '@onekeyhq/kit/src/views/Perp/utils/styleUtils';
 import {
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
@@ -47,6 +48,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -168,6 +173,7 @@ function useOpenPerpAsset() {
         if (infoPanelTab) {
           await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
         }
+        setPerpPageEnterSource(EPerpPageEnterSource.Home);
         navigation.switchTab(ETabRoutes.Perp);
         if (!coin) {
           return;
@@ -715,9 +721,12 @@ function PerpsEmptyRecommendSection() {
                       {token.displayName}
                     </SizableText>
                     <LeverageBadge leverage={token.maxLeverage} />
+                    <PerpDexBadge dexLabel={token.dexLabel} />
                   </XStack>
                   {token.subtitle ? (
-                    <SubtitleText subtitle={token.subtitle} />
+                    <XStack alignItems="center" minWidth={0}>
+                      <SubtitleText subtitle={token.subtitle} />
+                    </XStack>
                   ) : null}
                 </YStack>
               </XStack>
@@ -836,6 +845,7 @@ function PerpsEmptyRecommendSection() {
                         {token.displayName}
                       </SizableText>
                       <LeverageBadge leverage={token.maxLeverage} />
+                      <PerpDexBadge dexLabel={token.dexLabel} />
                     </XStack>
                     <XStack alignItems="center" gap="$1" minWidth={0}>
                       {token.subtitle ? (
@@ -925,9 +935,8 @@ function PerpsDepositButton({
   isDepositDisabled: boolean;
 }) {
   const intl = useIntl();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal('home');
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
-  const buttonStyles = getTradingButtonStyleValues('long', isDepositDisabled);
 
   const handleDeposit = useCallback(async () => {
     if (!canDeposit || isDepositDisabled) {
@@ -950,31 +959,27 @@ function PerpsDepositButton({
   }
 
   return (
-    <Button
+    <Badge
       testID={testID}
-      size="small"
+      borderRadius="$full"
+      size="medium"
       variant="primary"
+      alignItems="center"
+      justifyContent="center"
+      flexDirection="row"
+      gap="$2"
+      px="$3"
+      h={28}
       bg="$bgAccent"
-      minHeight={32}
-      color={buttonStyles.textColor}
+      opacity={isDepositDisabled ? 0.5 : 1}
       cursor={isDepositDisabled ? 'default' : 'pointer'}
-      disabled={isDepositDisabled}
-      hoverStyle={{ bg: '$bgAccentHover' }}
-      pressStyle={{ bg: '$bgAccentActive' }}
-      onPress={() => void handleDeposit()}
-      childrenAsText={false}
+      onPress={isDepositDisabled ? undefined : () => void handleDeposit()}
     >
-      <XStack alignItems="center" gap="$2">
-        <Icon
-          name="AlignBottomOutline"
-          size="$4"
-          color={buttonStyles.textColor}
-        />
-        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </XStack>
-    </Button>
+      <Icon name="AlignBottomOutline" size="$4" color="$iconInverse" />
+      <SizableText size="$bodySmMedium" color="$textInverse">
+        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+      </SizableText>
+    </Badge>
   );
 }
 
@@ -1294,11 +1299,15 @@ function PerpsMetric({
   emphasis?: boolean;
 }) {
   const intl = useIntl();
-  let alignItems: 'center' | 'flex-end' | 'flex-start' = 'flex-start';
-  if (column === 'center') {
-    alignItems = 'center';
-  } else if (align === 'right') {
-    alignItems = 'flex-end';
+  const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
+  let columnFlexGrow = 1;
+  let columnGtMdFlexGrow = 1;
+  if (column === 'left') {
+    columnFlexGrow = 1.35;
+    columnGtMdFlexGrow = 1.45;
+  } else if (column === 'center') {
+    columnFlexGrow = 0.65;
+    columnGtMdFlexGrow = 0.55;
   }
   let valueColor = '$text';
   if (positive) {
@@ -1311,47 +1320,58 @@ function PerpsMetric({
 
   return (
     <YStack
-      width={column === 'left' || column === 'right' ? 120 : undefined}
-      $gtMd={{
-        width: column === 'left' || column === 'right' ? 180 : undefined,
-      }}
-      flex={column === 'center' || !column ? 1 : undefined}
-      gap="$1"
-      alignItems={alignItems}
+      flexGrow={columnFlexGrow}
+      flexBasis={0}
+      minWidth={0}
+      $gtMd={{ flexGrow: columnGtMdFlexGrow }}
     >
-      <XStack alignItems="center" gap="$1">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          numberOfLines={1}
-          $gtMd={{ size: '$bodySm' }}
-        >
-          {intl.formatMessage({ id: labelId })}
-          {labelExtra}
-        </SizableText>
+      <XStack width="100%" justifyContent={alignItems}>
+        <YStack width="100%" minWidth={0} gap="$1" alignItems={alignItems}>
+          <XStack alignItems="center" gap="$1">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              $gtMd={{ size: '$bodySm' }}
+            >
+              {intl.formatMessage({ id: labelId })}
+              {labelExtra}
+            </SizableText>
+          </XStack>
+          {formatter ? (
+            <NumberSizeableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              formatter={formatter}
+              formatterOptions={formatterOptions}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+              contentStyle={{ color: valueColor }}
+              decimalTextStyle={{ color: valueColor }}
+              subTextStyle={{ color: valueColor }}
+            >
+              {value}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              size={valueSize}
+              color={valueColor}
+              $gtMd={{ size: valueGtMdSize }}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {value}
+            </SizableText>
+          )}
+        </YStack>
       </XStack>
-      {formatter ? (
-        <NumberSizeableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-          formatter={formatter}
-          formatterOptions={formatterOptions}
-          contentStyle={{ color: valueColor }}
-          decimalTextStyle={{ color: valueColor }}
-          subTextStyle={{ color: valueColor }}
-        >
-          {value}
-        </NumberSizeableText>
-      ) : (
-        <SizableText
-          size={valueSize}
-          color={valueColor}
-          $gtMd={{ size: valueGtMdSize }}
-        >
-          {value}
-        </SizableText>
-      )}
     </YStack>
   );
 }
@@ -1506,7 +1526,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
         </XStack>
 
         <YStack gap="$3">
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             <PerpsMetric
               labelId={ETranslations.perp_position_position_size}
               labelExtra={` (${displayCoin})`}
@@ -1528,7 +1548,7 @@ function PerpsPositionCard({ position }: { position: IPerpsHomePosition }) {
             />
           </XStack>
 
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%">
             {/* fundingUsd > 0 = paid -> red '-$' (mirrors PositionsRow) */}
             <PerpsMetric
               labelId={ETranslations.perp_position_funding_2}

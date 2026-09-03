@@ -42,7 +42,7 @@ export function GradientMask({
       zIndex={9}
       pointerEvents="none"
       opacity={opacity}
-      animation="fast"
+      transition="fast"
       animateOnly={animateOnlyProps}
       {...positionProps}
     >

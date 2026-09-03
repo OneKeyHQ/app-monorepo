@@ -1,6 +1,6 @@
 ---
 name: 1k-perps-module
-description: Use only for explicit OneKey Perps/Hyperliquid (`views/Perp`, ServiceHyperLiquid, perpetuals, 永续/合约, Perps trading). Covers orderbook/L2/BBO, TWAP, scale/TIF/trigger/reduce-only, Perps TradingView/K-line, Perps Relay deposit, token selector, positions/account state/PnL/funding/margin/liquidation. Exclude generic Swap/Market/TradingView; Swap Relay quote/status/pending/requestId alone is not enough unless Perps deposit/Hyperliquid/`views/Perp`/`usePerpDeposit`/`fetchPerpDeposit*`/`perpsDepositOrderAtom` is explicit.
+description: OneKey Perps/Hyperliquid development for views/Perp, orders, orderbook, charts, Relay deposits, positions, funding, margin, and liquidation. Excludes generic Swap/Market work.
 allowed-tools: Read, Grep, Glob, Bash
 ---
 

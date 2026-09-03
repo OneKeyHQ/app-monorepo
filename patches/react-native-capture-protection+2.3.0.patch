@@ -1,0 +1,162 @@
+diff --git a/node_modules/react-native-capture-protection/android/src/main/java/com/captureprotection/CaptureProtectionModule.kt b/node_modules/react-native-capture-protection/android/src/main/java/com/captureprotection/CaptureProtectionModule.kt
+index b1aa15af67..6d5be881e1 100644
+--- a/node_modules/react-native-capture-protection/android/src/main/java/com/captureprotection/CaptureProtectionModule.kt
++++ b/node_modules/react-native-capture-protection/android/src/main/java/com/captureprotection/CaptureProtectionModule.kt
+@@ -35,17 +35,18 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+     val reactCurrentActivity: Activity?
+         get() = ActivityUtils.getReactCurrentActivity(reactContext)
+     var eventJob: Job? = null
++    // Keep listener state scoped to this React context. Apps can host multiple
++    // runtimes in one process, and static listeners route events only to the
++    // last runtime that initialized the module.
++    var screenCaptureCallback: Any? = null
++    var contentObserver: ContentObserver? = null
++    var displayListener: DisplayManager.DisplayListener? = null
+ 
+     companion object {
+         const val NAME = Constants.NAME
+         const val FULL_MEDIA_CAPTURE_FLAVOR = "fullMediaCapture"
+-        var screenCaptureCallback: Any? = null
+         var registerScreenCaptureCallback: Method? = null
+         var unregisterScreenCaptureCallback: Method? = null
+-
+-        var contentObserver: ContentObserver? = null
+-        var displayListener: DisplayManager.DisplayListener? = null
+-        var reactContext: ReactApplicationContext? = null
+     }
+ 
+     fun reflectionCallback() {
+@@ -72,10 +73,8 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+                     )
+         }
+ 
+-        if (CaptureProtectionModule.screenCaptureCallback == null ||
+-                        CaptureProtectionModule.reactContext != reactContext
+-        ) {
+-            CaptureProtectionModule.screenCaptureCallback =
++        if (screenCaptureCallback == null) {
++            screenCaptureCallback =
+                     Reflection.createScreenCaptureCallback {
+                         triggerCaptureEvent(CaptureEventType.CAPTURED)
+                     }
+@@ -109,14 +108,14 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+     }
+ 
+     fun registerDisplayListener() {
+-        if (CaptureProtectionModule.displayListener == null ||
+-                        CaptureProtectionModule.reactContext != reactContext
+-        ) {
+-            CaptureProtectionModule.displayListener =
++        if (displayListener == null) {
++            displayListener =
+                     object : DisplayManager.DisplayListener {
+                         override fun onDisplayAdded(displayId: Int) {
+                             reactCurrentActivity?.runOnUiThread {
+-                                if (displayManager.getDisplay(displayId) != null) {
++                                // MediaProjection can create a private virtual display that is
++                                // not returned by getDisplay() when this callback fires.
++                                if (!screens.contains(displayId)) {
+                                     screens.add(displayId)
+                                 }
+                                 try {
+@@ -170,23 +167,12 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+     }
+ 
+     init {
+-        if (CaptureProtectionModule.reactContext != reactContext) {
+-            CaptureProtectionModule.screenCaptureCallback = null
+-        }
+         reflectionCallback()
+         registerDisplayListener()
+-        CaptureProtectionModule.displayListener?.let {
+-            try {
+-                displayManager.unregisterDisplayListener(it)
+-            } catch (_: Exception) {
+-                // nothing
+-            }
+-        }
+         displayManager.registerDisplayListener(
+-                CaptureProtectionModule.displayListener,
++                displayListener,
+                 ModuleThread.MainHandler
+         )
+-        CaptureProtectionModule.reactContext = reactContext
+         reactContext.addLifecycleEventListener(this)
+     }
+ 
+@@ -198,7 +184,7 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+                 method.invoke(
+                         reactCurrentActivity,
+                         ModuleThread.MainExecutor,
+-                        CaptureProtectionModule.screenCaptureCallback
++                        screenCaptureCallback
+                 )
+             }
+         } catch (e: Exception) {
+@@ -213,19 +199,20 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+             CaptureProtectionModule.unregisterScreenCaptureCallback?.let { method ->
+                 method.invoke(
+                         reactCurrentActivity,
+-                        CaptureProtectionModule.screenCaptureCallback
++                        screenCaptureCallback
+                 )
+             }
+         } catch (e: Exception) {
+             Log.e(Constants.NAME, "onHostDestroy has raise Exception: " + e.localizedMessage)
+         } finally {
+             try {
+-                CaptureProtectionModule.displayListener?.let {
++                displayListener?.let {
+                     displayManager.unregisterDisplayListener(it)
+                 }
+             } catch (_: Exception) {
+                 // nothing
+             }
++            removeScreenCaptureListener()
+             eventJob?.cancel()
+             screens.clear()
+         }
+@@ -295,10 +281,10 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+         reflectionCallback()
+ 
+         if (CaptureProtectionModule.registerScreenCaptureCallback == null) {
+-            if (CaptureProtectionModule.contentObserver == null &&
++            if (contentObserver == null &&
+                             checkStoragePermission()
+             ) {
+-                CaptureProtectionModule.contentObserver =
++                contentObserver =
+                         object : ContentObserver(ModuleThread.MainHandler) {
+                             override fun onChange(selfChange: Boolean, uri: Uri?) {
+                                 if (FileUtils.isImageUri(uri)) {
+@@ -316,26 +302,26 @@ CaptureProtectionModuleSpec(reactContext), LifecycleEventListener {
+                 reactContext.contentResolver.registerContentObserver(
+                         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                         true,
+-                        CaptureProtectionModule.contentObserver!!
++                        contentObserver!!
+                 )
+             }
+         }
+     }
+ 
+     fun removeScreenCaptureListener() {
+-        CaptureProtectionModule.contentObserver?.let {
++        contentObserver?.let {
+             try {
+                 reactContext.contentResolver.unregisterContentObserver(it)
+             } catch (_: Exception) {
+                 // nothing
+             } finally {
+-                CaptureProtectionModule.contentObserver = null
++                contentObserver = null
+             }
+         }
+     }
+ 
+     fun hasScreenCaptureListener(): Boolean {
+-        return CaptureProtectionModule.contentObserver != null ||
++        return contentObserver != null ||
+                 CaptureProtectionModule.registerScreenCaptureCallback != null
+     }
+ 

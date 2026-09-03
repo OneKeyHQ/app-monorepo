@@ -164,44 +164,44 @@ const ProtocolDetailsPage = () => {
   //   accountId: earnAccount?.accountId,
   //   networkId,
   // });
-  const onClaim = useCallback(async () =>
+  const onClaim = useCallback(async () => {
     //   params?: {
     //   amount: string;
     //   claimTokenAddress?: string;
     //   isReward?: boolean;
     //   isMorphoClaim?: boolean;
     // }
-    {
-      // if (!result) return;
-      // const { amount, claimTokenAddress, isReward, isMorphoClaim } =
-      //   params ?? {};
-      // let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
-      // if (claimTokenAddress) {
-      //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
-      //   if (!rewardToken) {
-      //     throw new OneKeyLocalError('Reward token not found');
-      //   }
-      //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
-      // }
-      // await handleClaim({
-      //   symbol,
-      //   provider,
-      //   claimAmount: claimTokenInfo.amount,
-      //   claimTokenAddress,
-      //   isReward,
-      //   isMorphoClaim,
-      //   details: result,
-      //   stakingInfo: {
-      //     label: EEarnLabels.Claim,
-      //     protocol: earnUtils.getEarnProviderName({
-      //       providerName: result.provider.name,
-      //     }),
-      //     protocolLogoURI: result.provider.logoURI,
-      //     receive: claimTokenInfo,
-      //     tags: [buildLocalTxStatusSyncId(result)],
-      //   },
-      // });
-    }, []);
+    // if (!result) return;
+    // const { amount, claimTokenAddress, isReward, isMorphoClaim } =
+    //   params ?? {};
+    // let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
+    // if (claimTokenAddress) {
+    //   const rewardToken = result.rewardAssets?.[claimTokenAddress];
+    //   if (!rewardToken) {
+    //     throw new OneKeyLocalError('Reward token not found');
+    //   }
+    //   claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
+    // }
+    // await handleClaim({
+    //   symbol,
+    //   provider,
+    //   claimAmount: claimTokenInfo.amount,
+    //   claimTokenAddress,
+    //   isReward,
+    //   isMorphoClaim,
+    //   details: result,
+    //   stakingInfo: {
+    //     label: EEarnLabels.Claim,
+    //     protocol: earnUtils.getEarnProviderName({
+    //       providerName: result.provider.name,
+    //     }),
+    //     protocolLogoURI: result.provider.logoURI,
+    //     receive: claimTokenInfo,
+    //     tags: [buildLocalTxStatusSyncId(result)],
+    //   },
+    // });
+    return undefined;
+  }, []);
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -232,6 +232,7 @@ const ProtocolDetailsPage = () => {
         stakeTag: buildLocalTxStatusSyncId({
           providerName: result.provider.name,
           tokenSymbol: result.token.info.symbol,
+          protocolVault: vault,
         }),
         protocolVault: vault,
         filterType,
@@ -491,6 +492,7 @@ const ProtocolDetailsPage = () => {
                   stakeTag={buildLocalTxStatusSyncId({
                     providerName: result.provider.name,
                     tokenSymbol: result.token.info.symbol,
+                    protocolVault: vault,
                   })}
                   onRefresh={run}
                   onPress={onHistory}

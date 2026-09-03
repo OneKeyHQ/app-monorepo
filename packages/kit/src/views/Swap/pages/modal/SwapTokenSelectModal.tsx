@@ -58,6 +58,8 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
   isTokenSelectorDappTokenFilterSupportedNetwork,
@@ -96,6 +98,7 @@ import {
   buildSwapStockMetadataKey,
   buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
+  buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
@@ -122,13 +125,133 @@ type IStockMetadataRequest = {
   tokenKey: string;
 };
 
+type IStockMetadataResult = {
+  cacheable?: boolean;
+  metadataMap: Record<string, IMarketStockInfo>;
+  tokenKey: string;
+};
+
 const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
   (item as IFuseResult<ISwapToken>).item
     ? (item as IFuseResult<ISwapToken>).item
     : (item as ISwapToken);
 
 const EMPTY_SWAP_TOKEN_LIST: (ISwapToken | IFuseResult<ISwapToken>)[] = [];
+const EMPTY_STOCK_METADATA_REQUEST: IStockMetadataRequest = {
+  tokenAddressEntries: [],
+  tokenKey: '',
+};
 const TOKEN_SELECTOR_LOADING_ROW_COUNT = 5;
+
+function buildStockMetadataRequest({
+  excludedTokenKeys,
+  tokens,
+}: {
+  excludedTokenKeys?: ReadonlySet<string>;
+  tokens: (ISwapToken | IFuseResult<ISwapToken>)[];
+}): IStockMetadataRequest {
+  const tokenAddressMap = new Map<
+    string,
+    IStockMetadataRequest['tokenAddressEntries'][number][1]
+  >();
+  for (const item of tokens) {
+    const rawItem = getRawSwapToken(item);
+    const key = buildSwapStockMetadataKey({
+      contractAddress: rawItem.contractAddress,
+      networkId: rawItem.networkId,
+    });
+    if (key && !excludedTokenKeys?.has(key) && !tokenAddressMap.has(key)) {
+      tokenAddressMap.set(key, {
+        chainId: rawItem.networkId,
+        contractAddress: rawItem.contractAddress,
+        isNative: rawItem.isNative ?? false,
+      });
+    }
+  }
+  const tokenAddressEntries = Array.from(tokenAddressMap.entries());
+  return {
+    tokenAddressEntries,
+    tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
+  };
+}
+
+function useStockMetadata({
+  enabled,
+  requestLocale,
+  requestSnapshot,
+}: {
+  enabled: boolean;
+  requestLocale: string;
+  requestSnapshot: IStockMetadataRequest;
+}) {
+  const requestRef = useRef<IStockMetadataRequest>(requestSnapshot);
+  if (requestRef.current.tokenKey !== requestSnapshot.tokenKey) {
+    requestRef.current = requestSnapshot;
+  }
+  const request = requestRef.current;
+  const tokenKey = request.tokenKey;
+  const swrKey =
+    enabled && tokenKey
+      ? ['swapStockSelectorMetadata', 'v1', requestLocale, tokenKey].join(':')
+      : undefined;
+  const { result } = usePromiseResult<IStockMetadataResult>(
+    async () => {
+      if (!enabled || !tokenKey) {
+        return {
+          metadataMap: {},
+          tokenKey,
+        };
+      }
+      const response = await backgroundApiProxy.serviceMarketV2
+        .fetchMarketTokenListBatch({
+          requestLocale,
+          tokenAddressList: request.tokenAddressEntries.map(
+            ([, token]) => token,
+          ),
+        })
+        .catch(() => undefined);
+      if (!response) {
+        const cachedResult = swrKey
+          ? swrCacheUtils.get<IStockMetadataResult>(swrKey)
+          : undefined;
+        return cachedResult?.tokenKey === tokenKey
+          ? cachedResult
+          : { cacheable: false, metadataMap: {}, tokenKey };
+      }
+      const metadataMap: Record<string, IMarketStockInfo> = {};
+      response.list.forEach((token, index) => {
+        const requestKey = request.tokenAddressEntries[index]?.[0];
+        if (requestKey && token?.stock) {
+          metadataMap[requestKey] = token.stock;
+        }
+      });
+      return {
+        metadataMap,
+        tokenKey,
+      };
+    },
+    [enabled, request, requestLocale, swrKey, tokenKey],
+    {
+      initResult: {
+        metadataMap: {},
+        tokenKey: '',
+      },
+      watchLoading: enabled,
+      swrKey,
+      swrShouldPersist: (value) =>
+        value.cacheable !== false && value.tokenKey === tokenKey,
+    },
+  );
+
+  return {
+    metadataMap: result.metadataMap,
+    pending: isSwapStockMetadataPending({
+      isSwapStockSelectTarget: enabled,
+      resolvedStockMetadataTokenKey: result.tokenKey,
+      stockMetadataTokenKey: tokenKey,
+    }),
+  };
+}
 
 function SwapTokenSelectListSkeletonItem() {
   return (
@@ -180,6 +303,7 @@ const SwapTokenSelectPage = ({
     ? route.params?.defaultNetworkId
     : undefined;
   const intl = useIntl();
+  const [searchInputValue, setSearchInputValue] = useState<string>('');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   // Reset to the default token list immediately when the input is cleared.
@@ -454,115 +578,63 @@ const SwapTokenSelectPage = ({
     stockSearchBaseTokensRef.current.networkId === stockSearchBaseNetworkId
       ? stockSearchBaseTokensRef.current.tokens
       : EMPTY_SWAP_TOKEN_LIST;
-  const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
-    if (!isSwapStockSelectTarget) {
-      return { tokenAddressEntries: [], tokenKey: '' };
-    }
-    const metadataSourceTokens =
-      requestedSearchKeyword && currentTokens.length === 0
-        ? stockSearchBaseTokens
-        : currentTokens;
-    const tokenAddressMap = new Map<
-      string,
-      {
-        contractAddress: string;
-        chainId: string;
-        isNative: boolean;
+  const stockBaseMetadataRequestSnapshot =
+    useMemo<IStockMetadataRequest>(() => {
+      if (!isSwapStockSelectTarget) {
+        return EMPTY_STOCK_METADATA_REQUEST;
       }
-    >();
-    for (const item of metadataSourceTokens) {
-      const rawItem = getRawSwapToken(item);
-      const key = buildSwapStockMetadataKey({
-        contractAddress: rawItem.contractAddress,
-        networkId: rawItem.networkId,
+      return buildStockMetadataRequest({
+        tokens: requestedSearchKeyword ? stockSearchBaseTokens : currentTokens,
       });
-      if (key && !tokenAddressMap.has(key)) {
-        tokenAddressMap.set(key, {
-          chainId: rawItem.networkId,
-          contractAddress: rawItem.contractAddress,
-          isNative: rawItem.isNative ?? false,
-        });
-      }
-    }
-    const tokenAddressEntries = Array.from(tokenAddressMap.entries());
-    return {
-      tokenAddressEntries,
-      tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
-    };
-  }, [
-    currentTokens,
-    isSwapStockSelectTarget,
-    requestedSearchKeyword,
-    stockSearchBaseTokens,
-  ]);
-  const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
-    stockMetadataRequestSnapshot,
+    }, [
+      currentTokens,
+      isSwapStockSelectTarget,
+      requestedSearchKeyword,
+      stockSearchBaseTokens,
+    ]);
+  const stockBaseMetadataTokenKeys = useMemo(
+    () =>
+      new Set(
+        stockBaseMetadataRequestSnapshot.tokenAddressEntries.map(
+          ([key]) => key,
+        ),
+      ),
+    [stockBaseMetadataRequestSnapshot],
   );
-  if (
-    stockMetadataRequestRef.current.tokenKey !==
-    stockMetadataRequestSnapshot.tokenKey
-  ) {
-    stockMetadataRequestRef.current = stockMetadataRequestSnapshot;
-  }
-  const stockMetadataRequest = stockMetadataRequestRef.current;
-  const stockMetadataTokenKey = stockMetadataRequest.tokenKey;
-  const { result: stockMetadataResult, isLoading: stockMetadataLoading } =
-    usePromiseResult(
-      async () => {
-        if (!isSwapStockSelectTarget || !stockMetadataTokenKey) {
-          return {
-            metadataMap: {},
-            tokenKey: stockMetadataTokenKey,
-          };
-        }
-        const response = await (async () => {
-          try {
-            return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
-              {
-                requestLocale: settingsPersistAtom.locale,
-                tokenAddressList: stockMetadataRequest.tokenAddressEntries.map(
-                  ([, token]) => token,
-                ),
-              },
-            );
-          } catch {
-            return { list: [] };
-          }
-        })();
-        const metadataMap: Record<string, IMarketStockInfo> = {};
-        response.list.forEach((token, index) => {
-          const requestKey =
-            stockMetadataRequest.tokenAddressEntries[index]?.[0];
-          if (requestKey && token?.stock) {
-            metadataMap[requestKey] = token.stock;
-          }
-        });
-        return {
-          metadataMap,
-          tokenKey: stockMetadataTokenKey,
-        };
-      },
-      [
-        isSwapStockSelectTarget,
-        settingsPersistAtom.locale,
-        stockMetadataRequest,
-        stockMetadataTokenKey,
-      ],
-      {
-        initResult: {
-          metadataMap: {},
-          tokenKey: '',
-        },
-        watchLoading: isSwapStockSelectTarget,
-      },
-    );
-  const stockMetadataMap = stockMetadataResult.metadataMap;
-  const stockMetadataPending = isSwapStockMetadataPending({
-    isSwapStockSelectTarget,
-    resolvedStockMetadataTokenKey: stockMetadataResult.tokenKey,
-    stockMetadataLoading,
-    stockMetadataTokenKey,
+  const stockSearchMetadataRequestSnapshot =
+    useMemo<IStockMetadataRequest>(() => {
+      if (!isSwapStockSelectTarget || !requestedSearchKeyword) {
+        return EMPTY_STOCK_METADATA_REQUEST;
+      }
+      return buildStockMetadataRequest({
+        excludedTokenKeys: stockBaseMetadataTokenKeys,
+        tokens: currentTokens,
+      });
+    }, [
+      currentTokens,
+      isSwapStockSelectTarget,
+      requestedSearchKeyword,
+      stockBaseMetadataTokenKeys,
+    ]);
+  const stockBaseMetadata = useStockMetadata({
+    enabled: isSwapStockSelectTarget,
+    requestLocale: settingsPersistAtom.locale,
+    requestSnapshot: stockBaseMetadataRequestSnapshot,
   });
+  const stockSearchMetadata = useStockMetadata({
+    enabled: isSwapStockSelectTarget && Boolean(requestedSearchKeyword),
+    requestLocale: settingsPersistAtom.locale,
+    requestSnapshot: stockSearchMetadataRequestSnapshot,
+  });
+  const stockMetadataMap = useMemo(
+    () => ({
+      ...stockBaseMetadata.metadataMap,
+      ...stockSearchMetadata.metadataMap,
+    }),
+    [stockBaseMetadata.metadataMap, stockSearchMetadata.metadataMap],
+  );
+  const stockMetadataPending =
+    stockBaseMetadata.pending || stockSearchMetadata.pending;
   const stockSearchFallbackTokens = useMemo(() => {
     if (
       !isSwapStockSelectTarget ||
@@ -680,6 +752,17 @@ const SwapTokenSelectPage = ({
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
+      // Scaled-UI (rebase) tokens: fail-closed with feedback — the silent
+      // actions-level gate would otherwise make the tap feel dead. Copy is
+      // the generic unsupported-token string pending product wording.
+      if (tokenRebaseUtils.isScalingBalanceMultiplier(item.balanceMultiplier)) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.earn_unsupported_token,
+          }),
+        });
+        return;
+      }
       if (await checkRiskToken(item)) {
         navigation.push(EModalSwapRoutes.TokenRiskReminder, {
           storeName: route.params.storeName,
@@ -705,6 +788,7 @@ const SwapTokenSelectPage = ({
     },
     [
       checkRiskToken,
+      intl,
       isSwapStockSelectTarget,
       navigation,
       route.params.storeName,
@@ -732,17 +816,26 @@ const SwapTokenSelectPage = ({
   const handlePaste = useCallback(async () => {
     const text = await getClipboard();
     if (text) {
-      setSearchKeyword(text.trim());
+      const trimmedText = text.trim();
+      setSearchInputValue(trimmedText);
+      setSearchKeyword(trimmedText);
     }
   }, [getClipboard]);
 
   const disableNetworksOnClick = useCallback(() => {
+    // STOCK keeps the legacy copy until stock-specific copy is defined
+    let disabledNetworkTipId = ETranslations.swap_toast_bridge_tip;
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      disabledNetworkTipId = ETranslations.trade_swap_network_only_cross;
+    } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      disabledNetworkTipId = ETranslations.trade_limit_network_only_swap;
+    }
     Toast.message({
       title: intl.formatMessage({
-        id: ETranslations.swap_toast_bridge_tip,
+        id: disabledNetworkTipId,
       }),
     });
-  }, [intl]);
+  }, [intl, swapTypeSwitch]);
 
   const disableNetworks = useMemo(() => {
     return buildSwapTokenSelectorDisableNetworks({
@@ -922,49 +1015,26 @@ const SwapTokenSelectPage = ({
     ],
   );
 
-  const disableMoreNetworks = useMemo(() => {
-    let res = false;
-    const liveNetworksCount =
-      swapNetworksIncludeAllNetwork.length - disableNetworks.length;
-    if (md) {
-      if (liveNetworksCount <= swapNetworksCommonCountMD) {
-        res = true;
-      }
-    } else if (liveNetworksCount <= swapNetworksCommonCount) {
-      res = true;
-    }
-    return res;
-  }, [disableNetworks.length, md, swapNetworksIncludeAllNetwork.length]);
-
   const networkFilterData = useMemo(() => {
-    let swapNetworksCommon: ISwapNetwork[] = [];
-    let swapNetworksMoreCount;
-    if (swapNetworksIncludeAllNetwork && swapNetworksIncludeAllNetwork.length) {
-      if (md) {
-        swapNetworksCommon =
-          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCountMD
-            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCountMD)
-            : swapNetworksIncludeAllNetwork;
-        swapNetworksMoreCount =
-          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD > 0
-            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD
-            : undefined;
-      } else {
-        swapNetworksCommon =
-          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCount
-            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCount)
-            : swapNetworksIncludeAllNetwork;
-        swapNetworksMoreCount =
-          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount > 0
-            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount
-            : undefined;
-      }
-    }
-    return {
-      swapNetworksCommon,
-      swapNetworksMoreCount,
-    };
-  }, [md, swapNetworksIncludeAllNetwork]);
+    return buildSwapTokenSelectorNetworkView({
+      type,
+      swapTypeSwitch,
+      isSwapStockSelectTarget,
+      fromToken,
+      toToken,
+      swapNetworksIncludeAllNetwork,
+    });
+  }, [
+    fromToken,
+    isSwapStockSelectTarget,
+    swapNetworksIncludeAllNetwork,
+    swapTypeSwitch,
+    toToken,
+    type,
+  ]);
+  const sameChainBadgeText = intl.formatMessage({
+    id: ETranslations.trade_token_same_chain,
+  });
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();
@@ -1012,11 +1082,13 @@ const SwapTokenSelectPage = ({
             id: ETranslations.token_selector_search_placeholder,
           }),
           onChangeText: ({ nativeEvent }) => {
-            const afterTrim = nativeEvent.text.trim();
-            setSearchKeyword(afterTrim);
+            setSearchInputValue(nativeEvent.text);
+          },
+          onSearchTextChange: (text) => {
+            setSearchKeyword(text.trim());
           },
           ...(autoSearch ? { autoFocus: true } : {}),
-          searchBarInputValue: searchKeyword,
+          searchBarInputValue: searchInputValue,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
                 addOns: [
@@ -1070,10 +1142,24 @@ const SwapTokenSelectPage = ({
           onMoreNetwork={() => {
             openChainSelector({
               defaultNetworkId: currentSelectNetwork?.networkId,
-              networkIds: swapAllSupportNetworks
+              networkIds: [
+                ...(networkFilterData.sameChainNetwork
+                  ? [networkFilterData.sameChainNetwork]
+                  : []),
+                ...networkFilterData.networks,
+              ]
                 .filter((item) => !item.isAllNetworks)
-                .filter((item) => !disableNetworks.includes(item.networkId))
                 .map((item) => item.networkId),
+              disableNetworkIds: disableNetworks,
+              featuredNetwork: networkFilterData.sameChainNetwork
+                ? {
+                    networkId: networkFilterData.sameChainNetwork.networkId,
+                    badgeText: sameChainBadgeText,
+                    disabled: disableNetworks.includes(
+                      networkFilterData.sameChainNetwork.networkId,
+                    ),
+                  }
+                : undefined,
               grouped: false,
               onSelect: (network) => {
                 if (!network) return;
@@ -1086,11 +1172,17 @@ const SwapTokenSelectPage = ({
               },
             });
           }}
-          networks={networkFilterData.swapNetworksCommon}
-          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
+          networks={networkFilterData.networks}
+          sameChainNetwork={networkFilterData.sameChainNetwork}
+          sameChainBadgeText={sameChainBadgeText}
+          maxVisibleNetworks={
+            md
+              ? swapNetworksCommonCountMD -
+                (networkFilterData.sameChainNetwork ? 1 : 0)
+              : swapNetworksCommonCount
+          }
           selectedNetwork={currentSelectNetwork}
           disableNetworks={disableNetworks}
-          disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />

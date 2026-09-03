@@ -1,6 +1,6 @@
 ---
 name: 1k-sentry
-description: Sentry error tracking and monitoring for OneKey. Use when configuring Sentry, filtering errors, analyzing crash reports, or debugging production issues. Covers platform-specific setup (desktop/mobile/web/extension) and error filtering strategies.
+description: Configure OneKey Sentry and filter events across desktop, mobile, web, and extension.
 ---
 
 # Sentry Integration
@@ -43,15 +43,6 @@ platformEnv.isWebEmbed   // Embedded web components
 See: [references/rules/ignoring-errors.md](references/rules/ignoring-errors.md)
 
 Key file: `packages/shared/src/modules3rdParty/sentry/basicOptions.ts`
-
-### Analyze Crash Reports
-
-1. Get crash details from Sentry dashboard
-2. Identify error type, message, and stack trace
-3. Check platform-specific context
-4. Use related skills for fixes:
-   - Native crashes → `/1k-patching-native-modules`
-   - JS errors → Fix in codebase
 
 ### Add Custom Context
 
@@ -102,5 +93,4 @@ if (error.value?.includes('PATTERN')) return true;
 
 ## Related Skills
 
-- `/1k-patching-native-modules` - Fix native crashes found in Sentry
 - `/1k-coding-patterns` - Error handling best practices

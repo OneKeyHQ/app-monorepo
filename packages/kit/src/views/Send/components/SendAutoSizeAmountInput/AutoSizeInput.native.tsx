@@ -1,4 +1,10 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { AutoSizeInputView } from '@onekeyfe/react-native-auto-size-input';
 import {
@@ -61,6 +67,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     ref,
   ) => {
     const nativeInputRef = useRef<IAutoSizeNativeRef | null>(null);
+    const [mostRecentEventCount, setMostRecentEventCount] = useState(0);
 
     useImperativeHandle(
       ref,
@@ -93,6 +100,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             width: '100%',
             height: 64,
           }}
+          mostRecentEventCount={mostRecentEventCount}
           text={value}
           placeholder={placeholder ?? '0'}
           prefix={currencyLabel ?? ''}
@@ -117,7 +125,10 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           showBorder={false}
           inputBackgroundColor={backgroundColor}
           contentAutoWidth
-          onChangeText={wrapNitroCallback(onChangeText)}
+          onChangeText={wrapNitroCallback((text) => {
+            setMostRecentEventCount((eventCount) => eventCount + 1);
+            onChangeText(text);
+          })}
           onFocus={
             wrapNitroCallback(() => {
               onFocus?.({} as never);

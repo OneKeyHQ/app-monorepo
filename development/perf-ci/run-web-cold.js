@@ -28,6 +28,7 @@ const {
   withRepoNodeBin,
 } = require('./lib/exec');
 const { startStaticServer } = require('./lib/staticServer');
+const { classifyPageErrors } = require('./lib/webColdPageErrors');
 
 const MB = 1024 * 1024;
 
@@ -686,6 +687,7 @@ async function runOne({
           : largest,
       null,
     );
+    const classifiedPageErrors = classifyPageErrors(pageErrors);
 
     return {
       runIndex,
@@ -748,6 +750,8 @@ async function runOne({
       rendered: (metrics.bodyTextLength || 0) > 0,
       bodyTextLength: metrics.bodyTextLength || 0,
       pageErrorCount: pageErrors.length,
+      blockingPageErrorCount: classifiedPageErrors.blocking.length,
+      ignoredNetworkPageErrorCount: classifiedPageErrors.ignoredNetwork.length,
       consoleErrorCount: consoleErrors.length,
       largestPreLcpScriptDecodedBytes:
         largestPreLcpScript?.decodedBodySize || 0,
@@ -813,6 +817,8 @@ async function runOne({
       failedRequests,
       badResponses,
       pageErrors,
+      blockingPageErrors: classifiedPageErrors.blocking,
+      ignoredNetworkPageErrors: classifiedPageErrors.ignoredNetwork,
       consoleErrors,
     };
   } finally {
@@ -860,6 +866,10 @@ function aggregateRuns(runs, initialScripts) {
     longTaskMaxMs: median(runs.map((run) => run.longTaskMaxMs)),
     renderedRunCount: sum(runs.map((run) => (run.rendered ? 1 : 0))),
     pageErrorCount: sum(runs.map((run) => run.pageErrorCount)),
+    blockingPageErrorCount: sum(runs.map((run) => run.blockingPageErrorCount)),
+    ignoredNetworkPageErrorCount: sum(
+      runs.map((run) => run.ignoredNetworkPageErrorCount),
+    ),
     consoleErrorCount: sum(runs.map((run) => run.consoleErrorCount)),
     largestPreLcpScriptDecodedBytes: median(
       runs.map((run) => run.largestPreLcpScriptDecodedBytes),
@@ -878,8 +888,8 @@ function checkRunHealth(summary, scenario) {
     },
     {
       name: 'pageErrors',
-      pass: summary.pageErrorCount === 0,
-      actual: summary.pageErrorCount,
+      pass: summary.blockingPageErrorCount === 0,
+      actual: summary.blockingPageErrorCount,
       expected: 0,
     },
   ];
@@ -1021,7 +1031,7 @@ function printReport({
   );
   // eslint-disable-next-line no-console
   console.log(
-    `rendered/pageErrors/consoleErrors: ${summary.renderedRunCount}/${summary.runCount} / ${summary.pageErrorCount} / ${summary.consoleErrorCount}`,
+    `rendered/pageErrors/ignoredNetworkPageErrors/consoleErrors: ${summary.renderedRunCount}/${summary.runCount} / ${summary.blockingPageErrorCount} / ${summary.ignoredNetworkPageErrorCount} / ${summary.consoleErrorCount}`,
   );
   // eslint-disable-next-line no-console
   console.log(

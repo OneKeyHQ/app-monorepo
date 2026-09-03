@@ -1,5 +1,7 @@
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
+export const PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS = 30_000;
+
 // Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Privy
 export const PRIVY_APP_ID = 'cm6c9xup40017zyrnnp8zh0bt';

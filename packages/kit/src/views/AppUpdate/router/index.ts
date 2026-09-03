@@ -19,6 +19,11 @@ const ManualInstall = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/ManualInstall'),
 );
 
+const FeaturedChangelogPreview = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/AppUpdate/pages/FeaturedChangelogPreview'),
+);
+
 export const AppUpdateRouter: IModalFlowNavigatorConfig<
   EAppUpdateRoutes,
   IAppUpdatePagesParamList
@@ -39,5 +44,10 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   {
     name: EAppUpdateRoutes.ManualInstall,
     component: ManualInstall,
+  },
+  {
+    name: EAppUpdateRoutes.FeaturedChangelogPreview,
+    component: FeaturedChangelogPreview,
+    rewrite: '/changelog-preview',
   },
 ];

@@ -87,6 +87,17 @@ const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
   .map((name) => name.split('app/').pop());
 
+const entryPoints = {
+  app: path.join(electronSource, 'appBootstrap.ts'),
+  preload: path.join(electronSource, 'preload.ts'),
+  ...Object.fromEntries(
+    serviceFiles.map((file) => [
+      `service/${path.basename(file, '.ts')}`,
+      path.join(electronSource, file),
+    ]),
+  ),
+};
+
 console.log('process.env.NODE_ENV', process.env.NODE_ENV);
 console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
 console.log('process.env.COMMITHASH', process.env.COMMITHASH);
@@ -98,9 +109,7 @@ console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
-  entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
-    path.join(electronSource, f),
-  ),
+  entryPoints,
   platform: 'node',
   bundle: true,
   target: 'node16',
@@ -156,15 +165,14 @@ build({
     // XML stack, js-yaml) out of app.js parse.
     'electron-updater',
     'adm-zip',
-    // Tier 2: large lookup-table deps reached transitively via node-fetch /
-    // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
-    // FOOTGUN: these three are *transitive* — no app code imports them directly.
+    // Tier 2: large lookup-table deps reached transitively via the local HTTP
+    // server (mime-db, validator).
+    // FOOTGUN: these are *transitive* — no app code imports them directly.
     // esbuild leaves a bare `require('<name>')` and only ONE copy ships in the
     // asar, so the shipped version is whatever is pinned in app/package.json, NOT
-    // what yarn.lock resolves for the real consumers. When bumping node-fetch /
-    // whatwg-url / the http stack, re-check that these pins still match the
-    // resolved transitive versions, or the asar will ship a mismatched copy.
-    'tr46',
+    // what yarn.lock resolves for the real consumers. When bumping the HTTP
+    // stack, re-check that these pins still match the resolved transitive
+    // versions, or the asar will ship a mismatched copy.
     'mime-db',
     'validator',
     ...Object.keys(pkg.dependencies),

@@ -35,6 +35,8 @@ export const swapSlippageDecimal = 2;
 
 export const swapTokenCatchMapMaxCount = 30;
 
+export const swapStockTokenListMaxCount = 200;
+
 export const swapApproveResetValue = '0';
 
 export const swapQuoteIntervalMaxCount = 5;
@@ -191,19 +193,12 @@ export const swapProTimeRangeItems: {
   { label: '24H', value: ESwapProTimeRange.TWENTY_FOUR_HOURS },
 ];
 
-export const swapProSellInputSegmentItems = [
-  { label: '25%', value: '0.25' },
-  { label: '50%', value: '0.5' },
-  { label: '75%', value: '0.75' },
-  { label: '100%', value: '1' },
-];
-
-export const swapProBuyInputSegmentItems = [
-  { label: '0.1', value: '0.1' },
-  { label: '0.5', value: '0.5' },
-  { label: '1', value: '1' },
-  { label: '10', value: '10' },
-];
+// Input → quote debounce delays. Pro-surface inputs (slider drags, rapid
+// edits with a spinner-locked action button) re-quote on the shorter delay;
+// ordinary swap/bridge keeps the longer one to throttle the heavier
+// multi-provider quote stream.
+export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
+export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
@@ -885,6 +880,32 @@ export const swapDefaultSetTokens: Record<
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--59144/tokens/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
       'isNative': false,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
+    },
+  },
+  'evm--747474': {
+    fromToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '',
+      'name': 'Katana',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+      'isNative': true,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+    },
+    toToken: {
+      'networkId': 'evm--747474',
+      'contractAddress': '0x7f1f4b4b29f5058fa32cc7a97141b8d7e5abdc2d',
+      'name': 'Katana Network Token',
+      'symbol': 'KAT',
+      'decimals': 18,
+      'logoURI':
+        'https://coin-images.coingecko.com/coins/images/70225/large/katana-social-icon.png?1761121098',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
     },
   },
   'evm--196': {
@@ -1897,5 +1918,10 @@ export const wrappedTokens = [
     networkId: 'evm--5000',
     address: '0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8',
     logo: 'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8.png',
+  },
+  {
+    networkId: 'evm--4663',
+    address: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
+    logo: 'https://uni.onekey-asset.com/static/logo/WETH.png',
   },
 ];

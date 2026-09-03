@@ -87,7 +87,14 @@ const ReserveDetailsTabsComponent = ({
     const handleTabPress = (name: string) => {
       tabBarProps.onTabPress?.(name);
     };
-    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
+    return (
+      <Tabs.TabBar
+        {...tabBarProps}
+        scrollable={platformEnv.isNative}
+        keepFocusedTabVisible={platformEnv.isNative}
+        onTabPress={handleTabPress}
+      />
+    );
   }, []);
 
   const tabContainerWidth = useTabContainerWidth();
@@ -111,7 +118,7 @@ const ReserveDetailsTabsComponent = ({
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={supplyData.latestApy}
+              apyValue={details?.supply.apyDetail.apy ?? '0'}
               apyLabel={supplyApyLabel}
               history={supplyData.history}
               isLoading={supplyData.isLoading ?? false}
@@ -149,7 +156,7 @@ const ReserveDetailsTabsComponent = ({
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
 
             <ApyChartSection
-              apyValue={borrowData.latestApy}
+              apyValue={details?.borrow.apyDetail.apy ?? '0'}
               apyLabel={borrowApyLabel}
               history={borrowData.history}
               isLoading={borrowData.isLoading ?? false}

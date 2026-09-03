@@ -1,5 +1,7 @@
 // Shared utility functions for MarketHomeV2 components
 
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+
 import type { IMarketCategoryItem } from './types';
 
 const SPOT_CATEGORIES_WITH_FULL_STATS = new Set(['trending', 'x_mentioned']);
@@ -170,4 +172,33 @@ export const isMarketStockCategoryById = (
   return categories.some(
     (category) => category.id === categoryId && isMarketStockCategory(category),
   );
+};
+
+export const ensureMarketTopCoinsCategory = (
+  categories: IMarketCategoryItem[],
+  fallbackName: string,
+): IMarketCategoryItem[] => {
+  if (
+    categories.some((category) => category.id === MARKET_TOP_COINS_CATEGORY_ID)
+  ) {
+    return categories;
+  }
+
+  const topCoinsCategory: IMarketCategoryItem = {
+    id: MARKET_TOP_COINS_CATEGORY_ID,
+    name: fallbackName,
+  };
+  const firstStockCategoryIndex = categories.findIndex((category) =>
+    isMarketStockCategory(category),
+  );
+
+  if (firstStockCategoryIndex < 0) {
+    return [...categories, topCoinsCategory];
+  }
+
+  return [
+    ...categories.slice(0, firstStockCategoryIndex),
+    topCoinsCategory,
+    ...categories.slice(firstStockCategoryIndex),
+  ];
 };

@@ -19,7 +19,7 @@ export function PerpsBalancePill({ userAddress }: { userAddress?: string }) {
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const { showPortfolio } = useShowPortfolio();
   const { showDepositWithdrawModal, isDepositDisabled } =
-    useShowDepositWithdrawModal();
+    useShowDepositWithdrawModal('webAccountPanel');
 
   const isForThisAccount =
     !!userAddress &&

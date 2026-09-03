@@ -26,18 +26,17 @@ export const analyseModule = !!ANALYSE_MODULE;
 export const extChannel = EXT_CHANNEL;
 
 function getBuildTargetBrowser(): string {
-  let buildTargetBrowser: string = extChannel || 'chrome';
   const argv = process.argv[process.argv.length - 1];
   if (argv === '--firefox') {
-    buildTargetBrowser = 'firefox';
-  } else if (argv === '--chrome') {
-    buildTargetBrowser = 'chrome';
-  } else if (argv === '--edge') {
-    buildTargetBrowser = 'edge';
-  } else {
-    buildTargetBrowser = 'chrome';
+    return 'firefox';
   }
-  return buildTargetBrowser;
+  if (argv === '--chrome') {
+    return 'chrome';
+  }
+  if (argv === '--edge') {
+    return 'edge';
+  }
+  return extChannel || 'chrome';
 }
 
 export const targetBrowser = getBuildTargetBrowser();

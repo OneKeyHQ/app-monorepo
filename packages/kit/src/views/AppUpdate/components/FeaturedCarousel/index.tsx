@@ -12,6 +12,7 @@ import Animated, {
 
 import { Badge, IconButton, LinearGradient, Stack } from '@onekeyhq/components';
 import type { IFeaturedItem } from '@onekeyhq/shared/src/appUpdate/featuredChangelog';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppUpdateTestIDs } from '../../testIDs';
 import { FeaturedMedia } from '../FeaturedMedia';
@@ -418,7 +419,11 @@ export function FeaturedCarousel({
         pl={isPrev ? '$3' : undefined}
         pr={isPrev ? undefined : '$3'}
         justifyContent="center"
-        pointerEvents="box-none"
+        // 'box-none' has no CSS equivalent — on web it computes to 'auto',
+        // turning this full-height strip into a solid click layer that
+        // swallowed the top-right close button. Use CSS 'none' on web (the
+        // button below restores 'auto'); keep native's real 'box-none'.
+        pointerEvents={platformEnv.isNative ? 'box-none' : 'none'}
       >
         <LinearGradient
           pointerEvents="none"
@@ -446,6 +451,8 @@ export function FeaturedCarousel({
           variant="tertiary"
           size="medium"
           iconProps={{ color: '$whiteA12' }}
+          // Restores click handling under the web 'none' container above.
+          pointerEvents="auto"
           onPress={() => jumpTo(activeIndex + (isPrev ? -1 : 1))}
         />
       </Stack>

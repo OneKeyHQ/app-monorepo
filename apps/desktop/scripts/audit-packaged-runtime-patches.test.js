@@ -109,6 +109,10 @@ function writePackageMetadata(packageRoot, name, version = '1.0.0') {
   );
 }
 
+function readNormalizedText(filePath) {
+  return fs.readFileSync(filePath, 'utf8').replaceAll('\r\n', '\n');
+}
+
 describe('packaged runtime patch audit', () => {
   test('dynamically applies a committed patch without a package allowlist', () => {
     const fixture = createFixture();
@@ -117,7 +121,7 @@ describe('packaged runtime patch audit', () => {
       const auditSummary = runAudit(fixture);
 
       expect(
-        fs.readFileSync(path.join(fixture.packageRoot, 'index.js'), 'utf8'),
+        readNormalizedText(path.join(fixture.packageRoot, 'index.js')),
       ).toBe(PATCHED_CONTENT);
       expect(applySummary.results[0]).toMatchObject({
         action: PATCH_ACTION.applied,
@@ -138,7 +142,7 @@ describe('packaged runtime patch audit', () => {
 
       expect(summary.results[0].action).toBe(PATCH_ACTION.alreadyPatched);
       expect(
-        fs.readFileSync(path.join(fixture.packageRoot, 'index.js'), 'utf8'),
+        readNormalizedText(path.join(fixture.packageRoot, 'index.js')),
       ).toBe(PATCHED_CONTENT);
     } finally {
       fixture.cleanup();
@@ -316,9 +320,9 @@ describe('packaged runtime patch audit', () => {
           (result) => result.action === PATCH_ACTION.applied,
         ),
       ).toBe(true);
-      expect(
-        fs.readFileSync(path.join(nestedPackageRoot, 'index.js'), 'utf8'),
-      ).toBe(PATCHED_CONTENT);
+      expect(readNormalizedText(path.join(nestedPackageRoot, 'index.js'))).toBe(
+        PATCHED_CONTENT,
+      );
       expect(auditSummary.packagedPatchCount).toBe(2);
     } finally {
       fixture.cleanup();

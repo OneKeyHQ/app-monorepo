@@ -13,6 +13,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
@@ -27,6 +29,7 @@ interface IMobileMarketTokenFlatListProps {
   networkId: string;
   selectedCategory?: string;
   stockCategory?: string;
+  hasCompactHeader?: boolean;
   timeRange?: IMarketTimeRangeValue;
   listContainerProps: {
     paddingBottom: number;
@@ -41,13 +44,16 @@ function MobileMarketTokenFlatListBase({
   networkId,
   selectedCategory,
   stockCategory,
+  hasCompactHeader = false,
   timeRange,
   listContainerProps,
   onStockDataChange,
   shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({
+    marketTokenCategory: selectedCategory,
+  });
 
   // Data management
   const {
@@ -168,7 +174,9 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
+        ...(platformEnv.isNative
+          ? getMarketNativeCompactListStyle(hasCompactHeader)
+          : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

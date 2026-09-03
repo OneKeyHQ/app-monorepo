@@ -6,117 +6,95 @@ aware, and aligned with existing package boundaries.
 
 ## Core Rules
 
-- Do not remove existing code/components unless the request explicitly requires it.
-- TypeScript must stay precise: no fallback `never[]`, no avoidable `any`, and no
-  `@ts-ignore` without documented justification.
-- Prefer platform-specific files or `Platform.select` for platform behavior.
-  Do not apply global CSS/style fixes for platform-specific bugs.
-- All comments must be in English and explain non-obvious logic only.
+- Do not remove existing code/components unless the request requires it.
+- Keep TypeScript precise: no fallback `never[]`, avoidable `any`, or
+  unjustified `@ts-ignore`.
+- Use platform-specific files or `Platform.select` for platform behavior; do
+  not apply global style fixes to platform-specific bugs.
+- Write comments in English and only for non-obvious logic.
 - Never modify generated translations (`translations.ts`, locale JSON files).
 
-## Runtime Model
+## Runtime Topology
 
-Production native apps run two JS runtimes in the same native process:
-`main` (UI) and `background` (bg). They have isolated JS heaps; JS objects are
-not shared. Native resources such as MMKV, DB handles, file handles, and native
-singletons may be shared underneath.
+Production runtime topology differs by target:
 
-For any native, storage, state, memory, startup, or crash analysis, explicitly
-state:
+- iOS, Android, and browser extension run `main` (UI) and `background` (`bg`)
+  as isolated JS runtimes. Their JS heaps and objects are not shared. Native
+  resources such as MMKV, DB/file handles, and native singletons may still be
+  shared underneath.
+- Desktop and web execute app `main`/`background` code in one JS runtime/thread.
+  Do not apply split-heap or per-runtime deserialization assumptions to them.
+
+For native, storage, state, memory, startup, or crash analysis, state the target
+platform first. On iOS/Android/extension, also state:
 
 - Runtime scope: `main`, `bg`, or both.
 - Native resource ownership: shared native instance or per-runtime instance.
 - JS heap copies: whether data is deserialized once per runtime.
-- Timing/order: bg and main initialize independently; do not assume readiness.
+- Timing/order: `main` and `bg` initialize independently; do not assume readiness.
 
-Every conclusion must label the runtime(s) it concerns and distinguish shared
-native resources from per-runtime JS copies. main-JS and bg-JS bundles ship
-version-locked; practical version skew is native-vs-JS, not bg-vs-main.
+For desktop/web, label the conclusion as single-runtime and identify any native
+or process-owned resource separately. `main` and `bg` JS bundles on split-runtime
+targets ship version-locked; practical skew is native-vs-JS, not `bg`-vs-`main`.
 
 ## Import Hierarchy
 
 Never violate this dependency order:
 
-- `@onekeyhq/shared`: must not import other OneKey packages.
-- `@onekeyhq/components`: may import `shared` only.
-- `@onekeyhq/kit-bg`: may import `shared` and `core` only; never `components`
-  or `kit`.
-- `@onekeyhq/kit`: may import `shared`, `components`, and `kit-bg`.
+- `@onekeyhq/shared`: no other OneKey packages.
+- `@onekeyhq/components`: `shared` only.
+- `@onekeyhq/kit-bg`: `shared` and `core` only; never `components` or `kit`.
+- `@onekeyhq/kit`: `shared`, `components`, and `kit-bg`.
 - Apps may import all packages.
 
 ## Security
 
-- Never commit secrets, API keys, private keys, seeds, mnemonics, or sensitive
-  user data.
-- Never log sensitive data or bypass authentication, validation, CSP, transaction
-  verification, or risk checks.
-- Keep hardware wallet communication isolated in background processes.
+- Never commit or log secrets, keys, seeds, mnemonics, or sensitive user data.
+- Do not bypass authentication, validation, CSP, transaction verification, or
+  risk checks.
+- Keep hardware-wallet communication in background processes.
 - Do not modify cryptographic functions without deep security review.
 - Use `stringUtils.stableStringify()` for deterministic crypto/hash/signature
-  serialization; never use raw `JSON.stringify()` for those paths.
+  serialization; never raw `JSON.stringify()` on those paths.
 
 ## Restricted Patterns
 
 - Use `toLowerCase()` / `toUpperCase()`, never locale variants.
-- Do not import `@onekeyfe/hd-core` directly; use `await CoreSDKLoader()`.
-- Do not import `localDbInstance` directly; use `localDb`.
-- Do not commit code that fails linting or TypeScript checks.
+- Load `@onekeyfe/hd-core` through `await CoreSDKLoader()`; never import it directly.
+- Use `localDb`, never import `localDbInstance` directly.
+- Do not commit code that fails lint or TypeScript checks.
 
 ## Data And Dependencies
 
 - Local DB schema changes must keep Realm and IndexedDB definitions in sync and
   bump `LOCAL_DB_VERSION` in `packages/kit-bg/src/dbs/local/consts.ts`.
-- Schema changes include Realm properties, Realm record getters, IndexedDB store
-  names/buckets, schema maps, and persisted model fields.
-- For patch-package, edit files under `node_modules/`, regenerate with
-  `npx patch-package <package-name>`, and verify patches exclude build artifacts.
+- Schema changes include Realm properties/getters, IndexedDB stores/schema maps,
+  and persisted model fields.
+- For third-party patches, follow `/1k-patch-package-workflow`; generated patches
+  must exclude build artifacts.
 
 ## Debugging And Verification
 
-- If a fix attempt fails, re-analyze the root cause from scratch; do not retry
-  the same approach with small tweaks.
-- For visual bugs, first confirm platform plus expected vs actual behavior.
-- For Electron, DApp, UI, startup, and interaction fixes, state repro condition,
-  what does not count as passing, and final pass condition before editing.
-- Do not treat element existence as proof. Verify active tab state, real webview
-  rendering, URL/title/content readiness, and console/log evidence where relevant.
+- If a fix fails, re-analyze the root cause instead of retrying small variations.
+- For visual bugs, establish platform and expected vs actual behavior first.
+- For Electron, DApp, UI, startup, and interaction fixes, state the repro,
+  non-passing conditions, and final pass condition before editing.
+- Element existence is not proof. Verify active state, real webview rendering,
+  URL/title/content readiness, and relevant console/log evidence.
 
-## Git And Commands
+## Git And Validation
 
 - Base branch is `x`; never work directly on `x`.
-- Commit format: `type: short description`.
-- Do not add Co-Authored-By, Generated with, or tool attribution lines.
-- Before commit: `yarn agent:check --profile commit`.
-- Before PR readiness checks: `yarn agent:check --profile pr`.
-- For remote-only CI/review status: `yarn agent:check --profile ci --pr <number>`.
-- To reply to and resolve one review thread: list with
-  `yarn agent:review-thread --pr <number> --list`, then run
-  `yarn agent:review-thread --pr <number> --thread <thread-id> --reply-file <file>`.
-- Use lower-level lint/typecheck/GitHub commands only when debugging a failed
-  `agent:check` step; detailed logs are under `node_modules/.cache/agent-checks`.
-- Use targeted tests when risk or scope requires them. Prefer explicit Jest paths,
-  workspace test scripts, or documented scenario commands over the ambiguous root
+- Commit format: `type: short description`. Do not add tool attribution or
+  `Co-Authored-By` lines.
+- Before commit run `yarn agent:check --profile commit`; before PR readiness run
+  `yarn agent:check --profile pr`.
+- For remote-only status run `yarn agent:check --profile ci --pr <number>`.
+- Use lower-level commands only to debug a failed `agent:check`; logs are under
+  `node_modules/.cache/agent-checks`.
+- Run targeted tests when scope or risk requires them; avoid the ambiguous root
   `yarn test` alias.
 
-Common commands:
-
-```bash
-yarn app:desktop
-yarn app:web
-yarn app:ext
-yarn app:ios
-yarn app:android
-yarn agent:check --profile commit
-yarn agent:check --profile pr
-yarn agent:check --profile ci --pr <number>
-yarn agent:review-thread --pr <number> --list
-```
-
-## Skills And CLI
-
-- Prefer repo skills in `.skillshare/skills` for detailed workflows such as
-  architecture, i18n, cross-platform work, swap/market, bundle release, PRs,
-  CI monitoring, and UI verification.
-- `apps/cli/` has its own guidance. External OneKey wallet CLI skill packs live
-  in `https://github.com/OneKeyHQ/onekey-wallet-skills`; do not re-add them to
-  this monorepo.
+Use `.skillshare/skills` for detailed workflows instead of duplicating them here.
+`apps/cli/` has separate guidance; external wallet CLI skills belong in
+`https://github.com/OneKeyHQ/onekey-wallet-skills`.

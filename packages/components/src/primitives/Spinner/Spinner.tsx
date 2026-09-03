@@ -21,25 +21,23 @@ export type ISpinnerProps = Omit<YStackProps, 'children'> & {
 
 export const Spinner: React.ForwardRefExoticComponent<
   ISpinnerProps & React.RefAttributes<any>
-> = YStack.extractable(
-  themeable(
-    // eslint-disable-next-line react/display-name
-    forwardRef<TamaguiElement>((props: ISpinnerProps, ref) => {
-      // eslint-disable-next-line react/prop-types
-      const { size, color: colorProp, ...stackProps } = props;
-      const theme = useTheme();
-      let color = colorProp as string;
-      if (color && color[0] === '$') {
-        color = variableToString(theme[color]);
-      }
-      return (
-        <YStack ref={ref} {...stackProps}>
-          <ActivityIndicator size={size} color={color} />
-        </YStack>
-      );
-    }),
-    {
-      componentName: 'Spinner',
-    },
-  ),
+> = themeable(
+  // eslint-disable-next-line react/display-name
+  forwardRef<TamaguiElement>((props: ISpinnerProps, ref) => {
+    // eslint-disable-next-line react/prop-types
+    const { size, color: colorProp, ...stackProps } = props;
+    const theme = useTheme();
+    let color = colorProp as string;
+    if (color && color[0] === '$') {
+      color = variableToString(theme[color]);
+    }
+    return (
+      <YStack ref={ref} {...stackProps}>
+        <ActivityIndicator size={size} color={color} />
+      </YStack>
+    );
+  }),
+  {
+    componentName: 'Spinner',
+  },
 ) as any;

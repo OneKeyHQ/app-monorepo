@@ -1,5 +1,8 @@
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
@@ -76,8 +79,19 @@ export function shouldShowStockSubtitleForTokens(
 
 export function shouldUseStockMetadataColumnsForTokens(
   items: Array<Pick<IMarketToken, 'stock'>>,
+  options?: {
+    forceStockMetadataColumns?: boolean;
+    enableAutoDetection?: boolean;
+  },
 ) {
-  return items.length > 0 && items.every((item) => !!item.stock);
+  const { forceStockMetadataColumns = false, enableAutoDetection = true } =
+    options ?? {};
+  return (
+    forceStockMetadataColumns ||
+    (enableAutoDetection &&
+      items.length > 0 &&
+      items.every((item) => !!item.stock))
+  );
 }
 
 const ONE_HOUR = 60 * 60 * 1000;
@@ -116,6 +130,14 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   const networks = getPresetNetworks();
   const network = networks.find((n) => n.id === chainOrNetworkId);
   return network?.logoURI || '';
+}
+
+export function buildMarketNetworkLogoUriMap(
+  networkList: readonly IMarketBasicConfigNetwork[],
+) {
+  return new Map<string, string>(
+    networkList.map((network) => [network.networkId, network.logoUrl] as const),
+  );
 }
 
 function safeNumber(value: string | undefined, fallback = 0): number {
@@ -197,6 +219,29 @@ export function calculateMarketTokenLivePriceChange({
   return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
+export function getMarketTokenNetworkLogoUri({
+  tokenNetworkId,
+  chainId,
+  networkLogoUriMap,
+  networkLogoUri,
+}: {
+  tokenNetworkId?: string;
+  chainId: string;
+  networkLogoUriMap?: ReadonlyMap<string, string>;
+  networkLogoUri: string;
+}) {
+  if (!tokenNetworkId) {
+    return networkLogoUri;
+  }
+
+  return (
+    networkLogoUriMap?.get(tokenNetworkId) ||
+    (tokenNetworkId === chainId
+      ? networkLogoUri
+      : getNetworkLogoUri(tokenNetworkId))
+  );
+}
+
 /**
  * Convert raw api item to component token shape
  */
@@ -204,21 +249,25 @@ export function transformApiItemToToken(
   item: IMarketTokenListItem & { isNative?: boolean },
   {
     chainId,
+    networkLogoUriMap,
     networkLogoUri,
     sortIndex,
     timeRange,
   }: {
     chainId: string;
+    networkLogoUriMap?: ReadonlyMap<string, string>;
     networkLogoUri: string;
     sortIndex?: number;
     timeRange?: IMarketTimeRangeValue;
   },
 ): IMarketToken {
-  // Use token's own networkId to get network logo, fallback to passed chainId
   const tokenNetworkId = item.networkId || chainId;
-  const tokenNetworkLogoUri = item.networkId
-    ? getNetworkLogoUri(item.networkId)
-    : networkLogoUri;
+  const tokenNetworkLogoUri = getMarketTokenNetworkLogoUri({
+    tokenNetworkId: item.networkId,
+    chainId,
+    networkLogoUriMap,
+    networkLogoUri,
+  });
 
   const priceChangeValue = item.stock
     ? item.priceChange24hPercent

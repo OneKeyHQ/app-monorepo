@@ -412,6 +412,7 @@ function MobileMarketWatchlistFlatListImpl({
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
           {...getMarketEmptyWatchlistContainerProps({
             isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+            isWeb: Boolean(platformEnv.isWeb),
           })}
           alignItems="center"
         >

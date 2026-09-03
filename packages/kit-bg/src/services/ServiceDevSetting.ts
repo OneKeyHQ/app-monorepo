@@ -18,16 +18,20 @@ import {
   EAppSyncStorageKeys,
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { applyPro2FirmwareForceTargetChange } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import {
   devSettingsPersistAtom,
   firmwareUpdateDevSettingsPersistAtom,
   getDevSettingsNetworkThrottleEnabled,
+  getGatedFirmwareUpdateDevSetting,
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 
+import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
   IDevSettings,
   IDevSettingsKeys,
@@ -53,16 +57,16 @@ class ServiceDevSetting extends ServiceBase {
     const networkThrottleEnabledForNativeSync = platformEnv.isNative
       ? this.getExpectedNetworkThrottleEnabled(devSettings)
       : false;
-    appStorage.syncStorage.set(
+    await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
     // Also write to the dedicated dev-setting MMKV instance for native code access
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
       networkThrottleEnabledForNativeSync,
     );
@@ -220,6 +224,10 @@ class ServiceDevSetting extends ServiceBase {
       enabled: false,
       settings: {},
     }));
+    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
+      ...prev,
+      usePreReleaseConfig: false,
+    }));
     await this.saveDevModeToSyncStorage();
     await this.syncCryptoSettings();
 
@@ -304,21 +312,73 @@ class ServiceDevSetting extends ServiceBase {
   public async getFirmwareUpdateDevSettings<
     T extends IFirmwareUpdateDevSettingsKeys,
   >(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
+    return getGatedFirmwareUpdateDevSetting(key);
+  }
+
+  @backgroundMethod()
+  public async getFirmwareUpdateDevSettingsSnapshot(): Promise<
+    IFirmwareUpdateDevSettings | undefined
+  > {
     const dev = await devSettingsPersistAtom.get();
     if (!dev.enabled) {
       return undefined;
     }
-    const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
-    return fwDev[key];
+    return firmwareUpdateDevSettingsPersistAtom.get();
+  }
+
+  private firmwareUpdateDevSettingsWrite: Promise<void> = Promise.resolve();
+
+  private enqueueFirmwareUpdateDevSettingsWrite(
+    updater: (prev: IFirmwareUpdateDevSettings) => IFirmwareUpdateDevSettings,
+  ) {
+    const run = this.firmwareUpdateDevSettingsWrite
+      .catch(() => undefined)
+      .then(() => firmwareUpdateDevSettingsPersistAtom.set(updater));
+    this.firmwareUpdateDevSettingsWrite = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   @backgroundMethod()
   public async updateFirmwareUpdateDevSettings(
     values: Partial<IFirmwareUpdateDevSettings>,
   ) {
-    await firmwareUpdateDevSettingsPersistAtom.set((prev) => ({
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
       ...prev,
       ...values,
+    }));
+  }
+
+  @backgroundMethod()
+  public async togglePro2FirmwareForceTarget({
+    enabled,
+    mode,
+    target,
+  }: {
+    enabled: boolean;
+    mode: IPro2FirmwareForceTargetMode;
+    target: IPro2FirmwareUpdateTarget;
+  }) {
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+      ...prev,
+      ...applyPro2FirmwareForceTargetChange({
+        enabled,
+        mode,
+        onceTargets: prev.pro2ForceUpdateOnceTargets ?? [],
+        target,
+        targets: prev.pro2ForceUpdateTargets ?? [],
+      }),
+    }));
+  }
+
+  @backgroundMethod()
+  public async resetPro2FirmwareForceTargets() {
+    await this.enqueueFirmwareUpdateDevSettingsWrite((prev) => ({
+      ...prev,
+      pro2ForceUpdateOnceTargets: [],
+      pro2ForceUpdateTargets: [],
     }));
   }
 
@@ -334,7 +394,7 @@ class ServiceDevSetting extends ServiceBase {
     if (!(await this.isSkipBundleGPGVerificationAllowed())) {
       return;
     }
-    devSettingSyncStorage.set(
+    await devSettingSyncStorage.set(
       EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification,
       enabled,
     );
@@ -365,6 +425,63 @@ class ServiceDevSetting extends ServiceBase {
       enableAnalyticsInDev:
         devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
     });
+  }
+
+  // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----
+  //
+  // Runtime model: in native production the app runs two isolated JS runtimes
+  // (`main` UI + `background`) in one native process. On iOS they share the
+  // AsyncStorage disk files/manifest but keep per-runtime native manifest
+  // caches. The write forwarder (setupMainThreadBackgroundRunner) makes `bg`
+  // the single writer so a stale `main`-local manifest can no longer clobber
+  // `bg`-written keys.
+  //
+  // These methods always execute inside the `bg` runtime (they are reached via
+  // backgroundApiProxy RPC), so `appStorage` here is the bg-local instance and
+  // its writes are genuine bg-origin writes — exactly the side that used to get
+  // clobbered. The UI test button (AsyncStorageDevSettings) drives these
+  // concurrently with `main`-origin writes to verify no key is dropped.
+  //
+  // Safety boundary: every key MUST carry the fixed test prefix, so this
+  // dev-only RPC can never read or mutate real storage keys.
+  private static readonly ASYNC_STORAGE_TEST_KEY_PREFIX =
+    '$$test_async_storage_concurrent/';
+
+  private assertAsyncStorageTestKeys(keys: string[]) {
+    for (const key of keys) {
+      if (!key.startsWith(ServiceDevSetting.ASYNC_STORAGE_TEST_KEY_PREFIX)) {
+        throw new OneKeyLocalError(
+          `AsyncStorage dev test key must start with "${ServiceDevSetting.ASYNC_STORAGE_TEST_KEY_PREFIX}", got: ${key}`,
+        );
+      }
+    }
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiSet(
+    keyValuePairs: [string, string][],
+  ): Promise<void> {
+    this.assertAsyncStorageTestKeys(keyValuePairs.map(([key]) => key));
+    // bg-local write (bg runtime is not the forwarder's main runtime, so this
+    // stays local and lands on the shared iOS AsyncStorage disk manifest).
+    await appStorage.multiSet(keyValuePairs);
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiGet(
+    keys: string[],
+  ): Promise<[string, string | null][]> {
+    this.assertAsyncStorageTestKeys(keys);
+    const result = await appStorage.multiGet(keys);
+    return result.map(
+      ([key, value]) => [key, value ?? null] as [string, string | null],
+    );
+  }
+
+  @backgroundMethod()
+  public async demoAsyncStorageBgMultiRemove(keys: string[]): Promise<void> {
+    this.assertAsyncStorageTestKeys(keys);
+    await appStorage.multiRemove(keys);
   }
 }
 

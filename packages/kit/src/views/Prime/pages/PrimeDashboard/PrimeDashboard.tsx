@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
@@ -15,12 +16,14 @@ import {
   Theme,
   XStack,
   YStack,
+  useIsModalPage,
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,9 +40,12 @@ import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPa
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
+import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
 import { PrimeTermsAndPrivacy } from './PrimeTermsAndPrivacy';
 import { PrimeUserInfo } from './PrimeUserInfo';
+import { usePrimeSubscribeResume } from './usePrimeSubscribeResume';
 
+import type { IPrimePendingSubscribe } from './usePrimeSubscribeResume';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -93,7 +99,7 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature } = route.params || {};
+  const { fromFeature, networkId } = route.params || {};
   // const isReady = false;
   const {
     isReady: isAuthReady,
@@ -109,14 +115,20 @@ export default function PrimeDashboard({
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
 
   const { top } = useSafeAreaInsets();
+  const isModalPage = useIsModalPage();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
-  const mobileTopValue = isMobile ? top + 25 : '$10';
+  // iOS sheets already exclude the status-bar inset from their content frame.
+  const safeAreaTop = platformEnv.isNativeIOS && isModalPage ? 0 : top;
+  const mobileTopValue = isMobile ? safeAreaTop + 25 : '$10';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ensureOneKeyIDLoggedIn, ensurePrimeSubscriptionActive } =
-    usePrimeRequirements();
+    usePrimeRequirements({ networkId: networkId ?? network?.id });
 
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
@@ -124,11 +136,18 @@ export default function PrimeDashboard({
 
   const navigation = useAppNavigation();
 
-  const pendingSubscribeRef = useRef<{
-    subscriptionPeriod: ISubscriptionPeriod;
-  } | null>(null);
+  const pendingSubscribeRef = useRef<IPrimePendingSubscribe | null>(null);
+  const subscribeInFlightRef = useRef(false);
+  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
 
-  const prevIsLoggedInRef = useRef(isLoggedIn);
+  usePrimeSubscribeResume({
+    ensurePrimeSubscriptionActive,
+    featureName: fromFeature,
+    isLoggedIn,
+    onLoadingChange: setIsSubscribeLazyLoading,
+    pendingSubscribeRef,
+    subscribeInFlightRef,
+  });
 
   const dashboardShownRef = useRef(false);
   useEffect(() => {
@@ -178,19 +197,15 @@ export default function PrimeDashboard({
       enabled: shouldShowSubscriptionPlans,
     });
 
-  const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
-  const isSubscribeLazyLoadingRef = useRef(isSubscribeLazyLoading);
-  isSubscribeLazyLoadingRef.current = isSubscribeLazyLoading;
+  const selectedPackage = useMemo(
+    () =>
+      packages?.find(
+        (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+      ),
+    [packages, selectedSubscriptionPeriod],
+  );
 
-  const subscribeButtonEnabled = useMemo(() => {
-    if (!isLoggedIn) {
-      return true;
-    }
-    if (packages?.length) {
-      return true;
-    }
-    return false;
-  }, [isLoggedIn, packages?.length]);
+  const subscribeButtonEnabled = Boolean(selectedPackage);
 
   const subscribeConfirmButtonProps = useMemo(
     () => ({
@@ -198,14 +213,6 @@ export default function PrimeDashboard({
       disabled: !subscribeButtonEnabled,
     }),
     [isSubscribeLazyLoading, subscribeButtonEnabled],
-  );
-
-  const selectedPackage = useMemo(
-    () =>
-      packages?.find(
-        (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
-      ),
-    [packages, selectedSubscriptionPeriod],
   );
 
   const subscribeButtonText = useMemo(() => {
@@ -242,73 +249,50 @@ export default function PrimeDashboard({
     if (!subscribeButtonEnabled) {
       return;
     }
-    if (isSubscribeLazyLoadingRef.current) {
+    if (subscribeInFlightRef.current) {
       return;
     }
+    subscribeInFlightRef.current = true;
+    try {
+      setIsSubscribeLazyLoading(true);
+      if (isLoggedIn) {
+        pendingSubscribeRef.current = null;
+      }
 
-    defaultLogger.prime.subscription.primeSubscribeButtonClick({
-      subscriptionPeriod: selectedSubscriptionPeriod,
-      featureName: fromFeature,
-      isLoggedIn,
-    });
-
-    // If not logged in, store intent so we can resume after login
-    if (!isLoggedIn) {
-      pendingSubscribeRef.current = {
+      defaultLogger.prime.subscription.primeSubscribeButtonClick({
         subscriptionPeriod: selectedSubscriptionPeriod,
-      };
-    }
+        featureName: fromFeature,
+        isLoggedIn,
+      });
 
-    setIsSubscribeLazyLoading(true);
-    setTimeout(() => {
+      // If not logged in, store intent so we can resume after login.
+      if (!isLoggedIn) {
+        pendingSubscribeRef.current = {
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          freeTrial: selectedPackage?.freeTrial,
+        };
+      }
+
+      await runPrimeSubscribeWithMinimumLoadingDuration(() =>
+        ensurePrimeSubscriptionActive({
+          skipDialogConfirm: true,
+          selectedSubscriptionPeriod,
+          featureName: fromFeature,
+          freeTrial: selectedPackage?.freeTrial,
+        }),
+      );
+    } finally {
+      subscribeInFlightRef.current = false;
       setIsSubscribeLazyLoading(false);
-    }, 2000);
-
-    // await ensureOneKeyIDLoggedIn({
-    //   skipDialogConfirm: true,
-    // });
-    await ensurePrimeSubscriptionActive({
-      skipDialogConfirm: true,
-      selectedSubscriptionPeriod,
-      featureName: fromFeature,
-    });
+    }
   }, [
     ensurePrimeSubscriptionActive,
     selectedSubscriptionPeriod,
     subscribeButtonEnabled,
     fromFeature,
     isLoggedIn,
+    selectedPackage?.freeTrial,
   ]);
-
-  useEffect(() => {
-    const wasNotLoggedIn = !prevIsLoggedInRef.current;
-    prevIsLoggedInRef.current = isLoggedIn;
-
-    let timerId: ReturnType<typeof setTimeout> | undefined;
-
-    if (wasNotLoggedIn && isLoggedIn && pendingSubscribeRef.current) {
-      const { subscriptionPeriod } = pendingSubscribeRef.current;
-      pendingSubscribeRef.current = null;
-
-      // Small delay to let auth state fully settle and packages load
-      timerId = setTimeout(async () => {
-        try {
-          await ensurePrimeSubscriptionActive({
-            skipDialogConfirm: true,
-            selectedSubscriptionPeriod: subscriptionPeriod,
-            featureName: fromFeature,
-          });
-        } catch {
-          // Login was completed but subscription check may throw
-          // (e.g., user cancelled purchase dialog) — safe to ignore
-        }
-      }, 1000);
-    }
-
-    return () => {
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [isLoggedIn, ensurePrimeSubscriptionActive, fromFeature]);
 
   const isLoggedInMaybe =
     isSupabaseLoggedIn ||
@@ -371,7 +355,12 @@ export default function PrimeDashboard({
   return (
     <>
       <Theme name="dark">
-        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+        <Stack
+          position="absolute"
+          left="$5"
+          top={safeAreaTop || '$5'}
+          zIndex="$5"
+        >
           <NavCloseButton onPress={() => navigation.popStack()} />
         </Stack>
         <Page scrollEnabled>
@@ -418,6 +407,11 @@ export default function PrimeDashboard({
                       id: ETranslations.prime_subscription_manage_app_store,
                     })}
                   </SizableText>
+                </Stack>
+              ) : null}
+              {shouldShowConfirmButton ? (
+                <Stack alignItems="center" $gtMd={{ alignItems: 'flex-start' }}>
+                  <PrimeTermsAndPrivacy />
                 </Stack>
               ) : null}
               {!isPrimeSubscriptionActive &&
@@ -473,7 +467,7 @@ export default function PrimeDashboard({
                   />
                 </XStack>
 
-                {/* Mobile layout: column with subscribe, login, terms */}
+                {/* Mobile layout: column with subscribe and login */}
                 <YStack
                   display="flex"
                   gap="$3"
@@ -489,11 +483,6 @@ export default function PrimeDashboard({
                   />
                   {renderLoginPrompt}
                 </YStack>
-
-                {/* Terms & Privacy — always at bottom on both platforms */}
-                <Stack alignItems="center" $gtMd={{ alignItems: 'flex-start' }}>
-                  <PrimeTermsAndPrivacy />
-                </Stack>
               </Stack>
             </Page.Footer>
           ) : null}

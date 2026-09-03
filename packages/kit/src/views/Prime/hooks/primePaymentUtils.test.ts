@@ -1,3 +1,6 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+
 import primePaymentUtils from './primePaymentUtils';
 
 /*
@@ -5,6 +8,20 @@ yarn test packages/kit/src/views/Prime/hooks/primePaymentUtils.test.ts
 */
 
 describe('primePaymentUtils', () => {
+  describe('normalizeNativePrice', () => {
+    it('keeps current RevenueCat prices in major currency units', () => {
+      expect(primePaymentUtils.normalizeNativePrice(29.99, 'major')).toBe(
+        29.99,
+      );
+    });
+
+    it('converts legacy Android RevenueCat prices from micros', () => {
+      expect(primePaymentUtils.normalizeNativePrice(29_990_000, 'micros')).toBe(
+        29.99,
+      );
+    });
+  });
+
   describe('extractCurrencySymbol', () => {
     it('should extract $ from $183.77', () => {
       expect(primePaymentUtils.extractCurrencySymbol('$183.77')).toBe('$');
@@ -56,6 +73,94 @@ describe('primePaymentUtils', () => {
 
     it('should extract ¥ from CNY¥-88.88', () => {
       expect(primePaymentUtils.extractCurrencySymbol('-¥88.88')).toBe('¥');
+    });
+  });
+
+  describe('classifyPurchaseError', () => {
+    it('classifies react-native-purchases cancellation via userCancelled flag', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError({
+          userCancelled: true,
+          code: 1,
+          message: 'Purchase was cancelled.',
+        }),
+      ).toEqual({
+        reason: 'userCancelled',
+        errorCode: '1',
+        errorMessage: 'Purchase was cancelled.',
+      });
+    });
+
+    it('classifies native cancellation via readable message when the flag is missing', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError(
+          new Error('Purchase was cancelled.'),
+        ),
+      ).toEqual({
+        reason: 'userCancelled',
+        errorCode: undefined,
+        errorMessage: 'Purchase was cancelled.',
+      });
+    });
+
+    it('classifies purchases-js cancellation via errorCode', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError({
+          errorCode: 1,
+          message: 'User cancelled',
+        }),
+      ).toEqual({
+        reason: 'userCancelled',
+        errorCode: '1',
+        errorMessage: 'User cancelled',
+      });
+    });
+
+    it('classifies other errors as paymentFailed with a stringified code', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError({
+          code: 2,
+          userCancelled: false,
+          message: 'Store connection failed',
+        }),
+      ).toEqual({
+        reason: 'paymentFailed',
+        errorCode: '2',
+        errorMessage: 'Store connection failed',
+      });
+    });
+
+    it('handles non-object errors safely', () => {
+      expect(primePaymentUtils.classifyPurchaseError(undefined)).toEqual({
+        reason: 'paymentFailed',
+        errorCode: undefined,
+        errorMessage: undefined,
+      });
+    });
+
+    it('classifies OneKeyLocalError as clientError', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError(
+          new OneKeyLocalError('Offering not found'),
+        ),
+      ).toEqual({
+        reason: 'clientError',
+        errorCode: '-99999',
+        errorMessage: 'Offering not found',
+      });
+    });
+
+    it('classifies a deserialized OneKeyLocalError via className', () => {
+      expect(
+        primePaymentUtils.classifyPurchaseError({
+          className: EOneKeyErrorClassNames.OneKeyLocalError,
+          message: 'PrimeAuth native not ready!',
+        }),
+      ).toEqual({
+        reason: 'clientError',
+        errorCode: undefined,
+        errorMessage: 'PrimeAuth native not ready!',
+      });
     });
   });
 });

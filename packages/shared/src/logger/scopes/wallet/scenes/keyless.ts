@@ -3,7 +3,112 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
+export type IKeylessRealmOperation =
+  | 'createOrRestore'
+  | 'rateLimitCheck'
+  | 'recover'
+  | 'register'
+  | 'resetOrVerifyPin';
+
+export type IKeylessRealmTokenDiagnosticContext = {
+  flowId: string;
+  operation: IKeylessRealmOperation;
+  runtimeRole: string;
+  tokenExpiresAt?: number;
+  tokenFingerprint: string;
+  tokenIssuedAt?: number;
+};
+
 export class KeylessScene extends BaseScene {
+  @LogToLocal({ level: 'info' })
+  public oauthAccessTokenRefreshStarted(
+    params: IKeylessRealmTokenDiagnosticContext,
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public oauthAccessTokenRefreshResult(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      errorCode?: string;
+      errorMessage?: string;
+      errorStatus?: number;
+      identityMatched?: boolean;
+      refreshedTokenExpiresAt?: number;
+      refreshedTokenFingerprint?: string;
+      refreshedTokenIssuedAt?: number;
+      status:
+        | 'ambiguousRefreshError'
+        | 'definitiveRefreshTokenError'
+        | 'identityMismatch'
+        | 'invalidToken'
+        | 'nonRetryableError'
+        | 'retryableError'
+        | 'success'
+        | 'thrownError'
+        | 'unchangedToken';
+      tokenChanged?: boolean;
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public juiceboxClientCacheAccess(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      cacheEntryCount: number;
+      cacheHit: boolean;
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public juiceboxClientCacheDisposed(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      reason: 'delete' | 'evict' | 'expire' | 'set';
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public realmTokenExchangeStarted(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      isTestnet: boolean;
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public realmTokenExchangeSucceeded(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      durationMs: number;
+      isTestnet: boolean;
+      realmTokenCount: number;
+      requestId?: string;
+      responseCode?: number;
+    },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'error' })
+  public realmTokenExchangeFailed(
+    params: IKeylessRealmTokenDiagnosticContext & {
+      durationMs: number;
+      errorMessage?: string;
+      httpStatus?: number;
+      isTestnet: boolean;
+      requestId?: string;
+      responseCode?: number;
+      responseMessage?: string;
+    },
+  ) {
+    return params;
+  }
+
   @LogToLocal({ level: 'error' })
   public juiceboxRecoverError({
     message,
@@ -143,6 +248,15 @@ export class KeylessScene extends BaseScene {
   @LogToLocal({ level: 'error' })
   public restoreKeylessBackendShareV2MigrationFailed() {
     return {};
+  }
+
+  @LogToLocal({ level: 'error' })
+  public prepareOneKeyIdLoginWithLocalKeylessFailed({
+    error,
+  }: {
+    error: string;
+  }) {
+    return { error };
   }
 
   @LogToLocal({ level: 'info' })

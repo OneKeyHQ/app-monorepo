@@ -1,12 +1,22 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  cloneElement,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   DashText,
   DebugRenderTracker,
+  Dialog,
   Divider,
-  Popover,
   SizableText,
   XStack,
   YStack,
@@ -19,16 +29,22 @@ import {
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   usePerpsL2BookColdCacheAtom,
+  usePerpsMidByCoin,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsShouldShowEnableTradingButtonAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCommonConfigPersistAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import {
   type IL2BookData,
@@ -36,11 +52,14 @@ import {
   normalizeL2BookData,
   useL2Book,
 } from '../hooks/usePerpMarketData';
+import { usePerpsAccountDisplayState } from '../hooks/usePerpsAccountDisplayState';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
-import { useTradingPrice } from '../hooks/useTradingPrice';
+import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { shouldShowPerpsFirstDepositPrompt } from '../utils/enableTradingDialogConfirm';
 import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
+  isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
 import {
@@ -61,16 +80,228 @@ import {
 } from './OrderBook';
 import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
+import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
-import type { IOrderBookVariant } from './OrderBook/types';
 import type { LayoutChangeEvent } from 'react-native';
 
-function MobileHeader({
-  showPlaceholder = false,
+const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
+
+function FundingDialogTrigger({
+  title,
+  renderTrigger,
+  renderContent,
 }: {
-  showPlaceholder?: boolean;
+  title: string;
+  renderTrigger: ReactElement<{ onPress?: () => void }>;
+  renderContent: (closeDialog: () => Promise<void> | void) => ReactNode;
 }) {
+  const handlePress = useCallback(() => {
+    const dialogInstanceRef: {
+      current?: ReturnType<typeof Dialog.show>;
+    } = {};
+    const closeDialog = () => dialogInstanceRef.current?.close();
+    dialogInstanceRef.current = Dialog.show({
+      title,
+      showFooter: false,
+      contentContainerProps: { p: '$0' },
+      sheetProps: { transition: '100ms' },
+      sheetOverlayProps: { transition: '100ms' },
+      renderContent: renderContent(closeDialog),
+    });
+  }, [renderContent, title]);
+
+  return cloneElement(renderTrigger, { onPress: handlePress });
+}
+
+function FundingDialogContent({
+  closeDialog,
+}: {
+  closeDialog: () => Promise<void> | void;
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const countdown = useFundingCountdown();
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const { assetCtx } = usePerpsActiveAssetCtxDisplay(
+    activeTradeInstrument.coin,
+  );
+  const fundingRate = assetCtx?.ctx?.fundingRate || '0';
+  const fundingRateNumber = parseFloat(fundingRate);
+  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
+  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
+  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
+  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
+  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
+  const fundingColor = fundingRateNumber >= 0 ? '$green11' : '$red11';
+
+  const handleViewFundingHistory = useCallback(() => {
+    void closeDialog();
+    setTimeout(() => {
+      navigation.push(EModalPerpRoutes.MobilePerpMarket, {
+        initialTab: 'funding',
+      });
+    }, FUNDING_DIALOG_CLOSE_DURATION_MS);
+  }, [closeDialog, navigation]);
+
+  return (
+    <YStack
+      bg="$bg"
+      justifyContent="center"
+      w="100%"
+      px="$5"
+      pt="$2"
+      pb="$5"
+      gap="$6"
+    >
+      <YStack gap="$2">
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perps_fee_rate_projection,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            })}
+          </SizableText>
+        </XStack>
+        <YStack gap="$3">
+          <XStack justifyContent="space-between" alignItems="center">
+            <XStack gap="$1" alignItems="center">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.perps_hourly,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                ({countdown})
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {hourlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_daily,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {dailyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_weekly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {weeklyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_monthly,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {monthlyFundingRate}%
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.earn_annually,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color={fundingColor}>
+              {annualizedFundingRate}%
+            </SizableText>
+          </XStack>
+        </YStack>
+      </YStack>
+      <Divider />
+
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_trades_history_direction,
+          })}
+        </SizableText>
+        {fundingRateNumber >= 0 ? (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>
+          </SizableText>
+        ) : (
+          <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodyMdMedium" color="$red11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+              })}
+            </SizableText>{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+            })}{' '}
+            <SizableText size="$bodyMdMedium" color="$green11">
+              {intl.formatMessage({
+                id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+              })}
+            </SizableText>
+          </SizableText>
+        )}
+      </YStack>
+
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip0,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip1,
+          })}
+        </SizableText>
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_funding_rate_tip2,
+          })}
+        </SizableText>
+      </YStack>
+      <Button
+        size="medium"
+        variant="secondary"
+        width="100%"
+        testID="perp-view-funding-history-button"
+        onPress={handleViewFundingHistory}
+      >
+        {intl.formatMessage({
+          id: ETranslations.export_history__action,
+        })}
+      </Button>
+    </YStack>
+  );
+}
+
+function MobileHeader() {
   const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const countdown = useFundingCountdown();
@@ -91,11 +322,6 @@ function MobileHeader({
   };
   const fundingRateNumber = parseFloat(fundingRate);
   const hasFundingValue = Number.isFinite(fundingRateNumber);
-  const hourlyFundingRate = (fundingRateNumber * 100).toFixed(4);
-  const dailyFundingRate = (fundingRateNumber * 100 * 24).toFixed(2);
-  const weeklyFundingRate = (fundingRateNumber * 100 * 24 * 7).toFixed(2);
-  const monthlyFundingRate = (fundingRateNumber * 100 * 24 * 30).toFixed(2);
-  const annualizedFundingRate = (fundingRateNumber * 100 * 24 * 365).toFixed(2);
   const fundingColor = useMemo(() => {
     if (!hasFundingValue) {
       return '$textSubdued';
@@ -113,7 +339,6 @@ function MobileHeader({
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileHeader.state', {
       coin: activeTradeInstrument.coin,
-      showPlaceholder,
       showSkeleton,
       isReady,
       hasError,
@@ -130,7 +355,6 @@ function MobileHeader({
     hasError,
     isReady,
     markPrice,
-    showPlaceholder,
     showSkeleton,
   ]);
 
@@ -140,14 +364,13 @@ function MobileHeader({
       if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
         tracePerpsMobileLayout('orderBook.mobileHeader.layout', {
           rect,
-          showPlaceholder,
           showSkeleton,
           coin: activeTradeInstrument.coin,
         });
         layoutRef.current = rect;
       }
     },
-    [activeTradeInstrument.coin, showPlaceholder, showSkeleton],
+    [activeTradeInstrument.coin, showSkeleton],
   );
 
   if (isSpot) {
@@ -155,7 +378,7 @@ function MobileHeader({
   }
 
   return (
-    <Popover
+    <FundingDialogTrigger
       title={intl.formatMessage({
         id: ETranslations.perp_position_funding,
       })}
@@ -163,14 +386,14 @@ function MobileHeader({
         <YStack
           alignItems="flex-start"
           mb="$2"
-          h={32}
+          minHeight={32}
           justifyContent="center"
           onLayout={handleLayout}
         >
           <DashText
             fontSize={10}
             color="$textSubdued"
-            dashColor="$textSubdued"
+            dashColor="$borderSubdued"
             dashThickness={0.5}
             lineHeight={16}
           >
@@ -179,7 +402,7 @@ function MobileHeader({
             })}
           </DashText>
 
-          {showPlaceholder || showSkeleton ? (
+          {showSkeleton ? (
             <SizableText size="$bodySmMedium" color="$textSubdued">
               --
             </SizableText>
@@ -195,198 +418,16 @@ function MobileHeader({
           )}
         </YStack>
       }
-      renderContent={
-        <YStack
-          bg="$bg"
-          justifyContent="center"
-          w="100%"
-          px="$5"
-          pt="$2"
-          pb="$5"
-          gap="$6"
-        >
-          <YStack gap="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_fee_rate_projection,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding,
-                })}
-              </SizableText>
-            </XStack>
-            <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="center">
-                <XStack gap="$1" alignItems="center">
-                  <SizableText size="$headingXs">
-                    {intl.formatMessage({
-                      id: ETranslations.perps_hourly,
-                    })}
-                  </SizableText>
-                  <SizableText size="$headingXs" color="$textSubdued">
-                    ({countdown})
-                  </SizableText>
-                </XStack>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {hourlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_daily,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {dailyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_weekly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {weeklyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_monthly,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {monthlyFundingRate}%
-                </SizableText>
-              </XStack>
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$headingXs">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_annually,
-                  })}
-                </SizableText>
-                <SizableText
-                  size="$headingXs"
-                  color={fundingRateNumber >= 0 ? '$green11' : '$red11'}
-                >
-                  {annualizedFundingRate}%
-                </SizableText>
-              </XStack>
-            </YStack>
-          </YStack>
-          <Divider />
-
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trades_history_direction,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" color={fundingColor}>
-              {parseFloat(fundingRate) >= 0 ? (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodySmMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>
-                </SizableText>
-              ) : (
-                <SizableText size="$bodySmMedium" color="$text">
-                  <SizableText size="$bodySmMedium" color="$red11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                  })}{' '}
-                  <SizableText size="$bodySmMedium" color="$green11">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                    })}
-                  </SizableText>
-                </SizableText>
-              )}
-            </SizableText>
-          </YStack>
-
-          <Divider />
-          <YStack gap="$2">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip0,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip1,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_funding_rate_tip2,
-              })}
-            </SizableText>
-          </YStack>
-        </YStack>
-      }
+      renderContent={(closeDialog) => (
+        <PerpsProviderMirror>
+          <FundingDialogContent closeDialog={closeDialog} />
+        </PerpsProviderMirror>
+      )}
     />
   );
 }
 const MobileHeaderMemo = memo(MobileHeader);
 const MOBILE_SPOT_MAX_LEVELS_PER_SIDE = 4;
-
-function DefaultOrderBookLoadingNode({
-  isSpot,
-  maxLevelsPerSide,
-  spotUniverse,
-  symbol,
-  variant,
-}: {
-  isSpot?: boolean;
-  maxLevelsPerSide?: number;
-  spotUniverse?: Parameters<typeof DefaultLoadingNode>[0]['spotUniverse'];
-  symbol?: string;
-  variant: IOrderBookVariant;
-}) {
-  const { midPrice } = useTradingPrice();
-  return (
-    <DefaultLoadingNode
-      isSpot={isSpot}
-      maxLevelsPerSide={maxLevelsPerSide}
-      midPrice={midPrice}
-      spotUniverse={spotUniverse}
-      symbol={symbol}
-      variant={variant}
-    />
-  );
-}
 
 function usePublishVisualL2BookSnapshot({
   book,
@@ -540,11 +581,26 @@ export function PerpOrderBook({
   >({});
   const renderStateSignatureRef = useRef<string | undefined>(undefined);
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const tickReferencePrice = usePerpsMidByCoin(activeTradeInstrument.coin);
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
   const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
+  const {
+    isLiveStatusPending,
+    perpsAccountStatus,
+    shouldShowConnectWalletPrompt: shouldCompactOrderBookForConnectWallet,
+  } = usePerpsAccountDisplayState();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const shouldCompactOrderBookForFirstDeposit = Boolean(
+    !perpConfigCommon?.ipDisablePerp &&
+    shouldShowPerpsFirstDepositPrompt({
+      status: perpsAccountStatus,
+      isLiveStatusPending,
+      isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+    }),
+  );
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = activeTradeInstrument.coin;
@@ -560,6 +616,16 @@ export function PerpOrderBook({
       stored?.mantissa === undefined ? undefined : stored.mantissa;
     return { nSigFigs, mantissa };
   }, [activeTradeInstrument.coin, orderBookTickOptions]);
+  const hasInitializedTickOption = useMemo(
+    () =>
+      Boolean(
+        getPerpsOrderBookTickOptionWithCache({
+          coin: activeTradeInstrument.coin,
+          options: orderBookTickOptions,
+        }),
+      ),
+    [activeTradeInstrument.coin, orderBookTickOptions],
+  );
 
   const enableVisualSnapshot = !gtMd;
   const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
@@ -600,9 +666,15 @@ export function PerpOrderBook({
     l2SubscriptionOptions.mantissa,
     l2SubscriptionOptions.nSigFigs,
   ]);
-  const activeRenderL2Book =
-    renderL2Book?.coin === activeTradeInstrument.coin ? renderL2Book : null;
-  const visibleL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const activeRenderL2Book = isL2BookForTarget(
+    renderL2Book,
+    activeTradeInstrument.coin,
+    l2SubscriptionOptions,
+  )
+    ? renderL2Book
+    : null;
+  const candidateL2Book = activeRenderL2Book ?? initialCachedL2Book;
+  const visibleL2Book = hasInitializedTickOption ? candidateL2Book : null;
   const hasRenderOrderBook = Boolean(visibleL2Book);
 
   const handleVisualBookChange = useCallback((book: IL2BookData | null) => {
@@ -623,7 +695,7 @@ export function PerpOrderBook({
   // Do NOT reset renderL2Book/isOrderBookInteractive on coin/options change:
   // the bridge only re-reports isInteractive on a boolean flip, so a reset
   // landing after a `true` report leaves it stuck out of sync. Render-time gates
-  // (activeRenderL2Book coin filter + freshness checks) already cover staleness.
+  // (activeRenderL2Book target filter + freshness checks) already cover staleness.
 
   useEffect(() => {
     const coin = activeTradeInstrument.coin;
@@ -738,9 +810,15 @@ export function PerpOrderBook({
   ]);
 
   const tickOptionsData = useTickOptions({
-    symbol: visibleL2Book?.coin,
-    bids: visibleL2Book?.bids ?? [],
-    asks: visibleL2Book?.asks ?? [],
+    symbol: activeTradeInstrument.coin,
+    bids: candidateL2Book?.bids ?? [],
+    asks: candidateL2Book?.asks ?? [],
+    referencePrice: tickReferencePrice,
+    szDecimals:
+      activeTradeInstrument.mode === 'spot'
+        ? activeTradeInstrument.universe?.baseSzDecimals
+        : activeTradeInstrument.universe?.szDecimals,
+    isSpot: activeTradeInstrument.mode === 'spot',
   });
   const {
     tickOptions,
@@ -763,6 +841,7 @@ export function PerpOrderBook({
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
           bookReceivedAt: visibleL2Book?.localReceivedAt,
+          isCachedSnapshot: visibleL2Book?.isCachedSnapshot,
         })
       ) {
         return;
@@ -782,6 +861,7 @@ export function PerpOrderBook({
       actionsRef,
       formData.type,
       visibleL2Book?.localReceivedAt,
+      visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.time,
     ],
   );
@@ -791,23 +871,33 @@ export function PerpOrderBook({
       isPerpsL2BookInteractive({
         bookTime: visibleL2Book?.time,
         bookReceivedAt: visibleL2Book?.localReceivedAt,
+        isCachedSnapshot: visibleL2Book?.isCachedSnapshot,
       }),
     [
       isOrderBookInteractive,
+      visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.localReceivedAt,
       visibleL2Book?.time,
     ],
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 7;
+    // Spot settles on its own level count, and the perps account flags read
+    // true until the account address resolves, so checking them first made every
+    // spot cold start render 7 levels and then collapse the first-screen grid.
     if (activeTradeInstrument.mode === 'spot')
       return MOBILE_SPOT_MAX_LEVELS_PER_SIDE;
+    if (shouldCompactOrderBookForFirstDeposit) return 5;
+    if (shouldShowEnableTradingButton) {
+      return shouldCompactOrderBookForConnectWallet ? 6 : 7;
+    }
     if (formData.hasTpsl) return 9;
     return 7;
   }, [
     activeTradeInstrument.mode,
     formData.hasTpsl,
+    shouldCompactOrderBookForConnectWallet,
+    shouldCompactOrderBookForFirstDeposit,
     shouldShowEnableTradingButton,
   ]);
 
@@ -860,6 +950,10 @@ export function PerpOrderBook({
       visibleL2Book?.coin ?? '',
       visibleL2Book?.bids.length ?? 0,
       visibleL2Book?.asks.length ?? 0,
+      candidateL2Book?.coin ?? '',
+      candidateL2Book?.bids.length ?? 0,
+      candidateL2Book?.asks.length ?? 0,
+      hasInitializedTickOption ? 'tickReady' : 'tickPending',
       shouldShowEnableTradingButton ? 'enableTrading' : 'trade',
       formData.hasTpsl ? 'tpsl' : 'noTpsl',
       mobileMaxLevelsPerSide,
@@ -883,9 +977,13 @@ export function PerpOrderBook({
   }, [
     activeTradeInstrument.coin,
     activeTradeInstrument.mode,
+    candidateL2Book?.asks.length,
+    candidateL2Book?.bids.length,
+    candidateL2Book?.coin,
     entry,
     formData.hasTpsl,
     gtMd,
+    hasInitializedTickOption,
     hasRenderOrderBook,
     visibleL2Book?.asks.length,
     visibleL2Book?.bids.length,
@@ -897,74 +995,47 @@ export function PerpOrderBook({
   const mobileOrderBook = useMemo(() => {
     if (!hasRenderOrderBook || !visibleL2Book) return null;
     if (gtMd) return null;
-    if (entry === 'perpMobileMarket') {
-      return (
-        <OrderBook
-          horizontal
-          symbol={visibleL2Book.coin}
-          bids={visibleL2Book.bids}
-          asks={visibleL2Book.asks}
-          maxLevelsPerSide={13}
-          selectedTickOption={selectedTickOption}
-          onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptions}
-          showTickSelector
-          priceDecimals={priceDecimals}
-          sizeDecimals={sizeDecimals}
-          onSelectLevel={
-            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
-          }
-          loadingNode={
-            <DefaultLoadingNode
-              variant="mobileHorizontal"
-              maxLevelsPerSide={13}
-            />
-          }
-          style={{
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingTop: 8,
-            paddingBottom: 8,
-          }}
-          variant="mobileHorizontal"
-        />
-      );
-    }
+    if (entry !== 'perpMobileMarket') return null;
     return (
-      <YStack
-        gap="$1"
-        onLayout={(event) => handleTraceLayout('mobileVerticalReady', event)}
-      >
-        <MobileHeaderMemo />
-        <OrderBookMobile
-          symbol={visibleL2Book.coin}
-          bids={visibleL2Book.bids}
-          asks={visibleL2Book.asks}
-          maxLevelsPerSide={mobileMaxLevelsPerSide}
-          selectedTickOption={selectedTickOption}
-          onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptions}
-          showTickSelector
-          priceDecimals={priceDecimals}
-          sizeDecimals={sizeDecimals}
-          onSelectLevel={
-            isVisibleOrderBookInteractive ? handleLevelSelect : undefined
-          }
-          variant="mobileVertical"
-        />
-      </YStack>
+      <OrderBook
+        horizontal
+        symbol={visibleL2Book.coin}
+        bids={visibleL2Book.bids}
+        asks={visibleL2Book.asks}
+        maxLevelsPerSide={13}
+        selectedTickOption={selectedTickOption}
+        onTickOptionChange={handleTickOptionChange}
+        tickOptions={tickOptions}
+        showTickSelector
+        priceDecimals={priceDecimals}
+        sizeDecimals={sizeDecimals}
+        onSelectLevel={
+          isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+        }
+        loadingNode={
+          <DefaultLoadingNode
+            variant="mobileHorizontal"
+            maxLevelsPerSide={13}
+          />
+        }
+        style={{
+          paddingLeft: 16,
+          paddingRight: 16,
+          paddingTop: 8,
+          paddingBottom: 8,
+        }}
+        variant="mobileHorizontal"
+      />
     );
   }, [
     entry,
     gtMd,
-    handleTraceLayout,
     handleTickOptionChange,
     visibleL2Book,
     handleLevelSelect,
     selectedTickOption,
     hasRenderOrderBook,
     isVisibleOrderBookInteractive,
-    mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
     sizeDecimals,
@@ -979,25 +1050,21 @@ export function PerpOrderBook({
     />
   );
 
-  if (!hasRenderOrderBook || !visibleL2Book) {
-    let loadingVariant = 'desktop';
-    if (!gtMd) {
-      loadingVariant =
-        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
-    }
-    if (!gtMd && loadingVariant === 'mobileVertical') {
-      return (
-        <>
-          {dataBridge}
-          <YStack
-            flex={1}
-            bg="$bgApp"
-            gap="$1"
-            onLayout={(event) =>
-              handleTraceLayout('mobileVerticalLoading', event)
-            }
-          >
-            <MobileHeaderMemo showPlaceholder />
+  if (!gtMd && entry !== 'perpMobileMarket') {
+    const isLoading = !hasRenderOrderBook || !visibleL2Book;
+    return (
+      <>
+        {dataBridge}
+        <PerpOrderBookMobileVerticalShell
+          header={<MobileHeaderMemo />}
+          isLoading={isLoading}
+          onLayout={(event) =>
+            handleTraceLayout(
+              isLoading ? 'mobileVerticalLoading' : 'mobileVerticalReady',
+              event,
+            )
+          }
+          loadingBody={
             <OrderBookMobile
               symbol={activeTradeInstrument.coin}
               bids={[]}
@@ -1012,73 +1079,77 @@ export function PerpOrderBook({
               onSelectLevel={undefined}
               variant="mobileVertical"
             />
-          </YStack>
-        </>
-      );
-    }
-    if (!gtMd && loadingVariant === 'mobileHorizontal') {
-      return (
-        <>
-          {dataBridge}
-          <YStack
-            flex={1}
-            bg="$bgApp"
-            onLayout={(event) =>
-              handleTraceLayout('mobileHorizontalLoading', event)
-            }
-          >
-            <OrderBook
-              horizontal
-              symbol={activeTradeInstrument.coin}
-              bids={[]}
-              asks={[]}
-              maxLevelsPerSide={13}
-              selectedTickOption={selectedTickOption}
-              onTickOptionChange={handleTickOptionChange}
-              tickOptions={tickOptions}
-              showTickSelector
-              priceDecimals={priceDecimals}
-              sizeDecimals={sizeDecimals}
-              onSelectLevel={undefined}
-              loadingNode={
-                <DefaultLoadingNode
-                  variant="mobileHorizontal"
-                  maxLevelsPerSide={13}
-                />
-              }
-              variant="mobileHorizontal"
-            />
-          </YStack>
-        </>
-      );
-    }
+          }
+          readyBody={
+            visibleL2Book ? (
+              <OrderBookMobile
+                symbol={visibleL2Book.coin}
+                bids={visibleL2Book.bids}
+                asks={visibleL2Book.asks}
+                maxLevelsPerSide={mobileMaxLevelsPerSide}
+                selectedTickOption={selectedTickOption}
+                onTickOptionChange={handleTickOptionChange}
+                tickOptions={tickOptions}
+                showTickSelector
+                priceDecimals={priceDecimals}
+                sizeDecimals={sizeDecimals}
+                onSelectLevel={
+                  isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+                }
+                variant="mobileVertical"
+              />
+            ) : null
+          }
+        />
+      </>
+    );
+  }
+
+  if ((!hasRenderOrderBook || !visibleL2Book) && !gtMd) {
     return (
       <>
         {dataBridge}
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <DefaultOrderBookLoadingNode
-            variant={loadingVariant as IOrderBookVariant}
-            symbol={
-              loadingVariant === 'mobileVertical'
-                ? activeTradeInstrument.coin
-                : undefined
+        <YStack
+          flex={1}
+          bg="$bgApp"
+          onLayout={(event) =>
+            handleTraceLayout('mobileHorizontalLoading', event)
+          }
+        >
+          <OrderBook
+            horizontal
+            symbol={activeTradeInstrument.coin}
+            bids={[]}
+            asks={[]}
+            maxLevelsPerSide={13}
+            selectedTickOption={selectedTickOption}
+            onTickOptionChange={handleTickOptionChange}
+            tickOptions={tickOptions}
+            showTickSelector
+            priceDecimals={priceDecimals}
+            sizeDecimals={sizeDecimals}
+            onSelectLevel={undefined}
+            loadingNode={
+              <DefaultLoadingNode
+                variant="mobileHorizontal"
+                maxLevelsPerSide={13}
+              />
             }
-            isSpot={activeTradeInstrument.mode === 'spot'}
-            spotUniverse={
-              activeTradeInstrument.mode === 'spot'
-                ? activeTradeInstrument.universe
-                : undefined
-            }
-            maxLevelsPerSide={
-              loadingVariant === 'mobileVertical'
-                ? mobileMaxLevelsPerSide
-                : undefined
-            }
+            variant="mobileHorizontal"
           />
         </YStack>
       </>
     );
   }
+
+  const desktopOrderBookData: Pick<IL2BookData, 'coin' | 'bids' | 'asks'> =
+    hasRenderOrderBook && visibleL2Book
+      ? visibleL2Book
+      : {
+          coin: activeTradeInstrument.coin,
+          bids: [],
+          asks: [],
+        };
 
   const content = (
     <YStack
@@ -1088,10 +1159,10 @@ export function PerpOrderBook({
     >
       {gtMd ? (
         <OrderBook
-          symbol={visibleL2Book.coin}
+          symbol={desktopOrderBookData.coin}
           horizontal={false}
-          bids={visibleL2Book.bids}
-          asks={visibleL2Book.asks}
+          bids={desktopOrderBookData.bids}
+          asks={desktopOrderBookData.asks}
           maxLevelsPerSide={desktopMaxLevelsPerSide}
           initialContainerHeight={initialOrderBookHeight}
           selectedTickOption={selectedTickOption}

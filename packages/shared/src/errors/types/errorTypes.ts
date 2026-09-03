@@ -9,6 +9,7 @@ export enum ECustomOneKeyHardwareError {
   NeedFirmwareUpgrade = 4030,
   NeedOneKeyBridgeUpgrade = 4031,
   NeedFirmwareUpgradeFromWeb = 4032,
+  UnknownHardwareError = 4033,
   DeviceMethodCallTimeout = 4080,
   FirmwareUpdateBatteryTooLow = 4081,
 }
@@ -41,6 +42,9 @@ export enum EOneKeyErrorClassNames {
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
   PrimeSendEmailOTPCancelError = 'PrimeSendEmailOTPCancelError',
+  OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound = 'OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound',
+  OneKeyErrorOneKeyIdKeylessSessionSlotReplaced = 'OneKeyErrorOneKeyIdKeylessSessionSlotReplaced',
+  OneKeyErrorOneKeyIdLegacyBindStateChanged = 'OneKeyErrorOneKeyIdLegacyBindStateChanged',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',

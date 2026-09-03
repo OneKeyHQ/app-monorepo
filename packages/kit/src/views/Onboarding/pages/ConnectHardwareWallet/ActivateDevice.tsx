@@ -238,6 +238,7 @@ export function ActivateDevice({
                       h: '$56',
                     }}
                     resizeMode="contain"
+                    resizeWidth={256}
                     source={uri}
                   />
                   <SizableText

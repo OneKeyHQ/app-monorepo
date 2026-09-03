@@ -15,6 +15,7 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketBannerList } from '../components/MarketBanner';
@@ -23,6 +24,7 @@ import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList/MobileMarketPerpsFlatList';
+import { MobileMarketStockFlatList } from '../components/MarketStockList/MobileMarketStockFlatList';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
 import {
@@ -32,13 +34,12 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { MobileMarketTopCoinsFlatList } from '../components/MarketTopCoinsList/MobileMarketTopCoinsFlatList';
 import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import {
-  getDefaultMarketStockCategoryId,
-  getMarketStockCategoryRequestParam,
-} from './marketStockCategoryUtils';
+import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
+import { getMarketWebSecondaryHeaderHeight } from './mobileLayoutUtils';
 
 import type {
   ILiquidityFilter,
@@ -79,7 +80,6 @@ interface ITabBarDynamicContext {
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
-const MARKET_MOBILE_SECONDARY_HEADER_HEIGHT = 74;
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
@@ -94,6 +94,7 @@ function MarketHomeTabBar({
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
+  const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
   const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
     currentFocusedTabName,
   );
@@ -107,7 +108,9 @@ function MarketHomeTabBar({
       ctx.stockDataCategoryMap[currentSpotCategoryId]),
   );
   const showSpotFilterBar = Boolean(
-    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+    currentSpotCategoryId &&
+    currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
+    !currentSpotCategoryHasStockData,
   );
   const showStockCategorySelector = Boolean(
     currentSpotCategoryId &&
@@ -117,6 +120,12 @@ function MarketHomeTabBar({
     ) &&
     ctx.stockCategories.length > 0,
   );
+  const secondaryHeaderHeight = getMarketWebSecondaryHeaderHeight({
+    isWatchlistEmpty: ctx.isWatchlistEmpty,
+    showWatchlistSubHeader,
+    showSpotSubHeader,
+    hasSpotSecondaryControls: showSpotFilterBar || showStockCategorySelector,
+  });
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
@@ -129,10 +138,7 @@ function MarketHomeTabBar({
         {...tabBarProps}
         containerStyle={{ position: 'relative' as any }}
       />
-      <YStack
-        height={MARKET_MOBILE_SECONDARY_HEADER_HEIGHT}
-        position="relative"
-      >
+      <YStack height={secondaryHeaderHeight} position="relative">
         <YStack
           display={
             currentFocusedTabName === watchlistTabName && !ctx.isWatchlistEmpty
@@ -433,25 +439,42 @@ function MobileLayoutComponent({
         listContainerProps={listContainerProps}
       />
     </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          selectedCategory={item.categoryId}
-          stockCategory={
-            isMarketStockCategoryById(
-              filterBarProps.categories,
-              item.categoryId,
-            )
-              ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-              : undefined
-          }
-          timeRange={filterBarProps.timeRange}
-          listContainerProps={listContainerProps}
-          onStockDataChange={handleStockDataChange}
-        />
-      </Tabs.Tab>
-    )),
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      let tabContent;
+      if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+        tabContent = (
+          <MobileMarketTopCoinsFlatList
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else if (isStockCategory) {
+        tabContent = (
+          <MobileMarketStockFlatList
+            selectedCategoryId={selectedStockCategoryId}
+            listContainerProps={listContainerProps}
+          />
+        );
+      } else {
+        tabContent = (
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            selectedCategory={item.categoryId}
+            timeRange={filterBarProps.timeRange}
+            listContainerProps={listContainerProps}
+            onStockDataChange={handleStockDataChange}
+          />
+        );
+      }
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          {tabContent}
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>

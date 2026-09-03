@@ -10,15 +10,20 @@ import {
 
 import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
+import { MarketListLoadingFallback } from '../components/MarketTokenList/MarketListLoadingFallback';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
-import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
+import { MarketTopCoinsList } from '../components/MarketTopCoinsList/MarketTopCoinsList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
+import { TrendingDesktopToolbar } from '../components/TrendingDesktopToolbar';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   isMarketStockCategoryById,
@@ -27,10 +32,7 @@ import {
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import {
-  getDefaultMarketStockCategoryId,
-  getMarketStockCategoryRequestParam,
-} from './marketStockCategoryUtils';
+import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
@@ -49,6 +51,12 @@ const LazyMarketPerpsTokenList = lazy(async () => {
   const { MarketPerpsTokenList } =
     await import('../components/MarketPerpsList');
   return { default: MarketPerpsTokenList };
+});
+
+const LazyMarketStockList = lazy(async () => {
+  const { MarketStockList } =
+    await import('../components/MarketStockList/MarketStockList');
+  return { default: MarketStockList };
 });
 
 const useIsFirstFocus = () => {
@@ -100,7 +108,9 @@ export function DesktopLayout({
       allowHeaderOverscroll: true,
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
-          <MarketBannerList />
+          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
+            <MarketBannerList />
+          </YStack>
         </YStack>
       ),
     }),
@@ -163,12 +173,15 @@ export function DesktopLayout({
   // commit; the other two stay as empty placeholders until first press.
   const everActiveTabsRef = useRef<Set<string>>(new Set([activeTabName]));
   const [, bumpEverActive] = useState(0);
-  useEffect(() => {
-    if (!everActiveTabsRef.current.has(activeTabName)) {
-      everActiveTabsRef.current.add(activeTabName);
-      bumpEverActive((n) => n + 1);
+  const ensureTabActivated = useCallback((tabName: string) => {
+    if (!everActiveTabsRef.current.has(tabName)) {
+      everActiveTabsRef.current.add(tabName);
+      bumpEverActive((version) => version + 1);
     }
-  }, [activeTabName]);
+  }, []);
+  useEffect(() => {
+    ensureTabActivated(activeTabName);
+  }, [activeTabName, ensureTabActivated]);
   const hasActivated = (name: string) => everActiveTabsRef.current.has(name);
 
   // Ref so renderTabBar can update activeTabName immediately on press
@@ -191,6 +204,7 @@ export function DesktopLayout({
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
+        ensureTabActivated(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -207,14 +221,21 @@ export function DesktopLayout({
           stockDataCategoryMapRef.current[currentSpotCategoryId]),
       );
       const showSpotControls = Boolean(
-        currentSpotCategoryId && !currentSpotCategoryHasStockData,
+        currentSpotCategoryId &&
+        currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
+        !currentSpotCategoryHasStockData,
       );
+      const isTrendingCategory = currentSpotCategoryId === 'trending';
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
       return (
         <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
-          <XStack alignItems="center">
+          <XStack
+            {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}
+            alignItems="center"
+            testID={MarketTestIDs.marketTabs}
+          >
             <XStack flex={1}>
               <Tabs.TabBar
                 {...tabBarProps}
@@ -223,19 +244,24 @@ export function DesktopLayout({
                 containerStyle={{ position: 'relative' as any }}
               />
             </XStack>
-            {/* Right side controls - hidden when the active spot data is stock */}
-            {showSpotControls ? (
-              <XStack gap="$3" alignItems="center" pr="$5">
+            {/* Keep controls mounted so network data remains ready across tabs. */}
+            <XStack
+              display={showSpotControls ? 'flex' : 'none'}
+              gap="$3"
+              alignItems="center"
+              pr="$5"
+            >
+              {isTrendingCategory ? null : (
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
                   onChange={currentFilterBarProps.onTimeRangeChange}
                 />
-                <CompactNetworkSelector
-                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
-                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
-                />
-              </XStack>
-            ) : null}
+              )}
+              <CompactNetworkSelector
+                selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+              />
+            </XStack>
           </XStack>
           <div
             ref={portalRefCallback}
@@ -244,15 +270,16 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [getSpotCategoryIdByTabName, portalRefCallback],
+    [ensureTabActivated, getSpotCategoryIdByTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      ensureTabActivated(tabName);
       setActiveTabName(tabName);
       handleTabChange(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [ensureTabActivated, handleTabChange, setActiveTabName],
   );
 
   const listContainerProps = useMemo(() => {
@@ -273,19 +300,6 @@ export function DesktopLayout({
     [],
   );
 
-  const stockCategoryToolbar = useMemo(() => {
-    if (stockCategories.length === 0) {
-      return null;
-    }
-    return (
-      <MarketStockCategorySelector
-        categories={stockCategories}
-        selectedCategoryId={selectedStockCategoryId}
-        onSelectCategory={setSelectedStockCategoryId}
-      />
-    );
-  }, [selectedStockCategoryId, stockCategories]);
-
   const stickyHeaderCtx = useMemo(
     () => ({ portalTarget, activeTabName }),
     [portalTarget, activeTabName],
@@ -298,43 +312,55 @@ export function DesktopLayout({
 
   const tabElements = [
     <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-      <YStack px="$4" flex={1}>
+      <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
         {hasActivated(watchlistTabName) ? (
-          <Suspense fallback={null}>
+          <Suspense fallback={<MarketListLoadingFallback />}>
             <LazyMarketWatchlistTokenList
               tabIntegrated
               tabName={watchlistTabName}
               listContainerProps={listContainerProps}
               enableWebSocket={activeTabName === watchlistTabName}
+              centerDesktopPortalContent
             />
           </Suspense>
         ) : null}
       </YStack>
     </Tabs.Tab>,
-    ...spotTabItems.map((item) => (
-      <Tabs.Tab key={item.categoryId} name={item.tabName}>
-        <YStack px="$4" flex={1}>
-          {hasActivated(item.tabName) ? (
+    ...spotTabItems.map((item) => {
+      const isStockCategory = isMarketStockCategoryById(
+        filterBarProps.categories,
+        item.categoryId,
+      );
+      let tabContent = null;
+      if (hasActivated(item.tabName)) {
+        if (isStockCategory) {
+          tabContent = (
+            <Suspense fallback={<MarketListLoadingFallback />}>
+              <LazyMarketStockList
+                categories={stockCategories}
+                selectedCategoryId={selectedStockCategoryId}
+                onSelectCategory={setSelectedStockCategoryId}
+                tabIntegrated
+                tabName={item.tabName}
+                listContainerProps={listContainerProps}
+              />
+            </Suspense>
+          );
+        } else if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+          tabContent = (
+            <MarketTopCoinsList
+              tabIntegrated
+              tabName={item.tabName}
+              listContainerProps={listContainerProps}
+            />
+          );
+        } else {
+          const isTrendingCategory = item.categoryId === 'trending';
+          tabContent = (
             <MarketNormalTokenList
               networkId={selectedNetworkId}
               selectedCategory={item.categoryId}
-              stockCategory={
-                isMarketStockCategoryById(
-                  filterBarProps.categories,
-                  item.categoryId,
-                )
-                  ? getMarketStockCategoryRequestParam(selectedStockCategoryId)
-                  : undefined
-              }
               timeRange={filterBarProps.timeRange}
-              toolbar={
-                isMarketStockCategoryById(
-                  filterBarProps.categories,
-                  item.categoryId,
-                )
-                  ? stockCategoryToolbar
-                  : undefined
-              }
               tabIntegrated
               tabName={item.tabName}
               listContainerProps={listContainerProps}
@@ -343,15 +369,40 @@ export function DesktopLayout({
               )}
               onStockDataChange={handleStockDataChange}
               enableWebSocket={activeTabName === item.tabName}
+              centerDesktopPortalContent
+              desktopColumnVariant={isTrendingCategory ? 'trending' : 'default'}
+              toolbar={
+                isTrendingCategory ? (
+                  <TrendingDesktopToolbar
+                    timeRange={filterBarProps.timeRange}
+                    onTimeRangeChange={filterBarProps.onTimeRangeChange}
+                  />
+                ) : undefined
+              }
             />
-          ) : null}
-        </YStack>
-      </Tabs.Tab>
-    )),
+          );
+        }
+      }
+      return (
+        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+          <YStack
+            // The stock list owns its own centered frame (it has to keep the
+            // horizontal scroller full-bleed), so it opts out of this one.
+            {...(isStockCategory
+              ? { width: '100%' as const }
+              : MARKET_DESKTOP_CONTENT_FRAME_PROPS)}
+            px={isStockCategory ? '$0' : '$3'}
+            flex={1}
+          >
+            {tabContent}
+          </YStack>
+        </Tabs.Tab>
+      );
+    }),
     ...(showPerpsTab
       ? [
           <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack px="$4" flex={1}>
+            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(perpsTabName) ? (
                 <Suspense fallback={null}>
                   <LazyMarketPerpsTokenList

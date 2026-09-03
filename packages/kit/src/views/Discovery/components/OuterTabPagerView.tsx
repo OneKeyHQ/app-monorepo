@@ -13,7 +13,10 @@ import Animated, {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
 import type {
@@ -26,6 +29,11 @@ import type { SharedValue } from 'react-native-reanimated';
 // --- AnimatedPagerView: enables worklet-based onPageScroll on the UI thread ---
 
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
+
+// Keep Android at one retained page to limit ViewPager2 native-view memory.
+// Browser (index 2) may detach while Market (index 0) is active, so changing
+// this trade-off requires Android memory data and the full DApp regression.
+const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = platformEnv.isNativeAndroid ? 1 : 2;
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -117,6 +125,22 @@ function OuterTabPagerViewComponent({
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
+  // OK-59246: pause outer horizontal scrolling while the earn home banner
+  // (a nested horizontal pager) is being dragged, otherwise the outer pager
+  // steals the gesture and switches top tabs
+  const [isEarnBannerDragging, setIsEarnBannerDragging] = useState(false);
+  useEffect(() => {
+    const listener = (payload: { dragging: boolean }) => {
+      setIsEarnBannerDragging(payload.dragging);
+    };
+    appEventBus.on(EAppEventBusNames.EarnHomeBannerDragStateChanged, listener);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.EarnHomeBannerDragStateChanged,
+        listener,
+      );
+    };
+  }, []);
   const wasUserDragRef = useRef(false);
   const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
@@ -383,14 +407,18 @@ function OuterTabPagerViewComponent({
     () =>
       visitedPages[2] ? (
         <View key="browser" style={styles.page}>
-          <Freeze freeze={shouldFreezePage(2)}>{browserContent}</Freeze>
+          {/* Keep Browser out of react-freeze so its React subtree survives
+          DApp minimization and outer tab switches. Native attachment still
+          follows OUTER_PAGER_OFFSCREEN_PAGE_LIMIT; Android may detach Browser
+          across Market (index 0) and Browser (index 2). */}
+          {browserContent}
         </View>
       ) : (
         <View key="browser" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, shouldFreezePage, browserContent],
+    [visitedPages, browserContent],
   );
 
   return (
@@ -398,11 +426,11 @@ function OuterTabPagerViewComponent({
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
-      scrollEnabled={showDiscoveryPage}
+      scrollEnabled={showDiscoveryPage && !isEarnBannerDragging}
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}
-      offscreenPageLimit={1}
+      offscreenPageLimit={OUTER_PAGER_OFFSCREEN_PAGE_LIMIT}
       onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}

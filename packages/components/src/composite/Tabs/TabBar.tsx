@@ -21,6 +21,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
@@ -50,6 +52,10 @@ type IReadonlySharedValue<T> = { readonly value: T };
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
 const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
+const TAB_LIST_FILL_AVAILABLE_SPACE_STYLE = {
+  flexGrow: 1,
+  flexShrink: 1,
+} as const;
 const TAB_CONTENT_CONTAINER_STYLE = { pr: 16 } as const;
 const PILL_SCROLL_CONTENT_STYLE = {
   px: '$pagePadding',
@@ -63,6 +69,7 @@ const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
 const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
+const TAB_BAR_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 export type ITabBarVariant = 'default' | 'pill' | 'text';
 export type IDirectTabPressAnimationMode = 'timing' | 'instant';
@@ -155,6 +162,7 @@ function AnimatedTabBarItemText({
 
 export function TabBarItem({
   name,
+  label,
   isFocused,
   onPress,
   tabItemStyle,
@@ -166,6 +174,7 @@ export function TabBarItem({
   index: tabIndex,
   testID,
 }: ITabBarItemProps) {
+  const displayLabel = label ?? name;
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
@@ -217,7 +226,7 @@ export function TabBarItem({
       >
         {useAnimatedText ? (
           <AnimatedTabBarItemText
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
           />
@@ -227,7 +236,7 @@ export function TabBarItem({
             color={isFocused ? '$textInverse' : '$text'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -260,7 +269,7 @@ export function TabBarItem({
         {useAnimatedText ? (
           <AnimatedTabBarItemText
             variant="text"
-            name={name}
+            name={displayLabel}
             index={tabIndex}
             indexDecimal={indexDecimal}
             isFocused={isFocused}
@@ -274,7 +283,7 @@ export function TabBarItem({
             color={isFocused || isHovered ? '$text' : '$textSubdued'}
             userSelect="none"
           >
-            {name}
+            {displayLabel}
           </SizableText>
         )}
       </YStack>
@@ -299,7 +308,7 @@ export function TabBarItem({
         size={resolvedTextSize}
         color={isFocused ? '$text' : '$textSubdued'}
       >
-        {name}
+        {displayLabel}
       </SizableText>
       {isFocused ? (
         <YStack
@@ -627,10 +636,17 @@ export interface ITabBarProps extends TabBarProps<string> {
   renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
+  /** Aligns the selected item within a horizontal scrollable tab bar. */
+  keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
+  /** Fills the row space before an optional toolbar. */
+  fillAvailableSpace?: boolean;
 }
 
 export interface ITabBarItemProps {
   name: string;
+  /** Optional display label. `name` remains the stable tab identity. */
+  label?: string;
   isFocused: boolean;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
@@ -751,6 +767,9 @@ export function TabBar({
   textSize,
   directTabPressAnimation = false,
   directTabPressAnimationMode = 'timing',
+  keepFocusedTabVisible = false,
+  showsHorizontalScrollIndicator = false,
+  fillAvailableSpace = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -765,6 +784,8 @@ export function TabBar({
   indexDecimal?: SharedValue<number>;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
+  keepFocusedTabVisible?: boolean;
+  showsHorizontalScrollIndicator?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -850,14 +871,28 @@ export function TabBar({
       }
       if (listViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
+        if (keepFocusedTabVisible && index < 0) {
+          return;
+        }
+        let focusedTabViewPosition = 0.5;
+        if (index === 0) {
+          focusedTabViewPosition = 0;
+        } else if (index === tabNames.length - 1) {
+          focusedTabViewPosition = 1;
+        }
         listViewTimerId.current = setTimeout(() => {
-          listViewRef.current?.scrollToIndex({
-            index: index < 3 ? 0 : index,
-          });
+          listViewRef.current?.scrollToIndex(
+            keepFocusedTabVisible
+              ? {
+                  index,
+                  viewPosition: focusedTabViewPosition,
+                }
+              : { index: index < 3 ? 0 : index },
+          );
         }, 100);
       }
     },
-    [tabNames],
+    [keepFocusedTabVisible, tabNames],
   );
 
   const clearDirectTabPressTimer = useCallback(() => {
@@ -1039,7 +1074,7 @@ export function TabBar({
       }
       if (result !== previous && previous) {
         runOnJS(setCurrentTab)(result);
-        if (scrollable && listViewRef.current) {
+        if (scrollable) {
           runOnJS(scrollToTab)(result);
         }
       }
@@ -1336,7 +1371,7 @@ export function TabBar({
 
   return scrollable ? (
     <YStack
-      position={'sticky' as any}
+      position={TAB_BAR_POSITION as any}
       top={0}
       bg="$bgApp"
       zIndex={10}
@@ -1345,7 +1380,11 @@ export function TabBar({
     >
       <XStack alignItems="center" gap="$2" justifyContent="space-between">
         <ListView
-          style={TAB_LIST_VIEW_STYLE}
+          style={
+            fillAvailableSpace
+              ? TAB_LIST_FILL_AVAILABLE_SPACE_STYLE
+              : TAB_LIST_VIEW_STYLE
+          }
           useFlashList
           data={tabNames}
           ref={listViewRef}
@@ -1353,7 +1392,7 @@ export function TabBar({
           pr="$4"
           contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
           renderItem={handleRenderItem as any}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         />
         {renderToolbar ? (
           <XStack>{renderToolbar({ focusedTab: currentTab })}</XStack>
@@ -1367,7 +1406,7 @@ export function TabBar({
       pointerEvents="box-none"
       bg="$bgApp"
       className="onekey-tabs-header"
-      position={'sticky' as any}
+      position={TAB_BAR_POSITION as any}
       top={0}
       zIndex={10}
       {...containerStyle}

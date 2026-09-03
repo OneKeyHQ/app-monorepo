@@ -1,11 +1,19 @@
 import { memo, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Divider, YStack, useMedia } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '@onekeyhq/kit/src/views/Staking/components/PageFrame';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  LOCALE_SEPARATORS,
+  formatLocalizedNumberString,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowFAQSection } from './BorrowFAQSection';
@@ -29,6 +37,32 @@ interface IDetailsPartProps {
   onShare?: () => void;
 }
 
+function formatOraclePrice({
+  oraclePrice,
+  currencySymbol,
+}: {
+  oraclePrice: string | undefined;
+  currencySymbol: string;
+}) {
+  if (!oraclePrice) {
+    return undefined;
+  }
+
+  const localeSeparators =
+    LOCALE_SEPARATORS[appLocale.intl.locale] ?? LOCALE_SEPARATORS.en;
+  const normalizedPrice = oraclePrice
+    .split(localeSeparators.grouping)
+    .join('')
+    .replace(localeSeparators.decimal, '.')
+    .replace(/\s/gu, '');
+  const price = new BigNumber(normalizedPrice);
+  if (!price.isFinite()) {
+    return oraclePrice;
+  }
+
+  return `${currencySymbol}${formatLocalizedNumberString(price.toFixed(2))}`;
+}
+
 const DetailsPartComponent = ({
   details,
   isLoading,
@@ -42,6 +76,11 @@ const DetailsPartComponent = ({
   onShare,
 }: IDetailsPartProps) => {
   const { gtMd } = useMedia();
+  const currencyInfo = useCurrency();
+  const formattedOraclePrice = formatOraclePrice({
+    oraclePrice: details?.oraclePrice,
+    currencySymbol: currencyInfo.symbol,
+  });
 
   const mobileContainerProps = useMemo(
     () => ({
@@ -51,7 +90,7 @@ const DetailsPartComponent = ({
           <ReserveProtocolHeader
             symbol={symbol}
             logoURI={logoURI}
-            oraclePrice={details?.oraclePrice}
+            oraclePrice={formattedOraclePrice}
             reserveSize={details?.reserveSize}
             availableLiquidity={details?.liquidity}
             utilizationRatio={details?.utilizationRatio}
@@ -61,7 +100,7 @@ const DetailsPartComponent = ({
         </YStack>
       ),
     }),
-    [symbol, logoURI, details],
+    [symbol, logoURI, details, formattedOraclePrice],
   );
 
   if (!gtMd) {
@@ -101,7 +140,7 @@ const DetailsPartComponent = ({
                 symbol={symbol}
                 logoURI={logoURI}
                 onShare={onShare}
-                oraclePrice={details.oraclePrice}
+                oraclePrice={formattedOraclePrice}
                 reserveSize={details.reserveSize}
                 availableLiquidity={details.liquidity}
                 utilizationRatio={details.utilizationRatio}

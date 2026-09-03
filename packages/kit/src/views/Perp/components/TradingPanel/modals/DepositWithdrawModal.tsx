@@ -58,6 +58,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { TPerpDepositErrorStage } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -76,12 +77,16 @@ import {
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapNativeTokenConfig } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTxHistoryStatus,
+  type ISwapNativeTokenConfig,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getPerpDepositErrorCode } from '../../../utils/perpDepositAnalytics';
 import { preloadPerpsDepositSelectTokenModal } from '../../../utils/preloadPerpsDepositSelectTokenModal';
 import {
   PERP_DIALOG_BUTTON_SIZE,
@@ -91,8 +96,12 @@ import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import {
   arePerpsDepositSelectedTokenRefreshFieldsEqual,
+  getPerpsDepositMinimumCheck,
   getPerpsDepositTokenDisplayList,
+  getPerpsDepositTokensIdentityKey,
+  getPerpsDepositTokensWithDefaultFallback,
   mergePerpsDepositTokensPreservingOrder,
+  shouldPreservePerpsDepositSelectedToken,
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
@@ -320,6 +329,7 @@ function DepositWithdrawContent({
       currentPerpsDepositSelectedToken,
       depositTokenListOwnerKey,
       depositTokenListRevision,
+      depositTokenListSource,
     },
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
@@ -328,6 +338,12 @@ function DepositWithdrawContent({
     () => getPerpsDepositTokenDisplayList(tokens),
     [tokens],
   );
+  const defaultTokenIdentitiesKey = useMemo(
+    () => getPerpsDepositTokensIdentityKey(defaultTokens),
+    [defaultTokens],
+  );
+  const defaultTokensRef = useRef(defaultTokens);
+  defaultTokensRef.current = defaultTokens;
   const currentDepositTokenIdentity = useMemo(
     () =>
       currentPerpsDepositSelectedToken
@@ -493,9 +509,10 @@ function DepositWithdrawContent({
     [],
   );
 
-  const { result, isLoading: balanceLoading } = usePromiseResult(
+  const { isLoading: balanceLoading } = usePromiseResult(
     async () => {
       const requestKey = depositTokenRequestKey;
+      const requestDefaultTokenIdentitiesKey = defaultTokenIdentitiesKey;
       if (
         !selectedAccount.accountId ||
         !selectedAccount.accountAddress ||
@@ -516,19 +533,28 @@ function DepositWithdrawContent({
             indexedAccountId: selectedAccount.indexedAccountId ?? undefined,
           },
         );
-        if (isStale || depositTokenRequestKeyRef.current !== requestKey) {
+        if (
+          isStale ||
+          depositTokenRequestKeyRef.current !== requestKey ||
+          getPerpsDepositTokensIdentityKey(defaultTokensRef.current) !==
+            requestDefaultTokenIdentitiesKey
+        ) {
           return [];
         }
         depositTokenListOwnerKeyRef.current = ownerKey;
+        const displayDepositTokens = getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens: defaultTokensRef.current,
+        });
         const didSync = await syncDepositTokenBalances({
-          depositTokens,
+          depositTokens: displayDepositTokens,
           requestKey,
           preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
         });
         if (!didSync) {
           return [];
         }
-        return depositTokens;
+        return displayDepositTokens;
       } catch (error) {
         if (depositTokenRequestKeyRef.current !== requestKey) {
           return [];
@@ -552,6 +578,7 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       depositTokenRequestKey,
       checkAccountSupport,
+      defaultTokenIdentitiesKey,
       setPerpsDepositTokensAtom,
       syncDepositTokenBalances,
     ],
@@ -589,7 +616,10 @@ function DepositWithdrawContent({
       }
       depositTokenListOwnerKeyRef.current = ownerKey;
       await syncDepositTokenBalances({
-        depositTokens,
+        depositTokens: getPerpsDepositTokensWithDefaultFallback({
+          walletTokens: depositTokens,
+          defaultTokens,
+        }),
         requestKey,
         preserveCurrentOrder: true,
       });
@@ -608,6 +638,7 @@ function DepositWithdrawContent({
     selectedAccount.indexedAccountId,
     depositTokenRequestKey,
     checkAccountSupport,
+    defaultTokens,
     syncDepositTokenBalances,
   ]);
 
@@ -624,13 +655,17 @@ function DepositWithdrawContent({
 
     lastSyncedDepositTokenListRevisionRef.current = depositTokenListRevision;
     void syncDepositTokenBalances({
-      depositTokens: cachedDepositTokens,
+      depositTokens: getPerpsDepositTokensWithDefaultFallback({
+        walletTokens: cachedDepositTokens,
+        defaultTokens,
+      }),
       requestKey: depositTokenRequestKeyRef.current,
       preserveCurrentOrder: depositTokensWithPriceRef.current.length > 0,
     });
   }, [
     cachedDepositTokens,
     checkAccountSupport,
+    defaultTokens,
     depositTokenListOwnerKey,
     depositTokenListRevision,
     syncDepositTokenBalances,
@@ -687,53 +722,63 @@ function DepositWithdrawContent({
   }, [currentDepositTokenIdentity, selectedAction]);
 
   useEffect(() => {
-    if (result) {
-      const previousToken = currentPerpsDepositSelectedTokenRef.current;
-      const selectedToken = resolvePerpsDepositSelectedToken({
-        tokens: result,
+    if (depositTokensWithPrice.length === 0) return;
+
+    const previousToken = currentPerpsDepositSelectedTokenRef.current;
+    const selectedToken = resolvePerpsDepositSelectedToken({
+      tokens: depositTokensWithPrice,
+      currentToken: previousToken,
+      defaultTokens,
+      preserveCurrentToken: shouldPreservePerpsDepositSelectedToken({
+        depositTokenListSource,
         currentToken: previousToken,
-        defaultTokens,
-      });
-      if (selectedToken) {
-        setPerpsDepositTokensAtom((prev) => {
-          const currentToken = prev.currentPerpsDepositSelectedToken;
-          if (
-            arePerpsDepositSelectedTokenRefreshFieldsEqual({
-              currentToken,
-              nextToken: selectedToken,
-            })
-          ) {
-            return prev;
-          }
-          return equalTokenNoCaseSensitive({
-            token1: currentToken,
-            token2: selectedToken,
+        tokens: depositTokensWithPrice,
+      }),
+    });
+    if (selectedToken) {
+      setPerpsDepositTokensAtom((prev) => {
+        const currentToken = prev.currentPerpsDepositSelectedToken;
+        if (
+          arePerpsDepositSelectedTokenRefreshFieldsEqual({
+            currentToken,
+            nextToken: selectedToken,
           })
-            ? {
-                ...prev,
-                currentPerpsDepositSelectedToken: {
-                  ...currentToken,
-                  networkId: selectedToken.networkId,
-                  contractAddress: selectedToken.contractAddress,
-                  name: selectedToken.name,
-                  symbol: selectedToken.symbol,
-                  decimals: selectedToken.decimals,
-                  networkLogoURI: selectedToken.networkLogoURI,
-                  logoURI: selectedToken.logoURI,
-                  isNative: selectedToken.isNative,
-                  balanceParsed: selectedToken.balanceParsed,
-                  fiatValue: selectedToken.fiatValue,
-                  price: selectedToken.price,
-                },
-              }
-            : {
-                ...prev,
-                currentPerpsDepositSelectedToken: selectedToken,
-              };
-        });
-      }
+        ) {
+          return prev;
+        }
+        return equalTokenNoCaseSensitive({
+          token1: currentToken,
+          token2: selectedToken,
+        })
+          ? {
+              ...prev,
+              currentPerpsDepositSelectedToken: {
+                ...currentToken,
+                networkId: selectedToken.networkId,
+                contractAddress: selectedToken.contractAddress,
+                name: selectedToken.name,
+                symbol: selectedToken.symbol,
+                decimals: selectedToken.decimals,
+                networkLogoURI: selectedToken.networkLogoURI,
+                logoURI: selectedToken.logoURI,
+                isNative: selectedToken.isNative,
+                balanceParsed: selectedToken.balanceParsed,
+                fiatValue: selectedToken.fiatValue,
+                price: selectedToken.price,
+              },
+            }
+          : {
+              ...prev,
+              currentPerpsDepositSelectedToken: selectedToken,
+            };
+      });
     }
-  }, [defaultTokens, result, setPerpsDepositTokensAtom]);
+  }, [
+    defaultTokens,
+    depositTokensWithPrice,
+    depositTokenListSource,
+    setPerpsDepositTokensAtom,
+  ]);
 
   const availableBalance = useMemo(() => {
     const rawBalance =
@@ -829,52 +874,17 @@ function DepositWithdrawContent({
   );
 
   const checkFromTokenFiatValue = useMemo(() => {
-    const fromTokenPrice = currentPerpsDepositSelectedToken?.price;
-    const fromTokenPriceBN = new BigNumber(fromTokenPrice || '0');
-    if (fromTokenPriceBN.isZero() || fromTokenPriceBN.isNaN()) {
-      return {
-        value: false,
-        minFromTokenAmount: '-',
-      };
-    }
-    const arbUSDCToken = depositTokensWithPrice.find((token) =>
-      equalTokenNoCaseSensitive({
-        token1: token,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      }),
-    );
-    const arbUSDCTokenMinAmount = new BigNumber(
-      arbUSDCToken?.price ?? '0',
-    ).multipliedBy(MIN_DEPOSIT_AMOUNT);
-    const minFromTokenAmount =
-      arbUSDCTokenMinAmount.dividedBy(fromTokenPriceBN);
-    if (
-      minFromTokenAmount.isPositive() &&
-      !minFromTokenAmount?.isNaN() &&
-      minFromTokenAmount.lte(tokenAmountBN)
-    ) {
-      return {
-        value: true,
-      };
-    }
-    const minFromTokenAmountFormatted = minFromTokenAmount
-      .decimalPlaces(
-        Math.min(Number(currentPerpsDepositSelectedToken?.decimals ?? 0), 8),
-        BigNumber.ROUND_UP,
-      )
-      .toFixed();
-    return {
-      value: false,
-      minFromTokenAmount: minFromTokenAmountFormatted,
-    };
+    return getPerpsDepositMinimumCheck({
+      inputAmount: amount,
+      isUsdInput,
+      tokenPrice: currentPerpsDepositSelectedToken?.price,
+      tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+    });
   }, [
-    tokenAmountBN,
+    amount,
+    isUsdInput,
     currentPerpsDepositSelectedToken?.decimals,
     currentPerpsDepositSelectedToken?.price,
-    depositTokensWithPrice,
   ]);
 
   const isValidAmount = useMemo(() => {
@@ -1284,7 +1294,7 @@ function DepositWithdrawContent({
   const leftContent = useMemo(() => {
     return selectedAction === 'deposit' ? (
       <SizableText
-        size="$bodyLgMedium"
+        size="$bodyMdMedium"
         color={getPerpsDepositMinAmountTextColor(selectedAction)}
       >
         {intl.formatMessage(
@@ -1294,7 +1304,7 @@ function DepositWithdrawContent({
       </SizableText>
     ) : (
       <SizableText
-        size="$bodyLgMedium"
+        size="$bodyMdMedium"
         color={getPerpsDepositMinAmountTextColor(selectedAction)}
       >
         {intl.formatMessage(
@@ -1329,6 +1339,40 @@ function DepositWithdrawContent({
       }
     }
 
+    const directDepositAmount = tokenAmount || amount;
+    const directDepositToken =
+      currentPerpsDepositSelectedTokenRef.current ??
+      ({
+        networkId: PERPS_NETWORK_ID,
+        contractAddress: USDC_TOKEN_INFO.address,
+        name: USDC_TOKEN_INFO.name,
+        symbol: USDC_TOKEN_INFO.symbol,
+        decimals: USDC_TOKEN_INFO.decimals,
+        networkLogoURI:
+          swapDefaultSetTokens[PERPS_NETWORK_ID].toToken?.networkLogoURI ?? '',
+      } satisfies IPerpsDepositToken);
+    let directDepositResultLogged = false;
+    let directDepositErrorStage: TPerpDepositErrorStage = 'build';
+    const logDirectDepositFailure = (
+      errorStage: TPerpDepositErrorStage,
+      errorCode: string,
+    ) => {
+      if (directDepositResultLogged) {
+        return;
+      }
+      directDepositResultLogged = true;
+      defaultLogger.perp.deposit.perpDepositInitiate({
+        walletType: selectedAccount.walletType ?? 'unknown',
+        token: directDepositToken,
+        amount: directDepositAmount,
+        toAmount: directDepositAmount,
+        depositRoute: 'directArbitrum',
+        status: ESwapTxHistoryStatus.FAILED,
+        errorStage,
+        errorCode,
+      });
+    };
+
     try {
       if (isDepositQuotePendingDebounce) {
         return;
@@ -1348,30 +1392,30 @@ function DepositWithdrawContent({
         if (isArbitrumUsdcToken) {
           await normalizeTxConfirm({
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
               if (data?.[0]) {
                 const fromTxId = data[0].signedTx.txid;
-                const usdcToken = {
-                  networkId: PERPS_NETWORK_ID,
-                  contractAddress: USDC_TOKEN_INFO.address,
-                  name: USDC_TOKEN_INFO.name,
-                  symbol: USDC_TOKEN_INFO.symbol,
-                  decimals: USDC_TOKEN_INFO.decimals,
-                  networkLogoURI:
-                    swapDefaultSetTokens[PERPS_NETWORK_ID].toToken
-                      ?.networkLogoURI ?? '',
-                };
-                const depositAmount = tokenAmount || amount;
                 void handlePerpDepositTxSuccess({
-                  fromToken:
-                    currentPerpsDepositSelectedTokenRef.current ?? usdcToken,
+                  fromToken: directDepositToken,
                   fromTxId,
-                  toAmount: depositAmount,
-                  fromAmount: depositAmount,
+                  toAmount: directDepositAmount,
+                  fromAmount: directDepositAmount,
                   isArbUSDCOrder: true,
                   skipToast: true,
                 });
+                directDepositResultLogged = true;
+                defaultLogger.perp.deposit.perpDepositInitiate({
+                  walletType: selectedAccount.walletType ?? 'unknown',
+                  token: directDepositToken,
+                  amount: directDepositAmount,
+                  toAmount: directDepositAmount,
+                  depositRoute: 'directArbitrum',
+                  status: ESwapTxHistoryStatus.SUCCESS,
+                  txId: fromTxId,
+                });
+              } else {
+                logDirectDepositFailure('broadcast', 'txidNotFound');
               }
+              await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
               void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               onClose?.();
             },
@@ -1379,12 +1423,22 @@ function DepositWithdrawContent({
               {
                 from: selectedAccount.accountAddress,
                 to: HYPERLIQUID_DEPOSIT_ADDRESS,
-                amount: tokenAmount || amount,
+                amount: directDepositAmount,
                 tokenInfo: USDC_TOKEN_INFO,
               },
             ],
             gasAccountScenario: 'perps',
+            onFail: (error) => {
+              logDirectDepositFailure(
+                directDepositErrorStage,
+                getPerpDepositErrorCode(error),
+              );
+            },
+            onCancel: () => {
+              logDirectDepositFailure('sign', 'userRejected');
+            },
           });
+          directDepositErrorStage = 'sign';
         } else {
           await buildPerpDepositTx();
           void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
@@ -1400,6 +1454,13 @@ function DepositWithdrawContent({
         onClose?.();
       }
     } catch (error) {
+      if (
+        selectedAction === 'deposit' &&
+        isArbitrumUsdcToken &&
+        !directDepositResultLogged
+      ) {
+        logDirectDepositFailure('build', getPerpDepositErrorCode(error));
+      }
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
       throw error;
     } finally {
@@ -1410,6 +1471,7 @@ function DepositWithdrawContent({
     checkAccountSupport,
     selectedAccount.accountAddress,
     selectedAccount.accountId,
+    selectedAccount.walletType,
     validateAmountBeforeSubmit,
     selectedAction,
     checkDepositWalletNotBackedUp,

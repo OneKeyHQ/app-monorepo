@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
@@ -29,7 +29,11 @@ interface IShareContentRendererProps {
   data: IShareData;
   config: IShareConfig;
   scale?: number;
-  onImagesReady?: () => void;
+  // Reports whether every currently-expected source (background, token icon,
+  // referral QR) has been drawn. Fires again with `false` when a new source
+  // joins the expectation late — the referral QR only mounts after an
+  // invite-code round-trip — so callers must read the latest value.
+  onImagesReadyStateChange?: (isReady: boolean) => void;
   referralQrCodeUrl?: string;
   referralDisplayText?: string;
   isReferralReady?: boolean;
@@ -41,7 +45,7 @@ export function ShareContentRenderer({
   data,
   config,
   scale = 1,
-  onImagesReady,
+  onImagesReadyStateChange,
   referralQrCodeUrl,
   referralDisplayText,
   isReferralReady = true,
@@ -50,6 +54,7 @@ export function ShareContentRenderer({
   const {
     side,
     mode,
+    token,
     tokenDisplayName,
     tokenImageUrl,
     pnl,
@@ -62,8 +67,13 @@ export function ShareContentRenderer({
   const isProfit = pnlBn.isGreaterThan(0);
   const pnlColor = isProfit ? colors.long : colors.short;
   const sideColor = side === 'long' ? colors.long : colors.short;
+  // `token` keeps the dex prefix the display name drops. Spot is the exception:
+  // its raw fill coin (`@149`, `PURR/USDC`) has no valid image path.
   const tokenImage =
-    tokenImageUrl || getHyperliquidTokenImageUrl(tokenDisplayName);
+    tokenImageUrl ||
+    getHyperliquidTokenImageUris(
+      mode !== 'spot' && token ? token : tokenDisplayName,
+    )[0];
   const pnlDisplayMode = config.pnlDisplayMode;
 
   const selectedBackground = isProfit
@@ -100,28 +110,61 @@ export function ShareContentRenderer({
     priceType,
   });
 
-  const imageLoadCountRef = useRef(0);
-  const expectedImageCount = useRef(0);
+  // Readiness is judged as a set of named sources rather than a resettable
+  // counter: every signal (image onLoad, QR onRenderReady) fires only once,
+  // so zeroing a counter when the expectation changes would strand the gate
+  // below its target forever. Sources stay ready once ready; the expected
+  // set is derived from props and can grow late.
+  const readySourcesRef = useRef<Set<string>>(new Set());
+  const showsReferralQrCode = Boolean(
+    SHOW_REFERRAL_CODE && isReferralReady && referralQrCodeUrl,
+  );
+  // Image sources carry their URI in the key: when the background swaps
+  // (profit <-> loss) or the token icon changes, the expected key changes
+  // with it, so the stale image's ready mark no longer satisfies the gate —
+  // readiness retracts by derivation, with no effect that could misfire.
+  const expectedSources = useMemo(() => {
+    const expected: string[] = [];
+    if (selectedBackground) expected.push(`background:${selectedBackground}`);
+    if (display.showTokenIcon) expected.push(`tokenIcon:${tokenImage}`);
+    // the QR code signals once its lazily-loaded encoder has drawn the
+    // symbol, so a ViewShot capture can't run against an empty code
+    if (showsReferralQrCode) expected.push('qrCode');
+    return expected;
+  }, [selectedBackground, tokenImage, showsReferralQrCode]);
 
-  const handleImageLoad = useCallback(() => {
-    imageLoadCountRef.current += 1;
-    if (
-      onImagesReady &&
-      imageLoadCountRef.current >= expectedImageCount.current
-    ) {
-      onImagesReady();
-    }
-  }, [onImagesReady]);
+  const evaluateReadiness = useCallback(() => {
+    onImagesReadyStateChange?.(
+      expectedSources.every((source) => readySourcesRef.current.has(source)),
+    );
+  }, [expectedSources, onImagesReadyStateChange]);
 
+  const handleSourceReady = useCallback(
+    (source: string) => {
+      readySourcesRef.current.add(source);
+      evaluateReadiness();
+    },
+    [evaluateReadiness],
+  );
+  const handleBackgroundReady = useCallback(
+    () => handleSourceReady(`background:${selectedBackground}`),
+    [handleSourceReady, selectedBackground],
+  );
+  const handleTokenIconReady = useCallback(
+    () => handleSourceReady(`tokenIcon:${tokenImage}`),
+    [handleSourceReady, tokenImage],
+  );
+  const handleQrCodeReady = useCallback(
+    () => handleSourceReady('qrCode'),
+    [handleSourceReady],
+  );
+
+  // re-evaluate whenever the expected set itself changes: it may have grown
+  // past the already-ready sources (report false until the newcomer lands)
+  // or shrunk to a subset of them (report true immediately)
   useEffect(() => {
-    imageLoadCountRef.current = 0;
-    expectedImageCount.current = 0;
-    if (selectedBackground) expectedImageCount.current += 1;
-    if (display.showTokenIcon) expectedImageCount.current += 1;
-    if (expectedImageCount.current === 0 && onImagesReady) {
-      onImagesReady();
-    }
-  }, [selectedBackground, onImagesReady]);
+    evaluateReadiness();
+  }, [evaluateReadiness]);
 
   return (
     <YStack
@@ -138,8 +181,8 @@ export function ShareContentRenderer({
           position="absolute"
           top={0}
           left={0}
-          onLoad={handleImageLoad}
-          onError={handleImageLoad}
+          onLoad={handleBackgroundReady}
+          onError={handleBackgroundReady}
         />
       ) : null}
 
@@ -167,8 +210,8 @@ export function ShareContentRenderer({
                   source={{ uri: tokenImage }}
                   width={scaledLayout.tokenSize}
                   height={scaledLayout.tokenSize}
-                  onLoad={handleImageLoad}
-                  onError={handleImageLoad}
+                  onLoad={handleTokenIconReady}
+                  onError={handleTokenIconReady}
                 />
               </Stack>
             ) : null}
@@ -347,6 +390,7 @@ export function ShareContentRenderer({
                 size={layout.qrCodeSize * scale - 5}
                 padding={8}
                 logoBackgroundColor="white"
+                onRenderReady={handleQrCodeReady}
               />
             </XStack>
           </Stack>

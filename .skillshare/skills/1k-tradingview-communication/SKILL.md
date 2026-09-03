@@ -1,6 +1,6 @@
 ---
 name: 1k-tradingview-communication
-description: OneKey TradingView app bridge guide. Use when changing or debugging TradingView/WebView/iframe communication, chart URL params, kline/history/realtime messages, marks, Hyperliquid price scale, Perps SYMBOL_CHANGE, chart lines, order draft/cancel/drag-amend messages, FORCE_RECOVER_WS, or tradingview_* methods between the app repo and the chart repo. 适用于 TradingView 通信、图表 WebView 通信、K 线、perps 线、marks、消息桥排查。
+description: OneKey TradingView bridge communication for WebView/iframe messages, K-line data, marks, Perps symbols/lines, order events, and websocket recovery.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -57,7 +57,7 @@ Common params:
 
 - Always: `timezone`, `locale`, `platform`, `theme`, optional `appVersion`.
 - Market: `decimal`, `networkId`, `address`, `symbol`, `type=market`, `storageNamespace=market`.
-- Market using Hyperliquid candles: `scene=market-hyperliquid`, `storageNamespace=market-hyperliquid`.
+- Market using Hyperliquid candles: `scene=market-hyperliquid`, `storageNamespace=market` (chart layout and indicators intentionally share regular Market settings).
 - Perps: `symbol`, `type=perps`, `storageNamespace=perps`, `enablePerpsTradingUi`.
 
 Perps freezes the initial URL symbol and sends later changes via `SYMBOL_CHANGE` to avoid WebView reloads.
