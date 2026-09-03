@@ -139,9 +139,7 @@ describe('convertThirdPartyDeviceError', () => {
 
     expect(error.code).toBe(ThirdPartyHwErrorCode.PassphraseAlwaysOnDevice);
     expect(error.name).toBe('ThirdPartyHardwareError');
-    expect(error.key).toBe(
-      'hardware_third_party_passphrase_always_on_device',
-    );
+    expect(error.key).toBe('hardware_third_party_passphrase_always_on_device');
   });
 
   it('maps third-party PIN cancel to a structured PIN cancelled error', () => {
