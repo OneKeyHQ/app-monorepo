@@ -17,6 +17,10 @@ import type {
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isStockTokenVariantTradable } from '../../utils/stockTokenVariant';
+
+export { isStockTokenVariantTradable } from '../../utils/stockTokenVariant';
+
 type IStockDetailContextValue = {
   stockId?: string;
   isStockRoute: boolean;
@@ -70,15 +74,6 @@ type IStockTokenVariantsRequestResult = {
 // The variant list backs the token selector and the tradable-variant checks,
 // so it keeps the 6s cadence the rest of the detail page polls at.
 const STOCK_TOKEN_VARIANTS_POLLING_INTERVAL = 6000;
-
-export function isStockTokenVariantTradable(variant: IMarketStockTokenVariant) {
-  return Boolean(
-    variant.tradingEnabled &&
-    !variant.isPaused &&
-    !variant.tradingHours?.isPaused &&
-    variant.status.trim().toLowerCase() === 'active',
-  );
-}
 
 export function StockDetailProvider({
   stockId,

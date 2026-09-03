@@ -6,44 +6,30 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
-  EPageType,
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioItem,
   IMarketTokenDetail as IMarketTokenDetailV2,
 } from '@onekeyhq/shared/types/marketV2';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
-import type {
-  ISwapInitParams,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { AprText } from '../../../Earn/components/AprText';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
-import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 import { useTopCoinsDetail } from '../hooks/useTopCoinsDetail';
@@ -53,6 +39,7 @@ import {
   formatStatValueWithFormatter,
 } from '../utils/statValue';
 
+import { MarketEmbeddedSwap } from './components/MarketEmbeddedSwap';
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
@@ -68,23 +55,6 @@ const MARKET_CHART_FULLSCREEN_STYLE = {
   right: 0,
   bottom: platformEnv.isWeb ? 40 : 0,
 } as const;
-
-type IEmbeddedSwapProps = {
-  pageType?: EPageType.modal;
-  singleSwapBridgeHeader?: boolean;
-  swapInitParams?: ISwapInitParams;
-};
-
-const LazyEmbeddedSwap = LazyLoad<IEmbeddedSwapProps>(
-  () =>
-    import(
-      /* webpackChunkName: "market-top-coins-swap" */ '../../../Swap/pages/components/SwapMainLand'
-    ).then((module) => ({ default: module.default })),
-  undefined,
-  <Stack height={520} alignItems="center" justifyContent="center">
-    <Spinner size="large" />
-  </Stack>,
-);
 
 function TopCoinsStatItem({
   label,
@@ -165,46 +135,6 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
         })}
       </Button>
     </YStack>
-  );
-}
-
-function TopCoinsEmbeddedSwap({ swapToken }: { swapToken: ISwapToken }) {
-  const { defaultTokens } = useSpeedSwapInit(swapToken.networkId, true);
-  const defaultFromToken = useMemo(
-    () =>
-      defaultTokens.find(
-        (token) =>
-          !equalTokenNoCaseSensitive({
-            token1: token,
-            token2: swapToken,
-          }),
-      ),
-    [defaultTokens, swapToken],
-  );
-  const swapInitParams = useMemo<ISwapInitParams>(
-    () => ({
-      importFromToken: defaultFromToken,
-      importNetworkId: defaultFromToken?.networkId ?? swapToken.networkId,
-      importToToken: swapToken,
-      swapSource: ESwapSource.MARKET,
-      swapTabSwitchType: ESwapTabSwitchType.SWAP,
-    }),
-    [defaultFromToken, swapToken],
-  );
-
-  return (
-    <Stack
-      testID="market-top-coins-trade-ready"
-      width="100%"
-      minHeight={520}
-      overflow="hidden"
-    >
-      <LazyEmbeddedSwap
-        pageType={EPageType.modal}
-        singleSwapBridgeHeader
-        swapInitParams={swapInitParams}
-      />
-    </Stack>
   );
 }
 
@@ -613,12 +543,11 @@ export function TopCoinsDesktopLayout({
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : (
-            <AccountSelectorProviderMirror
-              config={{ sceneName: EAccountSelectorSceneName.swap }}
-              enabledNum={[0, 1]}
-            >
-              <TopCoinsEmbeddedSwap key={swapTargetKey} swapToken={swapToken} />
-            </AccountSelectorProviderMirror>
+            <MarketEmbeddedSwap
+              swapToken={swapToken}
+              swapTargetKey={swapTargetKey}
+              testID="market-top-coins-trade-ready"
+            />
           )}
         </YStack>
       </XStack>

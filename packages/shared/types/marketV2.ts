@@ -305,6 +305,7 @@ export interface IMarketTokenListItem extends IMarketTokenHistoricalPriceFields 
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stockId?: string;
   stock?: IMarketStockInfo;
 }
 
@@ -738,6 +739,14 @@ export interface IMarketBannerTokenListResponse {
 
 export type IMarketStockAssetType = 'stock' | 'etf' | 'index';
 
+export interface IMarketStockTokenVariantSummary {
+  tokenId: string;
+  issuer: string;
+  symbol?: string;
+  name?: string;
+  logoUrl?: string;
+}
+
 export interface IMarketStockPublicItem {
   stockId: string;
   symbol: string;
@@ -753,6 +762,7 @@ export interface IMarketStockPublicItem {
   quoteUpdatedAt?: string;
   sparkline?: number[];
   sparklineUpdatedAt?: string;
+  variants?: IMarketStockTokenVariantSummary[];
 }
 
 export type IMarketStockPublicListSortBy =

@@ -21,13 +21,13 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
-import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { formatPriceChangeDisplay } from '../utils/statValue';
 
+import { MarketEmbeddedSwap } from './components/MarketEmbeddedSwap';
 import { TokenDetailChart } from './components/TokenDetailChart';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
@@ -136,6 +136,7 @@ export function TokenPriceHeader() {
 export function TokenDesktopLayout({
   marketTradingView,
   swapToken,
+  swapTargetKey,
   portfolioData,
   isRefreshing,
   isBTCNetwork,
@@ -153,6 +154,7 @@ export function TokenDesktopLayout({
 }: {
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapTargetKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isBTCNetwork: boolean;
@@ -255,9 +257,10 @@ export function TokenDesktopLayout({
           flexShrink={0}
         >
           {disableTrade ? null : (
-            <Stack px="$5" pt="$5" pb="$3">
-              <SwapPanel swapToken={swapToken} portfolioData={portfolioData} />
-            </Stack>
+            <MarketEmbeddedSwap
+              swapToken={swapToken}
+              swapTargetKey={swapTargetKey}
+            />
           )}
         </YStack>
       </XStack>

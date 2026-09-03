@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   DashText,
-  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -19,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketStockStar } from './MarketStockStar';
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
@@ -116,7 +116,7 @@ export function useMarketStockColumns({
             gap="$1.5"
           >
             <Stack width={24} alignItems="center" justifyContent="center">
-              <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+              <MarketStockStar stock={record} />
             </Stack>
             <XStack
               flex={1}

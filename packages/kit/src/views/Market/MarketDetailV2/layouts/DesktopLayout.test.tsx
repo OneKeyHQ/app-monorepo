@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 
-import { DesktopLayout } from './DesktopLayout';
+import { DesktopLayout, getMarketSwapTargetKey } from './DesktopLayout';
 
 const mockStockDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
@@ -154,6 +154,24 @@ describe('DesktopLayout', () => {
   beforeEach(() => {
     fetchMarketStockKLineDataMock.mockClear();
     mockStockDesktopLayout.mockClear();
+  });
+
+  it('builds the swap target key from stable route identity', () => {
+    expect(
+      getMarketSwapTargetKey({
+        marketTokenId: 'bitcoin',
+        networkId: 'evm--1',
+        tokenAddress: '',
+        isNative: false,
+      }),
+    ).toBe('bitcoin');
+    expect(
+      getMarketSwapTargetKey({
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      }),
+    ).toBe('evm--1:0xbtc');
   });
 
   it('forwards disableTrade to the stock desktop layout', () => {
