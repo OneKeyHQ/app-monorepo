@@ -368,6 +368,18 @@ export class DeviceStageBurstScope {
    * already past its await — the generation can. */
   private authHoldSeq = 0;
 
+  /** Bumped whenever something claims the stage (every claiming path
+   * clears the exit timer first). A scheduled exit reads the atom before
+   * it decides, so clearing the timer alone cannot stop a callback already
+   * past its await — the generation can: the exit aborts when a claim came
+   * in meanwhile, instead of hiding the stage that claim just painted. */
+  private claimSeq = 0;
+
+  /** Bumped when the person dismisses the stage, or the firmware workflow
+   * takes the screen. An event that read the stage before that must not
+   * write it back: its ask belongs to a call the person already left. */
+  private dismissSeq = 0;
+
   async registerConfirmContent(
     content: IDeviceStageConfirmContent | undefined,
   ) {
@@ -386,6 +398,7 @@ export class DeviceStageBurstScope {
   private clearOffTimer() {
     clearTimeout(this.offTimer);
     this.offTimer = undefined;
+    this.claimSeq += 1;
   }
 
   private clearPendingOpen() {
@@ -621,8 +634,14 @@ export class DeviceStageBurstScope {
     const wasVendorBurst = Boolean(this.activeVendor);
     this.activeVendor = undefined;
     // The burst is released; from here on it is only the stage speaking,
-    // and while the firmware page runs the stage is not the surface.
+    // and while the firmware page runs the stage is not the surface — so
+    // whatever this burst had painted leaves with it. The workflow raises
+    // its flag and only then waits for the work in flight to drain, so a
+    // wrapper begun a moment earlier reaches this end inside that window:
+    // returning without the exit left its connecting / processing capsule
+    // standing over the update page, behind the touch wall.
     if (!enabled) {
+      await this.forceOff({ force: true });
       return;
     }
     // A failure the hardware layer never claimed — a keyring or vault
@@ -757,10 +776,18 @@ export class DeviceStageBurstScope {
      * until something else happens to speak. */
     askCompleted?: boolean;
   }) {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
       return;
     }
     const current = await deviceStageAtom.get();
+    // The person closed the stage (or the firmware page took it) while
+    // this event was reading: the ask it carries belongs to the call they
+    // just left. Writing it would reopen a stage no burst stands behind —
+    // one nothing but a second close could end.
+    if (dismissal !== this.dismissSeq) {
+      return;
+    }
     const outcomeOnStage = Boolean(current && OUTCOME_STEPS.has(current.step));
     // The air-gap pair owns the stage while it stands (doc §4.6). No
     // hd-core traffic belongs to it — an air-gapped flow never touches
@@ -934,7 +961,13 @@ export class DeviceStageBurstScope {
     install: IThirdPartyAppInstallState | undefined;
     batch: IThirdPartyBatchInstallState | undefined;
   }) {
+    const dismissal = this.dismissSeq;
     if (!(await this.isEnabled())) {
+      return;
+    }
+    // Same rule as the SDK events: a state read before the person closed
+    // the stage is not news any more.
+    if (dismissal !== this.dismissSeq) {
       return;
     }
     if (install) {
@@ -997,6 +1030,9 @@ export class DeviceStageBurstScope {
       prev.step === 'error' ||
       !prev.vendor
     ) {
+      return;
+    }
+    if (dismissal !== this.dismissSeq) {
       return;
     }
     if (this.depth > 0) {
@@ -1154,6 +1190,7 @@ export class DeviceStageBurstScope {
   async userClose() {
     this.clearOffTimer();
     this.clearPendingOpen();
+    this.dismissSeq += 1;
     this.depth = 0;
     setDeviceStageBurstActive(false);
     this.explicitToken = undefined;
@@ -1163,6 +1200,18 @@ export class DeviceStageBurstScope {
     this.sawDeviceEventThisBurst = false;
     // The person's own exit wins outright.
     this.clearAuthHold();
+    await this.forceOff({ force: true });
+  }
+
+  /** The firmware workflow is taking the screen (it drives its own full
+   * page, outside the stage's scope): whatever the stage shows leaves
+   * now, not at the end of the call that painted it. The burst's own
+   * bookkeeping is untouched — its end() still releases the layer, and
+   * finds nothing left to take down. */
+  async silenceForFirmwareWorkflow() {
+    this.clearOffTimer();
+    this.clearPendingOpen();
+    this.dismissSeq += 1;
     await this.forceOff({ force: true });
   }
 
@@ -1230,7 +1279,17 @@ export class DeviceStageBurstScope {
   }
 
   private async forceOff(options: { force?: boolean } = {}) {
+    const claim = this.claimSeq;
     const prev = await deviceStageAtom.get();
+    // Re-checked after the await: a burst that claimed the stage while
+    // this exit was reading — the follow-up inside the grace window, a
+    // teach card, an ask — owns it now, and this exit was the previous
+    // occupant's. Writing off here hid the stage that burst had just
+    // painted while its device call ran on without a PIN or confirm
+    // surface.
+    if (claim !== this.claimSeq || (!options.force && this.depth > 0)) {
+      return;
+    }
     if (!prev || prev.step === 'off') {
       return;
     }
@@ -1471,4 +1530,41 @@ export class DeviceStageBurstScope {
     }
     return 'generic';
   }
+}
+
+/**
+ * Runs `run` for the latest state only: a trigger while a run is in
+ * flight marks one rerun, never a concurrent one. The third-party atoms
+ * fire three subscriptions per call boundary (ui, install, batch), each
+ * reading all three atoms — run concurrently, a stale prompt read could
+ * land after the clear that followed it and paint over the done / error
+ * beat the wrapper had just landed. The rerun re-reads everything, so
+ * whatever the last trigger meant is what the stage ends up showing.
+ */
+export function createLatestStateFeed(run: () => Promise<void>) {
+  let inFlight = false;
+  let rerun = false;
+  const pump = async () => {
+    if (inFlight) {
+      rerun = true;
+      return;
+    }
+    inFlight = true;
+    try {
+      do {
+        rerun = false;
+        try {
+          await run();
+        } catch {
+          // A failed read is not worth a retry of its own: the next
+          // trigger reads all three atoms afresh.
+        }
+      } while (rerun);
+    } finally {
+      inFlight = false;
+    }
+  };
+  return () => {
+    void pump();
+  };
 }
