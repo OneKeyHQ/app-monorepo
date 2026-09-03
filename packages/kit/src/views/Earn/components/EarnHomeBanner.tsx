@@ -88,7 +88,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
             h="100%"
             src={item.backgroundImage}
             resizeMode="cover"
-            skeleton={<Stack w="100%" h="100%" bg="$bgSubdued" />}
+            placeholder={<Stack w="100%" h="100%" bg="$bgSubdued" />}
           />
         </YStack>
         <Stack flex={1} />

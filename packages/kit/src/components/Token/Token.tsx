@@ -113,7 +113,7 @@ export function Token({
     [borderRadius, tokenImageSize, fallbackIconSize, fallbackIconName],
   );
 
-  const skeletonElement = useMemo(
+  const placeholderElement = useMemo(
     () => (
       <Skeleton
         w={rest.w ?? tokenImageSize}
@@ -131,7 +131,7 @@ export function Token({
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
     fallback: fallbackElement,
-    skeleton: skeletonElement,
+    placeholder: placeholderElement,
     ...rest,
   };
 
