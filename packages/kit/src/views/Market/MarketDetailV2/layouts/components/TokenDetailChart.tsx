@@ -63,6 +63,7 @@ function TokenChartModeControl({
 }
 
 export function TokenDetailChart({
+  marketAssetId,
   marketTradingView,
   isChartFullscreen,
   chartMode,
@@ -70,6 +71,7 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  marketAssetId?: string;
   marketTradingView: ReactNode;
   isChartFullscreen: boolean;
   chartMode: ITradingViewChartMode;
@@ -120,7 +122,11 @@ export function TokenDetailChart({
             </XStack>
             <TokenChartModeControl mode={mode} onChange={handleModeChange} />
           </XStack>
-          <StockSimpleChart range={range} priceMode="token" />
+          <StockSimpleChart
+            marketAssetId={marketAssetId}
+            range={range}
+            priceMode="token"
+          />
         </>
       ) : (
         <>
