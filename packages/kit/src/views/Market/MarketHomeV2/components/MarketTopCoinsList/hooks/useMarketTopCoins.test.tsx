@@ -228,9 +228,15 @@ describe('useMarketTopCoins', () => {
   });
 
   it('forwards detail replacement mode to the detail navigation owner', () => {
-    renderHook(() => useMarketTopCoins({ replaceCurrentDetail: true }));
+    renderHook(() =>
+      useMarketTopCoins({
+        chartMode: 'tradingView',
+        replaceCurrentDetail: true,
+      }),
+    );
 
     expect(mockUseToDetailPage).toHaveBeenCalledWith({
+      chartMode: 'tradingView',
       marketTokenCategory: 'top_coins',
       replaceCurrentDetail: true,
     });

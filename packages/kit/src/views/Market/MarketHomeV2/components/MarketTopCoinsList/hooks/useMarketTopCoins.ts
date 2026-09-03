@@ -22,6 +22,7 @@ function toFiniteNumber(value: string) {
 }
 
 type IUseMarketTopCoinNavigationOptions = {
+  chartMode?: 'native' | 'tradingView';
   replaceCurrentDetail?: boolean;
 };
 
@@ -106,11 +107,13 @@ export function useMarketTopCoinResolver() {
 }
 
 export function useMarketTopCoinNavigation({
+  chartMode,
   replaceCurrentDetail = false,
 }: IUseMarketTopCoinNavigationOptions = {}) {
   const intl = useIntl();
   const resolveMarketTopCoin = useMarketTopCoinResolver();
   const toMarketDetailPage = useToDetailPage({
+    ...(chartMode ? { chartMode } : undefined),
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
     replaceCurrentDetail,
   });

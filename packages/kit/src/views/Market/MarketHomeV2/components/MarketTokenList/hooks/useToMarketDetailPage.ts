@@ -47,6 +47,7 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
 }
 
 interface IUseToDetailPageOptions {
+  chartMode?: 'native' | 'tradingView';
   /**
    * Switch to Market tab first before navigating to detail page.
    * - On mobile (native): switches to Discovery tab first, then pushes detail
@@ -114,17 +115,23 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     [tokenDetailActions],
   );
 
-  const prefetchFirstScreenKLine = useCallback((item: IMarketToken) => {
-    prepareMarketDetailV2KlineSource({
-      tokenAddress: item.tokenAddress,
-      networkId: item.networkId,
-    });
-    void prefetchMarketDetailV2FirstScreenKLine({
-      tokenAddress: item.tokenAddress,
-      networkId: item.networkId,
-      historyStartTime: item.firstTradeTime,
-    }).catch(() => undefined);
-  }, []);
+  const prefetchFirstScreenKLine = useCallback(
+    (item: IMarketToken) => {
+      if (options?.chartMode !== 'tradingView') {
+        return;
+      }
+      prepareMarketDetailV2KlineSource({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+      });
+      void prefetchMarketDetailV2FirstScreenKLine({
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+        historyStartTime: item.firstTradeTime,
+      }).catch(() => undefined);
+    },
+    [options?.chartMode],
+  );
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
@@ -147,6 +154,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         tokenAddress: item.tokenAddress,
         network: shortCode || item.networkId,
         isNative: item.isNative,
+        ...(options?.chartMode ? { chartMode: options.chartMode } : undefined),
         from: options?.from,
         ...(item.marketTokenId
           ? { marketTokenId: item.marketTokenId }
@@ -173,6 +181,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             tokenAddress: tokenParams.tokenAddress,
             network: tokenParams.network,
             isNative: tokenParams.isNative,
+            ...(tokenParams.chartMode
+              ? { chartMode: tokenParams.chartMode }
+              : undefined),
             from: options?.from,
             ...(typeof tokenParams.disableTrade === 'boolean'
               ? { disableTrade: tokenParams.disableTrade }
@@ -300,6 +311,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       prefetchFirstScreenKLine,
       preparePreviewTokenDetail,
       options?.switchToMarketTabFirst,
+      options?.chartMode,
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,

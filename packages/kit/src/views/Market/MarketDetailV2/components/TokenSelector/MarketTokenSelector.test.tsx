@@ -12,6 +12,7 @@ import { MarketTokenSelector } from './MarketTokenSelector';
 const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
+const mockUseMarketTopCoins = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockSearchTokenList: IMarketToken[] = [];
@@ -135,23 +136,26 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins',
   () => ({
-    useMarketTopCoins: () => ({
-      data: [
-        {
-          assetId: 'btc',
-          symbol: 'BTC',
-          price: '100',
-          priceChange24hPercent: '1',
-          priceChange7dPercent: '2',
-          marketCap: '1000',
-          volume24h: '500',
-          logoUrl: 'bitcoin.png',
-          sparkline24h: [],
-        },
-      ],
-      handleItemPress: mockTopCoinPress,
-      isLoading: false,
-    }),
+    useMarketTopCoins: (options: unknown) => {
+      mockUseMarketTopCoins(options);
+      return {
+        data: [
+          {
+            assetId: 'btc',
+            symbol: 'BTC',
+            price: '100',
+            priceChange24hPercent: '1',
+            priceChange7dPercent: '2',
+            marketCap: '1000',
+            volume24h: '500',
+            logoUrl: 'bitcoin.png',
+            sparkline24h: [],
+          },
+        ],
+        handleItemPress: mockTopCoinPress,
+        isLoading: false,
+      };
+    },
   }),
 );
 
@@ -246,6 +250,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
+    mockUseMarketTopCoins.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
     mockSearchTokenList = [];
     mockSpotCategories = [
@@ -283,6 +288,16 @@ describe('MarketTokenSelector stock default category', () => {
       expect.objectContaining({ assetId: 'btc' }),
     );
     expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it('keeps TradingView mode when selecting a Top Coin', () => {
+    render(<MarketTokenSelector chartMode="tradingView" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+
+    expect(mockUseMarketTopCoins).toHaveBeenCalledWith({
+      chartMode: 'tradingView',
+      replaceCurrentDetail: true,
+    });
   });
 
   it('preserves category label casing', () => {

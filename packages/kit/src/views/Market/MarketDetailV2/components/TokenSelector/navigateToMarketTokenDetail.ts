@@ -40,15 +40,17 @@ export function navigateToMarketTokenDetail(
   if (stockId) {
     opts.tokenDetailActions.current.clearTokenDetail();
   } else {
-    prepareMarketDetailV2KlineSource({
-      tokenAddress: token.address,
-      networkId: token.networkId,
-    });
-    void prefetchMarketDetailV2FirstScreenKLine({
-      tokenAddress: token.address,
-      networkId: token.networkId,
-      historyStartTime: opts.tokenDetailPreview?.firstTradeTime,
-    }).catch(() => undefined);
+    if (opts.chartMode === 'tradingView') {
+      prepareMarketDetailV2KlineSource({
+        tokenAddress: token.address,
+        networkId: token.networkId,
+      });
+      void prefetchMarketDetailV2FirstScreenKLine({
+        tokenAddress: token.address,
+        networkId: token.networkId,
+        historyStartTime: opts.tokenDetailPreview?.firstTradeTime,
+      }).catch(() => undefined);
+    }
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
       networkId: token.networkId,

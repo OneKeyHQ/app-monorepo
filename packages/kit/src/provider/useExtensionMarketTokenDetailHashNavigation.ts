@@ -85,6 +85,11 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const chartModeParam = searchParams.get('chartMode');
+    const chartMode =
+      chartModeParam === 'native' || chartModeParam === 'tradingView'
+        ? chartModeParam
+        : undefined;
     const from = searchParams.get('from');
 
     if (segments[1] === 'stock') {
@@ -99,6 +104,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(tokenAddress ? { tokenAddress } : undefined),
           ...(network ? { network } : undefined),
           ...(isNative === undefined ? undefined : { isNative }),
+          ...(chartMode ? { chartMode } : undefined),
           ...(from ? { from: from as EEnterWay } : undefined),
           ...(disableTrade === undefined ? undefined : { disableTrade }),
           ...(showFavoriteButton === undefined
@@ -119,6 +125,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           network,
           isNative: true,
+          ...(chartMode ? { chartMode } : undefined),
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
@@ -146,6 +153,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ? undefined
           : { skipMarketDataFetch }),
         ...(isNative === undefined ? undefined : { isNative }),
+        ...(chartMode ? { chartMode } : undefined),
         ...(from ? { from: from as EEnterWay } : undefined),
         ...(disableTrade === undefined ? undefined : { disableTrade }),
         ...(showFavoriteButton === undefined
@@ -179,6 +187,12 @@ function isCurrentMarketTokenDetailTarget(
   if (
     normalizeRouteBooleanParam(params.isNative, defaultIsNative) !==
     normalizeRouteBooleanParam(target.params.isNative, defaultIsNative)
+  ) {
+    return false;
+  }
+
+  if (
+    (params.chartMode ?? 'native') !== (target.params.chartMode ?? 'native')
   ) {
     return false;
   }
@@ -249,6 +263,12 @@ export const useExtensionMarketTokenDetailHashNavigation =
 
         const prepareTargetFromHash = useCallback(
           (hash: string, target: IMarketTokenDetailNavigationTarget) => {
+            if (
+              target.screen === ETabMarketRoutes.MarketStockDetail ||
+              target.params.chartMode !== 'tradingView'
+            ) {
+              return;
+            }
             if (preparedHashRef.current === hash) {
               return;
             }

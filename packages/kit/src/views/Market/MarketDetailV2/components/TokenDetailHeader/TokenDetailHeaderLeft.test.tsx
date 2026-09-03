@@ -108,6 +108,7 @@ describe('TokenDetailHeaderLeft share button layout', () => {
   test('renders only the outer share button in the desktop redesign', () => {
     const view = render(
       <TokenDetailHeaderLeft
+        chartMode="native"
         tokenDetail={tokenDetail}
         networkId="evm--1"
         desktopRedesign
@@ -120,7 +121,11 @@ describe('TokenDetailHeaderLeft share button layout', () => {
 
   test('keeps the inline share button in the legacy desktop layout', () => {
     const view = render(
-      <TokenDetailHeaderLeft tokenDetail={tokenDetail} networkId="evm--1" />,
+      <TokenDetailHeaderLeft
+        chartMode="native"
+        tokenDetail={tokenDetail}
+        networkId="evm--1"
+      />,
     );
 
     expect(view.queryAllByTestId('market-url-icon')).toHaveLength(1);
@@ -130,6 +135,7 @@ describe('TokenDetailHeaderLeft share button layout', () => {
   test('renders one outer share button for redesigned top coins', () => {
     const view = render(
       <TokenDetailHeaderLeft
+        chartMode="native"
         tokenDetail={tokenDetail}
         networkId="evm--1"
         desktopRedesign

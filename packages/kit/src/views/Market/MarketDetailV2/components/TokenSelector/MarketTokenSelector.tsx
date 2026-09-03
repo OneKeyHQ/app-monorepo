@@ -147,7 +147,7 @@ function BaseMarketTokenSelectorContent({
     data: topCoins,
     handleItemPress: handleTopCoinPress,
     isLoading: isTopCoinsLoading,
-  } = useMarketTopCoins({ replaceCurrentDetail: true });
+  } = useMarketTopCoins({ chartMode, replaceCurrentDetail: true });
   const routeParams = route.params as
     | {
         showFavoriteButton?: boolean | string;
@@ -620,7 +620,6 @@ function BaseMarketTokenSelector({
     ),
     [
       address,
-      chartMode,
       effectiveNetworkLogoUri,
       intl,
       isOpen,

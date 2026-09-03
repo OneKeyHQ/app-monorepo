@@ -47,7 +47,6 @@ import {
   useNavigateToMarketTab,
   usePerpsNavigation,
 } from '../../../Market/hooks';
-import { prefetchMarketDetailV2FirstScreenKLine } from '../../../Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
@@ -844,11 +843,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
         return;
       }
-
-      void prefetchMarketDetailV2FirstScreenKLine({
-        tokenAddress: record.contractAddress,
-        networkId: record.chainId,
-      }).catch(() => undefined);
 
       const navigateToTokenDetail = () => {
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
