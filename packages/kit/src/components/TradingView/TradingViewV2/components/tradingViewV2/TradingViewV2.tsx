@@ -572,7 +572,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       effectiveDataSource === 'websocket' &&
       !isHyperLiquidSource &&
       !mockEmptyKLineEnabled &&
-      !forceEmptyKLineData,
+      !forceEmptyKLineData &&
+      !primaryKLineDataUnavailable,
     chartType: activeKLineResolution,
     symbol: chartSymbol,
   });

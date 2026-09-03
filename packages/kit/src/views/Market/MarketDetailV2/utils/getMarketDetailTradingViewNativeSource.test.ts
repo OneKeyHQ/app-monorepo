@@ -17,6 +17,23 @@ describe('Market detail TradingViewNative source', () => {
     });
   });
 
+  it('keeps the Asset identity ahead of the Hyperliquid whitelist', () => {
+    expect(
+      getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: 'BTC',
+        isNative: true,
+        marketAssetId: 'btc',
+        marketDataSource: 'websocket',
+        networkId: 'btc--0',
+        symbol: 'BTC',
+        tokenAddress: '',
+      }),
+    ).toEqual({
+      kind: 'asset',
+      assetId: 'btc',
+    });
+  });
+
   it('prefers a configured Hyperliquid ticker', () => {
     expect(
       getMarketDetailTradingViewNativeSource({

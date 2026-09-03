@@ -314,7 +314,7 @@ export async function handleKLineDataRequest({
         : await fetchTradingViewV2DataWithSlicing({
             tokenAddress,
             networkId,
-            interval: resolution,
+            interval: normalizeTradingViewKLineInterval(resolution),
             timeFrom: from,
             timeTo: to,
             autoHandleError: shouldSuppressKLineError ? false : undefined,

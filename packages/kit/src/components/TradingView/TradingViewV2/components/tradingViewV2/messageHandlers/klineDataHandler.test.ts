@@ -33,8 +33,10 @@ const mockFetchTradingViewV2DataWithSlicing =
 
 function buildHistoryMessage({
   firstDataRequest,
+  resolution = '1',
 }: {
   firstDataRequest: boolean;
+  resolution?: string;
 }): ICustomReceiveHandlerData['data'] {
   return {
     scope: '$private',
@@ -42,7 +44,7 @@ function buildHistoryMessage({
     origin: 'onekey',
     data: {
       method: 'getBars',
-      resolution: '1',
+      resolution,
       from: 1000,
       to: 2000,
       firstDataRequest,
@@ -118,4 +120,30 @@ describe('handleKLineDataRequest', () => {
     });
     expect(context.onKLineDataReady).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['1', '1m'],
+    ['60', '1H'],
+  ])(
+    'normalizes TradingView resolution %s before requesting K-line data',
+    async (resolution, interval) => {
+      mockFetchTradingViewV2DataWithSlicing.mockResolvedValueOnce({
+        points: [],
+        total: 0,
+      });
+      const { context } = buildContext();
+
+      await handleKLineDataRequest({
+        data: buildHistoryMessage({
+          firstDataRequest: false,
+          resolution,
+        }),
+        context,
+      });
+
+      expect(mockFetchTradingViewV2DataWithSlicing).toHaveBeenCalledWith(
+        expect.objectContaining({ interval }),
+      );
+    },
+  );
 });

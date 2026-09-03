@@ -356,6 +356,10 @@ export function DesktopLayout({
   const proKLineDataFallback = isStockSharePrice
     ? stockKLineDataFallback
     : assetKLineDataFallback;
+  const proKLineDataSource =
+    isStockSharePrice || marketAssetId
+      ? 'polling'
+      : (effectiveMarketTradingViewParams?.dataSource ?? 'polling');
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ||
@@ -416,11 +420,7 @@ export function DesktopLayout({
         decimal={
           isStockSharePrice ? undefined : marketTradingViewParams?.decimal
         }
-        dataSource={
-          isStockSharePrice
-            ? 'polling'
-            : (effectiveMarketTradingViewParams?.dataSource ?? 'polling')
-        }
+        dataSource={proKLineDataSource}
         onTouchScroll={handleTradingViewTouchScroll}
         nativeChartTypeControlMode="select"
         nativeIndicatorControlMode="popover"
@@ -455,6 +455,7 @@ export function DesktopLayout({
     stockAwareFullscreenChange,
     stockId,
     proKLineDataFallback,
+    proKLineDataSource,
     tradingViewNativeSource,
   ]);
 
@@ -505,7 +506,9 @@ export function DesktopLayout({
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
-          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+          isChartSwitchDisabled={
+            !effectiveMarketTradingViewParams && !marketAssetId
+          }
           onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
         />

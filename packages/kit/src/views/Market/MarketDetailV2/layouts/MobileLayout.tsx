@@ -216,8 +216,8 @@ function MobileMarketTradingView({
 }: {
   tokenAddress: string;
   networkId: string;
-  tokenSymbol: string;
-  decimal: number;
+  tokenSymbol?: string;
+  decimal?: number;
   dataSource: 'websocket' | 'polling';
   storageNamespace: IMarketTradingViewStorageNamespace;
   pageWidth?: number;
@@ -331,13 +331,13 @@ export function MobileLayout({
       networkId,
       tokenAddress,
     ].join(':');
-  } else if (marketTradingViewParams) {
+  } else if (marketTradingViewParams || marketAssetId) {
     marketTradingViewKey = [
       'v2',
       marketAssetId ?? '',
-      marketTradingViewParams.networkId,
-      marketTradingViewParams.tokenAddress,
-      marketTradingViewParams.tokenSymbol,
+      marketTradingViewParams?.networkId ?? '',
+      marketTradingViewParams?.tokenAddress ?? '',
+      marketTradingViewParams?.tokenSymbol ?? '',
     ].join(':');
   }
   const [
@@ -420,6 +420,9 @@ export function MobileLayout({
         : undefined,
     [marketAssetId],
   );
+  const proKLineDataSource = marketAssetId
+    ? 'polling'
+    : (marketTradingViewParams?.dataSource ?? 'polling');
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
 
@@ -825,7 +828,7 @@ export function MobileLayout({
                   ) : null;
                 }
 
-                if (!marketTradingViewParams) {
+                if (!marketTradingViewParams && !marketAssetId) {
                   return null;
                 }
 
@@ -833,11 +836,11 @@ export function MobileLayout({
                   return (
                     <MobileMarketTradingView
                       key={marketTradingViewKey}
-                      tokenAddress={marketTradingViewParams.tokenAddress}
-                      networkId={marketTradingViewParams.networkId}
-                      tokenSymbol={marketTradingViewParams.tokenSymbol}
-                      decimal={marketTradingViewParams.decimal}
-                      dataSource={marketTradingViewParams.dataSource}
+                      tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
+                      networkId={marketTradingViewParams?.networkId ?? ''}
+                      tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                      decimal={marketTradingViewParams?.decimal}
+                      dataSource={proKLineDataSource}
                       storageNamespace={marketTradingViewStorageNamespace}
                       pageWidth={layoutPageWidth}
                       onChartSwitch={onChartSwitch}
@@ -860,11 +863,12 @@ export function MobileLayout({
                 }
                 return (
                   <LazyMobileMarketTradingView
-                    tokenAddress={marketTradingViewParams.tokenAddress}
-                    networkId={marketTradingViewParams.networkId}
-                    tokenSymbol={marketTradingViewParams.tokenSymbol}
-                    decimal={marketTradingViewParams.decimal}
-                    dataSource={marketTradingViewParams.dataSource}
+                    key={marketTradingViewKey}
+                    tokenAddress={marketTradingViewParams?.tokenAddress ?? ''}
+                    networkId={marketTradingViewParams?.networkId ?? ''}
+                    tokenSymbol={marketTradingViewParams?.tokenSymbol}
+                    decimal={marketTradingViewParams?.decimal}
+                    dataSource={proKLineDataSource}
                     pageWidth={layoutPageWidth}
                     onChartSwitch={onChartSwitch}
                     kLineDataFallback={assetKLineDataFallback}
@@ -910,6 +914,7 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
+    proKLineDataSource,
     tradingViewNativeSource,
     tradingViewChartHeight,
   ]);
