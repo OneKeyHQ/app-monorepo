@@ -1619,10 +1619,11 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const withHardwareProcessing = jest
       .fn()
       .mockRejectedValue(new Error('hardware processing unavailable'));
+    const silenceForFirmwareWorkflow = jest.fn();
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          deviceStageBurst: { silenceForFirmwareWorkflow },
           withHardwareProcessing,
         },
       } as unknown as IBackgroundApi,
@@ -1638,10 +1639,17 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
 
     expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
-    expect(
-      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
-        .invocationCallOrder[0],
-    ).toBeLessThan(withHardwareProcessing.mock.invocationCallOrder[0]);
+    const guardRaisedAt = jest.mocked(firmwareUpdateWorkflowRunningAtom.set)
+      .mock.invocationCallOrder[0];
+    expect(guardRaisedAt).toBeLessThan(
+      withHardwareProcessing.mock.invocationCallOrder[0],
+    );
+    // The stage is silenced only once the guard is up: an ask queued
+    // behind the silence must find the gate already closed, or it repaints
+    // the stage over the update page.
+    expect(guardRaisedAt).toBeLessThan(
+      silenceForFirmwareWorkflow.mock.invocationCallOrder[0],
+    );
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
       false,
     );
@@ -1866,10 +1874,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
   });
 
   it('clears stale transfer samples before starting a V2 workflow', async () => {
+    const silenceForFirmwareWorkflow = jest.fn();
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
-          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+          deviceStageBurst: { silenceForFirmwareWorkflow },
         },
       } as unknown as IBackgroundApi,
     });
@@ -1886,6 +1895,41 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     });
 
     expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
+    // Guard first, then silence — same order as the v1 start and the retry.
+    expect(
+      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(silenceForFirmwareWorkflow.mock.invocationCallOrder[0]);
+  });
+
+  it('drops the guard again when silencing the stage fails before a V2 workflow starts', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          deviceStageBurst: {
+            silenceForFirmwareWorkflow: jest
+              .fn()
+              .mockRejectedValue(new Error('stage bridge not ready')),
+          },
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const run = jest.spyOn(service, 'runUpdateWorkflowV2');
+
+    await expect(
+      service.startUpdateWorkflowV2({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('does not report a workflow that only ends in cancellation', async () => {

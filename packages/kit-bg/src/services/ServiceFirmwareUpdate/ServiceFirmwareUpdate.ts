@@ -2295,15 +2295,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v1',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
-    });
-    if (!dbDevice) {
-      // throw new OneKeyLocalError('device not found');
-    }
+    // The guard goes up BEFORE the stage is silenced: an ask already queued
+    // behind the silence would otherwise pass the stage's gate in the gap
+    // and repaint over the update page until the drain below ended. The
+    // retry path orders these the same way; the finally covers a failed
+    // silence too.
     await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+      const dbDevice = await localDb.getDeviceByQuery({
+        connectId: params.releaseResult.originalConnectId, // TODO remove connectId check
+      });
+      if (!dbDevice) {
+        // throw new OneKeyLocalError('device not found');
+      }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           try {
@@ -2805,8 +2810,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
       updateFlow: 'v2',
       releaseResult: params.releaseResult,
     });
-    await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    // Guard first, then silence — see startUpdateWorkflow. A silence that
+    // fails must not leave the guard up: nothing below would run to drop it.
     await firmwareUpdateWorkflowRunningAtom.set(true);
+    try {
+      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+    } catch (error) {
+      await firmwareUpdateWorkflowRunningAtom.set(false);
+      throw error;
+    }
 
     void (async () => {
       try {
