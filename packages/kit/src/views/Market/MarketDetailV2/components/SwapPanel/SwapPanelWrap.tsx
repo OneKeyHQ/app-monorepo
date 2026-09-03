@@ -273,6 +273,16 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
+  const stockTokenToAssetRatio =
+    selectedTokenVariant?.tokenToAssetRatio ??
+    tokenDetail?.stock?.tokenToAssetRatio;
+  const currentStockInfo =
+    isStockRoute && tokenDetail?.stock
+      ? {
+          ...tokenDetail.stock,
+          tokenToAssetRatio: stockTokenToAssetRatio,
+        }
+      : undefined;
   const currentMarketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
@@ -299,9 +309,7 @@ function SwapPanelWrapContent({
         currency: 'usd',
         isNative: false,
         isStock: isStockRoute,
-        stock: selectedVariantMatchesTokenDetail
-          ? tokenDetail?.stock
-          : undefined,
+        stock: currentStockInfo,
       }
     : {
         networkId: networkId || '',
@@ -314,7 +322,7 @@ function SwapPanelWrapContent({
         currency: marketTokenCurrency,
         isNative: !!tokenDetail?.isNative,
         isStock: isStockRoute,
-        stock: isStockRoute ? tokenDetail?.stock : undefined,
+        stock: currentStockInfo,
       };
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
@@ -891,7 +899,7 @@ function SwapPanelWrapContent({
       onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       stockQuoteDisplay={stockQuoteDisplay}
-      stockTokenToAssetRatio={selectedTokenVariant?.tokenToAssetRatio}
+      stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}

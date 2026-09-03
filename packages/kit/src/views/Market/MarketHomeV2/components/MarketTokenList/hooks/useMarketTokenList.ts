@@ -19,6 +19,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
+  buildMarketNetworkLogoUriMap,
+  getMarketTokenNetworkLogoUri,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -34,6 +36,7 @@ interface IUseMarketTokenListParams {
   networkId: string;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
+  useApiDefaultSort?: boolean;
   pageSize?: number;
   type?: string;
   category?: string;
@@ -180,39 +183,82 @@ function reuseStableMarketTokenRows({
 function transformMarketTokenListResponse({
   response,
   networkId,
+  networkLogoUriMap,
   networkLogoUri,
   timeRange,
 }: {
   response: IMarketTokenListResponseWithSource | undefined;
   networkId: string;
+  networkLogoUriMap: ReadonlyMap<string, string>;
   networkLogoUri: string;
   timeRange: IMarketTimeRangeValue | undefined;
 }) {
   return (response?.list ?? []).map((item) =>
     transformApiItemToToken(item, {
       chainId: networkId,
+      networkLogoUriMap,
       networkLogoUri,
       timeRange,
     }),
   );
 }
 
+function refreshMarketTokenNetworkLogos({
+  data,
+  networkId,
+  networkLogoUriMap,
+  networkLogoUri,
+}: {
+  data: IMarketToken[];
+  networkId: string;
+  networkLogoUriMap: ReadonlyMap<string, string>;
+  networkLogoUri: string;
+}) {
+  let changed = false;
+  const nextData = data.map((token) => {
+    const nextNetworkLogoUri = getMarketTokenNetworkLogoUri({
+      tokenNetworkId: token.networkId,
+      chainId: networkId,
+      networkLogoUriMap,
+      networkLogoUri,
+    });
+    if (token.networkLogoUri === nextNetworkLogoUri) {
+      return token;
+    }
+
+    changed = true;
+    return {
+      ...token,
+      id: `${token.address}${token.name}${nextNetworkLogoUri}${token.symbol}`,
+      networkLogoUri: nextNetworkLogoUri,
+    };
+  });
+
+  return changed ? nextData : data;
+}
+
 export function useMarketTokenList({
   networkId,
-  initialSortBy = 'v24hUSD',
-  initialSortType = 'desc',
+  initialSortBy: initialSortByProp,
+  initialSortType: initialSortTypeProp,
+  useApiDefaultSort = false,
   pageSize = 20,
   type,
   category,
   timeRange,
   pollingInterval = timerUtils.getTimeDurationMs({ seconds: 60 }),
 }: IUseMarketTokenListParams) {
+  const initialSortBy = useApiDefaultSort
+    ? undefined
+    : (initialSortByProp ?? 'v24hUSD');
+  const initialSortType = useApiDefaultSort
+    ? undefined
+    : (initialSortTypeProp ?? 'desc');
   const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
   const locale = useLocaleVariant();
   const timeRangeRef = useRef(timeRange);
   timeRangeRef.current = timeRange;
-  // Get minLiquidity from market config
-  const { minLiquidity } = useMarketBasicConfig();
+  const { minLiquidity, networkList } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -226,11 +272,18 @@ export function useMarketTokenList({
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const maxPages = 5;
 
-  // Optimize network logo URI calculation
-  const networkLogoUri = useMemo(
-    () => getNetworkLogoUri(networkId),
-    [networkId],
+  const networkLogoUriMap = useMemo(
+    () => buildMarketNetworkLogoUriMap(networkList),
+    [networkList],
   );
+  const networkLogoUri = useMemo(
+    () => networkLogoUriMap.get(networkId) || getNetworkLogoUri(networkId),
+    [networkId, networkLogoUriMap],
+  );
+  const networkLogoUriMapRef = useRef(networkLogoUriMap);
+  networkLogoUriMapRef.current = networkLogoUriMap;
+  const networkLogoUriRef = useRef(networkLogoUri);
+  networkLogoUriRef.current = networkLogoUri;
   const hasNetworkId = Boolean(networkId);
 
   // Check if "All Networks" is selected
@@ -493,6 +546,7 @@ export function useMarketTokenList({
     data: transformMarketTokenListResponse({
       response: apiResult,
       networkId,
+      networkLogoUriMap,
       networkLogoUri,
       timeRange: timeRangeRef.current,
     }),
@@ -504,6 +558,7 @@ export function useMarketTokenList({
       : transformMarketTokenListResponse({
           response: cachedMarketTokenListEntry?.data,
           networkId,
+          networkLogoUriMap,
           networkLogoUri,
           timeRange: timeRangeRef.current,
         });
@@ -600,7 +655,8 @@ export function useMarketTokenList({
     const transformed = transformMarketTokenListResponse({
       response: apiResult,
       networkId,
-      networkLogoUri,
+      networkLogoUriMap: networkLogoUriMapRef.current,
+      networkLogoUri: networkLogoUriRef.current,
       timeRange: timeRangeRef.current,
     });
     const transformDuration =
@@ -641,11 +697,35 @@ export function useMarketTokenList({
     currentQueryKey,
     hasNetworkId,
     networkId,
-    networkLogoUri,
     timeFrame,
     trackNetworkLoading,
     type,
     category,
+  ]);
+
+  useEffect(() => {
+    if (!hasNetworkId) {
+      return;
+    }
+
+    setTransformedDataState((prev) => {
+      if (prev.queryKey !== currentQueryKey) {
+        return prev;
+      }
+      const nextData = refreshMarketTokenNetworkLogos({
+        data: prev.data,
+        networkId,
+        networkLogoUriMap,
+        networkLogoUri,
+      });
+      return nextData === prev.data ? prev : { ...prev, data: nextData };
+    });
+  }, [
+    currentQueryKey,
+    hasNetworkId,
+    networkId,
+    networkLogoUriMap,
+    networkLogoUri,
   ]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
@@ -731,7 +811,8 @@ export function useMarketTokenList({
         const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
             chainId: networkId,
-            networkLogoUri,
+            networkLogoUriMap: networkLogoUriMapRef.current,
+            networkLogoUri: networkLogoUriRef.current,
             timeRange: timeRangeRef.current,
           }),
         );
@@ -781,7 +862,6 @@ export function useMarketTokenList({
     category,
     timeFrame,
     trackNetworkLoading,
-    networkLogoUri,
   ]);
 
   const canLoadMore =
