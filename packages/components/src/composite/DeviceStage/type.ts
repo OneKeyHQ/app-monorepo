@@ -422,6 +422,13 @@ export interface IDeviceStageProps {
    */
   passphraseKeepAccessible?: boolean;
   /**
+   * The request comes from a protocol V2 device: the passphrase form takes
+   * UTF-8 measured in bytes and normalizes it to NFKD, the way the shipped
+   * dialog did for the wallet-session coordinator's requests. Off, the
+   * printable-ASCII rule applies.
+   */
+  passphraseAllowUtf8?: boolean;
+  /**
    * The passphraseOnApp entry, confirmed — never empty, which the form
    * refuses inline in both modes (on-device entry is the one way to
    * answer with an empty passphrase, and it exits through
