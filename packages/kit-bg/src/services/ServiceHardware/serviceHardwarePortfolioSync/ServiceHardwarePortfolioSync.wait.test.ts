@@ -860,6 +860,53 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
+  test('prefers a newer disconnected snapshot over pending BLE data', async () => {
+    const { service } = prepareHardwareSync({ busyResults: [false] });
+    const olderBlePayload = buildHardwarePayload();
+    const latestDisconnectedPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    };
+    const resumedPayloadHandler = jest.fn();
+    const serviceInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
+      pendingDisconnectedPayloadByTargetKey: Map<
+        string,
+        IPortfolioSyncSettledPayload
+      >;
+      pendingMobileBlePayloadByTargetKey: Map<
+        string,
+        IPortfolioSyncSettledPayload
+      >;
+      targetKeyByConnectId: Map<string, string>;
+    };
+    serviceInternals.targetKeyByConnectId.set(
+      'PRO2_CONNECT_ID',
+      'db-device-1',
+    );
+    serviceInternals.pendingMobileBlePayloadByTargetKey.set(
+      'db-device-1',
+      olderBlePayload,
+    );
+    serviceInternals.pendingDisconnectedPayloadByTargetKey.set(
+      'db-device-1',
+      latestDisconnectedPayload,
+    );
+    serviceInternals.handleAllNetworksTokenListSettled = resumedPayloadHandler;
+
+    await service.notifyHardwareDeviceConnected({
+      identityKeys: ['PRO2_CONNECT_ID'],
+    });
+
+    expect(resumedPayloadHandler).toHaveBeenCalledTimes(1);
+    expect(resumedPayloadHandler).toHaveBeenCalledWith(
+      latestDisconnectedPayload,
+    );
+    expect(
+      serviceInternals.pendingMobileBlePayloadByTargetKey.has('db-device-1'),
+    ).toBe(false);
+  });
+
   test('does not upload when the connected device identity differs from the wallet device', async () => {
     const {
       getDeviceState,
