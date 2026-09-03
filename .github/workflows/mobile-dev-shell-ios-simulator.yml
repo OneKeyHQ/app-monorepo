@@ -102,8 +102,8 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           cd apps/mobile/ios
-          gem install cocoapods -v 1.16.2
-          pod _1.16.2_ install --deployment
+          gem install cocoapods -v 1.17.0
+          pod _1.17.0_ install --deployment
 
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
