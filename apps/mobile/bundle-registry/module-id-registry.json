@@ -21226,7 +21226,7 @@
     "packages/kit/src/views/Home/components/RichTable/index.ts": 5259,
     "packages/kit/src/views/Home/components/SupportHub/SupportHub.tsx": 5260,
     "packages/kit/src/views/Home/components/SupportHub/index.ts": 5261,
-    "packages/kit/src/views/Home/components/TokenListBlock/PortfolioSyncButton.tsx": 7982,
+    "packages/kit/src/views/Home/components/TokenListBlock/PortfolioSyncButton.tsx": 7983,
     "packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.tsx": 5262,
     "packages/kit/src/views/Home/components/TokenListBlock/assetStatusAnalytics.ts": 5263,
     "packages/kit/src/views/Home/components/TokenListBlock/buildHomeTokenListCacheIngestRound.ts": 5264,
