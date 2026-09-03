@@ -72,7 +72,12 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { filterTokensByAccountNetworkCompatibility } from '../../../utils/tokenSelectorAccountCompatibility';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
+import {
+  resolveSearchTokenListForKeywords,
+  shouldApplySearchResponse,
+} from '../utils/tokenSelectorSearchUtils';
 
+import type { ITokenSelectorSearchTokenList } from '../utils/tokenSelectorSearchUtils';
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
 
@@ -651,12 +656,14 @@ function TokenSelector() {
   }>({
     isSearching: false,
   });
-  const [searchTokenList, setSearchTokenList] = useState<{
-    tokens: IAccountToken[];
-    searchKey: string;
-    filterContext: ITokenSelectorSearchFilterContext;
-  }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
+  const [searchTokenList, setSearchTokenList] = useState<
+    ITokenSelectorSearchTokenList<ITokenSelectorSearchFilterContext>
+  >({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
+  // Mirrors `searchKey` synchronously for the in-flight request: a response
+  // may only apply while the input still reads the keywords it was fetched
+  // for (see shouldApplySearchResponse).
+  const liveSearchKeyRef = useRef('');
   const lastTokenSelectorErrorToastAtRef = useRef(0);
 
   const showFetchTokenListErrorToast = useCallback(() => {
@@ -1054,10 +1061,11 @@ function TokenSelector() {
     ],
   );
 
-  const debounceUpdateSearchKey = useDebouncedCallback(
-    setSearchKey,
-    searchAll ? 1000 : 200,
-  );
+  // Two-stage search debounce. `searchKey` (list + local filter) follows the
+  // input at 200 ms; in `searchAll` mode the backend request waits a further
+  // 800 ms (`debounceSearchTokensBySearchKey` below), so the onekeyall search
+  // still fires 1 s after the last keystroke and its load is unchanged.
+  const debounceUpdateSearchKey = useDebouncedCallback(setSearchKey, 200);
 
   const headerSearchBarOptions = useMemo(
     () => ({
@@ -1127,17 +1135,19 @@ function TokenSelector() {
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
       const isLatest = () =>
-        latestSearchRequestContextRef.current === requestContext;
+        shouldApplySearchResponse({
+          requestContext,
+          latestRequestContext: latestSearchRequestContextRef.current,
+          keywords,
+          liveSearchKey: liveSearchKeyRef.current,
+        });
       setSearchTokenState({ isSearching: true });
       setSearchTokenList((prev) =>
-        prev.searchKey === keywords &&
-        prev.filterContext === tokenSelectorSearchFilterContext
-          ? prev
-          : {
-              tokens: [],
-              searchKey: '',
-              filterContext: tokenSelectorSearchFilterContext,
-            },
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
       );
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       let searchFailed = false;
@@ -1903,10 +1913,39 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // Backend stage of the two-stage search debounce (see
+  // debounceUpdateSearchKey). Scheduled on every live-key change, so editing
+  // back to the previous keywords within the wait still re-runs the request;
+  // use-debounce invokes the latest callback, so the closure never goes stale.
+  const debounceSearchTokensBySearchKey = useDebouncedCallback(
+    (keywords: string) => {
+      void searchTokensBySearchKey(keywords);
+    },
+    800,
+  );
+
   useEffect(() => {
+    liveSearchKeyRef.current = searchKey;
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
-      void searchTokensBySearchKey(searchKey);
+      // The list re-filters on the live key right away: drop results that
+      // belong to another query and show the trailing loader until the
+      // request for this key lands. Without this, a slower response for an
+      // intermediate query ("usd" while editing "usdt" into "sol") used to
+      // land after the input had moved on and show the wrong list until the
+      // next debounce fired (OK-61484).
+      setSearchTokenList((prev) =>
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords: searchKey,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
+      );
+      setSearchTokenState((prev) =>
+        prev.isSearching ? prev : { isSearching: true },
+      );
+      debounceSearchTokensBySearchKey(searchKey);
     } else {
+      debounceSearchTokensBySearchKey.cancel();
       latestSearchRequestContextRef.current = '';
       setSearchTokenState({ isSearching: false });
       setSearchTokenList({
@@ -1917,8 +1956,12 @@ function TokenSelector() {
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [
+    debounceSearchTokensBySearchKey,
     searchAll,
     searchKey,
+    // Identity changes when the scope gates flip (e.g. `network` resolves
+    // after the first keystrokes); re-run so the request carries the right
+    // scope, as the pre-split effect did.
     searchTokensBySearchKey,
     tokenSelectorSearchFilterContext,
   ]);
