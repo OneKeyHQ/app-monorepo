@@ -9,9 +9,9 @@ import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import {
+  type IUnreadableSelfHealLogger,
   getStorageErrorMeta,
   retryUnreadableStorageRead,
-  type IUnreadableSelfHealLogger,
 } from './retryUnreadableStorageRead';
 import { getSimpleDbEntityKey } from './simpleDbFacadeCompatibility';
 import { isUnreadableStorageValueError } from './unreadableStorageValueError';

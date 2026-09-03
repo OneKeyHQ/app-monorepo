@@ -56,6 +56,7 @@ describe('retryUnreadableStorageRead', () => {
 
   test('returns the value when a later retry succeeds', async () => {
     let attempts = 0;
+    const onDelete = jest.fn();
     const result = await retryUnreadableStorageRead({
       read: async () => {
         attempts += 1;
@@ -67,9 +68,7 @@ describe('retryUnreadableStorageRead', () => {
         return 'ok';
       },
       shouldDelete: () => true,
-      onDelete: async () => {
-        throw new Error('should not delete');
-      },
+      onDelete,
       errorMeta: {
         errorName: 'UnknownError',
         errorMessage: 'Failed to read large IndexedDB value',
@@ -79,5 +78,6 @@ describe('retryUnreadableStorageRead', () => {
     });
     expect(result).toBe('ok');
     expect(attempts).toBe(2);
+    expect(onDelete).not.toHaveBeenCalled();
   });
 });

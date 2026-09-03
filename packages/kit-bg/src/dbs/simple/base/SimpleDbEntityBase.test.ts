@@ -1,10 +1,10 @@
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 import {
   UNREADABLE_SELF_HEAL_MAX_RETRIES,
   getUnreadableSelfHealDelayMs,
 } from './retryUnreadableStorageRead';
+import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 /*
 yarn jest packages/kit-bg/src/dbs/simple/base/SimpleDbEntityBase.test.ts
