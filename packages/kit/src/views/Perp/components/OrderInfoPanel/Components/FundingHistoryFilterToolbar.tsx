@@ -118,13 +118,17 @@ function FundingHistoryFilterOption({
     >
       <SizableText
         size={isMobile ? '$bodyLg' : '$bodySm'}
-        color={isMobile || selected ? '$text' : '$textSubdued'}
+        color="$text"
         numberOfLines={1}
       >
         {label}
       </SizableText>
-      {isMobile && selected ? (
-        <Icon name="CheckLargeOutline" size="$5" color="$iconActive" />
+      {selected ? (
+        <Icon
+          name="CheckLargeOutline"
+          size={isMobile ? '$5' : '$4'}
+          color="$iconActive"
+        />
       ) : null}
     </XStack>
   );

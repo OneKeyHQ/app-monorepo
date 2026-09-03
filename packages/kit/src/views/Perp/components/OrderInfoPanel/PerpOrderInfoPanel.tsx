@@ -210,6 +210,10 @@ function PerpOrderInfoPanel() {
     useState<IFundingHistoryMarketOption[]>([]);
   const { isUnifoldDepositTrackerAvailable, showUnifoldDepositTracker } =
     useShowUnifoldDepositTracker();
+  const hasTabBarTrailingContent =
+    activeTab === 'Balances' ||
+    activeTab === 'Funding' ||
+    (activeTab === 'Account' && isUnifoldDepositTrackerAvailable);
 
   useEffect(() => {
     if (
@@ -325,6 +329,7 @@ function PerpOrderInfoPanel() {
           horizontal
           flex={1}
           minWidth={0}
+          mr={hasTabBarTrailingContent ? '$3' : undefined}
           showsHorizontalScrollIndicator={false}
         >
           {ORDER_INFO_TABS.map((name) => (
