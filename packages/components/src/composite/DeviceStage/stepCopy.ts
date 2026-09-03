@@ -134,7 +134,7 @@ export const AUTH_NOTE_TEXT = {
 /**
  * Wallet grammar: an instruction-first title, one informative line
  * under. The device's own name rides the second line nowhere anymore —
- * on the device-side card steps it wears the corner badge instead (see
+ * on the device-side card steps it wears the title's pill instead (see
  * DEVICE_BADGE_STEPS), and the capsule keeps it as its own second line.
  *
  * Entries whose words carry runtime values (the pairing pitch, the
@@ -331,7 +331,7 @@ export function resolveInstallText(
 }
 
 /**
- * The card steps that wear the device's name as the corner badge — the
+ * The card steps that wear the device's name as the title's pill — the
  * ones where the person acts on the connected device, so the card names
  * which device to reach for. The authenticity flow keeps it through its
  * landing: the three beats share one card, and the board keeps the name
@@ -479,7 +479,7 @@ export const COMPACT_STAGED_STEPS: IDeviceStageStep[] = [
 ];
 
 /** The stage seat's words, resolved: the step's title over its own line
- * (the device's name lives on the corner badge now). */
+ * (the device's name lives on the title's pill now). */
 export function resolveStageText(
   intl: IntlShape,
   step: IDeviceStageStep,

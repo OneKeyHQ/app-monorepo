@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -43,6 +43,26 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: 16,
   },
+  // The title row wraps: the slot rides the title's line when the two fit
+  // side by side, else it drops under the title on its own line. Wrapping
+  // measures the title on its own, so the slot never squeezes the title
+  // and never gets squeezed itself.
+  titleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 12,
+    rowGap: 8,
+  },
+  // The slot pulls 4pt left: beside the title that trims the 12pt column
+  // gap to a visual 8; on its own line it overhangs the title's left edge
+  // by 4pt, so the pill's text — not its padded background — aligns with
+  // the title's first character.
+  titleSlot: {
+    flexShrink: 0,
+    maxWidth: '100%',
+    marginLeft: -4,
+  },
 });
 
 export function StepText({
@@ -51,6 +71,7 @@ export function StepText({
   animated,
   subColor = '$textSubdued',
   subSlot,
+  titleSlot,
 }: {
   title: string;
   sub: string;
@@ -62,6 +83,10 @@ export function StepText({
    * title). Rendered live, outside the swap's shown-text cache: a slot
    * change never replays the title, it just appears in place. */
   subSlot?: ReactNode;
+  /** Furniture for the title's line (the device's name pill): right of
+   * the title when both fit on one line, else on its own line under it.
+   * Rendered live, like subSlot. */
+  titleSlot?: ReactNode;
 }) {
   const [shown, setShown] = useState({ title, sub });
   const targetRef = useRef({ title, sub });
@@ -108,7 +133,12 @@ export function StepText({
   const style = useMemo(() => [styles.textBlock, motionStyle], [motionStyle]);
   return (
     <Animated.View style={style}>
-      <SizableText size="$heading2xl">{shown.title}</SizableText>
+      <View style={styles.titleRow}>
+        <SizableText size="$heading2xl" flexShrink={1}>
+          {shown.title}
+        </SizableText>
+        {titleSlot ? <View style={styles.titleSlot}>{titleSlot}</View> : null}
+      </View>
       {shown.sub ? (
         <SizableText size="$bodyMd" color={subColor}>
           {shown.sub}
