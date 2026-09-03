@@ -290,10 +290,6 @@ function MobileBrowser() {
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
     platformEnv.isNativeIOSPad && !isTabletMainView;
-  // Preserve the active iPad page without keeping every LRU WebView resident
-  // while the Browser WebView layer is hidden.
-  const keepInactiveWebViewsMounted =
-    !shouldKeepBrowserTabLayerAttached || isBrowserWebPageVisible;
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -413,11 +409,10 @@ function MobileBrowser() {
           id={t.id}
           key={t.id}
           isBrowserContentVisible={isBrowserWebPageVisible}
-          keepInactiveWebViewMounted={keepInactiveWebViewsMounted}
           onScroll={handleScroll}
         />
       )),
-    [tabs, handleScroll, isBrowserWebPageVisible, keepInactiveWebViewsMounted],
+    [tabs, handleScroll, isBrowserWebPageVisible],
   );
 
   useNotifyTabBarDisplay(

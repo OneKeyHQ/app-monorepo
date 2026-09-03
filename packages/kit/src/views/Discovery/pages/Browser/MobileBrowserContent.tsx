@@ -39,12 +39,10 @@ const styles = StyleSheet.create({
 function MobileBrowserContent({
   id,
   isBrowserContentVisible,
-  keepInactiveWebViewMounted,
   onScroll,
 }: {
   id: string;
   isBrowserContentVisible: boolean;
-  keepInactiveWebViewMounted: boolean;
   onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
@@ -92,13 +90,10 @@ function MobileBrowserContent({
 
   // Derive the mount decision synchronously so the very first activation mounts
   // the WebView in the same commit (isCurrent flips true) instead of rendering
-  // one blank frame while waiting for the hasBeenShown effect to run. When the
-  // iPad Browser segment is hidden, retain only the active WebView instead of
-  // keeping the full LRU window resident.
-  const shouldMountWebView =
-    keepAlive &&
-    (hasBeenShown || isCurrent) &&
-    (isActive || keepInactiveWebViewMounted);
+  // one blank frame while waiting for the hasBeenShown effect to run. Keep all
+  // previously shown tabs in the bounded LRU window mounted while Browser is
+  // hidden, so selecting a different tab does not recreate its WebView.
+  const shouldMountWebView = keepAlive && (hasBeenShown || isCurrent);
   if (!shouldMountWebView && tab?.url) {
     webViewInitialUrlRef.current = tab.url;
   }
@@ -121,9 +116,9 @@ function MobileBrowserContent({
     if (!tab?.id || !webViewInitialUrl) {
       return null;
     }
-    // Evicted (cold) or never-shown tab: render nothing. Inactive tabs are
-    // hidden, and the tab switcher uses the persisted thumbnail
-    // (tab.thumbnail), not this view.
+    // Evicted (cold) or never-shown tab: render nothing. Inactive alive tabs
+    // remain mounted but hidden, and the tab switcher uses the persisted
+    // thumbnail (tab.thumbnail), not this view.
     if (!shouldMountWebView) {
       return null;
     }
@@ -182,6 +177,7 @@ function MobileBrowserContent({
     webViewInitialUrl,
     isActive,
     isCurrent,
+    keepAlive,
     shouldMountWebView,
     customReceiveHandler,
   ]);
