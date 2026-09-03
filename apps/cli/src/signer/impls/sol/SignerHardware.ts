@@ -11,6 +11,7 @@ import type {
   ICoreApiGetAddressItem,
   ICoreApiSignMsgPayload,
   ISignedTxPro,
+  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import {
   EMessageTypesCommon,
@@ -214,7 +215,7 @@ export class SignerHardware extends SignerHardwareBase {
       | {
           type: string;
           message: string;
-          payload?: { applicationDomain?: string; version?: number };
+          payload?: IUnsignedMessageSolana['payload'];
         }
       | undefined;
     if (!unsignedMsg) {
@@ -245,20 +246,61 @@ export class SignerHardware extends SignerHardwareBase {
     }
 
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
-      // Firmware only implements version 0 of the offchain message spec, so a version 1
-      // request would silently be signed as version 0 bytes the dapp cannot verify.
       const versionKind = classifyOffchainMessageVersion(
         unsignedMsg.payload?.version,
       );
       if (versionKind === 'v1') {
-        throw new AppError(
-          ERROR_CODES.INVALID_PAYLOAD.code,
-          'Hardware wallet does not support version 1 Solana offchain messages yet',
-          'Use a software wallet account, or wait for firmware support.',
+        const requiredSigners =
+          unsignedMsg.payload?.version === 1
+            ? unsignedMsg.payload.requiredSigners
+            : undefined;
+        if (!requiredSigners?.length) {
+          throw new AppError(
+            ERROR_CODES.INVALID_PAYLOAD.code,
+            'Version 1 Solana offchain messages require at least one signer.',
+            'Pass requiredSigners as base58-encoded Solana public keys.',
+          );
+        }
+        if (
+          !payload.account?.address ||
+          !requiredSigners.includes(payload.account.address)
+        ) {
+          throw new AppError(
+            ERROR_CODES.INVALID_PAYLOAD.code,
+            'Version 1 requiredSigners must include the signing account.',
+            'Add payload.account.address to unsignedMsg.payload.requiredSigners.',
+          );
+        }
+
+        const requiredSignerBytes = requiredSigners.map((signer) =>
+          bs58.decode(signer),
+        );
+        OffchainMessage.createOffChainMessageV1Bytes({
+          message: unsignedMsg.message,
+          requiredSigners: requiredSignerBytes,
+        });
+
+        const result = await sdk.solSignOffchainMessage(
+          this.device.connectId,
+          this.device.deviceId,
+          {
+            path,
+            messageHex,
+            messageVersion: 1,
+            requiredSigners: requiredSignerBytes
+              .map((signer) => Buffer.from(signer).toString('hex'))
+              .toSorted(),
+            ...commonParams,
+          },
+        );
+        const sig = unwrapSDKResult<ISolSignMessagePayload>(
+          result,
+          'signMessage',
+        );
+        return bs58.encode(
+          decodeEd25519Signature(sig.signature, 'signMessage'),
         );
       }
-      // Only version 0 is passed on: the firmware is never told which version
-      // this is, so anything else would be signed as version 0.
       if (versionKind === 'unsupported') {
         throw new AppError(
           ERROR_CODES.INVALID_PAYLOAD.code,
@@ -268,35 +310,11 @@ export class SignerHardware extends SignerHardwareBase {
           'Only version 0 and version 1 are supported.',
         );
       }
-      const applicationDomain = unsignedMsg.payload?.applicationDomain;
-      const guessedMessageFormat = OffchainMessage.guessMessageFormat(
-        Buffer.from(unsignedMsg.message ?? ''),
+      throw new AppError(
+        ERROR_CODES.INVALID_PAYLOAD.code,
+        'Version 0 Solana offchain messages are not supported by hardware wallets.',
+        'Use a version 1 Solana offchain message.',
       );
-      const messageFormat =
-        guessedMessageFormat === 0 || guessedMessageFormat === 1
-          ? guessedMessageFormat
-          : undefined;
-      const result = await sdk.solSignOffchainMessage(
-        this.device.connectId,
-        this.device.deviceId,
-        {
-          path,
-          messageHex,
-          ...(applicationDomain
-            ? {
-                applicationDomainHex:
-                  Buffer.from(applicationDomain).toString('hex'),
-              }
-            : {}),
-          messageFormat,
-          ...commonParams,
-        },
-      );
-      const sig = unwrapSDKResult<ISolSignMessagePayload>(
-        result,
-        'signMessage',
-      );
-      return bs58.encode(decodeEd25519Signature(sig.signature, 'signMessage'));
     }
 
     throw new AppError(

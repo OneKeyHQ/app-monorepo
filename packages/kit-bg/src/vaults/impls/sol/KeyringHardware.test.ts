@@ -1,5 +1,7 @@
 import bs58 from 'bs58';
 
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import { buildHardwareSolSignOffchainMessageV1Params } from './KeyringHardware';
 
 describe('buildHardwareSolSignOffchainMessageV1Params', () => {
@@ -11,7 +13,7 @@ describe('buildHardwareSolSignOffchainMessageV1Params', () => {
     expect(
       buildHardwareSolSignOffchainMessageV1Params({
         message: 'Hello, Solana',
-        requiredSigners,
+        messagePayload: { version: 1, requiredSigners },
       }),
     ).toEqual({
       messageHex: Buffer.from('Hello, Solana').toString('hex'),
@@ -25,5 +27,18 @@ describe('buildHardwareSolSignOffchainMessageV1Params', () => {
       bs58.encode(signerB),
       bs58.encode(signerA),
     ]);
+  });
+
+  it('rejects version 0 before building hardware SDK params', () => {
+    jest
+      .spyOn(appLocale.intl, 'formatMessage')
+      .mockReturnValue('Not supported by hardware wallets');
+
+    expect(() =>
+      buildHardwareSolSignOffchainMessageV1Params({
+        message: 'Hello, Solana',
+        messagePayload: { version: 0 },
+      }),
+    ).toThrow('Not supported by hardware wallets');
   });
 });
