@@ -34,11 +34,16 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import type {
+  IBulkSendAddressesInputSeed,
+  IBulkSendAddressesInputSeedNetwork,
+  IBulkSendAddressesInputSeedSender,
+} from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import BulkSendBar from '../../components/BulkSendBar';
@@ -49,9 +54,16 @@ import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
 import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import { parseBulkSendAddressLines } from './addressLineUtils';
+import {
+  buildBulkSendSeedSource,
+  buildBulkSendSeedTokenKey,
+  computeBulkSendNextDisabled,
+  isBulkSendSeedEqual,
+} from './bulkSendSeedUtils';
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
 import AssetSelectorTrigger from './components/AssetSelectorTrigger';
+import { BulkSendFormSkeleton } from './components/BulkSendFormSkeleton';
 import {
   BulkSendAddressesInputContext,
   useBulkSendAddressesInputContext,
@@ -59,9 +71,24 @@ import {
 import { buildBulkSendHomeAccountSeedKey } from './homeAccountSeedUtils';
 
 import type { ILineError } from './components/AddressesInput/LineNumberedTextArea';
-import type { IResolvedSenderAccount } from './components/Context';
+import type {
+  IBulkSendAddressesFormValues,
+  IResolvedSenderAccount,
+} from './components/Context';
+import type { UseFormReturn } from 'react-hook-form';
 
-function BaseBulkSendAddressesInput() {
+type IBulkSendAddressesForm = UseFormReturn<IBulkSendAddressesFormValues>;
+
+type IAppliedSeed = {
+  key: string;
+  seed: IBulkSendAddressesInputSeed;
+};
+
+function BaseBulkSendAddressesInput({
+  form,
+}: {
+  form: IBulkSendAddressesForm;
+}) {
   const intl = useIntl();
   const route = useAppRoute<
     IModalBulkSendParamList,
@@ -69,39 +96,11 @@ function BaseBulkSendAddressesInput() {
   >();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const homeAccountSeedKey = buildBulkSendHomeAccountSeedKey({
-    networkId: activeAccount?.network?.id,
-    accountId: activeAccount?.account?.id,
-    indexedAccountId:
-      activeAccount?.account?.indexedAccountId ??
-      activeAccount?.indexedAccount?.id,
-  });
-  // Snapshot of the home-scene account used to (re)seed this page. It only
-  // refreshes when the account identity changes: a derive-type-only switch
-  // (e.g. from the recipient picker's address-type menu) must not discard the
-  // sender the user already chose (OK-61627).
-  const homeSeedAccount = useMemo(
-    () => ({
-      accountId: activeAccount?.account?.id,
-      indexedAccountId:
-        activeAccount?.account?.indexedAccountId ??
-        activeAccount?.indexedAccount?.id,
-      networkId: activeAccount?.network?.id,
-    }),
-    // The seed key is the intentional invalidation signal.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [homeAccountSeedKey],
-  );
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
-  const { accountId, networkId, indexedAccountId, tokenInfo, isInModal } =
-    route.params ?? {};
+  const { isInModal } = route.params ?? {};
 
   const {
-    setSelectedAccountId,
-    setSelectedNetworkId,
-    setSelectedToken,
-    setSelectedIndexedAccountId,
     setSelectedTokenDetail,
     setTokenDetailsState,
     selectedToken,
@@ -120,6 +119,10 @@ function BaseBulkSendAddressesInput() {
     setDuplicateSenderAddressCount,
     setHasUserSelectedAsset,
     setReceiverValidationErrors,
+    isInitializing,
+    seededAccountId,
+    seededNetworkId,
+    isSenderFieldMounted,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -151,14 +154,6 @@ function BaseBulkSendAddressesInput() {
     );
   }, []);
 
-  const form = useForm({
-    defaultValues: {
-      senderAddresses: '',
-      receiverAddresses: '',
-    },
-    mode: 'onChange',
-    reValidateMode: 'onChange',
-  });
   const senderAddressesRef = useRef(form.getValues('senderAddresses') ?? '');
   const getSenderAddresses = useCallback(
     () => senderAddressesRef.current ?? '',
@@ -174,105 +169,6 @@ function BaseBulkSendAddressesInput() {
 
     return () => subscription.unsubscribe();
   }, [form]);
-
-  const initBulkSendInfo = useCallback(async () => {
-    let _selectedAccountId: string | undefined;
-    let _selectedNetworkId: string | undefined;
-    let _selectedTokenInfo: IToken | undefined;
-    let _selectedIndexedAccountId: string | undefined;
-    let isAllNetwork = false;
-
-    if (networkId) {
-      _selectedNetworkId = networkId;
-    } else {
-      _selectedNetworkId = homeSeedAccount.networkId;
-    }
-
-    if (accountId) {
-      _selectedAccountId = accountId;
-    } else if (homeSeedAccount.accountId) {
-      _selectedAccountId = homeSeedAccount.accountId;
-    }
-
-    if (
-      _selectedNetworkId &&
-      networkUtils.isAllNetwork({ networkId: _selectedNetworkId })
-    ) {
-      isAllNetwork = true;
-    }
-
-    const { fixedNetworkId, isSupported } =
-      bulkSendUtils.fixBulkSendSupportedNetworkId({
-        networkId: _selectedNetworkId ?? '',
-        bulkSendMode,
-      });
-
-    _selectedNetworkId = fixedNetworkId;
-
-    if (indexedAccountId) {
-      _selectedIndexedAccountId = indexedAccountId;
-    } else if (homeSeedAccount.indexedAccountId) {
-      _selectedIndexedAccountId = homeSeedAccount.indexedAccountId;
-    }
-
-    if (!isSupported && _selectedNetworkId && _selectedIndexedAccountId) {
-      const networkAccounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-          {
-            networkIds: [_selectedNetworkId],
-            indexedAccountId: _selectedIndexedAccountId,
-          },
-        );
-      if (networkAccounts?.[0]?.account) {
-        _selectedAccountId = networkAccounts?.[0]?.account?.id;
-      }
-    }
-
-    if (
-      isAllNetwork &&
-      !accountUtils.isOthersAccount({ accountId: _selectedAccountId })
-    ) {
-      const networkAccounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-          {
-            networkIds: [_selectedNetworkId ?? ''],
-            indexedAccountId: _selectedIndexedAccountId ?? '',
-          },
-        );
-      _selectedAccountId = networkAccounts[0].account?.id ?? '';
-    }
-
-    if (tokenInfo) {
-      _selectedTokenInfo = tokenInfo;
-    } else if (_selectedNetworkId && _selectedAccountId) {
-      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-        networkId: _selectedNetworkId,
-        accountId: _selectedAccountId,
-        tokenInfoOnly: true,
-      });
-      if (nativeToken) {
-        _selectedTokenInfo = nativeToken;
-      }
-    }
-
-    setSelectedAccountId(_selectedAccountId);
-    setSelectedNetworkId(_selectedNetworkId);
-    setSelectedToken(_selectedTokenInfo);
-    setSelectedIndexedAccountId(_selectedIndexedAccountId);
-    setHasUserSelectedAsset(false);
-  }, [
-    accountId,
-    homeSeedAccount,
-    networkId,
-    indexedAccountId,
-    tokenInfo,
-    bulkSendMode,
-    setSelectedAccountId,
-    setSelectedNetworkId,
-    setSelectedToken,
-    setSelectedIndexedAccountId,
-    setHasUserSelectedAsset,
-  ]);
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
   const validationDependencyKey = useMemo(
@@ -297,6 +193,20 @@ function BaseBulkSendAddressesInput() {
   );
   const tokenDetailsRequestIdRef = useRef(0);
 
+  // Re-validate the fields that already hold content: only the sender and
+  // receiver entries depend on the account / network / token. An empty
+  // field is left alone so entering the page never shows a "required"
+  // error the user has not earned yet (OK-61587).
+  const triggerFilledFields = useCallback(() => {
+    const { senderAddresses, receiverAddresses } = form.getValues();
+    if (senderAddresses.trim()) {
+      void form.trigger('senderAddresses');
+    }
+    if (receiverAddresses.trim()) {
+      void form.trigger('receiverAddresses');
+    }
+  }, [form]);
+
   // Reset token details state when account/network/token changes (OneToMany only)
   /* eslint-disable react-hooks/exhaustive-deps */
   /* oxlint-disable react/exhaustive-deps */
@@ -313,7 +223,7 @@ function BaseBulkSendAddressesInput() {
         initialized: false,
         isRefreshing: true,
       });
-      void form.trigger();
+      triggerFilledFields();
     }
   }, [
     isOneToMany,
@@ -429,10 +339,6 @@ function BaseBulkSendAddressesInput() {
     }
   }, [form, selectedAccountId, selectedNetworkId]);
 
-  useEffect(() => {
-    void initBulkSendInfo();
-  }, [initBulkSendInfo]);
-
   // The sender address-type chip follows the resolved sender account (picked,
   // pasted or seeded), falling back to the network default only when there is
   // no account yet. Reading the default alone left the chip stale once the
@@ -477,14 +383,26 @@ function BaseBulkSendAddressesInput() {
   }, [selectedAccountId, selectedNetworkId, setSelectedDeriveType]);
 
   useEffect(() => {
-    if (isOneToMany && selectedAccountId && selectedNetworkId) {
-      void fetchSelectedAccountAddress();
+    if (!isOneToMany || !selectedAccountId || !selectedNetworkId) {
+      return;
     }
+    // The seed already wrote the address for this selection in the same
+    // commit as the token; only a selection made on the page (account /
+    // network / address type picker) needs the extra lookup.
+    if (
+      selectedAccountId === seededAccountId &&
+      selectedNetworkId === seededNetworkId
+    ) {
+      return;
+    }
+    void fetchSelectedAccountAddress();
   }, [
     isOneToMany,
     fetchSelectedAccountAddress,
     selectedAccountId,
     selectedNetworkId,
+    seededAccountId,
+    seededNetworkId,
   ]);
 
   useEffect(() => {
@@ -513,10 +431,18 @@ function BaseBulkSendAddressesInput() {
     }
   }, [form, isOneToMany, setResolvedSenderAccountIds, validationDependencyKey]);
 
-  // Reset form when mode changes
+  // Reset form when the mode changes. The initial mount is skipped: the
+  // provider seeds the page (and the sender address) itself, and marking the
+  // token details as initialized before that seed lands used to open the
+  // Next button on the first frame (OK-61587).
+  const isFirstModeRunRef = useRef(true);
   /* eslint-disable react-hooks/exhaustive-deps */
   /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
+    if (isFirstModeRunRef.current) {
+      isFirstModeRunRef.current = false;
+      return;
+    }
     form.setValue('senderAddresses', '');
     form.setValue('receiverAddresses', '');
     form.clearErrors();
@@ -525,33 +451,36 @@ function BaseBulkSendAddressesInput() {
     setHasUserSelectedAsset(false);
     setSelectedTokenDetail(undefined);
     setReceiverValidationErrors([]);
-    if (isOneToMany && selectedAccountId && selectedNetworkId) {
-      void fetchSelectedAccountAddress();
-      setTokenDetailsState({ initialized: false, isRefreshing: true });
-    } else {
-      setTokenDetailsState({ initialized: true, isRefreshing: false });
-    }
+    setTokenDetailsState(
+      isOneToMany
+        ? { initialized: false, isRefreshing: true }
+        : { initialized: true, isRefreshing: false },
+    );
   }, [bulkSendMode]);
   /* eslint-enable react-hooks/exhaustive-deps */
   /* oxlint-enable react/exhaustive-deps */
 
-  const isSubmitDisabled = useMemo(() => {
-    const baseDisabled = !form.formState.isValid || form.formState.isValidating;
-    if (isOneToMany) {
-      const isTokenLoading =
-        !tokenDetailsState.initialized ||
-        (tokenDetailsState.isRefreshing && !selectedTokenDetail);
-      return baseDisabled || isTokenLoading;
-    }
-    return baseDisabled;
-  }, [
-    form.formState.isValid,
-    form.formState.isValidating,
-    isOneToMany,
-    tokenDetailsState.initialized,
-    tokenDetailsState.isRefreshing,
-    selectedTokenDetail,
-  ]);
+  const isSubmitDisabled = useMemo(
+    () =>
+      computeBulkSendNextDisabled({
+        isFormValid: form.formState.isValid,
+        isFormValidating: form.formState.isValidating,
+        isInitializing,
+        isSenderFieldMounted,
+        isOneToMany,
+        tokenDetailsState,
+        hasTokenDetail: Boolean(selectedTokenDetail),
+      }),
+    [
+      form.formState.isValid,
+      form.formState.isValidating,
+      isInitializing,
+      isSenderFieldMounted,
+      isOneToMany,
+      tokenDetailsState,
+      selectedTokenDetail,
+    ],
+  );
 
   const navigateToNextStep = useCallback(async () => {
     if (!selectedNetworkId || !selectedToken) {
@@ -720,6 +649,26 @@ function BaseBulkSendAddressesInput() {
     await navigateToNextStep();
   }, [duplicateAddressCount, intl, navigateToNextStep]);
 
+  const formSkeleton = useMemo(
+    () => (
+      <BulkSendFormSkeleton
+        bulkSendMode={bulkSendMode}
+        senderLabel={intl.formatMessage({
+          id: isOneToMany
+            ? ETranslations.wallet_bulk_send_section_sending_address
+            : ETranslations.wallet_bulk_send_label_sending_addresses,
+        })}
+        receiverLabel={intl.formatMessage({
+          id:
+            bulkSendMode === EBulkSendMode.ManyToOne
+              ? ETranslations.wallet_bulk_send_section_receiving_address
+              : ETranslations.wallet_bulk_send_label_receiving_addresses,
+        })}
+      />
+    ),
+    [bulkSendMode, intl, isOneToMany],
+  );
+
   if (availableWallets && availableWallets.length === 0) {
     return (
       <Page>
@@ -767,6 +716,7 @@ function BaseBulkSendAddressesInput() {
                   defaultNetworkId: selectedNetworkId,
                 },
               }}
+              storageReadyFallback={formSkeleton}
             >
               <Form form={form}>
                 <SenderAddressesInput />
@@ -809,25 +759,121 @@ function BulkSendAddressesInputProvider() {
     EModalBulkSendRoutes.BulkSendAddressesInput
   >();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { accountId, networkId, indexedAccountId, tokenInfo } =
+    route.params ?? {};
+
+  const initialMode = route.params?.bulkSendMode ?? EBulkSendMode.OneToMany;
+  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(initialMode);
+
+  const homeAccountSeedKey = buildBulkSendHomeAccountSeedKey({
+    networkId: activeAccount?.network?.id,
+    accountId: activeAccount?.account?.id,
+    indexedAccountId:
+      activeAccount?.account?.indexedAccountId ??
+      activeAccount?.indexedAccount?.id,
+  });
+  // Snapshot of the home-scene account used to (re)seed this page. It only
+  // refreshes when the account identity changes: a derive-type-only switch
+  // (e.g. from the recipient picker's address-type menu) must not discard the
+  // sender the user already chose (OK-61627).
+  const homeSeedAccount = useMemo(
+    () => ({
+      accountId: activeAccount?.account?.id,
+      indexedAccountId:
+        activeAccount?.account?.indexedAccountId ??
+        activeAccount?.indexedAccount?.id,
+      networkId: activeAccount?.network?.id,
+    }),
+    // The seed key is the intentional invalidation signal.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [homeAccountSeedKey],
+  );
+
+  const seedSource = useMemo(
+    () =>
+      buildBulkSendSeedSource({
+        routeParams: { networkId, accountId, indexedAccountId, tokenInfo },
+        homeSeedAccount,
+        bulkSendMode,
+      }),
+    [
+      networkId,
+      accountId,
+      indexedAccountId,
+      tokenInfo,
+      homeSeedAccount,
+      bulkSendMode,
+    ],
+  );
+  const seedKey = swrKeys.bulkSendAddressesInputSeed({
+    networkId: seedSource.networkId,
+    accountId: seedSource.accountId,
+    indexedAccountId: seedSource.indexedAccountId,
+    bulkSendMode,
+    tokenKey: buildBulkSendSeedTokenKey(tokenInfo),
+  });
+  const seedSourceRef = useRef(seedSource);
+  seedSourceRef.current = seedSource;
+
+  // One background round trip resolves everything the first frame needs;
+  // the SWR snapshot makes re-entries paint complete immediately and the
+  // fresh result only re-applies when it actually differs (OK-61587).
+  const { result: seedResult } = usePromiseResult(
+    async () => {
+      // Echo the key so a late result for a previous selection can never
+      // be applied under the current one.
+      const key = seedKey;
+      const seed =
+        await backgroundApiProxy.serviceBulkSend.getAddressesInputSeed(
+          seedSourceRef.current,
+        );
+      return { key, seed };
+    },
+    [seedKey],
+    { swrKey: seedKey, checkIsFocused: false },
+  );
+  const seed = seedResult?.key === seedKey ? seedResult.seed : undefined;
+
+  const initialSeedRef = useRef<IBulkSendAddressesInputSeed | undefined>(seed);
+  const initialSeed = initialSeedRef.current;
+  const initialSender =
+    initialMode === EBulkSendMode.OneToMany ? initialSeed?.sender : undefined;
+
+  const form = useForm<IBulkSendAddressesFormValues>({
+    defaultValues: {
+      senderAddresses: initialSender?.address ?? '',
+      receiverAddresses: '',
+    },
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+  });
 
   const [selectedAccountId, setSelectedAccountId] = useState<
     string | undefined
-  >(undefined);
+  >(initialSeed?.accountId);
   const [selectedNetworkId, setSelectedNetworkId] = useState<
     string | undefined
-  >(undefined);
+  >(initialSeed?.networkId);
   const [selectedToken, setSelectedToken] = useState<IToken | undefined>(
-    undefined,
+    initialSeed?.token,
   );
   const [selectedIndexedAccountId, setSelectedIndexedAccountId] = useState<
     string | undefined
-  >(undefined);
+  >(initialSeed?.indexedAccountId);
+  const [appliedSeed, setAppliedSeed] = useState<IAppliedSeed | undefined>(
+    initialSeed ? { key: seedKey, seed: initialSeed } : undefined,
+  );
+  const [seededNetwork, setSeededNetwork] = useState<
+    IBulkSendAddressesInputSeedNetwork | undefined
+  >(initialSeed?.network);
+  const [seededSender, setSeededSender] = useState<
+    IBulkSendAddressesInputSeedSender | undefined
+  >(initialSender);
 
   const [selectedTokenDetail, setSelectedTokenDetail] = useState<
     ({ info: IToken } & ITokenFiat) | undefined
   >(undefined);
 
-  const initialMode = route.params?.bulkSendMode ?? EBulkSendMode.OneToMany;
   const [tokenDetailsState, setTokenDetailsState] = useState<{
     initialized: boolean;
     isRefreshing: boolean;
@@ -835,7 +881,6 @@ function BulkSendAddressesInputProvider() {
     initialized: initialMode !== EBulkSendMode.OneToMany,
     isRefreshing: initialMode === EBulkSendMode.OneToMany,
   });
-  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(initialMode);
   const [duplicateAddressCount, setDuplicateAddressCount] = useState(0);
   const [selectedDeriveType, setSelectedDeriveType] = useState<
     IAccountDeriveTypes | undefined
@@ -852,6 +897,39 @@ function BulkSendAddressesInputProvider() {
   const [receiverValidationErrors, setReceiverValidationErrors] = useState<
     ILineError[]
   >([]);
+  const [isSenderFieldMounted, setIsSenderFieldMounted] = useState(false);
+
+  const isInitializing = appliedSeed?.key !== seedKey;
+
+  useEffect(() => {
+    if (!seed) {
+      return;
+    }
+    if (
+      appliedSeed?.key === seedKey &&
+      isBulkSendSeedEqual(appliedSeed.seed, seed)
+    ) {
+      return;
+    }
+    const sender =
+      bulkSendMode === EBulkSendMode.OneToMany ? seed.sender : undefined;
+    // Everything lands in one commit: the token, the network and the
+    // sender address paint together instead of in stages.
+    setSelectedAccountId(seed.accountId);
+    setSelectedNetworkId(seed.networkId);
+    setSelectedToken(seed.token);
+    setSelectedIndexedAccountId(seed.indexedAccountId);
+    setSeededNetwork(seed.network);
+    setSeededSender(sender);
+    setHasUserSelectedAsset(false);
+    if (bulkSendMode === EBulkSendMode.OneToMany) {
+      form.setValue('senderAddresses', sender?.address ?? '');
+      if (sender?.address) {
+        void form.trigger('senderAddresses');
+      }
+    }
+    setAppliedSeed({ key: seedKey, seed });
+  }, [appliedSeed, bulkSendMode, form, seed, seedKey]);
 
   const context = useMemo(
     () => ({
@@ -886,6 +964,13 @@ function BulkSendAddressesInputProvider() {
       setHasUserSelectedAsset,
       receiverValidationErrors,
       setReceiverValidationErrors,
+      isInitializing,
+      seededAccountId: appliedSeed?.seed.accountId,
+      seededNetworkId: appliedSeed?.seed.networkId,
+      seededNetwork,
+      seededSender,
+      isSenderFieldMounted,
+      setIsSenderFieldMounted,
     }),
     [
       activeAccount?.wallet?.id,
@@ -910,12 +995,17 @@ function BulkSendAddressesInputProvider() {
       duplicateSenderAddressCount,
       hasUserSelectedAsset,
       receiverValidationErrors,
+      isInitializing,
+      appliedSeed,
+      seededNetwork,
+      seededSender,
+      isSenderFieldMounted,
     ],
   );
 
   return (
     <BulkSendAddressesInputContext.Provider value={context}>
-      <BaseBulkSendAddressesInput />
+      <BaseBulkSendAddressesInput form={form} />
     </BulkSendAddressesInputContext.Provider>
   );
 }

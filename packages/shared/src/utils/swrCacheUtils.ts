@@ -688,6 +688,7 @@ const NS = {
   earnAccount: 'earnAccount',
   earnProtocolDetail: 'earnProtocolDetail',
   fiatCryptoTokenList: 'fiatCryptoTokenList',
+  bulkSendAddressesInputSeed: 'bulkSendSeed',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -1199,6 +1200,28 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
+  bulkSendAddressesInputSeed: ({
+    networkId,
+    accountId,
+    indexedAccountId,
+    bulkSendMode,
+    tokenKey,
+  }: {
+    networkId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    bulkSendMode: string;
+    tokenKey?: string;
+  }) =>
+    [
+      NS.bulkSendAddressesInputSeed,
+      'v1',
+      networkId ?? '',
+      accountId ?? '',
+      indexedAccountId ?? '',
+      bulkSendMode,
+      tokenKey ?? '',
+    ].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {
