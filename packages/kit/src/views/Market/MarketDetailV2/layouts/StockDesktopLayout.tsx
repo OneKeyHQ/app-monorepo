@@ -102,6 +102,7 @@ const STOCK_SIMPLE_CHART_RANGE_WIDTHS: Record<IStockSimpleChartRange, number> =
     '1Y': 32,
     All: 34,
   };
+const STOCK_SIMPLE_CHART_RANGE_GAP = 2;
 
 function StockPageHeader({
   showFavoriteButton,
@@ -507,7 +508,7 @@ function StockChartModeControl({
   );
 }
 
-function StockChart({
+export function StockChart({
   marketTradingView,
   priceMode,
   chartMode,
@@ -535,9 +536,13 @@ function StockChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const effectiveRange =
-    priceMode === 'token' && range === 'All' ? '1Y' : range;
-  const rangeSelectorWidth = priceMode === 'share' ? 214 : 178;
+  const rangeSelectorWidth = chartRanges.reduce(
+    (total, item, index) =>
+      total +
+      STOCK_SIMPLE_CHART_RANGE_WIDTHS[item] +
+      (index > 0 ? STOCK_SIMPLE_CHART_RANGE_GAP : 0),
+    0,
+  );
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
   };
@@ -561,7 +566,12 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack width={rangeSelectorWidth} alignItems="center" gap="$0.5">
+          <XStack
+            testID="stock-chart-range-selector"
+            width={rangeSelectorWidth}
+            alignItems="center"
+            gap="$0.5"
+          >
             {chartRanges.map((item) => {
               const itemWidth = STOCK_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
@@ -581,7 +591,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
+                    variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -600,7 +610,7 @@ function StockChart({
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={effectiveRange}
+          range={range}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />
