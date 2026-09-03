@@ -23,7 +23,9 @@ import {
   SwapRateDifferenceText,
 } from '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText';
 import SwapActionsState from '@onekeyhq/kit/src/views/Swap/pages/components/SwapActionsState';
+import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer';
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
@@ -493,24 +495,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               preventTextWrap
             />
           </YStack>
-          {showMarketPresetSelector && marketPresetSettings ? (
-            <MarketPresetSelector
-              settingsButtonOnly
-              antiMEV={isMEV}
-              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-              presetSettings={marketPresetSettings}
-            />
-          ) : (
-            <SlippageSetting
-              variant="header"
-              autoDefaultValue={slippageAutoValue}
-              isMEV={!!isMEV}
-              onSlippageChange={(item) => {
-                setSlippage(item.value);
-                setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
-              }}
-            />
-          )}
+          <SwapStockHeaderRightActionContainer
+            storeName={EJotaiContextStoreNames.marketSwap}
+          />
         </XStack>
 
         {/* Figma 25672:54925: 44 tall, inset 4 on the left so the variant

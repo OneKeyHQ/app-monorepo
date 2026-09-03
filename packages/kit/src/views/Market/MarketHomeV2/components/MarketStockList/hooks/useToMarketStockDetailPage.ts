@@ -33,6 +33,7 @@ export function useToMarketStockDetailPage() {
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
+        isStockRoute: true,
         layout: preloadLayout,
       });
       tokenDetailActions.current.clearTokenDetail();

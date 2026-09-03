@@ -1,0 +1,26 @@
+name: Restore web-embed prebundle
+description: Restore the verified web-embed OCI artifact and sync it into native assets.
+
+runs:
+  using: composite
+  steps:
+    - name: Install ORAS
+      uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+      with:
+        version: 1.3.1
+
+    - name: Restore verified web-embed prebundle
+      shell: bash
+      run: yarn workspace @onekeyhq/web-embed prebundle:restore
+
+    - name: Sync web-embed into native assets
+      shell: bash
+      run: |
+        set -euo pipefail
+        web_embed_dir="apps/web-embed/web-build"
+        android_dir="apps/mobile/android/app/src/main/assets/web-embed"
+        ios_dir="apps/mobile/ios/OneKeyWallet/web-embed"
+        rm -rf "$android_dir" "$ios_dir"
+        mkdir -p "$android_dir" "$ios_dir"
+        rsync -r -c "$web_embed_dir/" "$android_dir/"
+        rsync -r -c "$web_embed_dir/" "$ios_dir/"
