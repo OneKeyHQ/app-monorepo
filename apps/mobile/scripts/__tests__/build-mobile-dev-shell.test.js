@@ -205,6 +205,12 @@ describe('build-mobile-dev-shell', () => {
           : "- 'apps/mobile/ios/**'",
       );
       expect(source).toContain("github.ref != 'refs/heads/x'");
+      if (platform === 'ios-simulator') {
+        expect(source).toContain("github.event_name != 'workflow_dispatch'");
+        expect(source).toContain(
+          `- name: Publish iOS Simulator dev shell to GHCR\n        if: ${'$'}{{ github.ref == 'refs/heads/x' }}`,
+        );
+      }
       expect(source).toContain(
         `exact_tag: ${'$'}{{ steps.artifact.outputs.exact_tag }}`,
       );
