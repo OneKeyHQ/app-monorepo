@@ -2812,11 +2812,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
     // Guard first, then silence — see startUpdateWorkflow. A silence that
     // fails must not leave the guard up: nothing below would run to drop it.
+    // Unless a newer start has already taken the workflow over — the guard
+    // is shared, and dropping it here would uncover THAT workflow's page.
     await firmwareUpdateWorkflowRunningAtom.set(true);
     try {
       await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
     } catch (error) {
-      await firmwareUpdateWorkflowRunningAtom.set(false);
+      if (this.isUpdateWorkflowCurrent(workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
       throw error;
     }
 
