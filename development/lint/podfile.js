@@ -81,6 +81,13 @@ function main() {
 
   if (result.errors.length > 0) {
     console.error(`[podfile] failed:\n- ${result.errors.join('\n- ')}`);
+    const targetVersion =
+      result.versions.activated ?? result.versions.installed;
+    console.error(
+      `[podfile] Upgrade CocoaPods${
+        targetVersion ? ` to ${targetVersion}` : ''
+      } and regenerate ${PODFILE_LOCK_PATH}.`,
+    );
     process.exitCode = 1;
     return;
   }
