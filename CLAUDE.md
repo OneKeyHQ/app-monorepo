@@ -62,11 +62,7 @@ Never violate this dependency order:
 - Use `toLowerCase()` / `toUpperCase()`, never locale variants.
 - Load `@onekeyfe/hd-core` through `await CoreSDKLoader()`; never import it directly.
 - Use `localDb`, never import `localDbInstance` directly.
-- Format with `yarn format` (`npx oxfmt <file>` for one file); never run
-  prettier: it is only a stray transitive dep and silently reformats whole
-  files with the wrong defaults.
-- Run lint and type checks via `package.json` scripts, not tool binaries.
-- Do not commit code that fails lint or TypeScript checks.
+- Use yarn/oxfmt, not prettier; do not commit failing checks.
 
 ## Data And Dependencies
 
