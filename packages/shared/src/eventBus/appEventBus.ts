@@ -656,9 +656,6 @@ export interface IAppEventBusPayload {
     retry?: number;
     message?: string;
   };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
-  };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:
       | ETranslations.global_market
