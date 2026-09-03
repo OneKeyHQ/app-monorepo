@@ -64,6 +64,57 @@ describe('resolveMapTokenFiat', () => {
     expect(fiat?.fiatValue).toBe('0');
   });
 
+  it('zero-fills a row on a fetched network when the network gate is set', () => {
+    const fiat = resolveMapTokenFiat({
+      $key: 'evm--1_usdtb',
+      networkId: 'evm--1',
+      tokenListMap: { 'evm--1_usdt': heldFiat },
+      aggregateTokenFiatMap: undefined,
+      zeroFillMissingFiat: true,
+      zeroFillNetworkIds: new Set(['evm--1']),
+    });
+    expect(fiat?.balanceParsed).toBe('0');
+  });
+
+  it('keeps a row on an unfetched network blank when the network gate is set', () => {
+    expect(
+      resolveMapTokenFiat({
+        $key: 'tron--0x2b6653dc_usdt',
+        networkId: 'tron--0x2b6653dc',
+        tokenListMap: { 'evm--1_usdt': heldFiat },
+        aggregateTokenFiatMap: undefined,
+        zeroFillMissingFiat: true,
+        zeroFillNetworkIds: new Set(['evm--1']),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a row without a networkId blank when the network gate is set', () => {
+    expect(
+      resolveMapTokenFiat({
+        $key: 'agg_usdt',
+        networkId: undefined,
+        tokenListMap: {},
+        aggregateTokenFiatMap: {},
+        zeroFillMissingFiat: true,
+        zeroFillNetworkIds: new Set(['evm--1']),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('still returns the held record on an unfetched network when the network gate is set', () => {
+    expect(
+      resolveMapTokenFiat({
+        $key: 'tron--0x2b6653dc_usdt',
+        networkId: 'tron--0x2b6653dc',
+        tokenListMap: { 'tron--0x2b6653dc_usdt': heldFiat },
+        aggregateTokenFiatMap: undefined,
+        zeroFillMissingFiat: true,
+        zeroFillNetworkIds: new Set(['evm--1']),
+      }),
+    ).toBe(heldFiat);
+  });
+
   it('returns the same zero record on every call so field slices stay referentially stable', () => {
     const params = {
       $key: 'evm--7560_native',

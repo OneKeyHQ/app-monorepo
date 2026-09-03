@@ -53,6 +53,12 @@ export interface ITokenListViewContextValue {
   // backend hits and aggregate sub rows the account does not hold sit next to
   // account rows and a blank balance column reads as missing data (OK-61367).
   zeroFillMissingFiat?: boolean;
+  // Networks whose holdings the host's fetch actually covered, so a missing
+  // record there is a real "not held". Under a single-network scope that is
+  // just the selector network: the cross-network search rows it adds from
+  // other networks were never fetched and must stay blank rather than claim
+  // `0`. `undefined` = no network restriction (All Networks fan-out).
+  zeroFillNetworkIds?: ReadonlySet<string>;
 }
 
 export const TokenListViewContext = createContext<ITokenListViewContextValue>({
@@ -63,6 +69,7 @@ export const TokenListViewContext = createContext<ITokenListViewContextValue>({
   aggregateTokenFiatMap: undefined,
   useCellSeam: false,
   zeroFillMissingFiat: false,
+  zeroFillNetworkIds: undefined,
 });
 
 export const useTokenListViewContext = () => useContext(TokenListViewContext);

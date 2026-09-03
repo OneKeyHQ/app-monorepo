@@ -472,8 +472,15 @@ function TokenSelector() {
   // that credential can actually derive an address on. Same rule as the
   // All-Networks account fan-out, so every row left is selectable. HD/HW
   // accounts are unfiltered — they can create an account on any network.
+  // Keyed on whether the request itself is cross-network, not on the
+  // keyword-stripping gates above: the All-Networks selector sends its own
+  // onekeyall networkId regardless of the LP filter, so with LP on
+  // `allNetworksCrossSearchEnabled` is false while the backend still answers
+  // across networks.
+  const isCrossNetworkSearchRequest =
+    crossNetworkSearchEnabled || (!!searchAll && !!isSelectorAllNetworks);
   const othersAccountForNetworkFilter =
-    (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
+    isCrossNetworkSearchRequest &&
     account &&
     accountId &&
     accountUtils.isOthersAccount({ accountId })
@@ -660,9 +667,12 @@ function TokenSelector() {
     ITokenSelectorSearchTokenList<ITokenSelectorSearchFilterContext>
   >({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
-  // Mirrors `searchKey` synchronously for the in-flight request: a response
-  // may only apply while the input still reads the keywords it was fetched
-  // for (see shouldApplySearchResponse).
+  // Mirrors the input text synchronously — written from onChangeText, ahead
+  // of the 200 ms `searchKey` debounce — so an in-flight response can only
+  // apply while the input still reads the keywords it was fetched for (see
+  // shouldApplySearchResponse). Reading the debounced `searchKey` here instead
+  // would leave a 200 ms window after each keystroke where a response for the
+  // previous query still passes.
   const liveSearchKeyRef = useRef('');
   const lastTokenSelectorErrorToastAtRef = useRef(0);
 
@@ -1066,6 +1076,10 @@ function TokenSelector() {
   // 800 ms (`debounceSearchTokensBySearchKey` below), so the onekeyall search
   // still fires 1 s after the last keystroke and its load is unchanged.
   const debounceUpdateSearchKey = useDebouncedCallback(setSearchKey, 200);
+  const clearSearchKey = useCallback(() => {
+    liveSearchKeyRef.current = '';
+    setSearchKey('');
+  }, []);
 
   const headerSearchBarOptions = useMemo(
     () => ({
@@ -1079,6 +1093,7 @@ function TokenSelector() {
       }: {
         nativeEvent: TextInputFocusEventData;
       }) => {
+        liveSearchKeyRef.current = nativeEvent.text;
         debounceUpdateSearchKey(nativeEvent.text);
       },
     }),
@@ -1131,6 +1146,10 @@ function TokenSelector() {
         networkId ?? '',
         tokenSelectorSearchFilterContext,
         searchScopeMode,
+        // `account` resolves after `accountId`: the run before it lands is
+        // unfiltered, the run after is narrowed, and they must not share an
+        // identity or the earlier response could overwrite the later one.
+        othersAccountForNetworkFilter ? 'others-filtered' : 'unfiltered',
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
@@ -1923,9 +1942,13 @@ function TokenSelector() {
     },
     800,
   );
+  // Key the backend stage was last scheduled for. The effect below also
+  // re-runs when a scope gate or the filter context flips (`network` /
+  // `account` resolving, the LP toggle); those are not keystrokes and must
+  // not sit out the typing debounce — the pre-split effect fired at once.
+  const scheduledSearchKeyRef = useRef('');
 
   useEffect(() => {
-    liveSearchKeyRef.current = searchKey;
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       // The list re-filters on the live key right away: drop results that
       // belong to another query and show the trailing loader until the
@@ -1943,8 +1966,15 @@ function TokenSelector() {
       setSearchTokenState((prev) =>
         prev.isSearching ? prev : { isSearching: true },
       );
-      debounceSearchTokensBySearchKey(searchKey);
+      if (scheduledSearchKeyRef.current === searchKey) {
+        debounceSearchTokensBySearchKey.cancel();
+        void searchTokensBySearchKey(searchKey);
+      } else {
+        scheduledSearchKeyRef.current = searchKey;
+        debounceSearchTokensBySearchKey(searchKey);
+      }
     } else {
+      scheduledSearchKeyRef.current = '';
       debounceSearchTokensBySearchKey.cancel();
       latestSearchRequestContextRef.current = '';
       setSearchTokenState({ isSearching: false });
@@ -1970,8 +2000,8 @@ function TokenSelector() {
     <Page
       lazyLoad
       safeAreaEnabled={false}
-      onClose={() => setSearchKey('')}
-      onUnmounted={() => setSearchKey('')}
+      onClose={clearSearchKey}
+      onUnmounted={clearSearchKey}
     >
       <Page.Header
         title={

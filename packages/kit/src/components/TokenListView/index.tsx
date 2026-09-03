@@ -1449,6 +1449,22 @@ const TokenListView = memo((props: IProps) => {
   // still reads the raw maps, so ordering is unchanged.
   const zeroFillMissingFiat =
     !!props.isTokenSelector && !!props.searchAll && selectorSearchKeyActive;
+  // The zero placeholder is only a valid claim on networks the selector fetch
+  // covered. All Networks fans out over every enabled network the account has
+  // an account on, so a missing record there reads as "not held". A
+  // single-network scope fetched `networkId` alone, and the other-network rows
+  // the cross-network search adds have holdings nobody fetched — they keep
+  // the blank column instead of a false `0`. `isAllNetworks` may still be
+  // unresolved on a cold start, so also read it off the networkId.
+  const zeroFillNetworkIds = useMemo(() => {
+    if (!zeroFillMissingFiat) {
+      return undefined;
+    }
+    const isAllNetworksScope =
+      !!props.isAllNetworks ||
+      networkUtils.isAllNetwork({ networkId: props.networkId });
+    return isAllNetworksScope ? undefined : new Set([props.networkId]);
+  }, [zeroFillMissingFiat, props.isAllNetworks, props.networkId]);
   const { result: allNetworksResp } = usePromiseResult<{
     networks: IServerNetwork[];
   }>(
@@ -1484,6 +1500,7 @@ const TokenListView = memo((props: IProps) => {
       aggregateTokenFiatMap,
       useCellSeam,
       zeroFillMissingFiat,
+      zeroFillNetworkIds,
     };
   }, [
     props.allAggregateTokenMap,
@@ -1493,6 +1510,7 @@ const TokenListView = memo((props: IProps) => {
     aggregateTokenFiatMap,
     useCellSeam,
     zeroFillMissingFiat,
+    zeroFillNetworkIds,
   ]);
 
   return (
