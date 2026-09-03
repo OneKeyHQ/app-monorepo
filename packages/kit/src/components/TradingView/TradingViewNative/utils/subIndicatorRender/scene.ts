@@ -588,22 +588,43 @@ function appendAxisCommands({
   if (!layout.range || layout.height < TRADING_VIEW_NATIVE_AXIS_FONT_SIZE + 4) {
     return;
   }
-  let tickCount = 1;
-  if (layout.height >= 84) {
-    tickCount = 3;
-  } else if (layout.height >= 36) {
-    tickCount = 2;
-  }
-  for (let index = 0; index < tickCount; index += 1) {
-    let progress = 0.5;
-    if (tickCount === 2) {
-      progress = 0.25 + index * 0.5;
-    } else if (tickCount === 3) {
-      progress = index / 2;
+
+  const tickValues: number[] = [];
+  if (layout.pane.indicator === 'RSI') {
+    for (const band of layout.pane.bands) {
+      const value = band.style.value;
+      if (
+        band.style.visible &&
+        Number.isFinite(value) &&
+        !tickValues.includes(value)
+      ) {
+        tickValues.push(value);
+      }
     }
-    const value =
-      layout.range.maxValue -
-      (layout.range.maxValue - layout.range.minValue) * progress;
+    tickValues.sort((left, right) => right - left);
+  }
+  if (!tickValues.length) {
+    let tickCount = 1;
+    if (layout.height >= 84) {
+      tickCount = 3;
+    } else if (layout.height >= 36) {
+      tickCount = 2;
+    }
+    for (let index = 0; index < tickCount; index += 1) {
+      let progress = 0.5;
+      if (tickCount === 2) {
+        progress = 0.25 + index * 0.5;
+      } else if (tickCount === 3) {
+        progress = index / 2;
+      }
+      tickValues.push(
+        layout.range.maxValue -
+          (layout.range.maxValue - layout.range.minValue) * progress,
+      );
+    }
+  }
+
+  for (const value of tickValues) {
     const y = getTradingViewNativeSubIndicatorY({
       bottom: layout.plotBottom,
       range: layout.range,

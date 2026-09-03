@@ -85,6 +85,13 @@ describe('TradingViewNative sub-indicator scene', () => {
         (command) => command.kind === 'text' && command.text === 'RSI',
       ),
     ).toBe(true);
+    expect(
+      commands.flatMap((command) =>
+        command.kind === 'text' && command.font === 'priceAxis'
+          ? [command.text]
+          : [],
+      ),
+    ).toEqual(['70.00', '50.00', '30.00']);
     const legendBackgroundIndex = commands.findIndex(
       (command) =>
         command.kind === 'rect' && command.paint === 'legendBackground',
