@@ -181,4 +181,18 @@ describe('native preloadImages', () => {
       }),
     ]);
   });
+
+  test('returns false for blank sources while preloading valid entries', async () => {
+    await expect(
+      preloadNativeImages([
+        { uri: 'https://example.com/a.png', optimize: false },
+        { uri: '   ', optimize: false },
+      ]),
+    ).resolves.toBe(false);
+
+    expect(mockNativePreload).toHaveBeenCalledTimes(1);
+    expect(mockNativePreload).toHaveBeenCalledWith([
+      expect.objectContaining({ uri: 'https://example.com/a.png' }),
+    ]);
+  });
 });

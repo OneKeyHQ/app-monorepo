@@ -70,9 +70,10 @@ async function preloadWithConcurrency(
 }
 
 export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
+  const hasInvalidSource = sources.some((source) => !source.uri?.trim());
   const preloadRequests = sources
     .filter((source): source is typeof source & { uri: string } =>
-      Boolean(source.uri),
+      Boolean(source.uri?.trim()),
     )
     .map((source) => {
       const pixelRatio =
@@ -104,7 +105,8 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
         optimized: optimizedSource.optimized,
       };
     });
-  return preloadWithConcurrency(preloadRequests);
+  const success = await preloadWithConcurrency(preloadRequests);
+  return success && !hasInvalidSource;
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>
