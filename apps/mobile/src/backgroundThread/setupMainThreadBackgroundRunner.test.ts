@@ -249,6 +249,7 @@ describe('main thread background runner', () => {
 
   it('rehydrates i18n error metadata from the background runtime', async () => {
     await import('./setupMainThreadBackgroundRunner');
+    mockNativeLoggerWrite.mockClear();
 
     const transport = (
       globalThis as typeof globalThis & {
@@ -302,6 +303,14 @@ describe('main thread background runner', () => {
       info: { guessesRemaining: 4 },
       reconnect: false,
     });
+    expect(mockNativeLoggerWrite).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('errorName=IncorrectPinError'),
+    );
+    expect(mockNativeLoggerWrite).not.toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('guessesRemaining'),
+    );
   });
 
   it('replays single and batched Jotai broadcasts after hydration', async () => {

@@ -1089,7 +1089,9 @@ function handleBackgroundThreadResponse(
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
-    `handleResponse: callId=${callId}, ok=${response?.ok}, error=${response?.error ? JSON.stringify(response.error).slice(0, 300) : 'none'}`,
+    `handleResponse: callId=${callId}, ok=${response?.ok}, errorName=${
+      response?.error?.name || 'none'
+    }, errorCode=${response?.error?.code ?? 'none'}`,
   );
   if (!response) {
     switchToRemoteBroken(
