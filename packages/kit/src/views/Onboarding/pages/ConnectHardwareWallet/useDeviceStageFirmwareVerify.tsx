@@ -104,15 +104,18 @@ export function useDeviceStageFirmwareVerify() {
         'Bootloader',
       ];
 
-      // The run holds its own burst layer, begun before the first beat:
-      // a wrapper opening at depth 1 wipes the narrative and paints
-      // `connecting` over the genuine-check card in entries nothing else
-      // holds (device settings → authenticity check), and with nothing
-      // holding, the failure card is left with no exit at all. Inside
-      // onboarding's flow-held burst this layer simply nests. Held by
-      // token so the release in `finally` ends this layer and no other —
-      // a bare depth leave would end whichever layer was live by then.
-      const stageToken = await serviceHardwareUI.deviceStageBeginBurst({
+      // The run holds its own burst layer (depth-stacked), begun before
+      // the first beat: a wrapper opening at depth 1 wipes the narrative
+      // and paints `connecting` over the genuine-check card in entries
+      // nothing else holds (device settings → authenticity check), and
+      // with nothing holding, the failure card is left with no exit at
+      // all. Inside onboarding's flow-held burst this layer simply NESTS —
+      // which is why it is the depth join and not the token API: a token
+      // hold supersedes the live token, and onboarding's own hold would
+      // be gone when this run ended, leaving the stage to exit on the
+      // next network gap. The join is unconditional and the leave single,
+      // so the release below always addresses the layer opened here.
+      await serviceHardwareUI.deviceStageJoinBurst({
         connectId,
         deviceType: device.deviceType,
         deviceName: deviceUtils.buildDeviceStageName({
@@ -398,7 +401,7 @@ export function useDeviceStageFirmwareVerify() {
           }
         }
       } finally {
-        await serviceHardwareUI.deviceStageEndBurst({ token: stageToken });
+        await serviceHardwareUI.deviceStageLeaveBurst();
       }
     },
     [intl],
