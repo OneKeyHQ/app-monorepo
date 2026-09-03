@@ -73,7 +73,7 @@ import {
 import { MarketDetailProChartControls } from './components/MarketDetailProChartControls';
 import {
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
-  MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH,
+  MARKET_SIMPLE_CHART_RANGE_GAP,
   MARKET_SIMPLE_CHART_RANGE_WIDTHS,
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
@@ -495,7 +495,7 @@ function StockChartModeControl({
   );
 }
 
-function StockChart({
+export function StockChart({
   marketTradingView,
   priceMode,
   chartMode,
@@ -523,10 +523,13 @@ function StockChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const effectiveRange =
-    priceMode === 'token' && range === 'All' ? '1Y' : range;
-  const rangeSelectorWidth =
-    priceMode === 'share' ? MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH : 178;
+  const rangeSelectorWidth = chartRanges.reduce(
+    (total, item, index) =>
+      total +
+      MARKET_SIMPLE_CHART_RANGE_WIDTHS[item] +
+      (index > 0 ? MARKET_SIMPLE_CHART_RANGE_GAP : 0),
+    0,
+  );
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
   };
@@ -550,7 +553,12 @@ function StockChart({
           alignItems="center"
           justifyContent="space-between"
         >
-          <XStack minWidth={rangeSelectorWidth} alignItems="center" gap="$0.5">
+          <XStack
+            testID="stock-chart-range-selector"
+            minWidth={rangeSelectorWidth}
+            alignItems="center"
+            gap="$0.5"
+          >
             {chartRanges.map((item) => {
               const itemWidth = MARKET_SIMPLE_CHART_RANGE_WIDTHS[item];
               return (
@@ -568,7 +576,7 @@ function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={effectiveRange === item ? 'secondary' : 'tertiary'}
+                    variant={range === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
@@ -587,7 +595,7 @@ function StockChart({
       ) : null}
       {isSimpleMode ? (
         <StockSimpleChart
-          range={effectiveRange}
+          range={range}
           priceMode={priceMode}
           onHoverChange={onHoverChange}
         />

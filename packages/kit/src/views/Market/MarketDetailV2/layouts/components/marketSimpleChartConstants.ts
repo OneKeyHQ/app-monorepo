@@ -26,5 +26,6 @@ export const MARKET_SIMPLE_CHART_RANGE_WIDTHS: Record<
   All: 34,
 };
 
-// Minimum, for the same reason as the per-button widths above.
-export const MARKET_SIMPLE_CHART_RANGE_ROW_WIDTH = 214;
+// Gap between range buttons (gap="$0.5"), used to derive the row's minimum
+// width from the visible ranges.
+export const MARKET_SIMPLE_CHART_RANGE_GAP = 2;
