@@ -747,7 +747,9 @@ export interface IMorphOverlayProps<T> {
   capsuleKey: string;
   capsule: ReactNode;
   /** The card's other corner seat: a small badge absolute at the top
-   * left, the close button's mirror (the stage names the device there).
+   * left, the close button's mirror. Unused by the stage since
+   * 2026-09-03 (it names the device on the title row now); the seat
+   * stays for a badge that belongs to the window rather than the words.
    * Rides the toolbar band, so it fades with the card window. Null
    * renders nothing. */
   cornerBadge?: ReactNode;
