@@ -2490,9 +2490,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               ? { requestedTransportType: 'usb' as const }
               : {}),
           });
-        if (targetWebUsbConnected) {
-          pinnedHardwareTransportType = currentTransportType;
-        }
+        pinnedHardwareTransportType = currentTransportType;
       }
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;

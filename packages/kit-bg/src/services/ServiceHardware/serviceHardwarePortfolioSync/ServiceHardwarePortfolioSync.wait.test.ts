@@ -1626,7 +1626,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('suspends a prepared desktop upload if the transport changes to BLE', async () => {
+  test('keeps the prepared USB transport if the stored preference changes to BLE', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1636,6 +1636,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       const {
         getCurrentTransportType,
         getDeviceState,
+        prepareHardwareTransport,
         service,
         serviceInternals,
         uploadPortfolioPackage,
@@ -1649,14 +1650,34 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
+      expect(prepareHardwareTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_CONNECT_ID',
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          persistTransportType: false,
+        }),
+      );
+      expect(prepareHardwareTransport).not.toHaveBeenCalledWith(
+        expect.objectContaining({ requestedTransportType: 'usb' }),
+      );
       expect(
         serviceInternals.submitPortfolioJsonToServer,
       ).toHaveBeenCalledTimes(1);
-      expect(getDeviceState).not.toHaveBeenCalled();
-      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(getCurrentTransportType).not.toHaveBeenCalled();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
+        }),
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+        packageBase64: 'AQID',
+      });
       expect(
         (service as unknown as { lastResult: unknown }).lastResult,
-      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
+      ).toEqual(expect.objectContaining({ status: 'uploaded' }));
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
