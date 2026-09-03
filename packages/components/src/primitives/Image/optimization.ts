@@ -106,7 +106,7 @@ function getStaticStyleNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function hasCustomSourceIdentity(source: IImageSourceInput) {
+export function hasCustomSourceIdentity(source: IImageSourceInput) {
   if (!source || typeof source !== 'object') {
     return false;
   }

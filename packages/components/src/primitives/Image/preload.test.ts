@@ -78,6 +78,27 @@ describe('preloadImages', () => {
       ]),
     ).resolves.toBe(false);
   });
+
+  test('does not prefetch sources with custom request headers', async () => {
+    mockPrefetch.mockResolvedValue(undefined as never);
+
+    await expect(
+      preloadImages([
+        {
+          optimize: false,
+          uri: 'https://example.com/private.png',
+          headers: { Authorization: 'Bearer token' },
+        },
+        {
+          optimize: false,
+          uri: 'https://example.com/public.png',
+        },
+      ]),
+    ).resolves.toBe(false);
+
+    expect(mockPrefetch).toHaveBeenCalledTimes(1);
+    expect(mockPrefetch).toHaveBeenCalledWith('https://example.com/public.png');
+  });
 });
 
 describe('native preloadImages', () => {

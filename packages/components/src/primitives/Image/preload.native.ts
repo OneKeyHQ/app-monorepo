@@ -6,6 +6,8 @@ import { PixelRatio } from 'react-native';
 
 import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
+import { hasCustomSourceIdentity } from './optimization';
+
 import type { IPreloadImageFunc, IPreloadImagesFunc } from './type';
 
 const CACHE_POLICIES = {
@@ -81,7 +83,7 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
         displayWidth: source.width,
         displayHeight: source.height,
         pixelRatio,
-        enabled: source.optimize !== false,
+        enabled: source.optimize !== false && !hasCustomSourceIdentity(source),
         overscanRatio: source.overscan,
       });
 

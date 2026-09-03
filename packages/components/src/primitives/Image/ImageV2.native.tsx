@@ -22,7 +22,10 @@ import {
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import { ANDROID_PACKAGE_NAME } from '@onekeyhq/shared/src/config/appConfig';
 
-import { buildOptimizedImageSource } from './optimization';
+import {
+  buildOptimizedImageSource,
+  hasCustomSourceIdentity,
+} from './optimization';
 
 import type {
   IImageCachePolicy,
@@ -325,7 +328,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       recyclingKey={recyclingKey}
       autoplay={autoplay}
       optimizeTos={
-        !optimizedSourceResult.optimized && !shouldUseRawSourceFallback
+        !hasCustomSourceIdentity(rawSource) &&
+        !optimizedSourceResult.optimized &&
+        !shouldUseRawSourceFallback
       }
       loadingStrategy={OneKeyImageLoadingStrategy.SKELETON}
       onError={handleError}

@@ -3,6 +3,8 @@ import { Image, PixelRatio } from 'react-native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
+import { hasCustomSourceIdentity } from './optimization';
+
 import type {
   IPreloadImageFunc,
   IPreloadImageOptions,
@@ -39,15 +41,19 @@ function getPreloadUri(
 }
 
 export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
+  const hasUnsupportedHeaderSource = sources.some(
+    (source) => source.uri && hasCustomSourceIdentity(source),
+  );
   const uris = [
     ...new Set(
       sources
+        .filter((source) => !hasCustomSourceIdentity(source))
         .map((source) => getPreloadUri(source, options))
         .filter((uri): uri is string => Boolean(uri)),
     ),
   ];
   if (!uris.length) {
-    return true;
+    return !hasUnsupportedHeaderSource;
   }
   const results = await Promise.all(
     uris.map((uri) =>
@@ -57,7 +63,7 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
       ),
     ),
   );
-  return results.every(Boolean);
+  return results.every(Boolean) && !hasUnsupportedHeaderSource;
 };
 
 export const preloadImage: IPreloadImageFunc = (source, options) =>
