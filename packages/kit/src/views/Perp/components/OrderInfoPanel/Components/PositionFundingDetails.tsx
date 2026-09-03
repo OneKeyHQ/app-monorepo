@@ -28,6 +28,7 @@ import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useFundingCountdown } from '../../../hooks/useFundingCountdown';
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
+import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
@@ -464,12 +465,36 @@ export function PositionFundingDetails({
   );
 }
 
+function MobilePositionFundingDetails({
+  coin,
+  assetId,
+}: Pick<IPositionFundingDetailsProps, 'coin' | 'assetId'>) {
+  const activePositions = usePerpsAccountScopedActivePositions();
+  const signedSize = useMemo(
+    () =>
+      activePositions.find((item) => item.position.coin === coin)?.position
+        .szi ?? '0',
+    [activePositions, coin],
+  );
+
+  return (
+    <ScrollView maxHeight={560} showsVerticalScrollIndicator={false}>
+      <PositionFundingDetails
+        coin={coin}
+        assetId={assetId}
+        signedSize={signedSize}
+        useOwnFundingHistory
+        isMobile
+      />
+    </ScrollView>
+  );
+}
+
 export function showPositionFundingDetailsDialog({
   coin,
   assetId,
-  signedSize,
   title,
-}: Pick<IPositionFundingDetailsProps, 'coin' | 'assetId' | 'signedSize'> & {
+}: Pick<IPositionFundingDetailsProps, 'coin' | 'assetId'> & {
   title: string;
 }) {
   Dialog.show({
@@ -478,15 +503,7 @@ export function showPositionFundingDetailsDialog({
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     renderContent: (
       <PerpsProviderMirror>
-        <ScrollView maxHeight={560} showsVerticalScrollIndicator={false}>
-          <PositionFundingDetails
-            coin={coin}
-            assetId={assetId}
-            signedSize={signedSize}
-            useOwnFundingHistory
-            isMobile
-          />
-        </ScrollView>
+        <MobilePositionFundingDetails coin={coin} assetId={assetId} />
       </PerpsProviderMirror>
     ),
   });

@@ -20,6 +20,12 @@ export type IFundingHistoryExportRecord = {
   rate: string;
 };
 
+const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+function sanitizeFundingHistoryCsvText(value: string): string {
+  return CSV_FORMULA_PREFIX.test(value) ? `'${value}` : value;
+}
+
 export function getFundingHistorySide(signedSize: string): IFundingHistorySide {
   const size = new BigNumber(signedSize);
   if (!size.isFinite() || size.isZero()) {
@@ -167,9 +173,9 @@ export function buildFundingHistoryExportRecords({
 
       return {
         time: new Date(record.time).toISOString(),
-        market,
+        market: sanitizeFundingHistoryCsvText(market),
         size: size.isFinite() ? size.toFixed() : delta.szi,
-        side: sideLabel,
+        side: sanitizeFundingHistoryCsvText(sideLabel),
         payment: payment.isFinite() ? payment.toFixed() : delta.usdc,
         rate: formatFundingHistoryRate(delta.fundingRate),
       };

@@ -59,11 +59,11 @@ describe('buildPositionFundingProjection', () => {
         fundingRate: '0.001',
       }),
     ).toEqual({
-      currentRate: '0.001',
+      currentRate: '-0.001',
       currentPayment: '-0.2',
-      next24hRate: '0.024',
+      next24hRate: '-0.024',
       next24hPayment: '-4.8',
-      annualizedRate: '8.76',
+      annualizedRate: '-8.76',
       annualizedPayment: '-1752',
     });
   });
@@ -90,6 +90,13 @@ describe('buildPositionFundingProjection', () => {
     expect(
       buildPositionFundingProjection({
         signedSize: 'invalid',
+        oraclePrice: '100',
+        fundingRate: '0.001',
+      }),
+    ).toBeNull();
+    expect(
+      buildPositionFundingProjection({
+        signedSize: '0',
         oraclePrice: '100',
         fundingRate: '0.001',
       }),

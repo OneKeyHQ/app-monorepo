@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -138,6 +144,32 @@ type IFundingHistorySideOption = {
   label: string;
   value: IFundingHistorySideFilter;
 };
+
+function createFundingHistoryMarketOptionsStore(
+  initialOptions: IFundingHistoryMarketOption[],
+) {
+  let options = initialOptions;
+  const listeners = new Set<() => void>();
+
+  return {
+    getSnapshot: () => options,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    setOptions: (nextOptions: IFundingHistoryMarketOption[]) => {
+      if (options === nextOptions) return;
+      options = nextOptions;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+type IFundingHistoryMarketOptionsStore = ReturnType<
+  typeof createFundingHistoryMarketOptionsStore
+>;
 
 function FundingHistorySideFilterContent({
   isMobile,
@@ -283,14 +315,19 @@ function FundingHistoryMarketFilterContent({
 
 function MobileFundingHistoryMarketDialogContent({
   marketFilter,
-  marketOptions,
+  marketOptionsStore,
   onSelect,
 }: {
   marketFilter: string | undefined;
-  marketOptions: IFundingHistoryMarketOption[];
+  marketOptionsStore: IFundingHistoryMarketOptionsStore;
   onSelect: (coin: string | undefined) => void;
 }) {
   const dialog = useDialogInstance();
+  const marketOptions = useSyncExternalStore(
+    marketOptionsStore.subscribe,
+    marketOptionsStore.getSnapshot,
+    marketOptionsStore.getSnapshot,
+  );
   const handleSelect = useCallback(
     (coin: string | undefined) => {
       onSelect(coin);
@@ -320,6 +357,12 @@ function FundingHistoryFilterToolbar({
   const intl = useIntl();
   const [sideOpen, setSideOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(false);
+  const [marketOptionsStore] = useState(() =>
+    createFundingHistoryMarketOptionsStore(marketOptions),
+  );
+  useEffect(() => {
+    marketOptionsStore.setOptions(marketOptions);
+  }, [marketOptions, marketOptionsStore]);
   const sideOptions = useMemo(
     () => [
       {
@@ -384,7 +427,7 @@ function FundingHistoryFilterToolbar({
       renderContent: (
         <MobileFundingHistoryMarketDialogContent
           marketFilter={marketFilter}
-          marketOptions={marketOptions}
+          marketOptionsStore={marketOptionsStore}
           onSelect={onMarketFilterChange}
         />
       ),
@@ -393,7 +436,7 @@ function FundingHistoryFilterToolbar({
     handleMarketDialogClose,
     marketFilter,
     marketLabel,
-    marketOptions,
+    marketOptionsStore,
     onMarketFilterChange,
   ]);
 

@@ -172,4 +172,27 @@ describe('fundingHistoryDisplay', () => {
       },
     ]);
   });
+
+  it('prevents spreadsheet formulas in exported text fields', () => {
+    const record = createFundingRecord({
+      coin: 'xyz:=CMD()',
+      signedSize: '-2',
+      time: 2,
+    });
+
+    expect(
+      buildFundingHistoryExportRecords({
+        records: [record],
+        sideFilter: 'all',
+        marketFilter: undefined,
+        longLabel: '+Long',
+        shortLabel: '=CMD()',
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        market: "'=CMD() (xyz)",
+        side: "'=CMD()",
+      }),
+    ]);
+  });
 });

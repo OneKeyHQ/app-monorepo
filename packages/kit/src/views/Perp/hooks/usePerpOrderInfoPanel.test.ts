@@ -118,12 +118,14 @@ describe('usePerpUserFundingHistory', () => {
 
     const activeOptions = mockUsePromiseResult.mock.calls.at(-1)?.[2] as {
       overrideIsFocused: (isFocused: boolean) => boolean;
+      revalidateOnFocus: boolean;
     };
     expect(activeOptions.overrideIsFocused(true)).toBe(true);
+    expect(activeOptions.revalidateOnFocus).toBe(true);
     expect(result.current.records).toEqual([fundingRecord]);
   });
 
-  it('requests all available funding history without a time range', async () => {
+  it('requests the complete funding history for the active account', async () => {
     mockGetUserFundingHistory.mockResolvedValue([fundingRecord]);
 
     renderHook(() => usePerpUserFundingHistory());
@@ -140,6 +142,19 @@ describe('usePerpUserFundingHistory', () => {
     expect(mockGetUserFundingHistory).toHaveBeenCalledWith({
       accountAddress: '0xAbC',
     });
+  });
+
+  it('preserves request failures for the query error path', async () => {
+    const error = new Error('funding history unavailable');
+    mockGetUserFundingHistory.mockRejectedValue(error);
+
+    renderHook(() => usePerpUserFundingHistory());
+
+    const queryFn = mockUsePromiseResult.mock.calls.at(-1)?.[0] as
+      | (() => Promise<IMockFundingHistoryResult>)
+      | undefined;
+
+    await expect(queryFn?.()).rejects.toBe(error);
   });
 
   it('hides the previous account result when the account changes while inactive', () => {

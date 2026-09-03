@@ -137,26 +137,20 @@ export function usePerpUserFundingHistory({
       }
 
       const normalizedRequestAddress = accountAddress.toLowerCase();
-      try {
-        const records =
-          await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
-            accountAddress,
-          });
-        return {
-          accountAddress: normalizedRequestAddress,
-          records,
-        };
-      } catch {
-        return {
-          accountAddress: normalizedRequestAddress,
-          records: [],
-        };
-      }
+      const records =
+        await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
+          accountAddress,
+        });
+      return {
+        accountAddress: normalizedRequestAddress,
+        records,
+      };
     },
     [accountAddress],
     {
       watchLoading: true,
       undefinedResultIfError: true,
+      revalidateOnFocus: true,
       // Gate requests by the visible info-panel tab without making tab
       // activity part of the query scope, so same-account results stay cached.
       overrideIsFocused: (isFocused) => isFocused && isActive,

@@ -1679,8 +1679,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<IUserFunding[]> {
     const { infoClient } = hyperLiquidApiClients;
     const user = accountAddress.toLowerCase() as IHex;
+    const endTime = Date.now();
 
-    return infoClient.userFunding({ user });
+    return fetchPerpFundingHistoryPages({
+      startTime: 0,
+      endTime,
+      fetchPage: (page) => infoClient.userFunding({ user, ...page }),
+    });
   }
 
   @backgroundMethod()

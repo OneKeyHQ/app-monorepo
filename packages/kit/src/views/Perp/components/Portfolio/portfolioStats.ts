@@ -323,10 +323,10 @@ export function buildFundingNetSummary({
 
   records.forEach((record) => {
     const payment = getFundingPayment(record);
-    if (!payment) return;
+    if (!payment || record.time > now) return;
 
     netAllTime = netAllTime.plus(payment);
-    if (record.time < weekStart || record.time > now) return;
+    if (record.time < weekStart) return;
     net7d = net7d.plus(payment);
     if (record.time >= dayStart) {
       net24h = net24h.plus(payment);

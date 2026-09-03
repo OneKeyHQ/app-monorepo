@@ -1051,24 +1051,21 @@ const PositionRowMobileFunding = memo(
     otherInfo,
     coin,
     assetId,
-    signedSize,
   }: {
     otherInfo: IOtherInfo;
     coin: string;
     assetId?: number;
-    signedSize: string;
   }) => {
     const intl = useIntl();
     const handleOpenFundingDetails = useCallback(() => {
       showPositionFundingDetailsDialog({
         coin,
         assetId,
-        signedSize,
         title: intl.formatMessage({
           id: ETranslations.perp_position_funding_2,
         }),
       });
-    }, [assetId, coin, intl, signedSize]);
+    }, [assetId, coin, intl]);
 
     return (
       <YStack
@@ -1333,7 +1330,6 @@ interface IPositionRowMobileProps {
   otherInfo: IOtherInfo;
   coin: string;
   assetId?: number;
-  signedSize: string;
   isIsolatedMode: boolean;
   isSizeViewChange: boolean;
   onChangeAsset: () => void;
@@ -1354,7 +1350,6 @@ const PositionRowMobile = memo(
     otherInfo,
     coin,
     assetId,
-    signedSize,
     isIsolatedMode,
     isSizeViewChange,
     onChangeAsset,
@@ -1403,7 +1398,6 @@ const PositionRowMobile = memo(
               otherInfo={otherInfo}
               coin={coin}
               assetId={assetId}
-              signedSize={signedSize}
             />
             <PositionRowMobileMarkPrice coin={coin} />
             <PositionRowMobileLiqPrice priceInfo={priceInfo} />
@@ -1689,7 +1683,6 @@ const PositionRow = memo(
           otherInfo={otherInfo}
           coin={coin}
           assetId={mockedPosition.assetId}
-          signedSize={pos.szi}
           isIsolatedMode={isIsolatedMode}
           isSizeViewChange={isSizeViewChange}
           onChangeAsset={handleChangeAsset}

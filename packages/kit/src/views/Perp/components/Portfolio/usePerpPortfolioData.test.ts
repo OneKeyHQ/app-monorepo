@@ -420,7 +420,7 @@ describe('buildFundingNetSummary', () => {
     });
 
     expect(summary).toEqual({
-      netAllTime: 195.73,
+      netAllTime: 96.73,
       net24h: -1,
       net7d: 1,
     });
