@@ -63,6 +63,7 @@ function TokenChartModeControl({
 }
 
 export function TokenDetailChart({
+  marketAssetId,
   marketTradingView,
   isChartFullscreen,
   chartMode,
@@ -70,6 +71,7 @@ export function TokenDetailChart({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  marketAssetId?: string;
   marketTradingView: ReactNode;
   isChartFullscreen: boolean;
   chartMode: ITradingViewChartMode;
@@ -77,6 +79,7 @@ export function TokenDetailChart({
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
+  const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
@@ -111,13 +114,19 @@ export function TokenDetailChart({
                   borderRadius="$full"
                   onPress={() => setRange(item)}
                 >
-                  {item}
+                  {item === 'All'
+                    ? intl.formatMessage({ id: ETranslations.global_all })
+                    : item}
                 </Button>
               ))}
             </XStack>
             <TokenChartModeControl mode={mode} onChange={handleModeChange} />
           </XStack>
-          <StockSimpleChart range={range} priceMode="token" />
+          <StockSimpleChart
+            marketAssetId={marketAssetId}
+            range={range}
+            priceMode="token"
+          />
         </>
       ) : (
         <>

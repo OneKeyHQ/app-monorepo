@@ -1,4 +1,6 @@
 const {
+  assertEntryStartsWithPolyfills,
+  assertPolyfillBootstrapSynchronous,
   buildPostSection,
   buildSerializedModuleEntries,
   buildGraphModuleIndex,
@@ -48,6 +50,119 @@ describe('unionBuildHelpers', () => {
     '/repo/packages/kit/src/background/instance/backgroundApiInit.native-ui.ts';
   const backgroundInitPath =
     '/repo/packages/kit/src/background/instance/backgroundApiInit.ts';
+
+  it('requires runtime polyfills before other entry dependencies', () => {
+    const entryPath = '/repo/apps/mobile/background.ts';
+    const polyfillsEntryPath = '/repo/packages/shared/src/polyfills/index.ts';
+    const graph = new Map([
+      [
+        entryPath,
+        createModuleData({
+          dependencies: [
+            {
+              key: '@onekeyhq/shared/src/polyfills',
+              absolutePath: polyfillsEntryPath,
+            },
+            { key: './business', absolutePath: '/repo/business.ts' },
+          ],
+        }),
+      ],
+    ]);
+
+    expect(() =>
+      assertEntryStartsWithPolyfills({
+        entryPath,
+        graph,
+        polyfillsEntryPath,
+        runtimeLabel: 'background',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects an entry dependency that runs before runtime polyfills', () => {
+    const entryPath = '/repo/apps/mobile/index.ts';
+    const polyfillsEntryPath = '/repo/packages/shared/src/polyfills/index.ts';
+    const graph = new Map([
+      [
+        entryPath,
+        createModuleData({
+          dependencies: [
+            { key: './business', absolutePath: '/repo/business.ts' },
+            {
+              key: '@onekeyhq/shared/src/polyfills',
+              absolutePath: polyfillsEntryPath,
+            },
+          ],
+        }),
+      ],
+    ]);
+
+    expect(() =>
+      assertEntryStartsWithPolyfills({
+        entryPath,
+        graph,
+        polyfillsEntryPath,
+        runtimeLabel: 'main',
+      }),
+    ).toThrow(/main.*polyfills.*business\.ts/s);
+  });
+
+  it('rejects dynamic imports from polyfill bootstrap modules', () => {
+    const polyfillsPathPrefix = '/repo/packages/shared/src/polyfills/';
+    const intlShimPath = `${polyfillsPathPrefix}intlShim/index.js`;
+    const polyfillPath =
+      '/repo/node_modules/@formatjs/intl-pluralrules/polyfill.js';
+    const graph = new Map([
+      [
+        intlShimPath,
+        createModuleData({
+          dependencies: [
+            {
+              key: '@formatjs/intl-pluralrules/polyfill',
+              absolutePath: polyfillPath,
+              asyncType: 'async',
+            },
+          ],
+        }),
+      ],
+      [polyfillPath, createModuleData()],
+    ]);
+
+    expect(() =>
+      assertPolyfillBootstrapSynchronous({
+        polyfillsPathPrefix,
+        runtimeGraphs: [{ graph, runtimeLabel: 'background' }],
+      }),
+    ).toThrow(/background.*intlShim.*intl-pluralrules/s);
+  });
+
+  it('accepts synchronous dependencies from polyfill bootstrap modules', () => {
+    const polyfillsPathPrefix = '/repo/packages/shared/src/polyfills/';
+    const intlShimPath = `${polyfillsPathPrefix}intlShim/index.js`;
+    const polyfillPath =
+      '/repo/node_modules/@formatjs/intl-pluralrules/polyfill.js';
+    const graph = new Map([
+      [
+        intlShimPath,
+        createModuleData({
+          dependencies: [
+            {
+              key: '@formatjs/intl-pluralrules/polyfill',
+              absolutePath: polyfillPath,
+            },
+          ],
+        }),
+      ],
+      [polyfillPath, createModuleData()],
+    ]);
+
+    expect(() =>
+      assertPolyfillBootstrapSynchronous({
+        polyfillsPathPrefix,
+        runtimeGraphs: [{ graph, runtimeLabel: 'main' }],
+      }),
+    ).not.toThrow();
+  });
 
   it('treats same-path modules with different resolved dependencies as runtime variants', () => {
     const mainProxyModule = createModuleData({

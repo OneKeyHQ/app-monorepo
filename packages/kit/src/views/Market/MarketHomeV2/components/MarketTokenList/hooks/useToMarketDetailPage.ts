@@ -36,6 +36,7 @@ interface IMarketToken extends Partial<IMarketHomeToken> {
   symbol: string;
   isNative?: boolean;
   marketTokenId?: string;
+  marketVariantId?: string;
   skipMarketDataFetch?: boolean;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -132,6 +133,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         from: options?.from,
         ...(item.marketTokenId
           ? { marketTokenId: item.marketTokenId }
+          : undefined),
+        ...(item.marketVariantId
+          ? { marketVariantId: item.marketVariantId }
           : undefined),
         ...(item.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
