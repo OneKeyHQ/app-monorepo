@@ -215,6 +215,57 @@ describe('jotaiContextStoreMap', () => {
     expect(registry.update(buildSnapshot(3)).map[storeId]?.count).toBe(1);
   });
 
+  it('expires a closed runtime revision tombstone after its lease', () => {
+    let now = 0;
+    const registry = new JotaiContextStoreRegistrationRegistry({
+      leaseMs: 100,
+      now: () => now,
+    });
+    const storeId = 'accountSelector:swap';
+    const registration = {
+      data: {
+        storeName: EJotaiContextStoreNames.accountSelector,
+        accountSelectorInfo: {
+          enabledNum: [0],
+          sceneName: EAccountSelectorSceneName.swap,
+        },
+      },
+      registrationId: 'closed-runtime:1',
+      storeId,
+    };
+
+    registry.update({
+      action: 'reconcile-runtime',
+      registrations: [registration],
+      revision: 1,
+      runtimeId: 'closed-runtime',
+      storeId,
+    });
+    now = 10;
+    const closed = registry.update({
+      action: 'reconcile-runtime',
+      registrations: [],
+      revision: 2,
+      runtimeId: 'closed-runtime',
+      storeId,
+    });
+
+    expect(closed.map[storeId]).toBeUndefined();
+    expect(registry.getNextExpirationDelayMs()).toBe(100);
+
+    now = 111;
+    registry.pruneExpiredRegistrations();
+    const afterTombstoneExpiry = registry.update({
+      action: 'reconcile-runtime',
+      registrations: [registration],
+      revision: 1,
+      runtimeId: 'closed-runtime',
+      storeId,
+    });
+
+    expect(afterTombstoneExpiry.map[storeId]?.count).toBe(1);
+  });
+
   it('keeps a throttled extension runtime through a 120-second heartbeat gap', () => {
     let now = 0;
     const registry = new JotaiContextStoreRegistrationRegistry({
