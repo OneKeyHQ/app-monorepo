@@ -16041,7 +16041,7 @@
     "packages/components/src/composite/DeviceStage/StepText.tsx": 8043,
     "packages/components/src/composite/DeviceStage/ThirdPartyPanels.tsx": 8044,
     "packages/components/src/composite/DeviceStage/WalletTypeOptions.tsx": 8045,
-    "packages/components/src/composite/DeviceStage/arrangements.ts": 7986,
+    "packages/components/src/composite/DeviceStage/arrangements.ts": 8046,
     "packages/components/src/composite/DeviceStage/consts.ts": 7987,
     "packages/components/src/composite/DeviceStage/index.tsx": 7988,
     "packages/components/src/composite/DeviceStage/passphraseRules.ts": 7989,
