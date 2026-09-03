@@ -1932,6 +1932,64 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it('leaves the guard up for a newer start when an older start fails to silence the stage', async () => {
+    // Two starts overlap: the older one is still parked on its silence
+    // when the newer one takes the workflow over and raises the shared
+    // guard. The older failure must not drop that guard — hardware prompts
+    // would cover the newer update page.
+    let rejectOlderSilence: ((error: Error) => void) | undefined;
+    const silenceForFirmwareWorkflow = jest
+      .fn<Promise<void>, []>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOlderSilence = reject;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow },
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'runUpdateWorkflowV2')
+      .mockReturnValue(new Promise(() => undefined));
+    const params = {
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    };
+
+    // Lets the older start run up to its parked silence: a few microtask
+    // turns, one per await between the guard and the silence.
+    const untilParkedOnSilence = async (turns: number): Promise<void> => {
+      if (rejectOlderSilence || turns === 0) {
+        return;
+      }
+      await Promise.resolve();
+      await untilParkedOnSilence(turns - 1);
+    };
+
+    const older = service.startUpdateWorkflowV2(params);
+    await untilParkedOnSilence(20);
+    expect(rejectOlderSilence).toBeDefined();
+
+    await service.startUpdateWorkflowV2(params);
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mockClear();
+
+    rejectOlderSilence?.(new Error('stage bridge not ready'));
+    await expect(older).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).not.toHaveBeenCalledWith(
+      false,
+    );
+  });
+
   it('does not report a workflow that only ends in cancellation', async () => {
     const resultSpy = jest
       .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
