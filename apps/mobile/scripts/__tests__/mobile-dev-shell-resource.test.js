@@ -188,6 +188,7 @@ describe('mobile-dev-shell-resource', () => {
         status: 1,
         stderr: `Failure [${failureCode}]`,
       })
+      .mockReturnValueOnce({ status: 0, stdout: '1\n' })
       .mockReturnValue({ status: 0 });
     const consoleError = jest
       .spyOn(console, 'error')
@@ -200,7 +201,7 @@ describe('mobile-dev-shell-resource', () => {
         spawnCommand,
       });
       expect(consoleError).toHaveBeenCalledWith(
-        expect.stringContaining('app data on that target will be cleared'),
+        expect.stringContaining('emulator app data will be cleared'),
       );
     } finally {
       consoleError.mockRestore();
@@ -214,6 +215,11 @@ describe('mobile-dev-shell-resource', () => {
       ],
       [
         'adb',
+        ['-s', 'emulator-5554', 'shell', 'getprop', 'ro.kernel.qemu'],
+        { encoding: 'utf8' },
+      ],
+      [
+        'adb',
         ['-s', 'emulator-5554', 'uninstall', 'so.onekey.app.wallet'],
         { stdio: 'inherit' },
       ],
@@ -221,6 +227,37 @@ describe('mobile-dev-shell-resource', () => {
         'adb',
         ['-s', 'emulator-5554', 'install', '/tmp/dev-shell.apk'],
         { stdio: 'inherit' },
+      ],
+    ]);
+  });
+
+  it('refuses to uninstall an incompatible app from a physical device', async () => {
+    const spawnCommand = jest
+      .fn()
+      .mockReturnValueOnce({
+        status: 1,
+        stderr: 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]',
+      })
+      .mockReturnValueOnce({ status: 0, stdout: '0\n' });
+
+    await expect(
+      installMobileDevShell({
+        artifactPath: '/tmp/dev-shell.apk',
+        deviceId: 'physical-device',
+        platform: 'android',
+        spawnCommand,
+      }),
+    ).rejects.toThrow('Refusing to uninstall');
+    expect(spawnCommand.mock.calls).toEqual([
+      [
+        'adb',
+        ['-s', 'physical-device', 'install', '-r', '-d', '/tmp/dev-shell.apk'],
+        { encoding: 'utf8' },
+      ],
+      [
+        'adb',
+        ['-s', 'physical-device', 'shell', 'getprop', 'ro.kernel.qemu'],
+        { encoding: 'utf8' },
       ],
     ]);
   });

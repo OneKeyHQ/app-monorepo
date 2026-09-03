@@ -964,8 +964,24 @@ async function installMobileDevShell({
     if (!ANDROID_REINSTALL_REQUIRED_PATTERN.test(failureDetails)) {
       assertCommandSucceeded('adb', replaceArgs, replaceResult);
     }
+    const emulatorCheckArgs = [
+      '-s',
+      targetDeviceId,
+      'shell',
+      'getprop',
+      'ro.kernel.qemu',
+    ];
+    const emulatorResult = spawnCommand('adb', emulatorCheckArgs, {
+      encoding: 'utf8',
+    });
+    assertCommandSucceeded('adb', emulatorCheckArgs, emulatorResult);
+    if (emulatorResult.stdout?.trim() !== '1') {
+      throw new Error(
+        `[mobileDevShellResource] Refusing to uninstall incompatible Android app ${ANDROID_APPLICATION_ID} from physical device ${targetDeviceId} because that would erase wallet data. Remove the app explicitly or use an emulator, then retry.`,
+      );
+    }
     console.error(
-      `[ONEKEY_USER_NOTICE] Removing incompatible Android app ${ANDROID_APPLICATION_ID} from ${targetDeviceId} before installing the development shell; app data on that target will be cleared.`,
+      `[ONEKEY_USER_NOTICE] Removing incompatible Android app ${ANDROID_APPLICATION_ID} from emulator ${targetDeviceId} before installing the development shell; emulator app data will be cleared.`,
     );
     runChecked(
       'adb',
