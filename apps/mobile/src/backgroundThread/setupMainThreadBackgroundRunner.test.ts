@@ -247,6 +247,63 @@ describe('main thread background runner', () => {
     );
   });
 
+  it('rehydrates i18n error metadata from the background runtime', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          callServiceRequest: (
+            request: {
+              type: 'service-call';
+              method: string;
+              params: unknown[];
+              sync: boolean;
+            },
+            localFallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+
+    const requestPromise = transport!.callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'serviceKeylessWallet.verifyPin',
+        params: [],
+        sync: false,
+      },
+      () => Promise.resolve(undefined),
+    );
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
+      ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+    );
+    const requestCall = requestCalls[requestCalls.length - 1];
+    const callId = (requestCall?.[0] as string).slice('onekey:bg:req:'.length);
+
+    mockInboundMessageHandler?.(
+      `onekey:bg:res:${callId}`,
+      JSON.stringify({
+        ok: false,
+        error: {
+          name: 'IncorrectPinError',
+          message: 'Incorrect PIN entered',
+          className: 'IncorrectPinError',
+          info: { guessesRemaining: 4 },
+          reconnect: false,
+        },
+      }),
+    );
+
+    await expect(requestPromise).rejects.toMatchObject({
+      name: 'IncorrectPinError',
+      message: 'Incorrect PIN entered',
+      className: 'IncorrectPinError',
+      info: { guessesRemaining: 4 },
+      reconnect: false,
+    });
+  });
+
   it('replays single and batched Jotai broadcasts after hydration', async () => {
     const {
       buildBackgroundThreadJotaiStateBatchKey,

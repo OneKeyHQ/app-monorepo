@@ -1120,7 +1120,9 @@ function handleBackgroundThreadResponse(
     requestId?: string;
     httpStatusCode?: number;
     data?: unknown;
+    info?: unknown;
     payload?: unknown;
+    reconnect?: boolean;
   };
   try {
     error = createTransportError(errorMessage);
@@ -1159,8 +1161,14 @@ function handleBackgroundThreadResponse(
     if (errorInfo?.data !== undefined) {
       error.data = errorInfo.data;
     }
+    if (errorInfo?.info !== undefined) {
+      error.info = errorInfo.info;
+    }
     if (errorInfo?.payload !== undefined) {
       error.payload = errorInfo.payload;
+    }
+    if (typeof errorInfo?.reconnect === 'boolean') {
+      error.reconnect = errorInfo.reconnect;
     }
   } catch (metadataError) {
     transportLog(

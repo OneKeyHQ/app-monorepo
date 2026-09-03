@@ -133,6 +133,31 @@ describe('background thread RPC handler', () => {
     expect(getResponse('2')).toEqual(fallbackResponse);
   });
 
+  it('serializes i18n error metadata with the shared plain-error contract', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const error = Object.assign(new OneKeyLocalError('Incorrect PIN entered'), {
+      className: 'IncorrectPinError',
+      info: { guessesRemaining: 4 },
+      reconnect: false,
+    });
+    setBackgroundThreadRequestExecutor(() => Promise.reject(error));
+    mockSharedRPCWrite.mockClear();
+
+    dispatchServiceRequest('info');
+    await flushRequest();
+
+    expect(getResponse('info')).toMatchObject({
+      ok: false,
+      error: {
+        message: 'Incorrect PIN entered',
+        className: 'IncorrectPinError',
+        info: { guessesRemaining: 4 },
+        reconnect: false,
+      },
+    });
+  });
+
   it('retries a failed response write with the minimal error response', async () => {
     const { setBackgroundThreadRequestExecutor } =
       await import('./setupBackgroundThreadRPCHandler');
