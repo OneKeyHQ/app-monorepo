@@ -81,7 +81,7 @@ const ClosePositionForm = memo(
     const szDecimals = tokenInfo?.universe?.szDecimals ?? 2;
     const assetId = tokenInfo?.assetId;
 
-    const midPrice = useMemo(() => {
+    const atomMidPrice = useMemo(() => {
       return getValidPerpsPrice(allMids?.mids?.[position.coin]);
     }, [allMids?.mids, position.coin]);
 
@@ -114,9 +114,47 @@ const ClosePositionForm = memo(
     const initPriceRef = useRef(false);
     const isMountedRef = useRef(true);
 
+    const [referencePriceResolved, setReferencePriceResolved] = useState(false);
+    // The main runtime only sees mids the WebSocket has already forwarded,
+    // which lags by seconds on cold start, so the gate polls the same
+    // background price source the submit uses instead of waiting on the atom.
+    const { result: referencePrice } = usePromiseResult(
+      async () => {
+        if (atomMidPrice) {
+          return atomMidPrice;
+        }
+        const price =
+          await backgroundApiProxy.serviceHyperliquid.getMarketOrderReferencePrice(
+            position.coin,
+          );
+        if (isMountedRef.current) {
+          setReferencePriceResolved(true);
+        }
+        return price;
+      },
+      [atomMidPrice, position.coin],
+      { pollingInterval: 2000, checkIsFocused: false },
+    );
+    const midPrice = atomMidPrice ?? getValidPerpsPrice(referencePrice);
+    const isMarketPriceUnavailable = !midPrice && referencePriceResolved;
+    const priceUnavailableToastShownRef = useRef(false);
+
     useEffect(() => {
       setSliderPercentage(formData.percentage);
     }, [formData.percentage, setSliderPercentage]);
+
+    useEffect(() => {
+      if (
+        formData.type === 'market' &&
+        isMarketPriceUnavailable &&
+        !priceUnavailableToastShownRef.current
+      ) {
+        priceUnavailableToastShownRef.current = true;
+        Toast.error({
+          title: 'Unable to get current market price',
+        });
+      }
+    }, [formData.type, isMarketPriceUnavailable]);
 
     useEffect(() => {
       if (!midPrice) return;
@@ -484,7 +522,7 @@ const ClosePositionForm = memo(
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
             onUseMidPrice={handleUseMid}
-            disabled={!midPrice}
+            midPriceDisabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
           />
@@ -537,7 +575,10 @@ const ClosePositionForm = memo(
             onPress={handleSubmit}
             disabled={!isFormValid || isSubmitting}
             loading={
-              isSubmitting || (formData.type === 'market' && !isPriceValid)
+              isSubmitting ||
+              (formData.type === 'market' &&
+                !isPriceValid &&
+                !isMarketPriceUnavailable)
             }
           >
             {intl.formatMessage({
