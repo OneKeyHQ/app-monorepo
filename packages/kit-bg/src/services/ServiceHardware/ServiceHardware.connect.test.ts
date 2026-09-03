@@ -620,6 +620,48 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     });
   });
 
+  it('后台 device-state probe 不持久化临时 transport', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectId = 'PRO2_CONNECT_ID';
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        protocol: 'V2',
+        status: { unlocked: true },
+      },
+    });
+    const getSDKInstance = jest
+      .spyOn(service, 'getSDKInstance')
+      .mockResolvedValue({
+        getDeviceState,
+      } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    (
+      service as unknown as {
+        deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+      }
+    ).deviceProtocolByConnectId.set(connectId, 'V2');
+
+    await service._getDeviceStateLowLevel({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
+      params: { scope: 'runtime' },
+      silentMode: true,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId,
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
+    });
+  });
+
   it.each([
     {
       platformName: 'iOS',
@@ -1039,7 +1081,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
-  it('桌面后台显式 transport 优先于遗留的 BLE force transport', async () => {
+  it('桌面后台显式 transport 可跳过持久化用户偏好', async () => {
     mutablePlatformEnv.isSupportDesktopBle = true;
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: EHardwareTransportType.DesktopWebBle,
@@ -1079,6 +1121,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         connectId: undefined,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         hardwareTransportType: EHardwareTransportType.WEBUSB,
+        persistTransportType: false,
       }),
     ).resolves.toBe(sdkInstance);
 
@@ -1087,10 +1130,59 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         hardwareTransportType: EHardwareTransportType.WEBUSB,
       }),
     );
-    expect(setCurrentTransportType).toHaveBeenCalledWith(
-      EHardwareTransportType.WEBUSB,
-    );
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
+  it('后台 transport 探测不会改写用户持久化设置', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const getTransportTypeForChannel = jest
+      .spyOn(service.connectionManager, 'getTransportTypeForChannel')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    const shouldSwitchTransportType = jest
+      .spyOn(service.connectionManager, 'shouldSwitchTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    const resolveTransportType = jest.spyOn(
+      service.connectionManager,
+      'resolveTransportType',
+    );
+    const setCurrentTransportType = jest.spyOn(
+      service.connectionManager,
+      'setCurrentTransportType',
+    );
+
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+        requestedTransportType: 'usb',
+      }),
+    ).resolves.toBe(EHardwareTransportType.WEBUSB);
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+      }),
+    ).resolves.toBe(EHardwareTransportType.DesktopWebBle);
+
+    expect(getTransportTypeForChannel).toHaveBeenCalledWith({
+      connectProtocol: undefined,
+      transportType: 'usb',
+    });
+    expect(shouldSwitchTransportType).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      connectProtocol: undefined,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(resolveTransportType).not.toHaveBeenCalled();
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
   });
 
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {
