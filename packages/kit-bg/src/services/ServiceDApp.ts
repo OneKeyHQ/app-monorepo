@@ -2271,6 +2271,12 @@ class ServiceDApp extends ServiceBase {
     origin: string;
     shouldContinue?: () => boolean;
   }): Promise<boolean> {
+    const homeWriteIntentEpochAtRequest =
+      expectedHomeWriteIntentEpoch ??
+      getAccountSelectorWriteIntentEpoch({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
     const runFinalizeApproval = async () => {
       if (shouldContinue && !shouldContinue()) {
         return false;
@@ -2313,14 +2319,11 @@ class ServiceDApp extends ServiceBase {
     if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
       let saveResult: { persisted: boolean };
       if (shouldContinue) {
-        if (expectedHomeWriteIntentEpoch === undefined) {
-          return false;
-        }
         saveResult =
           await simpleDb.accountSelector.saveSelectedAccountIfCurrent(
             {
               beforePublish: finalizeApproval ? runFinalizeApproval : undefined,
-              expectedWriteIntentEpoch: expectedHomeWriteIntentEpoch,
+              expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
               sceneName: EAccountSelectorSceneName.home,
               num: 0,
               selectedAccount: newSelectedAccount,
@@ -2329,14 +2332,16 @@ class ServiceDApp extends ServiceBase {
             accountSelectorPersistenceLockToken,
           );
       } else {
-        saveResult = await simpleDb.accountSelector.saveSelectedAccount(
-          {
-            sceneName: EAccountSelectorSceneName.home,
-            num: 0,
-            selectedAccount: newSelectedAccount,
-          },
-          accountSelectorPersistenceLockToken,
-        );
+        saveResult =
+          await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+            {
+              expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+              sceneName: EAccountSelectorSceneName.home,
+              num: 0,
+              selectedAccount: newSelectedAccount,
+            },
+            accountSelectorPersistenceLockToken,
+          );
       }
       if (!saveResult.persisted) {
         void this.setIsAlignPrimaryAccountProcessing({

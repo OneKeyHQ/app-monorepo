@@ -218,6 +218,16 @@ describe('RewardCenter account selector sync', () => {
     expect(mockReloadActiveAccountInfo).not.toHaveBeenCalled();
   });
 
+  it('aborts initialization when selection returns false', async () => {
+    mockConfirmAccountSelect.mockResolvedValue(false);
+
+    await renderAndFlushSync();
+
+    expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSelectedAccountFocusedWallet).not.toHaveBeenCalled();
+    expect(mockReloadActiveAccountInfo).not.toHaveBeenCalled();
+  });
+
   it('runs the full init sequence without logging when the selection is persisted', async () => {
     await renderAndFlushSync();
 

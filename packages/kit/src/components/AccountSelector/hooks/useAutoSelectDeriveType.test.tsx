@@ -32,6 +32,15 @@ const mockGetDeriveInfoItemsOfNetwork: jest.MockedFunction<
 const mockGetDeriveTypeOrFallbackToGlobal: jest.MockedFunction<
   () => Promise<string | undefined>
 > = jest.fn();
+const mockAccountSelectorActions = {
+  current: {
+    getSelectedAccount: () => mockGetSelectedAccount(),
+    syncLocalDeriveTypeFromGlobal: (params: unknown) =>
+      mockSyncLocalDeriveTypeFromGlobal(params),
+    updateSelectedAccountDeriveType: (params: unknown) =>
+      mockUpdateSelectedAccountDeriveType(params),
+  },
+};
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { GlobalDeriveTypeUpdate: 'GlobalDeriveTypeUpdate' },
@@ -65,6 +74,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 // Mutable so a test can move the active network and rerender, driving the
 // main effect's networkId dependency the way a real network switch does.
 let mockActiveNetworkId = 'evm--1';
+let mockActiveDeriveInfo: { value: string } | undefined;
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useAccountSelectorSceneInfo: () => ({
@@ -74,7 +84,7 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useAccountSelectorStorageReadyAtom: () => [true],
   useActiveAccount: () => ({
     activeAccount: {
-      deriveInfo: undefined,
+      deriveInfo: mockActiveDeriveInfo,
       isOthersWallet: false,
       network: { id: mockActiveNetworkId },
     },
@@ -82,15 +92,7 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
-  useAccountSelectorActions: () => ({
-    current: {
-      getSelectedAccount: () => mockGetSelectedAccount(),
-      syncLocalDeriveTypeFromGlobal: (params: unknown) =>
-        mockSyncLocalDeriveTypeFromGlobal(params),
-      updateSelectedAccountDeriveType: (params: unknown) =>
-        mockUpdateSelectedAccountDeriveType(params),
-    },
-  }),
+  useAccountSelectorActions: () => mockAccountSelectorActions,
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector/perfDebug', () => ({
@@ -121,6 +123,8 @@ async function mountAndSettleInitialSync() {
 describe('useAutoSelectDeriveType global sync outcome', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockActiveNetworkId = 'evm--1';
+    mockActiveDeriveInfo = undefined;
     mockGetDeriveInfoItemsOfNetwork.mockResolvedValue([{ value: 'default' }]);
     mockGetDeriveTypeOrFallbackToGlobal.mockResolvedValue('default');
     mockUpdateSelectedAccountDeriveType.mockResolvedValue({
@@ -171,7 +175,7 @@ describe('useAutoSelectDeriveType global sync outcome', () => {
       selectionResult: { outcome: 'commit' },
     });
     mockGetSelectedAccount.mockReturnValue({
-      deriveType: undefined,
+      deriveType: 'default',
       networkId: 'evm--1',
     });
 
@@ -188,6 +192,7 @@ describe('useAutoSelectDeriveType global derive type event', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockActiveNetworkId = 'evm--1';
+    mockActiveDeriveInfo = undefined;
     mockSyncLocalDeriveTypeFromGlobal.mockResolvedValue({
       globalDeriveType: 'default',
       selectionResult: { outcome: 'commit' },
@@ -263,6 +268,38 @@ describe('useAutoSelectDeriveType global derive type event', () => {
     expect(mockSyncLocalDeriveTypeFromGlobal).toHaveBeenLastCalledWith(
       expect.objectContaining({ source: 'network-change' }),
     );
+  });
+
+  it('does not repeat the global RPC when only derive info is rebuilt', async () => {
+    const rendered = await mountAndSettleInitialSync();
+    mockSyncLocalDeriveTypeFromGlobal.mockClear();
+
+    mockActiveDeriveInfo = { value: 'default' };
+    rendered.rerender();
+    await Promise.resolve();
+
+    expect(mockSyncLocalDeriveTypeFromGlobal).not.toHaveBeenCalled();
+  });
+
+  it('runs the fallback without repeating the global RPC when derive info disappears', async () => {
+    mockActiveDeriveInfo = { value: 'default' };
+    mockGetSelectedAccount.mockReturnValue({
+      deriveType: undefined,
+      networkId: 'evm--1',
+    });
+    const rendered = await mountAndSettleInitialSync();
+    mockSyncLocalDeriveTypeFromGlobal.mockClear();
+    mockUpdateSelectedAccountDeriveType.mockClear();
+
+    mockActiveDeriveInfo = undefined;
+    rendered.rerender();
+
+    await waitFor(() => {
+      expect(mockUpdateSelectedAccountDeriveType).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'autoDeriveFallback' }),
+      );
+    });
+    expect(mockSyncLocalDeriveTypeFromGlobal).not.toHaveBeenCalled();
   });
 
   it('removes the listener on unmount', async () => {

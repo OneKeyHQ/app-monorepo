@@ -308,6 +308,59 @@ describe('ServiceDApp connection approval transaction', () => {
     });
   });
 
+  it('does not let public DApp alignment supersede a newer Home intent', async () => {
+    const origin = 'https://public-home-intent.test';
+    const harness = createHarness({
+      alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+    });
+    const previousHome = buildSelectedAccount('previous-home');
+    const alignedHome = buildSelectedAccount('aligned-home');
+    const explicitHome = buildSelectedAccount('explicit-home');
+    await harness.accountSelector.saveSelectedAccount({
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+      selectedAccount: previousHome,
+    });
+    const buildStarted = createDeferred();
+    const releaseBuild = createDeferred();
+    jest
+      .spyOn(harness.service, 'buildHomeSelectedAccountByDappAccount')
+      .mockImplementation(async () => {
+        buildStarted.resolve();
+        await releaseBuild.promise;
+        return alignedHome;
+      });
+    jest.clearAllMocks();
+
+    const alignment = harness.service.syncDappAccountIfPrimaryMode({ origin });
+    await buildStarted.promise;
+    const explicitIntentEpoch =
+      await harness.accountSelector.recordSelectedAccountIntent({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+        selectedAccount: explicitHome,
+      });
+    await harness.accountSelector.saveSelectedAccount({
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+      selectedAccount: explicitHome,
+      selectionIntentEpoch: explicitIntentEpoch,
+    });
+    releaseBuild.resolve();
+    await alignment;
+
+    await expect(
+      harness.accountSelector.getSelectedAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    ).resolves.toEqual(explicitHome);
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.SyncDappAccountToHomeAccount,
+      expect.anything(),
+    );
+  });
+
   it('rejects an older renderer snapshot when a newer cross-runtime selection intent arrived first', async () => {
     const origin = 'https://cross-renderer-order.test';
     const harness = createHarness();
