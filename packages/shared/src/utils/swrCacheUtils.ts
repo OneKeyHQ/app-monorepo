@@ -687,6 +687,7 @@ const NS = {
   borrowEModeStatus: 'borrowEModeStatus',
   earnAccount: 'earnAccount',
   earnProtocolDetail: 'earnProtocolDetail',
+  fiatCryptoTokenList: 'fiatCryptoTokenList',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -1183,6 +1184,21 @@ export const swrKeys = {
       locale.toLowerCase(),
       currencyId.toLowerCase(),
     ].join(':'),
+  // Buy Crypto token list (tokens + networksMap + merge-derive flags). Cached
+  // so re-opening the modal paints the previous list synchronously instead of
+  // the skeleton; Android opens modals without an animation, so every bg
+  // round trip is otherwise visible. accountId is in the key because the bg
+  // filters the list by wallet compatibility and (single-network) address.
+  fiatCryptoTokenList: ({
+    networkId,
+    type,
+    accountId,
+  }: {
+    networkId: string;
+    type: string;
+    accountId?: string;
+  }) =>
+    [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

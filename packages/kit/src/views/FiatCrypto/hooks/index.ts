@@ -6,7 +6,9 @@ import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IFiatCryptoTokenListWithNetworks,
   IFiatCryptoType,
@@ -63,6 +65,27 @@ const EMPTY_TOKEN_LIST_WITH_NETWORKS: IFiatCryptoTokenListWithNetworks = {
   mergeDeriveAssetsNetworkIds: [],
 };
 
+// The snapshot is only safe when the rows the bg returns are exactly the rows
+// the list paints:
+// - the sell list is filtered by live balances, so a stale snapshot could
+//   briefly show a token the user no longer holds;
+// - on All Networks, SellOrBuyContent drops networks incompatible with an
+//   imported / watching / external account only after the async account read
+//   lands, so a snapshot would paint those rows first and then remove them.
+function shouldSnapshotTokensList({
+  networkId,
+  type,
+  accountId,
+}: IGetTokensListParams): boolean {
+  if (type !== 'buy') {
+    return false;
+  }
+  return !(
+    networkUtils.isAllNetwork({ networkId }) &&
+    accountUtils.isOthersAccount({ accountId })
+  );
+}
+
 // Tokens and their network metadata come back in one background response so
 // the list renders names, badges and logos in a single commit.
 export const useGetTokensListWithNetworks = ({
@@ -78,7 +101,13 @@ export const useGetTokensListWithNetworks = ({
         accountId,
       }),
     [networkId, type, accountId],
-    { initResult: EMPTY_TOKEN_LIST_WITH_NETWORKS, watchLoading: true },
+    {
+      initResult: EMPTY_TOKEN_LIST_WITH_NETWORKS,
+      watchLoading: true,
+      swrKey: shouldSnapshotTokensList({ networkId, type, accountId })
+        ? swrKeys.fiatCryptoTokenList({ networkId, type, accountId })
+        : undefined,
+    },
   );
 
 export function useFiatCrypto({

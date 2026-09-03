@@ -263,8 +263,10 @@ export function TokenList({
   const { bottom } = useSafeAreaInsets();
   // `isLoading` is undefined until the list request reports its first state;
   // treat that as loading so the page never flashes the empty state before
-  // the skeleton.
-  const showSkeleton = isLoading ?? true;
+  // the skeleton. Items that are already present (SWR snapshot from a previous
+  // open) stay on screen while the request revalidates instead of being
+  // replaced by the skeleton.
+  const showSkeleton = (isLoading ?? true) && items.length === 0;
 
   return (
     <Stack flex={1}>

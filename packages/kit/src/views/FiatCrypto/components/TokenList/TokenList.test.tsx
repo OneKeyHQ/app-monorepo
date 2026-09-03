@@ -237,6 +237,26 @@ describe('FiatCrypto TokenList', () => {
     expect(mockEmptyCount).toBe(1);
   });
 
+  it('renders cached items on the first frame instead of the skeleton', () => {
+    renderList({
+      items: [createToken('btc--0', 'BTC')],
+      isLoading: undefined,
+    });
+
+    expect(mockSkeletonCount).toBe(0);
+    expect(mockRenderedTokenProps).toHaveLength(1);
+  });
+
+  it('keeps showing items while a revalidation request is in flight', () => {
+    renderList({
+      items: [createToken('btc--0', 'BTC')],
+      isLoading: true,
+    });
+
+    expect(mockSkeletonCount).toBe(0);
+    expect(mockRenderedTokenProps).toHaveLength(1);
+  });
+
   it('omits the chain badge while the network name is unknown', () => {
     renderList({
       items: [createToken('btc--0', 'BTC')],
