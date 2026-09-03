@@ -104,13 +104,15 @@ export function useDeviceStageFirmwareVerify() {
         'Bootloader',
       ];
 
-      // The run holds its own burst layer (depth-stacked), begun before
-      // the first beat: a wrapper opening at depth 1 wipes the narrative
-      // and paints `connecting` over the genuine-check card in entries
-      // nothing else holds (device settings → authenticity check), and
-      // with nothing holding, the failure card is left with no exit at
-      // all. Inside onboarding's flow-held burst this layer simply nests.
-      await serviceHardwareUI.deviceStageJoinBurst({
+      // The run holds its own burst layer, begun before the first beat:
+      // a wrapper opening at depth 1 wipes the narrative and paints
+      // `connecting` over the genuine-check card in entries nothing else
+      // holds (device settings → authenticity check), and with nothing
+      // holding, the failure card is left with no exit at all. Inside
+      // onboarding's flow-held burst this layer simply nests. Held by
+      // token so the release in `finally` ends this layer and no other —
+      // a bare depth leave would end whichever layer was live by then.
+      const stageToken = await serviceHardwareUI.deviceStageBeginBurst({
         connectId,
         deviceType: device.deviceType,
         deviceName: deviceUtils.buildDeviceStageName({
@@ -396,7 +398,7 @@ export function useDeviceStageFirmwareVerify() {
           }
         }
       } finally {
-        await serviceHardwareUI.deviceStageLeaveBurst();
+        await serviceHardwareUI.deviceStageEndBurst({ token: stageToken });
       }
     },
     [intl],
