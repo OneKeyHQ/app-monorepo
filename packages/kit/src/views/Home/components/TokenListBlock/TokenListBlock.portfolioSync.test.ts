@@ -4,10 +4,6 @@ import { join } from 'path';
 describe('TokenListBlock portfolio sync producer', () => {
   it('checks the Protocol V2 device type before building the cross-runtime payload', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
-    const buttonSource = readFileSync(
-      join(__dirname, 'PortfolioSyncButton.tsx'),
-      'utf8',
-    );
     const gateIndex = source.indexOf(
       'isProtocolV2ProductType(portfolioSyncDeviceType) &&',
     );
@@ -62,7 +58,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source.match(/const portfolioSynced =/g)).toHaveLength(2);
     expect(source.match(/if \(portfolioSynced\) \{/g)).toHaveLength(2);
     expect(source).toContain('const handleSyncPortfolio = useCallback(() => {');
-    expect(source).toContain('<PortfolioSyncButton');
+    expect(source).toContain('testID="home-sync-portfolio"');
     expect(source).toContain('const showPortfolioSyncButton = Boolean(');
     expect(source).not.toContain('isWalletConnected(wallet)');
     expect(source).toContain(
@@ -80,7 +76,7 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toMatch(
       /!isInteractivePortfolioSync &&\s+assetStatusAggregationComplete/,
     );
-    expect(source).toContain('return renderPortfolioSyncButton();');
+    expect(source).toContain('const renderHeaderActions = useCallback(() => {');
     expect(source).toContain('useFirmwareUpdateWorkflowRunningAtom');
     expect(source).toContain('completePortfolioSyncRequest');
     expect(source).toContain("setPortfolioSyncFeedback('success')");
@@ -103,13 +99,10 @@ describe('TokenListBlock portfolio sync producer', () => {
       'if (portfolioSyncRequest && !keepPortfolioSyncRequest)',
     );
     expect(source).not.toContain('<TokenSelectorLpTokenSwitch');
-    expect(buttonSource).toContain('testID="home-sync-portfolio"');
-    expect(buttonSource).toContain("state === 'loading'");
-    expect(buttonSource).toContain("state === 'success'");
-    expect(buttonSource).toContain(
-      'ETranslations.portfolio_sync_to_device__action',
-    );
-    expect(buttonSource).toContain('accessibilityLiveRegion="polite"');
+    expect(source).toContain('loading={isPortfolioSyncing}');
+    expect(source).toContain("portfolioSyncFeedback === 'success'");
+    expect(source).toContain('ETranslations.portfolio_sync_to_device__action');
+    expect(source).toContain('accessibilityLiveRegion="polite"');
     expect(source).toContain('errorToastUtils.showToastOfError(error)');
     expect(source).toContain(
       'activePortfolioSyncRequest &&\n            activePortfolioSyncRequest.id === portfolioSyncRequest?.id',
