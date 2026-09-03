@@ -20,6 +20,7 @@ function processPackageInstance({
   packageInstance,
   patchesByPackageName,
   repositoryRoot,
+  runtimeNodeModulesRoot,
 }) {
   const { packagePatches, patchDescriptor } = findMatchingPatchDescriptor(
     packageInstance,
@@ -41,6 +42,7 @@ function processPackageInstance({
     packageRoot: packageInstance.packageRoot,
     patchFilePath: patchDescriptor.patchFilePath,
     repositoryRoot,
+    runtimeNodeModulesRoot,
   };
   const initialState = classifyPatchState(patchOptions);
   if (initialState.state === PATCH_STATE.patched) {
@@ -112,6 +114,7 @@ function applyPackagedRuntimePatches({
       packageInstance,
       patchesByPackageName,
       repositoryRoot,
+      runtimeNodeModulesRoot,
     });
     if (failure) {
       failures.push(failure);

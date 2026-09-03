@@ -16,6 +16,26 @@ function isDirectory(directoryPath, directoryEntry) {
   }
 }
 
+function isPathInside(rootPath, candidatePath) {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return (
+    Boolean(relativePath) &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  );
+}
+
+function resolvePathInside(rootPath, candidatePath, description) {
+  const realRootPath = fs.realpathSync(rootPath);
+  const realCandidatePath = fs.realpathSync(candidatePath);
+  assert(
+    isPathInside(realRootPath, realCandidatePath),
+    `${description} resolves outside runtime node_modules: ${candidatePath} -> ${realCandidatePath}.`,
+  );
+  return realCandidatePath;
+}
+
 function findInstalledPackageInstances(nodeModulesRoot, targetPackageNames) {
   const packageInstances = [];
   const visitedPackageRoots = new Set();
@@ -27,12 +47,13 @@ function findInstalledPackageInstances(nodeModulesRoot, targetPackageNames) {
     } catch {
       return;
     }
+    resolvePathInside(nodeModulesRoot, realPackageRoot, 'Installed package');
     if (visitedPackageRoots.has(realPackageRoot)) {
       return;
     }
     visitedPackageRoots.add(realPackageRoot);
 
-    const packageJsonPath = path.join(packageRoot, 'package.json');
+    const packageJsonPath = path.join(realPackageRoot, 'package.json');
     if (!fs.existsSync(packageJsonPath)) {
       return;
     }
@@ -51,11 +72,11 @@ function findInstalledPackageInstances(nodeModulesRoot, targetPackageNames) {
     if (targetPackageNames.has(packageMetadata.name)) {
       packageInstances.push({
         packageName: packageMetadata.name,
-        packageRoot,
+        packageRoot: realPackageRoot,
         version: packageMetadata.version,
       });
     }
-    scanNodeModules(path.join(packageRoot, 'node_modules'));
+    scanNodeModules(path.join(realPackageRoot, 'node_modules'));
   }
 
   function scanNodeModules(nodeModulesPath) {
@@ -104,4 +125,5 @@ function groupPackageInstancesByName(packageInstances) {
 module.exports = {
   findInstalledPackageInstances,
   groupPackageInstancesByName,
+  resolvePathInside,
 };

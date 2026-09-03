@@ -5,6 +5,7 @@ const path = require('path');
 
 const {
   findInstalledPackageInstances,
+  resolvePathInside,
 } = require('./packaged-runtime-patch-utils');
 
 const PATCH_STATE = {
@@ -71,14 +72,24 @@ function runGitApply({
   patchFilePath,
   repositoryRoot,
   reverse = false,
+  runtimeNodeModulesRoot,
 }) {
-  const relativePackageRoot = path.relative(repositoryRoot, packageRoot);
+  const safePackageRoot = resolvePathInside(
+    runtimeNodeModulesRoot,
+    packageRoot,
+    'Packaged dependency',
+  );
+  const realRepositoryRoot = fs.realpathSync(repositoryRoot);
+  const relativePackageRoot = path.relative(
+    realRepositoryRoot,
+    safePackageRoot,
+  );
   assert(
     relativePackageRoot &&
       relativePackageRoot !== '..' &&
       !relativePackageRoot.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relativePackageRoot),
-    `Packaged dependency is outside the repository: ${packageRoot}.`,
+    `Packaged dependency is outside the repository: ${safePackageRoot}.`,
   );
 
   const stripCount = packageName.startsWith('@') ? 4 : 3;
@@ -92,7 +103,7 @@ function runGitApply({
     patchFilePath,
   ];
   const result = childProcess.spawnSync('git', args, {
-    cwd: repositoryRoot,
+    cwd: realRepositoryRoot,
     encoding: 'utf8',
   });
   return {
@@ -153,11 +164,17 @@ function discoverPackagedRuntimePatchTargets({
     patchesByPackageName.set(patchDescriptor.packageName, packagePatches);
   }
 
+  const packageInstances = findInstalledPackageInstances(
+    runtimeNodeModulesRoot,
+    new Set(patchesByPackageName.keys()),
+  );
+  assert(
+    packageInstances.length > 0,
+    `No packaged runtime dependencies under ${runtimeNodeModulesRoot} match any committed patch.`,
+  );
+
   return {
-    packageInstances: findInstalledPackageInstances(
-      runtimeNodeModulesRoot,
-      new Set(patchesByPackageName.keys()),
-    ),
+    packageInstances,
     patchDescriptors,
     patchesByPackageName,
   };
@@ -212,6 +229,7 @@ function auditPackagedRuntimePatches({
         packageRoot: packageInstance.packageRoot,
         patchFilePath: patchDescriptor.patchFilePath,
         repositoryRoot,
+        runtimeNodeModulesRoot,
       });
       results.push({
         ...packageInstance,

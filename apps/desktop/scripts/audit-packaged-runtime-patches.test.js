@@ -24,6 +24,7 @@ function getPackagePathSegments(packageName) {
 }
 
 function createFixture({
+  contentLineEnding = '\n',
   nested = false,
   packageName = 'runtime-package',
   packageVersion = '1.0.0',
@@ -55,7 +56,10 @@ function createFixture({
     path.join(packageRoot, 'package.json'),
     `${JSON.stringify({ name: packageName, version: packageVersion })}\n`,
   );
-  fs.writeFileSync(path.join(packageRoot, 'index.js'), ORIGINAL_CONTENT);
+  fs.writeFileSync(
+    path.join(packageRoot, 'index.js'),
+    ORIGINAL_CONTENT.replaceAll('\n', contentLineEnding),
+  );
 
   fs.mkdirSync(patchesRoot, { recursive: true });
   const patchPackagePath = `node_modules/${packageName}/index.js`;
@@ -141,6 +145,26 @@ describe('packaged runtime patch audit', () => {
       const summary = runApply(fixture);
 
       expect(summary.results[0].action).toBe(PATCH_ACTION.alreadyPatched);
+      expect(
+        readNormalizedText(path.join(fixture.packageRoot, 'index.js')),
+      ).toBe(PATCHED_CONTENT);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test('applies and audits an LF patch against CRLF package content', () => {
+    const fixture = createFixture({ contentLineEnding: '\r\n' });
+    try {
+      expect(
+        fs.readFileSync(path.join(fixture.packageRoot, 'index.js'), 'utf8'),
+      ).toBe(ORIGINAL_CONTENT.replaceAll('\n', '\r\n'));
+
+      const applySummary = runApply(fixture);
+      const auditSummary = runAudit(fixture);
+
+      expect(applySummary.results[0].action).toBe(PATCH_ACTION.applied);
+      expect(auditSummary.results[0].state).toBe(PATCH_STATE.patched);
       expect(
         readNormalizedText(path.join(fixture.packageRoot, 'index.js')),
       ).toBe(PATCHED_CONTENT);
@@ -254,6 +278,52 @@ describe('packaged runtime patch audit', () => {
       expect(instances).toEqual([]);
     } finally {
       fs.rmSync(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test('rejects apply and audit when no packaged dependency matches a patch', () => {
+    const fixture = createFixture();
+    try {
+      writePackageMetadata(fixture.packageRoot, 'unrelated-package');
+
+      expect(() => runApply(fixture)).toThrow(
+        /No packaged runtime dependencies.*match any committed patch/,
+      );
+      expect(() => runAudit(fixture)).toThrow(
+        /No packaged runtime dependencies.*match any committed patch/,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test('rejects a packaged dependency symlink that resolves outside appDir', () => {
+    const fixture = createFixture();
+    try {
+      const workspacePackageRoot = path.join(
+        fixture.repositoryRoot,
+        'node_modules/runtime-package',
+      );
+      writePackageMetadata(workspacePackageRoot, 'runtime-package');
+      fs.writeFileSync(
+        path.join(workspacePackageRoot, 'index.js'),
+        ORIGINAL_CONTENT,
+      );
+      fs.rmSync(fixture.packageRoot, { force: true, recursive: true });
+      fs.symlinkSync(
+        workspacePackageRoot,
+        fixture.packageRoot,
+        process.platform === 'win32' ? 'junction' : 'dir',
+      );
+
+      expect(() => runApply(fixture)).toThrow(
+        /Installed package resolves outside runtime node_modules/,
+      );
+      expect(() => runAudit(fixture)).toThrow(
+        /Installed package resolves outside runtime node_modules/,
+      );
+    } finally {
+      fixture.cleanup();
     }
   });
 
