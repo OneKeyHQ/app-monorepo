@@ -31,6 +31,9 @@ type IMarketTokenDetailRouteParams = Partial<
     stockId?: string;
     isNative?: boolean | string;
     showFavoriteButton?: boolean | string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewName?: string;
+    stockPreviewSymbol?: string;
   };
 
 const NAVIGATION_RETRY_DELAYS = [120, 360];
@@ -86,6 +89,12 @@ export function getMarketTokenDetailNavigationTargetFromHash(
 
     if (segments[1] === 'stock') {
       const stockId = decodeURIComponent(segments[2]);
+      const stockPreviewLogoUrl =
+        searchParams.get('stockPreviewLogoUrl') || undefined;
+      const stockPreviewName =
+        searchParams.get('stockPreviewName') || undefined;
+      const stockPreviewSymbol =
+        searchParams.get('stockPreviewSymbol') || undefined;
       const tokenAddress = searchParams.get('tokenAddress') || undefined;
       const network = searchParams.get('network') || undefined;
 
@@ -93,6 +102,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         screen: ETabMarketRoutes.MarketStockDetail,
         params: {
           stockId,
+          ...(stockPreviewSymbol ? { stockPreviewSymbol } : undefined),
+          ...(stockPreviewName ? { stockPreviewName } : undefined),
+          ...(stockPreviewLogoUrl ? { stockPreviewLogoUrl } : undefined),
           ...(tokenAddress ? { tokenAddress } : undefined),
           ...(network ? { network } : undefined),
           ...(isNative === undefined ? undefined : { isNative }),

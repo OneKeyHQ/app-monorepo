@@ -14,6 +14,7 @@ const mockSetNetworkId = jest.fn();
 const mockSetPerpsInfo = jest.fn();
 const mockSetTokenAddress = jest.fn();
 const mockSetTokenDetail = jest.fn();
+const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
 let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
@@ -45,6 +46,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
       setPerpsInfo: mockSetPerpsInfo,
       setTokenAddress: mockSetTokenAddress,
       setTokenDetail: mockSetTokenDetail,
+      setTokenDetailLoading: mockSetTokenDetailLoading,
       setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
     },
   }),
@@ -169,5 +171,20 @@ describe('useAutoRefreshTokenDetail', () => {
     );
 
     expect(result.current.marketAssetDetail).toBeUndefined();
+  });
+
+  it('clears loading when market fetching is skipped', () => {
+    renderHook(() =>
+      useAutoRefreshTokenDetail({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        skipMarketDataFetch: true,
+      }),
+    );
+
+    expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
   });
 });

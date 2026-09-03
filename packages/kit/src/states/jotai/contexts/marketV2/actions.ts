@@ -71,7 +71,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -288,7 +288,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailAtom(), {
+          ...responseData.data.token,
+          networkId,
+        });
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -391,7 +394,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }
 
         // Extract token, websocket and perpsInfo from response format
-        const tokenData = responseData.data.token;
+        const tokenData = {
+          ...responseData.data.token,
+          networkId,
+        };
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 

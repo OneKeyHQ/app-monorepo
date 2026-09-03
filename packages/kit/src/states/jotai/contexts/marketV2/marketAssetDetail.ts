@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -44,7 +45,7 @@ function isSameMarketTokenDetail({
       contractAddress: tokenAddress,
     },
     token2: {
-      networkId,
+      networkId: tokenDetail.networkId || '',
       contractAddress: tokenDetail.address || '',
     },
   });
@@ -173,15 +174,22 @@ async function fetchMarketAssetTokenDetail(
       : currentDecimals;
 
     if (!isValidTokenDecimals(decimals)) {
-      try {
-        const tokenInfo =
-          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-          });
-        decimals = tokenInfo?.info?.decimals;
-      } catch {
-        decimals = undefined;
+      if (selectedVariant.isNative) {
+        decimals = networkUtils.getLocalNetworkInfo(
+          selectedVariant.networkId,
+        )?.decimals;
+      }
+      if (!isValidTokenDecimals(decimals)) {
+        try {
+          const tokenInfo =
+            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+              networkId: selectedVariant.networkId,
+              tokenAddress: selectedVariant.tokenAddress,
+            });
+          decimals = tokenInfo?.info?.decimals;
+        } catch {
+          decimals = undefined;
+        }
       }
     }
 
@@ -226,12 +234,7 @@ async function fetchMarketAssetTokenDetail(
     defaultLogger.app.error.log(
       `Failed to fetch market asset detail: ${String(error)}`,
     );
-    if (isCurrentIdentity()) {
-      set(tokenDetailAtom(), undefined);
-      set(tokenDetailPreviewAtom(), undefined);
-      set(tokenDetailWebsocketAtom(), undefined);
-      set(perpsInfoAtom(), undefined);
-    } else {
+    if (!isCurrentIdentity()) {
       isStale = true;
     }
     throw error;

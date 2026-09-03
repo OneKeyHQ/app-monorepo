@@ -195,7 +195,7 @@ describe('marketV2 asset token detail actions', () => {
     });
   });
 
-  it('keeps asset data when token decimals cannot be resolved', async () => {
+  it('uses local network decimals for a preview-less native asset', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
       () => {
@@ -229,23 +229,19 @@ describe('marketV2 asset token detail actions', () => {
       });
     });
 
-    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(2);
-    expect(mockFetchTokenInfoOnly).toHaveBeenCalledWith({
-      networkId: 'doge--0',
-      tokenAddress: '',
-    });
+    expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
     expect(store.get(tokenDetailAtom())).toMatchObject({
       address: '',
+      decimals: 8,
       networkId: 'doge--0',
-      decimals: 2,
-      decimalsResolved: false,
+      decimalsResolved: true,
       price: '0.25',
     });
     expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 
-  it('clears the matching preview when the Asset API fails', async () => {
+  it('preserves the matching preview when the initial Asset API request fails', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
       () => {
@@ -284,8 +280,94 @@ describe('marketV2 asset token detail actions', () => {
       ).rejects.toThrow('Asset API unavailable');
     });
 
-    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+    expect(store.get(tokenDetailPreviewAtom())).toMatchObject({
+      networkId: 'doge--0',
+      symbol: 'DOGE',
+    });
     expect(store.get(tokenDetailAtom())).toBeUndefined();
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('preserves the last successful asset detail when polling fails', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      { wrapper: Wrapper },
+    );
+
+    act(() => {
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    const loadedDetail = store.get(tokenDetailAtom());
+    mockFetchMarketAssetDetail.mockRejectedValueOnce(new Error('poll failed'));
+
+    await act(async () => {
+      await expect(
+        result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        }),
+      ).rejects.toThrow('poll failed');
+    });
+
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+
+  it('does not reuse a fresh chart price from another network', async () => {
+    const { store, Wrapper } = createWrapper();
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: {
+        token: {
+          address: '',
+          decimals: 8,
+          name: 'Dogecoin',
+          price: '0.3',
+          symbol: 'DOGE',
+        },
+      },
+    });
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+
+    act(() => {
+      result.current.setTokenDetail({
+        address: '',
+        chartPriceUpdatedAt: 1_788_332_400_000,
+        decimals: 8,
+        logoUrl: '',
+        name: 'Bitcoin',
+        networkId: 'btc--0',
+        price: '70_000',
+        symbol: 'BTC',
+      });
+      result.current.setTokenAddress('');
+      result.current.setNetworkId('doge--0');
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail('', 'doge--0');
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      networkId: 'doge--0',
+      price: '0.3',
+      symbol: 'DOGE',
+    });
   });
 });

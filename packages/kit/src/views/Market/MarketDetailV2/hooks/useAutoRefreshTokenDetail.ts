@@ -131,6 +131,25 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     tokenDetailActions.setIsNative(data.isNative);
   }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
 
+  useEffect(() => {
+    const canFetch = Boolean(
+      !data.skipMarketDataFetch &&
+      currencyInfo.id &&
+      data.networkId &&
+      (data.tokenAddress || data.isNative),
+    );
+    if (!canFetch) {
+      tokenDetailActions.setTokenDetailLoading(false);
+    }
+  }, [
+    currencyInfo.id,
+    data.isNative,
+    data.networkId,
+    data.skipMarketDataFetch,
+    data.tokenAddress,
+    tokenDetailActions,
+  ]);
+
   const { result } = usePromiseResult<
     { assetId: string; assetDetail: IMarketAssetDetailData } | undefined
   >(

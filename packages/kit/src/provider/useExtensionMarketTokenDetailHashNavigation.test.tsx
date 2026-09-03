@@ -158,6 +158,22 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('parses the stock preview from an extension detail hash', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/stock/AAPL?stockPreviewSymbol=AAPL&stockPreviewName=Apple+Inc.&stockPreviewLogoUrl=https%3A%2F%2Fexample.com%2Faapl.png',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketStockDetail,
+      params: {
+        stockId: 'AAPL',
+        stockPreviewSymbol: 'AAPL',
+        stockPreviewName: 'Apple Inc.',
+        stockPreviewLogoUrl: 'https://example.com/aapl.png',
+      },
+    });
+  });
+
   it('preserves native token address when the hash includes one', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(

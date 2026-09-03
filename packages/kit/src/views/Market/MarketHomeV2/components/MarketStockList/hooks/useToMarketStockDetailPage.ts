@@ -59,6 +59,13 @@ export function useToMarketStockDetailPage() {
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
           stockId,
+          ...(stockPreview
+            ? {
+                stockPreviewSymbol: stockPreview.symbol,
+                stockPreviewName: stockPreview.name,
+                stockPreviewLogoUrl: stockPreview.logoUrl,
+              }
+            : undefined),
           from: platformEnv.isExtensionUiPopup
             ? EEnterWay.ExtensionPopup
             : EEnterWay.ExtensionSidePanel,
