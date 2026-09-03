@@ -992,6 +992,7 @@ export function MobileLayout({
     isStockToken,
   ]);
   const isSwapTokenReady =
+    tokenDetail?.decimalsResolved !== false &&
     typeof tokenDetail?.decimals === 'number' &&
     Number.isInteger(tokenDetail.decimals) &&
     tokenDetail.decimals >= 0;

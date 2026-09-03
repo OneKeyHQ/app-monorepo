@@ -23,7 +23,7 @@ import {
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
-const UNRESOLVED_TOKEN_DECIMALS = Number.NaN;
+const MARKET_CHART_FALLBACK_DECIMALS = 2;
 
 function isSameMarketTokenDetail({
   tokenDetail,
@@ -77,7 +77,8 @@ export function buildMarketAssetTokenDetail({
     logoUrl: asset.logoUrl,
     name: asset.name,
     symbol: asset.symbol.toUpperCase(),
-    decimals: decimals ?? UNRESOLVED_TOKEN_DECIMALS,
+    decimals: decimals ?? MARKET_CHART_FALLBACK_DECIMALS,
+    decimalsResolved: decimals !== undefined,
     price: market.price,
     priceChange24hPercent: market.priceChange24hPercent,
     priceChange7dPercent: performance.priceChange7dPercent,
@@ -147,13 +148,14 @@ async function fetchMarketAssetTokenDetail(
 
     const currentTokenDetail = get(tokenDetailAtom());
     const tokenDetailPreview = get(tokenDetailPreviewAtom());
-    const currentDecimals = isSameMarketTokenDetail({
-      tokenDetail: currentTokenDetail,
-      tokenAddress,
-      networkId,
-    })
-      ? currentTokenDetail?.decimals
-      : undefined;
+    const currentDecimals =
+      isSameMarketTokenDetail({
+        tokenDetail: currentTokenDetail,
+        tokenAddress,
+        networkId,
+      }) && currentTokenDetail?.decimalsResolved !== false
+        ? currentTokenDetail?.decimals
+        : undefined;
     const previewMatchesRoute = tokenDetailPreview
       ? equalTokenNoCaseSensitive({
           token1: {

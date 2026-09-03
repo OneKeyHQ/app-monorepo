@@ -66,6 +66,7 @@ describe('buildMarketAssetTokenDetail', () => {
       name: 'Dogecoin',
       symbol: 'DOGE',
       decimals: 8,
+      decimalsResolved: true,
       price: '0.25',
       priceChange24hPercent: '4.2',
       priceChange7dPercent: '5',
