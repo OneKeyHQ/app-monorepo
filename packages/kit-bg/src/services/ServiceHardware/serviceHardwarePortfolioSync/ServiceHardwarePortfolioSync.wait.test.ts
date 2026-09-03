@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 import {
   BluetoothUnavailableWhileUsbConnectedError,
@@ -481,6 +482,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       protocol: 'V2',
       status: { unlocked: true },
     });
+    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
     const getCurrentTransportType = jest
       .fn()
       .mockResolvedValue(hardwareTransportType);
@@ -543,6 +549,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       backgroundApi: {
         serviceHardware: {
           getDeviceState,
+          getDeviceStateWithUnlock,
           getCurrentTransportType,
           isHardwareDeviceConnected,
           prepareHardwareTransport,
@@ -598,6 +605,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
     return {
       getDeviceState,
+      getDeviceStateWithUnlock,
       getCurrentTransportType,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
@@ -1203,6 +1211,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
   test('uses the standard interactive hardware flow for an explicit BLE sync', async () => {
     const {
+      getDeviceStateWithUnlock,
       isHardwareChannelBusy,
       service,
       serviceInternals,
@@ -1230,6 +1239,14 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }),
     );
     expect(isHardwareChannelBusy).not.toHaveBeenCalled();
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      oneKeyOperationLease: expect.objectContaining({
+        deviceKey: 'db-device-1',
+      }),
+      params: { scope: 'runtime' },
+      pinType: DeviceSessionPinType.Any,
+    });
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
@@ -1239,6 +1256,48 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       packageBase64: 'AQID',
       uiMode: 'progress',
     });
+    expect(getDeviceStateWithUnlock.mock.invocationCallOrder[0]).toBeLessThan(
+      uploadPortfolioPackage.mock.invocationCallOrder[0],
+    );
+  });
+
+  test('settles an explicit sync when device unlock is cancelled', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const {
+      getDeviceStateWithUnlock,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    getDeviceStateWithUnlock.mockRejectedValueOnce(
+      new Error('Device unlock cancelled'),
+    );
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toThrow('Device unlock cancelled');
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        failureStage: 'unlock',
+        status: 'failed',
+        syncDurationMs: expect.any(Number),
+        syncMode: 'interactive',
+        totalTokenCount: 1,
+      }),
+    );
   });
 
   test('throws when an explicit upload is not applied by the device', async () => {
@@ -2213,13 +2272,22 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
-  test('reports a successful Portfolio sync by physical device', async () => {
+  test('reports a successful Portfolio sync with transfer metrics', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-03T00:00:00.000Z'));
     const portfolioSyncedSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSynced')
       .mockImplementation((params) => params);
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
     try {
-      const { serviceInternals } = prepareHardwareSync({
+      const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
         busyResults: [false, false],
+      });
+      uploadPortfolioPackage.mockImplementationOnce(async () => {
+        jest.setSystemTime(Date.now() + 1000);
+        return { portfolioUpdated: true };
       });
 
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
@@ -2229,9 +2297,62 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         deviceId: 'PRO2_DEVICE_ID',
         deviceType: EDeviceType.Pro2,
       });
+      expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
+      expect(portfolioSyncResultSpy).toHaveBeenCalledWith({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        effectiveTransferRateBytesPerSecond: 3,
+        hardwareDurationMs: 1000,
+        packageBytes: 3,
+        packDurationMs: 0,
+        portfolioJsonBytes: expect.any(Number),
+        status: 'success',
+        syncDurationMs: 1000,
+        syncMode: 'silent',
+        tokenCount: 1,
+        totalTokenCount: 1,
+        transportType: EHardwareTransportType.WEBUSB,
+      });
     } finally {
       portfolioSyncedSpy.mockRestore();
+      portfolioSyncResultSpy.mockRestore();
+      jest.useRealTimers();
     }
+  });
+
+  test('reports a server packing failure without raw Portfolio data', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false, false],
+    });
+    serviceInternals.submitPortfolioJsonToServer.mockRejectedValueOnce(
+      Object.assign(new Error('Server packing failed'), {
+        code: 'PACK_FAILED',
+      }),
+    );
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        errorCode: 'PACK_FAILED',
+        failureStage: 'pack',
+        packDurationMs: expect.any(Number),
+        portfolioJsonBytes: expect.any(Number),
+        status: 'failed',
+        syncDurationMs: expect.any(Number),
+        syncMode: 'silent',
+        tokenCount: 1,
+        totalTokenCount: 1,
+        transportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
   });
 
   test('retries the latest snapshot when hardware is busy before server packing', async () => {
@@ -2477,6 +2598,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
   test('releases a prepared retry reservation when upload fails', async () => {
     jest.useFakeTimers();
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false, true, false] });
     uploadPortfolioPackage.mockRejectedValueOnce(new Error('Device unplugged'));
@@ -2498,6 +2622,20 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         errorMessage: 'Device unplugged',
         status: 'error',
       }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failureStage: 'device-sync',
+        hardwareDurationMs: expect.any(Number),
+        packageBytes: 3,
+        status: 'failed',
+        syncMode: 'silent',
+        transportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(portfolioSyncResultSpy.mock.calls[0][0]).not.toHaveProperty(
+      'effectiveTransferRateBytesPerSecond',
     );
     jest.useRealTimers();
   });
