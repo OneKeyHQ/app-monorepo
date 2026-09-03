@@ -14,6 +14,7 @@ export enum EEarnProviderEnum {
   Lista = 'Lista',
   Stakefish = 'Stakefish',
   Kamino = 'Kamino',
+  Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
   Bitway = 'Bitway',
@@ -55,7 +56,8 @@ export type ISupportedSymbol =
   | 'stcUSD'
   | 'kHYPE'
   | 'U'
-  | 'BTW';
+  | 'BTW'
+  | 'vbUSDC';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
@@ -184,4 +186,28 @@ export interface IEarnAvailableAssetV2 {
   vault?: string;
   ptAddress?: string;
   enableBatch?: boolean;
+}
+
+export type IEarnBannerTheme = 'light' | 'dark';
+
+export interface IEarnPageBannerListItem {
+  bannerId: string;
+  theme: IEarnBannerTheme;
+  backgroundImage: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  button: string;
+  // Campaign copy rendered at the bottom-left of the banner image
+  // (OK-58503). Optional/empty = no image overlay text.
+  imageTitle?: string;
+  imageSubtitle?: string;
+  // Optional per-text colors (rgb/rgba/hex); when absent the client falls
+  // back to Figma defaults (double fallback)
+  titleColor?: string;
+  subtitleColor?: string;
+  imageTitleColor?: string;
+  imageSubtitleColor?: string;
+  href: string;
+  hrefType: string;
 }

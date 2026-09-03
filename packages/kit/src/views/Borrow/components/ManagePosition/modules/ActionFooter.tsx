@@ -4,8 +4,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import {
+  EStakeProgressStep,
+  StakeProgress,
+} from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -25,9 +29,8 @@ export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
 }: IActionFooterProps) {
-  const { state, actions, actionResult } = useManagePositionContext();
   const intl = useIntl();
-
+  const { state, actions, actionResult, approval } = useManagePositionContext();
   const {
     action,
     actionLabel: actionLabelProp,
@@ -37,8 +40,6 @@ export function ActionFooter({
     isInsufficientBalance,
     isAmountInvalid,
     isInModalContext: isInModalContextState,
-    shouldApprove,
-    approveLoading,
   } = state;
 
   const {
@@ -48,20 +49,30 @@ export function ActionFooter({
     riskOfLiquidationAlert,
   } = actionResult;
 
-  const { onSubmit, onApprove, onSelectPercentageStage, setSubmitting } =
-    actions;
+  const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
+  const {
+    approving,
+    approvalProgressStarted,
+    loadingAllowance,
+    shouldApprove,
+    ensureReadyToSubmit,
+    onApprove,
+  } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
 
-  // Action label
+  const businessActionLabel = useMemo(
+    () =>
+      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] }),
+    [actionLabelProp, action, intl],
+  );
+
   const actionLabel = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage({ id: ETranslations.global_approve });
     }
-    return (
-      actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] })
-    );
-  }, [actionLabelProp, action, intl, shouldApprove]);
+    return businessActionLabel;
+  }, [businessActionLabel, intl, shouldApprove]);
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -91,63 +102,126 @@ export function ActionFooter({
     checkAmountLoading,
   ]);
 
+  const confirmBorrowLiquidationRisk = useCallback(async () => {
+    if (action !== 'borrow' || !riskOfLiquidationAlert) {
+      return true;
+    }
+
+    return showLiquidationRiskDialog(intl);
+  }, [action, intl, riskOfLiquidationAlert]);
+
   // Handle submit with liquidation risk check for borrow
   const handleSubmit = useCallback(async () => {
     try {
       Keyboard.dismiss();
 
-      // Check if liquidation risk alert is needed (only for borrow action)
-      if (action === 'borrow' && riskOfLiquidationAlert) {
-        const confirmed = await showLiquidationRiskDialog(intl);
-        if (!confirmed) {
-          return;
-        }
-      }
-
-      if (shouldApprove && onApprove) {
-        await onApprove();
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
         return;
       }
 
       setSubmitting(true);
+      const readyToSubmit = await ensureReadyToSubmit();
+      if (!readyToSubmit) {
+        return;
+      }
       await onSubmit();
     } finally {
       setSubmitting(false);
     }
   }, [
-    action,
-    riskOfLiquidationAlert,
-    intl,
-    shouldApprove,
-    onApprove,
+    confirmBorrowLiquidationRisk,
+    ensureReadyToSubmit,
     onSubmit,
     setSubmitting,
   ]);
 
+  const handleConfirm = useCallback(async () => {
+    if (shouldApprove) {
+      Keyboard.dismiss();
+      const confirmed = await confirmBorrowLiquidationRisk();
+      if (!confirmed) {
+        return;
+      }
+      await onApprove();
+      return;
+    }
+    await handleSubmit();
+  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
+
+  const confirmText = useMemo(() => {
+    if (shouldApprove) {
+      return intl.formatMessage(
+        { id: ETranslations.global_approve },
+        { amount: amountValue, symbol: state.tokenSymbol ?? '' },
+      );
+    }
+    return actionLabel;
+  }, [actionLabel, amountValue, intl, shouldApprove, state.tokenSymbol]);
+
   const footerContent = (
     <Page.FooterActions
-      onConfirmText={actionLabel}
+      $gtMd={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+      }}
+      onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
-        onPress: handleSubmit,
-        loading: submitting || checkAmountLoading || approveLoading,
+        onPress: handleConfirm,
+        loading:
+          submitting || checkAmountLoading || loadingAllowance || approving,
         disabled: isButtonDisabled,
       }}
     />
   );
+
+  const isShowStakeProgress =
+    !!amountValue && (shouldApprove || approvalProgressStarted);
+
+  const progressContent = isShowStakeProgress ? (
+    <StakeProgress
+      currentStep={
+        shouldApprove ? EStakeProgressStep.approve : EStakeProgressStep.deposit
+      }
+      step1LabelId={ETranslations.global_approve}
+      step2Label={businessActionLabel}
+    />
+  ) : null;
 
   return (
     <>
       {beforeFooter ?? state.beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          {footerContent}
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
+            }}
+          >
+            {progressContent ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {progressContent}
+              </Stack>
+            ) : null}
+            {footerContent}
+          </Stack>
           <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+            onSelectPercentageStage={
+              approving ? undefined : onSelectPercentageStage
+            }
           />
         </Page.Footer>
       ) : (
-        <YStack>{footerContent}</YStack>
+        <YStack bg="$bgApp" gap="$5">
+          {progressContent}
+          {footerContent}
+        </YStack>
       )}
     </>
   );

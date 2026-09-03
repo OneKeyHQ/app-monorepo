@@ -29,6 +29,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
+  EModalRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
@@ -37,11 +39,13 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
@@ -134,7 +138,16 @@ type IOneKeyAppLinkTarget =
   | { type: 'stocks' }
   | { type: 'perps' }
   | { type: 'swapHome' }
-  | { type: 'market' };
+  | { type: 'market' }
+  | {
+      // Earn protocol detail universal link, mirroring the web route
+      // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
+      type: 'earnProtocolDetail';
+      network: string;
+      symbol: string;
+      provider: string;
+      vault?: string;
+    };
 
 const ONEKEY_WEB_APP_UNIVERSAL_LINK_HOSTS = new Set<string>([
   ONEKEY_UNIVERSAL_LINK_HOST,
@@ -190,6 +203,31 @@ function parseOneKeyAppLinkTarget({
   }
   if (normalizedPath === 'market') {
     return { type: 'market' };
+  }
+  // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
+  // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
+  // symbol/provider/vault is case-sensitive, so preserve the original casing.
+  const rawSegments = (path ?? '')
+    .replace(/^\/+|\/+$/gu, '')
+    .split('/')
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    });
+  if (rawSegments.length === 4 && rawSegments[0].toLowerCase() === 'earn') {
+    const [, network, symbol, provider] = rawSegments;
+    if (network && symbol && provider) {
+      return {
+        type: 'earnProtocolDetail',
+        network,
+        symbol,
+        provider,
+        vault: getStringQueryParam(queryParams?.vault),
+      };
+    }
   }
   return undefined;
 }
@@ -278,6 +316,18 @@ async function processOneKeyAppUniversalLink(
         },
       });
     }
+    return true;
+  }
+  if (target.type === 'earnProtocolDetail') {
+    // Reuse the safe Earn navigation: it handles the native Discovery
+    // sub-tab switch, earn-mode switch, and stack push; if the protocol does
+    // not exist, the detail page has its own error-state fallback
+    EarnNavigation.pushToEarnProtocolDetailsShare(navigation, {
+      network: target.network,
+      symbol: target.symbol,
+      provider: target.provider,
+      vault: target.vault,
+    });
     return true;
   }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
@@ -383,6 +433,21 @@ async function processDeepLinkUrlAccount(
           if (webViewParams) {
             openWebView(webViewParams);
           }
+          break;
+        }
+        case EOneKeyDeepLinkPath.preview_featured_changelog: {
+          // Ops-only entry: opens the Featured Changelog preview page so
+          // dashboard-configured changelog content can be verified in a
+          // production build. Access is gated by the obscurity of this
+          // deeplink — the page has no in-app navigation entry point.
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.preview_featured_changelog];
+          const version =
+            getStringQueryParam(query?.version)?.trim() || undefined;
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.FeaturedChangelogPreview,
+            params: { version },
+          });
           break;
         }
         default:
@@ -499,6 +564,9 @@ const processDeepLinkUrl = memoizee(
     if (!url) return;
 
     try {
+      // An open SFSafariViewController would cover any navigation this deep
+      // link triggers; close it first (iOS-only, no-op elsewhere).
+      dismissNativeInAppBrowser();
       console.log('processDeepLinkUrl: >>>>> ', url);
       captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
@@ -534,6 +602,21 @@ const processDeepLinkUrl = memoizee(
     maxAge: 600,
   },
 );
+
+// For feature code (e.g. the banner) to try before opening a webpage: if the
+// URL is an official universal link (earn detail / market / perps, etc.),
+// navigate natively and return true; otherwise return false and the caller
+// opens the webpage as before.
+export const tryHandleOneKeyUniversalLink = async (
+  url: string,
+): Promise<boolean> => {
+  try {
+    const parsedUrl = Linking.parse(url);
+    return await processOneKeyAppUniversalLink({ url, parsedUrl });
+  } catch {
+    return false;
+  }
+};
 
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   const urls = [data.url, ...(data.argv ?? [])].filter(

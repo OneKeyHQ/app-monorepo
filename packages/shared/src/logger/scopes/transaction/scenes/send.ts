@@ -4,6 +4,13 @@ import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type {
+  IGasAccountActionParams,
+  IGasAccountAnalyticsContext,
+  ISendCexDepositWarningActionParams,
+  ISendCexDepositWarningContext,
+} from '../types';
+
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
 type IPrivateSendFinalStatus = 'done' | 'failed';
@@ -330,6 +337,24 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
+  public sendCexDepositWarningShow(params: ISendCexDepositWarningContext) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
+  public sendCexDepositWarningAction(
+    params: ISendCexDepositWarningActionParams,
+  ) {
+    return {
+      sendFlowId: this._sendFlowId,
+      ...params,
+    };
+  }
+
+  @LogToServer()
   public sendPrivateCreateOrder(params: ISendPrivateCreateOrderParams) {
     return params;
   }
@@ -358,23 +383,27 @@ export class SendScene extends BaseScene {
   }
 
   @LogToServer()
-  public insufficientFeeOnConfirm({
-    network,
-    tokenSymbol,
-    fillUpAmount,
-    feeType,
-  }: {
-    network: string | undefined;
-    tokenSymbol: string | undefined;
-    fillUpAmount: string | undefined;
-    feeType: 'native' | 'token';
-  }) {
+  public gasAccountDecision(params: IGasAccountAnalyticsContext) {
+    return params;
+  }
+
+  @LogToServer()
+  public gasAccountAction(params: IGasAccountActionParams) {
+    return params;
+  }
+
+  @LogToServer()
+  public insufficientFeeOnConfirm(
+    params: {
+      network: string | undefined;
+      tokenSymbol: string | undefined;
+      fillUpAmount: string | undefined;
+      feeType: 'native' | 'token';
+    } & Partial<Omit<IGasAccountAnalyticsContext, 'network'>>,
+  ) {
     return {
       sendFlowId: this._sendFlowId,
-      network,
-      tokenSymbol,
-      fillUpAmount,
-      feeType,
+      ...params,
     };
   }
 
@@ -415,6 +444,39 @@ export class SendScene extends BaseScene {
       error,
       attemptNumber,
       retriesLeft,
+    };
+  }
+
+  @LogToLocal()
+  public refTxFetchFailed({
+    network,
+    error,
+  }: {
+    network: string | undefined;
+    error: string;
+  }) {
+    return {
+      network,
+      error,
+    };
+  }
+
+  // Logged when a refTx field arrives empty and is read as 0 — the only trace
+  // if that substitution was actually wrong.
+  @LogToLocal()
+  public refTxFieldDefaulted({
+    network,
+    txId,
+    field,
+  }: {
+    network: string | undefined;
+    txId: string;
+    field: string;
+  }) {
+    return {
+      network,
+      txId,
+      field,
     };
   }
 }

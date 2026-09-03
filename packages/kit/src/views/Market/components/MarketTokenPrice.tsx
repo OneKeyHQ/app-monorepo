@@ -16,8 +16,8 @@ class MarketTokenPriceEvent {
 
   private priceChangedListenerMap = new Map<string, (() => void)[]>();
 
-  private buildKey(name: string, symbol: string) {
-    return `${name}-${symbol}`;
+  private buildKey(name: string, symbol: string, cacheKey?: string) {
+    return cacheKey ?? `${name}-${symbol}`;
   }
 
   public updateTokenPrice({
@@ -25,30 +25,36 @@ class MarketTokenPriceEvent {
     symbol: tokenSymbol,
     price: tokenPrice,
     lastUpdated: tokenLastUpdated,
+    cacheKey,
   }: {
     name: string;
     symbol: string;
     price: string;
     lastUpdated: number;
+    cacheKey?: string;
   }) {
-    const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    const cachedData = this.tokenPriceMap.get(cacheKey);
+    const priceCacheKey = this.buildKey(tokenName, tokenSymbol, cacheKey);
+    const cachedData = this.tokenPriceMap.get(priceCacheKey);
     const { lastUpdated = 0 } = cachedData || {};
 
     if (tokenLastUpdated > lastUpdated) {
-      this.tokenPriceMap.set(cacheKey, {
+      this.tokenPriceMap.set(priceCacheKey, {
         price: tokenPrice,
         lastUpdated: tokenLastUpdated,
       });
 
-      const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+      const listeners = this.priceChangedListenerMap.get(priceCacheKey) || [];
       listeners.forEach((i) => i());
     }
   }
 
-  public getTokenPrice(tokenName: string, tokenSymbol: string) {
-    const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    const cachedData = this.tokenPriceMap.get(cacheKey);
+  public getTokenPrice(
+    tokenName: string,
+    tokenSymbol: string,
+    cacheKey?: string,
+  ) {
+    const priceCacheKey = this.buildKey(tokenName, tokenSymbol, cacheKey);
+    const cachedData = this.tokenPriceMap.get(priceCacheKey);
     const price = cachedData?.price || '-';
 
     return price;
@@ -58,16 +64,17 @@ class MarketTokenPriceEvent {
     tokenName: string,
     tokenSymbol: string,
     callback: () => void,
+    cacheKey?: string,
   ) {
-    const cacheKey = this.buildKey(tokenName, tokenSymbol);
-    const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
+    const priceCacheKey = this.buildKey(tokenName, tokenSymbol, cacheKey);
+    const listeners = this.priceChangedListenerMap.get(priceCacheKey) || [];
     const throttleCallback = throttle(callback, 450);
     listeners.push(throttleCallback);
-    this.priceChangedListenerMap.set(cacheKey, listeners);
+    this.priceChangedListenerMap.set(priceCacheKey, listeners);
     return () => {
-      const callbacks = this.priceChangedListenerMap.get(cacheKey) || [];
+      const callbacks = this.priceChangedListenerMap.get(priceCacheKey) || [];
       this.priceChangedListenerMap.set(
-        cacheKey,
+        priceCacheKey,
         callbacks.filter((i) => i !== throttleCallback),
       );
     };
@@ -81,11 +88,13 @@ export const useTokenPrice = ({
   symbol: tokenSymbol,
   price: tokenPrice,
   lastUpdated: tokenLastUpdated,
+  cacheKey,
 }: {
   name: string;
   symbol: string;
   price: string;
   lastUpdated: number;
+  cacheKey?: string;
 }) => {
   const [count, setCount] = useState(0);
 
@@ -95,8 +104,9 @@ export const useTokenPrice = ({
       symbol: tokenSymbol,
       price: tokenPrice,
       lastUpdated: tokenLastUpdated,
+      cacheKey,
     });
-  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
+  }, [cacheKey, tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   useLayoutEffect(() => {
     const removeListener = marketTokenPriceEvent.onPriceChange(
@@ -105,20 +115,25 @@ export const useTokenPrice = ({
       () => {
         setCount((i) => i + 1);
       },
+      cacheKey,
     );
 
     return () => {
       removeListener();
     };
-  }, [tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
+  }, [cacheKey, tokenLastUpdated, tokenName, tokenPrice, tokenSymbol]);
 
   return useMemo(
     () => {
-      const price = marketTokenPriceEvent.getTokenPrice(tokenName, tokenSymbol);
+      const price = marketTokenPriceEvent.getTokenPrice(
+        tokenName,
+        tokenSymbol,
+        cacheKey,
+      );
       return price;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tokenName, tokenSymbol, count],
+    [cacheKey, tokenName, tokenSymbol, count],
   );
 };
 
@@ -127,6 +142,7 @@ export function MarketTokenPrice({
   tokenName,
   tokenSymbol,
   lastUpdated,
+  cacheKey,
   size,
   ...props
 }: {
@@ -134,6 +150,7 @@ export function MarketTokenPrice({
   tokenSymbol: string;
   tokenName: string;
   lastUpdated?: string;
+  cacheKey?: string;
 } & ISizableTextProps) {
   const lastUpdateDate = useMemo(() => {
     if (
@@ -151,6 +168,7 @@ export function MarketTokenPrice({
     price,
     symbol: tokenSymbol,
     lastUpdated: lastUpdateDate,
+    cacheKey,
   });
 
   return (

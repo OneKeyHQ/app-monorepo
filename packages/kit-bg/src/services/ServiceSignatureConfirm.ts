@@ -9,10 +9,12 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
   convertDecodedTxActionsToSignatureConfirmTxDisplayTitle,
   convertNetworkToSignatureConfirmNetwork,
+  mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
@@ -45,6 +47,10 @@ import {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import {
+  getPermit2ServerDisplayExtras,
+  shouldUseLocalPermit2Display,
+} from './utils/permit2SignatureConfirmUtils';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
@@ -357,17 +363,25 @@ class ServiceSignatureConfirm extends ServiceBase {
       parsedTx.type === EParseTxType.Unknown &&
       !unsignedTx.stakingInfo?.tags?.includes(EEarnLabels.Borrow),
     );
-    // Unknown staking transactions keep the established local action display,
-    // while simulation data remains server-owned and cannot be rebuilt.
+
+    const useLocalPermit2Display = shouldUseLocalPermit2Display({
+      hasPermit2ApproveInfo: Boolean(unsignedTx.approveInfo?.permit2Info),
+      parsedTx,
+    });
+
+    const shouldUseLocalDisplay =
+      shouldUseLocalTxDisplay || useLocalPermit2Display;
+    const localDisplayExtras = getPermit2ServerDisplayExtras(
+      shouldUseLocalDisplay ? parsedTx?.display : undefined,
+    );
+    // Earn fallback and locally validated Permit2 both retain server risk
+    // alerts. Simulation is retained for staking fallback and Permit2 only.
     const serverSimulationComponents =
-      shouldUseLocalTxDisplay && unsignedTx.stakingInfo
-        ? (parsedTx?.display?.components.filter(
-            (component) => component.type === EParseTxComponentType.Simulation,
-          ) ?? [])
+      useLocalPermit2Display ||
+      (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
+        ? localDisplayExtras.simulationComponents
         : [];
-    const serverAlerts = shouldUseLocalTxDisplay
-      ? (parsedTx?.display?.alerts ?? [])
-      : [];
+    const serverAlerts = localDisplayExtras.alerts;
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
@@ -394,7 +408,18 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
 
-    if (parsedTx?.display && !shouldUseLocalTxDisplay) {
+    // Scaled-UI (rebase) tokens: the server display would carry raw
+    // amounts (and editable approve components) for scaling tokens; the
+    // local decode is display-correct and fail-closes approve editing, so
+    // force the local path. Server risk alerts are retained below.
+    const hasScalingRebaseAction =
+      checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+
+    if (
+      parsedTx?.display &&
+      !shouldUseLocalDisplay &&
+      !hasScalingRebaseAction
+    ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
       const vaultSettings =
@@ -410,12 +435,50 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
+      // Rebase-forced local display: the server parse ran but the rebase
+      // condition (not shouldUseLocalDisplay) forced the local path.
+      const isRebaseForcedLocal =
+        hasScalingRebaseAction &&
+        !shouldUseLocalDisplay &&
+        Boolean(parsedTx?.display);
+
+      // The rebase-forced path did not receive `parsedTx.display` above
+      // (shouldUseLocalDisplay was false), so `serverAlerts` is empty for
+      // it. Recompute alerts directly from the server display here so
+      // rebase-forced local rendering still surfaces server risk alerts.
+      // `simulationComponents` are deliberately NOT consumed here: a server
+      // Simulation panel carries raw (non-multiplied) server amounts and
+      // would reintroduce the display/raw mismatch this mechanism removes —
+      // do not "restore" it for the rebase-forced case.
+      const rebaseDisplayExtras = isRebaseForcedLocal
+        ? getPermit2ServerDisplayExtras(parsedTx?.display)
+        : undefined;
+
+      // The server may flag a risky counterparty only via `Address.tags`
+      // (no `display.alerts`); local Address components carry `tags: []`,
+      // so merge the server risk tags back or SecurityCheckCard would
+      // report "No issues" for a flagged address on the rebase-forced path.
+      const rebaseMergedComponents = isRebaseForcedLocal
+        ? mergeServerAddressRiskTagsIntoComponents({
+            localComponents: txDisplayComponents,
+            serverComponents: parsedTx?.display?.components,
+          })
+        : txDisplayComponents;
+
       decodedTx.txDisplay = {
         title: '',
-        components: [...txDisplayComponents, ...serverSimulationComponents],
-        alerts: serverAlerts,
+        components: [...rebaseMergedComponents, ...serverSimulationComponents],
+        alerts: rebaseDisplayExtras?.alerts?.length
+          ? rebaseDisplayExtras.alerts
+          : serverAlerts,
       };
       decodedTx.isLocalParsed = true;
+      // Scaled-UI forced-local: the server parse ran and its alerts are
+      // retained above — mark it so SecurityCheckCard does not report a
+      // false "Unverified" for this tx.
+      if (isRebaseForcedLocal) {
+        decodedTx.hasServerSecurityAnalysis = true;
+      }
     }
 
     // Backfill approveType/spender/amount on server-built Approve components

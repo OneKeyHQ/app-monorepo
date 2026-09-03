@@ -15,5 +15,7 @@ export const TRADING_VIEW_DISABLED_FEATURES = {
 
 export const TRADING_VIEW_DISABLED_FEATURES_URL_PARAM = 'disabledFeatures';
 
+export const TRADING_VIEW_PREVIOUS_CLOSE_LABEL = 'Prev close';
+
 export type ITradingViewDisabledFeature =
   (typeof TRADING_VIEW_DISABLED_FEATURES)[keyof typeof TRADING_VIEW_DISABLED_FEATURES];

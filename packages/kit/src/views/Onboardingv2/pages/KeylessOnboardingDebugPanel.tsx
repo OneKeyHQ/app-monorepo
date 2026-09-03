@@ -219,13 +219,13 @@ export function KeylessOnboardingDebugPanelView({
             return;
           }
           try {
-            await backgroundApiProxy.serviceKeylessWallet.clearKeylessRefreshTokenStorage(
+            await backgroundApiProxy.serviceKeylessWallet.clearLegacyKeylessOAuthTokenStorage(
               {
                 ownerId: keylessOwnerId,
               },
             );
             Toast.success({
-              title: '已清空 Refresh Token Storage',
+              title: '已清空 Legacy OAuth Token Storage',
             });
           } catch (error: unknown) {
             Toast.error({
@@ -235,7 +235,7 @@ export function KeylessOnboardingDebugPanelView({
           }
         }}
       >
-        重置社交登录 Token
+        清理旧版社交登录 Token
       </Button>
 
       {activeAccount?.wallet?.isKeyless ? null : (
@@ -249,13 +249,7 @@ export function KeylessOnboardingDebugPanelView({
         <Button
           onPress={async () => {
             const accessToken =
-              await backgroundApiProxy.serviceKeylessWallet.getKeylessCachedAccessToken(
-                {
-                  ownerId:
-                    activeAccount?.wallet?.keylessDetailsInfo?.keylessOwnerId ??
-                    '',
-                },
-              );
+              await backgroundApiProxy.serviceKeylessWallet.getActiveKeylessOAuthAccessTokenForLocalWallet();
             if (accessToken) {
               await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(
                 {

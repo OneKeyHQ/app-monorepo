@@ -21,6 +21,15 @@ export class RequestScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'error' })
+  public fetchAccountTokensBlockedAllNetworkRequest({
+    params,
+  }: {
+    params: IFetchAccountTokensParams & { mergeTokens?: boolean };
+  }) {
+    return [params];
+  }
+
+  @LogToLocal({ level: 'error' })
   public fetchTokensDetailsAccountAddressAndXpubBothEmpty({
     params,
     accountAddress,

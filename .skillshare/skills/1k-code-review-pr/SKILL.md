@@ -1,6 +1,6 @@
 ---
 name: 1k-code-review-pr
-description: Comprehensive PR code review for OneKey monorepo. Use when reviewing PRs, code changes, or diffs — covers security (secrets/PII leakage, supply-chain, AuthN/AuthZ), code quality (hooks, race conditions, null safety, concurrent requests), and OneKey-specific patterns (Fabric crashes, MIUI, BigNumber). Triggers on "review PR", "review this PR", "code review", "check this diff", "审查 PR", "代码审查", "review #123". Always use this skill for any PR review task in this repo, even if the user doesn't explicitly mention "code review".
+description: Review OneKey PRs and diffs for security, correctness, concurrency, React/RN pitfalls, and repository-specific regressions. Use for code review or 审查 PR.
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
 
@@ -24,7 +24,7 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
 8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
 9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
-10. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
+10. **GH Comment** — Post qualifying findings as inline PR comments immediately (do not wait for confirmation)
 
 ## Codex Cross-Review Integration
 
@@ -197,8 +197,8 @@ Rate the PR on 4 dimensions (1-10 each):
 
 **Scoring anchors** — to keep scores consistent:
 - Start at 8 for each dimension, deduct for issues found
-- A single Critical security issue → Security capped at 3
-- A single High bug → Code Quality capped at 5
+- A single P0 security issue → Security capped at 3
+- A single P0 crash/runtime bug → Code Quality capped at 5
 - Import hierarchy violation → Architecture capped at 4
 
 ## Confidence Levels
@@ -241,21 +241,20 @@ Do NOT generate auto-fix for:
 
 ## GH CLI Inline Comments
 
-After generating the report, if there are findings that meet the comment threshold:
+After generating the report, if there are findings that meet the comment threshold, **post them immediately**. Do not ask "是否确认？" and do not wait for a follow-up message. New conversations have no memory of a verbal "以后都自动发" — this section is the source of truth.
 
-**Comment threshold**: 🔴 高 priority (any confidence) OR 🟡 中 priority with 🔵 High confidence. This means:
-- All 🔴 高 findings (regardless of confidence)
-- All 🟡 中 findings with 🔵 High confidence (cross-validated or confirmed from code)
-- Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
+**Comment threshold**: P0 (any confidence) OR P1 with 🔵 High confidence. This means:
+- All P0 findings (regardless of confidence)
+- All P1 findings with 🔵 High confidence (cross-validated or confirmed from code)
+- Excludes: P2 findings, and P1 with 🟠 Medium or ⚪ Low confidence
 
 1. List the qualifying findings that warrant PR comments
-2. **Ask the reviewer**: "以下问题建议直接评论到 PR 上，是否确认？"
-3. **Only after explicit yes**, post via:
+2. Post them in the same turn as the report, using `ManagePullRequest` `post_comment` (path + line) when available, otherwise:
 
 ```bash
 # Inline comment on specific file:line
 gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
-  --field body="🟡 **问题标题**: 描述...
+  --field body="**[P1] 问题标题**: 描述...
 
 **建议修复:**
 \`\`\`suggestion
@@ -270,10 +269,12 @@ _— Auto-review by Claude_" \
 ```
 
 **Rules:**
-- Never post without explicit reviewer confirmation
+- Always post qualifying findings in the same turn as the review report
 - Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
 - Maximum 5 inline comments per PR
+- GitHub can only attach review comments to lines in the PR diff; if the real site is unchanged, comment on the nearest changed line and name the unchanged site in the body
+- If an existing inline thread already states the same issue, reply to that thread instead of opening a duplicate
 
 ## Unified Report Format
 
@@ -318,7 +319,7 @@ _— Auto-review by Claude_" \
 
 ## 发现的问题 [REQUIRED]
 
-### [🔴 高] [🔵 High] 问题标题 {Cross-validated ✅}
+### [P0] [🔵 High] 问题标题 {Cross-validated ✅}
 **文件**: `path/to/file.tsx:42`
 **类型**: 安全 / 构建 / 运行时 / 性能 / 规范
 **描述**: 问题是什么，为什么有风险
@@ -330,7 +331,7 @@ _— Auto-review by Claude_" \
 
 ---
 
-### [🟡 中] [🟠 Medium] 问题标题
+### [P1] [🟠 Medium] 问题标题
 **文件**: `path/to/file.tsx:18`
 **类型**: 运行时
 **描述**: ...
@@ -342,28 +343,32 @@ _— Auto-review by Claude_" \
 
 | 优先级 | 置信度 | 文件 | 类型 | 描述 | Auto-fix |
 |--------|--------|------|------|------|----------|
-| 🔴 高 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
-| 🟡 中 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
+| P0 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
+| P1 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
 
 ## 测试建议 [REQUIRED]
 1. 测试场景
 2. 测试场景
 
 ## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
-以下问题（🔵 High 置信度 + 🟡 中及以上）建议直接评论到 PR：
+以下问题（P0 任意置信度，或 P1 + 🔵 High 置信度）建议直接评论到 PR：
 - [ ] 问题1 — `file.tsx:42`
 - [ ] 问题2 — `file.tsx:88`
 
-> 确认后将通过 `gh` CLI 发送 inline comments。
+> 达标问题已在本回合直接发为 inline comments，无需再确认。
 ```
 
 ## Priority Definitions
 
+**MANDATORY** — every finding must carry exactly one `P0`–`P2` tag as its priority. Do NOT use 高/中/低 or Critical/High/Medium/Low as finding priority labels.
+
 | Priority | Criteria | Action |
 |----------|----------|--------|
-| **🔴 高** | Build failure, security vulnerability, data loss, crash | Must fix before merge |
-| **🟡 中** | Runtime bug, incorrect behavior, maintainability | Should fix before merge |
-| **🟢 低** | Nice-to-have, minor inconsistency | Can fix in follow-up |
+| **P0** | Security vulnerability, key/fund exposure, data loss, crash, runtime bug affecting users, build failure | Blocker — must fix before merge |
+| **P1** | Edge-case bug, concurrency risk, robustness gap, maintainability problem | Should fix before merge |
+| **P2** | Nice-to-have, minor inconsistency, nit (naming, comments, style) | Follow-up / optional |
+
+Historical PR threads may still use the legacy 5-tier scale; when analyzing them, map old P1 → P0, old P2 → P1, old P3/P4 → P2.
 
 ## Review Discipline
 

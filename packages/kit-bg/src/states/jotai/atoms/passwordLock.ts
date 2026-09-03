@@ -1,4 +1,5 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
@@ -31,6 +32,23 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     },
   });
 
+export type IHyperLiquidAgentPasswordStatusAtom = {
+  isPasswordSet: boolean;
+  requiresPasswordSetupOrVerify: boolean;
+};
+export const {
+  target: hyperLiquidAgentPasswordStatusAtom,
+  use: useHyperLiquidAgentPasswordStatusAtom,
+} = globalAtom<IHyperLiquidAgentPasswordStatusAtom>({
+  persist: false,
+  name: EAtomNames.hyperLiquidAgentPasswordStatusAtom,
+  initialValue: {
+    isPasswordSet: false,
+    requiresPasswordSetupOrVerify:
+      !platformEnv.isNative && !platformEnv.isWebDappMode,
+  },
+});
+
 // this atom is used to trigger password prompt not add other state
 export type IPasswordPromptPromiseTriggerAtom = {
   passwordPromptPromiseTriggerData:
@@ -39,6 +57,7 @@ export type IPasswordPromptPromiseTriggerAtom = {
         type: EPasswordPromptType;
         dialogProps?: IDialogShowProps;
         skipPostVerifyBackgroundTasks?: boolean;
+        kdfParams?: IPbkdf2KdfParams;
       }
     | undefined;
 };
@@ -130,12 +149,14 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       }
 
       const isNeverLock = isNeverLockDuration(appLockDuration);
+      const { unLock } = get(passwordAtom.atom());
 
       if (isNeverLock) {
-        return false;
+        // Native secure storage preserves the existing Never semantics across
+        // cold starts. Browser-class targets treat Never as session-only.
+        return platformEnv.isNative ? false : !unLock;
       }
 
-      const { unLock } = get(passwordAtom.atom());
       let usedUnlock = unLock;
       if (isMigrationModalOpen) {
         usedUnlock = true;

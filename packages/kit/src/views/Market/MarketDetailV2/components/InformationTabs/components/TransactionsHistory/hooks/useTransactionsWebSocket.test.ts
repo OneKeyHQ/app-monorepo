@@ -58,22 +58,18 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   };
 });
 
-jest.mock(
-  '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery',
-  () => {
-    const markSubscriptionActivity = jest.fn();
-    const recoveryHook = jest.fn(() => ({
-      markSubscriptionActivity,
-      restoreSubscription: jest.fn(),
-    }));
-    (globalThis as any).__txWsRecoveryHook = recoveryHook;
-    (globalThis as any).__txWsMarkSubscriptionActivity =
-      markSubscriptionActivity;
-    return {
-      useMarketWSSubscriptionRecovery: recoveryHook,
-    };
-  },
-);
+jest.mock('@onekeyhq/kit/src/hooks/useMarketWSSubscriptionRecovery', () => {
+  const markSubscriptionActivity = jest.fn();
+  const recoveryHook = jest.fn(() => ({
+    markSubscriptionActivity,
+    restoreSubscription: jest.fn(),
+  }));
+  (globalThis as any).__txWsRecoveryHook = recoveryHook;
+  (globalThis as any).__txWsMarkSubscriptionActivity = markSubscriptionActivity;
+  return {
+    useMarketWSSubscriptionRecovery: recoveryHook,
+  };
+});
 
 function getMarketUpdateHandler() {
   return globalMockBag.__txWsEventBus?.on.mock.calls.find(

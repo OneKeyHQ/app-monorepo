@@ -6,7 +6,7 @@ import * as urlHandler from './url';
 import type { IQRCodeHandler, IWalletConnectValue } from '../type';
 
 // oxlint-disable-next-line @cspell/spellchecker
-/* 
+/*
 version-2
 wc:6b18a69c27df54b4c228e0ff60218ba460a4994aa5775963f6f0ee354b629afe@2?relay-protocol=irn&symKey=99f6e5fa2bda94c704be8d7adbc2643b861ef49dbe09e0af26d3713e219b4355
 */

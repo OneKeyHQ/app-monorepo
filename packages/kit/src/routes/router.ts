@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -59,6 +60,28 @@ const buildPermissionRouter = () => {
   ].filter(Boolean);
 };
 
+// Web-only real route for the OAuth popup redirect. Supabase redirects the
+// popup to `${origin}${OAUTH_CALLBACK_WEB_PATH}?code=...`; without a matching
+// route the path falls into the `NotFound: '*'` wildcard and getPathFromState
+// rewrites the URL to '/', stripping `?code=` before the opener window can
+// poll it. Keep this off extension/desktop/native to avoid widening their
+// deeplink/routing surface.
+const buildOAuthCallbackWebRouter = () => {
+  const OAuthCallbackWebPage = LazyLoad(
+    () => import('@onekeyhq/kit/src/views/OAuthCallbackWeb'),
+  );
+  return [
+    platformEnv.isWeb
+      ? {
+          name: ERootRoutes.OAuthCallbackWeb,
+          component: OAuthCallbackWebPage,
+          rewrite: OAUTH_CALLBACK_WEB_PATH,
+          exact: true,
+        }
+      : undefined,
+  ].filter(Boolean);
+};
+
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
@@ -91,6 +114,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     type: 'webView',
   },
   ...buildPermissionRouter(),
+  ...buildOAuthCallbackWebRouter(),
 ];
 
 if (platformEnv.isDev) {
@@ -131,6 +155,7 @@ export const useRootRouter = () => {
       },
 
       ...buildPermissionRouter(),
+      ...buildOAuthCallbackWebRouter(),
     ],
     [tabRouter],
   );

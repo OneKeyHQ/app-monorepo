@@ -7,6 +7,7 @@ import {
   showDeFiActionTxConfirmDialog,
 } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EEarnLabels, type IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -25,12 +26,14 @@ export type IBorrowBuildTxParams = {
   collateralReserveAddress?: string;
   withdrawAll?: boolean;
   repayAll?: boolean;
+  unwrap?: boolean;
   needsSetupLut?: boolean;
   slippageBps?: number;
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
   onBeforeNavigate?: () => void | Promise<void>;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -38,6 +41,11 @@ export type IBorrowBuildTxParams = {
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
   onCancel?: IModalSendParamList['SendConfirm']['onCancel'];
 };
+
+// The dialog logs which asset the user was about to trade; borrow params carry
+// the token on stakingInfo rather than as a plain symbol.
+const getRiskGateSymbol = (stakingInfo?: IStakingInfo) =>
+  stakingInfo?.send?.token.symbol ?? stakingInfo?.receive?.token.symbol;
 
 export function parseBorrowEncodedTx(tx: string): IEncodedTx {
   try {
@@ -84,6 +92,8 @@ export const handleBorrowSuccess = async ({
   networkId,
   accountId,
   stakingInfo,
+  waitForFinalStatus,
+  ignoreOrderTrackingError,
   onSettleResult,
   onSuccess,
 }: {
@@ -92,6 +102,8 @@ export const handleBorrowSuccess = async ({
   networkId: string;
   accountId?: string;
   stakingInfo?: IStakingInfo;
+  waitForFinalStatus?: boolean;
+  ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
   ) => boolean | void | Promise<boolean | void>;
@@ -103,7 +115,9 @@ export const handleBorrowSuccess = async ({
   const label = stakingInfo?.label;
   const shouldShowConfirmSheet =
     !!accountId &&
-    (label === EEarnLabels.Withdraw || label === EEarnLabels.Repay);
+    (waitForFinalStatus ||
+      label === EEarnLabels.Withdraw ||
+      label === EEarnLabels.Repay);
 
   if (orderId && latestTxId) {
     const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
@@ -113,7 +127,7 @@ export const handleBorrowSuccess = async ({
       status: data[data.length - 1]?.decodedTx.status,
       ...getEarnOrderTrackingInfo(stakingInfo),
     });
-    if (shouldShowConfirmSheet) {
+    if (shouldShowConfirmSheet || ignoreOrderTrackingError) {
       void addEarnOrderPromise.catch(() => undefined);
     } else {
       await addEarnOrderPromise;
@@ -135,13 +149,23 @@ export const handleBorrowSuccess = async ({
         return;
       }
     }
-    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+    if (
+      finalStatus === EOnChainHistoryTxStatus.Failed ||
+      (waitForFinalStatus && finalStatus !== EOnChainHistoryTxStatus.Success)
+    ) {
       return;
     }
   }
   onSuccess?.(data);
 };
 
+/**
+ * Resolves true once the flow has been handed to the transaction confirm page,
+ * false when it never started — today only a declined risk disclaimer, but the
+ * point is that no callback fires and nothing throws on that path. A caller
+ * that took a lock (submit guard, spinner) before calling MUST release it on
+ * false; `onSuccess` / `onFail` / `onCancel` are never invoked.
+ */
 export function useUniversalBorrowWithdraw({
   networkId,
   accountId,
@@ -154,6 +178,8 @@ export function useUniversalBorrowWithdraw({
     networkId,
   });
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       amount,
@@ -161,13 +187,27 @@ export function useUniversalBorrowWithdraw({
       marketAddress,
       reserveAddress,
       withdrawAll,
+      unwrap,
       stakingInfo,
       onBeforeNavigate,
       onSettleResult,
       onSuccess,
       onFail,
       onCancel,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses. Returns false so the caller can tell a rejection apart from a
+      // completed hand-off and leave the form untouched.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
           networkId,
@@ -177,6 +217,7 @@ export function useUniversalBorrowWithdraw({
           reserveAddress,
           amount,
           withdrawAll,
+          ...(unwrap !== undefined ? { unwrap } : {}),
         });
 
       const stakingInfoWithOrderId = attachBorrowOrderId({
@@ -203,11 +244,20 @@ export function useUniversalBorrowWithdraw({
         onFail,
         onCancel,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
   );
 }
 
+/**
+ * Resolves true once the flow has been handed to the transaction confirm page,
+ * false when it never started — today only a declined risk disclaimer, but the
+ * point is that no callback fires and nothing throws on that path. A caller
+ * that took a lock (submit guard, spinner) before calling MUST release it on
+ * false; `onSuccess` / `onFail` / `onCancel` are never invoked.
+ */
 export function useUniversalBorrowRepay({
   networkId,
   accountId,
@@ -220,6 +270,8 @@ export function useUniversalBorrowRepay({
     networkId,
   });
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       amount,
@@ -229,11 +281,25 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      ignoreOrderTrackingError,
       onSettleResult,
       onSuccess,
       onFail,
       onCancel,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses. Returns false so the caller can tell a rejection apart from a
+      // completed hand-off and leave the form untouched.
+      if (
+        !(await ensureRiskAccepted({
+          provider,
+          symbol: getRiskGateSymbol(stakingInfo),
+          networkId,
+        }))
+      ) {
+        return false;
+      }
+
       const resp =
         await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
           networkId,
@@ -262,6 +328,7 @@ export function useUniversalBorrowRepay({
             networkId,
             accountId,
             stakingInfo: stakingInfoWithOrderId,
+            ignoreOrderTrackingError,
             onSettleResult,
             onSuccess,
           });
@@ -269,7 +336,9 @@ export function useUniversalBorrowRepay({
         onFail,
         onCancel,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm],
+    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
   );
 }

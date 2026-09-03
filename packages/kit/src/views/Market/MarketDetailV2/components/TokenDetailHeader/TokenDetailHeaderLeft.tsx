@@ -17,7 +17,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 import {
-  StockIsOpenBadge,
+  StockMarketStatusBadge,
   StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
@@ -35,6 +35,8 @@ interface ITokenDetailHeaderLeftProps {
   showMediaAndSecurity?: boolean;
   isNative?: boolean;
   showFavoriteButton?: boolean;
+  desktopRedesign?: boolean;
+  desktopDetailVariant?: 'trending' | 'topCoins';
 }
 
 export function TokenDetailHeaderLeft({
@@ -44,6 +46,8 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
   showFavoriteButton = true,
+  desktopRedesign = false,
+  desktopDetailVariant = 'trending',
 }: ITokenDetailHeaderLeftProps) {
   const { md } = useMedia();
 
@@ -80,7 +84,7 @@ export function TokenDetailHeaderLeft({
         chainId={networkId}
         contractAddress={address}
         size="small"
-        customIconSize="$4"
+        customIconSize={desktopRedesign ? '$5' : '$4'}
         from={EWatchlistFrom.Detail}
         tokenSymbol={symbol}
         isNative={isNative}
@@ -109,8 +113,14 @@ export function TokenDetailHeaderLeft({
           />
         ) : (
           <>
-            {marketStar}
-            <MarketTokenSelector />
+            {desktopRedesign ? null : marketStar}
+            <MarketTokenSelector
+              variant={desktopRedesign ? 'large' : 'default'}
+              showName={desktopDetailVariant === 'topCoins'}
+              defaultCategory={
+                desktopDetailVariant === 'topCoins' ? 'top_coins' : 'trending'
+              }
+            />
           </>
         )}
 
@@ -129,12 +139,15 @@ export function TokenDetailHeaderLeft({
               </SizableText>
             ) : null}
             {md ? (
-              <TokenTagsPopover
-                communityRecognized={communityRecognized}
-                stock={stock}
-                showAllInTrigger
-                noTruncateSubtitle
-              />
+              <>
+                <TokenTagsPopover
+                  communityRecognized={communityRecognized}
+                  stock={stock}
+                  showAllInTrigger
+                  noTruncateSubtitle
+                />
+                <StockMarketStatusBadge stock={stock} />
+              </>
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
@@ -142,13 +155,13 @@ export function TokenDetailHeaderLeft({
                 {stock?.subtitle ? (
                   <SubtitleBadge subtitle={stock.subtitle} noTruncate />
                 ) : null}
-                {stock ? <StockIsOpenBadge stock={stock} /> : null}
+                <StockMarketStatusBadge stock={stock} />
               </>
             )}
           </XStack>
 
           <XStack gap="$2" ai="center">
-            {address ? (
+            {desktopDetailVariant !== 'topCoins' && address ? (
               <XStack borderRadius="$1" ai="center" gap="$1">
                 <SizableText
                   size="$bodySm"
@@ -175,14 +188,10 @@ export function TokenDetailHeaderLeft({
             ) : null}
 
             {/* Social Links & Security */}
-            {showMediaAndSecurity ? (
+            {desktopDetailVariant !== 'topCoins' && showMediaAndSecurity ? (
               <>
                 {address && networkId ? (
-                  <>
-                    <Divider vertical backgroundColor="$borderSubdued" h="$3" />
-
-                    <TokenSecurityAlert />
-                  </>
+                  <TokenSecurityAlert showLeadingDivider />
                 ) : null}
 
                 {website || twitter || address ? (
@@ -217,7 +226,10 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId && address && address !== SUI_TYPE_ARG ? (
+                      {!desktopRedesign &&
+                      networkId &&
+                      address &&
+                      address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}
@@ -234,8 +246,8 @@ export function TokenDetailHeaderLeft({
         </YStack>
       </XStack>
 
-      {md ? (
-        <XStack gap="$3">
+      {md || desktopRedesign ? (
+        <XStack gap={desktopRedesign ? '$4' : '$3'}>
           {marketStar}
           {shareButton}
         </XStack>

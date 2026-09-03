@@ -221,11 +221,13 @@ function ActionStaking(props: IActionItemsProps) {
 }
 
 function ActionMore({
+  renderItems,
   renderItemsAsync,
   testID,
   iconOnly = false,
 }: {
-  renderItemsAsync: IActionListProps['renderItemsAsync'];
+  renderItems: IActionListProps['renderItems'];
+  renderItemsAsync?: IActionListProps['renderItemsAsync'];
   testID?: string;
   // When true, render the icon-only trigger on both mobile and desktop. Used
   // by the collapsed Add-Money home action row, where the secondary menu
@@ -239,6 +241,7 @@ function ActionMore({
     ActionList.show({
       title: label,
       floatingPanelProps: { w: '$60' },
+      renderItems,
       renderItemsAsync,
     });
   };
@@ -256,6 +259,7 @@ function ActionMore({
             testID={testID}
           />
         }
+        renderItems={renderItems}
         renderItemsAsync={renderItemsAsync}
       />
     );
@@ -308,6 +312,7 @@ function ActionMore({
               testID={testID}
             />
           }
+          renderItems={renderItems}
           renderItemsAsync={renderItemsAsync}
         />
       </Stack>

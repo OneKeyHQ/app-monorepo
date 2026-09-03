@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
@@ -71,6 +71,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -88,7 +89,6 @@ import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
-import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
 
 import type { IntlShape } from 'react-intl';
 
@@ -99,6 +99,15 @@ const useOnLockCallback = platformEnv.isDesktop
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+
+const LazyExtensionMarketTokenDetailHashNavigation =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtensionMarketTokenDetailHashNavigation } =
+          await import('./useExtensionMarketTokenDetailHashNavigation');
+        return { default: ExtensionMarketTokenDetailHashNavigation };
+      })
+    : null;
 
 // useAppUpdateInfo no longer accepts `autoCheck` — first-launch dispatch
 // and AppState 'active' resume listener now live in <AppUpdateForeground />,
@@ -300,9 +309,16 @@ const useDesktopEvents = platformEnv.isDesktop
           void onCheckUpdateRef.current();
         });
 
-        const debounceOpenSettings = debounce((isVisible: boolean) => {
-          openSettingsRef.current(isVisible);
-        }, 250);
+        const debounceOpenSettings = debounce(
+          (isVisible: boolean) => {
+            openSettingsRef.current(isVisible);
+          },
+          250,
+          {
+            leading: true,
+            trailing: false,
+          },
+        );
         globalThis.desktopApi.on(
           ipcMessageKeys.APP_OPEN_SETTINGS,
           debounceOpenSettings,
@@ -829,14 +845,16 @@ export function Bootstrap() {
     if (!platformEnv.isNative) {
       return;
     }
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
-      !!devSettings.enabled,
-    );
-    devSettingSyncStorage.set(
-      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-      networkThrottleEnabled,
-    );
+    void Promise.all([
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+        !!devSettings.enabled,
+      ),
+      devSettingSyncStorage.set(
+        EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+        networkThrottleEnabled,
+      ),
+    ]).catch(() => undefined);
     void nativeNetworkThrottle
       .setNetworkThrottle({
         enabled: networkThrottleEnabled,
@@ -844,6 +862,15 @@ export function Bootstrap() {
       })
       .catch(() => undefined);
   }, [devSettings.enabled, networkThrottleEnabled]);
+
+  // Push the dev-settings escape hatch into the shared module flag on
+  // startup and whenever it changes (shared cannot read kit-bg atoms).
+  const useSystemBrowserForExternalLinks =
+    !!devSettings.enabled &&
+    !!devSettings.settings?.useSystemBrowserForExternalLinks;
+  useEffect(() => {
+    setForceSystemBrowserForDebug(useSystemBrowserForExternalLinks);
+  }, [useSystemBrowserForExternalLinks]);
 
   useEffect(() => {
     if (
@@ -1003,24 +1030,6 @@ export function Bootstrap() {
 
   useLogVersionInfo();
 
-  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
-  useEffect(() => {
-    if (!platformEnv.isNative) return;
-    const checkRecoveryFlag = async () => {
-      try {
-        const action = await BootRecovery.getAndClearRecoveryAction();
-        if (action) {
-          defaultLogger.app.error.log(
-            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
-          );
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-    void checkRecoveryFlag();
-  }, []);
-
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
   useFetchPerpConfig();
@@ -1030,7 +1039,6 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
-  useExtensionMarketTokenDetailHashNavigation();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   return (
@@ -1041,6 +1049,11 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <SplitViewPrompt />
+      {LazyExtensionMarketTokenDetailHashNavigation ? (
+        <Suspense fallback={null}>
+          <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}
     </>
   );

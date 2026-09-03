@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowAsset } from '@onekeyhq/shared/types/staking';
 
@@ -64,10 +65,12 @@ function AssetRow({
 
       {/* Amount column */}
       <YStack alignItems="flex-end" flexShrink={0}>
-        <SizableText size="$bodyMd">{balance?.title?.text ?? '-'}</SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {balance?.description?.text ?? '-'}
-        </SizableText>
+        <EarnText text={balance?.title ?? { text: '-' }} size="$bodyMd" />
+        <EarnText
+          text={balance?.description ?? { text: '-' }}
+          size="$bodySm"
+          color="$textSubdued"
+        />
       </YStack>
     </XStack>
   );

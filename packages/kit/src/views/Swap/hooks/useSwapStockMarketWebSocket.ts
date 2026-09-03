@@ -1,28 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
-import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
+import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/hooks/useMarketWSSubscriptionRecovery';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isMarketWsPriceData } from '@onekeyhq/shared/src/utils/marketWsUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketWsDataUpdatePayload,
+} from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 const STOCK_WS_CHART_TYPE = '1m';
 const STOCK_WS_CURRENCY = 'usd';
-
-type IMarketWSDataUpdatePayload = {
-  channel: string;
-  tokenAddress: string;
-  networkId?: string;
-  isSubscriptionAmbiguous?: boolean;
-  data: unknown;
-};
 
 type ISwapStockRealtimePrice = {
   tokenKey: string;
@@ -38,18 +33,6 @@ function getLogMessage(error: unknown) {
 
 function isStockWsChartType(type?: string) {
   return !type || type === '1' || type === STOCK_WS_CHART_TYPE;
-}
-
-function isWsPriceData(data: unknown): data is IWsPriceData {
-  if (!data || typeof data !== 'object') {
-    return false;
-  }
-  const candidate = data as Partial<IWsPriceData>;
-  return (
-    typeof candidate.address === 'string' &&
-    typeof candidate.c === 'number' &&
-    typeof candidate.unixTime === 'number'
-  );
 }
 
 function normalizeStockWsAddress({
@@ -187,8 +170,8 @@ export function useSwapStockMarketWebSocket({
       networkId,
     });
 
-    const handleMarketDataUpdate = (payload: IMarketWSDataUpdatePayload) => {
-      if (payload.channel !== 'ohlcv' || !isWsPriceData(payload.data)) {
+    const handleMarketDataUpdate = (payload: IMarketWsDataUpdatePayload) => {
+      if (payload.channel !== 'ohlcv' || !isMarketWsPriceData(payload.data)) {
         return;
       }
       if (payload.networkId && payload.networkId !== networkId) {

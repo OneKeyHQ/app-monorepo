@@ -27,7 +27,9 @@ export const AccountManagerTestIDs = {
   exportMnemonicKey: (name: string) => `popover-export-mnemonic-key-${name}`, // preserve existing
 
   // Wallet rename
+  walletRenameButton: 'account-manager-wallet-rename-button',
   walletRenameInput: 'account-manager-wallet-rename-input',
+  walletRenameError: 'account-manager-wallet-rename-error',
   walletRenameConfirm: 'account-manager-wallet-rename-confirm',
 
   // Account rename

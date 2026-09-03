@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Icon,
   Image,
   SizableText,
@@ -10,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components/src/primitives';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
@@ -18,6 +20,9 @@ export type INetworksFilterItemProps = {
   tooltipContent?: string;
   disabled?: boolean;
   isAllNetworks?: boolean;
+  badgeText?: string;
+  keepNetworkImageSize?: boolean;
+  networkNameProps?: ISizableTextProps;
 } & IXStackProps;
 
 export function NetworksFilterItem({
@@ -27,6 +32,9 @@ export function NetworksFilterItem({
   tooltipContent,
   disabled,
   isAllNetworks,
+  badgeText,
+  keepNetworkImageSize,
+  networkNameProps,
   ...rest
 }: INetworksFilterItemProps) {
   const renderNetworkImage = useCallback(() => {
@@ -37,17 +45,17 @@ export function NetworksFilterItem({
       <Image
         size="$6"
         borderRadius="$full"
-        $gtMd={
-          {
+        {...(!keepNetworkImageSize && {
+          $gtMd: {
             size: '$5',
-          } as any
-        }
+          } as any,
+        })}
         source={{
           uri: networkImageUri,
         }}
       />
     ) : null;
-  }, [isAllNetworks, networkImageUri]);
+  }, [isAllNetworks, keepNetworkImageSize, networkImageUri]);
 
   const BaseComponent = (
     <XStack
@@ -79,11 +87,17 @@ export function NetworksFilterItem({
       {...rest}
     >
       {renderNetworkImage()}
+      {badgeText ? (
+        <Badge badgeSize="sm" px="$1.5">
+          <Badge.Text>{badgeText}</Badge.Text>
+        </Badge>
+      ) : null}
       {networkName ? (
         <SizableText
           numberOfLines={1}
           color={isSelected ? '$text' : '$textSubdued'}
           size="$bodyLgMedium"
+          {...networkNameProps}
         >
           {networkName}
         </SizableText>

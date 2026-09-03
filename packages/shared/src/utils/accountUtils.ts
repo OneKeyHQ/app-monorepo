@@ -870,12 +870,8 @@ function isOthersWallet({ walletId }: { walletId: string }): boolean {
   );
 }
 
-// A wallet is considered deprecated-or-mocked when it still has a DB record
-// but is no longer user-facing. Hardware wallets are marked `isMocked=true`
-// on removal (OneKey keeps the metadata so re-connecting the device restores
-// account names / ordering); `deprecated=true` covers the stale-device
-// variant (same connection, different deviceId). Both forms are "zombie"
-// wallets that callers should treat as if the wallet is gone (OK-51091).
+// Mocked and deprecated wallets both require write-path restrictions. A
+// deprecated wallet may still be shown for historical asset viewing.
 function isWalletDeprecatedOrMocked(wallet: IDBWallet | undefined): boolean {
   if (!wallet) return false;
   return !!(wallet.isMocked || wallet.deprecated);
@@ -889,7 +885,7 @@ function hasNoUsableWallet({
   account: { id: string } | undefined;
 }): boolean {
   if (!wallet) return true;
-  if (isWalletDeprecatedOrMocked(wallet)) return true;
+  if (wallet.isMocked) return true;
   if (isOthersWallet({ walletId: wallet.id ?? '' }) && !account) return true;
   return false;
 }
@@ -1060,6 +1056,14 @@ function buildHyperLiquidAgentCredentialId({
     );
   }
   return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
+}
+
+function isHyperLiquidAgentCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}): boolean {
+  return credentialId.startsWith(`${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--`);
 }
 
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }): string {
@@ -1442,6 +1446,7 @@ export default {
   buildTonMnemonicCredentialId,
   getAccountIdFromTonMnemonicCredentialId,
   buildHyperLiquidAgentCredentialId,
+  isHyperLiquidAgentCredentialId,
   buildCustomEvmNetworkId,
   buildFullXfp,
   getShortXfp,

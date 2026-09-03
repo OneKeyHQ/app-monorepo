@@ -27,6 +27,7 @@ import { MarketRecommendList } from '../MarketRecommendList';
 import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
+import { MarketListLoadingFallback } from './MarketListLoadingFallback';
 import { type IMarketToken } from './MarketTokenData';
 import {
   type IMarketTokenListLiveOverride,
@@ -53,6 +54,7 @@ type IMarketWatchlistTokenListProps = {
   enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
+  centerDesktopPortalContent?: boolean;
 };
 
 function MarketWatchlistTokenList({
@@ -69,6 +71,7 @@ function MarketWatchlistTokenList({
   enableWebSocket,
   pollingInterval,
   rowBg,
+  centerDesktopPortalContent,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
   // Get watchlist from atom if not provided externally
@@ -317,9 +320,13 @@ function MarketWatchlistTokenList({
     // When tab-integrated on native, register a scroll view with collapsible tabs
     // even during loading, so the tab system has a valid scroll ref.
     if (tabIntegrated && platformEnv.isNative) {
-      return <Tabs.ScrollView />;
+      return (
+        <Tabs.ScrollView>
+          <MarketListLoadingFallback />
+        </Tabs.ScrollView>
+      );
     }
-    return null;
+    return <MarketListLoadingFallback />;
   }
 
   // Show recommend list when watchlist is empty
@@ -364,6 +371,7 @@ function MarketWatchlistTokenList({
       liveTokenOverride={liveTokenOverride}
       enableWebSocket={enableWebSocket}
       rowBg={rowBg}
+      centerDesktopPortalContent={centerDesktopPortalContent}
     />
   );
 }

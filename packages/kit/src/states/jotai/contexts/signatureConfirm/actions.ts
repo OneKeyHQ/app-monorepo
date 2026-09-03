@@ -349,6 +349,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         lockedUserNonce?: number;
         idempotencyKey?: string;
         gasAccountScenarioReason?: string;
+        sponsorDisabledByCustomRpc?: boolean;
       },
     ) => {
       set(gasAccountUiStateAtom(), {

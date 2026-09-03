@@ -12,6 +12,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  classifyFirmwareUpdateFailure,
+  resolveFirmwareUpdateErrorCode,
+  toUserFacingFirmwareUpdateError,
+} from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmwareVersions';
@@ -22,6 +27,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { isBluetoothFirmwareUpdateTransport } from '../firmwareUpdateTransportUtils';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 export function FirmwareUpdateCheckList({
@@ -35,6 +41,9 @@ export function FirmwareUpdateCheckList({
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const isMountedRef = useRef(true);
+  const isBluetoothTransport = isBluetoothFirmwareUpdateTransport({
+    isNative: platformEnv.isNative,
+  });
 
   useEffect(
     () => () => {
@@ -55,13 +64,13 @@ export function FirmwareUpdateCheckList({
       {
         id: 'connection',
         label: intl.formatMessage({
-          id: platformEnv.isNative
+          id: isBluetoothTransport
             ? ETranslations.update_device_connected_via_bluetooth
             : ETranslations.update_device_connected_via_usb,
         }),
-        emoji: platformEnv.isNative ? '📲' : '🔌',
+        emoji: isBluetoothTransport ? '📲' : '🔌',
       },
-      ...(platformEnv.isNative
+      ...(isBluetoothTransport
         ? []
         : [
             {
@@ -80,7 +89,7 @@ export function FirmwareUpdateCheckList({
             },
           ]),
     ],
-    [intl],
+    [intl, isBluetoothTransport],
   );
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const onCheckChanged = useCallback((id: string) => {
@@ -139,15 +148,16 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  defaultLogger.update.firmware.firmwareUpdateStarted({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                  });
+                  if (!useV2FirmwareUpdateFlow) {
+                    defaultLogger.update.firmware.firmwareUpdateStarted({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                    });
+                  }
 
                   if (useV2FirmwareUpdateFlow) {
-                    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
                     navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });
@@ -180,6 +190,11 @@ export function FirmwareUpdateCheckList({
                     },
                   );
 
+                  // Never let analytics context reading break the update flow
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => undefined);
                   defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
@@ -188,6 +203,13 @@ export function FirmwareUpdateCheckList({
                     fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
                     toFirmwareType: updateFirmwareInfo?.toFirmwareType,
                     status: 'success',
+                    retryCount: trackingInfo?.retryCount,
+                    totalDurationMs: trackingInfo?.totalDurationMs,
+                    transferredBytes: trackingInfo?.transferredBytes,
+                    totalBytes: trackingInfo?.totalBytes,
+                    averageTransferRateBytesPerSecond:
+                      trackingInfo?.averageTransferRateBytesPerSecond,
+                    transferDurationMs: trackingInfo?.transferDurationMs,
                   });
 
                   const { fromFirmwareType, toFirmwareType } =
@@ -209,23 +231,46 @@ export function FirmwareUpdateCheckList({
                   });
                 } catch (error) {
                   const err = toPlainErrorObject(error as any);
+                  const displayError = toUserFacingFirmwareUpdateError(err);
+                  const failureType = classifyFirmwareUpdateFailure(err);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
                     payload: {
-                      error: err,
+                      error: displayError,
                     },
                   });
-                  defaultLogger.update.firmware.firmwareUpdateResult({
-                    deviceType: result?.deviceType,
-                    transportType: hardwareTransportType,
-                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
-                    firmwareVersions: parseFirmwareVersions(result),
-                    fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
-                    toFirmwareType: updateFirmwareInfo?.toFirmwareType,
-                    status: 'failed',
-                    errorCode: err?.code,
-                    errorMessage: err?.message,
-                  });
+                  // Never let analytics context reading break the update flow
+                  const trackingInfo =
+                    await backgroundApiProxy.serviceFirmwareUpdate
+                      .getUpdateWorkflowTrackingInfo()
+                      .catch(() => undefined);
+                  const resultFailureType =
+                    failureType === 'cancelled'
+                      ? trackingInfo?.lastFailureType
+                      : failureType;
+                  if (resultFailureType && resultFailureType !== 'cancelled') {
+                    defaultLogger.update.firmware.firmwareUpdateResult({
+                      deviceType: result?.deviceType,
+                      transportType: hardwareTransportType,
+                      updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                      firmwareVersions: parseFirmwareVersions(result),
+                      fromFirmwareType: updateFirmwareInfo?.fromFirmwareType,
+                      toFirmwareType: updateFirmwareInfo?.toFirmwareType,
+                      status: 'failed',
+                      failureType: resultFailureType,
+                      errorCode:
+                        failureType === 'cancelled'
+                          ? trackingInfo?.lastErrorCode
+                          : resolveFirmwareUpdateErrorCode(err),
+                      retryCount: trackingInfo?.retryCount,
+                      totalDurationMs: trackingInfo?.totalDurationMs,
+                      transferredBytes: trackingInfo?.transferredBytes,
+                      totalBytes: trackingInfo?.totalBytes,
+                      averageTransferRateBytesPerSecond:
+                        trackingInfo?.averageTransferRateBytesPerSecond,
+                      transferDurationMs: trackingInfo?.transferDurationMs,
+                    });
+                  }
                 } finally {
                   if (shouldResetWorkflowRunningInUi) {
                     setWorkflowIsRunning(false);

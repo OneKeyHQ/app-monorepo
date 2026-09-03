@@ -954,6 +954,37 @@ const bob: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
+const katana: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '747474',
+  'id': 'evm--747474',
+  'name': 'Katana',
+  'symbol': 'ETH',
+  'code': 'katana',
+  'shortcode': 'katana',
+  'shortname': 'Katana',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  // TODO(katana): replace with the official chain asset once ops uploads it
+  // (https://uni.onekey-asset.com/static/chain/katana.png); temporary URL from
+  // the earn stake-protocol list response.
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1784281571805.0.8864057938722496.0.webp',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
 const aurora: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1313161554',
@@ -1228,11 +1259,11 @@ const hyperEvm: IServerNetwork = {
   'extensions': {
     'position': 999,
     'isTokenSupported': true,
-    'isNFTEnabled': false,
+    'isNFTEnabled': true,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
   'defaultEnabled': false,
-  'backendIndex': false,
+  'backendIndex': true,
 };
 
 const hoodi: IServerNetwork = {
@@ -2529,6 +2560,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     btr,
     base,
     bob,
+    katana,
     aurora,
     neox,
     azero,
@@ -2599,22 +2631,26 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   return networks;
 });
 
-export const getNetworksSupportFilterScamHistory = memoFn(
-  (): IServerNetwork[] => [
-    eth,
-    sol,
-    sepolia,
-    hoodi,
-    base,
-    optimism,
-    avalanche,
-    arbitrum,
-    bsc,
-    polygon,
-    etc,
-    tron,
-  ],
-);
+// Robinhood Chain is delivered via the server network list instead of
+// presetNetworks, so feature switches below reference it by network id.
+const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
+  eth.id,
+  sol.id,
+  sepolia.id,
+  hoodi.id,
+  base.id,
+  optimism.id,
+  avalanche.id,
+  arbitrum.id,
+  bsc.id,
+  polygon.id,
+  etc.id,
+  tron.id,
+  hyperEvm.id,
+  ROBINHOOD_NETWORK_ID,
+]);
 
 export const getNetworksSupportMevProtection = memoFn(
   (): Record<
@@ -2659,5 +2695,7 @@ export const getNetworksSupportBulkRevokeApproval = memoFn(
     [avalanche.id]: true,
     [optimism.id]: true,
     [base.id]: true,
+    [hyperEvm.id]: true,
+    [ROBINHOOD_NETWORK_ID]: true,
   }),
 );

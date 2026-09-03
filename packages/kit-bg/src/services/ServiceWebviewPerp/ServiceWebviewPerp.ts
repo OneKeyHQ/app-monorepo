@@ -256,6 +256,7 @@ export interface IPerpServerCommonConfig {
   disablePerp?: boolean;
   disablePerpActionPerp?: boolean;
   ipDisablePerp?: boolean;
+  unifoldDepositEnabled?: boolean;
 }
 
 export interface IPerpDynamicTab {
@@ -338,6 +339,12 @@ const PERPS_DEPOSIT_TOKEN_LIST_COLD_CACHE_MAX_AGE_MS =
     day: 1,
   });
 
+interface IPerpsDepositTokenListWriteOptions {
+  cacheKey: string;
+  writeGeneration: number;
+  clearEpoch: number;
+}
+
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
   private perpsDepositTokenListCache = new Map<
@@ -346,6 +353,10 @@ class ServiceWebviewPerp extends ServiceBase {
   >();
 
   private perpsDepositTokenListWriteGenerations = new Map<string, number>();
+
+  // Bumped on runtime-cache clear; fetches capture it before their first await
+  // so requests that predate the clear cannot write results back.
+  private perpsDepositTokenListClearEpoch = 0;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -438,13 +449,28 @@ class ServiceWebviewPerp extends ServiceBase {
   private isPerpsDepositTokenListWriteGenerationCurrent({
     cacheKey,
     writeGeneration,
-  }: {
-    cacheKey: string;
-    writeGeneration: number;
-  }) {
+    clearEpoch,
+  }: IPerpsDepositTokenListWriteOptions) {
     return (
+      this.perpsDepositTokenListClearEpoch === clearEpoch &&
       this.getPerpsDepositTokenListWriteGeneration(cacheKey) === writeGeneration
     );
+  }
+
+  @backgroundMethod()
+  async clearPerpsDepositTokenListRuntimeCache() {
+    // Bump the epoch so every in-flight fetch — including ones that have not
+    // registered their cache key yet — skips its simpleDb write-back, then
+    // bump known generations and drop the memory cache.
+    this.perpsDepositTokenListClearEpoch += 1;
+    const cacheKeys = new Set([
+      ...this.perpsDepositTokenListCache.keys(),
+      ...this.perpsDepositTokenListWriteGenerations.keys(),
+    ]);
+    cacheKeys.forEach((cacheKey) =>
+      this.bumpPerpsDepositTokenListWriteGeneration(cacheKey),
+    );
+    this.perpsDepositTokenListCache.clear();
   }
 
   private buildPerpsDepositTokenListOwnerKey({
@@ -572,10 +598,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   private fetchPerpsDepositTokenListDataCached(
     params: IPerpsDepositTokenListCacheParams,
-    options: {
-      cacheKey: string;
-      writeGeneration: number;
-    },
+    options: IPerpsDepositTokenListWriteOptions,
   ): Promise<IPerpsDepositTokenListData> {
     const cacheKey = this.buildPerpsDepositTokenListCacheKey(params);
     const now = Date.now();
@@ -591,6 +614,7 @@ class ServiceWebviewPerp extends ServiceBase {
           this.isPerpsDepositTokenListWriteGenerationCurrent({
             cacheKey: options.cacheKey,
             writeGeneration: options.writeGeneration,
+            clearEpoch: options.clearEpoch,
           })
         ) {
           void this.backgroundApi.simpleDb.perp.setPerpsDepositTokenListCache({
@@ -618,10 +642,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   private async updatePerpsDepositTokenListAtom(
     { ownerKey, tokens, tokensByNetwork }: IPerpsDepositTokenListData,
-    options?: {
-      cacheKey: string;
-      writeGeneration: number;
-    },
+    options?: IPerpsDepositTokenListWriteOptions,
   ) {
     let selectedToken: IPerpsDepositToken | undefined;
     let isStale = false;
@@ -684,10 +705,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   private refreshPerpsDepositTokenListDataInBackground(
     params: IPerpsDepositTokenListCacheParams,
-    options: {
-      cacheKey: string;
-      writeGeneration: number;
-    },
+    options: IPerpsDepositTokenListWriteOptions,
   ) {
     void this.fetchPerpsDepositTokenListDataCached(params, options)
       .then((data) => this.updatePerpsDepositTokenListAtom(data, options))
@@ -705,6 +723,9 @@ class ServiceWebviewPerp extends ServiceBase {
     indexedAccountId,
     forceRefresh,
   }: IFetchPerpsDepositTokensFromWalletTokenListParams): Promise<IFetchPerpsDepositTokensFromWalletTokenListResult> {
+    // Captured before the first await so a runtime-cache clear that happens
+    // during owner normalization still invalidates this request's write-back.
+    const clearEpoch = this.perpsDepositTokenListClearEpoch;
     const { accountId: allNetworksAccountId, indexedAccountId: ownerIndexId } =
       await this.normalizePerpsDepositAllNetworksOwner({
         accountId,
@@ -732,7 +753,7 @@ class ServiceWebviewPerp extends ServiceBase {
     if (forceRefresh) {
       writeGeneration = this.bumpPerpsDepositTokenListWriteGeneration(cacheKey);
       this.perpsDepositTokenListCache.delete(cacheKey);
-      const writeOptions = { cacheKey, writeGeneration };
+      const writeOptions = { cacheKey, writeGeneration, clearEpoch };
       const data = await this.fetchPerpsDepositTokenListDataCached(
         cacheParams,
         writeOptions,
@@ -750,7 +771,7 @@ class ServiceWebviewPerp extends ServiceBase {
     const memoryCache =
       this.getPerpsDepositTokenListDataMemoryCache(cacheParams);
     if (memoryCache) {
-      const writeOptions = { cacheKey, writeGeneration };
+      const writeOptions = { cacheKey, writeGeneration, clearEpoch };
       const data = await memoryCache;
       const updateResult = await this.updatePerpsDepositTokenListAtom(
         data,
@@ -779,10 +800,12 @@ class ServiceWebviewPerp extends ServiceBase {
       const updateResult = await this.updatePerpsDepositTokenListAtom(data, {
         cacheKey,
         writeGeneration,
+        clearEpoch,
       });
       this.refreshPerpsDepositTokenListDataInBackground(cacheParams, {
         cacheKey,
         writeGeneration,
+        clearEpoch,
       });
       return {
         ...data,
@@ -790,7 +813,7 @@ class ServiceWebviewPerp extends ServiceBase {
       };
     }
 
-    const writeOptions = { cacheKey, writeGeneration };
+    const writeOptions = { cacheKey, writeGeneration, clearEpoch };
     const data = await this.fetchPerpsDepositTokenListDataCached(
       cacheParams,
       writeOptions,
@@ -1332,6 +1355,7 @@ class ServiceWebviewPerp extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
   async getUserBuilderFeeStatus({
     userAddress,
   }: {

@@ -24,10 +24,12 @@ import {
   ESwapLimitOrderStatus,
   ESwapQuoteKind,
   type IFetchLimitOrderRes,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { getLimitOrderDisplayAmounts } from './LimitOrderCard.utils';
+import {
+  getLimitOrderDisplayAmounts,
+  getLimitOrderDisplayPrice,
+} from './LimitOrderCard.utils';
 import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
@@ -162,23 +164,13 @@ const LimitOrderCard = ({
 
   const [limitPriceReverse, setLimitPriceReverse] = useState(false);
   const limitPrice = useMemo(() => {
-    const fromAmountNum = decimalsAmount.fromAmount;
-    const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = limitPriceReverse
-      ? fromAmountNum
-          .div(toAmountNum)
-          .decimalPlaces(
-            Number(toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-            BigNumber.ROUND_HALF_UP,
-          )
-          .toFixed()
-      : toAmountNum
-          .div(fromAmountNum)
-          .decimalPlaces(
-            Number(fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS),
-            BigNumber.ROUND_HALF_UP,
-          )
-          .toFixed();
+    const calculateLimitPrice = getLimitOrderDisplayPrice({
+      fromAmount: decimalsAmount.fromAmount,
+      toAmount: decimalsAmount.toAmount,
+      fromTokenDecimals: fromTokenInfo?.decimals,
+      toTokenDecimals: toTokenInfo?.decimals,
+      reverse: limitPriceReverse,
+    }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
   }, [

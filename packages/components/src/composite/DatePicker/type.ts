@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../../forms/Input';
 import type { SheetProps } from '../../shared/tamagui';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -42,6 +43,11 @@ export interface IRangePickerProps extends IDatePickerBaseProps {
   mode?: 'range';
   value?: IDateRange;
   onChange?: (range: IDateRange) => void;
+  /**
+   * Affects only the gtMd dual-panel layout: shows previous+current months
+   * instead of current+next. Single-panel (phone) calendars always open on
+   * the current month.
+   */
   showPreviousMonth?: boolean;
   presets?: IDateRangePreset[];
 }
@@ -71,6 +77,7 @@ export interface IDatePickerTriggerProps {
   disabled?: boolean;
   onPress?: () => void;
   onClear?: () => void;
+  size?: IInputProps['size'];
 }
 
 export interface IDayCellProps {

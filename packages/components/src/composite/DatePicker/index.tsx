@@ -14,6 +14,10 @@ import { withStaticProperties } from '../../shared/tamagui';
 import { Calendar } from './Calendar';
 import { DatePickerTrigger } from './DatePickerTrigger';
 import { PresetsSidebar } from './PresetsSidebar';
+import {
+  SWIPE_PAGER_OFFSETS,
+  useSwipeMonthNavEnabled,
+} from './useSwipeMonthNavEnabled';
 
 import type {
   DatePickerMode,
@@ -30,24 +34,37 @@ import type {
 
 const WEEK_START_MONDAY = 1 as const;
 
-const createPickerConfig = (
-  selectedDates: Date[],
-  handleDatesChange: (dates: Date[]) => void,
-  minDate?: Date,
-  maxDate?: Date,
-  mode: 'single' | 'range' | 'multiple' = 'single',
-  calendarMode?: 'static',
-  locale?: string,
-  showPreviousMonth?: boolean,
-) => {
+const createPickerConfig = ({
+  selectedDates,
+  onDatesChange,
+  minDate,
+  maxDate,
+  mode = 'single',
+  calendarMode,
+  locale,
+  showPreviousMonth,
+  enableSwipeMonthNav,
+}: {
+  selectedDates: Date[];
+  onDatesChange: (dates: Date[]) => void;
+  minDate?: Date;
+  maxDate?: Date;
+  mode?: 'single' | 'range' | 'multiple';
+  calendarMode?: 'static';
+  locale?: string;
+  showPreviousMonth?: boolean;
+  enableSwipeMonthNav?: boolean;
+}) => {
   let offsets: number[] | undefined;
-  if (mode === 'range') {
+  if (calendarMode !== 'static' && enableSwipeMonthNav) {
+    offsets = SWIPE_PAGER_OFFSETS;
+  } else if (mode === 'range') {
     offsets = showPreviousMonth ? [-1] : [1];
   }
 
   const config: React.ComponentProps<typeof DatePickerProvider>['config'] = {
     selectedDates,
-    onDatesChange: handleDatesChange,
+    onDatesChange,
     dates: {
       mode,
       minDate,
@@ -198,18 +215,26 @@ function BasicDatePicker({
     [onChange, close],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        undefined,
         locale,
-      ),
-    [selectedDates, handleDatesChange, minDate, maxDate, locale],
+        enableSwipeMonthNav,
+      }),
+    [
+      selectedDates,
+      handleDatesChange,
+      minDate,
+      maxDate,
+      locale,
+      enableSwipeMonthNav,
+    ],
   );
 
   const mergedFloatingPanelProps = useMemo(
@@ -221,11 +246,11 @@ function BasicDatePicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="date" />
+          <Calendar mode="date" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
       </YStack>
     ),
-    [config],
+    [config, minDate, maxDate],
   );
 
   return (
@@ -348,18 +373,20 @@ function RangePicker({
     [onChange, close],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'range',
-        undefined,
+        mode: 'range',
         locale,
         showPreviousMonth,
-      ),
+        enableSwipeMonthNav,
+      }),
     [
       selectedDates,
       handleDatesChange,
@@ -367,6 +394,7 @@ function RangePicker({
       maxDate,
       locale,
       showPreviousMonth,
+      enableSwipeMonthNav,
     ],
   );
 
@@ -461,15 +489,14 @@ function YearPicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        'static',
+        calendarMode: 'static',
         locale,
-      ),
+      }),
     [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
@@ -552,15 +579,14 @@ function MonthPicker({
 
   const config = useMemo(
     () =>
-      createPickerConfig(
+      createPickerConfig({
         selectedDates,
-        handleDatesChange,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'single',
-        'static',
+        calendarMode: 'static',
         locale,
-      ),
+      }),
     [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
@@ -636,18 +662,20 @@ function MultiSelectPicker({
     [onChange],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
   const config = useMemo(
     () =>
-      createPickerConfig(
-        value,
-        handleDatesChange,
+      createPickerConfig({
+        selectedDates: value,
+        onDatesChange: handleDatesChange,
         minDate,
         maxDate,
-        'multiple',
-        undefined,
+        mode: 'multiple',
         locale,
-      ),
-    [value, handleDatesChange, minDate, maxDate, locale],
+        enableSwipeMonthNav,
+      }),
+    [value, handleDatesChange, minDate, maxDate, locale, enableSwipeMonthNav],
   );
 
   const multiFloatingPanelProps = useMemo(
@@ -659,11 +687,11 @@ function MultiSelectPicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="multiple" />
+          <Calendar mode="multiple" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
       </YStack>
     ),
-    [config],
+    [config, minDate, maxDate],
   );
 
   return (

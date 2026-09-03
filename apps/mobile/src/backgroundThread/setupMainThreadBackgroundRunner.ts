@@ -5,7 +5,6 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
-import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -27,9 +26,22 @@ import {
   parseAsyncStorageWriteForwarderRequestStatus,
   serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import {
+  type INativeStorageContractViolation,
+  type INativeStorageGlobal,
+  type INativeStorageRequest,
+  NATIVE_SYNC_STORAGE_MUTATION_EVENT,
+  parseNativeStorageContractViolation,
+  parseNativeSyncStorageMutation,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
+import { applyOrQueueJotaiStateBroadcast } from './jotaiMainHydrationGate';
+import {
+  deletePersistedNativeStorageContractViolation,
+  drainPersistedNativeStorageContractViolations,
+} from './nativeStorageContractViolationQueue';
 import {
   BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
   BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
@@ -123,10 +135,13 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
-const MAX_OBSERVER_RETRY_COUNT = 600;
-const READY_TIMEOUT_MS = 10_000;
+const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
+// Mirror mutations are idempotent and deduplicated in bg. Bootstrap gets a
+// longer, bounded timeout because a first-upgrade migration can run longer.
+const NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS = 15_000;
+const NATIVE_STORAGE_BOOTSTRAP_REQUEST_TIMEOUT_MS = 60_000;
 // Main AsyncStorage writes are serialized. Allow one same-boot retry after the
 // per-request timeout, but do not block later writes for the old 60s window.
 const ASYNC_STORAGE_FORWARDER_RECOVERY_TIMEOUT_MS =
@@ -147,23 +162,33 @@ const BRIDGE_CALL_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 const MAX_REMOTE_CALL_SLOT_COUNT = 8192;
 
 type IQueuedCall = {
+  queueId: number;
   request: IBackgroundThreadRequest;
   localFallback: () => Promise<any>;
   resolve: (value: any) => void;
   reject: (error: unknown) => void;
+  deadlineAt: number;
+  timer: ReturnType<typeof setTimeout>;
+  signal?: AbortSignal;
+  abortHandler?: () => void;
 };
 
 type IPendingRemoteCall = {
   resolve: (value: any) => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
-  localFallback: () => Promise<any>;
+  cleanupAbort?: () => void;
+};
+
+type IRemoteRequestOptions = {
+  signal?: AbortSignal;
 };
 
 type INativeBackgroundThreadTransport = {
   callServiceRequest: (
     request: IBackgroundThreadServiceCallRequest,
     localFallback: () => Promise<any>,
+    options?: IRemoteRequestOptions,
   ) => Promise<any>;
   emitAppEventRequest: (
     request: {
@@ -197,13 +222,13 @@ type IBackgroundThreadTransportGlobal = typeof globalThis & {
 let observerRetryCount = 0;
 let observerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let observerInstalled = false;
-let readyTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
+let readyObservationTimer: ReturnType<typeof setTimeout> | undefined;
 let requestSequence = 0;
+let queuedCallSequence = 0;
 // Peak count of simultaneously in-flight main→bg requests (observability +
 // MAX_REMOTE_CALL_SLOT_COUNT sizing signal). Monotonically increasing.
 let maxInFlightRemoteCalls = 0;
 let transportState: IBackgroundThreadTransportState = 'idle';
-let queuedFlushPromise: Promise<void> | undefined;
 let remoteBrokenReason: string | undefined;
 let currentBackgroundRuntimeBootId: string | undefined;
 const asyncStorageWriteRequestRuntimeId = `${Date.now().toString(
@@ -220,6 +245,10 @@ let transportReadyAt = 0;
 
 const queuedCalls: IQueuedCall[] = [];
 const pendingRemoteCalls = new Map<string, IPendingRemoteCall>();
+const readyWaiters = new Set<{
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}>();
 const mainThreadBridgeMap: Partial<
   Record<IBackgroundThreadBridgeChannel, JsBridgeBase | null>
 > = {};
@@ -267,6 +296,28 @@ function isAsyncStorageWriteServiceRequest(
   return (
     request.type === 'service-call' && request.method === 'writeAsyncStorage'
   );
+}
+
+function isNativeSyncStorageServiceRequest(request: IBackgroundThreadRequest) {
+  if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
+    return false;
+  }
+  const nativeStorageRequest = request.params[0] as
+    | INativeStorageRequest
+    | undefined;
+  return nativeStorageRequest?.scope === 'syncStorage';
+}
+
+function isNativeStorageBootstrapServiceRequest(
+  request: IBackgroundThreadRequest,
+) {
+  if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
+    return false;
+  }
+  const nativeStorageRequest = request.params[0] as
+    | INativeStorageRequest
+    | undefined;
+  return nativeStorageRequest?.scope === 'bootstrap';
 }
 
 function createAsyncStorageForwarderTransportRequiredError() {
@@ -644,18 +695,22 @@ function getTransportGlobal() {
   return globalThis as IBackgroundThreadTransportGlobal;
 }
 
-function clearReadyTimeoutTimer() {
-  if (!readyTimeoutTimer) {
+function clearReadyObservationTimer() {
+  if (!readyObservationTimer) {
     return;
   }
-  clearTimeout(readyTimeoutTimer);
-  readyTimeoutTimer = undefined;
+  clearTimeout(readyObservationTimer);
+  readyObservationTimer = undefined;
 }
 
 function rejectQueuedCalls(reason: string) {
   const queuedCallsSnapshot = queuedCalls.splice(0);
   const error = createTransportError(reason);
-  queuedCallsSnapshot.forEach(({ reject }) => {
+  queuedCallsSnapshot.forEach(({ reject, timer, signal, abortHandler }) => {
+    clearTimeout(timer);
+    if (signal && abortHandler) {
+      signal.removeEventListener('abort', abortHandler);
+    }
     reject(error);
   });
 }
@@ -664,10 +719,22 @@ function rejectPendingRemoteCalls(reason: string) {
   const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
   pendingRemoteCalls.clear();
   const error = createTransportError(reason);
-  pendingRemoteCallsSnapshot.forEach(({ reject, timer }) => {
+  pendingRemoteCallsSnapshot.forEach(({ reject, timer, cleanupAbort }) => {
     clearTimeout(timer);
+    cleanupAbort?.();
     reject(error);
   });
+}
+
+function rejectReadyWaiters(reason: string) {
+  const error = createTransportError(reason);
+  readyWaiters.forEach(({ reject }) => reject(error));
+  readyWaiters.clear();
+}
+
+function resolveReadyWaiters() {
+  readyWaiters.forEach(({ resolve }) => resolve());
+  readyWaiters.clear();
 }
 
 function getRemoteBrokenReason(reason?: string) {
@@ -686,21 +753,24 @@ function switchToRemoteBroken(reason: string) {
 
   remoteBrokenReason = reason;
   transportState = 'remote-broken';
-  clearReadyTimeoutTimer();
+  clearReadyObservationTimer();
   rejectQueuedCalls(reason);
   rejectPendingRemoteCalls(reason);
+  rejectReadyWaiters(reason);
   return true;
 }
 
-function ensureReadyTimeout() {
-  if (readyTimeoutTimer || transportState !== 'starting') {
+function ensureReadyObservationWarning() {
+  if (readyObservationTimer || transportState !== 'starting') {
     return;
   }
 
-  readyTimeoutTimer = setTimeout(() => {
-    readyTimeoutTimer = undefined;
-    switchToRemoteBroken('Background runtime ready timeout');
-  }, READY_TIMEOUT_MS);
+  readyObservationTimer = setTimeout(() => {
+    readyObservationTimer = undefined;
+    transportLog(
+      `background runtime still starting after ${READY_OBSERVATION_WARN_MS}ms; queued=${queuedCalls.length}, observerRetries=${observerRetryCount}`,
+    );
+  }, READY_OBSERVATION_WARN_MS);
 }
 
 function cleanupPendingRemoteCall(callId: string) {
@@ -710,6 +780,7 @@ function cleanupPendingRemoteCall(callId: string) {
   }
 
   clearTimeout(pendingCall.timer);
+  pendingCall.cleanupAbort?.();
   pendingRemoteCalls.delete(callId);
   return pendingCall;
 }
@@ -747,14 +818,45 @@ function getRemoteRequestTimeoutMs(request: IBackgroundThreadRequest) {
     // must not block every later write for the generic service timeout window.
     return ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS;
   }
+  if (isNativeSyncStorageServiceRequest(request)) {
+    return NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS;
+  }
+  if (isNativeStorageBootstrapServiceRequest(request)) {
+    return NATIVE_STORAGE_BOOTSTRAP_REQUEST_TIMEOUT_MS;
+  }
   return request.type === 'bridge-call'
     ? BRIDGE_CALL_TIMEOUT_MS
     : REQUEST_TIMEOUT_MS;
 }
 
+function createRemoteRequestTimeoutError(
+  request: IBackgroundThreadRequest,
+  timeoutMs: number,
+) {
+  const timeoutLabel =
+    request.type === 'bridge-call'
+      ? 'Bridge call timeout'
+      : 'Background request timeout';
+  return createTransportError(
+    `${timeoutLabel} (${timeoutMs / 1000}s). request=${getRequestDebugLabel(
+      request,
+    )}`,
+  );
+}
+
+function createRemoteRequestAbortError(request: IBackgroundThreadRequest) {
+  return createTransportError(
+    `Background request aborted. request=${getRequestDebugLabel(request)}`,
+  );
+}
+
 function dispatchRemoteRequest(
   request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
+  {
+    deadlineAt = Date.now() + getRemoteRequestTimeoutMs(request),
+    signal,
+  }: IRemoteRequestOptions & { deadlineAt?: number } = {},
 ) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return localFallback();
@@ -773,17 +875,25 @@ function dispatchRemoteRequest(
     throw createTransportError(getRemoteBrokenReason(reason));
   }
 
+  const timeoutMs = getRemoteRequestTimeoutMs(request);
+  const remainingTimeoutMs = deadlineAt - Date.now();
+  if (signal?.aborted) {
+    return Promise.reject(createRemoteRequestAbortError(request));
+  }
+  if (remainingTimeoutMs <= 0) {
+    return Promise.reject(createRemoteRequestTimeoutError(request, timeoutMs));
+  }
+
   const callId = createRemoteCallId();
   const requestKey = buildBackgroundThreadRequestKey(callId);
   transportLog(
     `dispatchRemoteRequest: callId=${callId}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
   );
-  const isBridgeCall = request.type === 'bridge-call';
-  const timeoutMs = getRemoteRequestTimeoutMs(request);
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      if (!pendingRemoteCalls.has(callId)) {
+      const pending = cleanupPendingRemoteCall(callId);
+      if (!pending) {
         return;
       }
       transportLog(`dispatchRemoteRequest TIMEOUT: callId=${callId}`);
@@ -791,26 +901,40 @@ function dispatchRemoteRequest(
       // runs past REQUEST_TIMEOUT_MS) must NOT tear down the whole main↔bg
       // transport. Reject only this pending call; keep transport alive so
       // subsequent RPCs still reach the background runtime.
-      const pending = pendingRemoteCalls.get(callId);
-      pendingRemoteCalls.delete(callId);
-      if (pending) {
-        clearTimeout(pending.timer);
-        pending.reject(
-          createTransportError(
-            isBridgeCall
-              ? `Bridge call timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`
-              : `Background request timeout (${timeoutMs / 1000}s). request=${getRequestDebugLabel(request)}`,
-          ),
-        );
-      }
-    }, timeoutMs);
+      pending.reject(createRemoteRequestTimeoutError(request, timeoutMs));
+    }, remainingTimeoutMs);
+
+    const abortHandler = signal
+      ? () => {
+          const pending = cleanupPendingRemoteCall(callId);
+          if (!pending) {
+            return;
+          }
+          transportLog(
+            `dispatchRemoteRequest ABORTED: callId=${callId}; remote execution may continue`,
+          );
+          pending.reject(createRemoteRequestAbortError(request));
+        }
+      : undefined;
+    const cleanupAbort =
+      signal && abortHandler
+        ? () => signal.removeEventListener('abort', abortHandler)
+        : undefined;
 
     pendingRemoteCalls.set(callId, {
       resolve,
       reject,
       timer,
-      localFallback,
+      cleanupAbort,
     });
+
+    if (signal && abortHandler) {
+      signal.addEventListener('abort', abortHandler, { once: true });
+      if (signal.aborted) {
+        abortHandler();
+        return;
+      }
+    }
 
     // Observability replacement for the removed native `pendingCount`: track
     // the peak number of SIMULTANEOUSLY in-flight main→bg requests. This both
@@ -823,7 +947,11 @@ function dispatchRemoteRequest(
       );
     }
 
-    sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
+    try {
+      sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
+    } catch (error) {
+      cleanupPendingRemoteCall(callId)?.reject(error);
+    }
   });
 }
 
@@ -836,23 +964,39 @@ function dispatchQueuedCallsToRemote() {
     return;
   }
 
-  queuedFlushPromise = queuedCallsSnapshot
-    .reduce<Promise<void>>((promise, queuedCall) => {
-      return promise.finally(async () => {
-        try {
-          const result = await dispatchRemoteRequest(
-            queuedCall.request,
-            queuedCall.localFallback,
-          );
-          queuedCall.resolve(result);
-        } catch (error) {
-          queuedCall.reject(error);
-        }
-      });
-    }, Promise.resolve())
-    .finally(() => {
-      queuedFlushPromise = undefined;
+  queuedCallsSnapshot.forEach((queuedCall) => {
+    clearTimeout(queuedCall.timer);
+    if (queuedCall.signal && queuedCall.abortHandler) {
+      queuedCall.signal.removeEventListener('abort', queuedCall.abortHandler);
+    }
+
+    try {
+      void dispatchRemoteRequest(queuedCall.request, queuedCall.localFallback, {
+        deadlineAt: queuedCall.deadlineAt,
+        signal: queuedCall.signal,
+      }).then(queuedCall.resolve, queuedCall.reject);
+    } catch (error) {
+      queuedCall.reject(error);
+    }
+  });
+}
+
+function refreshNativeSyncStorageMirrorsAfterBackgroundRestart() {
+  void import('@onekeyhq/shared/src/storage/instance/nativeSyncStorageMirror')
+    .then(({ refreshNativeSyncStorageMirrors }) =>
+      refreshNativeSyncStorageMirrors(),
+    )
+    .catch((error: unknown) => {
+      transportLog(
+        `native sync storage refresh failed after bg restart: ${(error as Error)?.message || 'unknown'}`,
+      );
     });
+}
+
+function notifyNativeSyncStorageTransportReady() {
+  (
+    globalThis as INativeStorageGlobal
+  ).__onekeyNativeSyncStorageTransportReady?.();
 }
 
 function handleRuntimeSignal() {
@@ -896,6 +1040,8 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      notifyNativeSyncStorageTransportReady();
+      refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
     }
     return;
   }
@@ -913,9 +1059,14 @@ function handleRuntimeSignal() {
   transportLog(
     `transport → ready at +${readyFromEntry}ms from JS entry (starting→ready: ${readyFromStarting}ms, observer retries: ${observerRetryCount})`,
   );
-  clearReadyTimeoutTimer();
+  clearReadyObservationTimer();
   setBackgroundThreadReadyPayload(runtimePayload);
   dispatchQueuedCallsToRemote();
+  resolveReadyWaiters();
+  notifyNativeSyncStorageTransportReady();
+  if (bootIdChanged) {
+    refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
+  }
 }
 
 function handleBackgroundThreadResponse(
@@ -955,61 +1106,71 @@ function handleBackgroundThreadResponse(
   }
 
   const errorInfo = response.error;
-  const error = createTransportError(
+  const errorMessage =
     errorInfo?.message ||
-      `Background request failed without error payload. callId=${callId}`,
-  ) as Error & {
+    `Background request failed without error payload. callId=${callId}`;
+  let error = new Error(errorMessage) as Error & {
     name?: string;
     stack?: string;
     autoToast?: boolean;
     className?: string;
+    $isHardwareError?: boolean;
     code?: string | number;
     key?: string;
     requestId?: string;
     httpStatusCode?: number;
-    constructorName?: string;
     data?: unknown;
     payload?: unknown;
   };
-  if (errorInfo?.name) {
-    error.name = errorInfo.name;
+  try {
+    error = createTransportError(errorMessage);
+    if (errorInfo?.name) {
+      error.name = errorInfo.name;
+    }
+    if (errorInfo?.stack) {
+      error.stack = errorInfo.stack;
+    }
+    // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
+    // toast / i18n / dedup logic behaves the same as non-split thread mode.
+    if (typeof errorInfo?.autoToast === 'boolean') {
+      error.autoToast = errorInfo.autoToast;
+    }
+    if (typeof errorInfo?.className === 'string') {
+      error.className = errorInfo.className;
+    }
+    if (errorInfo?.$isHardwareError === true) {
+      error.$isHardwareError = true;
+    }
+    if (
+      typeof errorInfo?.code === 'string' ||
+      typeof errorInfo?.code === 'number'
+    ) {
+      error.code = errorInfo.code;
+    }
+    if (typeof errorInfo?.key === 'string') {
+      error.key = errorInfo.key;
+    }
+    if (typeof errorInfo?.requestId === 'string') {
+      error.requestId = errorInfo.requestId;
+    }
+    if (typeof errorInfo?.httpStatusCode === 'number') {
+      error.httpStatusCode = errorInfo.httpStatusCode;
+    }
+    if (errorInfo?.data !== undefined) {
+      error.data = errorInfo.data;
+    }
+    if (errorInfo?.payload !== undefined) {
+      error.payload = errorInfo.payload;
+    }
+  } catch (metadataError) {
+    transportLog(
+      `handleResponse: failed to rehydrate error metadata. callId=${callId}, error=${
+        (metadataError as Error)?.message || String(metadataError)
+      }`,
+    );
+  } finally {
+    pendingCall.reject(error);
   }
-  if (errorInfo?.stack) {
-    error.stack = errorInfo.stack;
-  }
-  // Rehydrate OneKeyError metadata stripped by JSON RPC so downstream
-  // toast / i18n / dedup logic behaves the same as non-split thread mode.
-  if (typeof errorInfo?.autoToast === 'boolean') {
-    error.autoToast = errorInfo.autoToast;
-  }
-  if (typeof errorInfo?.className === 'string') {
-    error.className = errorInfo.className;
-  }
-  if (
-    typeof errorInfo?.code === 'string' ||
-    typeof errorInfo?.code === 'number'
-  ) {
-    error.code = errorInfo.code;
-  }
-  if (typeof errorInfo?.key === 'string') {
-    error.key = errorInfo.key;
-  }
-  if (typeof errorInfo?.requestId === 'string') {
-    error.requestId = errorInfo.requestId;
-  }
-  if (typeof errorInfo?.httpStatusCode === 'number') {
-    error.httpStatusCode = errorInfo.httpStatusCode;
-  }
-  if (typeof errorInfo?.constructorName === 'string') {
-    error.constructorName = errorInfo.constructorName;
-  }
-  if (errorInfo?.data !== undefined) {
-    error.data = errorInfo.data;
-  }
-  if (errorInfo?.payload !== undefined) {
-    error.payload = errorInfo.payload;
-  }
-  pendingCall.reject(error);
 }
 
 function handleBackgroundThreadJotaiStateUpdate(
@@ -1020,8 +1181,7 @@ function handleBackgroundThreadJotaiStateUpdate(
     return;
   }
 
-  void jotaiUpdateFromUiByBgBroadcast({
-    $$isFromBgStatesSyncBroadcast: true,
+  applyOrQueueJotaiStateBroadcast({
     name: payload.name,
     payload: payload.payload,
   });
@@ -1043,12 +1203,32 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
   }
 
   for (const item of payload.items) {
-    void jotaiUpdateFromUiByBgBroadcast({
-      $$isFromBgStatesSyncBroadcast: true,
+    applyOrQueueJotaiStateBroadcast({
       name: item.name,
       payload: item.payload,
     });
   }
+}
+
+function dispatchNativeStorageContractViolationFromBackground(
+  violation: INativeStorageContractViolation,
+) {
+  appEventBus.dispatchInboundFromBackground({
+    type: EAppEventBusNames.NativeStorageContractViolation,
+    payload: violation,
+    originNodeId: '',
+  });
+}
+
+function drainNativeStorageContractViolationsFromSharedStore() {
+  const sharedStore = getSharedStore();
+  if (!sharedStore) {
+    return;
+  }
+  drainPersistedNativeStorageContractViolations(
+    sharedStore,
+    dispatchNativeStorageContractViolationFromBackground,
+  );
 }
 
 function handleBackgroundThreadAppEventUpdate(
@@ -1056,6 +1236,32 @@ function handleBackgroundThreadAppEventUpdate(
 ) {
   const payload = parseBackgroundThreadAppEventBroadcastPayload(value);
   if (!payload) {
+    return;
+  }
+
+  if (payload.eventName === EAppEventBusNames.NativeStorageContractViolation) {
+    const violation = parseNativeStorageContractViolation(payload.payload);
+    if (!violation) {
+      transportLog('ignored invalid native storage contract violation');
+      return;
+    }
+    dispatchNativeStorageContractViolationFromBackground(violation);
+    const sharedStore = getSharedStore();
+    if (sharedStore) {
+      deletePersistedNativeStorageContractViolation(sharedStore, violation.id);
+    }
+    return;
+  }
+
+  if (payload.eventName === NATIVE_SYNC_STORAGE_MUTATION_EVENT) {
+    const mutation = parseNativeSyncStorageMutation(payload.payload);
+    if (!mutation) {
+      transportLog('ignored invalid native sync storage mutation');
+      return;
+    }
+    (
+      globalThis as INativeStorageGlobal
+    ).__onekeyNativeSyncStorageApplyMutation?.(mutation);
     return;
   }
 
@@ -1182,6 +1388,8 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         `failed to advertise main capabilities: ${(error as Error)?.message || String(error)}`,
       );
     }
+
+    drainNativeStorageContractViolationsFromSharedStore();
   }
 
   if (transportState === 'idle') {
@@ -1192,7 +1400,7 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
     );
   }
 
-  ensureReadyTimeout();
+  ensureReadyObservationWarning();
   handleRuntimeSignal();
 }
 
@@ -1210,10 +1418,7 @@ function ensureBackgroundRuntimeObserver() {
     return;
   }
 
-  if (observerRetryTimer || observerRetryCount >= MAX_OBSERVER_RETRY_COUNT) {
-    if (observerRetryCount >= MAX_OBSERVER_RETRY_COUNT) {
-      switchToRemoteBroken('SharedRPC unavailable in main runtime');
-    }
+  if (observerRetryTimer) {
     return;
   }
 
@@ -1223,7 +1428,7 @@ function ensureBackgroundRuntimeObserver() {
     transportLog(
       `transport → starting (retry path) at +${transportStartingAt - jsEntryStart}ms from JS entry`,
     );
-    ensureReadyTimeout();
+    ensureReadyObservationWarning();
   }
 
   observerRetryTimer = setTimeout(() => {
@@ -1239,29 +1444,30 @@ async function ensureTransportReady() {
   }
 
   ensureBackgroundRuntimeObserver();
-  const waitUntil = Date.now() + READY_TIMEOUT_MS;
-
-  while (transportState !== 'ready') {
-    if (transportState === 'remote-broken') {
-      throw createTransportError(getRemoteBrokenReason());
-    }
-
-    if (Date.now() >= waitUntil) {
-      const reason = 'Background runtime ready timeout';
-      switchToRemoteBroken(reason);
-      throw createTransportError(getRemoteBrokenReason(reason));
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, OBSERVER_RETRY_MS);
-    });
-    ensureBackgroundRuntimeObserver();
+  if (transportState === 'ready') {
+    return;
   }
+  if (transportState === 'remote-broken') {
+    throw createTransportError(getRemoteBrokenReason());
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const waiter = { resolve, reject };
+    readyWaiters.add(waiter);
+    if (transportState === 'ready') {
+      readyWaiters.delete(waiter);
+      resolve();
+    } else if (transportState === 'remote-broken') {
+      readyWaiters.delete(waiter);
+      reject(createTransportError(getRemoteBrokenReason()));
+    }
+  });
 }
 
 function callRemoteRequest(
   request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
+  options: IRemoteRequestOptions = {},
 ) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return localFallback();
@@ -1271,16 +1477,17 @@ function callRemoteRequest(
     return Promise.reject(createTransportError(getRemoteBrokenReason()));
   }
 
+  const timeoutMs = getRemoteRequestTimeoutMs(request);
+  const deadlineAt = Date.now() + timeoutMs;
+
   if (transportState === 'ready') {
     transportLog(
-      `callRemoteRequest: ready, queuedFlushPromise=${!!queuedFlushPromise}, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
+      `callRemoteRequest: ready, type=${request.type}, method=${'method' in request ? request.method : 'N/A'}`,
     );
-    if (queuedFlushPromise) {
-      return queuedFlushPromise.then(() =>
-        dispatchRemoteRequest(request, localFallback),
-      );
-    }
-    return dispatchRemoteRequest(request, localFallback);
+    return dispatchRemoteRequest(request, localFallback, {
+      deadlineAt,
+      signal: options.signal,
+    });
   }
 
   transportLog(
@@ -1291,15 +1498,57 @@ function callRemoteRequest(
   // synchronously trigger handleRuntimeSignal → dispatchQueuedCallsToRemote,
   // so the call must already be in the queue when that happens.
   const promise = new Promise((resolve, reject) => {
-    queuedCalls.push({
+    queuedCallSequence += 1;
+    const queueId = queuedCallSequence;
+    const timer = setTimeout(() => {
+      const index = queuedCalls.findIndex((call) => call.queueId === queueId);
+      if (index === -1) {
+        return;
+      }
+      const [queuedCall] = queuedCalls.splice(index, 1);
+      if (queuedCall.signal && queuedCall.abortHandler) {
+        queuedCall.signal.removeEventListener('abort', queuedCall.abortHandler);
+      }
+      reject(createRemoteRequestTimeoutError(request, timeoutMs));
+    }, timeoutMs);
+    const abortHandler = options.signal
+      ? function handleQueuedCallAbort() {
+          const index = queuedCalls.findIndex(
+            (call) => call.queueId === queueId,
+          );
+          if (index === -1) {
+            return;
+          }
+          const [queuedCall] = queuedCalls.splice(index, 1);
+          clearTimeout(queuedCall.timer);
+          options.signal?.removeEventListener('abort', handleQueuedCallAbort);
+          reject(createRemoteRequestAbortError(request));
+        }
+      : undefined;
+
+    const queuedCall: IQueuedCall = {
+      queueId,
       request,
       localFallback,
       resolve,
       reject,
-    });
-  });
+      deadlineAt,
+      timer,
+      signal: options.signal,
+      abortHandler,
+    };
+    queuedCalls.push(queuedCall);
 
-  ensureBackgroundRuntimeObserver();
+    if (options.signal && abortHandler) {
+      options.signal.addEventListener('abort', abortHandler, { once: true });
+      if (options.signal.aborted) {
+        abortHandler();
+        return;
+      }
+    }
+
+    ensureBackgroundRuntimeObserver();
+  });
 
   return promise;
 }
@@ -1307,8 +1556,9 @@ function callRemoteRequest(
 function callServiceRequest(
   request: IBackgroundThreadServiceCallRequest,
   localFallback: () => Promise<any>,
+  options?: IRemoteRequestOptions,
 ) {
-  return callRemoteRequest(request, localFallback);
+  return callRemoteRequest(request, localFallback, options);
 }
 
 function callBridgeRequest(
@@ -1428,6 +1678,29 @@ function installGlobalTransport() {
     getState: () => transportState,
     isEnabled: isNativeBackgroundThreadTransportEnabled,
   };
+}
+
+function installNativeStorageBridge() {
+  const nativeStorageGlobal = globalThis as INativeStorageGlobal;
+  nativeStorageGlobal.__onekeyNativeStorageIsTransportReady = () =>
+    transportState === 'ready';
+  nativeStorageGlobal.__onekeyNativeStorageCall = (
+    request: INativeStorageRequest,
+  ) =>
+    callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'nativeStorage',
+        params: [request],
+        sync: false,
+      },
+      () =>
+        Promise.reject(
+          createTransportError(
+            'Native storage requires the background runtime; UI fallback is forbidden',
+          ),
+        ),
+    );
 }
 
 appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
@@ -1571,6 +1844,9 @@ export function getTransportTimingMilestones() {
 
 export function setupMainThreadBackgroundRunner() {
   installGlobalTransport();
+  installNativeStorageBridge();
+  // Kept for version-locked rollback bundles. Current Metro graphs redirect
+  // every package consumer to nativeAsyncStorageInstance, so this hook is inert.
   installAsyncStorageWriteForwarder();
   ensureBackgroundRuntimeObserver();
   // Only register on dual-thread native main: in single-thread native the

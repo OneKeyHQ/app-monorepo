@@ -86,19 +86,16 @@ export function isSwapStockTokenSearchMatch({
 export function isSwapStockMetadataPending({
   isSwapStockSelectTarget,
   resolvedStockMetadataTokenKey,
-  stockMetadataLoading,
   stockMetadataTokenKey,
 }: {
   isSwapStockSelectTarget: boolean;
   resolvedStockMetadataTokenKey?: string;
-  stockMetadataLoading?: boolean;
   stockMetadataTokenKey?: string;
 }) {
   return Boolean(
     isSwapStockSelectTarget &&
     stockMetadataTokenKey &&
-    (stockMetadataLoading ||
-      resolvedStockMetadataTokenKey !== stockMetadataTokenKey),
+    resolvedStockMetadataTokenKey !== stockMetadataTokenKey,
   );
 }
 
@@ -202,4 +199,50 @@ export function buildSwapTokenSelectorDisableNetworks({
   }
 
   return [];
+}
+
+export function buildSwapTokenSelectorNetworkView({
+  type,
+  swapTypeSwitch,
+  isSwapStockSelectTarget,
+  fromToken,
+  toToken,
+  swapNetworksIncludeAllNetwork,
+}: {
+  type: ESwapDirectionType;
+  swapTypeSwitch: ESwapTabSwitchType;
+  isSwapStockSelectTarget: boolean;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  swapNetworksIncludeAllNetwork: ISwapNetwork[];
+}) {
+  if (swapTypeSwitch !== ESwapTabSwitchType.SWAP || isSwapStockSelectTarget) {
+    return {
+      sameChainNetwork: undefined,
+      networks: swapNetworksIncludeAllNetwork,
+    };
+  }
+
+  const sameChainNetworkId =
+    type === ESwapDirectionType.FROM
+      ? toToken?.networkId
+      : fromToken?.networkId;
+  const sameChainNetwork = swapNetworksIncludeAllNetwork.find(
+    (network) =>
+      !network.isAllNetworks && network.networkId === sameChainNetworkId,
+  );
+
+  if (!sameChainNetwork) {
+    return {
+      sameChainNetwork: undefined,
+      networks: swapNetworksIncludeAllNetwork,
+    };
+  }
+
+  return {
+    sameChainNetwork,
+    networks: swapNetworksIncludeAllNetwork.filter(
+      (network) => network.networkId !== sameChainNetwork.networkId,
+    ),
+  };
 }

@@ -3,7 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,10 +45,12 @@ export function MarketRecommendList({
   const intl = useIntl();
   const actions = useWatchListV2Action();
   const { height: windowHeight } = useWindowDimensions();
-  const showTitle =
-    platformEnv.isWeb ||
-    platformEnv.isDesktop ||
-    platformEnv.isExtensionUiExpandTab;
+  const { gtMd } = useMedia();
+  // Show the heading only on spacious layouts; compact screens (mobile web,
+  // extension popup, narrow windows) already get context from the tab bar.
+  // Native is excluded regardless of size: its empty state relies on
+  // translateY offsets calibrated for title-less content (OK-57820).
+  const showTitle = !platformEnv.isNative && gtMd;
   const containerPaddingTop = platformEnv.isExtensionUiPopup
     ? 0
     : getMarketRecommendContainerPaddingTop({

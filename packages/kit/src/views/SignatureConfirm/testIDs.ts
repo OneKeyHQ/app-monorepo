@@ -20,6 +20,9 @@ export const SignatureConfirmTestIDs = {
   MessageConfirmRiskCheckbox: 'sig-confirm-msg-risk-checkbox',
   MessageConfirmReferralCheckbox: 'sig-confirm-msg-referral-checkbox',
 
+  // -- BatchTxConfirm page --
+  BatchTxConfirmRiskCheckbox: 'sig-confirm-batch-tx-risk-checkbox',
+
   // -- MessageConfirmFromDapp loading --
   MessageConfirmFromDappPage: 'sig-confirm-msg-dapp-page',
   MessageConfirmFromDappLoading: 'sig-confirm-msg-dapp-loading',
@@ -58,7 +61,8 @@ export const SignatureConfirmTestIDs = {
 
   // -- Alerts --
   TxConfirmAlert: 'sig-confirm-tx-alert',
-  MessageConfirmAlert: 'sig-confirm-msg-alert',
+  SecurityCheckCard: 'sig-confirm-security-check-card',
+  TransactionPreview: 'sig-confirm-transaction-preview',
 
   // -- Similar address dialog --
   SimilarAddressDialog: 'sig-confirm-similar-address-dialog',

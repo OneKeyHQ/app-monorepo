@@ -6,6 +6,8 @@ export type ITrezorBleBindingMode = 'manual-binding' | 'auto-fallback';
 
 export type ITrezorBleBindingScannedDevice = SearchDevice & {
   raw?: { connectionType?: 'usb' | 'ble' };
+  vendorModel?: string;
+  vendorModelName?: string;
 };
 
 export function getTrezorBleBindingScanOptions(mode: ITrezorBleBindingMode): {

@@ -14,6 +14,8 @@ import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IMarketAssetDetailData,
+  IMarketAssetListData,
   IMarketCategory,
   IMarketDetailPlatform,
   IMarketDetailPool,
@@ -79,6 +81,55 @@ class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
     return this._fetchTrendingV2();
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetList({
+    currency = 'usd',
+    type = 'top_coins',
+    page = 1,
+    limit = 100,
+  }: {
+    currency?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketAssetListData;
+    }>('/utility/v1/market/asset/list', {
+      params: {
+        currency,
+        type,
+        page,
+        limit,
+      },
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchMarketAssetDetail({
+    assetId,
+    variantId,
+    currency = 'usd',
+  }: {
+    assetId: string;
+    variantId?: string;
+    currency?: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketAssetDetailData;
+    }>('/utility/v1/market/asset/detail', {
+      params: {
+        assetId,
+        variantId,
+        currency,
+      },
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -179,10 +230,12 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTokenChart(
-    coingeckoId: string,
+    coingeckoId: string | undefined,
     days: string,
     options?: {
+      networkId?: string;
       requestCurrency?: string;
+      tokenAddress?: string;
     },
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -192,7 +245,9 @@ class ServiceMarket extends ServiceBase {
       params: {
         coingeckoId,
         days,
+        networkId: options?.networkId,
         points: !platformEnv.isNative || platformEnv.isNativeIOSPad ? 500 : 200,
+        tokenAddress: options?.tokenAddress,
       },
       ...(options?.requestCurrency
         ? {

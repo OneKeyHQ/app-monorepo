@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { InputAccessoryView, type TextInput } from 'react-native';
 
-import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Input, SizableText, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   SwapLimitPriceInputAccessoryViewID,
@@ -30,6 +32,7 @@ const SwapProLimitPriceInput = ({
   onBlur,
   onSelectPercentageStage,
 }: ISwapProLimitPriceInputProps) => {
+  const intl = useIntl();
   const inputRef = useRef<IInputRef & TextInput>(null);
   const isFocusedRef = useRef(false);
   const [swapProDirection] = useSwapProDirectionAtom();
@@ -58,23 +61,27 @@ const SwapProLimitPriceInput = ({
     onBlur?.();
   }, [onBlur]);
 
-  const currencySymbolAddOn = useMemo(() => {
-    return (
-      <XStack alignItems="center" mr="$-2">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          maxWidth="$16"
-          numberOfLines={1}
-        >
-          {currencySymbol}
-        </SizableText>
-      </XStack>
-    );
-  }, [currencySymbol]);
-
+  // Mirror the amount box's centered two-line layout: a small "Price ($)"
+  // label on top, the centered input below.
   return (
-    <YStack borderRadius="$2" bg="$bgStrong" py="$2">
+    <YStack
+      borderRadius="$2"
+      bg="$bgStrong"
+      alignItems="center"
+      pt="$1.5"
+      pb="$0.5"
+    >
+      <SizableText
+        size="$bodySm"
+        color="$textDisabled"
+        textAlign="center"
+        numberOfLines={1}
+        maxWidth="$40"
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_price,
+        })} (${currencySymbol})`}
+      </SizableText>
       <Input
         testID="swap-currency-symbol-add-on-input"
         ref={inputRef}
@@ -83,7 +90,7 @@ const SwapProLimitPriceInput = ({
         onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder="0.0"
-        textAlign="left"
+        textAlign="center"
         keyboardType="decimal-pad"
         size="small"
         inputAccessoryViewID={
@@ -92,11 +99,9 @@ const SwapProLimitPriceInput = ({
             : undefined
         }
         containerProps={{
+          width: '100%',
           borderWidth: 0,
-          flex: 1,
-        }}
-        leftAddOnProps={{
-          renderContent: currencySymbolAddOn,
+          bg: '$transparent',
         }}
       />
       {platformEnv.isNativeIOS ? (

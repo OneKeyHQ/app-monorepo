@@ -27,6 +27,7 @@ import type {
   IFeeInfoUnit,
   IGasAccountScenario,
 } from '@onekeyhq/shared/types/fee';
+import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -52,6 +53,9 @@ type IBuildUnsignedTxParams = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
+  onBeforeSend?: () => void | Promise<void>;
+  broadcastDeadline?: number;
+  beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
   transferPayload?: ITransferPayload;
   signOnly?: boolean;
@@ -63,7 +67,8 @@ type IBuildUnsignedTxParams = {
   isInternalTransfer?: boolean;
   disableMev?: boolean;
   // Gas Account scenario code for backend scenario gate.
-  // When omitted, resolved from stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
+  // When omitted, resolved from transferPayload.isPrivateSend and
+  // stakingInfo/swapInfo/isInternalSwap flags; defaults to 'send'.
   // Callers with scenarios not derivable from those flags (perps, dapp) must set it explicitly.
   gasAccountScenario?: IGasAccountScenario;
 };
@@ -72,6 +77,9 @@ function resolveGasAccountScenario(
   params: IBuildUnsignedTxParams,
 ): IGasAccountScenario {
   if (params.gasAccountScenario) return params.gasAccountScenario;
+  // Private Send rides the internal-swap pipeline (isInternalSwap=true), so
+  // this branch must run before the swap one.
+  if (params.transferPayload?.isPrivateSend) return 'privateSend';
   if (params.isInternalSwap || params.swapInfo) return 'swap';
   if (params.stakingInfo) return 'earn';
   return 'send';
@@ -126,6 +134,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onSuccess,
         onFail,
         onCancel,
+        onBeforeSend,
+        broadcastDeadline,
+        beforeBroadcastAction,
         transferPayload: transferPayloadBase,
         signOnly,
         useFeeInTx,
@@ -211,9 +222,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
-        const target = params.isInternalSwap
-          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
-          : EModalSignatureConfirmRoutes.TxConfirm;
+        const target =
+          params.isInternalSwap && !transferPayloadBase?.isPrivateSend
+            ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+            : EModalSignatureConfirmRoutes.TxConfirm;
 
         try {
           const preActionsBeforeConfirmResult =
@@ -243,6 +255,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onSuccess,
             onFail,
             onCancel,
+            onBeforeSend,
+            broadcastDeadline,
+            beforeBroadcastAction,
             transferPayload,
             signOnly,
             useFeeInTx,
@@ -259,6 +274,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onSuccess,
               onFail,
               onCancel,
+              onBeforeSend,
+              broadcastDeadline,
+              beforeBroadcastAction,
               transferPayload,
               signOnly,
               useFeeInTx,

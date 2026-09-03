@@ -1,11 +1,11 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "jsPlugins": [
-    "@cspell/eslint-plugin",
+    { "name": "@cspell", "specifier": "oxlint-plugin-cspell" },
     "eslint-plugin-import-path",
     "eslint-plugin-props-checker",
     "eslint-plugin-ban",
-    "eslint-plugin-prettier",
+    "eslint-plugin-use-effect-no-deps",
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
   ],
@@ -19,14 +19,9 @@
     "jest",
     "jsx-a11y"
   ],
-  // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
-  // because some plugin configurations are not compatible with oxlint
-  // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
-  // The following plugins remain in ESLint:
-  // - eslint-plugin-ban
-  // - eslint-plugin-import-path
-  // - eslint-plugin-use-effect-no-deps
-  // - eslint-plugin-props-checker
+  // JavaScript ESLint plugins are used for selected rules without native
+  // oxlint equivalents. Keep .eslintrc.js as a compatibility fallback for the
+  // scheduled ESLint workflow until it is removed.
   "categories": {
     // Code that is outright wrong or useless
     "correctness": "error",
@@ -43,7 +38,6 @@
   },
   "rules": {
     "max-classes-per-file": ["error", 1],
-    "prettier/prettier": ["error"],
     "@cspell/spellchecker": [
       "warn",
       {
@@ -173,6 +167,13 @@
       {
         "patterns": [
           {
+            "group": [
+              "@react-native-async-storage/async-storage",
+              "@react-native-async-storage/async-storage/**"
+            ],
+            "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+          },
+          {
             "group": ["@onekeyfe/hd-core"],
             "message": "using `const {} = await CoreSDKLoader()` instead",
             "allowTypeImports": true
@@ -220,6 +221,7 @@
     "react/no-direct-mutation-state": "error",
     // react-hooks/rules-of-hooks (migrated from ESLint)
     "react/rules-of-hooks": "error",
+    "use-effect-no-deps/use-effect-no-deps": "error",
     "react/jsx-no-undef": "error",
     "react/jsx-pascal-case": "error",
     "react/self-closing-comp": "error",
@@ -310,7 +312,7 @@
       }
     ],
 
-    // Rules newly enabled by default in oxlint 1.57-1.62 that conflict with
+    // Rules newly enabled by default in oxlint 1.57-1.73 that conflict with
     // existing project conventions or are too noisy to fix wholesale.
     // Codebase widely uses `_foo` naming for private-like identifiers.
     "no-underscore-dangle": "off",
@@ -324,11 +326,27 @@
     // against API responses / async results that TypeScript types claim are
     // required but may be undefined at runtime. Removing them is unsafe.
     "typescript/no-useless-default-assignment": "off",
+    // Existing assertions often document API/runtime uncertainty even when the
+    // current static type makes them unnecessary.
+    "typescript/no-unnecessary-type-assertion": "off",
+    // Existing React components use object defaults and nested render helpers
+    // heavily; this should be handled as a dedicated cleanup.
+    "react/no-object-type-as-default-prop": "off",
+    "react/no-unstable-nested-components": "off",
+    // Existing test and demo code intentionally uses Array.fill() fixtures.
+    "unicorn/no-array-fill-with-reference-type": "off",
 
     // ============================================
     // Unicorn rules (matching ESLint config)
     // ============================================
-    "unicorn/numeric-separators-style": "error",
+    "unicorn/numeric-separators-style": [
+      "error",
+      {
+        "number": {
+          "fractionGroupLength": 3
+        }
+      }
+    ],
 
     // ============================================
     // Import rules
@@ -488,6 +506,13 @@
           {
             "patterns": [
               {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
+              {
                 "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
                 "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
                 "allowTypeImports": true
@@ -510,6 +535,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": [
                   "@onekeyhq/kit",
@@ -538,6 +570,13 @@
           {
             "patterns": [
               {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
+              {
                 "group": ["tamagui"],
                 "message": "Please avoid using tamagui in this folder",
                 "allowTypeImports": true
@@ -560,6 +599,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": ["tamagui"],
                 "message": "Please avoid using tamagui in this folder",
@@ -599,6 +645,13 @@
           "error",
           {
             "patterns": [
+              {
+                "group": [
+                  "@react-native-async-storage/async-storage",
+                  "@react-native-async-storage/async-storage/**"
+                ],
+                "message": "Use the repository appStorage adapter; native AsyncStorage is migration-only and bg-owned."
+              },
               {
                 "group": [
                   "tamagui",
@@ -647,6 +700,18 @@
         "packages/kit/src/views/Onboardingv2/pages/KeylessOnboardingDebugPanel.tsx",
         "packages/kit/src/views/Developer/pages/**/*.tsx",
         "packages/kit/src/provider/Container/FullWindowOverlayContainer/DevOverlayWindow.tsx"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Component CSF stories + Storybook playground config — dev workbench, not user-facing UI
+      "files": [
+        "packages/components/src/**/*.stories.tsx",
+        "packages/components/src/**/*.stories.ts",
+        "apps/playground/.storybook/**/*.tsx",
+        "apps/playground/.storybook/**/*.ts"
       ],
       "rules": {
         "onekey/require-testid": "off"
@@ -741,6 +806,7 @@
     "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
     "packages/shared/src/locale/enum/translations.ts",
     "packages/shared/src/locale/localeJsonMap.ts",
+    "apps/mobile/.rnstorybook/storybook.requires.ts",
     "packages/shared/src/locale/json/*",
     "node_modules/**",
     ".history/**",

@@ -27,7 +27,10 @@ import {
   type ISignedTxPro,
 } from '../../types';
 
-import { OffchainMessage } from './sdkSol/OffchainMessage';
+import {
+  OffchainMessage,
+  classifyOffchainMessageVersion,
+} from './sdkSol/OffchainMessage';
 import { parseToNativeTx } from './sdkSol/parse';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
@@ -155,6 +158,50 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
       const { message, payload: messagePayload } = unsignedMsg;
+
+      // Version 0 and version 1 have incompatible wire formats, so dispatch explicitly.
+      const versionKind = classifyOffchainMessageVersion(
+        messagePayload?.version,
+      );
+      if (versionKind === 'unsupported') {
+        throw new OneKeyLocalError(
+          `sol offchain message: unsupported version ${String(
+            messagePayload?.version,
+          )}`,
+        );
+      }
+
+      // classifyOffchainMessageVersion decides what is supported; this reads the
+      // discriminant, which is what narrows the payload to its version 1 shape.
+      if (messagePayload?.version === 1) {
+        const requiredSigners = messagePayload.requiredSigners.map((signer_) =>
+          bs58.decode(signer_),
+        );
+
+        // The spec requires the signer to be one of the required signers, and a signature
+        // from any other key satisfies nothing the message asks for. ProviderApiSolana
+        // rejects that request, but core is also reached directly (apps/cli).
+        const pubkey = await signer.getPubkey();
+        const isRequiredSigner = requiredSigners.some((item) =>
+          Buffer.from(item).equals(pubkey),
+        );
+        if (!isRequiredSigner) {
+          throw new OneKeyLocalError(
+            'sol offchain message: signer is not one of requiredSigners',
+          );
+        }
+
+        const signedOffchainMessage =
+          OffchainMessage.createOffChainMessageV1Bytes({
+            message,
+            requiredSigners,
+          });
+        const [signature] = await signer.sign(
+          Buffer.from(signedOffchainMessage),
+        );
+        return bs58.encode(signature);
+      }
+
       const offchainMessage = new OffchainMessage({
         version: messagePayload?.version,
         message: Buffer.from(message),

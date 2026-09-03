@@ -32,6 +32,10 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import {
+  showEarnRiskWarningDialog,
+  useEarnRiskWarningGate,
+} from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 
 const createStakeInfoWithOrderId = ({
@@ -201,6 +205,17 @@ export function useUniversalStake({
       // Stakefish specific param
       validatorPublicKey?: string;
     }) => {
+      // OK-59196: one-time risk disclaimer gates the first earn trade on
+      // this device; resolves immediately once accepted
+      const riskConfirmed = await showEarnRiskWarningDialog({
+        provider,
+        symbol,
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      });
+      if (!riskConfirmed) {
+        return false;
+      }
       const buildStakeConfirmPayload = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
@@ -287,11 +302,11 @@ export function useUniversalStake({
           });
         } catch (error) {
           onFail?.(error as Error);
-          return;
+          return false;
         }
 
         if (wrapConfirmResult.status !== 'success') {
-          return;
+          return false;
         }
 
         await handleStakeSuccess({
@@ -309,7 +324,7 @@ export function useUniversalStake({
               id: ETranslations.global_failed,
             }),
           });
-          return;
+          return false;
         }
 
         const wrapStatus = await waitForTxFinalStatus({
@@ -323,7 +338,7 @@ export function useUniversalStake({
               id: ETranslations.global_failed,
             }),
           });
-          return;
+          return false;
         }
 
         const postWrapStakingInfo = stakingInfo
@@ -411,11 +426,11 @@ export function useUniversalStake({
             });
           } catch (error) {
             onFail?.(error as Error);
-            return;
+            return false;
           }
 
           if (approveConfirmResult.status !== 'success') {
-            return;
+            return false;
           }
 
           await timerUtils.wait(150);
@@ -427,7 +442,7 @@ export function useUniversalStake({
                 id: ETranslations.global_failed,
               }),
             });
-            return;
+            return false;
           }
 
           onStepChange?.(3);
@@ -454,7 +469,7 @@ export function useUniversalStake({
           useFeeInTx: normalConfirmPayload.useFeeInTx,
           feeInfoEditable: normalConfirmPayload.feeInfoEditable,
         });
-        return;
+        return true;
       }
 
       const stakeConfirmPayload = await buildStakeConfirmPayload();
@@ -474,6 +489,8 @@ export function useUniversalStake({
         useFeeInTx: stakeConfirmPayload.useFeeInTx,
         feeInfoEditable: stakeConfirmPayload.feeInfoEditable,
       });
+
+      return true;
     },
     [accountId, intl, networkId, navigationToTxConfirm, waitForTxConfirmResult],
   );
@@ -537,6 +554,8 @@ export function useUniversalWithdraw({
       }),
     [navigationToTxConfirm],
   );
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       amount,
@@ -585,6 +604,13 @@ export function useUniversalWithdraw({
       onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
     }) => {
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses. Returning false lets the caller tell a rejection apart from a
+      // completed hand-off and leave the form untouched.
+      if (!(await ensureRiskAccepted({ provider, symbol, networkId }))) {
+        return false;
+      }
+
       let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
@@ -677,11 +703,11 @@ export function useUniversalWithdraw({
             });
           } catch (error) {
             onFail?.(error as Error);
-            return;
+            return false;
           }
 
           if (unstakeConfirmResult.status !== 'success') {
-            return;
+            return false;
           }
 
           onStepChange?.(3);
@@ -695,7 +721,7 @@ export function useUniversalWithdraw({
 
         if (resumeEthenaCooldownUnstake) {
           await openEthenaCooldownUnstakeConfirm();
-          return;
+          return true;
         }
 
         // Ethena two-step: 1) swap PT-sUSDe → sUSDe, 2) unstake sUSDe → USDe
@@ -736,11 +762,11 @@ export function useUniversalWithdraw({
           });
         } catch (error) {
           onFail?.(error as Error);
-          return;
+          return false;
         }
 
         if (swapConfirmResult.status !== 'success') {
-          return;
+          return false;
         }
 
         await handleStakeSuccess({
@@ -750,7 +776,7 @@ export function useUniversalWithdraw({
         });
 
         if (signal?.aborted) {
-          return;
+          return false;
         }
 
         onStepChange?.(2);
@@ -773,12 +799,12 @@ export function useUniversalWithdraw({
                 }),
               });
             }
-            return;
+            return false;
           }
         }
 
         if (signal?.aborted) {
-          return;
+          return false;
         }
 
         onEthenaCooldownUnstakeReady?.();
@@ -788,11 +814,11 @@ export function useUniversalWithdraw({
         await timerUtils.wait(150);
 
         if (signal?.aborted) {
-          return;
+          return false;
         }
 
         await openEthenaCooldownUnstakeConfirm();
-        return;
+        return true;
       } else {
         stakeTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
@@ -824,7 +850,7 @@ export function useUniversalWithdraw({
           }),
         });
         onSuccess?.([]);
-        return;
+        return true;
       }
 
       const encodedTx =
@@ -881,8 +907,17 @@ export function useUniversalWithdraw({
         },
         onFail,
       });
+
+      return true;
     },
-    [accountId, networkId, navigationToTxConfirm, waitForTxConfirmResult, intl],
+    [
+      accountId,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+      waitForTxConfirmResult,
+      intl,
+    ],
   );
 }
 
@@ -898,6 +933,8 @@ export function useUniversalClaim({
     networkId,
   });
   const showClaimEstimateGasAlert = useShowClaimEstimateGasAlert();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+
   return useCallback(
     async ({
       identity,
@@ -930,6 +967,12 @@ export function useUniversalClaim({
       const normalizedAmount = amountNumber.isNaN()
         ? '0'
         : amountNumber.toFixed();
+      // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
+      // uses.
+      if (!(await ensureRiskAccepted({ provider, symbol, networkId }))) {
+        return false;
+      }
+
       const continueClaim = async () => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildClaimTransaction({
@@ -1009,12 +1052,22 @@ export function useUniversalClaim({
               estFiatValue: estimateFeeResp.feeFiatValue,
               onConfirm: continueClaim,
             });
-            return;
+            // The alert owns the flow from here; it either continues or the
+            // user dismisses it, so the hand-off counts as started.
+            return true;
           }
         }
       }
       await continueClaim();
+
+      return true;
     },
-    [navigationToTxConfirm, accountId, networkId, showClaimEstimateGasAlert],
+    [
+      ensureRiskAccepted,
+      navigationToTxConfirm,
+      accountId,
+      networkId,
+      showClaimEstimateGasAlert,
+    ],
   );
 }

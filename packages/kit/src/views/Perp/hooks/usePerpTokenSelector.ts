@@ -4,7 +4,10 @@ import { debounce } from 'lodash';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpTokenSelectorConfigPersistAtom,
+  usePerpsActiveAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -48,6 +51,7 @@ function normalizeSearchQuery(query: string) {
 }
 
 export function usePerpTokenSelector() {
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [searchQuery, setSearchQueryInternal] = useState('');
   const searchQueryRef = useRef(searchQuery);
   const actions = useHyperliquidActions();
@@ -85,7 +89,20 @@ export function usePerpTokenSelector() {
       })
     ) {
       lastRefreshTradingMetaTime = now;
-      void backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      // The refreshAllAssets() above serves the persisted universe, which is one
+      // dex short right after a release registers a new sub-DEX.
+      void backgroundApiProxy.serviceHyperliquid
+        .refreshTradingMeta()
+        .then(() => refreshAllAssets())
+        .catch((error) => {
+          // The throttle is claimed before the request, so a transient failure
+          // would pin the stale dex set for the full window.
+          lastRefreshTradingMetaTime = 0;
+          defaultLogger.perp.hyperliquid.coldStartInitializationError({
+            type: 'refresh_trading_meta',
+            error,
+          });
+        });
     }
     return () => {};
   }, [actions, refreshAllAssets]);
@@ -156,11 +173,12 @@ export function usePerpTokenSelector() {
             activeTab: params.activeTab,
             sortField: params.sortField,
             sortDirection: params.sortDirection,
+            walletType: activePerpsAccount.walletType ?? 'unknown',
           });
         },
         500,
       ),
-    [],
+    [activePerpsAccount.walletType],
   );
 
   useEffect(() => {

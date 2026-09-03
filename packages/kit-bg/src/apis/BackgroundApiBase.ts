@@ -38,6 +38,7 @@ import {
   parseAsyncStorageWriteForwarderRequestStatus,
   serializeAsyncStorageWriteForwarderRequestStatus,
 } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import {
   ensurePromiseObject,
   ensureSerializable,
@@ -55,6 +56,7 @@ import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
+  isBackgroundApiAtomWritable,
   isExtensionInternalCall,
   isProviderApiPrivateAllowedKeylessOrigin,
   isProviderApiPrivateAllowedMethod,
@@ -65,6 +67,7 @@ import {
 import type {
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
+  IBackgroundAtomStates,
 } from './IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -388,11 +391,24 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }>;
 
   @backgroundMethod()
-  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+  async getAtomStates(
+    atomNames?: EAtomNames[],
+  ): Promise<{ states: IBackgroundAtomStates }> {
     const atoms = await this.allAtoms;
-    const states = {} as Record<EAtomNames, any>;
+    const atomEntries = atomNames
+      ? atomNames.map((atomName) => {
+          const atom = atoms[atomName];
+          if (!atom) {
+            throw new OneKeyLocalError(
+              `getAtomStates ERROR: atomName not found: ${atomName}`,
+            );
+          }
+          return [atomName, atom] as const;
+        })
+      : Object.entries(atoms);
+    const states: IBackgroundAtomStates = {};
     await Promise.all(
-      Object.entries(atoms).map(async ([key, value]) => {
+      atomEntries.map(async ([key, value]) => {
         states[key as EAtomNames] = await value.get();
       }),
     );
@@ -403,6 +419,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   @backgroundMethod()
   async setAtomValue(atomName: EAtomNames, value: any) {
     const startedAt = Date.now();
+    if (!isBackgroundApiAtomWritable(atomName)) {
+      throw new OneKeyLocalError(
+        `setAtomValue ERROR: atom is background-owned: ${atomName}`,
+      );
+    }
     const atoms = await this.allAtoms;
     const atom = atoms[atomName];
     if (!atom) {
@@ -458,6 +479,35 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       originNodeId: originNodeId ?? '',
     });
     return Promise.resolve(true);
+  }
+
+  @backgroundMethod()
+  async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
+    if (
+      request.scope === 'recovery' &&
+      request.operation === 'resetMigrationTarget' &&
+      request.target === 'jotai'
+    ) {
+      const { resetNativeJotaiStorageAfterMigrationMismatch } =
+        await import('../states/jotai/jotaiStorage');
+      await resetNativeJotaiStorageAfterMigrationMismatch();
+      this.allAtoms = jotaiInit();
+      await this.allAtoms;
+      return undefined;
+    }
+    if (request.scope === 'bootstrap') {
+      // Bootstrap does not release the UI until Jotai's separate legacy
+      // namespace and the general app-storage namespace are both migrated.
+      try {
+        await this.allAtoms;
+      } catch {
+        this.allAtoms = jotaiInit();
+        await this.allAtoms;
+      }
+    }
+    const { executeNativeStorageRequest } =
+      await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+    return executeNativeStorageRequest(request);
   }
 
   @backgroundMethod()

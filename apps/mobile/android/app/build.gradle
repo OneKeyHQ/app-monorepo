@@ -9,6 +9,10 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def useDevVendor = System.getenv('ONEKEY_DEV_VENDOR') == 'true'
+def useDevBackgroundHmr = useDevVendor && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
+def devVendorAndroidOutputDir = file("${projectRoot}/out-dir-bundle/dev-vendor/android")
+def generatedDevVendorAssetsDir = file("${buildDir}/generated/assets/onekeyDevVendor/debug")
 
 sentry {
     // Enables or disables the automatic configuration of Native Symbols
@@ -41,7 +45,7 @@ sentry {
 react {
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
-    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
+    hermesCommand = new File(["node", "--print", "require.resolve('hermes-compiler/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
     enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
 
@@ -164,12 +168,14 @@ android {
             defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
-        // timing + JS module profile. See .skillshare/skills/1k-startup-profile/skill.md
+        // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
         buildConfigField(
             "boolean",
             "ONEKEY_STARTUP_PROFILE",
             (System.getenv('ONEKEY_STARTUP_PROFILE')?.toLowerCase() in ['1', 'true', 'yes', 'on']).toString()
         )
+        buildConfigField("boolean", "ONEKEY_DEV_VENDOR", "false")
+        buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", "false")
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
@@ -188,6 +194,8 @@ android {
     }
     buildTypes {
         debug {
+            buildConfigField("boolean", "ONEKEY_DEV_VENDOR", useDevVendor.toString())
+            buildConfigField("boolean", "ONEKEY_DEV_BG_HMR", useDevBackgroundHmr.toString())
             resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
             ndk {
@@ -234,6 +242,10 @@ android {
         noCompress '.hbc'
     }
 
+    sourceSets {
+        debug.assets.srcDir(generatedDevVendorAssetsDir)
+    }
+
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
     applicationVariants.configureEach { variant ->
         if (variant.flavorName != "prod") {
@@ -243,6 +255,50 @@ android {
             variant.runtimeConfiguration.resolutionStrategy.dependencySubstitution {
                 substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')
             }
+        }
+    }
+}
+
+def prepareDevVendorDebugAssets = tasks.register("prepareDevVendorDebugAssets") {
+    inputs.property("onekeyDevVendorEnabled", useDevVendor)
+    if (useDevVendor) {
+        inputs.files(
+            file("${devVendorAndroidOutputDir}/common.hbc"),
+            file("${devVendorAndroidOutputDir}/manifest.json"),
+        )
+    }
+    outputs.dir(generatedDevVendorAssetsDir)
+
+    doLast {
+        delete(generatedDevVendorAssetsDir)
+        if (!useDevVendor) {
+            return
+        }
+
+        exec {
+            workingDir projectRoot
+            commandLine(
+                "node",
+                "scripts/build-dev-vendor.js",
+                "--check",
+                "--platform",
+                "android",
+            )
+        }
+        copy {
+            from(devVendorAndroidOutputDir) {
+                include("common.hbc", "manifest.json")
+            }
+            into(file("${generatedDevVendorAssetsDir}/onekey-dev-vendor"))
+        }
+    }
+}
+
+android.applicationVariants.configureEach { variant ->
+    if (variant.buildType?.name?.equalsIgnoreCase("debug")) {
+        def targetName = capitalizeVariantName(variant.name)
+        tasks.named("merge${targetName}Assets").configure {
+            dependsOn(prepareDevVendorDebugAssets)
         }
     }
 }
@@ -558,8 +614,8 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    // MMKV — used by RecoveryActivity to clear pending install tasks
-    implementation("io.github.zhongwuzw:mmkv:2.2.4")
+    // Used only by the bg-gated native migration module for durable barriers.
+    implementation("io.github.zhongwuzw:mmkv:2.4.1")
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
@@ -614,9 +670,7 @@ dependencies {
     // implementation("org.mozilla.geckoview:geckoview:133.0.20241209150345")
     // implementation("com.google.code.gson:gson:2.13.1")
 
-    // add billing sdk, also update AndroidManifest.xml
-    // def billingVersion = 7.1.1
-    // implementation("com.android.billingclient:billing:$billingVersion")
+    // Google Play Billing is provided transitively by react-native-purchases.
 
     // Detox (Android instrumentation tests)
     // Keep this pinned (no '+') to ensure reproducible builds and reduce supply-chain risk.

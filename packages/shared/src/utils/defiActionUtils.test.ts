@@ -1257,7 +1257,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
 
     expect(actions).toHaveLength(1);
     // oxlint-disable-next-line @cspell/spellchecker
-    expect(actions[0].assets[0].extraParams?.['unbondNonces']).toBeUndefined();
+    expect(actions[0].assets[0].extraParams?.unbondNonces).toBeUndefined();
     expect(actions[0].assets[0].extraParams?.groupId).toBe(
       // oxlint-disable-next-line @cspell/spellchecker
       `${validatorShareAddress}#new_version_unbonded_10`,

@@ -26,6 +26,7 @@ export enum EModalSwapRoutes {
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
   SwapKLine = 'SwapKLine',
+  SwapInviteeReward = 'SwapInviteeReward',
   LimitOrderDetail = 'LimitOrderDetail',
   SwapProMarketDetail = 'SwapProMarketDetail',
 }
@@ -34,12 +35,15 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapMainLand]: {
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
+    importAccountKey?: string;
     fromAmount?: string;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
     swapSource?: ESwapSource;
     marketPresetToken?: IMarketPresetTokenContext;
+    closeModalAfterSwapBroadcast?: boolean;
+    onSwapBroadcast?: () => void | Promise<void>;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
@@ -80,6 +84,10 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapKLine]: {
     storeName: EJotaiContextStoreNames;
+  };
+  [EModalSwapRoutes.SwapInviteeReward]: {
+    accountId?: string;
+    currentEvmAddress?: string;
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;

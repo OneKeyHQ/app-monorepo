@@ -1,4 +1,7 @@
-import { isPassphraseValid } from './passphraseUtils';
+import {
+  isPassphraseValid,
+  normalizeProtocolV2Passphrase,
+} from './passphraseUtils';
 
 const passphraseTests = [
   {
@@ -123,5 +126,39 @@ describe('Passphrase Utils Tests', () => {
       });
       expect(result).toBe(should);
     });
+  });
+
+  test('accepts Protocol V2 Unicode passphrases within the normalized UTF-8 byte limit', () => {
+    expect(isPassphraseValid('私の鍵', { allowProtocolV2Utf8: true })).toBe(
+      true,
+    );
+    expect(
+      isPassphraseValid('😀'.repeat(12), { allowProtocolV2Utf8: true }),
+    ).toBe(true);
+    expect(
+      isPassphraseValid('😀'.repeat(13), { allowProtocolV2Utf8: true }),
+    ).toBe(false);
+    expect(
+      isPassphraseValid('a'.repeat(50), { allowProtocolV2Utf8: true }),
+    ).toBe(true);
+    expect(
+      isPassphraseValid('a'.repeat(51), { allowProtocolV2Utf8: true }),
+    ).toBe(false);
+    expect(
+      isPassphraseValid('\u00e9'.repeat(16), { allowProtocolV2Utf8: true }),
+    ).toBe(true);
+    expect(
+      isPassphraseValid('\u00e9'.repeat(17), { allowProtocolV2Utf8: true }),
+    ).toBe(false);
+  });
+
+  test('normalizes Protocol V2 passphrases and rejects NUL after normalization', () => {
+    expect(normalizeProtocolV2Passphrase('\u00e9')).toBe('e\u0301');
+    expect(
+      isPassphraseValid('hidden\0wallet', { allowProtocolV2Utf8: true }),
+    ).toBe(false);
+    expect(isPassphraseValid('\ud800', { allowProtocolV2Utf8: true })).toBe(
+      false,
+    );
   });
 });

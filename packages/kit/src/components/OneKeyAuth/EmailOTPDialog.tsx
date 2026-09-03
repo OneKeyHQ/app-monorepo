@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,8 +12,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
+
+import { getEmailOtpRequestErrorMessage } from './emailOtpErrorUtils';
+import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
 
 export function EmailOTPDialog(props: {
   title: string;
@@ -29,39 +39,79 @@ export function EmailOTPDialog(props: {
   const [isResending, setIsResending] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
+  const didRequestInitialCodeRef = useRef(false);
+  const isResendingRef = useRef(false);
+  const isMountedRef = useIsMounted();
+  const [state, setState] = useState<{
+    status: 'initial' | 'error' | 'done';
+    errorMessageId?: ETranslations;
+  }>({
     status: 'initial',
   });
   const intl = useIntl();
 
-  useMemo(() => {
-    void sendCode().catch((error) => {
-      Toast.error({
-        title: (error as Error)?.message,
-      });
-      throw error;
-    });
-  }, [sendCode]);
-
-  const sendEmailVerificationCode = useCallback(async () => {
-    if (isResending) {
+  useEffect(() => {
+    if (didRequestInitialCodeRef.current) {
       return;
     }
+    didRequestInitialCodeRef.current = true;
+    void sendCode().catch((error) => {
+      logOneKeyIdLoginFailureReason(
+        `Email verification code request failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
+      if (isMountedRef.current) {
+        setCountdown(0);
+        const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+        if (retryAfterSeconds !== undefined) {
+          setCountdown(retryAfterSeconds);
+        }
+        const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
+        if (errorMessage) {
+          Toast.error({ title: errorMessage });
+        }
+      }
+    });
+  }, [intl, isMountedRef, sendCode]);
+
+  const sendEmailVerificationCode = useCallback(async () => {
+    if (isResendingRef.current) {
+      return;
+    }
+    isResendingRef.current = true;
     setIsResending(true);
     setState({ status: 'initial' });
     setVerificationCode('');
     try {
       await sendCode();
+      if (!isMountedRef.current) {
+        return;
+      }
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
-      Toast.error({
-        title: (error as Error)?.message,
-      });
-      throw error;
+      logOneKeyIdLoginFailureReason(
+        `Email verification code resend failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
+      if (isMountedRef.current) {
+        const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
+        setCountdown(retryAfterSeconds ?? 0);
+        const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
+        if (errorMessage) {
+          Toast.error({ title: errorMessage });
+        }
+      }
     } finally {
-      setIsResending(false);
+      isResendingRef.current = false;
+      if (isMountedRef.current) {
+        setIsResending(false);
+      }
     }
-  }, [isResending, sendCode]);
+  }, [intl, isMountedRef, sendCode]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -79,9 +129,10 @@ export function EmailOTPDialog(props: {
 
   const buttonText = useMemo(() => {
     if (countdown > 0)
-      return `${intl.formatMessage({
-        id: ETranslations.prime_code_resend,
-      })} (${countdown}s)`;
+      return intl.formatMessage(
+        { id: ETranslations.resend_code_countdown__action },
+        { seconds: countdown },
+      );
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
   }, [intl, countdown]);
@@ -91,8 +142,39 @@ export function EmailOTPDialog(props: {
       setIsConfirming(true);
       await onConfirm(verificationCode);
     } catch (error) {
-      console.error('sendEmailOTP error', error);
-      setState({ status: 'error' });
+      logOneKeyIdLoginFailureReason(
+        `Email verification code confirmation failed: ${getSanitizedAuthErrorText(
+          error,
+        )}`,
+        error,
+      );
+      // Not every consume failure means the code was wrong — a transient
+      // network failure or an expired OneKey ID login must not be rendered
+      // as "invalid verification code" (which tells the user to retype a
+      // code that was never the problem). Classification relies only on
+      // fields that survive bridge serialization (name / key / status).
+      if (isTransientNetworkLikeError(error)) {
+        setState({
+          status: 'initial',
+          errorMessageId: ETranslations.global_network_error,
+        });
+      } else if (
+        (error as IOneKeyError | undefined)?.key ===
+        ETranslations.id_login_expired_description
+      ) {
+        // OneKeyErrorPrimeLoginInvalidToken (90002/90003): the login was
+        // invalidated while the dialog was open; retyping the code cannot
+        // succeed.
+        setState({
+          status: 'initial',
+          errorMessageId: ETranslations.id_login_expired_description,
+        });
+      } else {
+        setState({
+          status: 'error',
+          errorMessageId: ETranslations.prime_invalid_verification_code,
+        });
+      }
     } finally {
       setIsSubmittingVerificationCode(false);
       setIsConfirming(false);
@@ -134,10 +216,10 @@ export function EmailOTPDialog(props: {
           }}
         />
 
-        {state.status === 'error' ? (
+        {state.errorMessageId ? (
           <SizableText size="$bodyMd" color="$red9">
             {intl.formatMessage({
-              id: ETranslations.prime_invalid_verification_code,
+              id: state.errorMessageId,
             })}
           </SizableText>
         ) : null}

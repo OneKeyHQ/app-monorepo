@@ -1,0 +1,276 @@
+import { Analytics } from '.';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+const mockPost = jest.fn(() => Promise.resolve());
+const mockGetDeviceCpuTier = jest.fn(() => 'high');
+const mockGetDeviceInfo = jest.fn(() =>
+  Promise.resolve({ deviceId: 'device-id' }),
+);
+
+jest.mock('axios', () => ({
+  __esModule: true,
+  default: {
+    create: () => ({ post: mockPost }),
+  },
+}));
+
+jest.mock('../appGlobals', () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.mock('../modules3rdParty/webEmebd/postMessage', () => ({
+  EWebEmbedPostMessageType: { TrackEvent: 'TrackEvent' },
+  postMessage: jest.fn(),
+}));
+
+jest.mock('../performance/devicePerformanceTier', () => ({
+  getDeviceCpuTier: mockGetDeviceCpuTier,
+}));
+
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  default: {
+    appPlatform: 'web',
+    buildNumber: '1',
+    isDev: false,
+    isE2E: false,
+    isNative: false,
+    isWebEmbed: false,
+    version: '1.0.0',
+  },
+}));
+
+jest.mock('../request/InterceptorConsts', () => ({
+  headerPlatform: 'web',
+}));
+
+jest.mock('../utils/ipTableUtils', () => ({
+  isSupportIpTablePlatform: () => false,
+}));
+
+jest.mock('./deviceInfo', () => ({
+  getDeviceInfo: () => mockGetDeviceInfo(),
+}));
+
+async function waitForPostCount(expectedCount: number) {
+  for (let i = 0; i < 10; i += 1) {
+    if (mockPost.mock.calls.length >= expectedCount) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+describe('Analytics tier', () => {
+  let consoleWarnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
+    mockGetDeviceCpuTier.mockClear();
+    mockGetDeviceInfo.mockClear();
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('adds the resolved tier to event and profile requests', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent', { tier: 1 });
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenNthCalledWith(
+      1,
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+
+    analytics.updateUserProfile({ hwWalletCount: 2 });
+    await waitForPostCount(2);
+
+    expect(mockPost).toHaveBeenNthCalledWith(
+      2,
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        attributes: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+    expect(mockGetDeviceCpuTier).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares complete device info across concurrent first requests', async () => {
+    let resolveDeviceInfo:
+      | ((deviceInfo: { deviceId: string }) => void)
+      | undefined;
+    mockGetDeviceInfo.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDeviceInfo = resolve;
+      }),
+    );
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    analytics.updateUserProfile({ hwWalletCount: 2 });
+    resolveDeviceInfo?.({ deviceId: 'device-id' });
+    await waitForPostCount(2);
+
+    expect(mockGetDeviceInfo).toHaveBeenCalledTimes(1);
+    expect(mockGetDeviceCpuTier).toHaveBeenCalledTimes(1);
+    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventProps: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        attributes: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+  });
+
+  it('waits for event delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('confirmedEvent', { source: 'campaign' });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'confirmedEvent',
+        eventProps: expect.objectContaining({ source: 'campaign' }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.trackEventAsync('confirmedEvent', { source: 'campaign' }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(analytics.trackEventAsync('confirmedEvent')).rejects.toThrow(
+      'Analytics is not initialized',
+    );
+  });
+
+  it('waits for profile delivery and propagates request failures', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.updateUserProfileAsync({
+      isOneKeyIdLoggedIn: false,
+      isPrimeActive: false,
+    });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/attributes',
+      expect.objectContaining({
+        distinctId: 'instance-id',
+        attributes: expect.objectContaining({
+          isOneKeyIdLoggedIn: false,
+          isPrimeActive: false,
+        }),
+      }),
+    );
+
+    mockPost.mockRejectedValueOnce(new OneKeyLocalError('network failed'));
+
+    await expect(
+      analytics.updateUserProfileAsync({
+        isOneKeyIdLoggedIn: true,
+        isPrimeActive: true,
+      }),
+    ).rejects.toThrow('network failed');
+  });
+
+  it('rejects confirmed profile delivery before analytics is initialized', async () => {
+    const analytics = new Analytics();
+
+    await expect(
+      analytics.updateUserProfileAsync({ isOneKeyIdLoggedIn: false }),
+    ).rejects.toThrow('Analytics is not initialized');
+  });
+
+  it('resolves whenInitialized after init and immediately when already ready', async () => {
+    const analytics = new Analytics();
+    let initialized = false;
+    const pending = analytics.whenInitialized().then(() => {
+      initialized = true;
+    });
+
+    expect(initialized).toBe(false);
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    await pending;
+    expect(initialized).toBe(true);
+
+    await expect(analytics.whenInitialized()).resolves.toBeUndefined();
+  });
+
+  it('sends events with the medium fallback when tier enrichment fails', async () => {
+    mockGetDeviceCpuTier.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('segment runtime mismatch');
+    });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({
+          deviceId: 'device-id',
+          tier: 2,
+        }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device performance tier:',
+      expect.any(Error),
+    );
+  });
+
+  it('sends events when device info enrichment fails', async () => {
+    mockGetDeviceInfo.mockRejectedValueOnce(
+      new OneKeyLocalError('device info unavailable'),
+    );
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    analytics.trackEvent('testEvent');
+    await waitForPostCount(1);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventName: 'testEvent',
+        eventProps: expect.objectContaining({ tier: 3 }),
+      }),
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Analytics] Failed to load device info:',
+      expect.any(Error),
+    );
+  });
+});

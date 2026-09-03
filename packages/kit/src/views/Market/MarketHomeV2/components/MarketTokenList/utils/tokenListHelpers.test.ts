@@ -313,6 +313,80 @@ describe('market home live price change', () => {
   });
 });
 
+describe('market token network logos', () => {
+  const tokenItem = {
+    address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+    name: 'Token',
+    symbol: 'TOKEN',
+    decimals: 18,
+  };
+
+  test('uses the selected dynamic Market network logo', () => {
+    const token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--143',
+      },
+      {
+        chainId: 'evm--143',
+        networkLogoUri: 'https://example.com/monad.png',
+      },
+    );
+
+    expect(token.networkLogoUri).toBe('https://example.com/monad.png');
+  });
+
+  test('resolves each dynamic network logo from Market config', () => {
+    const networkLogoUriMap = new Map([
+      ['evm--143', 'https://example.com/monad.png'],
+      ['evm--4663', 'https://example.com/network-4663.png'],
+    ]);
+
+    const monadToken = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--143',
+      },
+      {
+        chainId: 'onekeyall--0',
+        networkLogoUri: '',
+        networkLogoUriMap,
+      },
+    );
+    const network4663Token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--4663',
+      },
+      {
+        chainId: 'onekeyall--0',
+        networkLogoUri: '',
+        networkLogoUriMap,
+      },
+    );
+
+    expect(monadToken.networkLogoUri).toBe('https://example.com/monad.png');
+    expect(network4663Token.networkLogoUri).toBe(
+      'https://example.com/network-4663.png',
+    );
+  });
+
+  test('does not reuse the selected network logo for another network', () => {
+    const token = transformApiItemToToken(
+      {
+        ...tokenItem,
+        networkId: 'evm--4663',
+      },
+      {
+        chainId: 'evm--143',
+        networkLogoUri: 'https://example.com/monad.png',
+      },
+    );
+
+    expect(token.networkLogoUri).toBe('');
+  });
+});
+
 describe('shouldShowStockSubtitleForTokens', () => {
   test('returns false for empty data', () => {
     expect(shouldShowStockSubtitleForTokens([])).toBe(false);
@@ -370,6 +444,27 @@ describe('shouldUseStockMetadataColumnsForTokens', () => {
         { stock: { subtitle: 'Apple', sourceLogoUri: '' } },
         { stock: undefined },
       ]),
+    ).toBe(false);
+  });
+
+  test('returns true for mixed data when stock columns are forced', () => {
+    expect(
+      shouldUseStockMetadataColumnsForTokens(
+        [
+          { stock: { subtitle: 'Apple', sourceLogoUri: '' } },
+          { stock: undefined },
+        ],
+        { forceStockMetadataColumns: true },
+      ),
+    ).toBe(true);
+  });
+
+  test('returns false when automatic detection is disabled', () => {
+    expect(
+      shouldUseStockMetadataColumnsForTokens(
+        [{ stock: { subtitle: 'Apple', sourceLogoUri: '' } }],
+        { enableAutoDetection: false },
+      ),
     ).toBe(false);
   });
 });

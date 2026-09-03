@@ -82,7 +82,19 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         if (!shouldReuseContext) {
           cleanupContext();
           if (this._emitLog) {
-            this._emitLog(propertyKey, result, callContext.metadataList);
+            const emitResult = this._emitLog(
+              propertyKey,
+              result,
+              callContext.metadataList,
+            );
+            if (
+              callContext.metadataList.some(
+                (metadata) =>
+                  metadata.type === 'server' && metadata.waitForServer,
+              )
+            ) {
+              return emitResult;
+            }
           }
         }
 

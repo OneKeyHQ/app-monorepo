@@ -11,9 +11,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
-  perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
-  tradingModeAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountRefreshHookAtom,
@@ -22,10 +20,7 @@ import {
   usePerpsWebSocketConnectedAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
-import {
-  spotActiveAssetAtom,
-  useSpotActiveAssetAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { useSpotActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -43,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { isPerpsUniverseCacheComplete } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
 import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -74,6 +70,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  type IActiveTradeInstrument,
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   useTradeRouteViewStateAtom,
@@ -91,6 +88,7 @@ import {
 } from '../utils/subscriptionPlanner';
 
 import {
+  buildInitialTradeInstrumentSwitchParams,
   shouldCheckPerpsAccountStatusOnFocus,
   shouldRunPerpsAccountSelect,
 } from './PerpsGlobalEffects.utils';
@@ -118,35 +116,49 @@ function resolvePerpRouteFocused(isFocus: boolean) {
 }
 
 function hasTradingUniverseCache(data: { universesByDex?: unknown[][] }) {
-  return Boolean(data.universesByDex?.some((items) => items?.length > 0));
+  return isPerpsUniverseCacheComplete(data.universesByDex);
+}
+
+type IActiveInstrumentTarget = Awaited<
+  ReturnType<
+    typeof backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget
+  >
+>;
+
+// Read the authoritative side rather than this runtime's mirrors: the mirror is
+// refreshed by a broadcast whose delivery is not confirmed, and a resync that
+// reads a drifted copy switches the user off the pair they picked.
+async function resolveActiveInstrumentTarget(): Promise<IActiveInstrumentTarget> {
+  return backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
+}
+
+function buildSwitchParamsFromTarget(
+  target: IActiveInstrumentTarget,
+  options?: {
+    force?: boolean;
+    allowPerpFallback?: boolean;
+    preferredInstrument?: IActiveTradeInstrument;
+  },
+) {
+  return buildInitialTradeInstrumentSwitchParams({
+    mode: target.mode,
+    spotAsset: target.spotAsset,
+    perpAsset: target.perpAsset,
+    force: options?.force,
+    allowPerpFallback: options?.allowPerpFallback,
+    preferredInstrument: options?.preferredInstrument,
+  });
 }
 
 async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
   force?: boolean;
+  allowPerpFallback?: boolean;
+  preferredInstrument?: IActiveTradeInstrument;
 }) {
-  const currentMode = (await tradingModeAtom.get()) ?? 'perp';
-  if (currentMode === 'spot') {
-    const spotAsset = await spotActiveAssetAtom.get();
-    if (!spotAsset?.coin) {
-      return undefined;
-    }
-    return {
-      mode: 'spot' as const,
-      coin: spotAsset.coin,
-      spotUniverse: spotAsset.universe,
-      force: options?.force,
-    };
-  }
-
-  const perpAsset = await perpsActiveAssetAtom.get();
-  if (!perpAsset?.coin) {
-    return undefined;
-  }
-  return {
-    mode: 'perp' as const,
-    coin: perpAsset.coin,
-    force: options?.force,
-  };
+  return buildSwitchParamsFromTarget(
+    await resolveActiveInstrumentTarget(),
+    options,
+  );
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
@@ -559,6 +571,12 @@ function useHyperliquidSession() {
   };
 }
 
+function useRefreshHyperLiquidAgentPasswordStatus() {
+  useEffect(() => {
+    void backgroundApiProxy.servicePassword.refreshHyperLiquidAgentPasswordStatus();
+  }, []);
+}
+
 function useHyperliquidAccountSelect() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -951,8 +969,26 @@ function useHyperliquidSymbolSelect() {
         claimed,
         activeCoin: activeTradeInstrumentRef.current?.coin,
       });
+      // Resolved once and reused below: two independent reads can straddle the
+      // background's own two-step write, and a divergence seen only in that gap
+      // would force a switch onto the current pair, wiping the order form.
+      const instrumentTarget = await resolveActiveInstrumentTarget();
       if (!claimed && activeTradeInstrumentRef.current?.coin) {
-        return;
+        // The latch is process-wide, so this skip doubles as the only
+        // remount-time resync: skipping unconditionally would strand the page
+        // on the previous coin when the event bus message was dropped.
+        const bgSwitchParams = buildSwitchParamsFromTarget(instrumentTarget);
+        const ctxInstrument = activeTradeInstrumentRef.current;
+        const diverged =
+          !bgSwitchParams ||
+          bgSwitchParams.coin !== ctxInstrument?.coin ||
+          bgSwitchParams.mode !== ctxInstrument?.mode;
+        markPerpsColdStartPerf('initial_symbol_latch_skip', {
+          diverged,
+        });
+        if (!diverged) {
+          return;
+        }
       }
       if (claimed) {
         markPerpsColdStartPerf('initial_symbol_refresh_meta_background_start');
@@ -1028,13 +1064,23 @@ function useHyperliquidSymbolSelect() {
         refreshSpotMeta(1800);
       }
       markPerpsColdStartPerf('initial_symbol_build_switch_params_start');
-      const switchParams = await buildActiveInstrumentSwitchParamsFromGlobal({
+      const switchParams = buildSwitchParamsFromTarget(instrumentTarget, {
         force: true,
+        // Only the claiming run is a real cold start, where bailing out
+        // strands the page for good. The diverged resync falls through here
+        // too, and there the fallback would abort an in-flight spot switch.
+        allowPerpFallback: claimed,
+        preferredInstrument: claimed
+          ? activeTradeInstrumentRef.current
+          : undefined,
       });
       markPerpsColdStartPerf('initial_symbol_build_switch_params_end', {
         hasSwitchParams: !!switchParams,
         coin: switchParams?.coin,
         mode: switchParams?.mode,
+        claimed,
+        instrumentMode: activeTradeInstrumentRef.current?.mode,
+        instrumentCoin: activeTradeInstrumentRef.current?.coin,
       });
       if (!switchParams) {
         return;
@@ -1098,8 +1144,15 @@ function useHyperliquidSymbolSelect() {
     }
   }, [actions, setActiveAssetCtxColdCache]);
 
+  // Without the transition dedupe, the token selector's `popStack()` — which
+  // runs before its own `switchTradeInstrument()` resolves — re-enters
+  // mid-switch and forces the previous coin back over the user's selection.
+  const isRouteFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
-    if (!resolvePerpRouteFocused(isFocus)) return;
+    const nextFocused = resolvePerpRouteFocused(isFocus);
+    const wasFocused = isRouteFocusedRef.current;
+    isRouteFocusedRef.current = nextFocused;
+    if (!nextFocused || wasFocused) return;
     void selectInitialSymbol();
   });
 
@@ -1248,17 +1301,21 @@ function AutoPauseSubscriptions() {
   );
 
   const isFocusedRef = useRef(shouldTreatPerpAsFocusedOnMount);
+  // BG confirmed a liveness recovery while the focus derivation still read
+  // blurred; unlock/app-resume then treat Perp as focused until a real edge.
+  const recoveredWhileBlurredRef = useRef(false);
   useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
     const nextFocused = resolvePerpRouteFocused(isFocus);
     const isFocusPrev = isFocusedRef.current;
     isFocusedRef.current = nextFocused;
     if (isFocusPrev !== nextFocused) {
+      recoveredWhileBlurredRef.current = false;
       void onFocusHandler({ isFocus: isFocusedRef.current });
     }
   });
 
   const handleAppActiveFromBackground = useCallback(() => {
-    if (isFocusedRef.current) {
+    if (isFocusedRef.current || recoveredWhileBlurredRef.current) {
       // Native doesn't set lastFocusStateRef to false on background,
       // so reset it here to prevent dedup guard from blocking resume
       lastFocusStateRef.current = false;
@@ -1279,14 +1336,45 @@ function AutoPauseSubscriptions() {
   // handled by useHandleAppStateActive.
 
   const [isLocked] = useAppIsLockedAtom();
+  const isLockedRef = useRef(isLocked);
+  isLockedRef.current = isLocked;
 
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
     } else {
-      void onFocusHandler({ isFocus: isFocusedRef.current });
+      void onFocusHandler({
+        isFocus: isFocusedRef.current || recoveredWhileBlurredRef.current,
+      });
     }
   }, [isLocked, onFocusHandler]);
+
+  useEffect(() => {
+    // Drop the pending pause timer so it cannot tear the recovery down, and
+    // update the dedup state so the next real blur/lock disable gets through.
+    const handleRecovered = () => {
+      // The announce and the lock disable cross the bridge unordered; a lock
+      // already in effect outranks it, so keep its freshly armed pause timer.
+      if (isLockedRef.current) {
+        return;
+      }
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+      lastFocusStateRef.current = true;
+      if (!isFocusedRef.current) {
+        recoveredWhileBlurredRef.current = true;
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.PerpsSubscriptionsRecovered,
+      handleRecovered,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.PerpsSubscriptionsRecovered,
+        handleRecovered,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1423,6 +1511,7 @@ function PerpsGlobalEffectsView() {
   useHydrateFavoritesBarMarketCache();
   useHyperliquidEventBusListener();
   useHyperliquidSession();
+  useRefreshHyperLiquidAgentPasswordStatus();
   useHyperliquidAccountSelect();
   usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();

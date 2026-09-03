@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getPerpsChaseOrderAmendKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   calculateHyperliquidSpotHoldingPnl,
   formatSpotPairDisplayName,
@@ -11,6 +12,7 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -170,6 +172,161 @@ export const getFillDirectionDisplayInfo = ({
 
 export const isSpotHoldingStableCoin = isHyperliquidSpotStableCoin;
 
+export const MIN_VISIBLE_SPOT_HOLDING_VALUE_USD = 5;
+
+export type ISpotHoldingRawBalance = {
+  coin: string;
+  total: string;
+  entryNtl?: string;
+};
+
+type ISpotUniversePriceSource = {
+  name: string;
+  baseName: string;
+  quoteName: string;
+};
+
+type ISpotPriceContext = {
+  markPx?: string;
+};
+
+export function buildSpotTokenPriceLookup({
+  spotUniverses,
+  priceMap,
+}: {
+  spotUniverses: ISpotUniversePriceSource[];
+  priceMap: Record<string, ISpotPriceContext>;
+}): Record<string, string> {
+  const lookup: Record<string, string> = {};
+
+  for (const universe of spotUniverses) {
+    if (universe.quoteName === 'USDC') {
+      const context = priceMap[universe.name];
+      if (context?.markPx) {
+        lookup[universe.baseName] = context.markPx;
+      }
+    }
+  }
+
+  for (const universe of spotUniverses) {
+    if (!lookup[universe.baseName]) {
+      const context = priceMap[universe.name];
+      if (context?.markPx) {
+        lookup[universe.baseName] = context.markPx;
+      }
+    }
+  }
+
+  return lookup;
+}
+
+export function getSpotHoldingValuation({
+  rawCoin,
+  total,
+  entryNtl,
+  midPrice,
+}: {
+  rawCoin: string;
+  total: string;
+  entryNtl?: string;
+  midPrice?: string;
+}) {
+  const totalBN = new BigNumber(total);
+  const entryNtlBN = new BigNumber(entryNtl || '0');
+  const isStable = isSpotHoldingStableCoin(rawCoin);
+  const hasPriceSource = isStable || Boolean(midPrice);
+
+  let usdcValueBN: BigNumber;
+  if (isStable) {
+    usdcValueBN = totalBN;
+  } else if (midPrice) {
+    usdcValueBN = totalBN.multipliedBy(midPrice);
+  } else {
+    usdcValueBN = entryNtlBN;
+  }
+
+  return {
+    totalBN,
+    entryNtlBN,
+    isStable,
+    hasPriceSource,
+    usdcValueBN,
+  };
+}
+
+type ISpotHoldingFilterItem = {
+  rawCoin: string;
+  total: string;
+  usdcValueNum: number;
+  hasPriceSource: boolean;
+};
+
+export function filterSpotHoldingBalances<T extends ISpotHoldingFilterItem>({
+  balances,
+  hideBelowThreshold,
+}: {
+  balances: T[];
+  hideBelowThreshold: boolean;
+}): T[] {
+  return balances.filter((balance) => {
+    if (new BigNumber(balance.total).isZero()) {
+      return false;
+    }
+
+    if (
+      !hideBelowThreshold ||
+      balance.rawCoin === 'USDC' ||
+      !balance.hasPriceSource
+    ) {
+      return true;
+    }
+
+    return (
+      !Number.isFinite(balance.usdcValueNum) ||
+      balance.usdcValueNum >= MIN_VISIBLE_SPOT_HOLDING_VALUE_USD
+    );
+  });
+}
+
+export function getVisibleSpotHoldingsCount({
+  balances,
+  tokenPriceLookup,
+  hideBelowThreshold,
+  hasPerpsUsdc,
+}: {
+  balances: ISpotHoldingRawBalance[];
+  tokenPriceLookup: Record<string, string>;
+  hideBelowThreshold: boolean;
+  hasPerpsUsdc: boolean;
+}): number {
+  const visibleSpotBalances = filterSpotHoldingBalances({
+    balances: balances.map((balance) => {
+      const valuation = getSpotHoldingValuation({
+        rawCoin: balance.coin,
+        total: balance.total,
+        entryNtl: balance.entryNtl,
+        midPrice: tokenPriceLookup[balance.coin],
+      });
+
+      return {
+        rawCoin: balance.coin,
+        total: balance.total,
+        usdcValueNum: valuation.usdcValueBN.toNumber(),
+        hasPriceSource: valuation.hasPriceSource,
+      };
+    }),
+    hideBelowThreshold,
+  });
+  const nonUsdcCount = visibleSpotBalances.filter(
+    (balance) => balance.rawCoin !== 'USDC',
+  ).length;
+  const hasSpotUsdc = visibleSpotBalances.some(
+    (balance) => balance.rawCoin === 'USDC',
+  );
+
+  return nonUsdcCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+}
+
 export const calculateSpotHoldingPnl = ({
   total,
   entryNtl,
@@ -202,6 +359,16 @@ export const calculateSpotHoldingPnl = ({
     pnlPercent: pnlBN.dividedBy(entryNtlBN).multipliedBy(100).toNumber(),
   };
 };
+
+export function canChasePerpsOrder(order: IPerpsFrontendOrder): boolean {
+  const remainingSize = new BigNumber(order.sz);
+  return Boolean(
+    !isSpotInstrument(order.coin) &&
+    getPerpsChaseOrderAmendKind(order) &&
+    remainingSize.isFinite() &&
+    remainingSize.gt(0),
+  );
+}
 
 export function formatSpotHoldingPnlText(
   pnl?: string,

@@ -1,9 +1,8 @@
+import { sliceKLineRequest } from '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
-
-import { sliceRequest } from '../sliceRequest';
 
 import { fetchTradingViewV2DataWithSlicing } from './useTradingViewV2';
 
@@ -28,12 +27,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('../sliceRequest', () => ({
-  sliceRequest: jest.fn(),
-}));
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest',
+  () => ({
+    sliceKLineRequest: jest.fn(),
+  }),
+);
 
-const mockSliceRequest = sliceRequest as jest.MockedFunction<
-  typeof sliceRequest
+const mockSliceRequest = sliceKLineRequest as jest.MockedFunction<
+  typeof sliceKLineRequest
 >;
 
 function buildPoint(t: number, close = t): IMarketTokenKLineDataPoint {
@@ -114,8 +116,10 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
 
   it('keeps a wide request continuous when the backend caps each response', async () => {
     const actualSliceRequest = jest.requireActual<{
-      sliceRequest: typeof sliceRequest;
-    }>('../sliceRequest').sliceRequest;
+      sliceKLineRequest: typeof sliceKLineRequest;
+    }>(
+      '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest',
+    ).sliceKLineRequest;
     const timeFrom = 1_776_959_280;
     const timeTo = 1_782_471_600;
     const intervalSeconds = 60 * 60;

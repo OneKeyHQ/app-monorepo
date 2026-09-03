@@ -29,8 +29,11 @@ export function createWebConfig({
   basePath,
   platform = 'web',
 }: IWebConfigOptions): RspackOptions {
-  const baseConfig = createBaseConfig({ platform, basePath });
-
+  const baseConfig = createBaseConfig({
+    platform,
+    basePath,
+    removeFirstPartyConsole: true,
+  });
   switch (nodeEnv) {
     case 'production':
       return merge(baseConfig, createProductionConfig({ platform, basePath }), {

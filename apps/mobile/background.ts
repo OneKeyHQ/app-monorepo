@@ -10,6 +10,9 @@
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
 require('@onekeyhq/shared/src/polyfills');
+const { markRuntimePolyfillsReady } =
+  require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
+markRuntimePolyfillsReady();
 
 // Lightweight logger for background runtime entry diagnostics.
 // Uses NativeLogger directly (no console) so output goes to app-latest.log.
@@ -77,65 +80,91 @@ function applyAndroidBgNextTickFix() {
 }
 applyAndroidBgNextTickFix();
 
-// Install production split bundle loader for background runtime (Phase 3).
-// Uses BackgroundThread.loadSegmentInBackground to register segments
-// with the background Hermes runtime.
-if (!__DEV__) {
-  const segLoaderStart = Date.now();
-  const { getSegmentManifest } =
-    require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
-  const manifest = getSegmentManifest();
-  if (Object.keys(manifest.segments).length > 0) {
-    const { installProdBundleLoader } =
-      require('./src/splitBundle/installProdBundleLoader') as typeof import('./src/splitBundle/installProdBundleLoader');
-    const { getBackgroundNativeSplitBundleLoader } =
-      require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
-    installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
-  }
-  bgEntryLog(
-    `segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - bgEntryStart}ms)`,
-  );
-}
-
-const apiProxyStart = Date.now();
-bgEntryLog(`importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`);
-const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-  require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
-
-bgEntryLog(
-  `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
-);
-
 const rpcHandlerStart = Date.now();
 bgEntryLog(`importing RPC handler (+${rpcHandlerStart - bgEntryStart}ms)`);
-const { setBackgroundThreadRequestExecutor } =
+const {
+  reportBackgroundThreadInitializationFailure,
+  setBackgroundThreadRequestExecutor,
+} =
   require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
+const rpcHandlerEnd = Date.now();
 
 const { AppRegistry } =
   require('react-native') as typeof import('react-native');
-
-bgEntryLog('registering request executor');
-setBackgroundThreadRequestExecutor(async (request) => {
-  if (request.type === 'service-call') {
-    return backgroundApiProxy.callBackgroundMethod(
-      request.sync,
-      request.method,
-      ...request.params,
-    );
-  }
-  if (request.type === 'bridge-call') {
-    return backgroundApiProxy.bridgeReceiveHandler(request.payload);
-  }
-
-  return undefined;
-});
 
 const BackgroundThreadRoot = () => null;
 
 AppRegistry.registerComponent('background', () => BackgroundThreadRoot);
 
-const bgEntryEnd = Date.now();
-const entryElapsed = bgEntryEnd - bgEntryStart;
-bgEntryLog(
-  `entry JS executed in ${entryElapsed}ms (polyfills→apiProxy: ${apiProxyStart - bgEntryStart}ms, apiProxy import: ${Date.now() - apiProxyStart > entryElapsed ? entryElapsed : rpcHandlerStart - apiProxyStart}ms, rpcHandler: ${bgEntryEnd - rpcHandlerStart}ms)`,
-);
+async function initializeBackgroundRuntime() {
+  const storagePreparationStart = Date.now();
+  bgEntryLog(
+    `preparing native storage (+${storagePreparationStart - bgEntryStart}ms)`,
+  );
+  const { prepareNativeStorageForBackgroundStartup } =
+    require('@onekeyhq/shared/src/storage/nativeStorageExecutor') as typeof import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+  await prepareNativeStorageForBackgroundStartup();
+  bgEntryLog(
+    `native storage prepared in ${Date.now() - storagePreparationStart}ms (+${Date.now() - bgEntryStart}ms)`,
+  );
+
+  // Install the split loader only after recovery has finished. Segment imports
+  // may construct services that read process-shared native storage.
+  if (!__DEV__) {
+    const segLoaderStart = Date.now();
+    const { getSegmentManifest } =
+      require('./src/splitBundle/segmentManifest') as typeof import('./src/splitBundle/segmentManifest');
+    const manifest = getSegmentManifest();
+    if (Object.keys(manifest.segments).length > 0) {
+      const { installProdBundleLoader } =
+        require('./src/splitBundle/installProdBundleLoader') as typeof import('./src/splitBundle/installProdBundleLoader');
+      const { getBackgroundNativeSplitBundleLoader } =
+        require('./src/splitBundle/nativeBridgeBackground') as typeof import('./src/splitBundle/nativeBridgeBackground');
+      installProdBundleLoader(getBackgroundNativeSplitBundleLoader());
+    }
+    bgEntryLog(
+      `segment loader installed in ${Date.now() - segLoaderStart}ms (+${Date.now() - bgEntryStart}ms)`,
+    );
+  }
+
+  const apiProxyStart = Date.now();
+  bgEntryLog(
+    `importing backgroundApiProxy (+${apiProxyStart - bgEntryStart}ms)`,
+  );
+  const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
+  const apiProxyEnd = Date.now();
+
+  bgEntryLog(
+    `backgroundApiProxy ready in ${Date.now() - apiProxyStart}ms (+${Date.now() - bgEntryStart}ms)`,
+  );
+
+  bgEntryLog('registering request executor');
+  setBackgroundThreadRequestExecutor(async (request) => {
+    if (request.type === 'service-call') {
+      return backgroundApiProxy.callBackgroundMethod(
+        request.sync,
+        request.method,
+        ...request.params,
+      );
+    }
+    if (request.type === 'bridge-call') {
+      return backgroundApiProxy.bridgeReceiveHandler(request.payload);
+    }
+
+    return undefined;
+  });
+
+  const bgEntryEnd = Date.now();
+  const entryElapsed = bgEntryEnd - bgEntryStart;
+  bgEntryLog(
+    `entry JS initialized in ${entryElapsed}ms (polyfills→rpcHandler: ${rpcHandlerStart - bgEntryStart}ms, rpcHandler import: ${rpcHandlerEnd - rpcHandlerStart}ms, apiProxy import: ${apiProxyEnd - apiProxyStart}ms)`,
+  );
+}
+
+void initializeBackgroundRuntime().catch((error: unknown) => {
+  bgEntryLog(
+    `initialization failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+  );
+  reportBackgroundThreadInitializationFailure(error);
+});
