@@ -50,30 +50,22 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
         }) || ''
       }`;
 
-let watchListQueue: Promise<unknown> = Promise.resolve();
+let watchQueue: Promise<unknown> = Promise.resolve();
 const watchOps = new Map<string, [boolean, Promise<unknown>]>();
 
-function runWatchOp<T>(
-  keys: string[],
-  add: boolean,
-  mutation: () => Promise<T>,
-) {
-  const run = () =>
-    mutation().finally(() => keys.forEach((key) => watchOps.delete(key)));
-  const result = watchListQueue.then(run, run);
-  keys.forEach((key) => watchOps.set(key, [add, result]));
-  watchListQueue = result.catch(() => undefined);
-  return result;
+function runOp<T>(keys: string[], add: boolean, mutation: () => Promise<T>) {
+  const op = watchQueue
+    .then(mutation, mutation)
+    .finally(() => keys.forEach((key) => watchOps.delete(key)));
+  keys.forEach((key) => watchOps.set(key, [add, op]));
+  watchQueue = op.catch(() => undefined);
+  return op;
 }
 
-async function waitWatchOp(key: string, add: boolean) {
-  const op = watchOps.get(key);
-  if (op?.[0] === add) {
-    await op[1];
-    return true;
-  }
-  await op?.[1].catch(() => undefined);
-  return false;
+async function waitOp(key: string, add: boolean) {
+  const op = watchOps.get(key)!;
+  await (op[0] === add ? op[1] : op[1].catch(() => undefined));
+  return op[0] === add;
 }
 
 const CHART_TTL = 10_000;
@@ -504,13 +496,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             contractAddress: item.contractAddress,
           }) || '',
       }));
-      let blocked = params.find((item) => watchOps.has(uniqByFn(item)));
-      while (blocked) {
-        const key = uniqByFn(blocked);
-        if (await waitWatchOp(key, true)) {
-          params = params.filter((item) => uniqByFn(item) !== key);
+      for (const item of params) {
+        const key = uniqByFn(item);
+        while (watchOps.has(key)) {
+          if (await waitOp(key, true)) {
+            params = params.filter((i) => uniqByFn(i) !== key);
+            break;
+          }
         }
-        blocked = params.find((item) => watchOps.has(uniqByFn(item)));
       }
       if (!params.length) {
         return;
@@ -532,7 +525,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       });
       set(marketWatchListV2Atom(), { ...prev, data });
 
-      await runWatchOp(keys, true, async () => {
+      await runOp(keys, true, async () => {
         try {
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: params,
@@ -566,7 +559,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }) || '';
       const key = uniqByFn({ chainId, contractAddress });
       while (watchOps.has(key)) {
-        if (await waitWatchOp(key, false)) {
+        if (await waitOp(key, false)) {
           return;
         }
       }
@@ -587,7 +580,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
-      await runWatchOp([key], false, async () => {
+      await runOp([key], false, async () => {
         try {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [{ chainId, contractAddress }],
