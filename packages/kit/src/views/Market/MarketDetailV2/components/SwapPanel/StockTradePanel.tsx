@@ -60,7 +60,7 @@ import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
-import { SwapPanelContent } from './SwapPanelContent';
+import { StockTradePanelContent } from './StockTradePanelContent';
 
 import type {
   IEstimateMarketPresetPriorityFeeFiatValues,
@@ -68,17 +68,13 @@ import type {
 } from './components/MarketPresetSelector';
 import type { IToken } from './types';
 
-interface ISwapPanelWrapProps {
-  onCloseDialog?: () => void;
-  stockDetailDesktopLayout?: boolean;
+interface IStockTradePanelProps {
   portfolioData?: IMarketAccountPortfolioItem[];
 }
 
-function SwapPanelWrapContent({
-  onCloseDialog,
-  stockDetailDesktopLayout,
+function StockTradePanelContentContainer({
   portfolioData,
-}: ISwapPanelWrapProps) {
+}: IStockTradePanelProps) {
   const {
     networkId,
     tokenAddress,
@@ -86,7 +82,7 @@ function SwapPanelWrapContent({
     tokenDetail,
     isReady,
   } = useTokenDetail();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const { selectedTokenVariant, stockId } = useStockDetail();
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const isModalPage = useIsOverlayPage();
@@ -96,7 +92,6 @@ function SwapPanelWrapContent({
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
-  const [hasInitialReady, setHasInitialReady] = useState(false);
   const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
@@ -276,13 +271,12 @@ function SwapPanelWrapContent({
   const stockTokenToAssetRatio =
     selectedTokenVariant?.tokenToAssetRatio ??
     tokenDetail?.stock?.tokenToAssetRatio;
-  const currentStockInfo =
-    isStockRoute && tokenDetail?.stock
-      ? {
-          ...tokenDetail.stock,
-          tokenToAssetRatio: stockTokenToAssetRatio,
-        }
-      : undefined;
+  const currentStockInfo = tokenDetail?.stock
+    ? {
+        ...tokenDetail.stock,
+        tokenToAssetRatio: stockTokenToAssetRatio,
+      }
+    : undefined;
   const currentMarketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
@@ -308,7 +302,7 @@ function SwapPanelWrapContent({
           '',
         currency: 'usd',
         isNative: false,
-        isStock: isStockRoute,
+        isStock: true,
         stock: currentStockInfo,
       }
     : {
@@ -321,7 +315,7 @@ function SwapPanelWrapContent({
         price: marketTokenPrice || '',
         currency: marketTokenCurrency,
         isNative: !!tokenDetail?.isNative,
-        isStock: isStockRoute,
+        isStock: true,
         stock: currentStockInfo,
       };
   const currentFromTokenAmount =
@@ -358,14 +352,13 @@ function SwapPanelWrapContent({
       isNative: paymentToken?.isNative || false,
     },
     tradeType: tradeType || ESwapDirection.BUY,
-    swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
+    swapType: ESwapTabSwitchType.STOCK,
     fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
       ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
       : false,
     isCustomRpcUnavailable,
     isReviewDialogOpen,
-    onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
@@ -377,10 +370,8 @@ function SwapPanelWrapContent({
     balance,
     balanceToken,
     fetchBalanceLoading,
-    priceRate,
     stockQuoteDisplay,
     quoteResult,
-    quoteList,
     quoteActionLoading,
     quoteError,
     quoteReadyForReview,
@@ -401,14 +392,6 @@ function SwapPanelWrapContent({
     sendMarketSignMessage,
     buildMarketApproveInfos,
   } = speedSwapActions;
-
-  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
-    if (!balanceToken?.networkId) return undefined;
-    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: balanceToken.networkId,
-    });
-    return result?.mergeDeriveAssetsEnabled;
-  }, [balanceToken?.networkId]);
 
   const disableNativeToken =
     isOndoStockSource(tokenDetail?.stock?.source) &&
@@ -457,11 +440,8 @@ function SwapPanelWrapContent({
   ]);
 
   const compatibleDefaultTokens = useMemo(
-    () =>
-      isStockRoute
-        ? filterStockPayTokenCandidates(defaultTokens)
-        : defaultTokens,
-    [defaultTokens, isStockRoute],
+    () => filterStockPayTokenCandidates(defaultTokens),
+    [defaultTokens],
   );
 
   const filterDefaultTokens = useMemo(() => {
@@ -842,23 +822,6 @@ function SwapPanelWrapContent({
     if (
       !isActionLoading &&
       isReady &&
-      !speedSwapInitLoading &&
-      originalSupportSpeedSwap !== undefined
-    ) {
-      setHasInitialReady(true);
-    }
-  }, [
-    isActionLoading,
-    isReady,
-    originalSupportSpeedSwap,
-    speedSwapInitLoading,
-  ]);
-
-  useEffect(() => {
-    if (
-      stockDetailDesktopLayout &&
-      !isActionLoading &&
-      isReady &&
       speedConfigReady &&
       !speedSwapInitLoading &&
       originalSupportSpeedSwap !== undefined &&
@@ -879,7 +842,6 @@ function SwapPanelWrapContent({
     selectedTokenVariant,
     speedConfigReady,
     speedSwapInitLoading,
-    stockDetailDesktopLayout,
   ]);
 
   // Override setPaymentToken so user-initiated changes are persisted
@@ -892,12 +854,9 @@ function SwapPanelWrapContent({
   );
 
   return (
-    <SwapPanelContent
+    <StockTradePanelContent
       activeAccount={activeAccount}
-      enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={currentMarketToken}
-      onCloseDialog={onCloseDialog}
-      priceRate={priceRate}
       stockQuoteDisplay={stockQuoteDisplay}
       stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
@@ -911,7 +870,7 @@ function SwapPanelWrapContent({
       isLoading={isActionLoading || isReviewOpening}
       quoteLoading={quoteActionLoading}
       isActionDisabled={
-        (isStockRoute && !selectedVariantTradable) ||
+        !selectedVariantTradable ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
         marketPresetSettings.isLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
@@ -919,9 +878,7 @@ function SwapPanelWrapContent({
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
-      hasInitialReady={
-        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
-      }
+      hasInitialReady={isCurrentStockTokenReady}
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}
@@ -933,22 +890,20 @@ function SwapPanelWrapContent({
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       quoteResult={quoteResult}
-      quoteListLength={quoteList.length}
       onOpenProviderList={handleOpenProviderList}
       quoteError={quoteError}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-      stockDetailDesktopLayout={stockDetailDesktopLayout}
       portfolioData={portfolioData}
     />
   );
 }
 
-export function SwapPanelWrap(props: ISwapPanelWrapProps) {
+export function StockTradePanel(props: IStockTradePanelProps) {
   return (
     <SwapProviderMirror storeName={EJotaiContextStoreNames.marketSwap}>
-      <SwapPanelWrapContent {...props} />
+      <StockTradePanelContentContainer {...props} />
     </SwapProviderMirror>
   );
 }

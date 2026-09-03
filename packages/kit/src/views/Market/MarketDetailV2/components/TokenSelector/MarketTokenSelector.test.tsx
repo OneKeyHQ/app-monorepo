@@ -13,6 +13,9 @@ const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
+const mockUseToMarketStockDetailPage = jest.fn((_options?: unknown) =>
+  jest.fn(),
+);
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockSearchTokenList: IMarketToken[] = [];
 
@@ -128,7 +131,8 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage',
   () => ({
-    useToMarketStockDetailPage: () => jest.fn(),
+    useToMarketStockDetailPage: (options: unknown) =>
+      mockUseToMarketStockDetailPage(options),
   }),
 );
 
@@ -247,6 +251,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
+    mockUseToMarketStockDetailPage.mockClear();
     mockSearchTokenList = [];
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
@@ -291,6 +296,14 @@ describe('MarketTokenSelector stock default category', () => {
     const topCoinsLabel = screen.getByText('Top Coins');
     expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
     expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
+  });
+
+  it('replaces the current detail route when selecting a stock', () => {
+    renderOpenStockSelector();
+
+    expect(mockUseToMarketStockDetailPage).toHaveBeenCalledWith({
+      replaceCurrentDetail: true,
+    });
   });
 
   function renderOpenStockSelector() {

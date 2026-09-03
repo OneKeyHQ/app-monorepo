@@ -12,7 +12,6 @@ import {
   View,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -37,8 +36,8 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
 
 import { ESwapDirection } from './hooks/useTradeType';
+import { StockTradePanel } from './StockTradePanel';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
-import { SwapPanelWrap } from './SwapPanelWrap';
 
 const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
   ESwapProJumpTokenDirection,
@@ -48,7 +47,7 @@ const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
   [ESwapProJumpTokenDirection.SELL]: ESwapDirection.SELL,
 };
 
-function LgTradeButton({
+function TradeButton({
   swapToken,
   onShowSwapDialog,
 }: {
@@ -106,7 +105,6 @@ export function SwapPanel({
   stockDetailDesktopLayout?: boolean;
 }) {
   const intl = useIntl();
-  const media = useMedia();
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
@@ -272,8 +270,8 @@ export function SwapPanel({
         }}
         enabledNum={[0]}
       >
-        {media.lg && !stockDetailDesktopLayout ? (
-          <LgTradeButton
+        {!stockDetailDesktopLayout ? (
+          <TradeButton
             swapToken={swapToken}
             onShowSwapDialog={onShowSwapDialog}
           />
@@ -281,10 +279,7 @@ export function SwapPanel({
           <MarketWatchListProviderMirrorV2
             storeName={EJotaiContextStoreNames.marketWatchListV2}
           >
-            <SwapPanelWrap
-              stockDetailDesktopLayout={stockDetailDesktopLayout}
-              portfolioData={portfolioData}
-            />
+            <StockTradePanel portfolioData={portfolioData} />
           </MarketWatchListProviderMirrorV2>
         )}
       </AccountSelectorProviderMirror>

@@ -32,7 +32,6 @@ import {
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeFullscreenLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
@@ -45,10 +44,7 @@ import {
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
-import {
-  EJotaiContextStoreNames,
-  useMarketTradingViewSubIndicatorCountPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useMarketTradingViewSubIndicatorCountPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import {
@@ -60,10 +56,8 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -84,11 +78,13 @@ import {
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
 
+import type { MarketDetailEmbeddedSwap } from '../components/MarketDetailEmbeddedSwap';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
-import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
 type ISwapPanelProps = ComponentProps<typeof SwapPanel>;
-type ISwapPanelWrapProps = ComponentProps<typeof SwapPanelWrap>;
+type IMarketDetailEmbeddedSwapProps = ComponentProps<
+  typeof MarketDetailEmbeddedSwap
+>;
 type ITokenActivityOverviewProps = {
   pl?: string;
   pr?: string;
@@ -122,12 +118,12 @@ const LazySwapPanel = LazyLoad<ISwapPanelProps>(
   swapPanelLoadingFallback,
 );
 
-const LazySwapPanelWrap = LazyLoad<ISwapPanelWrapProps>(
+const LazyMarketDetailEmbeddedSwap = LazyLoad<IMarketDetailEmbeddedSwapProps>(
   () =>
     import(
-      /* webpackChunkName: "market-detail-v2-swap-panel-wrap" */ '../components/SwapPanel/SwapPanelWrap'
-    ).then(({ SwapPanelWrap }) => ({
-      default: SwapPanelWrap,
+      /* webpackChunkName: "market-detail-v2-embedded-swap" */ '../components/MarketDetailEmbeddedSwap'
+    ).then(({ MarketDetailEmbeddedSwap }) => ({
+      default: MarketDetailEmbeddedSwap,
     })),
   undefined,
   swapPanelLoadingFallback,
@@ -1012,21 +1008,10 @@ export function MobileLayout({
         showExitButton: true,
         renderContent: (
           <View>
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.home,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-            >
-              <MarketWatchListProviderMirrorV2
-                storeName={EJotaiContextStoreNames.marketWatchListV2}
-              >
-                <LazySwapPanelWrap
-                  onCloseDialog={() => dialogRef.current?.close()}
-                />
-              </MarketWatchListProviderMirrorV2>
-            </AccountSelectorProviderMirror>
+            <LazyMarketDetailEmbeddedSwap
+              swapToken={swapToken}
+              testID="market-token-detail-dialog-trade-ready"
+            />
           </View>
         ),
       });

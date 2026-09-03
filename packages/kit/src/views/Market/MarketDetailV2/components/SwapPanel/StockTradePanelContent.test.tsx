@@ -2,14 +2,14 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
 
 import { ESwapDirection } from './hooks/useTradeType';
 import {
-  type ISwapPanelContentProps,
-  SwapPanelContent,
-} from './SwapPanelContent';
+  type IStockTradePanelContentProps,
+  StockTradePanelContent,
+} from './StockTradePanelContent';
 
 const actionButtonMock = jest.fn();
 const setAmountEnterTypeMock = jest.fn();
@@ -17,7 +17,6 @@ const setSlippageSettingMock = jest.fn();
 const resetAnalyticsMock = jest.fn();
 const logSwapActionMock = jest.fn();
 const tokenInputSectionMock = jest.fn();
-const swapProviderInfoItemMock = jest.fn();
 const swapRateDifferenceTextMock = jest.fn();
 const swapActionsStateMock = jest.fn();
 const swapQuoteResultMock = jest.fn();
@@ -61,17 +60,6 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
-
-jest.mock(
-  '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem',
-  () => ({
-    __esModule: true,
-    default: (props: { testID?: string }) => {
-      swapProviderInfoItemMock(props);
-      return <div data-testid={props.testID ?? 'provider-info'} />;
-    },
-  }),
-);
 
 jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText',
@@ -134,11 +122,6 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
   BaseMarketTokenPrice: () => <div data-testid="market-token-price" />,
 }));
 
-jest.mock('./components/SwapPanelTop', () => ({
-  __esModule: true,
-  default: () => <div data-testid="panel-top" />,
-}));
-
 jest.mock('./components/TokenInputSection', () => ({
   TokenInputSection: jest
     .requireActual<typeof import('react')>('react')
@@ -166,15 +149,6 @@ jest.mock('./components/TokenInputSection', () => ({
         return <div data-testid="token-input" />;
       },
     ),
-}));
-
-jest.mock('./components/RateDisplay', () => ({
-  RateDisplay: () => <div data-testid="rate-display" />,
-}));
-
-jest.mock('./components/SellForSelector', () => ({
-  __esModule: true,
-  default: () => <div data-testid="sell-selector" />,
 }));
 
 jest.mock('./components/SlippageSetting', () => ({
@@ -206,14 +180,13 @@ jest.mock('./components/ActionButton', () => ({
   },
 }));
 
-function createProps(): ISwapPanelContentProps {
+function createProps(): IStockTradePanelContentProps {
   return {
     activeAccount: {
       account: {
         id: 'account-1',
       } as never,
     } as never,
-    enableAddressTypeSelector: false,
     swapPanel: {
       paymentAmount: new BigNumber(1),
       paymentToken: {
@@ -262,7 +235,6 @@ function createProps(): ISwapPanelContentProps {
     swapMevNetConfig: [],
     swapNativeTokenReserveGas: [],
     isWrapped: false,
-    priceRate: undefined,
     hasInitialReady: true,
     currentMarketToken: {
       networkId: 'evm--1',
@@ -271,13 +243,12 @@ function createProps(): ISwapPanelContentProps {
       decimals: 8,
       isNative: false,
     },
-    quoteListLength: 0,
     onOpenProviderList: jest.fn(),
     quoteError: '',
   };
 }
 
-describe('SwapPanelContent', () => {
+describe('StockTradePanelContent', () => {
   beforeEach(() => {
     actionButtonMock.mockReset();
     setAmountEnterTypeMock.mockReset();
@@ -285,49 +256,19 @@ describe('SwapPanelContent', () => {
     resetAnalyticsMock.mockReset();
     logSwapActionMock.mockReset();
     tokenInputSectionMock.mockReset();
-    swapProviderInfoItemMock.mockReset();
     swapRateDifferenceTextMock.mockReset();
     swapActionsStateMock.mockReset();
     swapQuoteResultMock.mockReset();
   });
 
-  it('routes the main action button to the review swap handler', () => {
-    const props = createProps();
-
-    render(<SwapPanelContent {...props} />);
-
-    expect(actionButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        paymentToken: props.swapPanel.paymentToken,
-      }),
-    );
-
-    fireEvent.click(screen.getByTestId('action-button'));
-    const actionProps = actionButtonMock.mock.lastCall?.[0] as {
-      onSwapAction?: () => void;
-    };
-    actionProps.onSwapAction?.();
-
-    expect(props.onSwap).toHaveBeenCalledTimes(1);
-    expect(logSwapActionMock).toHaveBeenCalledWith({
-      tradeType: props.swapPanel.tradeType,
-      networkId: props.swapPanel.networkId,
-      paymentToken: props.swapPanel.paymentToken,
-      marketToken: props.currentMarketToken,
-    });
-  });
-
   it('uses the dedicated Figma trading ticket on stock desktop detail', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(screen.getByTestId('stock-trade-target')).toBeTruthy();
     expect(screen.getByTestId('stock-trade-estimated-received')).toBeTruthy();
     expect(screen.queryByTestId('market-token-selector')).toBeNull();
-    expect(screen.queryByTestId('panel-top')).toBeNull();
-    expect(screen.queryByTestId('rate-display')).toBeNull();
     expect(screen.getByTestId('stock-trade-estimated-shares')).toBeTruthy();
     expect(screen.getByTestId('swap-quote-result')).toBeTruthy();
     expect(
@@ -352,9 +293,8 @@ describe('SwapPanelContent', () => {
 
   it('routes the shared Trade review action through the Market review flow', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     const actionProps = swapActionsStateMock.mock.lastCall?.[0] as {
       onPreSwap: () => void;
@@ -375,10 +315,8 @@ describe('SwapPanelContent', () => {
 
   it('renders live stock quote values and delegates rate and provider details to Swap', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
     props.stockTokenToAssetRatio = '0.9985';
     props.stockUnderlyingSymbol = 'AAPL';
-    props.quoteListLength = 2;
     props.stockQuoteDisplay = {
       currencySymbol: '$',
       receiveFiatValue: '99.789',
@@ -410,7 +348,7 @@ describe('SwapPanelContent', () => {
       },
     };
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(screen.getByText('0.3219')).toBeTruthy();
     expect(screen.getByText('AAPLon')).toBeTruthy();
@@ -431,12 +369,10 @@ describe('SwapPanelContent', () => {
         refreshAction: props.onForceRefreshQuote,
       }),
     );
-    expect(swapProviderInfoItemMock).not.toHaveBeenCalled();
   });
 
   it('keeps the shares row visible without fabricating a value', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
     props.quoteResult = {
       info: {
         provider: 'liquidMesh',
@@ -447,7 +383,7 @@ describe('SwapPanelContent', () => {
       toAmount: '0.3219',
     };
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(
       screen.getByTestId('stock-trade-estimated-shares').textContent,
@@ -456,11 +392,10 @@ describe('SwapPanelContent', () => {
 
   it('keeps the shared Connect wallet action enabled without an account', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
     props.activeAccount = {} as never;
     props.isActionDisabled = true;
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(swapActionsStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -473,10 +408,9 @@ describe('SwapPanelContent', () => {
 
   it('preserves the full Swap fallback when speed swap is unsupported', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
     props.supportSpeedSwap.enabled = false;
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(swapActionsStateMock).not.toHaveBeenCalled();
     expect(actionButtonMock).toHaveBeenLastCalledWith(
@@ -489,7 +423,6 @@ describe('SwapPanelContent', () => {
 
   it('disables stock trading until a token variant identity is available', () => {
     const props = createProps();
-    props.stockDetailDesktopLayout = true;
     expect(props.currentMarketToken).toBeDefined();
     if (!props.currentMarketToken) {
       return;
@@ -497,79 +430,16 @@ describe('SwapPanelContent', () => {
     props.currentMarketToken.networkId = '';
     props.currentMarketToken.contractAddress = '';
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(swapActionsStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ disabled: true }),
     );
   });
 
-  it('routes wrapped pairs through the wrapped review handler', () => {
-    const props = createProps();
-    props.isWrapped = true;
-
-    render(<SwapPanelContent {...props} />);
-
-    fireEvent.click(screen.getByTestId('action-button'));
-
-    expect(props.onWrappedSwap).toHaveBeenCalledTimes(1);
-  });
-
-  it('routes an expired quote action to refresh without opening review', () => {
-    const props = createProps();
-    props.isRefreshQuote = true;
-    props.onRefreshQuote = jest.fn();
-
-    render(<SwapPanelContent {...props} />);
-
-    fireEvent.click(screen.getByTestId('action-button'));
-
-    expect(props.onRefreshQuote).toHaveBeenCalledTimes(1);
-    expect(props.onSwap).not.toHaveBeenCalled();
-    expect(actionButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isRefreshQuote: true,
-        onSwapAction: undefined,
-      }),
-    );
-  });
-
-  it('disables the preview entry while loading', () => {
-    const props = createProps();
-    props.isLoading = true;
-
-    render(<SwapPanelContent {...props} />);
-
-    const actionButton = screen.getByTestId('action-button');
-
-    expect((actionButton as HTMLButtonElement).disabled).toBe(true);
-    expect(actionButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        disabled: true,
-        loading: true,
-      }),
-    );
-  });
-  it('disables the preview entry without showing loading for guarded states', () => {
-    const props = createProps();
-    props.isActionDisabled = true;
-
-    render(<SwapPanelContent {...props} />);
-
-    const actionButton = screen.getByTestId('action-button');
-
-    expect((actionButton as HTMLButtonElement).disabled).toBe(true);
-    expect(actionButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        disabled: true,
-        loading: false,
-      }),
-    );
-  });
-
   it('resets panel state when the market token changes', () => {
     const props = createProps();
-    const { rerender } = render(<SwapPanelContent {...props} />);
+    const { rerender } = render(<StockTradePanelContent {...props} />);
 
     expect(props.swapPanel.resetAmounts).not.toHaveBeenCalled();
     expect(resetAnalyticsMock).not.toHaveBeenCalled();
@@ -577,7 +447,7 @@ describe('SwapPanelContent', () => {
     tokenInputSectionMock.mockClear();
 
     rerender(
-      <SwapPanelContent
+      <StockTradePanelContent
         {...props}
         currentMarketToken={{
           networkId: 'evm--10',
@@ -634,22 +504,9 @@ describe('SwapPanelContent', () => {
       getSavedDirectionSettings: jest.fn(),
     } as never;
 
-    render(<SwapPanelContent {...props} />);
+    render(<StockTradePanelContent {...props} />);
 
     expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
-    expect(screen.queryByTestId('slippage')).toBeNull();
-  });
-
-  it('suppresses the standalone slippage setting while Market preset config is loading', () => {
-    const props = createProps();
-    props.marketPresetSettings = {
-      enabled: false,
-      isLoading: true,
-    } as never;
-
-    render(<SwapPanelContent {...props} />);
-
-    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
     expect(screen.queryByTestId('slippage')).toBeNull();
   });
 });

@@ -140,7 +140,9 @@ function BaseMarketTokenSelectorContent({
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    replaceCurrentDetail: true,
+  });
   const {
     data: topCoins,
     handleItemPress: handleTopCoinPress,
