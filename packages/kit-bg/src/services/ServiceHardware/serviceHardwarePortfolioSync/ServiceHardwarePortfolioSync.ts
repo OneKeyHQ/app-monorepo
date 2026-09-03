@@ -1265,6 +1265,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           this.pendingDisconnectedPayloadByTargetKey.delete(targetKey);
           this.handleAllNetworksTokenListSettled(pendingPayload);
         }
+        const pendingBlePayload =
+          this.pendingDesktopBlePayloadByTargetKey.get(targetKey) ??
+          this.pendingMobileBlePayloadByTargetKey.get(targetKey);
+        if (pendingBlePayload) {
+          this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
+          this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
+          this.handleAllNetworksTokenListSettled(pendingBlePayload);
+        }
         this.replayLockedPortfolioSnapshot(targetKey);
       }
     }

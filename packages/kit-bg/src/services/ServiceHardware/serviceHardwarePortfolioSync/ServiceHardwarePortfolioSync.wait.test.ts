@@ -1529,7 +1529,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
-  test('skips desktop BLE sync without waiting for a later USB connection', async () => {
+  test('replays a desktop BLE snapshot after a later USB connection', async () => {
+    jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1538,6 +1539,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     try {
       const {
         getDeviceState,
+        prepareHardwareTransport,
         service,
         serviceInternals,
         uploadPortfolioPackage,
@@ -1564,17 +1566,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         (service as unknown as { lastResult: unknown }).lastResult,
       ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
 
-      const resumedPayloadHandler = jest.fn();
-      (
-        service as unknown as {
-          handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
-        }
-      ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
+      prepareHardwareTransport.mockResolvedValue(EHardwareTransportType.WEBUSB);
       await service.notifyHardwareDeviceConnected({
         identityKeys: ['PRO2_CONNECT_ID'],
       });
-      expect(resumedPayloadHandler).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(getDeviceState).toHaveBeenCalledTimes(1);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     } finally {
+      jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
         isNative: true,
