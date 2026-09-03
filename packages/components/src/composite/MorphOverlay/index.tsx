@@ -32,7 +32,6 @@ import {
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getDisplayCornerRadius } from '@onekeyhq/shared/src/utils/displayCornerUtils';
 
 import { IconButton } from '../../actions/IconButton';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
@@ -155,11 +154,13 @@ const PILL_REST = {
 /**
  * The expanded card, floating the way the system sheet itself floats
  * (the iOS 26 appearance: ~10-13pt of air on the sides and the bottom,
- * measured off the sheet on an iPhone 17 Pro): `margin` is that gap,
- * and the corner radius is concentric with the display (display corner
- * radius minus `margin`) wherever the device publishes one; `radius`
- * is the fallback for everywhere else — the concentric value on the
- * reference phone. Height hugs the content column plus the chrome.
+ * measured off the sheet on an iPhone 17 Pro): `margin` is that gap and
+ * `radius` is the corner, the concentric value on the reference phone
+ * (that display's corner radius minus `margin`). It is a constant on
+ * every platform: the only source for a real per-device radius is a
+ * non-public UIScreen property, which an App Store build must not read,
+ * and no public API exposes it. Height hugs the content column plus the
+ * chrome.
  * `pad` is the content column's side inset; `padTop` is the toolbar
  * band the content starts under (the grabber's 16 plus 10 of air) — a
  * fixed band, so the close button coming and going never shifts the
@@ -819,12 +820,7 @@ export function MorphOverlay<T>({
   // box simply widens by the button when the grant arrives — no
   // re-measure, and the row's words never rebuild for it.
   const pillWidth = pillSize.width + (dismissible ? CLOSE.size : 0);
-  // A launch-time device constant; memoized only to skip the Settings
-  // read on re-renders.
-  const cardRadius = useMemo(() => {
-    const screenCornerRadius = getDisplayCornerRadius();
-    return screenCornerRadius ? screenCornerRadius - CARD.margin : CARD.radius;
-  }, []);
+  const cardRadius = CARD.radius;
 
   // The lit seat, as a shared value — see PanelSeat for why.
   const activeSeatKey = seats.find((seat) => seat.active)?.key;
