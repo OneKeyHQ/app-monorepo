@@ -239,11 +239,7 @@ function MarketHomeTabBar({
   return (
     <YStack pointerEvents="box-none">
       <YStack bg="$bgApp" height={44}>
-        <Tabs.TabBar
-          {...tabBarProps}
-          directTabPressAnimation
-          directTabPressAnimationMode="instant"
-        />
+        <Tabs.TabBar {...tabBarProps} scrollable keepFocusedTabVisible />
       </YStack>
       <YStack
         height={getMarketMobileSecondaryHeaderHeight()}
