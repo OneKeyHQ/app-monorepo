@@ -1,4 +1,5 @@
 import { sliceKLineRequest } from '@onekeyhq/kit/src/components/TradingView/utils/sliceKLineRequest';
+import { PROMISE_CONCURRENCY_LIMIT } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -86,6 +87,7 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     expect(mockSliceRequest).toHaveBeenCalledWith('1m', 1000, 1120, {
       isNativeToken: false,
       maxDataLength: 200,
+      maxSliceCount: 100,
       minTimeSpanSeconds: 172_800,
     });
     expect(mockFetchMarketTokenKline).toHaveBeenNthCalledWith(1, {
@@ -256,16 +258,22 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     expect(fallbackResult?.points).toEqual([buildPoint(2040, 4)]);
   });
 
-  it('marks primary data unavailable when primary response is not valid and fallback has points', async () => {
+  it('does not return partial history when a sliced response is invalid', async () => {
     const onPrimaryKLineDataUnavailable = jest.fn();
     const fallback = jest.fn().mockResolvedValue({
       points: [buildPoint(2040, 4)],
       total: 1,
     });
     mockSliceRequest.mockReturnValue([
-      { from: 2000, to: 2120, interval: '1m' },
+      { from: 2000, to: 2060, interval: '1m' },
+      { from: 2060, to: 2120, interval: '1m' },
     ]);
-    mockFetchMarketTokenKline.mockResolvedValueOnce(null);
+    mockFetchMarketTokenKline
+      .mockResolvedValueOnce({
+        points: [buildPoint(2040, 1)],
+        total: 1,
+      })
+      .mockResolvedValueOnce(null);
 
     const result = await fetchTradingViewV2DataWithSlicing({
       tokenAddress: '0x123',
@@ -280,6 +288,57 @@ describe('fetchTradingViewV2DataWithSlicing', () => {
     expect(onPrimaryKLineDataUnavailable).toHaveBeenCalledTimes(1);
     expect(fallback).toHaveBeenCalledTimes(1);
     expect(result?.points).toEqual([buildPoint(2040, 4)]);
+  });
+
+  it('limits concurrent sliced requests', async () => {
+    const sliceCount = PROMISE_CONCURRENCY_LIMIT + 2;
+    mockSliceRequest.mockReturnValue(
+      Array.from({ length: sliceCount }, (_, index) => ({
+        from: index * 60,
+        to: (index + 2) * 60,
+        interval: '1m',
+      })),
+    );
+
+    let activeRequestCount = 0;
+    let maxActiveRequestCount = 0;
+    let requestIndex = 0;
+    let releaseFirstWave: () => void = () => undefined;
+    const firstWaveGate = new Promise<void>((resolve) => {
+      releaseFirstWave = resolve;
+    });
+    mockFetchMarketTokenKline.mockImplementation(async () => {
+      const currentRequestIndex = requestIndex;
+      requestIndex += 1;
+      activeRequestCount += 1;
+      maxActiveRequestCount = Math.max(
+        maxActiveRequestCount,
+        activeRequestCount,
+      );
+      if (currentRequestIndex < PROMISE_CONCURRENCY_LIMIT) {
+        await firstWaveGate;
+      }
+      activeRequestCount -= 1;
+      return { points: [], total: 0 };
+    });
+
+    const resultPromise = fetchTradingViewV2DataWithSlicing({
+      tokenAddress: '0x123',
+      networkId: 'evm--1',
+      interval: '1m',
+      timeFrom: 0,
+      timeTo: sliceCount * 60,
+    });
+
+    await Promise.resolve();
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledTimes(
+      PROMISE_CONCURRENCY_LIMIT,
+    );
+    releaseFirstWave();
+
+    await expect(resultPromise).resolves.toEqual({ points: [], total: 0 });
+    expect(mockFetchMarketTokenKline).toHaveBeenCalledTimes(sliceCount);
+    expect(maxActiveRequestCount).toBe(PROMISE_CONCURRENCY_LIMIT);
   });
 
   it('uses fallback directly when primary data is already unavailable', async () => {

@@ -13,6 +13,7 @@ export interface ITimeSlice {
 export interface ISliceRequestOptions {
   isNativeToken?: boolean;
   maxDataLength?: number;
+  maxSliceCount?: number;
   minTimeSpanSeconds?: number;
 }
 
@@ -64,6 +65,22 @@ export function sliceKLineRequest(
     (options?.isNativeToken
       ? NATIVE_TOKEN_MAX_DATA_LENGTH
       : DEFAULT_MAX_DATA_LENGTH);
+  if (!Number.isSafeInteger(maxDataLength) || maxDataLength < 2) {
+    throw new OneKeyLocalError(
+      `maxDataLength must be a safe integer greater than 1: ${maxDataLength}`,
+    );
+  }
+
+  const maxSliceCount = options?.maxSliceCount;
+  if (
+    maxSliceCount !== undefined &&
+    (!Number.isSafeInteger(maxSliceCount) || maxSliceCount < 1)
+  ) {
+    throw new OneKeyLocalError(
+      `maxSliceCount must be a positive safe integer: ${maxSliceCount}`,
+    );
+  }
+
   const totalDataPoints = Math.ceil(
     (timeTo - adjustedTimeFrom) / intervalSeconds,
   );
@@ -72,19 +89,25 @@ export function sliceKLineRequest(
     return [{ from: adjustedTimeFrom, to: timeTo, interval }];
   }
 
-  const sliceCount = Math.ceil(totalDataPoints / maxDataLength);
-  const timePerSlice = Math.floor((timeTo - adjustedTimeFrom) / sliceCount);
+  const maxSliceTimeSpan = maxDataLength * intervalSeconds;
+  const sliceStep = maxSliceTimeSpan - intervalSeconds;
+  const totalTimeSpan = timeTo - adjustedTimeFrom;
+  const sliceCount =
+    1 + Math.ceil((totalTimeSpan - maxSliceTimeSpan) / sliceStep);
 
-  return Array.from({ length: sliceCount }, (_, index) => ({
-    // Overlap one interval because the market K-line endpoint excludes slice boundaries.
-    from:
-      adjustedTimeFrom +
-      index * timePerSlice -
-      (index > 0 ? intervalSeconds : 0),
-    to:
-      index === sliceCount - 1
-        ? timeTo
-        : adjustedTimeFrom + (index + 1) * timePerSlice,
-    interval,
-  }));
+  if (maxSliceCount !== undefined && sliceCount > maxSliceCount) {
+    throw new OneKeyLocalError(
+      `K-line request requires ${sliceCount} slices, exceeding the limit of ${maxSliceCount}`,
+    );
+  }
+
+  return Array.from({ length: sliceCount }, (_, index) => {
+    const from = adjustedTimeFrom + index * sliceStep;
+    return {
+      // Adjacent slices overlap by one interval because the endpoint excludes boundaries.
+      from,
+      to: Math.min(from + maxSliceTimeSpan, timeTo),
+      interval,
+    };
+  });
 }

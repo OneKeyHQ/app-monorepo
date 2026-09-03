@@ -1,4 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { promiseAllSettledSlidingWindow } from '@onekeyhq/shared/src/utils/promiseAllSettledSlidingWindow';
+import { PROMISE_CONCURRENCY_LIMIT } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -9,6 +11,7 @@ import { sliceKLineRequest } from './sliceKLineRequest';
 const MIN_KLINE_TIME_SPAN_SECONDS = 2 * 24 * 60 * 60;
 // The market K-line endpoint caps wide responses near 300 points.
 const MARKET_KLINE_MAX_POINTS_PER_REQUEST = 200;
+const MARKET_KLINE_MAX_SLICE_COUNT = 100;
 
 type IRuntimeKLineDataPoint = Partial<
   Record<keyof IMarketTokenKLineDataPoint, unknown>
@@ -406,31 +409,50 @@ export async function fetchMarketKLineDataWithSlicing({
       ...(!isNativeToken
         ? { maxDataLength: MARKET_KLINE_MAX_POINTS_PER_REQUEST }
         : {}),
+      maxSliceCount: MARKET_KLINE_MAX_SLICE_COUNT,
       minTimeSpanSeconds: isNativeToken
         ? undefined
         : MIN_KLINE_TIME_SPAN_SECONDS,
     });
-    const dataResults = await Promise.all(
-      slices.map((slice) =>
-        backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
+    const dataResults = await promiseAllSettledSlidingWindow(
+      slices.map(
+        (slice) => () =>
+          backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
+            tokenAddress,
+            networkId,
+            interval: slice.interval,
+            timeFrom: slice.from,
+            timeTo: slice.to,
+            autoHandleError,
+          }),
+      ),
+      { concurrency: PROMISE_CONCURRENCY_LIMIT },
+    );
+    const validDataResults = dataResults.filter(hasValidKLineResponse);
+
+    if (validDataResults.length !== dataResults.length) {
+      return finalizeKLineResponse(
+        await fetchFallbackIfNeeded({
+          data: null,
           tokenAddress,
           networkId,
-          interval: slice.interval,
-          timeFrom: slice.from,
-          timeTo: slice.to,
-          autoHandleError,
+          interval,
+          timeFrom,
+          timeTo,
+          kLineDataFallback,
+          onFallbackKLineData,
+          onPrimaryKLineDataUnavailable,
         }),
-      ),
-    );
+        onPointType,
+      );
+    }
 
     let mergedData: IMarketKLineDataResponse | null = null;
     const mergedPoints: IMarketTokenKLineDataPoint[] = [];
 
-    for (const data of dataResults) {
-      if (hasValidKLineResponse(data)) {
-        mergedData ??= { ...data };
-        mergedPoints.push(...data.points);
-      }
+    for (const data of validDataResults) {
+      mergedData ??= { ...data };
+      mergedPoints.push(...data.points);
     }
 
     if (mergedData) {

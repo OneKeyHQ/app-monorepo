@@ -282,7 +282,7 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + 6000 * SECONDS_IN_MINUTE;
       const result = sliceRequest('1m', timeFrom, timeTo);
 
-      expect(result.length).toBe(3); // Math.ceil(6000 / 2000) = 3
+      expect(result.length).toBe(4);
 
       // Adjacent slices overlap by one interval so exclusive API bounds do not create gaps.
       for (let i = 1; i < result.length; i += 1) {
@@ -300,14 +300,12 @@ describe('sliceRequest', () => {
       const timeTo = mockTimeFrom + 4000 * SECONDS_IN_HOUR;
       const result = sliceRequest('1H', timeFrom, timeTo);
 
-      expect(result.length).toBe(2); // Math.ceil(4000 / 2000) = 2
+      expect(result.length).toBe(3);
 
-      // Check each slice has roughly equal time span except the last one
-      const expectedTimePerSlice = Math.floor((timeTo - timeFrom) / 2);
-
-      for (let i = 0; i < result.length - 1; i += 1) {
-        const sliceTime = result[i].to - result[i].from;
-        expect(sliceTime).toBe(expectedTimePerSlice);
+      for (const slice of result) {
+        expect(
+          Math.ceil((slice.to - slice.from) / SECONDS_IN_HOUR),
+        ).toBeLessThanOrEqual(2000);
       }
     });
 
@@ -327,6 +325,36 @@ describe('sliceRequest', () => {
           Math.ceil((slice.to - slice.from) / SECONDS_IN_HOUR),
         ).toBeLessThanOrEqual(200);
       }
+    });
+
+    it('should keep every overlapped slice within the data limit', () => {
+      const timeFrom = mockTimeFrom;
+      const timeTo = timeFrom + 399 * SECONDS_IN_HOUR;
+      const result = sliceRequest('1H', timeFrom, timeTo, {
+        maxDataLength: 200,
+      });
+
+      expect(result).toHaveLength(2);
+      for (const slice of result) {
+        expect(
+          Math.ceil((slice.to - slice.from) / SECONDS_IN_HOUR),
+        ).toBeLessThanOrEqual(200);
+      }
+      expect(result[1].from).toBe(result[0].to - SECONDS_IN_HOUR);
+    });
+
+    it('should reject requests that exceed the slice count limit', () => {
+      const timeFrom = mockTimeFrom;
+      const timeTo = timeFrom + 19_902 * SECONDS_IN_MINUTE;
+
+      expect(() =>
+        sliceRequest('1m', timeFrom, timeTo, {
+          maxDataLength: 200,
+          maxSliceCount: 100,
+        }),
+      ).toThrow(
+        'K-line request requires 101 slices, exceeding the limit of 100',
+      );
     });
 
     it('should cover exclusive API boundaries without missing interval bars', () => {
