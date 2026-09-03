@@ -21,7 +21,6 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
-import { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
@@ -30,6 +29,7 @@ import { formatPriceChangeDisplay } from '../utils/statValue';
 
 import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
+import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
@@ -249,11 +249,7 @@ export function TokenDesktopLayout({
           width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
           flexShrink={0}
         >
-          {disableTrade ? null : (
-            <Stack px="$5" pt="$5" pb="$3">
-              <SwapPanel swapToken={swapToken} portfolioData={portfolioData} />
-            </Stack>
-          )}
+          {disableTrade ? null : <MarketEmbeddedSwap swapToken={swapToken} />}
         </YStack>
       </XStack>
     </YStack>

@@ -48,8 +48,6 @@
 	<string>1</string>
 	<key>ENABLE_NATIVE_BACKGROUND_THREAD</key>
 	<string>$(ENABLE_NATIVE_BACKGROUND_THREAD)</string>
-	<key>ONEKEY_DEV_BG_HMR</key>
-	<string>$(ONEKEY_DEV_BG_HMR)</string>
 	<key>EXDefaultScreenOrientationMask</key>
 	<string>UIInterfaceOrientationMaskPortrait</string>
 	<key>EXDefaultScreenOrientationMask~ipad</key>
