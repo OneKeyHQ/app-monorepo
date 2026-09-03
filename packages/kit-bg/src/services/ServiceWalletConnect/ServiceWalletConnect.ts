@@ -238,10 +238,13 @@ class ServiceWalletConnect extends ServiceBase {
   async getNotSupportedNamespaces(
     namespaces:
       | IWalletConnectRequiredNamespaces
-      | IWalletConnectOptionalNamespaces,
+      | IWalletConnectOptionalNamespaces
+      | undefined,
   ): Promise<string[]> {
     return Promise.resolve(
-      Object.keys(namespaces).filter((key) => !parseNamespaceKey(key).impl),
+      Object.keys(namespaces ?? {}).filter(
+        (key) => !parseNamespaceKey(key).impl,
+      ),
     );
   }
 
