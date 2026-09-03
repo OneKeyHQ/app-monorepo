@@ -2488,6 +2488,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
+    // The stage leaves with the legacy state: the update page is the only
+    // surface from here, and a burst still in flight takes nothing down
+    // until its own end.
+    await this.backgroundApi.serviceHardwareUI.deviceStageBurst.silenceForFirmwareWorkflow();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,
       connectId: '',
