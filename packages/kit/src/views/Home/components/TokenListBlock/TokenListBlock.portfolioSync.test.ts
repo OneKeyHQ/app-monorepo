@@ -108,4 +108,56 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain('errorToastUtils.showToastOfError(e)');
     expect(source).toContain('pollingInterval: POLLING_INTERVAL_FOR_TOKEN');
   });
+
+  it('replays the latest all-network snapshot without consuming another target request', () => {
+    const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+    const updateStart = source.indexOf(
+      'const updateAllNetworksTokenList = useCallback',
+    );
+    const updateEnd = source.indexOf(
+      'updateAllNetworksTokenListRef.current = updateAllNetworksTokenList',
+      updateStart,
+    );
+    const updateSource = source.slice(updateStart, updateEnd);
+
+    expect(source).toContain(
+      'const allNetworksTokenListUpdatePendingRef = useRef(false);',
+    );
+    expect(updateStart).toBeGreaterThan(0);
+    expect(updateEnd).toBeGreaterThan(updateStart);
+    expect(updateSource).toMatch(
+      /if \(allNetworksTokenListUpdateInFlightRef\.current\) \{\s+allNetworksTokenListUpdatePendingRef\.current = true;\s+return;/,
+    );
+    expect(updateSource).toMatch(
+      /allNetworksTokenListUpdateInFlightRef\.current = false;\s+if \(allNetworksTokenListUpdatePendingRef\.current\) \{\s+allNetworksTokenListUpdatePendingRef\.current = false;\s+void updateAllNetworksTokenListRef\.current\(\);/,
+    );
+    expect(
+      updateSource.match(
+        /getPortfolioSyncRequestForTarget\(\s+portfolioSyncTargetKey,/g,
+      ),
+    ).toHaveLength(2);
+    expect(updateSource).not.toContain('getCurrentPortfolioSyncRequest()');
+    expect(source).toContain('if (getCurrentPortfolioSyncRequest()) {');
+    expect(source).not.toContain('if (portfolioSyncRequestRef.current) {');
+  });
+
+  it('keeps single-network Portfolio totals scoped to the active request and raw derive responses', () => {
+    const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
+    const rawTotalIndex = source.indexOf('portfolioTotalFiat = resp');
+    const mergeIndex = source.indexOf('getMergedDeriveTokenData({');
+
+    expect(source).toContain("let portfolioTotalFiat = '0';");
+    expect(rawTotalIndex).toBeGreaterThan(0);
+    expect(rawTotalIndex).toBeLessThan(mergeIndex);
+    expect(source.slice(rawTotalIndex, mergeIndex)).toContain(
+      'sumTokenGroupsFiatValueIgnoringUnavailable(item)',
+    );
+    expect(source).toContain(
+      'activePortfolioSyncRequest?.id === portfolioSyncRequest.id',
+    );
+    expect(source).toContain('totalFiat: portfolioTotalFiat');
+    expect(source).not.toContain(
+      'totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r)',
+    );
+  });
 });

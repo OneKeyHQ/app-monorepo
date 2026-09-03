@@ -415,6 +415,7 @@ function TokenListBlock({
   >(undefined);
   const allowEmptyInteractivePortfolioSyncRef = useRef(false);
   const allNetworksTokenListUpdateInFlightRef = useRef(false);
+  const allNetworksTokenListUpdatePendingRef = useRef(false);
   const updateAllNetworksTokenListRef = useRef<() => Promise<void>>(
     async () => {},
   );
@@ -446,12 +447,15 @@ function TokenListBlock({
   const portfolioSyncTargetKeyRef = useRef(portfolioSyncTargetKey);
   portfolioSyncTargetKeyRef.current = portfolioSyncTargetKey;
 
-  const getCurrentPortfolioSyncRequest = useCallback(() => {
+  const getPortfolioSyncRequestForTarget = useCallback((targetKey: string) => {
     const request = portfolioSyncRequestRef.current;
-    return request?.targetKey === portfolioSyncTargetKeyRef.current
-      ? request
-      : undefined;
+    return request?.targetKey === targetKey ? request : undefined;
   }, []);
+
+  const getCurrentPortfolioSyncRequest = useCallback(
+    () => getPortfolioSyncRequestForTarget(portfolioSyncTargetKeyRef.current),
+    [getPortfolioSyncRequestForTarget],
+  );
 
   const clearPortfolioSyncFallbackTimer = useCallback(() => {
     const timer = portfolioSyncAllNetworksFallbackTimerRef.current;
@@ -634,6 +638,7 @@ function TokenListBlock({
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
+      let portfolioTotalFiat = '0';
       let portfolioSyncRequest: IPortfolioSyncRequest | undefined;
       let skipPortfolioSyncRequestFinish = false;
       let tokenListRefreshEventStarted = false;
@@ -660,7 +665,9 @@ function TokenListBlock({
 
         if (network.isAllNetworks) return;
 
-        portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+        portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+          portfolioSyncTargetKey,
+        );
         if (portfolioSyncRequest?.phase === 'queued') {
           transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
         }
@@ -702,6 +709,13 @@ function TokenListBlock({
               }),
             ),
           );
+          portfolioTotalFiat = resp
+            .reduce(
+              (total, item) =>
+                total.plus(sumTokenGroupsFiatValueIgnoringUnavailable(item)),
+              new BigNumber(0),
+            )
+            .toFixed();
 
           const {
             tokenList,
@@ -784,6 +798,7 @@ function TokenListBlock({
           });
 
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
+          portfolioTotalFiat = accountWorth;
 
           if (syncTokenFilterToOverview) {
             updateAccountOverviewState({
@@ -806,8 +821,12 @@ function TokenListBlock({
           }
         }
 
+        const activePortfolioSyncRequest = getPortfolioSyncRequestForTarget(
+          portfolioSyncTargetKey,
+        );
         if (
           portfolioSyncRequest &&
+          activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
           currencyInfo?.id &&
           isProtocolV2ProductType(portfolioSyncDeviceType) &&
           wallet &&
@@ -849,7 +868,7 @@ function TokenListBlock({
                     networkId: network.id,
                     ownerAccountId: account?.id,
                     ownerNetworkId: network.id,
-                    totalFiat: sumTokenGroupsFiatValueIgnoringUnavailable(r),
+                    totalFiat: portfolioTotalFiat,
                     totalFiatCurrency: currencyInfo.id,
                     totalTokenCount: portfolioTokens.length,
                     tokenMap: portfolioTokenMap,
@@ -968,7 +987,9 @@ function TokenListBlock({
       device?.id,
       finishPortfolioSyncRequest,
       getCurrentPortfolioSyncRequest,
+      getPortfolioSyncRequestForTarget,
       network,
+      portfolioSyncTargetKey,
       portfolioSyncDeviceType,
       mergeDeriveAddressData,
       updateAccountOverviewState,
@@ -1460,14 +1481,18 @@ function TokenListBlock({
         networkId: networkId ?? '',
       });
 
-      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
       if (
         portfolioSyncRequest?.phase === 'refreshing' ||
         portfolioSyncRequest?.phase === 'settled'
       ) {
         clearPortfolioSyncFallbackTimer();
         portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
-          const currentRequest = getCurrentPortfolioSyncRequest();
+          const currentRequest = getPortfolioSyncRequestForTarget(
+            portfolioSyncTargetKey,
+          );
           if (currentRequest?.id !== portfolioSyncRequest.id) {
             return;
           }
@@ -1479,6 +1504,13 @@ function TokenListBlock({
             return;
           }
           if (currentRequest.phase === 'refreshing') {
+            if (
+              allNetworksTokenListUpdateInFlightRef.current ||
+              allNetworksTokenListUpdatePendingRef.current
+            ) {
+              allNetworksTokenListUpdatePendingRef.current = true;
+              return;
+            }
             finishPortfolioSyncRequest(currentRequest.id);
           }
         }, POLLING_DEBOUNCE_INTERVAL);
@@ -1487,7 +1519,8 @@ function TokenListBlock({
     [
       clearPortfolioSyncFallbackTimer,
       finishPortfolioSyncRequest,
-      getCurrentPortfolioSyncRequest,
+      getPortfolioSyncRequestForTarget,
+      portfolioSyncTargetKey,
     ],
   );
 
@@ -1522,7 +1555,9 @@ function TokenListBlock({
       networkId?: string;
       allNetworkDataInit?: boolean;
     }) => {
-      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
       if (portfolioSyncRequest?.phase === 'queued') {
         transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
       }
@@ -1598,9 +1633,10 @@ function TokenListBlock({
     },
     [
       account?.id,
-      getCurrentPortfolioSyncRequest,
+      getPortfolioSyncRequestForTarget,
       indexedAccount?.id,
       network?.id,
+      portfolioSyncTargetKey,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       transitionPortfolioSyncRequest,
@@ -1918,11 +1954,14 @@ function TokenListBlock({
 
   const updateAllNetworksTokenList = useCallback(async () => {
     if (allNetworksTokenListUpdateInFlightRef.current) {
+      allNetworksTokenListUpdatePendingRef.current = true;
       return;
     }
     allNetworksTokenListUpdateInFlightRef.current = true;
     try {
-      let portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      let portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
       if (!allNetworksResult?.length) {
         if (portfolioSyncRequest) {
           finishPortfolioSyncRequest(portfolioSyncRequest.id);
@@ -1959,7 +1998,9 @@ function TokenListBlock({
         }
         return;
       }
-      portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
       if (portfolioSyncRequest?.phase === 'refreshing') {
         transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'settled');
       }
@@ -2273,6 +2314,10 @@ function TokenListBlock({
       });
     } finally {
       allNetworksTokenListUpdateInFlightRef.current = false;
+      if (allNetworksTokenListUpdatePendingRef.current) {
+        allNetworksTokenListUpdatePendingRef.current = false;
+        void updateAllNetworksTokenListRef.current();
+      }
     }
   }, [
     account?.address,
@@ -2284,7 +2329,7 @@ function TokenListBlock({
     device?.connectId,
     device?.id,
     finishPortfolioSyncRequest,
-    getCurrentPortfolioSyncRequest,
+    getPortfolioSyncRequestForTarget,
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
@@ -2292,6 +2337,7 @@ function TokenListBlock({
     allNetworkAccounts,
     allNetworksResult,
     network?.id,
+    portfolioSyncTargetKey,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
@@ -2657,7 +2703,9 @@ function TokenListBlock({
 
   useEffect(() => {
     void updateAllNetworksTokenList().catch((error) => {
-      const portfolioSyncRequest = getCurrentPortfolioSyncRequest();
+      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
       if (portfolioSyncRequest) {
         errorToastUtils.toastIfError(error);
         errorToastUtils.showToastOfError(error);
@@ -2668,7 +2716,8 @@ function TokenListBlock({
     });
   }, [
     finishPortfolioSyncRequest,
-    getCurrentPortfolioSyncRequest,
+    getPortfolioSyncRequestForTarget,
+    portfolioSyncTargetKey,
     updateAllNetworksTokenList,
   ]);
 
@@ -2793,7 +2842,7 @@ function TokenListBlock({
   };
 
   const handleSyncPortfolio = useCallback(() => {
-    if (portfolioSyncRequestRef.current) {
+    if (getCurrentPortfolioSyncRequest()) {
       return;
     }
     const refreshWalletTokenList = refreshWalletTokenListRef.current;
@@ -2814,6 +2863,7 @@ function TokenListBlock({
     refreshWalletTokenList();
   }, [
     clearPortfolioSyncSuccessTimer,
+    getCurrentPortfolioSyncRequest,
     hasPortfolioSyncTarget,
     portfolioSyncTargetKey,
   ]);
