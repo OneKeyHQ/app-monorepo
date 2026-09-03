@@ -70,10 +70,13 @@ export function useTradingViewNativePriceScale({
   }, [isLogScaleAvailable, modelRef, renderWithCrosshairHidden]);
 
   const handleAutoScalePress = useCallback(() => {
-    modelRef.current.rangeScale = 1;
-    setIsAutoScale(true);
+    const nextIsAutoScale = !isAutoScale;
+    if (nextIsAutoScale) {
+      modelRef.current.rangeScale = 1;
+    }
+    setIsAutoScale(nextIsAutoScale);
     renderWithCrosshairHidden();
-  }, [modelRef, renderWithCrosshairHidden]);
+  }, [isAutoScale, modelRef, renderWithCrosshairHidden]);
 
   const handleLogScalePress = useCallback(() => {
     if (!isLogScaleAvailable) {

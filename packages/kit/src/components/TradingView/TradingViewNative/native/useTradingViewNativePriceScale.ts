@@ -142,18 +142,21 @@ export function useTradingViewNativePriceScale({
     if (isTouchVisible) {
       showForTouch();
     }
-    setIsAutoScale(true);
+    const nextIsAutoScale = !isAutoScale;
+    setIsAutoScale(nextIsAutoScale);
     scheduleOnUI(() => {
       'worklet';
 
       cancelAnimation(decayOffset);
       const runtime = getRuntimeWithCrosshairHidden(chartRuntime.value);
-      chartRuntime.value = {
-        ...runtime,
-        priceRangeScale: 1,
-      };
+      chartRuntime.value = nextIsAutoScale
+        ? {
+            ...runtime,
+            priceRangeScale: 1,
+          }
+        : runtime;
     });
-  }, [chartRuntime, decayOffset, isTouchVisible, showForTouch]);
+  }, [chartRuntime, decayOffset, isAutoScale, isTouchVisible, showForTouch]);
 
   const handleLogScalePress = useCallback(() => {
     if (!isLogScaleAvailable) {

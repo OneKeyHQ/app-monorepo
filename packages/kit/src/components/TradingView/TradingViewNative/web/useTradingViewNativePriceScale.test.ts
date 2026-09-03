@@ -56,6 +56,35 @@ function createPointerEvent({
 }
 
 describe('useTradingViewNativePriceScale', () => {
+  it('toggles Auto and resets the range only when Auto is re-enabled', () => {
+    const modelRef = { current: createTradingViewNativeWebPriceScaleModel() };
+    const renderWithCrosshairHidden = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativePriceScale({
+        isLogScaleAvailable: true,
+        modelRef,
+        renderCurrentChart: jest.fn(),
+        renderWithCrosshairHidden,
+      }),
+    );
+
+    expect(result.current.isAutoScale).toBe(true);
+
+    act(() => {
+      result.current.handleAutoScalePress();
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(modelRef.current.rangeScale).toBe(1);
+
+    modelRef.current.rangeScale = 2;
+    act(() => {
+      result.current.handleAutoScalePress();
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(modelRef.current.rangeScale).toBe(1);
+    expect(renderWithCrosshairHidden).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps Auto enabled for a click and disables it only after a drag', () => {
     const modelRef = { current: createTradingViewNativeWebPriceScaleModel() };
     const renderCurrentChart = jest.fn();
