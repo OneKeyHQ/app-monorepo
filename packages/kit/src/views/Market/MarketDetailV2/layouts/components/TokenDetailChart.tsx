@@ -5,32 +5,26 @@ import { useIntl } from 'react-intl';
 
 import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import {
+  type IMarketDetailChartDisplayMode,
+  useMarketDetailChartDisplayModePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
   StockSimpleChart,
+  TOKEN_SIMPLE_CHART_RANGES,
 } from '../../components/StockSimpleChart';
 
 import { MarketDetailProChartControls } from './MarketDetailProChartControls';
-
-type ITokenChartMode = 'simple' | 'pro';
-
-const TOKEN_SIMPLE_CHART_RANGES: IStockSimpleChartRange[] = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
-  'All',
-];
 
 function TokenChartModeControl({
   mode,
   onChange,
 }: {
-  mode: ITokenChartMode;
-  onChange: (mode: ITokenChartMode) => void;
+  mode: IMarketDetailChartDisplayMode;
+  onChange: (mode: IMarketDetailChartDisplayMode) => void;
 }) {
   const intl = useIntl();
 
@@ -84,9 +78,13 @@ export function TokenDetailChart({
   onEnterChartFullscreen: () => void;
 }) {
   const intl = useIntl();
-  const [mode, setMode] = useState<ITokenChartMode>('simple');
+  const [{ mode }, setChartDisplayMode] =
+    useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
   const isSimpleMode = mode === 'simple' && !isChartFullscreen;
+  const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
+    setChartDisplayMode({ mode: nextMode });
+  };
 
   return (
     <YStack width="100%" height="100%" position="relative">
@@ -104,7 +102,7 @@ export function TokenDetailChart({
                 <Button
                   key={item}
                   testID={`market-token-chart-range-${item}`}
-                  minWidth={item === 'All' ? 46 : 40}
+                  minWidth={40}
                   height={32}
                   m="$0"
                   px="$2"
@@ -120,7 +118,7 @@ export function TokenDetailChart({
                 </Button>
               ))}
             </XStack>
-            <TokenChartModeControl mode={mode} onChange={setMode} />
+            <TokenChartModeControl mode={mode} onChange={handleModeChange} />
           </XStack>
           <StockSimpleChart range={range} priceMode="token" />
         </>
@@ -139,7 +137,7 @@ export function TokenDetailChart({
               onChartSwitch={onChartSwitch}
               onEnterChartFullscreen={onEnterChartFullscreen}
             >
-              <TokenChartModeControl mode={mode} onChange={setMode} />
+              <TokenChartModeControl mode={mode} onChange={handleModeChange} />
             </MarketDetailProChartControls>
           )}
         </>
