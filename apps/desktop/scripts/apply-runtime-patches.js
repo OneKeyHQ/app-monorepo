@@ -4,6 +4,9 @@ const path = require('path');
 const {
   electronUpdaterRuntimePatchFiles,
 } = require('./electron-updater-runtime-patch-files');
+const {
+  thirdPartyRuntimePatchPackages,
+} = require('./third-party-runtime-patch-files');
 
 function failPatch(message) {
   process.stderr.write(`${message}\n`);
@@ -72,3 +75,55 @@ for (const relativePath of electronUpdaterRuntimePatchFiles) {
 process.stdout.write(
   `Applied electron-updater ${runtimePackage.version} runtime patch.\n`,
 );
+
+for (const { packageName, files } of thirdPartyRuntimePatchPackages) {
+  const runtimeRoot = path.join(
+    desktopPackageRoot,
+    'app/node_modules',
+    packageName,
+  );
+  const runtimeJsonPath = path.join(runtimeRoot, 'package.json');
+  let workspaceJsonPath;
+  try {
+    workspaceJsonPath = path.join(
+      path.dirname(
+        require.resolve(packageName, {
+          paths: [desktopPackageRoot],
+        }),
+      ),
+      'package.json',
+    );
+  } catch {
+    failPatch(
+      `Workspace ${packageName} dependency cannot be resolved from ${desktopPackageRoot}. Run yarn install first.`,
+    );
+  }
+  const workspaceRoot = path.dirname(workspaceJsonPath);
+  const workspaceMetadata = readPackageMetadata(
+    workspaceJsonPath,
+    `Workspace ${packageName} package metadata`,
+  );
+  const runtimeMetadata = readPackageMetadata(
+    runtimeJsonPath,
+    `Runtime ${packageName} package metadata`,
+  );
+  if (runtimeMetadata.version !== workspaceMetadata.version) {
+    failPatch(
+      `${packageName} version mismatch: runtime=${runtimeMetadata.version}, workspace=${workspaceMetadata.version}.`,
+    );
+  }
+  for (const { relativePath } of files) {
+    const sourcePath = path.join(workspaceRoot, relativePath);
+    const destinationPath = path.join(runtimeRoot, relativePath);
+    if (!fs.existsSync(sourcePath)) {
+      failPatch(`Workspace ${packageName} file is missing: ${sourcePath}.`);
+    }
+    if (!fs.existsSync(destinationPath)) {
+      failPatch(`Runtime ${packageName} file is missing: ${destinationPath}.`);
+    }
+    fs.copyFileSync(sourcePath, destinationPath);
+  }
+  process.stdout.write(
+    `Applied ${packageName} ${runtimeMetadata.version} runtime patch.\n`,
+  );
+}
