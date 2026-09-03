@@ -19,6 +19,9 @@ export function PagerView({
   ref,
   style,
   onPageSelected,
+  // Native-only signal. Destructured so it is never spread onto the DOM node
+  // below; the web shim drives scrolling itself and has no equivalent state.
+  onPageScrollStateChanged: _onPageScrollStateChanged,
   keyboardDismissMode,
   pageWidth: pageWidthProp,
   disableAnimation = false,

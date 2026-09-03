@@ -13,8 +13,6 @@ import Animated, {
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
@@ -124,22 +122,11 @@ function OuterTabPagerViewComponent({
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
-  // OK-59246: pause outer horizontal scrolling while the earn home banner
-  // (a nested horizontal pager) is being dragged, otherwise the outer pager
-  // steals the gesture and switches top tabs
-  const [isEarnBannerDragging, setIsEarnBannerDragging] = useState(false);
-  useEffect(() => {
-    const listener = (payload: { dragging: boolean }) => {
-      setIsEarnBannerDragging(payload.dragging);
-    };
-    appEventBus.on(EAppEventBusNames.EarnHomeBannerDragStateChanged, listener);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.EarnHomeBannerDragStateChanged,
-        listener,
-      );
-    };
-  }, []);
+  // OK-59246 used to pause this pager while the earn banner was being dragged.
+  // Flipping scrollEnabled on a native pager mid-gesture is itself a hazard
+  // (OK-61515), and it never covered the header's own RNGH tab-switch pan. The
+  // banner now keeps the gesture by looping (so it is never at a content edge)
+  // and the header excludes the banner area, so no lock is needed here.
   const wasUserDragRef = useRef(false);
   const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
@@ -494,7 +481,7 @@ function OuterTabPagerViewComponent({
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
-      scrollEnabled={showDiscoveryPage && !isEarnBannerDragging}
+      scrollEnabled={showDiscoveryPage}
       overdrag
       overScrollMode="always"
       scrollSensitivity={4}

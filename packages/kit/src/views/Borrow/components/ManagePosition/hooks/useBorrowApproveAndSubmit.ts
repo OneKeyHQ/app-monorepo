@@ -8,20 +8,26 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import type { IManagePositionProps } from '../types';
 
 export function useBorrowApproveAndSubmit({
+  providerName,
+  tokenSymbol,
   approveTarget,
   currentAllowance,
   amountValue,
   onSubmit,
   onBeforeNavigateConfirm,
 }: {
+  providerName?: string;
+  tokenSymbol?: string;
   approveTarget?: IManagePositionProps['approveTarget'];
   currentAllowance?: string;
   amountValue: string;
@@ -33,10 +39,20 @@ export function useBorrowApproveAndSubmit({
   onApprove: () => Promise<void>;
 } {
   const intl = useIntl();
+  const ensureRiskAccepted = useEarnRiskWarningGate();
 
   const useApprove =
     !!approveTarget?.spenderAddress && !approveTarget?.token?.isNative;
   const [approving, setApproving] = useState(false);
+  // Synchronous mirror of `approving`. React only disables the button on the
+  // next render, and the disclaimer gate below adds a bg round-trip in front of
+  // it, so the state alone leaves a window where two quick taps both get
+  // through. Every write goes through updateApproving so the two stay in sync.
+  const approvingRef = useRef(false);
+  const updateApproving = useCallback((next: boolean) => {
+    approvingRef.current = next;
+    setApproving(next);
+  }, []);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget?.accountId ?? '',
@@ -103,9 +119,11 @@ export function useBorrowApproveAndSubmit({
     if (!isSameRequest) {
       allowanceAbortRef.current?.abort();
       allowanceAbortRef.current = undefined;
-      setApproving(false);
+      // Releases the synchronous lock as well; leaving it held would keep
+      // onApprove returning early for the rest of the session.
+      updateApproving(false);
     }
-  }, [approveSnapshotKey, onSubmit]);
+  }, [approveSnapshotKey, onSubmit, updateApproving]);
 
   const isCurrentApproveRequest = useCallback(
     ({
@@ -196,10 +214,37 @@ export function useBorrowApproveAndSubmit({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !amountValue) return;
+    // Claim the lock before the first await, so a second tap arriving while the
+    // disclaimer is being read cannot open a parallel approval.
+    if (approvingRef.current) return;
+    approvingRef.current = true;
+    // OK-59196: the approve transaction is the user's first on-chain action in
+    // the two-step borrow flow and never reaches the borrow hooks, so the
+    // one-time disclaimer has to gate it here too. It runs before the visible
+    // loading state: bailing after that would leave the button stuck loading.
+    // Fails open when the call site did not pass a provider — a broken gate
+    // must not block a trade — but that is loud in dev, because a silently
+    // skipped disclaimer is exactly how this shipped half-wired once.
+    if (!providerName && platformEnv.isDev) {
+      console.error(
+        '[useBorrowApproveAndSubmit] risk disclaimer skipped: pass providerName from the call site',
+      );
+    }
+    if (providerName) {
+      const riskAccepted = await ensureRiskAccepted({
+        provider: providerName,
+        symbol: tokenSymbol,
+        networkId: approveTarget.networkId,
+      });
+      if (!riskAccepted) {
+        approvingRef.current = false;
+        return;
+      }
+    }
     const requestSnapshotKey = approveSnapshotKey;
     const requestOnSubmit = onSubmit;
     Keyboard.dismiss();
-    setApproving(true);
+    updateApproving(true);
 
     let approveAllowance = allowance;
     try {
@@ -212,7 +257,7 @@ export function useBorrowApproveAndSubmit({
     const allowanceBN = new BigNumber(approveAllowance || '0');
     const amountBN = new BigNumber(amountValue || '0');
     if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
-      setApproving(false);
+      updateApproving(false);
       if (
         isCurrentApproveRequest({
           snapshotKey: requestSnapshotKey,
@@ -247,7 +292,7 @@ export function useBorrowApproveAndSubmit({
               submit: requestOnSubmit,
             })
           ) {
-            setApproving(false);
+            updateApproving(false);
             return;
           }
           trackAllowance(data[0].decodedTx.txid);
@@ -293,19 +338,19 @@ export function useBorrowApproveAndSubmit({
                       }),
               });
             } finally {
-              setApproving(false);
+              updateApproving(false);
             }
           })();
         },
         onFail() {
-          setApproving(false);
+          updateApproving(false);
         },
         onCancel() {
-          setApproving(false);
+          updateApproving(false);
         },
       });
     } catch (error) {
-      setApproving(false);
+      updateApproving(false);
       throw error;
     }
   }, [
@@ -313,13 +358,17 @@ export function useBorrowApproveAndSubmit({
     amountValue,
     approveSnapshotKey,
     approveTarget,
+    ensureRiskAccepted,
     fetchAllowanceResponse,
     intl,
     isCurrentApproveRequest,
     navigationToTxConfirm,
     onBeforeNavigateConfirm,
     onSubmit,
+    providerName,
+    tokenSymbol,
     trackAllowance,
+    updateApproving,
     waitForAllowanceAfterApprove,
   ]);
 

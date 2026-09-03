@@ -756,7 +756,7 @@ function ProtocolLendingActionDefiContent({
     };
     try {
       await Keyboard.dismissWithDelay(80);
-      await submitProtocolPositionAction({
+      const started = await submitProtocolPositionAction({
         action: source.action,
         selectedAssets: [selectedAsset],
         amount,
@@ -775,6 +775,12 @@ function ProtocolLendingActionDefiContent({
         onConfirmFail: releaseSubmitGuardOnceWithError,
         onConfirmCancel: releaseSubmitGuardOnce,
       });
+      // false means the flow never started (the risk disclaimer was declined,
+      // say): no callback fires and nothing throws, so the guard taken above is
+      // ours to release or the footer stays stuck loading forever.
+      if (started === false) {
+        releaseSubmitGuardOnce();
+      }
     } catch (error) {
       if (
         !isActionDialogClosed &&
@@ -1413,7 +1419,7 @@ function ProtocolLendingActionBorrowContent({
         providerDetailName: protocolInfo?.providerDetail.name,
       });
       if (actionType === 'repay') {
-        await handleBorrowRepay({
+        const repayStarted = await handleBorrowRepay({
           amount,
           provider,
           marketAddress,
@@ -1439,9 +1445,15 @@ function ProtocolLendingActionBorrowContent({
           onFail: releaseSubmitGuardOnceWithError,
           onCancel: releaseSubmitGuardOnce,
         });
+        // false means the flow never started (the risk disclaimer was declined,
+        // say): no callback fires and nothing throws, so the guard taken above
+        // is ours to release or the footer stays stuck loading forever.
+        if (repayStarted === false) {
+          releaseSubmitGuardOnce();
+        }
         return;
       }
-      await handleBorrowWithdraw({
+      const withdrawStarted = await handleBorrowWithdraw({
         amount,
         provider,
         marketAddress,
@@ -1467,6 +1479,10 @@ function ProtocolLendingActionBorrowContent({
         onFail: releaseSubmitGuardOnceWithError,
         onCancel: releaseSubmitGuardOnce,
       });
+      // Same "never started" release as the repay branch above.
+      if (withdrawStarted === false) {
+        releaseSubmitGuardOnce();
+      }
     } catch (error) {
       releaseSubmitGuardOnceWithError(error);
     }
@@ -1493,6 +1509,10 @@ function ProtocolLendingActionBorrowContent({
 
   const { needsApproval, approveLoading, onApprove } =
     useBorrowApproveAndSubmit({
+      // Labels the risk-disclaimer gate inside the approve step; without it the
+      // gate has no provider and silently lets the first on-chain action pass.
+      providerName: source.provider,
+      tokenSymbol: effectiveToken?.symbol,
       approveTarget,
       // useTrackTokenAllowance never fetches on mount - seed it with the
       // manage-page allowance, which tracks the selected reserve because

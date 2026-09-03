@@ -451,7 +451,11 @@ type IUniversalStakeProps = {
   currentAllowance?: string;
 
   approveType?: EApproveType;
-  onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
+  // Resolves false when the flow never started (risk disclaimer rejected, a
+  // pre-flight check failed), so the form keeps the amount the user typed.
+  // Deliberately not `boolean | void`: a caller that forgets to return the
+  // hook's result would silently reset the form.
+  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;
@@ -1349,18 +1353,20 @@ export function UniversalStake({
       }
     }
 
-    // OK-59196 (review P2): gate here, before submitting/wrap progress state
-    // transitions, so rejecting the risk dialog leaves the form untouched —
-    // the gate inside useUniversalStake would otherwise return void and the
-    // caller would resetAmount() as if the flow had completed
-    const earnRiskConfirmed = await showEarnRiskWarningDialog({
-      provider: providerName,
-      symbol: actionSymbol,
-      networkId,
-      title: intl.formatMessage({ id: ETranslations.global_warning }),
-    });
-    if (!earnRiskConfirmed) {
-      return;
+    // OK-59196: Stakefish signs a provider-facing message before any hook runs,
+    // so the disclaimer has to gate this pre-transaction step. Not a duplicate
+    // of the gate inside useUniversalStake — that one only covers the transaction
+    // itself, and once accepted this call resolves immediately.
+    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+      const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
+        provider: providerName,
+        symbol: actionSymbol,
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      });
+      if (!riskAcceptedBeforeSigning) {
+        return;
+      }
     }
 
     // Stakefish ETH: sign before building the staking transaction.
@@ -1436,7 +1442,7 @@ export function UniversalStake({
           setStakeProgressStep(EStakeProgressStep.approve);
         }
 
-        await onConfirm?.({
+        const started = await onConfirm?.({
           amount: amountValue,
           effectiveApy: transactionConfirmation?.effectiveApy,
           stakeType,
@@ -1444,6 +1450,11 @@ export function UniversalStake({
           ...permitSignatureParams,
           ...stakefishParams,
         });
+        // The disclaimer was rejected, so nothing was submitted: leave the form
+        // and the progress step exactly as the user left them.
+        if (started === false) {
+          return;
+        }
         resetAmount();
         // Auto-refresh quote countdown after swap completes
         onQuoteReset?.();
