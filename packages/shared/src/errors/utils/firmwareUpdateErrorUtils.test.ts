@@ -80,6 +80,7 @@ describe('firmwareUpdateErrorUtils', () => {
     [HardwareErrorCode.BleDeviceBondError, 'device_disconnected'],
     [HardwareErrorCode.BleDeviceDisconnected, 'device_disconnected'],
     [HardwareErrorCode.BlePeerRemovedPairingInformation, 'device_disconnected'],
+    [HardwareErrorCode.BleBondInvalid, 'device_disconnected'],
   ] as const)('classifies firmware error code %s as %s', (code, expected) => {
     expect(classifyFirmwareUpdateFailure({ code })).toBe(expected);
   });

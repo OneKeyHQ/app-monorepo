@@ -97,6 +97,7 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
   it.each([
     HardwareErrorCode.BleDeviceBondError,
     HardwareErrorCode.BlePeerRemovedPairingInformation,
+    HardwareErrorCode.BleBondInvalid,
   ])(
     'tells the user to re-pair the device in system settings for code %s',
     (code) => {
@@ -126,6 +127,24 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect.objectContaining({
         errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
         errorCode: HardwareErrorCode.BlePeerRemovedPairingInformation,
+      }),
+    );
+    emitSpy.mockRestore();
+  });
+
+  it('preserves the dedicated stale-bond code in the repair dialog payload', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    convertDeviceError({
+      code: HardwareErrorCode.BleBondInvalid,
+      connectId: 'PRO2_BLE',
+    });
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR,
+        errorCode: HardwareErrorCode.BleBondInvalid,
       }),
     );
     emitSpy.mockRestore();
