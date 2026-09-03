@@ -21,6 +21,7 @@ Var OneKeyModernIsInner
   Var OneKeyModernIsAdmin
   Var OneKeyModernPerUserDirectory
   Var OneKeyModernPerMachineDirectory
+  Var OneKeyModernCommandLineDirectory
   Var OneKeyModernChosenDirectory
   Var OneKeyModernAccepted
   Var OneKeyModernStartAppArgs
@@ -41,6 +42,7 @@ Var OneKeyModernIsInner
   StrCpy $OneKeyModernChosenDirectory ""
   StrCpy $OneKeyModernPerUserDirectory ""
   StrCpy $OneKeyModernPerMachineDirectory ""
+  StrCpy $OneKeyModernCommandLineDirectory ""
   ReadRegStr $OneKeyModernPerUserDirectory HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
   ReadRegStr $OneKeyModernPerMachineDirectory HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
 
@@ -78,6 +80,7 @@ Var OneKeyModernIsInner
   ${IfNot} ${Errors}
     StrCpy $OneKeyModernExplicitScope "current"
   ${EndIf}
+  !insertmacro GetDParameter $OneKeyModernCommandLineDirectory
 
   # Keep fresh-install previews aligned with the hidden install-mode defaults.
   # The selected scope's resolved path is written back after that page so a
@@ -111,9 +114,15 @@ Var OneKeyModernIsInner
     StrCpy $OneKeyModernPerMachineDirectory "$0\${APP_FILENAME}"
   ${EndIf}
 
+  ${If} $OneKeyModernWasInstalled == "0"
+  ${AndIf} $OneKeyModernCommandLineDirectory != ""
+    StrCpy $OneKeyModernPerUserDirectory "$OneKeyModernCommandLineDirectory"
+    StrCpy $OneKeyModernPerMachineDirectory "$OneKeyModernCommandLineDirectory"
+  ${EndIf}
+
   ${If} $OneKeyModernExplicitScope != ""
-    StrCpy $OneKeyModernAccepted "1"
     ${If} $OneKeyModernWasInstalled == "0"
+      StrCpy $OneKeyModernAccepted "1"
       ${If} $OneKeyModernExplicitScope == "all"
         StrCpy $OneKeyModernChosenDirectory "$OneKeyModernPerMachineDirectory"
       ${Else}
@@ -148,11 +157,11 @@ FunctionEnd
     StrCpy $isForceMachineInstall "1"
   ${ElseIf} $OneKeyModernInstallScope == "current"
     StrCpy $isForceCurrentInstall "1"
-  ${ElseIf} $hasPerMachineInstallation == "1"
-  ${AndIf} $hasPerUserInstallation == "0"
+  ${ElseIf} $OneKeyModernHadPerMachine == "1"
+  ${AndIf} $OneKeyModernHadPerUser == "0"
     StrCpy $isForceMachineInstall "1"
-  ${ElseIf} $hasPerUserInstallation == "1"
-  ${AndIf} $hasPerMachineInstallation == "0"
+  ${ElseIf} $OneKeyModernHadPerUser == "1"
+  ${AndIf} $OneKeyModernHadPerMachine == "0"
     StrCpy $isForceCurrentInstall "1"
   ${EndIf}
 !macroend
