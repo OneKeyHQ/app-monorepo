@@ -319,18 +319,22 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const marketAssetId =
+    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+      ? marketTokenId?.trim()
+      : undefined;
   let marketTradingViewKey = 'v2';
   if (isTradingViewNative) {
     marketTradingViewKey = [
       'native',
-      marketTokenId ?? '',
+      marketAssetId ?? '',
       networkId,
       tokenAddress,
     ].join(':');
   } else if (marketTradingViewParams) {
     marketTradingViewKey = [
       'v2',
-      marketTokenId ?? '',
+      marketAssetId ?? '',
       marketTradingViewParams.networkId,
       marketTradingViewParams.tokenAddress,
       marketTradingViewParams.tokenSymbol,
@@ -382,10 +386,6 @@ export function MobileLayout({
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
     isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
-  const marketAssetId =
-    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
-      ? marketTokenId?.trim()
-      : undefined;
   const tradingViewNativeSource = useMemo(
     () =>
       getMarketDetailTradingViewNativeSource({
@@ -801,7 +801,8 @@ export function MobileLayout({
             <Stack h={tradingViewChartHeight} overflow="hidden">
               {(() => {
                 if (isTradingViewNative) {
-                  return networkId ? (
+                  return networkId ||
+                    tradingViewNativeSource.kind === 'asset' ? (
                     <TradingViewNative
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
@@ -812,7 +813,9 @@ export function MobileLayout({
                       }
                       nativeControlsLayoutMode="mobile"
                       isNativeChartFullscreen={isChartFullscreen}
-                      isChartSwitchDisabled={!marketTradingViewParams}
+                      isChartSwitchDisabled={
+                        !marketTradingViewParams && !marketAssetId
+                      }
                       onChartSwitch={onChartSwitch}
                       onNativeChartFullscreenChange={onChartFullscreenChange}
                       onNativeSubIndicatorCountChange={

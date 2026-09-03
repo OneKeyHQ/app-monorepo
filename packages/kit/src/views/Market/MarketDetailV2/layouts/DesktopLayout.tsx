@@ -371,7 +371,9 @@ export function DesktopLayout({
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
-          isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+          isChartSwitchDisabled={
+            !effectiveMarketTradingViewParams && !marketAssetId
+          }
           // The stock layout embeds the widget flush in its own chart block, so
           // the control row's inset would push the first interval clear of the
           // plot's leading edge instead of sitting over it.
@@ -382,7 +384,11 @@ export function DesktopLayout({
       ) : null;
     }
 
-    if (!effectiveMarketTradingViewParams && !isStockSharePrice) {
+    if (
+      !effectiveMarketTradingViewParams &&
+      !isStockSharePrice &&
+      !marketAssetId
+    ) {
       return null;
     }
 
