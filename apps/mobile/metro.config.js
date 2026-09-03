@@ -21,7 +21,6 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const {
   withStorybook,
 } = require('@storybook/react-native/metro/withStorybook');
-const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
 
@@ -635,7 +634,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 };
 
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
+  applyFixImageAssetsMiddleware(metroMiddleware);
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
 // transform-cache key cannot see — flipping modes would serve stale transforms
