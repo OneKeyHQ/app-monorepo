@@ -325,6 +325,64 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     );
   }
 
+  async restoreSelectedAccountIfCurrent(
+    {
+      expectedSelectedAccount,
+      expectedWriteIntentEpoch,
+      previousSelectedAccount,
+      sceneName,
+      sceneUrl,
+      num,
+    }: {
+      expectedSelectedAccount: IAccountSelectorSelectedAccount;
+      expectedWriteIntentEpoch: number;
+      previousSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    },
+    persistenceLockToken?: IAccountSelectorPersistenceLockToken,
+  ) {
+    checkIsDefined(num);
+    checkIsDefined(sceneName);
+    if (!accountSelectorUtils.isSceneCanPersist({ sceneName })) {
+      return { persisted: false };
+    }
+    const persistenceScope = { sceneName, sceneUrl, num };
+    return runAccountSelectorPersistenceExclusive(async () => {
+      const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
+        sceneName,
+        sceneUrl,
+      });
+      const transaction = await this.setRawDataTransaction({
+        build: (rawData) => {
+          const selector = rawData?.selectorInfo[sceneId]?.selector;
+          if (
+            !selector ||
+            !isSameSelectedAccount(
+              selector[num],
+              this.cloneAndFixSelectedAccount(expectedSelectedAccount),
+            )
+          ) {
+            return undefined;
+          }
+          const data = cloneDeep(rawData);
+          if (previousSelectedAccount) {
+            data.selectorInfo[sceneId].selector[num] =
+              this.cloneAndFixSelectedAccount(previousSelectedAccount);
+          } else {
+            delete data.selectorInfo[sceneId].selector[num];
+          }
+          return { data };
+        },
+        shouldCommit: () =>
+          getAccountSelectorWriteIntentEpoch(persistenceScope) ===
+          expectedWriteIntentEpoch,
+      });
+      return { persisted: transaction.committed };
+    }, persistenceLockToken);
+  }
+
   @backgroundMethod()
   async beginAccountSelectorStorageInit({
     sceneName,
