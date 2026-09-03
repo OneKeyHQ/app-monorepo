@@ -461,9 +461,11 @@ function DepositWithdrawContent({
   const shouldReserveWithdrawGas =
     selectedWithdrawDestination.transferType === 'hyperEvm' ||
     withdrawRoute === 'cctp';
+  // Gated on the preview too, or the button greys out for the frame between two
+  // destinations. handleConfirm resolves the confirmed fee before submitting.
   const isWithdrawFeeQuoteComplete =
-    Boolean(withdrawFeeQuote) &&
-    withdrawFeeQuote?.components.every((component) =>
+    Boolean(withdrawFeeDisplayQuote) &&
+    withdrawFeeDisplayQuote?.components.every((component) =>
       Boolean(component.amount),
     );
   const isWithdrawDestinationReady =
@@ -1605,6 +1607,24 @@ function DepositWithdrawContent({
           onClose?.();
         }
       } else {
+        // Submission stays bound to a confirmed fee; only the wait for it moved
+        // here from the button's disabled state.
+        let expectedCctpFee: string | undefined;
+        if (
+          selectedWithdrawDestination.transferType === 'cctp' &&
+          withdrawRoute === 'cctp'
+        ) {
+          expectedCctpFee = cctpFeeComponent?.amount;
+          if (!expectedCctpFee) {
+            const feeQuote =
+              await backgroundApiProxy.serviceHyperliquidExchange.getUsdcWithdrawFee(
+                { destinationId: withdrawDestinationId },
+              );
+            expectedCctpFee = feeQuote.components.find(
+              (component) => component.kind === 'cctpForwarding',
+            )?.amount;
+          }
+        }
         await withdraw({
           userAccountId: selectedAccount.accountId || '',
           amount,
@@ -1613,8 +1633,7 @@ function DepositWithdrawContent({
             selectedWithdrawDestination.transferType === 'cctp'
               ? withdrawRoute
               : undefined,
-          expectedCctpFee:
-            withdrawRoute === 'cctp' ? cctpFeeComponent?.amount : undefined,
+          expectedCctpFee,
         });
         void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         onClose?.();
