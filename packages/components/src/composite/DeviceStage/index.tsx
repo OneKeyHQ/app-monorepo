@@ -666,15 +666,26 @@ export function DeviceStage({
   // the answer that was right, the stage the person closed, the device
   // taken away mid-ask. Render-time bump, change-guarded.
   const panelEpochsRef = useRef<Partial<Record<ICardArrangement, number>>>({});
+  // The passphrase form also wants to know when it is ENTERED: the exit
+  // epoch above fires as the card is left, before the fire-and-forget
+  // save of that very exit has broadcast the remembered choice back, so
+  // sampling the Keep-accessible seed on it read the value from before
+  // the save. The form stays mounted while parked; only a fresh entry
+  // should read the preference, and it must read the current one.
+  const passphraseEntryEpochRef = useRef(0);
   const prevStepRef = useRef(step);
   if (prevStepRef.current !== step) {
     const leftBehind = panelLeftBehind(prevStepRef.current, step);
+    if (step === 'passphraseOnApp') {
+      passphraseEntryEpochRef.current += 1;
+    }
     prevStepRef.current = step;
     if (leftBehind) {
       panelEpochsRef.current[leftBehind] =
         (panelEpochsRef.current[leftBehind] ?? 0) + 1;
     }
   }
+  const passphraseEntryEpoch = passphraseEntryEpochRef.current;
   const pinEpoch = panelEpochsRef.current.pinOnApp ?? 0;
   const introEpoch = panelEpochsRef.current.passphraseIntro ?? 0;
   const passphraseEpoch = panelEpochsRef.current.passphraseOnApp ?? 0;
@@ -1566,6 +1577,7 @@ export function DeviceStage({
             mode={passphraseMode}
             initialKeepAccessible={passphraseKeepAccessible}
             allowProtocolV2Utf8={passphraseAllowUtf8}
+            activationSignal={passphraseEntryEpoch}
             onSubmit={onPassphraseSubmit}
             onSwitchToDevice={onSwitchToDevice}
             onAttachPin={vendor ? undefined : onPassphraseAttachPin}
@@ -1583,6 +1595,7 @@ export function DeviceStage({
       panelMeasureHandlers,
       passphraseAnimated,
       passphraseAllowUtf8,
+      passphraseEntryEpoch,
       passphraseEpoch,
       passphraseKeepAccessible,
       passphraseMode,

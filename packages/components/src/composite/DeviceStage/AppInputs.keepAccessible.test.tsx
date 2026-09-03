@@ -152,37 +152,90 @@ describe('PassphraseForm Keep-accessible seed', () => {
     ]);
   });
 
-  it('samples the seed on activation and ignores it while the form is up', () => {
+  it('reads the seed on entry, after the exit that saved it has landed', () => {
+    // Production ordering: the person unchecks and submits; the card is
+    // left (resetSignal fires) BEFORE the fire-and-forget save broadcasts
+    // the new preference back; only then is the card entered again.
+    const onSwitchToDevice: IExitMock = jest.fn();
+    const props = {
+      mode: 'create' as const,
+      onSwitchToDevice,
+    };
+    const { getByTestId, rerender } = render(
+      <PassphraseForm
+        {...props}
+        initialKeepAccessible
+        resetSignal={0}
+        activationSignal={1}
+      />,
+    );
+    // The person turns it off in the form.
+    fireEvent.click(getByTestId('device-stage-passphrase-keep-accessible'));
+    expect(exitWith(getByTestId, onSwitchToDevice)).toEqual([
+      { keepAccessible: false },
+    ]);
+
+    // Left: the exit signal fires while the prop still says ON.
+    rerender(
+      <PassphraseForm
+        {...props}
+        initialKeepAccessible
+        resetSignal={1}
+        activationSignal={1}
+      />,
+    );
+    // The save lands: the prop now says OFF, but the form is parked, so
+    // nothing may move yet.
+    rerender(
+      <PassphraseForm
+        {...props}
+        initialKeepAccessible={false}
+        resetSignal={1}
+        activationSignal={1}
+      />,
+    );
+    // Entered again: the seed read now is the saved OFF.
+    rerender(
+      <PassphraseForm
+        {...props}
+        initialKeepAccessible={false}
+        resetSignal={1}
+        activationSignal={2}
+      />,
+    );
+    expect(exitWith(getByTestId, onSwitchToDevice)).toEqual([
+      { keepAccessible: false },
+    ]);
+  });
+
+  it('ignores a seed change while the form is up until the next entry', () => {
     const onSwitchToDevice: IExitMock = jest.fn();
     const { getByTestId, rerender } = render(
       <PassphraseForm
         mode="create"
         initialKeepAccessible={false}
-        resetSignal={0}
+        activationSignal={1}
         onSwitchToDevice={onSwitchToDevice}
       />,
     );
-
     // A background settings sync arriving mid-entry must not move the
     // switch under the person's hand.
     rerender(
       <PassphraseForm
         mode="create"
         initialKeepAccessible
-        resetSignal={0}
+        activationSignal={1}
         onSwitchToDevice={onSwitchToDevice}
       />,
     );
     expect(exitWith(getByTestId, onSwitchToDevice)).toEqual([
       { keepAccessible: false },
     ]);
-
-    // A fresh activation reads whatever the preference is then.
     rerender(
       <PassphraseForm
         mode="create"
         initialKeepAccessible
-        resetSignal={1}
+        activationSignal={2}
         onSwitchToDevice={onSwitchToDevice}
       />,
     );
