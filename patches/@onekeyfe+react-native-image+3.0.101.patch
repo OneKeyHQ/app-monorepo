@@ -1,0 +1,38 @@
+diff --git a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+index 110adeb..82f53c7 100644
+--- a/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
++++ b/node_modules/@onekeyfe/react-native-image/android/src/main/java/com/margelo/nitro/onekeyimage/OneKeyImage.kt
+@@ -123,6 +123,11 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+   private enum class DisplayState { LOADING, IMAGE, ERROR, FALLBACK }
+ 
+   private val hostView = OneKeyImageHostView(context)
++  // OneKey patch: retain requests when react-native-screens temporarily destroys
++  // an opaque modal's underlying Fragment while keeping its React view alive.
++  private val requestManager by lazy(LazyThreadSafetyMode.NONE) {
++    Glide.with(context.applicationContext)
++  }
+   private var loadRunnable: Runnable? = null
+   private var currentTarget: CustomViewTarget<OneKeyImageHostView, Drawable>? = null
+   private var generation = 0L
+@@ -446,7 +451,9 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+       }
+     }
+     currentTarget = target
+-    Glide.with(hostView)
++    // OneKey patch: use the application-scoped request manager declared above.
++    // Glide.with(hostView)
++    requestManager
+       .asDrawable()
+       .load(OneKeyImageModel.build(requestUrl, headersJson))
+       .apply(requestOptions(policy))
+@@ -523,7 +530,9 @@ class HybridOneKeyImage(private val context: ThemedReactContext) :
+     // Clear the field first so onResourceCleared from our own cancellation
+     // cannot erase state belonging to the next generation/request.
+     currentTarget = null
+-    Glide.with(hostView).clear(target)
++    // OneKey patch: clear through the manager that owns the request.
++    // Glide.with(hostView).clear(target)
++    requestManager.clear(target)
+   }
+ 
+   private fun scheduleOnDisplay(requestGeneration: Long) {
