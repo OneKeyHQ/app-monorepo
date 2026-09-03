@@ -480,7 +480,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     isHyperLiquidSource,
     symbol: hyperLiquidSymbol,
     isLoading: isHyperLiquidSourceLoading,
-  } = useHyperLiquidKlineSource(networkId, tokenAddress);
+  } = useHyperLiquidKlineSource(networkId, tokenAddress, {
+    disabled: primaryKLineDataUnavailable,
+  });
   const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
   const shouldDeferWebRuntime = platformEnv.isWeb && isHyperLiquidSourceLoading;
   const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;

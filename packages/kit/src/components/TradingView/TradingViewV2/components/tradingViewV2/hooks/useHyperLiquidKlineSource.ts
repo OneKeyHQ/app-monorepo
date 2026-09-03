@@ -8,13 +8,27 @@ export interface IHyperLiquidKlineSourceResult {
   isLoading: boolean;
 }
 
+interface IUseHyperLiquidKlineSourceOptions {
+  disabled?: boolean;
+}
+
 export function useHyperLiquidKlineSource(
   networkId: string,
   tokenAddress: string,
+  options?: IUseHyperLiquidKlineSourceOptions,
 ): IHyperLiquidKlineSourceResult {
   const { basicConfig, isLoading } = useMarketBasicConfig();
+  const disabled = options?.disabled;
 
   return useMemo(() => {
+    if (disabled) {
+      return {
+        isHyperLiquidSource: false,
+        symbol: undefined,
+        isLoading: false,
+      };
+    }
+
     if (!basicConfig) {
       return {
         isHyperLiquidSource: false,
@@ -41,5 +55,5 @@ export function useHyperLiquidKlineSource(
       symbol: match?.symbol,
       isLoading: false,
     };
-  }, [basicConfig, isLoading, networkId, tokenAddress]);
+  }, [basicConfig, disabled, isLoading, networkId, tokenAddress]);
 }

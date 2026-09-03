@@ -324,20 +324,16 @@ export function MobileLayout({
       ? marketTokenId?.trim()
       : undefined;
   let marketTradingViewKey = 'v2';
-  if (isTradingViewNative) {
-    marketTradingViewKey = [
-      'native',
-      marketAssetId ?? '',
-      networkId,
-      tokenAddress,
-    ].join(':');
-  } else if (marketTradingViewParams || marketAssetId) {
+  if (marketAssetId) {
+    marketTradingViewKey = `asset:${marketAssetId}`;
+  } else if (isTradingViewNative) {
+    marketTradingViewKey = ['native', networkId, tokenAddress].join(':');
+  } else if (marketTradingViewParams) {
     marketTradingViewKey = [
       'v2',
-      marketAssetId ?? '',
-      marketTradingViewParams?.networkId ?? '',
-      marketTradingViewParams?.tokenAddress ?? '',
-      marketTradingViewParams?.tokenSymbol ?? '',
+      marketTradingViewParams.networkId,
+      marketTradingViewParams.tokenAddress,
+      marketTradingViewParams.tokenSymbol,
     ].join(':');
   }
   const [

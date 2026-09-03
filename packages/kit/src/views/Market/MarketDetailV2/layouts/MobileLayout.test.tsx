@@ -9,6 +9,18 @@ const mockLazyMobileMarketTradingView = jest.fn(
   (_props: Record<string, unknown>) => null,
 );
 const mockFetchMarketAssetKLineData = jest.mocked(fetchMarketAssetKLineData);
+let mockLazyMobileMarketTradingViewMountCount = 0;
+let mockLazyMobileMarketTradingViewUnmountCount = 0;
+let mockMarketTradingViewParams:
+  | {
+      tokenAddress: string;
+      networkId: string;
+      tokenSymbol: string;
+      decimal: number;
+      isNative: boolean;
+      dataSource: 'websocket' | 'polling';
+    }
+  | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: jest.fn(() => ({
@@ -187,8 +199,18 @@ jest.mock('../components/InformationTabs/layout/MobileInformationTabs', () => ({
 }));
 
 jest.mock('../components/MarketTradingView/LazyMarketTradingView', () => ({
-  LazyMobileMarketTradingView: (props: Record<string, unknown>) =>
-    mockLazyMobileMarketTradingView(props),
+  LazyMobileMarketTradingView: function MockLazyMobileMarketTradingView(
+    props: Record<string, unknown>,
+  ) {
+    const React = jest.requireActual<typeof import('react')>('react');
+    React.useEffect(() => {
+      mockLazyMobileMarketTradingViewMountCount += 1;
+      return () => {
+        mockLazyMobileMarketTradingViewUnmountCount += 1;
+      };
+    }, []);
+    return mockLazyMobileMarketTradingView(props);
+  },
 }));
 
 jest.mock(
@@ -203,7 +225,7 @@ jest.mock('../hooks/StockDetailContext', () => ({
 }));
 
 jest.mock('../hooks/useTokenDetail', () => ({
-  useMarketTradingViewParams: jest.fn(() => undefined),
+  useMarketTradingViewParams: jest.fn(() => mockMarketTradingViewParams),
   useTokenDetail: jest.fn(() => ({
     tokenAddress: '',
     networkId: '',
@@ -238,9 +260,12 @@ jest.mock('../utils/marketTradingViewSubIndicatorCount', () => ({
 describe('MobileLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLazyMobileMarketTradingViewMountCount = 0;
+    mockLazyMobileMarketTradingViewUnmountCount = 0;
+    mockMarketTradingViewParams = undefined;
   });
 
-  it('renders the Pro chart from Asset fallback without token bootstrap data', async () => {
+  it('keeps the Asset Pro chart mounted while token bootstrap data loads', async () => {
     const response = {
       pointType: 'single' as const,
       points: [{ o: 1, h: 1, l: 1, c: 1, v: 0, t: 100 }],
@@ -248,7 +273,7 @@ describe('MobileLayout', () => {
     };
     mockFetchMarketAssetKLineData.mockResolvedValue(response);
 
-    render(
+    const { rerender } = render(
       <MobileLayout
         isChartFullscreen={false}
         isTradingViewNative={false}
@@ -295,5 +320,35 @@ describe('MobileLayout', () => {
       timeFrom: 100,
       timeTo: 200,
     });
+
+    mockMarketTradingViewParams = {
+      tokenAddress: '',
+      networkId: 'doge--0',
+      tokenSymbol: 'DOGE',
+      decimal: 8,
+      isNative: true,
+      dataSource: 'websocket',
+    };
+    rerender(
+      <MobileLayout
+        isChartFullscreen={false}
+        isTradingViewNative={false}
+        onChartFullscreenChange={jest.fn()}
+        onChartSwitch={jest.fn()}
+        marketTokenId="doge"
+        marketTokenCategory="top_coins"
+      />,
+    );
+
+    expect(mockLazyMobileMarketTradingViewMountCount).toBe(1);
+    expect(mockLazyMobileMarketTradingViewUnmountCount).toBe(0);
+    expect(mockLazyMobileMarketTradingView.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        dataSource: 'polling',
+        networkId: 'doge--0',
+        tokenAddress: '',
+        tokenSymbol: 'DOGE',
+      }),
+    );
   });
 });
