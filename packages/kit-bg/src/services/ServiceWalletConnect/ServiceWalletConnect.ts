@@ -230,10 +230,13 @@ class ServiceWalletConnect extends ServiceBase {
     return notSupportedChains;
   }
 
-  // Namespace keys the wallet has no impl for. buildWalletConnectNamespace
-  // drops those from the approve payload, so a required one has to be rejected
-  // up front: getNotSupportedChains only inspects the chains an entry declares,
-  // and an entry can name an unsupported namespace without declaring any.
+  // Namespace keys that would contribute nothing to the approve payload:
+  // either the wallet has no impl for the namespace family, or none of the
+  // chains the entry declares (via the key or `chains`) are ones the wallet
+  // knows about. buildWalletConnectNamespace drops both cases from the
+  // approve payload the same way, so a required one has to be rejected up
+  // front -- getNotSupportedChains alone is not enough, since it flags
+  // individual unsupported chains rather than an entry left with none.
   @backgroundMethod()
   async getNotSupportedNamespaces(
     namespaces:
@@ -241,11 +244,26 @@ class ServiceWalletConnect extends ServiceBase {
       | IWalletConnectOptionalNamespaces
       | undefined,
   ): Promise<string[]> {
-    return Promise.resolve(
-      Object.keys(namespaces ?? {}).filter(
-        (key) => !parseNamespaceKey(key).impl,
-      ),
-    );
+    const notSupported: string[] = [];
+    for (const [key, value] of Object.entries(namespaces ?? {})) {
+      const { impl, chainsFromKey } = parseNamespaceKey(key);
+      if (!impl) {
+        notSupported.push(key);
+        continue;
+      }
+      const entryChains = [...chainsFromKey, ...(value.chains ?? [])];
+      if (entryChains.length === 0) {
+        notSupported.push(key);
+        continue;
+      }
+      const chainInfos = await Promise.all(
+        entryChains.map((chain) => this.getWcChainInfo(chain)),
+      );
+      if (chainInfos.every((info) => !info)) {
+        notSupported.push(key);
+      }
+    }
+    return notSupported;
   }
 
   @backgroundMethod()
