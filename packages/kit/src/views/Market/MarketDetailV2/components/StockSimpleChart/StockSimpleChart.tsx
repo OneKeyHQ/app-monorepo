@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,7 +30,7 @@ import {
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
 
-const STOCK_SIMPLE_CHART_HEIGHT = 304;
+const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 304;
 
 type IStockSimpleChartState = {
   data: IMarketTokenChart;
@@ -37,11 +39,13 @@ type IStockSimpleChartState = {
 
 export function StockSimpleChart({
   coinGeckoId,
+  marketAssetId,
   range,
   priceMode,
   onHoverChange,
 }: {
   coinGeckoId?: string;
+  marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
   // Forwarded to the line chart so the price header above can follow the
@@ -49,11 +53,15 @@ export function StockSimpleChart({
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
   const intl = useIntl();
+  const [chartHeight, setChartHeight] = useState(
+    STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
+  );
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
+    marketAssetId: requestMarketAssetId,
     networkId: requestNetworkId,
     priceMode: requestPriceMode,
     range: requestRange,
@@ -62,6 +70,7 @@ export function StockSimpleChart({
   } = resolveStockSimpleChartRequestScope({
     coinGeckoId,
     isNative,
+    marketAssetId,
     networkId,
     priceMode,
     range,
@@ -79,6 +88,7 @@ export function StockSimpleChart({
         const data = await fetchStockSimpleChartPoints({
           coinGeckoId: requestCoinGeckoId,
           isNative: requestIsNative,
+          marketAssetId: requestMarketAssetId,
           networkId: requestNetworkId,
           priceMode: requestPriceMode,
           range: requestRange,
@@ -97,6 +107,7 @@ export function StockSimpleChart({
     [
       requestCoinGeckoId,
       requestIsNative,
+      requestMarketAssetId,
       requestNetworkId,
       requestPriceMode,
       requestRange,
@@ -110,23 +121,19 @@ export function StockSimpleChart({
     },
   );
 
+  let chartContent;
   if (isLoading || chartState.status === 'pending') {
-    return (
-      <Stack
-        testID="stock-simple-chart-loading"
-        width="100%"
-        height={STOCK_SIMPLE_CHART_HEIGHT}
-      >
-        <Skeleton width="100%" height={STOCK_SIMPLE_CHART_HEIGHT} />
+    chartContent = (
+      <Stack testID="stock-simple-chart-loading" width="100%" height="100%">
+        <Skeleton width="100%" height="100%" />
       </Stack>
     );
-  }
-
-  if (chartState.status === 'error') {
-    return (
+  } else if (chartState.status === 'error') {
+    chartContent = (
       <YStack
+        testID="stock-simple-chart-error"
         width="100%"
-        height={STOCK_SIMPLE_CHART_HEIGHT}
+        height="100%"
         alignItems="center"
         justifyContent="center"
         gap="$2"
@@ -147,13 +154,12 @@ export function StockSimpleChart({
         </Button>
       </YStack>
     );
-  }
-
-  if (!chartState.data.length) {
-    return (
+  } else if (!chartState.data.length) {
+    chartContent = (
       <YStack
+        testID="stock-simple-chart-empty"
         width="100%"
-        height={STOCK_SIMPLE_CHART_HEIGHT}
+        height="100%"
         alignItems="center"
         justifyContent="center"
         gap="$2"
@@ -166,21 +172,37 @@ export function StockSimpleChart({
         </SizableText>
       </YStack>
     );
+  } else {
+    chartContent = (
+      <StockPriceLineChart
+        testID="stock-simple-chart-content"
+        data={chartState.data}
+        height={chartHeight}
+        pulseLastPoint={
+          stockDetail?.marketStatus?.isOpen === true ||
+          tokenDetail?.stock?.isOpen === true
+        }
+        // The stock detail page redirects its own price header to the hovered
+        // point, so a price inside the crosshair label would repeat it.
+        hoverLabelShowsPrice={false}
+        onHoverChange={onHoverChange}
+      />
+    );
   }
 
   return (
-    <StockPriceLineChart
-      testID="stock-simple-chart-content"
-      data={chartState.data}
-      height={STOCK_SIMPLE_CHART_HEIGHT}
-      pulseLastPoint={
-        stockDetail?.marketStatus?.isOpen === true ||
-        tokenDetail?.stock?.isOpen === true
-      }
-      // The stock detail page redirects its own price header to the hovered
-      // point, so a price inside the crosshair label would repeat it.
-      hoverLabelShowsPrice={false}
-      onHoverChange={onHoverChange}
-    />
+    <Stack
+      width="100%"
+      flex={1}
+      minHeight={0}
+      onLayout={(event) => {
+        const nextHeight = Math.round(event.nativeEvent.layout.height);
+        if (nextHeight > 0 && nextHeight !== chartHeight) {
+          setChartHeight(nextHeight);
+        }
+      }}
+    >
+      {chartContent}
+    </Stack>
   );
 }

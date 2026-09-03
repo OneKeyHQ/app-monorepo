@@ -53,13 +53,13 @@ import {
   formatStatValueWithFormatter,
 } from '../utils/statValue';
 
+import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
 const TOP_COINS_TRADE_COLUMN_WIDTH = 384;
 const TOP_COINS_COLUMN_GAP = 24;
-const TOP_COINS_CHART_HEIGHT = 360;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',
@@ -517,6 +517,8 @@ export function TopCoinsDesktopLayout({
   isChartFullscreen,
   chartFullscreenZIndex,
   marketTokenId,
+  assetDetail,
+  isAssetDetailLoading,
   disableTrade,
   chartMode,
   isChartSwitchDisabled,
@@ -533,14 +535,15 @@ export function TopCoinsDesktopLayout({
   isChartFullscreen: boolean;
   chartFullscreenZIndex: number;
   marketTokenId?: string;
+  assetDetail?: IMarketAssetDetailData;
+  isAssetDetailLoading?: boolean;
   disableTrade?: boolean;
   chartMode: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
-  const { assetDetail, earnAsset, isAssetDetailLoading } =
-    useTopCoinsDetail(marketTokenId);
+  const { earnAsset } = useTopCoinsDetail(assetDetail);
   const swapTargetKey =
     marketTokenId ||
     `${swapToken.networkId}:${
@@ -574,20 +577,17 @@ export function TopCoinsDesktopLayout({
         <YStack width={TOP_COINS_MAIN_COLUMN_WIDTH} flex={1} minWidth={0}>
           <YStack px="$5" pt="$5" pb="$6" gap="$6">
             <TokenPriceHeader />
-            <Stack
-              width="100%"
-              height={isChartFullscreen ? undefined : TOP_COINS_CHART_HEIGHT}
-              overflow="hidden"
-              bg="$bgApp"
-              zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
-              style={
-                isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
-              }
+            <MarketDesktopChartContainer
+              testID="market-top-coins-detail-chart"
+              isFullscreen={isChartFullscreen}
+              fullscreenZIndex={chartFullscreenZIndex}
+              fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
             >
               {isChartFullscreen && platformEnv.isDesktop ? (
                 <Stack height={48} bg="$bgApp" flexShrink={0} />
               ) : null}
               <TokenDetailChart
+                marketAssetId={marketTokenId}
                 marketTradingView={marketTradingView}
                 isChartFullscreen={isChartFullscreen}
                 chartMode={chartMode}
@@ -595,7 +595,7 @@ export function TopCoinsDesktopLayout({
                 onChartSwitch={onChartSwitch}
                 onEnterChartFullscreen={onEnterChartFullscreen}
               />
-            </Stack>
+            </MarketDesktopChartContainer>
           </YStack>
 
           <TopCoinsInformation
