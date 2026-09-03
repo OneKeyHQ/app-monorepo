@@ -562,12 +562,17 @@ async function writeArtifactManifest({
   const receipt = JSON.parse(
     fs.readFileSync(path.resolve(webEmbedReceipt), 'utf8'),
   );
+  const isRemoteReceipt = /^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '');
+  const isLocalBuildReceipt =
+    receipt.schemaVersion === 1 &&
+    receipt.ociDigest === undefined &&
+    receipt.reference === undefined;
   if (
     !/^[0-9a-f]{64}$/.test(receipt.inputKey || '') ||
     !/^[0-9a-f]{64}$/.test(receipt.outputTreeDigest || '') ||
-    !/^sha256:[0-9a-f]{64}$/.test(receipt.ociDigest || '')
+    (!isRemoteReceipt && !isLocalBuildReceipt)
   ) {
-    throw new Error('[nativeDevShell] Invalid web-embed restore receipt.');
+    throw new Error('[nativeDevShell] Invalid web-embed preparation receipt.');
   }
   if (receipt.inputKey !== expectedWebEmbedInputKey) {
     throw new Error(
@@ -601,12 +606,18 @@ async function writeArtifactManifest({
     shellArtifactKey,
     shellCompatibilityKey: compatibility.shellCompatibilityKey,
     shellInputKey: compatibility.shellInputKey,
-    webEmbed: {
-      inputKey: receipt.inputKey,
-      ociDigest: receipt.ociDigest,
-      outputTreeDigest: receipt.outputTreeDigest,
-      reference: receipt.reference,
-    },
+    webEmbed: isLocalBuildReceipt
+      ? {
+          inputKey: receipt.inputKey,
+          outputTreeDigest: receipt.outputTreeDigest,
+          source: 'local-build',
+        }
+      : {
+          inputKey: receipt.inputKey,
+          ociDigest: receipt.ociDigest,
+          outputTreeDigest: receipt.outputTreeDigest,
+          reference: receipt.reference,
+        },
   };
   await writeJson(path.resolve(output), manifest);
   return manifest;

@@ -1,5 +1,5 @@
-import { primeCachedImageRefs } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { getTokenImageResizeWidth } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 type IMarketTokenImageSource = {
@@ -8,7 +8,7 @@ type IMarketTokenImageSource = {
 };
 
 const MARKET_TOKEN_IMAGE_PREWARM_LIMIT = 4;
-const MARKET_TOKEN_IMAGE_DECODE_TIMEOUT_MS = 350;
+const MARKET_TOKEN_IMAGE_PREWARM_SIZE = 'md' as const;
 const MAX_TRACKED_MARKET_TOKEN_IMAGE_URIS = 600;
 
 const prewarmedMarketTokenImageUris = new Set<string>();
@@ -49,16 +49,16 @@ export function prewarmMarketTokenImages(
   if (uris.length === 0) return;
 
   uris.forEach((uri) => prewarmingMarketTokenImageUris.add(uri));
+  const resizeWidth = getTokenImageResizeWidth(MARKET_TOKEN_IMAGE_PREWARM_SIZE);
 
-  void Promise.allSettled([
-    preloadImages(uris.map((uri) => ({ uri, optimize: false }))),
-    primeCachedImageRefs({
-      uris,
-      timeoutMs: MARKET_TOKEN_IMAGE_DECODE_TIMEOUT_MS,
-    }),
-  ])
-    .then(([preloadResult]) => {
-      if (preloadResult.status === 'fulfilled' && preloadResult.value) {
+  void preloadImages(
+    uris.map((uri) => ({
+      uri,
+      resizeWidth,
+    })),
+  )
+    .then((success) => {
+      if (success) {
         rememberPrewarmedUris(uris);
       }
     })
