@@ -64,7 +64,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getAllDevices: jest.fn(),
-    updateDeviceDbSettings: jest.fn(),
+    updateDeviceDbSettingsInPlace: jest.fn(),
   },
 }));
 
@@ -123,8 +123,20 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
     jest.clearAllMocks();
     jest.mocked(simpleDb.appStatus.getRawData).mockResolvedValue({});
     jest.mocked(simpleDb.appStatus.setRawData).mockResolvedValue({});
-    jest.mocked(localDb.updateDeviceDbSettings).mockResolvedValue(undefined);
+    jest
+      .mocked(localDb.updateDeviceDbSettingsInPlace)
+      .mockResolvedValue(undefined);
   });
+
+  /** What the migration would store for a record holding `stored` at
+   * write time — undefined when it leaves the record alone. */
+  const storedAfterUpdate = (dbDeviceId: string, stored: IDBDeviceSettings) => {
+    const call = jest
+      .mocked(localDb.updateDeviceDbSettingsInPlace)
+      .mock.calls.find(([params]) => params.dbDeviceId === dbDeviceId);
+    expect(call).toBeDefined();
+    return call?.[0].updater(stored);
+  };
 
   it('flips the legacy creation default on button devices', async () => {
     jest.mocked(localDb.getAllDevices).mockResolvedValue({
@@ -143,16 +155,45 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
 
     await createService().migrateClassicPinInputDefault();
 
-    expect(localDb.updateDeviceDbSettings).toHaveBeenCalledTimes(2);
-    expect(localDb.updateDeviceDbSettings).toHaveBeenCalledWith({
-      dbDeviceId: 'classic-1',
-      settings: { inputPinOnSoftware: false },
-    });
+    expect(localDb.updateDeviceDbSettingsInPlace).toHaveBeenCalledTimes(2);
+    expect(
+      storedAfterUpdate('classic-1', { inputPinOnSoftware: true }),
+    ).toEqual({ inputPinOnSoftware: false });
     // The rest of the settings blob must survive the flip.
-    expect(localDb.updateDeviceDbSettings).toHaveBeenCalledWith({
-      dbDeviceId: 'mini-1',
-      settings: { inputPinOnSoftware: false, chainFingerprints: {} },
+    expect(
+      storedAfterUpdate('mini-1', {
+        inputPinOnSoftware: true,
+        chainFingerprints: {},
+      }),
+    ).toEqual({ inputPinOnSoftware: false, chainFingerprints: {} });
+  });
+
+  it('keeps a choice the stage switch wrote between the snapshot and the write', async () => {
+    // The snapshot still shows the legacy default, but by the time the
+    // record is written the person has turned app entry on from the stage
+    // — the choice and its marker are what is stored now, and writing the
+    // snapshot back whole would erase both.
+    jest.mocked(localDb.getAllDevices).mockResolvedValue({
+      devices: [
+        buildDevice({
+          id: 'classic-1',
+          settings: { inputPinOnSoftware: true },
+        }),
+      ],
     });
+
+    await createService().migrateClassicPinInputDefault();
+
+    expect(
+      storedAfterUpdate('classic-1', {
+        inputPinOnSoftware: true,
+        inputPinOnSoftwareSupport: true,
+      }),
+    ).toBeUndefined();
+    // A record already turned off meanwhile is left alone as well.
+    expect(
+      storedAfterUpdate('classic-1', { inputPinOnSoftware: false }),
+    ).toBeUndefined();
   });
 
   it('preserves a record carrying the explicit opt-in marker', async () => {
@@ -171,7 +212,7 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
 
     await createService().migrateClassicPinInputDefault();
 
-    expect(localDb.updateDeviceDbSettings).not.toHaveBeenCalled();
+    expect(localDb.updateDeviceDbSettingsInPlace).not.toHaveBeenCalled();
   });
 
   it('leaves records that are already off or unset untouched', async () => {
@@ -192,7 +233,7 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
 
     await createService().migrateClassicPinInputDefault();
 
-    expect(localDb.updateDeviceDbSettings).not.toHaveBeenCalled();
+    expect(localDb.updateDeviceDbSettingsInPlace).not.toHaveBeenCalled();
   });
 
   it('skips non-OneKey vendors and touchscreen models', async () => {
@@ -218,7 +259,7 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
 
     await createService().migrateClassicPinInputDefault();
 
-    expect(localDb.updateDeviceDbSettings).not.toHaveBeenCalled();
+    expect(localDb.updateDeviceDbSettingsInPlace).not.toHaveBeenCalled();
   });
 
   it('marks the migration done and is a no-op on the next run', async () => {
@@ -234,7 +275,7 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
     const service = createService();
     await service.migrateClassicPinInputDefault();
 
-    expect(localDb.updateDeviceDbSettings).toHaveBeenCalledTimes(1);
+    expect(localDb.updateDeviceDbSettingsInPlace).toHaveBeenCalledTimes(1);
     const updater = jest.mocked(simpleDb.appStatus.setRawData).mock
       .calls[0][0] as (
       v: ISimpleDBAppStatus | null | undefined,
@@ -247,12 +288,12 @@ describe('ServiceHardware.migrateClassicPinInputDefault', () => {
     jest
       .mocked(simpleDb.appStatus.getRawData)
       .mockResolvedValue({ classicPinInputDefaultMigrated: true });
-    jest.mocked(localDb.updateDeviceDbSettings).mockClear();
+    jest.mocked(localDb.updateDeviceDbSettingsInPlace).mockClear();
     jest.mocked(localDb.getAllDevices).mockClear();
 
     await service.migrateClassicPinInputDefault();
 
     expect(localDb.getAllDevices).not.toHaveBeenCalled();
-    expect(localDb.updateDeviceDbSettings).not.toHaveBeenCalled();
+    expect(localDb.updateDeviceDbSettingsInPlace).not.toHaveBeenCalled();
   });
 });

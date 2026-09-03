@@ -133,7 +133,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
-import type { IDBDevice } from '../../dbs/local/types';
+import type { IDBDevice, IDBDeviceSettings } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -3584,19 +3584,25 @@ class ServiceHardware extends ServiceBase {
     // opt-in and is kept; a stored `true` without it is the legacy creation
     // default nobody chose, and that is what flips.
     const { devices } = await localDb.getAllDevices();
+    const isLegacyDefault = (settings: IDBDeviceSettings | undefined) =>
+      settings?.inputPinOnSoftware === true &&
+      settings?.inputPinOnSoftwareSupport !== true;
     for (const device of devices) {
       if (
         (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
         deviceUtils.checkInputPinOnSoftwareSupport(device.deviceType) &&
-        device.settings?.inputPinOnSoftware === true &&
-        device.settings?.inputPinOnSoftwareSupport !== true
+        isLegacyDefault(device.settings)
       ) {
-        await localDb.updateDeviceDbSettings({
+        // Decided again on the settings as stored at write time: the
+        // stage's PIN-entry switch can land between the snapshot above and
+        // this write, and the snapshot written back whole would erase both
+        // the choice and its marker.
+        await localDb.updateDeviceDbSettingsInPlace({
           dbDeviceId: device.id,
-          settings: {
-            ...device.settings,
-            inputPinOnSoftware: false,
-          },
+          updater: (settings) =>
+            isLegacyDefault(settings)
+              ? { ...settings, inputPinOnSoftware: false }
+              : undefined,
         });
       }
     }

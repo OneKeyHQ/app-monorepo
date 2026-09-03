@@ -207,6 +207,7 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBUpdateDeviceSettingsInPlaceParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
   IDBUtxoAccount,
@@ -9692,6 +9693,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         ids: [dbDeviceId],
         updater: (item) => {
           item.settingsRaw = JSON.stringify(settings);
+          return item;
+        },
+      });
+    });
+  }
+
+  /** Rewrites the settings from what the record holds at write time, not
+   * from a snapshot the caller took earlier: a settings write that landed
+   * in between (the stage's PIN-entry switch during the startup migration)
+   * survives instead of being written back over. The updater returning
+   * undefined leaves the record alone. */
+  async updateDeviceDbSettingsInPlace({
+    dbDeviceId,
+    updater,
+  }: IDBUpdateDeviceSettingsInPlaceParams): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          const next = updater(parseDeviceSettingsRaw(item.settingsRaw));
+          if (next) {
+            item.settingsRaw = JSON.stringify(next);
+          }
           return item;
         },
       });
