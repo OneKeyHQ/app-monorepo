@@ -131,6 +131,13 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   };
 }
 
+type IHomeAccountApprovalAlignment = {
+  expectedSelectedAccount: IAccountSelectorSelectedAccount;
+  previousSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+  selectedAccount: IAccountSelectorSelectedAccount;
+  writeIntentEpoch: number;
+};
+
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
   private semaphore = new Semaphore(1);
@@ -937,72 +944,114 @@ class ServiceDApp extends ServiceBase {
             };
           }
 
-          const transaction =
-            await this.backgroundApi.simpleDb.dappConnection.commitConnectionApproval(
+          let homeAccountAlignment: IHomeAccountApprovalAlignment | undefined;
+          const restoreHomeAccountAlignment = async () => {
+            if (!homeAccountAlignment) {
+              return;
+            }
+            await this.backgroundApi.simpleDb.accountSelector.restoreSelectedAccountIfCurrent(
               {
-                accountInfo,
-                accountSelectorNum,
-                afterPublish: () => {
+                expectedSelectedAccount: homeAccountAlignment.selectedAccount,
+                expectedWriteIntentEpoch: homeAccountAlignment.writeIntentEpoch,
+                previousSelectedAccount:
+                  homeAccountAlignment.previousSelectedAccount,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+              lockToken,
+            );
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          };
+          const transaction = await this.backgroundApi.simpleDb.dappConnection
+            .commitConnectionApproval({
+              accountInfo,
+              accountSelectorNum,
+              afterPublish: () => {
+                if (!isApprovalCurrent()) {
+                  return false;
+                }
+                return this.backgroundApi.servicePromise.resolveCallbackSync({
+                  id: requestId,
+                  data: accountInfo,
+                });
+              },
+              beforePublish: async (connectedAccountInfos) => {
+                if (
+                  !isApprovalCurrent() ||
+                  !(await this.isConnectionApprovalAccountAvailable(
+                    accountInfo,
+                  ))
+                ) {
+                  return false;
+                }
+                const finalizeApproval = async () => {
                   if (!isApprovalCurrent()) {
                     return false;
                   }
-                  return this.backgroundApi.servicePromise.resolveCallbackSync({
-                    id: requestId,
-                    data: accountInfo,
-                  });
-                },
-                beforePublish: async (connectedAccountInfos) => {
-                  if (
-                    !isApprovalCurrent() ||
-                    !(await this.isConnectionApprovalAccountAvailable(
+                  const accountAvailable =
+                    await this.isConnectionApprovalAccountAvailable(
                       accountInfo,
-                    ))
-                  ) {
-                    return false;
-                  }
-                  const finalizeApproval = async () => {
-                    if (!isApprovalCurrent()) {
-                      return false;
-                    }
-                    const accountAvailable =
-                      await this.isConnectionApprovalAccountAvailable(
-                        accountInfo,
-                      );
-                    // Drain cancellation messages that reached the background
-                    // while the final account lookup was in flight. After this
-                    // task boundary, the guard, cache publish, and callback
-                    // resolution run without another asynchronous gap.
-                    await new Promise<void>((resolve) => {
-                      setTimeout(resolve, 0);
-                    });
-                    return accountAvailable && isApprovalCurrent();
-                  };
-                  if (mode === 'save' || preselectKeylessProvider) {
-                    return this.syncDappAccountIfPrimaryModeInternal({
-                      accountSelectorPersistenceLockToken: lockToken,
-                      connectedAccountInfos,
-                      expectedHomeWriteIntentEpoch: homeWriteIntentEpoch,
-                      finalizeApproval,
-                      origin,
-                      shouldContinue: isApprovalCurrent,
-                    });
-                  }
-                  return finalizeApproval();
-                },
-                imageURL,
-                mode,
-                origin,
-                shouldCommit: isApprovalCurrent,
-                storageType: 'injectedProvider',
+                    );
+                  // Drain cancellation messages that reached the background
+                  // while the final account lookup was in flight. After this
+                  // task boundary, the guard, cache publish, and callback
+                  // resolution run without another asynchronous gap.
+                  await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 0);
+                  });
+                  return accountAvailable && isApprovalCurrent();
+                };
+                if (mode === 'save' || preselectKeylessProvider) {
+                  return this.syncDappAccountIfPrimaryModeInternal({
+                    accountSelectorPersistenceLockToken: lockToken,
+                    connectedAccountInfos,
+                    expectedHomeWriteIntentEpoch: homeWriteIntentEpoch,
+                    finalizeApproval,
+                    onHomeSelectionPersisted: (alignment) => {
+                      homeAccountAlignment = alignment;
+                    },
+                    origin,
+                    shouldContinue: isApprovalCurrent,
+                  });
+                }
+                return finalizeApproval();
               },
-            );
+              imageURL,
+              mode,
+              origin,
+              shouldCommit: isApprovalCurrent,
+              storageType: 'injectedProvider',
+            })
+            .catch(async (error: unknown) => {
+              await restoreHomeAccountAlignment();
+              throw error;
+            });
           if (!transaction.committed) {
+            await restoreHomeAccountAlignment();
             return {
               approved: false,
               reason: this.backgroundApi.servicePromise.hasCallback(requestId)
                 ? ('selection-changed' as const)
                 : ('request-settled' as const),
             };
+          }
+          if (homeAccountAlignment) {
+            try {
+              appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+                expectedSelectedAccount:
+                  homeAccountAlignment.expectedSelectedAccount,
+                selectedAccount: homeAccountAlignment.selectedAccount,
+              });
+            } catch {
+              // Persistence succeeded; event delivery remains best-effort.
+            }
+            setTimeout(() => {
+              void this.setIsAlignPrimaryAccountProcessing({
+                processing: false,
+              });
+            }, 200);
           }
           replacedWalletConnectTopic = transaction.replacedWalletConnectTopic;
           return { approved: true };
@@ -2261,6 +2310,7 @@ class ServiceDApp extends ServiceBase {
     connectedAccountInfos,
     expectedHomeWriteIntentEpoch,
     finalizeApproval,
+    onHomeSelectionPersisted,
     origin,
     shouldContinue,
   }: {
@@ -2268,6 +2318,9 @@ class ServiceDApp extends ServiceBase {
     connectedAccountInfos?: IConnectionAccountInfo[];
     expectedHomeWriteIntentEpoch?: number;
     finalizeApproval?: () => Promise<boolean>;
+    onHomeSelectionPersisted?: (
+      alignment: IHomeAccountApprovalAlignment,
+    ) => void;
     origin: string;
     shouldContinue?: () => boolean;
   }): Promise<boolean> {
@@ -2352,20 +2405,29 @@ class ServiceDApp extends ServiceBase {
           });
           return false;
         }
-        try {
-          appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+        if (onHomeSelectionPersisted) {
+          onHomeSelectionPersisted({
             expectedSelectedAccount: expectedHomeSelectedAccount,
+            previousSelectedAccount: homeSelectedAccount,
             selectedAccount: newSelectedAccount,
+            writeIntentEpoch: homeWriteIntentEpochAtRequest,
           });
-        } catch {
-          // Persistence succeeded; event delivery remains best-effort.
+        } else {
+          try {
+            appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+              expectedSelectedAccount: expectedHomeSelectedAccount,
+              selectedAccount: newSelectedAccount,
+            });
+          } catch {
+            // Persistence succeeded; event delivery remains best-effort.
+          }
+          // force reset processing to false after 200ms
+          setTimeout(() => {
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          }, 200);
         }
-        // force reset processing to false after 200ms
-        setTimeout(() => {
-          void this.setIsAlignPrimaryAccountProcessing({
-            processing: false,
-          });
-        }, 200);
         return true;
       }
       void this.setIsAlignPrimaryAccountProcessing({
