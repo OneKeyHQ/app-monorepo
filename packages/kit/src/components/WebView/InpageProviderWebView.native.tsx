@@ -8,8 +8,9 @@ import {
 } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
+import { Asset } from 'expo-asset';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { Image, StatusBar } from 'react-native';
+import { StatusBar } from 'react-native';
 
 import {
   Progress,
@@ -17,6 +18,7 @@ import {
   Stack,
   useKeyboardHeight,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
@@ -31,9 +33,16 @@ const injectedNativeAsset = require('./injectedNative.js.txt') as number;
 let injectedNativeCodePromise: Promise<string> | undefined;
 
 function loadInjectedNativeCode() {
-  injectedNativeCodePromise ??= readAsStringAsync(
-    Image.resolveAssetSource(injectedNativeAsset).uri,
-  );
+  injectedNativeCodePromise ??= Asset.fromModule(injectedNativeAsset)
+    .downloadAsync()
+    .then((asset) => {
+      if (!asset.localUri) {
+        throw new OneKeyLocalError(
+          'Failed to resolve the injected native asset locally',
+        );
+      }
+      return readAsStringAsync(asset.localUri);
+    });
   return injectedNativeCodePromise;
 }
 

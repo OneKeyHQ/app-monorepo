@@ -2163,11 +2163,18 @@ async function main() {
     const plannedCommonEagerAbsPaths = expandSyncDependencyClosure({
       serializedEntries: mainSerializedEntries,
       initialIncludedAbsPaths: initialCommonAbsPaths,
-      externalAbsPaths: new Set([
-        ...runtimeOwnership.mainStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
+      externalAbsPaths: new Set(
+        [...runtimeOwnership.allAbsPaths].filter(
+          (absolutePath) =>
+            !runtimeOwnership.sharedEquivalentAbsPaths.has(absolutePath),
+        ),
+      ),
     });
+    const commonExternalAbsPaths = new Set(
+      [...runtimeOwnership.allAbsPaths].filter(
+        (absolutePath) => !plannedCommonEagerAbsPaths.has(absolutePath),
+      ),
+    );
 
     const mainRemovedCommonAbsPaths = removeCommonModulesFromSegmentAllocation({
       allocation: mainAllocation,
@@ -2323,10 +2330,7 @@ async function main() {
       bundleOptions: commonBundleOptions,
       moduleToSegment: commonModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
-      externalModulePaths: new Set([
-        ...runtimeOwnership.mainStartupAbsPaths,
-        ...runtimeOwnership.bgStartupAbsPaths,
-      ]),
+      externalModulePaths: commonExternalAbsPaths,
       runtimeVariants: {
         main: mainRuntimeAsyncPaths,
         background: backgroundRuntimeAsyncPaths,
