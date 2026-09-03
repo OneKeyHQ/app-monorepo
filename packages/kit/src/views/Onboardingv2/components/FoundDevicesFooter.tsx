@@ -81,19 +81,24 @@ export function FoundDevicesFooter({
   // taps cannot start two connections.
   const connectingRef = useRef(false);
 
-  // Only an explicit row press may leave the list without a selection (the
-  // picked device dropped out, so Connect disables until the user picks
-  // again). An automatic default is committed to state so scan rounds that
-  // re-sort the list cannot move the check mark, but it follows the first row
-  // again whenever the defaulted device itself drops out.
+  // An explicit row press is remembered for the rest of the scan session: if
+  // the picked device drops out, the list shows no selection and Connect
+  // disables until the user picks again, and an empty scan round (BLE packet
+  // loss) must not downgrade that choice. A new scan session starts over with
+  // automatic following: a tab switch remounts the footer, and a restarted
+  // scan flips isScanning back on. An automatic default is committed to
+  // state so re-sorted rounds cannot move the check mark, but it follows the
+  // first row again whenever the defaulted device itself drops out.
   const isExplicitPickRef = useRef(false);
+  const wasScanningRef = useRef(isScanning);
   useEffect(() => {
-    if (devices.length === 0) {
-      // A cleared list ends the explicit pick; the next scan starts fresh.
+    if (isScanning && !wasScanningRef.current) {
       isExplicitPickRef.current = false;
-      return;
     }
-    if (isExplicitPickRef.current) {
+    wasScanningRef.current = isScanning;
+  }, [isScanning]);
+  useEffect(() => {
+    if (devices.length === 0 || isExplicitPickRef.current) {
       return;
     }
     const stillListed =
@@ -142,11 +147,8 @@ export function FoundDevicesFooter({
                   userSelect="none"
                   disabled={isConnecting}
                   onPress={() => {
-                    // Tapping the row that is already selected changes
-                    // nothing, so it must not end automatic following.
-                    if (key === selectedKey) {
-                      return;
-                    }
+                    // Every press is an explicit choice, including one on
+                    // the row that is already selected by default.
                     isExplicitPickRef.current = true;
                     setPickedKey(key);
                   }}
