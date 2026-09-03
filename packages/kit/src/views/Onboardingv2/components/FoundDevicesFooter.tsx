@@ -28,15 +28,15 @@ import {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function FoundDevicesStatus({
-  count,
+  hasDevices,
   isScanning,
 }: {
-  count: number;
+  hasDevices: boolean;
   isScanning: boolean;
 }) {
   const intl = useIntl();
 
-  if (count === 0) {
+  if (!hasDevices) {
     return (
       <XStack px="$5" alignItems="center" gap="$2">
         {isScanning ? <Spinner size="small" /> : null}
@@ -53,10 +53,7 @@ function FoundDevicesStatus({
   return (
     <SizableText px="$5" color="$textSubdued">
       {intl.formatMessage({
-        id:
-          count === 1
-            ? ETranslations.device_found__desc
-            : ETranslations.multiple_devices_found__desc,
+        id: ETranslations.select_device_to_connect__desc,
       })}
     </SizableText>
   );
@@ -101,7 +98,10 @@ export function FoundDevicesFooter({
 
   return (
     <>
-      <FoundDevicesStatus count={devices.length} isScanning={isScanning} />
+      <FoundDevicesStatus
+        hasDevices={devices.length > 0}
+        isScanning={isScanning}
+      />
       <HeightTransition initialHeight={0}>
         {devices.length > 0 ? (
           <YStack gap="$2">
