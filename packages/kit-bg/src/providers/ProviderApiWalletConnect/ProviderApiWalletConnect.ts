@@ -516,6 +516,14 @@ class ProviderApiWalletConnect {
         request: {
           scope: '$walletConnect',
           origin,
+          // This screen is the step that actually authorizes the login, so it
+          // needs the same identity attestation the proposal screen gets from
+          // `proposal.verifyContext`. ServiceDApp.openModal hoists this back
+          // onto $sourceInfo for useRiskDetection — the convention
+          // WalletConnectRequestProxy already follows for session_request.
+          data: {
+            walletConnectVerifyContext: args.verifyContext,
+          },
         },
         accountId: accountInfo.accountId,
         networkId: accountInfo.networkId,
