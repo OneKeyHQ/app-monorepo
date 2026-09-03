@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -633,6 +634,46 @@ describe('DeviceSettingsManager device adapters', () => {
       expect(result).toMatchObject({ message: 'Success', applyScreen: true });
     },
   );
+
+  test('allows an empty user upload to clear a monochrome home screen', async () => {
+    const device = buildDevice(EDeviceType.Classic);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+    jest.mocked(localDb.getDevice).mockResolvedValueOnce(device);
+    jest
+      .mocked(deviceHomeScreenUtils.isMonochromeScreen)
+      .mockReturnValueOnce(true);
+    const manager = new DeviceSettingsManager({
+      backgroundApi: {
+        serviceHardware: {
+          waitForDeviceStateSync: jest.fn(async () => undefined),
+          getDeviceState: jest.fn(async () => undefined),
+        },
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (action: () => Promise<unknown>) => action(),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const applySettingsToDevice = jest
+      .spyOn(manager, 'applySettingsToDevice')
+      .mockResolvedValue({ message: 'Success' });
+
+    const result = await manager.setDeviceHomeScreen({
+      dbDeviceId: device.id,
+      screenItem: {
+        id: 'solid-wallpaper',
+        resType: 'custom',
+        screenHex: '',
+        isUserUpload: true,
+      },
+    });
+
+    expect(applySettingsToDevice).toHaveBeenCalledWith(device.connectId, {
+      homescreen: '',
+    });
+    expect(result).toMatchObject({ message: 'Success', applyScreen: true });
+  });
 
   test.each([
     [
