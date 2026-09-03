@@ -290,3 +290,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Two retained Market detail screens share `marketSwap`. Each `useSwapStockSelectedBalanceSync` instance wrote the same atom and listed `storedBalance` as an effect dep, so write → rerender → write ping-ponged. Removing that dep stopped the loop, but the retained stock instance no longer republished on return, and an unfocused stock instance could still overwrite the current screen when its fetch completed.
 **Fix**: Keep the functional atom update (skip unchanged values) and publish only while `useRouteIsFocused()` is true, so blur stops overwrites and focus restores the current screen's balance.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: "Not loaded" vs later async updates on a retained screen; NEW — shared context atoms plus retained navigation screens need an active-owner or focus write lock, not only a skip-if-equal setter
+
+## Case: localTokens/localHistory IndexedDB blob self-heal
+**Date**: 2026-09-03 | **Platforms**: desktop (Electron/Chromium storage; web/ext share the code path)
+**Symptom**: Desktop users hit permanent SimpleDB read failures on `simple_db_v5:localTokens` / `localHistory` with `UnknownError: Failed to read large IndexedDB value` (OK-61648), blocking builder-based writes the same way as OK-59997 perp.
+**Root Cause**: Large Chromium IndexedDB values are external blobs; corruption leaves the record forever unreadable. Self-heal was opt-in and only enabled for `perp`.
+**Fix**: Made unreadable-record self-heal the SimpleDB default (`enableUnreadableRecordSelfHeal = true`, opt-out only); shared `isUnreadableStorageValueError` (`UnknownError` + message `includes`); exponential-backoff retries before delete; `defaultLogger.app.storage.simpleDbUnreadableSelfHeal` local trail for export.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — durable unreadable storage errors need a default recovery path, not per-entity opt-in

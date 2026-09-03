@@ -24,7 +24,8 @@
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "15.15.4",
+    "@tamagui/spacer": "2.7.7"
   },
   "devDependencies": {
     "@svgr/core": "8.1.0",
