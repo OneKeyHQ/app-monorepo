@@ -21517,6 +21517,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/index.tsx": 5536,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/DesktopLayout.tsx": 5537,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/MarketDetailResponsiveLayout.native.tsx": 5538,
+    "packages/kit/src/views/Market/MarketDetailV2/layouts/MarketEmbeddedSwap.tsx": 7982,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/MobileLayout.tsx": 5539,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/StockDesktopLayout.tsx": 7901,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/TokenDesktopLayout.tsx": 7902,
