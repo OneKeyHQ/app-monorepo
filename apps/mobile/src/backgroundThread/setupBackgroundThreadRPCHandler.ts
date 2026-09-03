@@ -235,10 +235,14 @@ let handleWebEmbedBridgeResponse: (
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
-  const runtimeError = error as { $isHardwareError?: unknown };
+  const runtimeError = error as
+    | { $isHardwareError?: unknown }
+    | null
+    | undefined;
   const {
     constructorName: _constructorName,
     data,
+    stack: _stack,
     ...plainError
   } = toPlainErrorObject(error);
   const errorPayload: IBackgroundThreadResponseErrorPayload = {
@@ -246,7 +250,7 @@ function buildErrorPayload(error: unknown) {
     name: plainError.name || 'BackgroundThreadError',
     message: plainError.message || 'Unknown background thread error',
   };
-  if (runtimeError.$isHardwareError === true) {
+  if (runtimeError?.$isHardwareError === true) {
     errorPayload.$isHardwareError = true;
   }
   const safeData = buildSafeBackgroundThreadErrorData(data);

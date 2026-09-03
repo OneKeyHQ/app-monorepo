@@ -147,13 +147,35 @@ describe('background thread RPC handler', () => {
     dispatchServiceRequest('info');
     await flushRequest();
 
-    expect(getResponse('info')).toMatchObject({
+    const response = getResponse('info');
+    expect(response).toMatchObject({
       ok: false,
       error: {
         message: 'Incorrect PIN entered',
         className: 'IncorrectPinError',
         info: { guessesRemaining: 4 },
         reconnect: false,
+      },
+    });
+    expect(response).not.toHaveProperty('error.stack');
+  });
+
+  it('serializes a nullish rejection without falling back', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    // Third-party and native APIs can reject without an Error object.
+    // oxlint-disable-next-line prefer-promise-reject-errors
+    setBackgroundThreadRequestExecutor(() => Promise.reject(undefined));
+    mockSharedRPCWrite.mockClear();
+
+    dispatchServiceRequest('undefined-error');
+    await flushRequest();
+
+    expect(getResponse('undefined-error')).toEqual({
+      ok: false,
+      error: {
+        name: 'UnknownEmptyError',
+        message: 'Unknown empty error',
       },
     });
   });
