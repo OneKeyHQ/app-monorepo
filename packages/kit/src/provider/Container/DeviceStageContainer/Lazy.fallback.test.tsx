@@ -42,6 +42,19 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDeviceStageAtom: () => [mockStage],
 }));
 
+let mockVisible = true;
+let mockVisibilityListener: ((visible: boolean) => void) | undefined;
+
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => mockVisible,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListener = listener;
+    return () => {
+      mockVisibilityListener = undefined;
+    };
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     hardware: {
@@ -74,6 +87,8 @@ describe('DeviceStageContainerLazy chunk load fallback', () => {
     mockLoadAttempts = 0;
     mockLoadErrorMessage = 'mock DeviceStage chunk load failure';
     mockStage = undefined;
+    mockVisible = true;
+    mockVisibilityListener = undefined;
   });
 
   afterEach(() => {
@@ -138,6 +153,42 @@ describe('DeviceStageContainerLazy chunk load fallback', () => {
       connectId: 'connect-id-3',
       skipDeviceCancel: false,
     });
+  });
+
+  it('holds the retry while backgrounded and spends it on foreground', async () => {
+    // A backgrounded retry is the suspend false-positive the native segment
+    // loader's budget must not be spent on — and the attempt after it cancels
+    // the device call.
+    mockVisible = false;
+    mockLoadErrorMessage = 'Loading chunk 42 failed.';
+    mockStage = {
+      step: 'processing',
+      connectId: 'connect-id-4',
+    } as IDeviceStageState;
+    render(<DeviceStageContainerLazy />);
+
+    await flush();
+    expect(mockLoadAttempts).toBe(1);
+    expect(mockVisibilityListener).toBeDefined();
+
+    // Time alone must not buy an attempt while the app is away.
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    await flush();
+    expect(mockLoadAttempts).toBe(1);
+    expect(mockDeviceStageUserClose).not.toHaveBeenCalled();
+
+    // Coming back arms the backoff, and only then does the attempt run.
+    mockVisible = true;
+    act(() => {
+      mockVisibilityListener?.(true);
+    });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    await flush();
+    expect(mockLoadAttempts).toBe(2);
   });
 
   it('stays silent when the warm-up load fails with no burst waiting', async () => {
