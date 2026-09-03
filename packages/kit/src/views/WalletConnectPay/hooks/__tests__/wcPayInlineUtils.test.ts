@@ -1250,9 +1250,135 @@ describe('review-hardening: unlimited threshold and displayability', () => {
     }
   });
 
+  it('refuses format, private-use, unassigned and filler characters', () => {
+    // Each of these renders as nothing in the sheet, so its bytes would be
+    // signed without ever being shown: the soft hyphen, the Arabic letter
+    // mark (a bidi control the enumerated set missed), the Mongolian vowel
+    // separator, the tag block, a private-use code point, a non-character,
+    // and the Hangul fillers (letters by category, blank on screen).
+    const poisons = [
+      '\u00AD',
+      '\u061C',
+      '\u180E',
+      '\u{E0001}',
+      '\u{E0041}',
+      '\uE000',
+      '\uFFFE',
+      '\u115F',
+      '\u3164',
+      '\uFFA0',
+    ];
+    for (const poison of poisons) {
+      const text = `Pay 10 USDC${poison}to merchant`;
+      const hex = `0x${Buffer.from(text, 'utf8').toString('hex')}`;
+      const action: IWcPayAction = {
+        walletRpc: {
+          chainId: 'eip155:8453',
+          method: 'personal_sign',
+          params: JSON.stringify([hex, SENDER]),
+        },
+      };
+      expect(
+        getWcPayInlinePersonalSignPlan({
+          action,
+          option,
+          accountAddress: SENDER,
+        }),
+      ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
+    }
+  });
+
+  it('refuses a message whose signed bytes exceed its visible text', () => {
+    // The visible line is a benign sign-in; an authorization rides behind
+    // it in tag characters, which decode losslessly and round-trip, so only
+    // the character class can catch that the signed bytes are a strict
+    // superset of what the sheet shows.
+    const visible = 'Sign in to pay.walletconnect.com';
+    const smuggled = Array.from('I authorize a transfer', (char) =>
+      String.fromCodePoint(0xe_00_00 + char.charCodeAt(0)),
+    ).join('');
+    const hex = `0x${Buffer.from(visible + smuggled, 'utf8').toString('hex')}`;
+    const action: IWcPayAction = {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'personal_sign',
+        params: JSON.stringify([hex, SENDER]),
+      },
+    };
+    expect(
+      getWcPayInlinePersonalSignPlan({
+        action,
+        option,
+        accountAddress: SENDER,
+      }),
+    ).toEqual({ mode: 'fallback', reason: 'undisplayable message' });
+  });
+
+  it('refuses blank-line and whitespace padding that hides the tail', () => {
+    const plan = (text: string) =>
+      getWcPayInlinePersonalSignPlan({
+        action: {
+          walletRpc: {
+            chainId: 'eip155:8453',
+            method: 'personal_sign',
+            params: JSON.stringify([text, SENDER]),
+          },
+        },
+        option,
+        accountAddress: SENDER,
+      });
+    // padding pushes the authorization below the sheet's bounded viewport
+    // while the head reads as the whole message
+    for (const padded of [
+      `Order #123${'\n'.repeat(200)}I authorize a transfer`,
+      'Order #123\n \n \nI authorize a transfer',
+      `Order #123${' '.repeat(64)}I authorize a transfer`,
+      `Order #123${'\t'.repeat(40)}I authorize a transfer`,
+      `Order #123${'\u3000'.repeat(40)}I authorize a transfer`,
+    ]) {
+      expect(plan(padded)).toEqual({
+        mode: 'fallback',
+        reason: 'undisplayable message',
+      });
+    }
+    // sign-in style single blank lines and modest column alignment are content
+    const legit =
+      'pay.walletconnect.com wants you to sign in\n\nURI: https://pay.walletconnect.com\r\nAmount:          10 USDC\n\nNonce: 8f2a';
+    expect(plan(legit)).toEqual({
+      mode: 'inline',
+      summary: { text: legit },
+      message: legit,
+    });
+  });
+
+  it('keeps emoji and CJK text displayable', () => {
+    // the category switch must not start refusing ordinary international
+    // text: letters, symbols, an emoji with a variation selector, a skin
+    // tone modifier and a regional-indicator flag all render
+    const text =
+      '支付订单 #123 ¡Gracias! Ünïcödé ☕\uFE0F \u{1F44D}\u{1F3FB} \u{1F1FA}\u{1F1F8}';
+    const hex = `0x${Buffer.from(text, 'utf8').toString('hex')}`;
+    const action: IWcPayAction = {
+      walletRpc: {
+        chainId: 'eip155:8453',
+        method: 'personal_sign',
+        params: JSON.stringify([hex, SENDER]),
+      },
+    };
+    expect(
+      getWcPayInlinePersonalSignPlan({
+        action,
+        option,
+        accountAddress: SENDER,
+      }),
+    ).toEqual({ mode: 'inline', summary: { text }, message: hex });
+  });
+
   it('sanitizeWcPayDisplayText strips forbidden characters and bounds length', () => {
     const poisoned = `USD${String.fromCharCode(0x20_2e)}C`;
     expect(sanitizeWcPayDisplayText(poisoned, 12)).toBe('USDC');
+    // a soft hyphen and a tag-block letter are as invisible as a bidi mark
+    expect(sanitizeWcPayDisplayText('US\u00ADD\u{E0041}C', 12)).toBe('USDC');
     expect(sanitizeWcPayDisplayText('A'.repeat(20), 12)).toBe(
       `${'A'.repeat(12)}…`,
     );

@@ -398,6 +398,8 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
   /**
    * Drop stored results from `fromIndex` on (used when a recorded
    * transaction turns out reverted on chain and can never be resumed).
+   * Throws, with the record left untouched, when the retained prefix cannot
+   * be rewritten; only an explicit `fromIndex: 0` removes the whole record.
    */
   async truncateActionResults({
     paymentId,
@@ -439,16 +441,17 @@ export class SimpleDbEntityWalletConnectPay extends SimpleDbEntityBase<ISimpleDb
       await this.removeProgressByKeys([key], { strictCiphertext: true });
       return;
     }
-    try {
-      await appStorage.secureStorage.setSecureItem(
-        buildSecurePayloadKey(key),
-        JSON.stringify(kept),
-      );
-    } catch {
-      // stale longer progress must not survive a discard request
-      await this.removeProgressByKeys([key], { strictCiphertext: true });
-      return;
-    }
+    // A failed prefix rewrite leaves the LONGER record in place, and that is
+    // the safe failure: the retained head may hold txids already on chain,
+    // and deleting the whole record here would let the next attempt start
+    // from action zero and broadcast a settled leg again. The stale tail
+    // only costs a re-probe on resume (the mined-wait / phantom-txid checks
+    // judge it again and land back here), so the storage failure propagates
+    // to the caller instead of being traded for a deletion.
+    await appStorage.secureStorage.setSecureItem(
+      buildSecurePayloadKey(key),
+      JSON.stringify(kept),
+    );
     await this.setRawData((rawData) => {
       const progress = { ...rawData?.progress };
       if (progress[key]) {

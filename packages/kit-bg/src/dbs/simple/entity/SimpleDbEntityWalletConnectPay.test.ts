@@ -87,3 +87,89 @@ describe('SimpleDbEntityWalletConnectPay.readSecureEntries verdicts', () => {
     expect(verdict.status).toBe('ok');
   });
 });
+
+describe('SimpleDbEntityWalletConnectPay.truncateActionResults', () => {
+  const params = {
+    paymentId: 'payment',
+    optionId: 'option',
+    accountKey: 'account',
+  };
+  // a mined first leg followed by the leg a later probe found reverted
+  const entries = [
+    {
+      fingerprint: 'f0',
+      result: '0xtxid-mined',
+      broadcastMeta: { sender: '0xabc', nonce: 7 },
+    },
+    { fingerprint: 'f1', result: '0xtxid-reverted' },
+  ];
+
+  // property-typed view of the mock so its functions can be handed to
+  // expect() without tripping unbound-method (the storage interface declares
+  // them as methods)
+  const secureStorageMock = appStorage.secureStorage as unknown as Record<
+    'getSecureItem' | 'setSecureItem' | 'removeSecureItem',
+    jest.Mock
+  >;
+
+  function buildEntity() {
+    const entity = new SimpleDbEntityWalletConnectPay();
+    const setRawData = jest
+      .spyOn(entity, 'setRawData')
+      .mockResolvedValue({ progress: {} });
+    return { entity, setRawData };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('keeps the whole record when the retained prefix cannot be rewritten', async () => {
+    // Deleting the record here would erase the mined leg's txid, and the
+    // next attempt would start from action zero and broadcast it again. A
+    // surviving stale tail only costs a re-probe on resume.
+    const { entity, setRawData } = buildEntity();
+    mockSecureStorage.getSecureItem.mockResolvedValueOnce(
+      JSON.stringify(entries),
+    );
+    const writeFailure = new Error('keychain write failed');
+    mockSecureStorage.setSecureItem.mockRejectedValueOnce(writeFailure);
+
+    await expect(
+      entity.truncateActionResults({ ...params, fromIndex: 1 }),
+    ).rejects.toBe(writeFailure);
+
+    expect(secureStorageMock.removeSecureItem).not.toHaveBeenCalled();
+    expect(setRawData).not.toHaveBeenCalled();
+  });
+
+  it('rewrites only the retained prefix on a mid-sequence discard', async () => {
+    const { entity, setRawData } = buildEntity();
+    mockSecureStorage.getSecureItem.mockResolvedValueOnce(
+      JSON.stringify(entries),
+    );
+    mockSecureStorage.setSecureItem.mockResolvedValueOnce(undefined);
+
+    await entity.truncateActionResults({ ...params, fromIndex: 1 });
+
+    expect(secureStorageMock.setSecureItem).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.parse(secureStorageMock.setSecureItem.mock.calls[0][1] as string),
+    ).toEqual([entries[0]]);
+    expect(secureStorageMock.removeSecureItem).not.toHaveBeenCalled();
+    expect(setRawData).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes the whole record only for an explicit fromIndex 0 discard', async () => {
+    const { entity } = buildEntity();
+    mockSecureStorage.getSecureItem.mockResolvedValueOnce(
+      JSON.stringify(entries),
+    );
+    mockSecureStorage.removeSecureItem.mockResolvedValueOnce(undefined);
+
+    await entity.truncateActionResults({ ...params, fromIndex: 0 });
+
+    expect(secureStorageMock.setSecureItem).not.toHaveBeenCalled();
+    expect(secureStorageMock.removeSecureItem).toHaveBeenCalledTimes(1);
+  });
+});

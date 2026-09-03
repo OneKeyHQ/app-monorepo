@@ -142,6 +142,17 @@ export const WC_PAY_MAX_ACTIONS_PER_SEQUENCE = 8;
  */
 export const WC_PAY_MAX_INLINE_APPROVES_PER_SEQUENCE = 1;
 
+/**
+ * How many personal_sign signatures a sequence may inline. A message
+ * signature is not a spend (it moves nothing on its own) so it stays outside
+ * the spend budget — but without a bound of its own a hostile sequence could
+ * sign out one arbitrary EIP-191 message per remaining action slot, each
+ * shown for the display dwell only and never clicked: sign-in challenges
+ * and off-chain authorizations, not payment artifacts. A legitimate payment
+ * needs at most one.
+ */
+export const WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE = 1;
+
 // Failure stages of the inline pipeline. The stage — not the error content —
 // drives classification, so the mapping stays stable across vault/RPC error
 // shapes (design doc §7).
@@ -637,17 +648,29 @@ export const WC_PAY_PERSONAL_SIGN_MAX_BYTES = 4096;
 export const WC_PAY_PERSONAL_SIGN_MIN_DISPLAY_MS = 1500;
 
 // Characters that would let the rendered text lie about what is being
-// signed: C0/C1 controls and DEL (cursor tricks, bells, embedded nulls;
-// only \n \r \t are legitimate), zero-width characters and direction
-// marks (U+200B-200F), line/paragraph separators (U+2028/29), bidi
-// embedding and override controls (U+202A-202E), invisible operators and
-// bidi isolates (U+2060-2069), and the BOM (U+FEFF) - a bidi override
-// alone can visually reorder a payment instruction in the trusted sheet
-// while those exact bytes are signed.
+// signed. Enumerated: C0/C1 controls and DEL (cursor tricks, bells,
+// embedded nulls; only \n \r \t are legitimate), the line/paragraph
+// separators (U+2028/29) and the Hangul fillers (U+115F/1160/3164/FFA0 -
+// letters by category, blank on screen). By Unicode category, so the set
+// cannot miss a member the way an enumeration did (U+061C, the tag block):
+// Cf is every format character - zero-width and direction marks, bidi
+// embedding/override/isolate controls, the soft hyphen, invisible
+// operators, the BOM and the U+E0000 tag block; Co/Cs/Cn are private-use,
+// surrogate and unassigned code points, which no font renders. A bidi
+// override alone can visually reorder a payment instruction in the trusted
+// sheet while those exact bytes are signed, and a tag-block suffix is
+// signed without ever being shown.
 /* eslint-disable no-control-regex */
 const PERSONAL_SIGN_FORBIDDEN_CHARS_RE =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u2069\uFEFF]/u;
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029\u115F\u1160\u3164\uFFA0\p{Cf}\p{Co}\p{Cs}\p{Cn}]/u;
 /* eslint-enable no-control-regex */
+
+// Padding that pushes the tail of a message below the sheet's bounded
+// viewport while the head reads as the whole message: three or more line
+// breaks in a row (two blank lines - the single blank line sign-in
+// messages use is content) or a run of 32+ horizontal spaces (any Unicode
+// space separator or tab; column alignment never needs that many).
+const PERSONAL_SIGN_PADDING_RE = /(?:\r?\n[\p{Zs}\t]*){3,}|[\p{Zs}\t]{32,}/u;
 
 /**
  * Strips the forbidden display characters above and bounds the length, for
@@ -673,7 +696,8 @@ export function sanitizeWcPayDisplayText(
  * The human-readable decode of a normalized personal_sign message, or
  * undefined when the sheet could not faithfully render it: a hex payload
  * that is not valid UTF-8 (lossy decode or a non-round-tripping one),
- * embedded control characters, or nothing but whitespace.
+ * embedded control or invisible characters, padding that hides its tail,
+ * or nothing but whitespace.
  */
 function decodeWcPayPersonalSignText(message: string): string | undefined {
   let text = message;
@@ -700,6 +724,9 @@ function decodeWcPayPersonalSignText(message: string): string | undefined {
   if (PERSONAL_SIGN_FORBIDDEN_CHARS_RE.test(text)) {
     return undefined;
   }
+  if (PERSONAL_SIGN_PADDING_RE.test(text)) {
+    return undefined;
+  }
   if (!text.trim()) {
     return undefined;
   }
@@ -719,7 +746,9 @@ function decodeWcPayPersonalSignText(message: string): string | undefined {
  * so the displayed text and the signed bytes cannot diverge.
  *
  * Never a spend: the executor must not charge this against the sequence
- * spend budget — a signed message moves nothing on its own.
+ * spend budget — a signed message moves nothing on its own. It is bounded
+ * separately (WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE), which the
+ * executor enforces at the attempt.
  *
  * Must never throw — `action` crosses a trust boundary (server response).
  */

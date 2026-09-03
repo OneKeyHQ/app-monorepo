@@ -14,6 +14,7 @@ import type {
 import {
   WC_PAY_INLINE_APPROVE_BUDGET_REASON,
   WC_PAY_INLINE_BUDGET_REASON,
+  WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
   useWcPayActionExecutor,
 } from '../useWcPayActionExecutor';
 import {
@@ -2098,6 +2099,57 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
     expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
     expect(pushModalMock).not.toHaveBeenCalled();
     expect(signatures).toEqual(['0xsig-personal-inline', '0xinline']);
+  });
+
+  // A message signature is outside the spend budget but bounded on its own
+  // (WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE): without that, a hostile
+  // sequence could sign out one arbitrary EIP-191 message per action slot,
+  // each shown for the dwell only and never clicked.
+  it('inlines only the first personal_sign of a sequence', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [personalSignAction, personalSignAction],
+      accountId: 'account-1',
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSignPersonalMessage).toHaveBeenCalledTimes(1);
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual([
+      '0xsig-personal-inline',
+      '0xsig-personal-modal',
+    ]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("counts a resumed run's completed personal_sign against the budget", async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    const signatures = await result.current.executeActions({
+      actions: [personalSignAction, personalSignAction],
+      accountId: 'account-1',
+      // signed in an earlier run, possibly inline: nothing records how
+      completedResults: ['0xsig-earlier'],
+      option,
+      inlineController: buildController(),
+    });
+
+    expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    expect(signatures).toEqual(['0xsig-earlier', '0xsig-personal-modal']);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'wcPay inline fallback',
+      WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
+    );
+    errorSpy.mockRestore();
   });
 });
 

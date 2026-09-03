@@ -45,6 +45,7 @@ import { wcPayInlineSignSolanaTx } from './wcPayInlineSignSolana';
 import {
   WC_PAY_MAX_ACTIONS_PER_SEQUENCE,
   WC_PAY_MAX_INLINE_APPROVES_PER_SEQUENCE,
+  WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE,
   WC_PAY_MAX_INLINE_SPENDS_PER_SEQUENCE,
   WC_PAY_PERMIT_MAX_DEADLINE_S,
   WcPayUserCancelledError,
@@ -80,6 +81,10 @@ export const WC_PAY_INLINE_BUDGET_REASON = 'inline spend budget exhausted';
 export const WC_PAY_INLINE_APPROVE_BUDGET_REASON =
   'inline approve budget exhausted';
 
+// The personal_sign counterpart (WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE).
+export const WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON =
+  'inline personal-sign budget exhausted';
+
 /**
  * How many inline-eligible spends a resumed run must consider already made.
  *
@@ -107,7 +112,8 @@ function countWcPayCompletedInlineSpends({
     }
     // Only the transfer kind is a spend: a completed approve enabled a later
     // permit but moved nothing, and personal_sign is not listed above for
-    // the same reason — neither may consume the budget of a resumed run.
+    // the same reason — neither may consume the SPEND budget of a resumed
+    // run; each is seeded into a budget of its own below.
     const plan = getWcPayInlineTxPlan({ action, option });
     return plan.mode === 'inline' && plan.kind === 'transfer';
   }).length;
@@ -129,6 +135,22 @@ function countWcPayCompletedInlineApproves({
     const plan = getWcPayInlineTxPlan({ action, option });
     return plan.mode === 'inline' && plan.kind === 'approve';
   }).length;
+}
+
+/**
+ * Fail-closed seeding for the personal_sign budget. Nothing in the stored
+ * progress records how a completed message was signed, and the display gate
+ * cannot be re-run here (its verdict needs the signing address, which is
+ * resolved per action inside the loop), so every completed personal_sign
+ * counts: over-counting only costs a confirm page, under-counting would
+ * hand a resumed sequence a second headless signature.
+ */
+function countWcPayCompletedInlinePersonalSigns(
+  completedActions: IWcPayAction[],
+): number {
+  return completedActions.filter(
+    (action) => action?.walletRpc?.method === EWcPayActionMethod.PersonalSign,
+  ).length;
 }
 
 // small pause so a finished confirm modal fully dismisses before the next one
@@ -569,6 +591,27 @@ export function useWcPayActionExecutor() {
           return false;
         }
         inlinedApproves += 1;
+        return true;
+      };
+      // The personal_sign budget, same consumption rule: taken at the
+      // attempt. Outside the spend budget (a signature moves nothing) but
+      // bounded on its own, or a hostile sequence could sign out one
+      // arbitrary message per remaining action slot with no click anywhere
+      // in the pipeline.
+      let inlinedPersonalSigns = countWcPayCompletedInlinePersonalSigns(
+        actions.slice(0, effectiveStartIndex),
+      );
+      const takeInlinePersonalSign = () => {
+        if (
+          inlinedPersonalSigns >= WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE
+        ) {
+          console.error(
+            'wcPay inline fallback',
+            WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
+          );
+          return false;
+        }
+        inlinedPersonalSigns += 1;
         return true;
       };
 
@@ -1115,14 +1158,22 @@ export function useWcPayActionExecutor() {
             // exists for an arbitrary message, so display IS the contract —
             // anything the gate refuses goes to the confirm page, whose
             // raw/hex rendering has no such constraint. Never a spend: the
-            // budget is not consulted. Same bookkeeping as the typed-data
-            // branch; nothing here broadcasts.
+            // spend budget is not consulted, but the leg is bounded on its
+            // own (one headless signature per sequence, taken at the
+            // attempt like every other inline budget). Same bookkeeping as
+            // the typed-data branch; nothing here broadcasts.
             if (inlineController && option) {
-              const plan = getWcPayInlinePersonalSignPlan({
+              let plan = getWcPayInlinePersonalSignPlan({
                 action: actions[i],
                 option,
                 accountAddress: account.address,
               });
+              if (plan.mode === 'inline' && !takeInlinePersonalSign()) {
+                plan = {
+                  mode: 'fallback',
+                  reason: WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
+                };
+              }
               if (plan.mode === 'fallback') {
                 // parity with the other branches: a gate demotion must be
                 // visible on a device (the confirm push itself is silent)
