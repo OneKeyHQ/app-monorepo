@@ -5,7 +5,6 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +19,11 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
+import {
+  getNetworkIdByShareName,
+  getShareNameByNetworkId,
+  getShareNetworkParam,
+} from './utils/earnShareNetworkUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
@@ -30,22 +34,6 @@ type IEarnHomeTab = NonNullable<IEarnHomeParams['tab']>;
 
 const DEFAULT_EARN_HOME_TAB: IEarnHomeTab = 'assets';
 const EARN_HOME_TABS = new Set<IEarnHomeTab>(['assets', 'portfolio', 'faqs']);
-
-const NetworkNameToIdMap: Record<string, string> = {
-  ethereum: getNetworkIdsMap().eth,
-  btc: getNetworkIdsMap().btc,
-  sui: getNetworkIdsMap().sui,
-  solana: getNetworkIdsMap().sol,
-  aptos: getNetworkIdsMap().apt,
-  cosmos: getNetworkIdsMap().cosmoshub,
-  sbtc: getNetworkIdsMap().sbtc,
-  bsc: getNetworkIdsMap().bsc,
-  base: getNetworkIdsMap().base,
-};
-
-const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
-  Object.entries(NetworkNameToIdMap).map(([name, id]) => [id, name]),
-);
 
 function getEarnTargetTab() {
   return platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Earn;
@@ -132,19 +120,13 @@ function persistNativeEarnHomeTab(tab: IEarnHomeTab) {
 
 export const EarnNetworkUtils = {
   // convert network name to network id
-  getNetworkIdByName(networkName: string): string | undefined {
-    return NetworkNameToIdMap[networkName.toLowerCase()];
-  },
+  getNetworkIdByName: getNetworkIdByShareName,
 
   // convert network id to network name
-  getNetworkNameById(networkId: string): string | undefined {
-    return NetworkIdToNameMap[networkId];
-  },
+  getNetworkNameById: getShareNameByNetworkId,
 
   // generate share link network param
-  getShareNetworkParam(networkId: string): string {
-    return this.getNetworkNameById(networkId) || 'unknown';
-  },
+  getShareNetworkParam,
 };
 
 export async function safePushToEarnRoute(

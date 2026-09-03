@@ -1,5 +1,16 @@
 /* eslint-disable import/first */
 
+// The one-time DeFi risk disclaimer (OK-59196) gates every borrow trade hook.
+// Accept it by default here; the rejection path has its own test.
+const mockEnsureRiskAccepted = jest.fn(async () => true);
+jest.mock(
+  '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog',
+  () => ({
+    __esModule: true,
+    useEarnRiskWarningGate: () => mockEnsureRiskAccepted,
+  }),
+);
+
 jest.mock('react-intl', () => {
   const actualReactIntl =
     jest.requireActual<typeof import('react-intl')>('react-intl');
@@ -155,6 +166,8 @@ const approveTarget: IManagePositionApproveTarget = {
 
 describe('useBorrowApproveAndSubmit', () => {
   beforeEach(() => {
+    // Only the call log; the default "accepted" implementation stays.
+    mockEnsureRiskAccepted.mockClear();
     mockBag.allowance = '0';
     mockBag.loadingAllowance = false;
     mockBag.fetchAllowanceResponse.mockReset();
@@ -243,5 +256,97 @@ describe('useBorrowApproveAndSubmit', () => {
     expect(onBeforeNavigateConfirm).not.toHaveBeenCalled();
     expect(mockBag.navigationToTxConfirm).not.toHaveBeenCalled();
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  describe('risk disclaimer gate (OK-59196)', () => {
+    it('stops before any on-chain step when the disclaimer is declined', async () => {
+      mockEnsureRiskAccepted.mockResolvedValueOnce(false);
+      const onBeforeNavigateConfirm = jest.fn();
+      const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+      const { result } = renderHook(() =>
+        useBorrowApproveAndSubmit({
+          providerName: 'aave_v3',
+          tokenSymbol: 'USDC',
+          approveTarget,
+          currentAllowance: '0',
+          amountValue: '10',
+          onSubmit,
+          onBeforeNavigateConfirm,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onApprove();
+      });
+
+      expect(mockEnsureRiskAccepted).toHaveBeenCalledWith({
+        provider: 'aave_v3',
+        symbol: 'USDC',
+        networkId: approveTarget.networkId,
+      });
+      // Nothing started: no allowance fetch, no confirm page, and — crucially —
+      // the approve spinner was never taken, so the button is still usable.
+      expect(mockBag.fetchAllowanceResponse).not.toHaveBeenCalled();
+      expect(onBeforeNavigateConfirm).not.toHaveBeenCalled();
+      expect(mockBag.navigationToTxConfirm).not.toHaveBeenCalled();
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(result.current.approveLoading).toBe(false);
+    });
+
+    it('proceeds once the disclaimer is accepted', async () => {
+      const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+      const { result } = renderHook(() =>
+        useBorrowApproveAndSubmit({
+          providerName: 'aave_v3',
+          tokenSymbol: 'USDC',
+          approveTarget,
+          currentAllowance: '0',
+          amountValue: '10',
+          onSubmit,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onApprove();
+      });
+
+      expect(mockBag.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens a single approval when the button is tapped twice while the disclaimer is being read', async () => {
+      // The gate is a bg round-trip, and `approveLoading` only disables the
+      // button on the next render, so without a synchronous lock both taps get
+      // through and two approvals are sent.
+      let releaseGate: (accepted: boolean) => void = () => {};
+      mockEnsureRiskAccepted.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          releaseGate = resolve;
+        }),
+      );
+      const onSubmit = jest.fn().mockResolvedValue(undefined);
+
+      const { result } = renderHook(() =>
+        useBorrowApproveAndSubmit({
+          providerName: 'aave_v3',
+          tokenSymbol: 'USDC',
+          approveTarget,
+          currentAllowance: '0',
+          amountValue: '10',
+          onSubmit,
+        }),
+      );
+
+      await act(async () => {
+        const first = result.current.onApprove();
+        const second = result.current.onApprove();
+        releaseGate(true);
+        await Promise.all([first, second]);
+      });
+
+      expect(mockEnsureRiskAccepted).toHaveBeenCalledTimes(1);
+      expect(mockBag.navigationToTxConfirm).toHaveBeenCalledTimes(1);
+    });
   });
 });
