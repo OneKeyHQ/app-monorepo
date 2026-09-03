@@ -23558,6 +23558,7 @@
     "packages/shared/src/polyfills/polyfillsPlatform.js": 7540,
     "packages/shared/src/polyfills/reactCreateElementShim.ts": 7541,
     "packages/shared/src/polyfills/requestIdleCallbackShim.ts": 7542,
+    "packages/shared/src/polyfills/runtimeCapabilities.ts": 7979,
     "packages/shared/src/polyfills/setimmediateShim.ts": 7543,
     "packages/shared/src/polyfills/walletConnectCompact/index.native.js": 7544,
     "packages/shared/src/referralCode/creationRecordUtils.ts": 7545,

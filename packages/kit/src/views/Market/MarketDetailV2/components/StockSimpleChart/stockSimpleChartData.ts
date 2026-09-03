@@ -77,7 +77,7 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
 
 const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1H': '1m',
-  '1D': '30m',
+  '1D': '15m',
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',

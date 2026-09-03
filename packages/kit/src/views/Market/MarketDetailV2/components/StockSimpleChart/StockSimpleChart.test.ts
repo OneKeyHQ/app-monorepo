@@ -116,7 +116,7 @@ describe('fetchStockSimpleChartPoints', () => {
     expect(serviceMarketV2.fetchMarketTokenKline.mock.calls).toEqual([
       [
         {
-          interval: '30m',
+          interval: '15m',
           networkId: 'evm--1',
           tokenAddress: '0xaapl',
           timeFrom: nowSeconds - 24 * 60 * 60,
@@ -157,7 +157,7 @@ describe('fetchStockSimpleChartPoints', () => {
 
     expect(serviceMarketAsset.fetchMarketAssetKline).toHaveBeenCalledWith({
       assetId: 'doge',
-      interval: '30m',
+      interval: '15m',
       timeFrom: nowSeconds - 24 * 60 * 60,
       timeTo: nowSeconds,
       currency: 'usd',

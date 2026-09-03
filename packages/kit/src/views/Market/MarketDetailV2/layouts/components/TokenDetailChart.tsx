@@ -79,6 +79,7 @@ export function TokenDetailChart({
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
+  const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
@@ -113,7 +114,9 @@ export function TokenDetailChart({
                   borderRadius="$full"
                   onPress={() => setRange(item)}
                 >
-                  {item}
+                  {item === 'All'
+                    ? intl.formatMessage({ id: ETranslations.global_all })
+                    : item}
                 </Button>
               ))}
             </XStack>
