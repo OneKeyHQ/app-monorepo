@@ -88,7 +88,12 @@ export function FoundDevicesFooter({
   // again whenever the defaulted device itself drops out.
   const isExplicitPickRef = useRef(false);
   useEffect(() => {
-    if (devices.length === 0 || isExplicitPickRef.current) {
+    if (devices.length === 0) {
+      // A cleared list ends the explicit pick; the next scan starts fresh.
+      isExplicitPickRef.current = false;
+      return;
+    }
+    if (isExplicitPickRef.current) {
       return;
     }
     const stillListed =
@@ -137,6 +142,11 @@ export function FoundDevicesFooter({
                   userSelect="none"
                   disabled={isConnecting}
                   onPress={() => {
+                    // Tapping the row that is already selected changes
+                    // nothing, so it must not end automatic following.
+                    if (key === selectedKey) {
+                      return;
+                    }
                     isExplicitPickRef.current = true;
                     setPickedKey(key);
                   }}
