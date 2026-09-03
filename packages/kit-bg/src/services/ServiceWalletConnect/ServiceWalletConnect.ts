@@ -256,8 +256,15 @@ class ServiceWalletConnect extends ServiceBase {
         notSupported.push(key);
         continue;
       }
+      // getWcChainInfo throws on a chain string without a CAIP-2 colon
+      // instead of returning undefined. A malformed `chains` entry -- the
+      // dApp's proposal payload, not validated before this point -- must
+      // still resolve to "not supported" rather than take down the handler
+      // this runs in before it reaches its own try/catch.
       const chainInfos = await Promise.all(
-        entryChains.map((chain) => this.getWcChainInfo(chain)),
+        entryChains.map((chain) =>
+          chain.includes(':') ? this.getWcChainInfo(chain) : undefined,
+        ),
       );
       if (chainInfos.every((info) => !info)) {
         notSupported.push(key);
