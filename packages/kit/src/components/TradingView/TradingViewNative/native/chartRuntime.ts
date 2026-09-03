@@ -14,6 +14,7 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export interface ITradingViewNativeChartSize {
@@ -41,6 +42,7 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
     startOffset: number;
     startZoomScale: number;
   };
+  pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisScaleGesture: {
     chartHeight: number;
     startScale: number;
@@ -105,6 +107,7 @@ export function createTradingViewNativeChartRuntime({
       startOffset: 0,
       startZoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
     },
+    pinnedPriceRange: null,
     priceAxisScaleGesture: {
       chartHeight: 0,
       startScale: 1,

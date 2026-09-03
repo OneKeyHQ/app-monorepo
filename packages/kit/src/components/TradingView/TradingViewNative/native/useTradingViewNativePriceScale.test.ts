@@ -78,10 +78,14 @@ describe('useTradingViewNativePriceScale', () => {
       currentPriceLabel: '',
       hasVolume: false,
       indicatorSeries: [],
-      points: [],
+      points: [
+        { c: 12, h: 15, l: 10, o: 11, t: 1, v: 1 },
+        { c: 18, h: 20, l: 14, o: 15, t: 2, v: 1 },
+      ],
       subIndicatorPanes: [],
     });
     runtime.crosshair = { visible: true, x: 10, y: 20 };
+    runtime.priceRangeScale = 2;
     runtime.size = { height: 300, width: 360 };
     const chartRuntime = createMockSharedValue(runtime);
     const { result } = renderHook(() =>
@@ -104,14 +108,18 @@ describe('useTradingViewNativePriceScale', () => {
       result.current.handleAutoScalePress();
     });
     expect(result.current.isAutoScale).toBe(false);
-    expect(chartRuntime.value.priceRangeScale).toBe(1);
+    expect(chartRuntime.value.pinnedPriceRange).toEqual({
+      maxPrice: 20,
+      minPrice: 10,
+    });
+    expect(chartRuntime.value.priceRangeScale).toBe(2);
     expect(chartRuntime.value.crosshair.visible).toBe(false);
 
-    chartRuntime.value.priceRangeScale = 2;
     act(() => {
       result.current.handleAutoScalePress();
     });
     expect(result.current.isAutoScale).toBe(true);
+    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
     expect(chartRuntime.value.priceRangeScale).toBe(1);
   });
 });
