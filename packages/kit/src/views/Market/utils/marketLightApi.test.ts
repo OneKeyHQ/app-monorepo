@@ -103,20 +103,28 @@ describe('marketLightApi', () => {
       contractAddress: '0xsecond-cache-test',
       isNative: false,
     };
-    const firstItem = { address: firstToken.contractAddress, symbol: 'FIRST' };
+    const firstItem = {
+      address: firstToken.contractAddress,
+      networkId: firstToken.chainId,
+      isNative: false,
+      symbol: 'FIRST',
+    };
     const secondItem = {
       address: secondToken.contractAddress,
+      networkId: secondToken.chainId,
+      isNative: false,
       symbol: 'SECOND',
     };
     mockPost
-      .mockResolvedValueOnce({ data: { data: { list: [firstItem] } } })
-      .mockResolvedValueOnce({ data: { data: { list: [secondItem] } } });
+      .mockResolvedValueOnce({ data: { data: { list: [secondItem] } } })
+      .mockResolvedValueOnce({ data: { data: { list: [firstItem] } } });
 
-    await expect(
-      fetchMarketTokenListBatchLight({
-        tokenAddressList: [firstToken, secondToken],
-      }),
-    ).resolves.toEqual({ list: [firstItem] });
+    const partialResult = await fetchMarketTokenListBatchLight({
+      tokenAddressList: [firstToken, secondToken],
+    });
+    expect(partialResult.list).toHaveLength(2);
+    expect(partialResult.list[0]).toBeUndefined();
+    expect(partialResult.list[1]).toEqual(secondItem);
     await expect(
       fetchMarketTokenListBatchLight({
         tokenAddressList: [firstToken, secondToken],
@@ -130,7 +138,7 @@ describe('marketLightApi', () => {
 
     expect(mockPost).toHaveBeenCalledTimes(2);
     expect(mockPost.mock.calls[1]?.[1]).toEqual({
-      tokenAddressList: [secondToken],
+      tokenAddressList: [firstToken],
       currency: 'usd',
     });
   });
@@ -141,8 +149,18 @@ describe('marketLightApi', () => {
       contractAddress: '0xlocale-cache-test',
       isNative: false,
     };
-    const zhItem = { address: token.contractAddress, symbol: 'ZH' };
-    const enItem = { address: token.contractAddress, symbol: 'EN' };
+    const zhItem = {
+      address: token.contractAddress,
+      networkId: token.chainId,
+      isNative: false,
+      symbol: 'ZH',
+    };
+    const enItem = {
+      address: token.contractAddress,
+      networkId: token.chainId,
+      isNative: false,
+      symbol: 'EN',
+    };
     mockPost
       .mockResolvedValueOnce({ data: { data: { list: [zhItem] } } })
       .mockResolvedValueOnce({ data: { data: { list: [enItem] } } });

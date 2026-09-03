@@ -236,12 +236,15 @@ const marketTokenBatchCacheTTL = timerUtils.getTimeDurationMs({ seconds: 30 });
 const getMarketTokenBatchCacheKey = ({
   chainId,
   contractAddress,
+  isNative,
   requestLocale,
 }: {
   chainId: string;
   contractAddress: string;
+  isNative: boolean;
   requestLocale: string;
-}) => `${requestLocale}:${chainId}:${contractAddress.toLowerCase()}`;
+}) =>
+  `${requestLocale}:${chainId}:${isNative ? '' : contractAddress.toLowerCase()}`;
 
 const fetchMarketTokenListBatchLight = async (
   params: IMarketTokenBatchRequestParams,
@@ -265,6 +268,7 @@ const fetchMarketTokenListBatchLight = async (
     const cacheKey = getMarketTokenBatchCacheKey({
       chainId: token.chainId,
       contractAddress: token.contractAddress,
+      isNative: token.isNative,
       requestLocale,
     });
     tokenIndexMap.set(cacheKey, index);
@@ -288,14 +292,27 @@ const fetchMarketTokenListBatchLight = async (
     tokenAddressList: missingTokens,
     requestLocale,
   });
-  data?.list?.forEach((item, index) => {
-    const token = missingTokens[index];
-    if (!token) return;
+  const missingTokenKeys = new Set(
+    missingTokens.map((token) =>
+      getMarketTokenBatchCacheKey({
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        isNative: token.isNative,
+        requestLocale,
+      }),
+    ),
+  );
+  data?.list?.forEach((item) => {
+    const itemAddress = item?.address ?? '';
+    const isNative =
+      item?.isNative !== undefined ? item.isNative : itemAddress.length < 30;
     const cacheKey = getMarketTokenBatchCacheKey({
-      chainId: token.chainId,
-      contractAddress: token.contractAddress,
+      chainId: item?.networkId || item?.chainId || '',
+      contractAddress: itemAddress,
+      isNative,
       requestLocale,
     });
+    if (!missingTokenKeys.has(cacheKey)) return;
     marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
     const originalIndex = tokenIndexMap.get(cacheKey);
     if (originalIndex !== undefined) {
