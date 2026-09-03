@@ -13,9 +13,18 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 - Base branch: `x`
 - Diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot)
 
+### Diff Source Rule (MANDATORY)
+
+The review input MUST be the locally checked-out branch, never a remote diff text.
+
+- **DO**: `gh pr checkout <PR_NUMBER>` → `git diff origin/x...HEAD` → `Read` each changed file in full.
+- **DO NOT** use `gh pr diff`, `gh api repos/{owner}/{repo}/pulls/{n}/files`, or the PR "Files changed" web page as the review input. `gh api` is allowed ONLY for PR comments (fetching and posting).
+- **Why**: a remote diff is a truncated, context-free text blob. It hides surrounding code, callers, types, and platform variants, and forces one API round-trip per file. Local checkout gives full source, `Grep`/`Glob` across the repo, `tsc`, `yarn info`, and the ability to trace data flow across files. Every check in this skill (triage, import hierarchy, reuse detection, `references/quick-commands.md`) assumes a local working tree.
+- If `gh pr checkout` fails (e.g. fork PR without push access), fall back to `git fetch origin pull/<PR_NUMBER>/head:pr-<PR_NUMBER> && git checkout pr-<PR_NUMBER>`. Still do not fall back to a remote diff.
+
 ## Workflow
 
-1. **Checkout** — `gh pr checkout <PR_NUMBER>` (skip if already on branch)
+1. **Checkout** — `gh pr checkout <PR_NUMBER>` (skip if already on branch). See Diff Source Rule above — this step is not optional.
 2. **Scope** — `git diff origin/x...HEAD --stat` to see change scope
 3. **Triage** — Determine which review modules apply (see triage table)
 4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
@@ -372,6 +381,7 @@ Historical PR threads may still use the legacy 5-tier scale; when analyzing them
 
 ## Review Discipline
 
+- **Review from local checkout** — never review from `gh pr diff` / `gh api .../files` output. If you are not on the PR branch, checkout first (see Diff Source Rule).
 - **Read the code** — don't just grep. Read each changed file to understand intent.
 - **No false positives** — only report issues you're confident about. Uncertain? Lower the confidence.
 - **No style nitpicks** — focus on security, correctness, architecture, performance.
