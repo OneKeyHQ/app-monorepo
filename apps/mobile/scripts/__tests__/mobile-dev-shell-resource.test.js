@@ -446,7 +446,7 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
-  it('removes an incomplete cache directory before restoring it', async () => {
+  it('restores an incomplete cache after a stale lease pid is reused', async () => {
     const cacheRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-shell-partial-cache-test-'),
     );
@@ -456,6 +456,12 @@ describe('mobile-dev-shell-resource', () => {
       fs.writeFileSync(
         path.join(cacheDirectory, compatibility.artifactFile),
         'partial',
+      );
+      const leaseDirectory = path.join(cacheDirectory, '.leases');
+      fs.mkdirSync(leaseDirectory);
+      fs.writeFileSync(
+        path.join(leaseDirectory, `${String(process.pid)}-stale.json`),
+        `${JSON.stringify({ pid: process.pid, processStartedAtMs: 1 })}\n`,
       );
       const remote = createRemoteShell({
         compatibility,

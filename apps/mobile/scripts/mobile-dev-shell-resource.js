@@ -26,6 +26,7 @@ const MAX_ATTESTATION_BYTES = 32 * 1024 * 1024;
 const MAX_ARTIFACT_BYTES = 1536 * 1024 * 1024;
 const MAX_CACHED_SHELLS = 4;
 const CACHE_LEASE_DIRECTORY = '.leases';
+const CURRENT_PROCESS_STARTED_AT_MS = Date.now() - process.uptime() * 1000;
 
 function compareStrings(left, right) {
   if (left < right) return -1;
@@ -543,6 +544,31 @@ function isProcessRunning(pid) {
   }
 }
 
+function getProcessStartedAtMs(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
+  if (pid === process.pid) return CURRENT_PROCESS_STARTED_AT_MS;
+  const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+    timeout: 5000,
+  });
+  if (result.status !== 0 || result.error) return undefined;
+  const startedAtMs = Date.parse(result.stdout.trim());
+  return Number.isFinite(startedAtMs) ? startedAtMs : undefined;
+}
+
+function isLeaseOwnerRunning(lease, leaseMtimeMs) {
+  if (!isProcessRunning(lease.pid)) return false;
+  const currentStartedAtMs = getProcessStartedAtMs(lease.pid);
+  if (currentStartedAtMs === undefined) {
+    return true;
+  }
+  if (Number.isFinite(lease.processStartedAtMs)) {
+    return Math.abs(lease.processStartedAtMs - currentStartedAtMs) <= 1000;
+  }
+  return currentStartedAtMs <= leaseMtimeMs + 1000;
+}
+
 async function hasActiveCacheLease(cacheDirectory) {
   const leaseDirectory = path.join(cacheDirectory, CACHE_LEASE_DIRECTORY);
   let entries;
@@ -561,8 +587,9 @@ async function hasActiveCacheLease(cacheDirectory) {
       await fs.promises.rm(leasePath, { force: true, recursive: true });
     } else {
       try {
+        const leaseStat = await fs.promises.lstat(leasePath);
         const lease = JSON.parse(await fs.promises.readFile(leasePath, 'utf8'));
-        if (isProcessRunning(lease.pid)) {
+        if (isLeaseOwnerRunning(lease, leaseStat.mtimeMs)) {
           active = true;
         } else {
           await fs.promises.rm(leasePath, { force: true });
@@ -646,10 +673,11 @@ async function createMobileShellCacheLease({ cacheRoot, tag }) {
     leaseDirectory,
     `${String(process.pid)}-${crypto.randomUUID()}.json`,
   );
+  const processStartedAtMs = getProcessStartedAtMs(process.pid);
   await fs.promises.mkdir(leaseDirectory, { mode: 0o700, recursive: true });
   await fs.promises.writeFile(
     leasePath,
-    `${JSON.stringify({ pid: process.pid })}\n`,
+    `${JSON.stringify({ pid: process.pid, processStartedAtMs })}\n`,
     { flag: 'wx', mode: 0o600 },
   );
   const removeLease = async () => {
