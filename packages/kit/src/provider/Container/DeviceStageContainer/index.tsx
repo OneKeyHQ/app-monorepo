@@ -467,6 +467,13 @@ function DeviceStageContainerCmp() {
       onAuthContinueAnyway={handleAuthContinueAnyway}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseKeepAccessible={
+        // The remembered Keep-accessible choice, read the way the legacy
+        // dialog seeded its form (unset means ON). Hardcoding ON would
+        // hand Confirm an ON to persist over a stored OFF — a wallet the
+        // person asked to forget would then survive a restart.
+        settings.hiddenWalletImmediately ?? true
+      }
       confirmDetails={stage?.confirmDetails}
       confirmMessage={stage?.confirmMessage}
       confirmDescription={stage?.confirmDescription}
