@@ -10,6 +10,10 @@ import { isRetryableLazyError } from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 
 type IDeviceStageContainerComponent = ComponentType;
 
@@ -80,6 +84,7 @@ function DeviceStageContainerLazyCmp() {
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribeVisibility: (() => void) | undefined;
     /**
      * Read the stage live, not from the render this effect closed over: the
      * burst may have walked on during the backoff, and the cancel has to
@@ -105,6 +110,49 @@ function DeviceStageContainerLazyCmp() {
         title: intlRef.current.formatMessage({
           id: ETranslations.global_an_error_occurred,
         }),
+      });
+    };
+    /**
+     * Retries wait for the foreground, the way the shared LazyLoad boundary
+     * does. On native the retryable codes — the runtime not being up, or the
+     * buffered executor missing its window — are exactly what a suspended app
+     * produces, so a timer that fires while backgrounded spends the segment
+     * loader's per-process budget on a false positive; the attempt after it
+     * cancels the burst, which cancels the device call. The fired callback
+     * re-checks, because the app can slip back to background during the
+     * backoff. Nothing is lost by waiting: with no `Impl` the stage renders
+     * nothing anyway, and the burst's own exit still runs on the background
+     * side when the hardware call settles.
+     */
+    const scheduleRetry = () => {
+      const backoff =
+        LOAD_RETRY_BACKOFF_MS[
+          Math.min(loadAttempt, LOAD_RETRY_BACKOFF_MS.length - 1)
+        ];
+      const fire = () => {
+        if (cancelled) {
+          return;
+        }
+        if (getCurrentVisibilityState()) {
+          setLoadAttempt((attempt) => attempt + 1);
+        } else {
+          scheduleRetry();
+        }
+      };
+      if (getCurrentVisibilityState()) {
+        retryTimer = setTimeout(fire, backoff);
+        return;
+      }
+      // Only one subscription is ever live: it clears itself before arming
+      // the timer, and the effect's cleanup clears whatever is outstanding.
+      unsubscribeVisibility?.();
+      unsubscribeVisibility = onVisibilityStateChange((visible) => {
+        if (!visible || cancelled) {
+          return;
+        }
+        unsubscribeVisibility?.();
+        unsubscribeVisibility = undefined;
+        retryTimer = setTimeout(fire, backoff);
       });
     };
     const load = () => {
@@ -133,16 +181,7 @@ function DeviceStageContainerLazyCmp() {
             isRetryableLazyError(error) &&
             loadAttempt < MAX_LOAD_ATTEMPTS - 1
           ) {
-            retryTimer = setTimeout(
-              () => {
-                if (!cancelled) {
-                  setLoadAttempt((attempt) => attempt + 1);
-                }
-              },
-              LOAD_RETRY_BACKOFF_MS[
-                Math.min(loadAttempt, LOAD_RETRY_BACKOFF_MS.length - 1)
-              ],
-            );
+            scheduleRetry();
             return;
           }
           cancelStrandedBurst();
@@ -153,6 +192,7 @@ function DeviceStageContainerLazyCmp() {
       return () => {
         cancelled = true;
         clearTimeout(retryTimer);
+        unsubscribeVisibility?.();
       };
     }
     const timer = setTimeout(load, WARM_UP_DELAY_MS);
@@ -160,6 +200,7 @@ function DeviceStageContainerLazyCmp() {
       cancelled = true;
       clearTimeout(timer);
       clearTimeout(retryTimer);
+      unsubscribeVisibility?.();
     };
   }, [Impl, loadAttempt, stageIsOn]);
 
