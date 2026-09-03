@@ -880,10 +880,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       >;
       targetKeyByConnectId: Map<string, string>;
     };
-    serviceInternals.targetKeyByConnectId.set(
-      'PRO2_CONNECT_ID',
-      'db-device-1',
-    );
+    serviceInternals.targetKeyByConnectId.set('PRO2_CONNECT_ID', 'db-device-1');
     serviceInternals.pendingMobileBlePayloadByTargetKey.set(
       'db-device-1',
       olderBlePayload,
