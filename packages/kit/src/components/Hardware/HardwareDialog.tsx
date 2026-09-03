@@ -123,8 +123,11 @@ export const OpenBleNotifyChangeErrorDialog = forwardRef(
 
 export const buildBleBondError = (intl: IntlShape): IDialogShowProps => ({
   ...buildBleNotifyChangeError(intl),
+  title: intl.formatMessage({
+    id: ETranslations.bluetooth_pairing_invalid__title,
+  }),
   description: intl.formatMessage({
-    id: ETranslations.feedback_try_repairing_device_in_settings,
+    id: ETranslations.bluetooth_pairing_invalid__desc,
   }),
 });
 

@@ -6,6 +6,7 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  BleDeviceBondedCanceled,
   BluetoothUnavailableWhileUsbConnectedError,
   ConnectTimeoutError,
   DeviceBondError,
@@ -94,6 +95,22 @@ describe('convertDeviceError BLE connection timeout', () => {
 });
 
 describe('convertDeviceError invalid Bluetooth bond', () => {
+  it('keeps a canceled pairing distinct from an unpaired device', () => {
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondedCanceled,
+      error: 'bonding canceled',
+    });
+
+    expect(error).toBeInstanceOf(BleDeviceBondedCanceled);
+    expect(error).toMatchObject({
+      code: HardwareErrorCode.BleDeviceNotBonded,
+      key: 'feedback.bluetooth_pairing_failed',
+      payload: {
+        code: HardwareErrorCode.BleDeviceBondedCanceled,
+      },
+    });
+  });
+
   it.each([
     HardwareErrorCode.BleDeviceBondError,
     HardwareErrorCode.BlePeerRemovedPairingInformation,
@@ -108,7 +125,7 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect(error).toBeInstanceOf(DeviceBondError);
       expect(error).toMatchObject({
         code: HardwareErrorCode.BleDeviceBondError,
-        key: 'feedback.try_repairing_device_in_settings',
+        key: 'bluetooth_pairing_invalid__desc',
         autoToast: false,
       });
     },

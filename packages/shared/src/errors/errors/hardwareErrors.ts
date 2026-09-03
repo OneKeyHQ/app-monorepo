@@ -347,7 +347,7 @@ export class DeviceBondError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.feedback_try_repairing_device_in_settings,
+        defaultKey: ETranslations.bluetooth_pairing_invalid__desc,
         defaultAutoToast: false,
       }),
     );

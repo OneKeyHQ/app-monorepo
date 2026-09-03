@@ -180,7 +180,7 @@ export function convertDeviceError(
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondedCanceled:
-      return new HardwareErrors.DeviceNotBonded({ payload });
+      return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
     case HardwareErrorCode.BleBondInvalid:

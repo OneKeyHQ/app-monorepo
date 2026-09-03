@@ -309,6 +309,8 @@ export enum ETranslations {
   bluetooth_paring_guides_wait_for_confirmation = 'bluetooth.paring_guides_wait_for_confirmation',
   bluetooth_paring_guides_wait_for_confirmation_win = 'bluetooth.paring_guides_wait_for_confirmation_win',
   bluetooth_permission_prompt = 'bluetooth.permission_prompt',
+  bluetooth_pairing_invalid__desc = 'bluetooth_pairing_invalid__desc',
+  bluetooth_pairing_invalid__title = 'bluetooth_pairing_invalid__title',
   bluetooth_paring_dialog_title = 'bluetooth_paring_dialog_title',
   boosted_ltv__title = 'boosted_ltv__title',
   borrow_repay_with_collateral_unavailable__msg = 'borrow_repay_with_collateral_unavailable__msg',

@@ -304,6 +304,8 @@
   "bluetooth.paring_guides_wait_for_confirmation": "Attendez que le système confirme et continuez",
   "bluetooth.paring_guides_wait_for_confirmation_win": "Retourner à OneKey pour continuer",
   "bluetooth.permission_prompt": "OneKey a besoin du Bluetooth pour se connecter. Veuillez l'autoriser lorsque vous y êtes invité",
+  "bluetooth_pairing_invalid__desc": "Oubliez cet appareil dans les réglages Bluetooth du système, puis reconnectez-le.",
+  "bluetooth_pairing_invalid__title": "Cet appairage Bluetooth n'est plus valide",
   "bluetooth_paring_dialog_title": "Jumelage avec votre appareil…",
   "boosted_ltv__title": "LTV augmenté",
   "borrow_repay_with_collateral_unavailable__msg": "Le remboursement avec garantie n’est pas disponible pour cet actif. Actualisez puis réessayez.",
