@@ -81,7 +81,7 @@ jobs:
       contents: read
       packages: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
     outputs:
       exists: ${{ steps.artifact.outputs.exists }}
       tag: ${{ steps.artifact.outputs.tag }}

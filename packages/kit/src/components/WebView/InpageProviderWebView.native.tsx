@@ -42,6 +42,10 @@ function loadInjectedNativeCode() {
         );
       }
       return readAsStringAsync(asset.localUri);
+    })
+    .catch((error: unknown) => {
+      injectedNativeCodePromise = undefined;
+      throw error;
     });
   return injectedNativeCodePromise;
 }
