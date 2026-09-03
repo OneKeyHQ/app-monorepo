@@ -1,4 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -136,11 +138,13 @@ describe('background thread RPC handler', () => {
   it('serializes i18n error metadata with the shared plain-error contract', async () => {
     const { setBackgroundThreadRequestExecutor } =
       await import('./setupBackgroundThreadRPCHandler');
-    const error = Object.assign(new OneKeyLocalError('Incorrect PIN entered'), {
-      className: 'IncorrectPinError',
-      info: { guessesRemaining: 4 },
-      reconnect: false,
-    });
+    const error = Object.assign(
+      new IncorrectPinError({
+        message: 'Incorrect PIN entered',
+        info: { guessesRemaining: 4 },
+      }),
+      { reconnect: false },
+    );
     setBackgroundThreadRequestExecutor(() => Promise.reject(error));
     mockSharedRPCWrite.mockClear();
 
@@ -151,8 +155,10 @@ describe('background thread RPC handler', () => {
     expect(response).toMatchObject({
       ok: false,
       error: {
+        name: 'IncorrectPinError',
         message: 'Incorrect PIN entered',
         className: 'IncorrectPinError',
+        key: ETranslations.incorrect_pin,
         info: { guessesRemaining: 4 },
         reconnect: false,
       },
