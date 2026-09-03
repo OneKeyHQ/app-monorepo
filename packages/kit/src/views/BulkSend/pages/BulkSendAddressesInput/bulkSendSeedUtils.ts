@@ -59,6 +59,8 @@ function isSameToken(a: IToken | undefined, b: IToken | undefined) {
     (a.networkId ?? '') === (b.networkId ?? '') &&
     a.address === b.address &&
     a.symbol === b.symbol &&
+    a.decimals === b.decimals &&
+    Boolean(a.isNative) === Boolean(b.isNative) &&
     (a.logoURI ?? '') === (b.logoURI ?? '') &&
     (a.networkName ?? '') === (b.networkName ?? '')
   );
@@ -168,8 +170,12 @@ export type IBulkSendSeedApplyPlan =
  * page's initial selection: once the user picked another sender / network on
  * the page, a later seed for a different account (a revalidated snapshot
  * whose metadata changed, or a re-keyed request after a mode switch) is
- * recorded but must not overwrite that choice. A seed for the selection the
- * user is on may refresh it, keeping an asset the user picked explicitly.
+ * recorded but must not overwrite that choice. A degraded seed (request
+ * fallback, or a lookup that lost the account) may only mount an empty page;
+ * over an already applied seed it is recorded, never applied. A seed for the
+ * selection the user is on may refresh it, keeping an asset the user picked
+ * explicitly; a seed that moves the account / network always brings its own
+ * token so token and network never come from different applies.
  */
 export function resolveBulkSendSeedApplyPlan({
   seed,
@@ -178,6 +184,7 @@ export function resolveBulkSendSeedApplyPlan({
   selectedAccountId,
   selectedNetworkId,
   hasUserSelectedAsset,
+  isDegradedSeed,
 }: {
   seed: IBulkSendAddressesInputSeed | undefined;
   seedKey: string;
@@ -185,6 +192,7 @@ export function resolveBulkSendSeedApplyPlan({
   selectedAccountId: string | undefined;
   selectedNetworkId: string | undefined;
   hasUserSelectedAsset: boolean;
+  isDegradedSeed: boolean;
 }): IBulkSendSeedApplyPlan {
   if (!seed) {
     return { action: 'skip' };
@@ -194,6 +202,12 @@ export function resolveBulkSendSeedApplyPlan({
     isBulkSendSeedEqual(appliedSeed.seed, seed)
   ) {
     return { action: 'skip' };
+  }
+  if (
+    appliedSeed !== undefined &&
+    (isDegradedSeed || (!seed.accountId && Boolean(appliedSeed.seed.accountId)))
+  ) {
+    return { action: 'record' };
   }
   const hasUserChangedSelection =
     appliedSeed !== undefined &&
@@ -205,5 +219,8 @@ export function resolveBulkSendSeedApplyPlan({
   if (hasUserChangedSelection && !isSeedForCurrentSelection) {
     return { action: 'record' };
   }
-  return { action: 'apply', keepUserToken: hasUserSelectedAsset };
+  return {
+    action: 'apply',
+    keepUserToken: hasUserSelectedAsset && isSeedForCurrentSelection,
+  };
 }

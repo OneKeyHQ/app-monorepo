@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { Input } from '@onekeyhq/components';
 import { Icon, SizableText, Skeleton, Stack } from '@onekeyhq/components';
@@ -36,26 +36,36 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   miniMode,
   ...rest
 }) => {
-  const { result: selectorNetworks } = usePromiseResult(
+  const swrKey = swrKeys.chainSelectorInputNetworks({
+    excludeAllNetworkItem,
+    networkIds,
+  });
+  // Key of the list a request of this session actually resolved. The
+  // persisted snapshot may lag behind the real list (e.g. a network added
+  // since it was taken), so it may paint the selector but must not decide
+  // that the current value is unknown and replace it.
+  const freshListKeyRef = useRef<string | undefined>(undefined);
+  const { result: selectorNetworks, isLoading } = usePromiseResult(
     async () => {
+      const key = swrKey;
       const { networks } =
         await backgroundApiProxy.serviceNetwork.getAllNetworks({
           excludeAllNetworkItem,
         });
-      if (networkIds && networkIds.length > 0) {
-        return networks.filter((o) => networkIds.includes(o.id));
-      }
-      return networks;
+      const list =
+        networkIds && networkIds.length > 0
+          ? networks.filter((o) => networkIds.includes(o.id))
+          : networks;
+      freshListKeyRef.current = key;
+      return list;
     },
-    [excludeAllNetworkItem, networkIds],
+    [excludeAllNetworkItem, networkIds, swrKey],
     {
       initResult: [],
       // Snapshot the list so the selected network name paints on the first
       // frame of later visits instead of an empty box (OK-61586).
-      swrKey: swrKeys.chainSelectorInputNetworks({
-        excludeAllNetworkItem,
-        networkIds,
-      }),
+      swrKey,
+      watchLoading: true,
     },
   );
 
@@ -68,13 +78,18 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   const isResolvingCurrent = Boolean(value) && selectorNetworks.length === 0;
 
   useEffect(() => {
+    // Only a list resolved in this session may fall back; `isLoading` flips
+    // to false once that request settles and re-runs this check.
+    if (isLoading !== false || freshListKeyRef.current !== swrKey) {
+      return;
+    }
     if (selectorNetworks.length && !current) {
       const fallbackValue = selectorNetworks?.[0]?.id;
       if (fallbackValue) {
         onChange?.(fallbackValue);
       }
     }
-  }, [selectorNetworks, current, onChange]);
+  }, [selectorNetworks, current, onChange, isLoading, swrKey]);
 
   const sharedStyles = getSharedInputStyles({
     disabled,

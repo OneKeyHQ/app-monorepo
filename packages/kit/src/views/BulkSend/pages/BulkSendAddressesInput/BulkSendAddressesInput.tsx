@@ -398,6 +398,9 @@ function BaseBulkSendAddressesInput({
   }, [selectedAccountId, selectedNetworkId, setSelectedDeriveType]);
 
   useEffect(() => {
+    // Any selection / mode change supersedes an in-flight lookup: its late
+    // response must not refill a field the mode reset just cleared.
+    senderAddressRequestIdRef.current += 1;
     if (!isOneToMany || !selectedAccountId || !selectedNetworkId) {
       return;
     }
@@ -851,7 +854,11 @@ function BulkSendAddressesInputProvider() {
           await backgroundApiProxy.serviceBulkSend.getAddressesInputSeed(
             source,
           );
-        return { key, seed, isFallback: false };
+        // A lookup that lost the account (failed / empty remap) can only
+        // mount an empty page; it must not replace a complete seed or be
+        // snapshotted as one.
+        const isDegraded = Boolean(source.accountId) && !seed.accountId;
+        return { key, seed, isDegraded };
       } catch {
         // A rejected request must still settle the initializing gate, or
         // the sender stays a skeleton and Next stays disabled for the life
@@ -859,7 +866,7 @@ function BulkSendAddressesInputProvider() {
         return {
           key,
           seed: buildBulkSendFallbackSeed(source),
-          isFallback: true,
+          isDegraded: true,
         };
       }
     },
@@ -867,11 +874,13 @@ function BulkSendAddressesInputProvider() {
     {
       swrKey: seedKey,
       checkIsFocused: false,
-      // Never snapshot the fallback: the next entry retries the lookup.
-      swrShouldPersist: (result) => !result.isFallback,
+      // Never snapshot a degraded result: the next entry retries the lookup.
+      swrShouldPersist: (result) => !result.isDegraded,
     },
   );
   const seed = seedResult?.key === seedKey ? seedResult.seed : undefined;
+  const isDegradedSeed =
+    seedResult?.key === seedKey ? Boolean(seedResult.isDegraded) : false;
 
   const initialSeedRef = useRef<IBulkSendAddressesInputSeed | undefined>(seed);
   const initialSeed = initialSeedRef.current;
@@ -948,14 +957,15 @@ function BulkSendAddressesInputProvider() {
       selectedAccountId,
       selectedNetworkId,
       hasUserSelectedAsset,
+      isDegradedSeed,
     });
     if (plan.action === 'skip' || !seed) {
       return;
     }
     if (plan.action === 'record') {
-      // The user already moved to another sender / network on the page:
-      // remember this seed so it is not re-evaluated, but leave the
-      // selection and the sender field alone.
+      // The user already moved to another sender / network on the page, or
+      // this seed is degraded: remember it so it is not re-evaluated, but
+      // leave the selection and the sender field alone.
       setAppliedSeed({ key: seedKey, seed });
       return;
     }
@@ -984,6 +994,7 @@ function BulkSendAddressesInputProvider() {
     bulkSendMode,
     form,
     hasUserSelectedAsset,
+    isDegradedSeed,
     seed,
     seedKey,
     selectedAccountId,

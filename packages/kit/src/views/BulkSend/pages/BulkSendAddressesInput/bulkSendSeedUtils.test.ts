@@ -233,6 +233,7 @@ describe('resolveBulkSendSeedApplyPlan', () => {
       selectedAccountId: homeSeed.accountId,
       selectedNetworkId: homeSeed.networkId,
       hasUserSelectedAsset: false,
+      isDegradedSeed: false,
       ...overrides,
     });
   }
@@ -294,5 +295,48 @@ describe('resolveBulkSendSeedApplyPlan', () => {
         hasUserSelectedAsset: true,
       }),
     ).toEqual({ action: 'apply', keepUserToken: true });
+  });
+
+  it('brings the seed token along when the seed moves to another network', () => {
+    // The user picked an asset on evm--1 without changing the selection;
+    // a seed that re-targets the page must not keep that token under the
+    // new network (cross-chain token / network mismatch on the next step).
+    const otherNetworkSeed = {
+      ...homeSeed,
+      networkId: 'evm--56',
+      network: { id: 'evm--56', name: 'BNB Chain', logoURI: '' },
+    };
+    expect(
+      plan({
+        seed: otherNetworkSeed,
+        seedKey: 'bulkSendSeed:v1:bsc',
+        hasUserSelectedAsset: true,
+      }),
+    ).toEqual({ action: 'apply', keepUserToken: false });
+  });
+
+  it('records, without applying, a degraded seed over an already applied one', () => {
+    // Re-entry paints the snapshot; if the fresh request then fails (or the
+    // account remap loses the account) the fallback must only settle the
+    // initializing gate, not blank the sender / token already on screen.
+    const fallback: IBulkSendAddressesInputSeed = {
+      accountId: undefined,
+      indexedAccountId: 'hd-1--0',
+      networkId: 'evm--1',
+      isSupportedNetwork: false,
+    };
+    expect(plan({ seed: fallback, isDegradedSeed: true })).toEqual({
+      action: 'record',
+    });
+    expect(plan({ seed: fallback })).toEqual({ action: 'record' });
+    // Cold start without a snapshot still mounts on the fallback.
+    expect(
+      plan({
+        seed: fallback,
+        isDegradedSeed: true,
+        appliedSeed: undefined,
+        selectedAccountId: undefined,
+      }),
+    ).toEqual({ action: 'apply', keepUserToken: false });
   });
 });

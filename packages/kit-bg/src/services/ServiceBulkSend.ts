@@ -60,10 +60,10 @@ class ServiceBulkSend extends ServiceBase {
           networkIds: [selectedNetworkId],
           indexedAccountId,
         });
-      const resolvedAccountId = networkAccounts?.[0]?.account?.id;
-      if (resolvedAccountId) {
-        selectedAccountId = resolvedAccountId;
-      }
+      // No account on the corrected network yet: drop the caller's account
+      // rather than keep one that belongs to another network, otherwise the
+      // token / sender lookups (and the page) would run against a mismatch.
+      selectedAccountId = networkAccounts?.[0]?.account?.id || undefined;
     };
 
     // Unsupported home network: fall back to the same indexed account on

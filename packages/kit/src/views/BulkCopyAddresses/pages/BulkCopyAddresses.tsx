@@ -539,62 +539,69 @@ function BulkCopyAddresses({
     handleGenerateAddresses,
   ]);
 
-  const handleGenerateAddressesByAccounts = useCallback(async () => {
-    if (
-      !selectedWalletId ||
-      !selectedNetworkId ||
-      !selectedWallet ||
-      !selectedWallet.dbIndexedAccounts
-    ) {
-      return {};
-    }
+  // `accountsForFlow` is the enumeration the export is based on (the
+  // current state, or the fresh result of an export-time re-enumeration),
+  // so device derivation and the final filter share one account set.
+  const handleGenerateAddressesByAccounts = useCallback(
+    async (accountsForFlow: IBulkCopyNetworkAccounts[]) => {
+      if (
+        !selectedWalletId ||
+        !selectedNetworkId ||
+        !selectedWallet ||
+        !selectedWallet.dbIndexedAccounts
+      ) {
+        return {};
+      }
 
-    // Each (network, deriveType) pair carries exactly its own account
-    // indexes so the flow fetches one address per existing account — the
-    // progress total equals the visible account count, not the
-    // (derive types x max indexes) cartesian product (e.g. 13, not 40,
-    // for 10 taproot + 1 nested + 1 native + 1 legacy).
-    const { customNetworks, indexes, addressCount } =
-      buildBulkCopyByAccountsFlowParams({
-        networkAccounts: networkAccounts ?? [],
+      // Each (network, deriveType) pair carries exactly its own account
+      // indexes so the flow fetches one address per existing account — the
+      // progress total equals the visible account count, not the
+      // (derive types x max indexes) cartesian product (e.g. 13, not 40,
+      // for 10 taproot + 1 nested + 1 native + 1 legacy).
+      const { customNetworks, indexes, addressCount } =
+        buildBulkCopyByAccountsFlowParams({
+          networkAccounts: accountsForFlow,
+        });
+
+      const normalParams: IBatchBuildAccountsNormalFlowParams = {
+        walletId: selectedWalletId,
+        networkId: selectedNetworkId,
+        // Anchor the flow's seeded (networkId, deriveType) pair on a pair the
+        // helper already scoped with indexes; the global derive type is only a
+        // fallback for the empty-account edge case.
+        deriveType:
+          customNetworks[0]?.deriveType ??
+          (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+            {
+              networkId: selectedNetworkId,
+            },
+          )),
+        saveToDb: false,
+        indexes,
+        showUIProgress: true,
+        errorMessage: intl.formatMessage({
+          id: ETranslations.global_bulk_copy_addresses_loading_error,
+        }),
+        customNetworks,
+        hideCheckingDeviceLoading: true,
+        progressTotalCount: addressCount,
+      };
+
+      return handleGenerateAddresses({
+        isAdvancedMode: false,
+        normalParams,
+        advancedParams: undefined,
+        addressCount,
       });
-
-    const normalParams: IBatchBuildAccountsNormalFlowParams = {
-      walletId: selectedWalletId,
-      networkId: selectedNetworkId,
-      // Anchor the flow's seeded (networkId, deriveType) pair on a pair the
-      // helper already scoped with indexes; the global derive type is only a
-      // fallback for the empty-account edge case.
-      deriveType:
-        customNetworks[0]?.deriveType ??
-        (await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: selectedNetworkId,
-        })),
-      saveToDb: false,
-      indexes,
-      showUIProgress: true,
-      errorMessage: intl.formatMessage({
-        id: ETranslations.global_bulk_copy_addresses_loading_error,
-      }),
-      customNetworks,
-      hideCheckingDeviceLoading: true,
-      progressTotalCount: addressCount,
-    };
-
-    return handleGenerateAddresses({
-      isAdvancedMode: false,
-      normalParams,
-      advancedParams: undefined,
-      addressCount,
-    });
-  }, [
-    selectedWalletId,
-    selectedNetworkId,
-    selectedWallet,
-    intl,
-    handleGenerateAddresses,
-    networkAccounts,
-  ]);
+    },
+    [
+      selectedWalletId,
+      selectedNetworkId,
+      selectedWallet,
+      intl,
+      handleGenerateAddresses,
+    ],
+  );
 
   type IFiledNameKeys = keyof typeof formRangeWatchFields;
   const handleFormValueOnChange = useCallback(
@@ -866,20 +873,25 @@ function BulkCopyAddresses({
     async ({ exportWithoutDevice }: { exportWithoutDevice?: boolean }) => {
       if (copyType === EBulkCopyType.Account) {
         let enumeratedAccounts = networkAccountsByDeriveType;
+        let enumeratedNetworkAccounts = networkAccounts;
         if (freshAccountsScopeKeyRef.current !== accountsScopeKey) {
           // Still on the persisted snapshot: re-enumerate before exporting
           // so a wallet / account removed or renamed since the snapshot was
-          // taken is never forwarded to the export modal.
+          // taken is never forwarded to the export modal, and an account
+          // added since is derived too.
           const fresh = await loadAccounts();
           if (fresh.loadFailed) {
             void runAccounts();
             return;
           }
           enumeratedAccounts = fresh.networkAccountsByDeriveType;
+          enumeratedNetworkAccounts = fresh.networkAccounts;
         }
         let accountsData = enumeratedAccounts;
         if (isHwWallet && !exportWithoutDevice) {
-          accountsData = await handleGenerateAddressesByAccounts();
+          accountsData = await handleGenerateAddressesByAccounts(
+            enumeratedNetworkAccounts,
+          );
           if (enumeratedAccounts) {
             for (const [deriveType, accounts] of Object.entries(accountsData)) {
               accountsData[deriveType] =
@@ -916,6 +928,7 @@ function BulkCopyAddresses({
     [
       copyType,
       networkAccountsByDeriveType,
+      networkAccounts,
       accountsScopeKey,
       loadAccounts,
       runAccounts,
