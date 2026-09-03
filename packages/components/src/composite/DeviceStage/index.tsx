@@ -1324,6 +1324,23 @@ export function DeviceStage({
   /* The parked columns, one per arrangement — each element memoized on
    * its own inputs, so a step change re-renders only the seats it
    * touched and every other parked column bails by identity. */
+  // The title's pill: the device's name, riding the title's line when
+  // the two fit side by side and dropping under it otherwise (StepText's
+  // wrapping title row) — worn only by the device-side steps, where the
+  // person must reach for the physical device the pill names.
+  const deviceBadge = useMemo(() => {
+    if (!deviceName || !DEVICE_BADGE_STEPS.has(shownStep)) {
+      return null;
+    }
+    return (
+      <Stack borderRadius="$full" bg="$neutral4" px="$2.5" py="$1">
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {deviceName}
+        </SizableText>
+      </Stack>
+    );
+  }, [deviceName, shownStep]);
+
   const stagePanel = useMemo(() => {
     return (
       <YStack>
@@ -1337,6 +1354,7 @@ export function DeviceStage({
                   sub={stageText.sub}
                   animated={stageAnimated}
                   subSlot={pinSwitchSlot}
+                  titleSlot={deviceBadge}
                 />
               </Stack>
               {/* The count pill — this burst's place in a run — rides
@@ -1468,6 +1486,7 @@ export function DeviceStage({
     panelMeasureHandlers,
     pinSwitchBannerShown,
     pinSwitchSlot,
+    deviceBadge,
     spacerFlowStyle,
     stageAnimated,
     stageChecklistShown,
@@ -2071,22 +2090,6 @@ export function DeviceStage({
     [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
-  // The card's corner badge: the device's name at the top left, the
-  // close button's mirror — worn only by the device-side steps, where
-  // the person must reach for the physical device the badge names.
-  const cornerBadge = useMemo(() => {
-    if (!deviceName || !DEVICE_BADGE_STEPS.has(shownStep)) {
-      return null;
-    }
-    return (
-      <Stack borderRadius="$full" bg="$neutral4" px="$2.5" py="$1">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {deviceName}
-        </SizableText>
-      </Stack>
-    );
-  }, [deviceName, shownStep]);
-
   return (
     <MorphOverlay
       morph={morph}
@@ -2099,7 +2102,6 @@ export function DeviceStage({
       modal
       capsuleKey={capsuleText.title}
       capsule={capsule}
-      cornerBadge={cornerBadge}
       stageLayer={stageLayer}
       seats={seats}
     />
