@@ -42,6 +42,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import {
+  formatPriceToSignificantDigits,
+  formatSpotPriceToValid,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -809,15 +813,16 @@ export function PerpOrderBook({
     l2SubscriptionOptions,
   ]);
 
+  const activeSizeDecimals =
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe?.baseSzDecimals
+      : activeTradeInstrument.universe?.szDecimals;
   const tickOptionsData = useTickOptions({
     symbol: activeTradeInstrument.coin,
     bids: candidateL2Book?.bids ?? [],
     asks: candidateL2Book?.asks ?? [],
     referencePrice: tickReferencePrice,
-    szDecimals:
-      activeTradeInstrument.mode === 'spot'
-        ? activeTradeInstrument.universe?.baseSzDecimals
-        : activeTradeInstrument.universe?.szDecimals,
+    szDecimals: activeSizeDecimals,
     isSpot: activeTradeInstrument.mode === 'spot',
   });
   const {
@@ -835,8 +840,8 @@ export function PerpOrderBook({
     [setSelectedTickOption],
   );
 
-  const handleLevelSelect = useCallback(
-    (selection: IOrderBookSelection) => {
+  const handlePriceSelect = useCallback(
+    (price: string) => {
       if (
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
@@ -848,7 +853,7 @@ export function PerpOrderBook({
       }
 
       const updates: Partial<ITradingFormData> = {
-        price: selection.price,
+        price,
       };
 
       if (formData.type !== 'limit') {
@@ -864,6 +869,25 @@ export function PerpOrderBook({
       visibleL2Book?.isCachedSnapshot,
       visibleL2Book?.time,
     ],
+  );
+  const handleLevelSelect = useCallback(
+    (selection: IOrderBookSelection) => {
+      handlePriceSelect(selection.price);
+    },
+    [handlePriceSelect],
+  );
+  const handleMidPriceSelect = useCallback(
+    (price: string) => {
+      const sizeDecimalsForPrice = activeSizeDecimals ?? 2;
+      const formattedPrice =
+        activeTradeInstrument.mode === 'spot'
+          ? formatSpotPriceToValid(price, sizeDecimalsForPrice)
+          : formatPriceToSignificantDigits(price, sizeDecimalsForPrice);
+      if (formattedPrice !== '0') {
+        handlePriceSelect(formattedPrice);
+      }
+    },
+    [activeSizeDecimals, activeTradeInstrument.mode, handlePriceSelect],
   );
   const isVisibleOrderBookInteractive = useMemo(
     () =>
@@ -1095,6 +1119,11 @@ export function PerpOrderBook({
                 sizeDecimals={sizeDecimals}
                 onSelectLevel={
                   isVisibleOrderBookInteractive ? handleLevelSelect : undefined
+                }
+                onSelectMidPrice={
+                  isVisibleOrderBookInteractive
+                    ? handleMidPriceSelect
+                    : undefined
                 }
                 variant="mobileVertical"
               />
