@@ -418,7 +418,7 @@ function BasicAccountAvatar({
             bg="$bgStrong"
             borderRadius={size === 'small' ? '$1' : '$2'}
             {...restProps}
-            skeleton={renderLoading}
+            placeholder={renderLoading}
             fallback={renderFallback}
           />
         </Animated.View>
