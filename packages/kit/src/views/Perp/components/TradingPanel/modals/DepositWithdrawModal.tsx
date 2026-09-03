@@ -86,6 +86,7 @@ import {
   getUsdcWithdrawDestination,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
+  IUsdcWithdrawDestinationConfig,
   IUsdcWithdrawDestinationId,
   IUsdcWithdrawFeeQuote,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
@@ -129,6 +130,90 @@ const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
 const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
+
+function formatWithdrawFeeComponent(
+  component: IUsdcWithdrawFeeQuote['components'][number],
+) {
+  const amount = new BigNumber(component.amount).toFixed(2);
+  if (component.kind === 'hyperEvmGas') {
+    return `< $${amount}`;
+  }
+  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
+}
+
+// The fee of a destination is known before the quote comes back, so switching
+// destinations can render the new number straight away. Without it the row
+// blanks to a placeholder between the two values and reads as a flicker, even
+// when both destinations charge the same.
+function buildWithdrawFeePreviewQuote({
+  destination,
+  route,
+}: {
+  destination: IUsdcWithdrawDestinationConfig;
+  route: 'bridge' | 'cctp' | undefined;
+}): IUsdcWithdrawFeeQuote | undefined {
+  if (destination.transferType === 'hyperEvm') {
+    return {
+      components: [
+        {
+          kind: 'hyperEvmGas',
+          amount: USDC_WITHDRAW_GAS_RESERVE.toString(),
+          token: 'USDC',
+          debitedFrom: 'spotHypeOrSourceUsdc',
+          isEstimate: true,
+          displayAsLessThan: true,
+        },
+      ],
+      quotedAt: 0,
+    };
+  }
+  if (route === 'cctp') {
+    return {
+      components: [
+        {
+          kind: 'cctpForwarding',
+          amount: destination.fallbackFee.toString(),
+          token: 'USDC',
+          debitedFrom: 'withdrawAmount',
+          isEstimate: false,
+        },
+      ],
+      quotedAt: 0,
+    };
+  }
+  if (route === 'bridge' && destination.supportsLegacyBridge) {
+    return {
+      components: [
+        {
+          kind: 'legacyBridge',
+          amount: WITHDRAW_FEE.toString(),
+          token: 'USDC',
+          debitedFrom: 'withdrawAmount',
+          isEstimate: false,
+        },
+      ],
+      quotedAt: 0,
+    };
+  }
+  return undefined;
+}
+
+function isSameWithdrawFeeQuote(
+  a: IUsdcWithdrawFeeQuote | undefined,
+  b: IUsdcWithdrawFeeQuote,
+) {
+  return (
+    a?.components.length === b.components.length &&
+    a.components.every((component, index) => {
+      const next = b.components[index];
+      return (
+        component.kind === next.kind &&
+        component.amount === next.amount &&
+        component.isEstimate === next.isEstimate
+      );
+    })
+  );
+}
 
 function hasPositivePerpsDepositTokenAmount(tokenAmount?: string) {
   if (!tokenAmount) {
@@ -362,6 +447,17 @@ function DepositWithdrawContent({
     withdrawFeeState && withdrawFeeState.key === withdrawFeeKey
       ? withdrawFeeState.quote
       : undefined;
+  // Submission still binds to the confirmed quote; this one only feeds the row,
+  // so a destination switch never blanks the number it is replacing.
+  const withdrawFeeDisplayQuote = useMemo(
+    () =>
+      withdrawFeeQuote ??
+      buildWithdrawFeePreviewQuote({
+        destination: selectedWithdrawDestination,
+        route: withdrawRoute,
+      }),
+    [withdrawFeeQuote, selectedWithdrawDestination, withdrawRoute],
+  );
   const cctpFeeComponent = withdrawFeeQuote?.components.find(
     (component) => component.kind === 'cctpForwarding',
   );
@@ -2169,21 +2265,24 @@ function DepositWithdrawContent({
         withdrawRoute === 'bridge'
       ) {
         if (selectedWithdrawDestination.supportsLegacyBridge) {
-          setWithdrawFeeState({
-            key: withdrawFeeKey,
-            quote: {
-              components: [
-                {
-                  kind: 'legacyBridge',
-                  amount: WITHDRAW_FEE.toString(),
-                  token: 'USDC',
-                  debitedFrom: 'withdrawAmount',
-                  isEstimate: false,
-                },
-              ],
-              quotedAt: Date.now(),
-            },
-          });
+          const bridgeQuote: IUsdcWithdrawFeeQuote = {
+            components: [
+              {
+                kind: 'legacyBridge',
+                amount: WITHDRAW_FEE.toString(),
+                token: 'USDC',
+                debitedFrom: 'withdrawAmount',
+                isEstimate: false,
+              },
+            ],
+            quotedAt: Date.now(),
+          };
+          setWithdrawFeeState((current) =>
+            current?.key === withdrawFeeKey &&
+            isSameWithdrawFeeQuote(current.quote, bridgeQuote)
+              ? current
+              : { key: withdrawFeeKey, quote: bridgeQuote },
+          );
         }
         return;
       }
@@ -2191,7 +2290,14 @@ function DepositWithdrawContent({
         .getUsdcWithdrawFee({ destinationId: withdrawDestinationId })
         .then((feeQuote) => {
           if (!cancelled) {
-            setWithdrawFeeState({ key: withdrawFeeKey, quote: feeQuote });
+            // The periodic refresh usually returns what is already on screen;
+            // reusing the object keeps that tick from re-rendering the row.
+            setWithdrawFeeState((current) =>
+              current?.key === withdrawFeeKey &&
+              isSameWithdrawFeeQuote(current.quote, feeQuote)
+                ? current
+                : { key: withdrawFeeKey, quote: feeQuote },
+            );
           }
         })
         .catch((error) => {
@@ -2224,20 +2330,13 @@ function DepositWithdrawContent({
   ]);
 
   const withdrawFeeText = useMemo(() => {
-    if (!withdrawFeeQuote) {
+    if (!withdrawFeeDisplayQuote) {
       return '--';
     }
-    return withdrawFeeQuote.components
-      .map((component) => {
-        if (component.kind === 'hyperEvmGas') {
-          return `< $${new BigNumber(component.amount).toFixed(2)}`;
-        }
-        return `${component.isEstimate ? '≈ ' : ''}$${new BigNumber(
-          component.amount,
-        ).toFixed(2)}`;
-      })
+    return withdrawFeeDisplayQuote.components
+      .map(formatWithdrawFeeComponent)
       .join(' + ');
-  }, [withdrawFeeQuote]);
+  }, [withdrawFeeDisplayQuote]);
 
   const withdrawSubmitDisabled =
     !isValidAmount ||
