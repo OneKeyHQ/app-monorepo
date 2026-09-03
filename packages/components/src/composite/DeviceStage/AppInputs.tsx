@@ -374,8 +374,17 @@ export interface IPassphraseFormProps {
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
   error?: string;
   /** Fresh-visit signal, the PIN pad's own: parked presenters bump it
-   * per activation to stand in for a remount's clean slate. */
+   * per activation to stand in for a remount's clean slate. It fires as
+   * the card is LEFT, which is right for clearing the entry (a secret
+   * must not linger in a parked form) and wrong for the seed below. */
   resetSignal?: number;
+  /**
+   * Bumped as the card is ENTERED. The Keep-accessible seed is sampled
+   * here, not on `resetSignal`: the exit signal fires before the save of
+   * that same exit has broadcast the remembered choice back, so sampling
+   * there read the value from before the person's last change.
+   */
+  activationSignal?: number;
 }
 
 /**
@@ -394,6 +403,7 @@ export function PassphraseForm({
   initialKeepAccessible,
   allowProtocolV2Utf8,
   resetSignal,
+  activationSignal,
 }: IPassphraseFormProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -413,9 +423,11 @@ export function PassphraseForm({
   useEffect(() => {
     setValue('');
     setSecure(true);
-    setKeepAccessible(seedKeepAccessibleRef.current);
     setValidationError(undefined);
   }, [resetSignal]);
+  useEffect(() => {
+    setKeepAccessible(seedKeepAccessibleRef.current);
+  }, [activationSignal]);
   const toggleSecure = useCallback(() => setSecure((state) => !state), []);
   // Only create carries the preference out — verify creates nothing, so
   // its exits leave the options absent (the live flow's split).
