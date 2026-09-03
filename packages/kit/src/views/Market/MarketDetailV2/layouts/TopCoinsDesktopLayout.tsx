@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -23,8 +22,9 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketAccountPortfolioItem,
   IMarketTokenDetail as IMarketTokenDetailV2,
@@ -43,8 +43,8 @@ import { AprText } from '../../../Earn/components/AprText';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
 import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
-import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 import { useTopCoinsDetail } from '../hooks/useTopCoinsDetail';
 import {
@@ -168,16 +168,51 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
   );
 }
 
-function getHistoricalPrice(currentPrice: string, percentage?: number) {
-  if (percentage === undefined || !Number.isFinite(percentage)) {
+function TopCoinsEmbeddedSwap({ swapToken }: { swapToken: ISwapToken }) {
+  const { defaultTokens } = useSpeedSwapInit(swapToken.networkId, true);
+  const defaultFromToken = useMemo(
+    () =>
+      defaultTokens.find(
+        (token) =>
+          !equalTokenNoCaseSensitive({
+            token1: token,
+            token2: swapToken,
+          }),
+      ),
+    [defaultTokens, swapToken],
+  );
+  const swapInitParams = useMemo<ISwapInitParams>(
+    () => ({
+      importFromToken: defaultFromToken,
+      importNetworkId: defaultFromToken?.networkId ?? swapToken.networkId,
+      importToToken: swapToken,
+      swapSource: ESwapSource.MARKET,
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+    }),
+    [defaultFromToken, swapToken],
+  );
+
+  return (
+    <Stack
+      testID="market-top-coins-trade-ready"
+      width="100%"
+      minHeight={520}
+      overflow="hidden"
+    >
+      <LazyEmbeddedSwap
+        pageType={EPageType.modal}
+        singleSwapBridgeHeader
+        swapInitParams={swapInitParams}
+      />
+    </Stack>
+  );
+}
+
+function normalizeAssetValue(value?: string | number | null) {
+  if (value === undefined || value === null) {
     return undefined;
   }
-  const current = new BigNumber(currentPrice);
-  const ratio = new BigNumber(percentage).dividedBy(100).plus(1);
-  if (!current.isFinite() || !ratio.isFinite() || ratio.isZero()) {
-    return undefined;
-  }
-  return current.dividedBy(ratio).toFixed();
+  return Number.isFinite(Number(value)) ? String(value) : undefined;
 }
 
 function TopCoinsPerformanceItem({
@@ -186,7 +221,7 @@ function TopCoinsPerformanceItem({
   referencePrice,
 }: {
   label: string;
-  percentage?: number;
+  percentage?: string | number;
   referencePrice?: string;
 }) {
   return (
@@ -213,53 +248,52 @@ function TopCoinsPerformanceItem({
 }
 
 function TopCoinsOverview({
-  legacyDetail,
+  assetDetail,
   tokenDetail,
 }: {
-  legacyDetail?: IMarketTokenDetail;
+  assetDetail?: IMarketAssetDetailData;
   tokenDetail?: IMarketTokenDetailV2;
 }) {
   const intl = useIntl();
-  const stats = legacyDetail?.stats;
-  const symbol =
-    legacyDetail?.symbol?.toUpperCase() ?? tokenDetail?.symbol ?? '';
-  const currentPrice = stats?.currentPrice ?? tokenDetail?.price ?? '';
-  const performance = stats?.performance;
+  const market = assetDetail?.market;
+  const performance = assetDetail?.performance;
+  const symbol = assetDetail?.asset.symbol ?? tokenDetail?.symbol ?? '';
   const performanceItems = useMemo(
     () => [
       {
         key: '7d',
         label: '7D',
-        percentage: performance?.priceChangePercentage7d,
+        percentage: normalizeAssetValue(performance?.priceChange7dPercent),
+        referencePrice: normalizeAssetValue(performance?.price7dAgo),
       },
       {
         key: '30d',
         label: '30D',
-        percentage: performance?.priceChangePercentage30d,
+        percentage: normalizeAssetValue(performance?.priceChange30dPercent),
+        referencePrice: normalizeAssetValue(performance?.price30dAgo),
       },
-      { key: '3m', label: '3M', percentage: undefined },
+      {
+        key: '3m',
+        label: '3M',
+        percentage: normalizeAssetValue(performance?.priceChange3mPercent),
+        referencePrice: normalizeAssetValue(performance?.price3mAgo),
+      },
       {
         key: '1y',
         label: '1Y',
-        percentage: performance?.priceChangePercentage1y,
+        percentage: normalizeAssetValue(performance?.priceChange1yPercent),
+        referencePrice: normalizeAssetValue(performance?.price1yAgo),
       },
       {
         key: 'ath',
         label: intl.formatMessage({
           id: ETranslations.market_all_time_high,
         }),
-        percentage:
-          stats?.ath?.value && currentPrice
-            ? new BigNumber(currentPrice)
-                .minus(stats.ath.value)
-                .dividedBy(stats.ath.value)
-                .multipliedBy(100)
-                .toNumber()
-            : undefined,
-        referencePrice: stats?.ath?.value ? String(stats.ath.value) : undefined,
+        percentage: normalizeAssetValue(performance?.allTimeHighChangePercent),
+        referencePrice: normalizeAssetValue(performance?.allTimeHighPrice),
       },
     ],
-    [currentPrice, intl, performance, stats?.ath?.value],
+    [intl, performance],
   );
 
   return (
@@ -268,17 +302,17 @@ function TopCoinsOverview({
         <TopCoinsStatItem
           label={intl.formatMessage({ id: ETranslations.global_market_cap })}
           value={formatStatValueWithFormatter(
-            stats?.marketCap ?? tokenDetail?.marketCap,
+            market?.marketCap ?? tokenDetail?.marketCap,
             USD_CURRENCY_FORMATTER,
           )}
-          rank={stats?.marketCapRank}
+          rank={market?.marketCapRank ?? undefined}
         />
         <TopCoinsStatItem
           label={intl.formatMessage({
             id: ETranslations.dexmarket_stock_24h_volume,
           })}
           value={formatStatValueWithFormatter(
-            stats?.volume24h ?? tokenDetail?.volume24h,
+            market?.volume24h ?? tokenDetail?.volume24h,
             USD_CURRENCY_FORMATTER,
           )}
         />
@@ -287,7 +321,7 @@ function TopCoinsOverview({
             id: ETranslations.global_circulating_supply,
           })}
           value={formatStatValueWithFormatter(
-            stats?.circulatingSupply ?? tokenDetail?.circulatingSupply,
+            market?.circulatingSupply ?? tokenDetail?.circulatingSupply,
             MARKET_CAP_FORMATTER,
           )}
         />
@@ -296,21 +330,21 @@ function TopCoinsOverview({
         <TopCoinsStatItem
           label={intl.formatMessage({ id: ETranslations.global_fdv })}
           value={formatStatValueWithFormatter(
-            stats?.fdv ?? tokenDetail?.fdv,
+            market?.fdv ?? tokenDetail?.fdv,
             USD_CURRENCY_FORMATTER,
           )}
         />
         <TopCoinsStatItem
           label={intl.formatMessage({ id: ETranslations.global_total_supply })}
           value={`${formatStatValueWithFormatter(
-            stats?.totalSupply,
+            market?.totalSupply,
             MARKET_CAP_FORMATTER,
           )}${symbol ? ` ${symbol}` : ''}`}
         />
         <TopCoinsStatItem
           label={intl.formatMessage({ id: ETranslations.global_max_supply })}
           value={formatStatValueWithFormatter(
-            stats?.maxSupply,
+            market?.maxSupply,
             MARKET_CAP_FORMATTER,
           )}
         />
@@ -324,10 +358,7 @@ function TopCoinsOverview({
               key={item.key}
               label={item.label}
               percentage={item.percentage}
-              referencePrice={
-                item.referencePrice ??
-                getHistoricalPrice(currentPrice, item.percentage)
-              }
+              referencePrice={item.referencePrice}
             />
           ))}
         </XStack>
@@ -342,23 +373,22 @@ function TopCoinsInformation({
   tokenLogoUrl,
   accountAddress,
   earnAsset,
-  isLegacyDetailLoading,
-  legacyDetail,
+  isAssetDetailLoading,
+  assetDetail,
 }: {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
   accountAddress?: string;
   earnAsset?: IRecommendAsset;
-  isLegacyDetailLoading: boolean;
-  legacyDetail?: IMarketTokenDetail;
+  isAssetDetailLoading: boolean;
+  assetDetail?: IMarketAssetDetailData;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [tab, setTab] = useState<'overview' | 'portfolio'>('overview');
   const { tokenDetail } = useTokenDetail();
-  const symbol =
-    legacyDetail?.symbol?.toUpperCase() ?? tokenDetail?.symbol ?? '';
+  const symbol = assetDetail?.asset.symbol ?? tokenDetail?.symbol ?? '';
 
   const handleEarnPress = useCallback(() => {
     // The Earn surface performs its own protocol filtering and account setup.
@@ -380,7 +410,7 @@ function TopCoinsInformation({
         />
       </YStack>
     );
-  } else if (isLegacyDetailLoading && !legacyDetail) {
+  } else if (isAssetDetailLoading && !assetDetail) {
     tabContent = (
       <YStack px="$5" pt="$10" gap="$8">
         <Skeleton height={112} width="100%" />
@@ -390,17 +420,14 @@ function TopCoinsInformation({
   } else {
     tabContent = (
       <>
-        <TopCoinsOverview
-          legacyDetail={legacyDetail}
-          tokenDetail={tokenDetail}
-        />
+        <TopCoinsOverview assetDetail={assetDetail} tokenDetail={tokenDetail} />
 
         {earnAsset ? (
           <YStack px="$5" pb="$12" gap="$5">
             <SizableText size="$headingLg">
-              {`${intl.formatMessage({ id: ETranslations.global_earn })} ${
-                symbol
-              }`}
+              {`${intl.formatMessage({
+                id: ETranslations.global_earn,
+              })} ${symbol}`}
             </SizableText>
             <XStack
               py="$3"
@@ -433,19 +460,6 @@ function TopCoinsInformation({
               </XStack>
               <SizableText color="$textSubdued">›</SizableText>
             </XStack>
-          </YStack>
-        ) : null}
-
-        {legacyDetail?.about ? (
-          <YStack px="$5" pb="$12" gap="$5">
-            <SizableText size="$headingLg">
-              {`${intl.formatMessage({ id: ETranslations.global_about })} ${
-                symbol || legacyDetail.symbol.toUpperCase()
-              }`}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" maxWidth={792}>
-              {legacyDetail.about}
-            </SizableText>
           </YStack>
         ) : null}
       </>
@@ -525,22 +539,13 @@ export function TopCoinsDesktopLayout({
   onChartSwitch: () => void;
   onEnterChartFullscreen: () => void;
 }) {
-  const { fullTokenDetail } = useMarketDetailDisplayData();
-  const { earnAsset, isLegacyDetailLoading, legacyDetail } =
+  const { assetDetail, earnAsset, isAssetDetailLoading } =
     useTopCoinsDetail(marketTokenId);
-  const legacyChartTokenId =
-    marketTokenId && legacyDetail && !fullTokenDetail
-      ? marketTokenId
-      : undefined;
-  const swapInitParams = useMemo<ISwapInitParams>(
-    () => ({
-      importNetworkId: swapToken.networkId,
-      importToToken: swapToken,
-      swapSource: ESwapSource.MARKET,
-      swapTabSwitchType: ESwapTabSwitchType.SWAP,
-    }),
-    [swapToken],
-  );
+  const swapTargetKey =
+    marketTokenId ||
+    `${swapToken.networkId}:${
+      swapToken.isNative ? 'native' : swapToken.contractAddress
+    }`;
 
   return (
     <YStack
@@ -583,7 +588,6 @@ export function TopCoinsDesktopLayout({
                 <Stack height={48} bg="$bgApp" flexShrink={0} />
               ) : null}
               <TokenDetailChart
-                fallbackCoinGeckoId={legacyChartTokenId}
                 marketTradingView={marketTradingView}
                 isChartFullscreen={isChartFullscreen}
                 chartMode={chartMode}
@@ -600,8 +604,8 @@ export function TopCoinsDesktopLayout({
             isRefreshing={isRefreshing}
             tokenLogoUrl={tokenLogoUrl}
             earnAsset={earnAsset}
-            isLegacyDetailLoading={Boolean(isLegacyDetailLoading)}
-            legacyDetail={legacyDetail}
+            isAssetDetailLoading={Boolean(isAssetDetailLoading)}
+            assetDetail={assetDetail}
           />
         </YStack>
 
@@ -613,13 +617,7 @@ export function TopCoinsDesktopLayout({
               config={{ sceneName: EAccountSelectorSceneName.swap }}
               enabledNum={[0, 1]}
             >
-              <Stack width="100%" minHeight={520} overflow="hidden">
-                <LazyEmbeddedSwap
-                  pageType={EPageType.modal}
-                  singleSwapBridgeHeader
-                  swapInitParams={swapInitParams}
-                />
-              </Stack>
+              <TopCoinsEmbeddedSwap key={swapTargetKey} swapToken={swapToken} />
             </AccountSelectorProviderMirror>
           )}
         </YStack>

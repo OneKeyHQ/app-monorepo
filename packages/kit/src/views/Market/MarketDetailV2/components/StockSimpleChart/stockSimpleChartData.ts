@@ -4,6 +4,60 @@ import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marke
 
 export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
 
+export const TOKEN_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+  'All',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+export const STOCK_SHARE_SIMPLE_CHART_RANGES =
+  TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
+
+type IStockSimpleChartRequestParams = {
+  coinGeckoId?: string;
+  isNative: boolean;
+  networkId: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockId?: string;
+  tokenAddress: string;
+};
+
+export function resolveStockSimpleChartRequestScope({
+  coinGeckoId,
+  isNative,
+  networkId,
+  priceMode,
+  range,
+  stockId,
+  tokenAddress,
+}: IStockSimpleChartRequestParams): IStockSimpleChartRequestParams {
+  if (priceMode === 'share') {
+    return {
+      coinGeckoId: undefined,
+      isNative: false,
+      networkId: '',
+      priceMode,
+      range,
+      stockId,
+      tokenAddress: '',
+    };
+  }
+
+  return {
+    coinGeckoId,
+    isNative,
+    networkId,
+    priceMode,
+    range,
+    stockId: undefined,
+    tokenAddress,
+  };
+}
+
 const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   IStockSimpleChartRange,
   number | undefined
@@ -46,23 +100,44 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   All: 'all',
 };
 
-export async function fetchStockSimpleChartPoints({
+async function resolveTokenChartCoinGeckoId({
   coinGeckoId,
-  isNative,
   networkId,
-  priceMode,
-  range,
-  stockId,
   tokenAddress,
 }: {
   coinGeckoId?: string;
-  isNative: boolean;
   networkId: string;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
-  stockId?: string;
   tokenAddress: string;
-}): Promise<IMarketTokenChart> {
+}) {
+  const normalizedCoinGeckoId = coinGeckoId?.trim();
+  if (normalizedCoinGeckoId) {
+    return normalizedCoinGeckoId;
+  }
+
+  try {
+    const tokenInfo = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+      networkId,
+      tokenAddress,
+    });
+    return tokenInfo?.info?.coingeckoId?.trim() || undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
+export async function fetchStockSimpleChartPoints(
+  params: IStockSimpleChartRequestParams,
+): Promise<IMarketTokenChart> {
+  const {
+    coinGeckoId,
+    isNative,
+    networkId,
+    priceMode,
+    range,
+    stockId,
+    tokenAddress,
+  } = resolveStockSimpleChartRequestScope(params);
+
   const isSharePrice = priceMode === 'share';
   if (isSharePrice && !stockId) {
     return [];
@@ -98,11 +173,22 @@ export async function fetchStockSimpleChartPoints({
       .toSorted((a, b) => a[0] - b[0]);
   }
 
-  if (coinGeckoId) {
+  if (coinGeckoId || range === 'All') {
+    const resolvedCoinGeckoId =
+      range === 'All'
+        ? await resolveTokenChartCoinGeckoId({
+            coinGeckoId,
+            networkId,
+            tokenAddress,
+          })
+        : coinGeckoId;
     const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
-      coinGeckoId,
+      resolvedCoinGeckoId,
       COINGECKO_CHART_DAYS[range],
-      { requestCurrency: 'usd' },
+      {
+        requestCurrency: 'usd',
+        ...(!resolvedCoinGeckoId ? { networkId, tokenAddress } : undefined),
+      },
     );
     return response
       .map(
@@ -122,6 +208,10 @@ export async function fetchStockSimpleChartPoints({
           timestamp <= timeTo,
       )
       .toSorted((a, b) => a[0] - b[0]);
+  }
+
+  if (timeFrom === undefined) {
+    return [];
   }
 
   const response =

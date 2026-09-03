@@ -117,7 +117,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
       let didCloseDialogForNextStep = false;
       let didAdvanceToCodeStep = false;
       try {
-        appStorage.syncStorage.set(
+        await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_onekey_id_login_email,
           data.email,
         );

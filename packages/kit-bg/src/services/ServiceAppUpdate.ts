@@ -1207,7 +1207,7 @@ class ServiceAppUpdate extends ServiceBase {
     this.downloadAttemptBudget = undefined;
     // Remove a stale record written by an earlier bundle. The gate never reads
     // or writes this MMKV key.
-    appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
+    await appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
   }
 
   @backgroundMethod()

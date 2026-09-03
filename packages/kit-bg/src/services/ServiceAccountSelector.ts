@@ -46,6 +46,23 @@ import type {
   IVaultSettings,
 } from '../vaults/types';
 
+function hasStoredAccountAddress(account: IDBAccount): boolean {
+  if (account.address) {
+    return true;
+  }
+
+  const addressMaps = [
+    'addresses' in account ? account.addresses : undefined,
+    'customAddresses' in account ? account.customAddresses : undefined,
+    'findAddresses' in account ? account.findAddresses : undefined,
+    'connectedAddresses' in account ? account.connectedAddresses : undefined,
+  ];
+
+  return addressMaps.some((addressMap) =>
+    Object.values(addressMap ?? {}).some(Boolean),
+  );
+}
+
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -166,6 +183,9 @@ class ServiceAccountSelector extends ServiceBase {
     let indexedAccount: IDBIndexedAccount | undefined;
     let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const isAllNetwork = Boolean(
+      networkId && networkUtils.isAllNetwork({ networkId }),
+    );
 
     if (walletId) {
       try {
@@ -188,7 +208,13 @@ class ServiceAccountSelector extends ServiceBase {
     }
 
     let dbAccountId = othersWalletAccountId || '';
-    if (!dbAccountId && indexedAccountId && networkId && deriveType) {
+    if (
+      !dbAccountId &&
+      indexedAccountId &&
+      networkId &&
+      deriveType &&
+      !isAllNetwork
+    ) {
       try {
         dbAccountId =
           await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
@@ -221,8 +247,18 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
+      // Unusable and legacy others-wallet selections skip the stored-address
+      // check below, so keep their existing aggregate-account behavior.
+      const shouldQueryIndexedAllNetworkAccount = Boolean(
+        wallet &&
+        (accountUtils.isWalletDeprecatedOrMocked(wallet) ||
+          accountUtils.isOthersWallet({ walletId: wallet.id })),
+      );
       const canQueryIndexedNetworkAccount = Boolean(
-        deriveType && indexedAccountId && wallet,
+        deriveType &&
+        indexedAccountId &&
+        wallet &&
+        (!isAllNetwork || shouldQueryIndexedAllNetworkAccount),
       );
       const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
       if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
@@ -252,10 +288,6 @@ class ServiceAccountSelector extends ServiceBase {
         }
       }
     }
-
-    const isAllNetwork = Boolean(
-      networkId && networkUtils.isAllNetwork({ networkId }),
-    );
 
     if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
       try {
@@ -325,13 +357,24 @@ class ServiceAccountSelector extends ServiceBase {
     const isWalletUnusable = accountUtils.isWalletDeprecatedOrMocked(wallet);
     let canCreateAddress = false;
     if (isAllNetwork && networkId) {
-      // build mocked networkAccount of all network
+      // Only expose the aggregate mock account after a real chain address exists.
       if (!isOthersWallet && indexedAccountId && !isWalletUnusable) {
         try {
-          account =
-            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
-            });
+          const { accounts } =
+            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+              {
+                indexedAccountId,
+              },
+            );
+          // Persisted addresses define whether an account has been created.
+          // Runtime derivation here would turn skipped creation into existence.
+          account = accounts.some(hasStoredAccountAddress)
+            ? await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              )
+            : undefined;
           canCreateAddress = true;
         } catch (error) {
           account = undefined;

@@ -535,6 +535,54 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     ).toBeUndefined();
   });
 
+  it.each(['V1', 'V2'] as const)(
+    'applies equal-metadata %s device-info versions from a hardware read-back',
+    (protocol) => {
+      const currentState = {
+        protocol,
+        revision: 4,
+        updatedAt: 400,
+        identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+        status: { mode: 'normal' },
+        settings: { language: 'en-US' },
+        versions: {
+          firmware: '4.16.1',
+          ble: '2.3.4',
+          bootloader: '2.8.2',
+        },
+      };
+
+      const snapshot = getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'CLASSIC_USB', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'CLASSIC_USB',
+          revision: 4,
+          source: 'device-info',
+          changedKeys: [
+            'versions.firmware',
+            'versions.ble',
+            'versions.bootloader',
+          ],
+          state: {
+            ...currentState,
+            versions: {
+              firmware: '4.21.0',
+              ble: '2.3.7',
+              bootloader: '2.8.4',
+            },
+          },
+        },
+      } as never);
+
+      expect(snapshot?.state.versions).toEqual({
+        firmware: '4.21.0',
+        ble: '2.3.7',
+        bootloader: '2.8.4',
+      });
+    },
+  );
+
   it('rejects a new wallet identity even when the physical serial still matches', () => {
     expect(
       getDeviceStateSnapshotFromEvent({

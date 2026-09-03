@@ -17,6 +17,57 @@ function setEquals(left, right) {
   return true;
 }
 
+function assertEntryStartsWithPolyfills({
+  entryPath,
+  graph,
+  polyfillsEntryPath,
+  runtimeLabel,
+}) {
+  const entryModule = graph.get(entryPath);
+  const firstDependency = entryModule
+    ? [...entryModule.dependencies.values()].find(
+        (dependency) => dependency.absolutePath,
+      )
+    : undefined;
+  if (firstDependency?.absolutePath === polyfillsEntryPath) {
+    return;
+  }
+
+  throw new Error(
+    `[RuntimePolyfills] ${runtimeLabel} entry must require ${polyfillsEntryPath} before every other dependency. First dependency: ${firstDependency?.absolutePath ?? 'missing entry module'}`,
+  );
+}
+
+function assertPolyfillBootstrapSynchronous({
+  polyfillsPathPrefix,
+  runtimeGraphs,
+}) {
+  const violations = [];
+  for (const { graph, runtimeLabel } of runtimeGraphs) {
+    for (const [absolutePath, moduleData] of graph) {
+      if (absolutePath.startsWith(polyfillsPathPrefix)) {
+        for (const [dependencyName, dependency] of moduleData.dependencies) {
+          if (dependency.data?.data?.asyncType === 'async') {
+            violations.push(
+              `${runtimeLabel}: ${absolutePath} -> ${dependencyName} (${dependency.absolutePath ?? 'unresolved'})`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    throw new Error(
+      [
+        '[RuntimePolyfills] Polyfill bootstrap must be fully synchronous.',
+        'Dynamic imports can return control before required globals are installed:',
+        ...violations.map((violation) => `  - ${violation}`),
+      ].join('\n'),
+    );
+  }
+}
+
 function buildModuleSignature(moduleData) {
   if (!moduleData) {
     return '';
@@ -101,10 +152,17 @@ function buildRuntimeOwnership({
   );
 
   // Expand shared startup set with sync dependencies.
-  // A shared module (e.g., defiUtils.ts) may sync-depend on a module that
-  // only exists in one graph (e.g., a crypto lib only in the bg graph).
-  // That dep must also be in the common bundle, so promote it to shared.
-  // We follow sync deps in BOTH graphs to cover all transitive deps.
+  // A shared module (e.g., defiUtils.ts) may sync-depend on a module that is
+  // not yet in the shared startup set; that dep must also be loadable before
+  // the common bundle finishes evaluating, so promote it to shared.
+  //
+  // Only shared-equivalent deps may be promoted. The common bundle is
+  // serialized from the MAIN graph, so promoting a runtime-divergent dep
+  // (e.g. react-native-mmkv resolves to the real package in bg but to the
+  // main-thread guard shim in main) would either ship the main variant to the
+  // background runtime or drop bg-only modules from every bundle. Divergent
+  // deps stay runtime-owned: each runtime's eager bundle carries its own
+  // variant under the same stable module id.
   const pendingShared = [...sharedStartupAbsPaths];
   while (pendingShared.length > 0) {
     const current = pendingShared.pop();
@@ -115,7 +173,8 @@ function buildRuntimeOwnership({
         for (const [, dep] of mod.dependencies) {
           if (
             dep.data?.data?.asyncType !== 'async' &&
-            !sharedStartupAbsPaths.has(dep.absolutePath)
+            !sharedStartupAbsPaths.has(dep.absolutePath) &&
+            sharedEquivalentAbsPaths.has(dep.absolutePath)
           ) {
             // Promote this sync dep to shared
             sharedStartupAbsPaths.add(dep.absolutePath);
@@ -946,6 +1005,8 @@ function computeSharedPerRuntimeDeps({
 }
 
 module.exports = {
+  assertEntryStartsWithPolyfills,
+  assertPolyfillBootstrapSynchronous,
   assertBundleCompleteness,
   buildPostSection,
   buildSerializedModuleEntries,

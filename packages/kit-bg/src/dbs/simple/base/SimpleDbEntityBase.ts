@@ -3,12 +3,11 @@ import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import { getSimpleDbEntityKey } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 type ISimpleDbEntitySavedData<T> = {
   data: T;

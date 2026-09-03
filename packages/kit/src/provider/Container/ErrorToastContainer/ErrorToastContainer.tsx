@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -37,6 +38,19 @@ const getDeduplicationId = (
 };
 
 export function ErrorToastContainer() {
+  useEffect(
+    () =>
+      subscribeNativeStorageContractViolations((violation) => {
+        Toast.error({
+          title: 'Unsupported AsyncStorage API',
+          message: `${violation.apiName} was blocked in the ${violation.runtime} runtime. See the device log for the call stack.`,
+          toastId: `native-storage-contract:${violation.runtime}:${violation.apiName}`,
+          duration: 10_000,
+        });
+      }),
+    [],
+  );
+
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       if (!p.title) {

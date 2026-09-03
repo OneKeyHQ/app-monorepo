@@ -43,6 +43,75 @@ export interface IMarketToken {
   lastUpdated: string;
 }
 
+export interface IMarketAssetListItem {
+  assetId: string;
+  symbol: string;
+  logoUrl: string;
+  price: string;
+  priceChange24hPercent: string;
+  priceChange7dPercent: string;
+  marketCap: string;
+  volume24h: string;
+  sparkline24h: number[];
+}
+
+export interface IMarketAssetListData {
+  list: IMarketAssetListItem[];
+  total: number;
+}
+
+export interface IMarketAssetIdentity {
+  assetId: string;
+  name: string;
+  symbol: string;
+  logoUrl: string;
+}
+
+export interface IMarketAssetVariant {
+  variantId: string;
+  networkId: string;
+  tokenAddress: string;
+  networkName: string;
+  networkSymbol: string;
+  networkLogoUrl: string;
+  isNative: boolean;
+  isDefault: boolean;
+}
+
+export interface IMarketAssetMarket {
+  price: string;
+  priceChange24h: string;
+  priceChange24hPercent: string;
+  marketCap: string;
+  marketCapRank: number | null;
+  volume24h: string;
+  circulatingSupply: string;
+  fdv: string;
+  totalSupply: string;
+  maxSupply: string;
+}
+
+export interface IMarketAssetPerformance {
+  priceChange7dPercent: string;
+  price7dAgo: string;
+  priceChange30dPercent: string;
+  price30dAgo: string;
+  priceChange3mPercent: string;
+  price3mAgo: string;
+  priceChange1yPercent: string;
+  price1yAgo: string;
+  allTimeHighChangePercent: string;
+  allTimeHighPrice: string;
+}
+
+export interface IMarketAssetDetailData {
+  asset: IMarketAssetIdentity;
+  variants: IMarketAssetVariant[];
+  selectedVariant: IMarketAssetVariant;
+  market: IMarketAssetMarket;
+  performance: IMarketAssetPerformance;
+}
+
 export interface IMarketDetailAthOrAtl {
   time: Date;
   value: number;
