@@ -22,6 +22,31 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 
+function buildSimpleDbRollbackError({
+  firstRestoreError,
+  originalError,
+  retryError,
+}: {
+  firstRestoreError: unknown;
+  originalError?: unknown;
+  retryError: unknown;
+}) {
+  const error = new Error(
+    `Failed to restore SimpleDB data after retry: ${
+      (retryError as Error | undefined)?.message ?? String(retryError)
+    }`,
+  ) as Error & {
+    cause: {
+      firstRestoreError: unknown;
+      originalError?: unknown;
+      retryError: unknown;
+    };
+  };
+  error.name = 'SimpleDbRollbackError';
+  error.cause = { firstRestoreError, originalError, retryError };
+  return error;
+}
+
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
   appStorage: ITravelModeAwareAsyncStorage =
@@ -296,20 +321,20 @@ abstract class SimpleDbEntityBase<T> {
             data: next.data,
             updatedAt,
           };
-          const previousSavedData: ISimpleDbEntitySavedData<T> | undefined =
-            previousUpdatedAt
-              ? {
-                  data: previousData as T,
-                  updatedAt: previousUpdatedAt,
-                }
-              : undefined;
-          const serializeSavedData = (
-            value: ISimpleDbEntitySavedData<T>,
-          ): string =>
+          const previousSavedData: ISimpleDbEntitySavedData<T> | undefined = !isNil(
+            previousData,
+          )
+            ? {
+                data: previousData as T,
+                updatedAt: previousUpdatedAt,
+              }
+            : undefined;
+          const serializeSavedData = (value: ISimpleDbEntitySavedData<T>): string =>
             appStorageUtils.canSaveAsObject() && !isString(value)
               ? (value as unknown as string)
               : JSON.stringify(value);
           let restoreCompleted = false;
+          let restoreStarted = false;
           let writeAttempted = false;
           const restorePreviousData = async () => {
             this.transactionReadSnapshot = { data: previousData };
@@ -329,6 +354,25 @@ abstract class SimpleDbEntityBase<T> {
               await this.appStorage.removeItem(this.entityKey);
             }
             restoreCompleted = true;
+          };
+          const restorePreviousDataWithRetry = async (originalError?: unknown) => {
+            restoreStarted = true;
+            try {
+              await restorePreviousData();
+            } catch (firstRestoreError) {
+              try {
+                await restorePreviousData();
+              } catch (retryError) {
+                // The rejected value may still be on disk. Drop the optimistic
+                // rollback cache so the next read observes persistent truth.
+                this.clearRawDataCache();
+                throw buildSimpleDbRollbackError({
+                  firstRestoreError,
+                  originalError,
+                  retryError,
+                });
+              }
+            }
           };
           const buildRejectedResult = () => ({
             committed: false,
@@ -359,15 +403,15 @@ abstract class SimpleDbEntityBase<T> {
             });
 
             if (!shouldCommit()) {
-              await restorePreviousData();
+              await restorePreviousDataWithRetry();
               return buildRejectedResult();
             }
             if (beforePublish && !(await beforePublish(next.data))) {
-              await restorePreviousData();
+              await restorePreviousDataWithRetry();
               return buildRejectedResult();
             }
             if (!shouldCommit()) {
-              await restorePreviousData();
+              await restorePreviousDataWithRetry();
               return buildRejectedResult();
             }
 
@@ -378,7 +422,7 @@ abstract class SimpleDbEntityBase<T> {
             this.updatedAt = updatedAt;
             this.transactionReadSnapshot = undefined;
             if (afterPublish && !afterPublish(next.data)) {
-              await restorePreviousData();
+              await restorePreviousDataWithRetry();
               return buildRejectedResult();
             }
             return {
@@ -387,9 +431,11 @@ abstract class SimpleDbEntityBase<T> {
               previousData,
             };
           } catch (error) {
-            // Retry an incomplete rollback before releasing the transaction.
-            if (writeAttempted && !restoreCompleted) {
-              await restorePreviousData();
+            // A rollback invoked from the guarded path is still inside this try.
+            // If its first storage write fails, retry it here instead of treating
+            // the attempted rollback as complete and leaving rejected data on disk.
+            if (writeAttempted && !restoreCompleted && !restoreStarted) {
+              await restorePreviousDataWithRetry(error);
             }
             throw error;
           } finally {

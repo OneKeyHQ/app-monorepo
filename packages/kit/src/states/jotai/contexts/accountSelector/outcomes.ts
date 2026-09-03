@@ -223,6 +223,7 @@ export enum EExternalActivateOutcome {
 export enum EAutoSelectDeriveTypeOutcome {
   Cancelled = 'cancelled',
   Error = 'error',
+  NoGlobalDerive = 'no-global-derive',
   NoDeriveOptions = 'no-derive-options',
   SkipExistingDerive = 'skip-existing-derive',
   StaleNetwork = 'stale-network',

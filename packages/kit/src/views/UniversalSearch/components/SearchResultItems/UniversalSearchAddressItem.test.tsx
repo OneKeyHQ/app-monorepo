@@ -261,12 +261,23 @@ describe('UniversalSearchAddressItem account select', () => {
     expect(mockAddIntoRecentSearchList).toHaveBeenCalledTimes(1);
   });
 
+  it('silently records the recent search when confirmAccountSelect returns false', async () => {
+    mockConfirmAccountSelect.mockResolvedValue(false);
+
+    await pressAccountItem();
+
+    expect(mockNavigationPop).toHaveBeenCalledTimes(1);
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockAddIntoRecentSearchList).toHaveBeenCalledTimes(1);
+  });
+
   it('records the recent search without a toast when the selection is persisted', async () => {
     await pressAccountItem();
 
     expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
     expect(mockConfirmAccountSelect.mock.calls[0][0]).toMatchObject({
       entry: 'universalSearch:indexedAccount',
+      throwOnError: true,
     });
     expect(mockToastError).not.toHaveBeenCalled();
     expect(mockAddIntoRecentSearchList).toHaveBeenCalledTimes(1);

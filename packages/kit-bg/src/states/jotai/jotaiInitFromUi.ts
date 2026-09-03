@@ -1,4 +1,5 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EAtomNames } from './atomNames';
 import { globalJotaiStorageReadyHandler } from './jotaiStorage';
@@ -29,7 +30,10 @@ function isCrossAtomLike(
 export async function jotaiUpdateFromUiByBgBroadcast(
   params: IGlobalStatesSyncBroadcastParams,
 ) {
-  if (params.name === EAtomNames.jotaiContextStoreMapAtom) {
+  if (
+    params.name === EAtomNames.jotaiContextStoreMapAtom &&
+    platformEnv.isExtensionUi
+  ) {
     await syncJotaiContextStoreMemoMap(params.payload);
   }
   // Try registry first (no barrel import needed)

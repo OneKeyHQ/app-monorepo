@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -15,10 +15,7 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
-import {
-  EAutoSelectDeriveTypeOutcome,
-  ESelectionUpdateOutcome,
-} from '../../../states/jotai/contexts/accountSelector/outcomes';
+import { EAutoSelectDeriveTypeOutcome } from '../../../states/jotai/contexts/accountSelector/outcomes';
 import {
   getAccountSelectorPerfTimestamp,
   getNextAccountSelectorPerfOperationId,
@@ -39,14 +36,88 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
   const { serviceNetwork } = backgroundApiProxy;
   const networkId = network?.id;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+  const networkGlobalSyncRef = useRef<
+    | {
+        networkId: string;
+        promise: Promise<unknown>;
+      }
+    | undefined
+  >(undefined);
 
-  // Sync the global derive type first, then resolve a network fallback only
-  // when no global choice exists. Keeping the steps in one task avoids two
-  // concurrent global-derive RPCs after a network change.
+  // Global state only needs reconciling when the active network changes.
+  // Keeping deriveInfo out of these deps prevents account-info rebuilds from
+  // issuing the same background RPC again.
+  useEffect(() => {
+    let cancelled = false;
+    if (!isReady || !networkId || isOthersWallet) {
+      networkGlobalSyncRef.current = undefined;
+      return;
+    }
+    const perfEnabled = isAccountSelectorPerfDebugEnabled();
+    const operationId = perfEnabled
+      ? getNextAccountSelectorPerfOperationId()
+      : undefined;
+    const requestedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
+    if (perfEnabled) {
+      defaultLogger.accountSelector.perf.trace('autoDeriveRequested', {
+        num,
+        operationId,
+        sceneName,
+        trigger: 'network-change',
+      });
+    }
+    const promise = actions.current.syncLocalDeriveTypeFromGlobal({
+      num,
+      parentOperationId: operationId,
+      sceneName,
+      sceneUrl,
+      source: 'network-change',
+    });
+    networkGlobalSyncRef.current = { networkId, promise };
+    void promise
+      .then((result) => {
+        if (cancelled || !perfEnabled) {
+          return;
+        }
+        defaultLogger.accountSelector.perf.trace('autoDeriveResult', {
+          num,
+          operationId,
+          outcome: result.globalDeriveType
+            ? `global-${result.selectionResult?.outcome || 'resolved'}`
+            : EAutoSelectDeriveTypeOutcome.NoGlobalDerive,
+          phase: 'sync-global',
+          sceneName,
+          stageMs: {
+            syncGlobal: Math.round(
+              getAccountSelectorPerfTimestamp() - requestedAt,
+            ),
+          },
+          totalMs: Math.round(getAccountSelectorPerfTimestamp() - requestedAt),
+          transitionId: result.selectionResult?.transitionId,
+          trigger: 'network-change',
+        });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          defaultLogger.app.error.log(
+            `[useAutoSelectDeriveType] global derive type sync failed: ${
+              (error as Error | undefined)?.message ?? String(error)
+            }`,
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [actions, isOthersWallet, isReady, networkId, num, sceneName, sceneUrl]);
+
+  // Resolve a fallback whenever the current active account has no derive
+  // information. This remains reactive to deriveInfo disappearing on the same
+  // network, but waits for that network's one global reconciliation first.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (!isReady || !networkId || isOthersWallet) {
+      if (!isReady || !networkId || isOthersWallet || deriveInfo) {
         return;
       }
       const perfEnabled = isAccountSelectorPerfDebugEnabled();
@@ -55,7 +126,7 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
         : undefined;
       const requestedAt = perfEnabled ? getAccountSelectorPerfTimestamp() : 0;
       const stageMs: Record<string, number> = {};
-      let phase = 'sync-global';
+      let phase = 'wait-global';
       let resultLogged = false;
       const logResult = (
         outcome: IAutoSelectDeriveTypeOutcome,
@@ -74,7 +145,7 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           stageMs,
           totalMs: Math.round(getAccountSelectorPerfTimestamp() - requestedAt),
           transitionId,
-          trigger: 'network-change',
+          trigger: 'derive-missing',
         });
       };
       if (perfEnabled) {
@@ -82,23 +153,19 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           num,
           operationId,
           sceneName,
-          trigger: 'network-change',
+          trigger: 'derive-missing',
         });
       }
       try {
         let stageStartedAt = perfEnabled
           ? getAccountSelectorPerfTimestamp()
           : 0;
-        const globalSyncResult =
-          await actions.current.syncLocalDeriveTypeFromGlobal({
-            num,
-            parentOperationId: operationId,
-            sceneName,
-            sceneUrl,
-            source: 'network-change',
-          });
+        const globalSync = networkGlobalSyncRef.current;
+        if (globalSync?.networkId === networkId) {
+          await globalSync.promise.catch(() => undefined);
+        }
         if (perfEnabled) {
-          stageMs.syncGlobal = Math.round(
+          stageMs.waitGlobal = Math.round(
             getAccountSelectorPerfTimestamp() - stageStartedAt,
           );
         }
@@ -106,31 +173,11 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
           logResult(EAutoSelectDeriveTypeOutcome.Cancelled);
           return;
         }
-        if (globalSyncResult.globalDeriveType) {
-          const globalOutcome = globalSyncResult.selectionResult?.outcome;
-          const currentDeriveType = actions.current.getSelectedAccount({
-            num,
-          }).deriveType;
-          if (
-            globalOutcome !== ESelectionUpdateOutcome.Stale ||
-            currentDeriveType
-          ) {
-            logResult(
-              `global-${globalOutcome || 'resolved'}`,
-              globalSyncResult.selectionResult?.transitionId,
-            );
-            return;
-          }
-          // The global sync lost a race and the selection that won still has no
-          // derive type, so keep going and let the fallback below resolve one
-          // against the current selection. A selection that already carries a
-          // newer derive type is left alone by the check above.
-        }
-        if (deriveInfo) {
+        const expectedSelection = actions.current.getSelectedAccount({ num });
+        if (expectedSelection.deriveType) {
           logResult(EAutoSelectDeriveTypeOutcome.SkipExistingDerive);
           return;
         }
-        const expectedSelection = actions.current.getSelectedAccount({ num });
         if (expectedSelection.networkId !== networkId) {
           logResult(EAutoSelectDeriveTypeOutcome.StaleNetwork);
           return;

@@ -337,6 +337,22 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }
 
   @backgroundMethod()
+  async isAccountSelectorStorageInitGenerationCurrent({
+    generation,
+    sceneName,
+    sceneUrl,
+  }: {
+    generation: number;
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+  }) {
+    return isAccountSelectorStorageInitGenerationCurrent({
+      generation,
+      scope: { sceneName, sceneUrl },
+    });
+  }
+
+  @backgroundMethod()
   async recordSelectedAccountIntent({
     num,
     sceneName,

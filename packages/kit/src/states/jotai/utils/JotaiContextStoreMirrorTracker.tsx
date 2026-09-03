@@ -168,18 +168,18 @@ function enqueueExtensionRuntimeRegistrationSnapshot({
   ) => void;
   storeId: string;
 }) {
-  extensionRuntimeRegistrationRevision += 1;
-  const update: IJotaiContextStoreRegistrationUpdate = {
-    action: 'reconcile-runtime',
-    registrations: [...extensionRuntimeRegistrations.values()],
-    revision: extensionRuntimeRegistrationRevision,
-    runtimeId: appEventBus.nodeId,
-    storeId,
-  };
   extensionRuntimeRegistrationUpdateQueue =
     extensionRuntimeRegistrationUpdateQueue
       .catch(() => undefined)
       .then(async () => {
+        extensionRuntimeRegistrationRevision += 1;
+        const update: IJotaiContextStoreRegistrationUpdate = {
+          action: 'reconcile-runtime',
+          registrations: [...extensionRuntimeRegistrations.values()],
+          revision: extensionRuntimeRegistrationRevision,
+          runtimeId: appEventBus.nodeId,
+          storeId,
+        };
         const { default: backgroundApiProxy } =
           await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         const result =
