@@ -620,6 +620,7 @@ describe('DeviceSettingsManager device adapters', () => {
 
   test('allows an empty user upload to clear a monochrome home screen', async () => {
     const device = buildDevice(EDeviceType.Classic);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
     jest.mocked(localDb.getDevice).mockResolvedValueOnce(device);
     jest
       .mocked(deviceHomeScreenUtils.isMonochromeScreen)
