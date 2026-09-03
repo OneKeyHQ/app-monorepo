@@ -1,4 +1,7 @@
-import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenBatchRequestParams,
+  IMarketTokenListResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 type IMarketTokenListRequestParams = {
   networkId: string;
@@ -20,16 +23,6 @@ type IMarketTokenListResponseWithSource = IMarketTokenListResponse & {
 
 type IFetchMarketTokenListForPlatformOptions = {
   forceRemote?: boolean;
-};
-
-type IMarketTokenBatchRequestParams = {
-  tokenAddressList: {
-    contractAddress: string;
-    chainId: string;
-    isNative: boolean;
-  }[];
-  requestLocale?: string;
-  skipCache?: boolean;
 };
 
 export type {

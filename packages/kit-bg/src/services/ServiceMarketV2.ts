@@ -38,6 +38,7 @@ import type {
   IMarketStockPublicSearchRequest,
   IMarketStockTokenVariantsResponse,
   IMarketTokenBatchListResponse,
+  IMarketTokenBatchRequestParams,
   IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
@@ -540,15 +541,7 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddressList,
     requestLocale,
     skipCache = false,
-  }: {
-    tokenAddressList: {
-      contractAddress: string;
-      chainId: string;
-      isNative: boolean;
-    }[];
-    requestLocale?: string;
-    skipCache?: boolean;
-  }) {
+  }: IMarketTokenBatchRequestParams) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
 

@@ -13,6 +13,8 @@ import type {
   IMarketBannerListResponse,
   IMarketBasicConfigResponse,
   IMarketTokenBatchListResponse,
+  IMarketTokenBatchRequestParams,
+  IMarketTokenListItem,
   IMarketTokenListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -44,16 +46,6 @@ type INormalizedMarketTokenListRequestParams = IMarketTokenListRequestParams & {
 
 type IFetchMarketTokenListLightOptions = {
   forceRemote?: boolean;
-};
-
-type IMarketTokenBatchRequestParams = {
-  tokenAddressList: {
-    contractAddress: string;
-    chainId: string;
-    isNative: boolean;
-  }[];
-  requestLocale?: string;
-  skipCache?: boolean;
 };
 
 const getUtilityEndpoint = () =>
@@ -235,20 +227,84 @@ const fetchMarketTokenListBatchFromApi = async ({
   return response.data.data;
 };
 
-const fetchMarketTokenListBatchRemoteLight = memoizee(
-  fetchMarketTokenListBatchFromApi,
-  {
-    maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    promise: true,
-  },
-);
+const marketTokenBatchCache = new Map<
+  string,
+  { data: IMarketTokenListItem; timestamp: number }
+>();
+const marketTokenBatchCacheTTL = timerUtils.getTimeDurationMs({ seconds: 30 });
 
-const fetchMarketTokenListBatchLight = (
+const getMarketTokenBatchCacheKey = ({
+  chainId,
+  contractAddress,
+  requestLocale,
+}: {
+  chainId: string;
+  contractAddress: string;
+  requestLocale: string;
+}) => `${requestLocale}:${chainId}:${contractAddress.toLowerCase()}`;
+
+const fetchMarketTokenListBatchLight = async (
   params: IMarketTokenBatchRequestParams,
-) =>
-  params.skipCache
-    ? fetchMarketTokenListBatchFromApi(params)
-    : fetchMarketTokenListBatchRemoteLight(params);
+) => {
+  const requestLocale = (
+    params.requestLocale?.trim() || appLocale.intl.locale
+  ).toLowerCase();
+  const now = Date.now();
+
+  for (const [key, value] of marketTokenBatchCache) {
+    if (now - value.timestamp > marketTokenBatchCacheTTL) {
+      marketTokenBatchCache.delete(key);
+    }
+  }
+
+  const cachedResults: IMarketTokenListItem[] = [];
+  const missingTokens: IMarketTokenBatchRequestParams['tokenAddressList'] = [];
+  const tokenIndexMap = new Map<string, number>();
+
+  params.tokenAddressList.forEach((token, index) => {
+    const cacheKey = getMarketTokenBatchCacheKey({
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      requestLocale,
+    });
+    tokenIndexMap.set(cacheKey, index);
+    const cached = marketTokenBatchCache.get(cacheKey);
+    if (
+      !params.skipCache &&
+      cached &&
+      now - cached.timestamp < marketTokenBatchCacheTTL
+    ) {
+      cachedResults[index] = cached.data;
+    } else {
+      missingTokens.push(token);
+    }
+  });
+
+  if (missingTokens.length === 0) {
+    return { list: cachedResults };
+  }
+
+  const data = await fetchMarketTokenListBatchFromApi({
+    tokenAddressList: missingTokens,
+    requestLocale,
+  });
+  data?.list?.forEach((item, index) => {
+    const token = missingTokens[index];
+    if (!token) return;
+    const cacheKey = getMarketTokenBatchCacheKey({
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      requestLocale,
+    });
+    marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+    const originalIndex = tokenIndexMap.get(cacheKey);
+    if (originalIndex !== undefined) {
+      cachedResults[originalIndex] = item;
+    }
+  });
+
+  return { list: cachedResults };
+};
 
 const fetchMarketBasicConfigLight = memoizee(
   async () => {

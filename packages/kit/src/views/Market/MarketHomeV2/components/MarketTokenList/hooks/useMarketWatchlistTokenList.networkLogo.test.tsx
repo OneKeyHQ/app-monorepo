@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 
 import { useMarketWatchlistTokenList } from './useMarketWatchlistTokenList';
 
@@ -29,6 +29,10 @@ const mockWatchlistApiResult = {
   ],
 };
 const mockRun = jest.fn(async () => undefined);
+let mockSpotResult: typeof mockWatchlistApiResult | { list: [] } =
+  mockWatchlistApiResult;
+let mockSpotLoading = false;
+let mockPerpsLoading = false;
 
 jest.mock('@onekeyhq/components', () => ({
   useCarouselIndex: () => 0,
@@ -46,12 +50,19 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
     _method: unknown,
     _deps: unknown[],
-    options?: { watchLoading?: boolean },
-  ) => ({
-    result: options?.watchLoading ? mockWatchlistApiResult : null,
-    isLoading: false,
-    run: mockRun,
-  }),
+    options?: { revalidateOnFocus?: boolean },
+  ) =>
+    options?.revalidateOnFocus
+      ? {
+          result: mockSpotResult,
+          isLoading: mockSpotLoading,
+          run: mockRun,
+        }
+      : {
+          result: null,
+          isLoading: mockPerpsLoading,
+          run: mockRun,
+        },
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -59,8 +70,15 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
 }));
 
 describe('useMarketWatchlistTokenList network logos', () => {
-  it('uses dynamic Market config logos for watchlist rows', async () => {
+  beforeEach(() => {
+    mockSpotResult = mockWatchlistApiResult;
+    mockSpotLoading = false;
+    mockPerpsLoading = false;
+  });
+
+  it('builds watchlist rows synchronously with dynamic Market config logos', () => {
     let latestData: IMarketToken[] = [];
+    const committedLengths: number[] = [];
     const watchlist = [
       {
         chainId: 'evm--143',
@@ -74,16 +92,38 @@ describe('useMarketWatchlistTokenList network logos', () => {
         watchlist,
         pollingInterval: 0,
       }).data;
+      committedLengths.push(latestData.length);
       return null;
     }
 
     render(<Probe />);
 
-    await waitFor(() => {
-      expect(latestData).toHaveLength(1);
-      expect(latestData[0]?.networkLogoUri).toBe(
-        'https://example.com/monad.png',
-      );
-    });
+    expect(committedLengths[0]).toBe(1);
+    expect(latestData).toHaveLength(1);
+    expect(latestData[0]?.networkLogoUri).toBe('https://example.com/monad.png');
+  });
+
+  it('keeps loading active while a perps-only watchlist is resolving', () => {
+    mockSpotResult = { list: [] };
+    mockPerpsLoading = true;
+    let latestIsLoading = false;
+
+    function Probe() {
+      latestIsLoading = useMarketWatchlistTokenList({
+        watchlist: [
+          {
+            chainId: '',
+            contractAddress: '',
+            perpsCoin: 'BTC',
+          },
+        ],
+        pollingInterval: 0,
+      }).isLoading;
+      return null;
+    }
+
+    render(<Probe />);
+
+    expect(latestIsLoading).toBe(true);
   });
 });

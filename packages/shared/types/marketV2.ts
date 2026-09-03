@@ -482,6 +482,16 @@ export interface IMarketTokenBatchListResponse {
   list: IMarketTokenListItem[];
 }
 
+export interface IMarketTokenBatchRequestParams {
+  tokenAddressList: {
+    contractAddress: string;
+    chainId: string;
+    isNative: boolean;
+  }[];
+  requestLocale?: string;
+  skipCache?: boolean;
+}
+
 export interface IMarketTokenSecurityItem {
   value: boolean | number | string;
   content: string;
