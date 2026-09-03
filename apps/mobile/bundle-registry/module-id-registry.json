@@ -16030,7 +16030,7 @@
     "packages/components/src/composite/DatePicker/type.ts": 77,
     "packages/components/src/composite/DatePicker/useSwipeMonthNavEnabled.ts": 78,
     "packages/components/src/composite/DatePicker/utils.ts": 79,
-    "packages/components/src/composite/DeviceStage/AppInputs.tsx": 7975,
+    "packages/components/src/composite/DeviceStage/AppInputs.tsx": 8034,
     "packages/components/src/composite/DeviceStage/AuthPanels.tsx": 7976,
     "packages/components/src/composite/DeviceStage/BluetoothBadge.tsx": 7977,
     "packages/components/src/composite/DeviceStage/CardValue.tsx": 7978,
