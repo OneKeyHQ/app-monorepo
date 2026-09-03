@@ -127,7 +127,7 @@ function usePreCheckTokenBalance({
           feeBN.times(network?.feeMeta.maxSendFeeUpRatio ?? 1),
         );
 
-        if (amountToUpdate.gte(0)) {
+        if (amountToUpdate.gt(0)) {
           const adjustedAmount = vaultSettings?.shouldFixMaxSendAmount
             ? chainValueUtils.fixNativeTokenMaxSendAmount({
                 amount: amountToUpdate,
@@ -135,12 +135,22 @@ function usePreCheckTokenBalance({
               })
             : amountToUpdate;
 
-          updateNativeTokenTransferAmountToUpdate({
-            isMaxSend: true,
-            amountToUpdate: new BigNumber(adjustedAmount)
-              .decimalPlaces(network.decimals, BigNumber.ROUND_FLOOR)
-              .toFixed(),
-          });
+          const flooredAmount = new BigNumber(adjustedAmount).decimalPlaces(
+            network.decimals,
+            BigNumber.ROUND_FLOOR,
+          );
+
+          if (flooredAmount.gt(0)) {
+            updateNativeTokenTransferAmountToUpdate({
+              isMaxSend: true,
+              amountToUpdate: flooredAmount.toFixed(),
+            });
+          } else {
+            updateNativeTokenTransferAmountToUpdate({
+              isMaxSend: false,
+              amountToUpdate: nativeTokenTransferBN.toFixed(),
+            });
+          }
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,
