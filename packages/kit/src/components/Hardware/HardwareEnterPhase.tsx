@@ -25,11 +25,10 @@ import {
 } from '@onekeyhq/components/src/hooks/useForm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import {
   isPassphraseValid,
   normalizeProtocolV2Passphrase,
-} from '../../utils/passphraseUtils';
+} from '@onekeyhq/shared/src/utils/passphraseUtils';
 
 import { resolvePassphraseEntryUi } from './HardwareEnterPhase.utils';
 
