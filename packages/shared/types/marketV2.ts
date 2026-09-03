@@ -34,6 +34,7 @@ export interface IMarketTokenDetail {
   name: string;
   symbol: string;
   decimals: number;
+  decimalsResolved?: boolean;
   marketCap?: string;
   fdv?: string;
   tvl?: string;

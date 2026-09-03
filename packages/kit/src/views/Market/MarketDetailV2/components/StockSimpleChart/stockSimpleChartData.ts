@@ -84,11 +84,6 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   All: '1W',
 };
 
-const MARKET_ASSET_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
-  ...STOCK_TOKEN_CHART_INTERVALS,
-  '1D': '30m',
-};
-
 const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1H': '1',
   '1D': '1',
@@ -188,7 +183,7 @@ export async function fetchStockSimpleChartPoints(
   if (marketAssetId) {
     const response = await fetchMarketAssetKLineData({
       assetId: marketAssetId,
-      interval: MARKET_ASSET_CHART_INTERVALS[range],
+      interval: STOCK_TOKEN_CHART_INTERVALS[range],
       ...(timeFrom !== undefined ? { timeFrom, timeTo } : undefined),
     });
     return response.points

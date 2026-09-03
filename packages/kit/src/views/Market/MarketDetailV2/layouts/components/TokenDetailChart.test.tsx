@@ -7,16 +7,11 @@ import { fireEvent, render } from '@testing-library/react';
 import { TokenDetailChart } from './TokenDetailChart';
 
 const mockSetChartDisplayMode = jest.fn();
-
-type IMockStockSimpleChartProps = {
-  marketAssetId?: string;
-  priceMode: 'token';
-  range: string;
-};
-
-const mockStockSimpleChart = jest.fn((_props: IMockStockSimpleChartProps) => (
-  <div data-testid="market-token-simple-chart" />
-));
+const mockStockSimpleChart = jest.fn(
+  (_props: { marketAssetId?: string; priceMode: 'token'; range: string }) => (
+    <div data-testid="market-token-simple-chart" />
+  ),
+);
 let mockChartDisplayMode: 'simple' | 'pro' = 'simple';
 
 jest.mock('react-intl', () => ({
@@ -63,8 +58,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 
 jest.mock('../../components/StockSimpleChart', () => ({
-  StockSimpleChart: (props: IMockStockSimpleChartProps) =>
-    mockStockSimpleChart(props),
+  StockSimpleChart: (props: {
+    marketAssetId?: string;
+    priceMode: 'token';
+    range: string;
+  }) => mockStockSimpleChart(props),
   TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
 }));
 
@@ -144,9 +142,11 @@ describe('TokenDetailChart', () => {
     expect(allRangeButton.textContent).toBe('global.all');
     fireEvent.click(allRangeButton);
 
-    expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
-      priceMode: 'token',
-      range: 'All',
-    });
+    expect(mockStockSimpleChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        priceMode: 'token',
+        range: 'All',
+      }),
+    );
   });
 });

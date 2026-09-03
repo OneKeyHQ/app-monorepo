@@ -235,6 +235,7 @@ export function DesktopLayout({
     ],
   );
   const isSwapTokenReady =
+    displayTokenDetail?.decimalsResolved !== false &&
     typeof displayTokenDetail?.decimals === 'number' &&
     Number.isInteger(displayTokenDetail.decimals) &&
     displayTokenDetail.decimals >= 0;
