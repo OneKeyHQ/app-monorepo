@@ -220,6 +220,7 @@ type IPortfolioSyncRequestPhase =
 
 type IPortfolioSyncRequest = {
   id: number;
+  minimumAllNetworksGeneration?: number;
   phase: IPortfolioSyncRequestPhase;
   targetKey: string;
 };
@@ -413,9 +414,15 @@ function TokenListBlock({
   const portfolioSyncSuccessTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-  const allowEmptyInteractivePortfolioSyncRef = useRef(false);
+  const allowEmptyInteractivePortfolioSyncRequestIdRef = useRef<
+    number | undefined
+  >(undefined);
   const allNetworksTokenListUpdateInFlightRef = useRef(false);
   const allNetworksTokenListUpdatePendingRef = useRef(false);
+  const allNetworksPublishedResultRef = useRef<{
+    generation: number;
+    result: IAllNetworkTokenListResp[] | null | undefined;
+  }>({ generation: 0, result: undefined });
   const updateAllNetworksTokenListRef = useRef<() => Promise<void>>(
     async () => {},
   );
@@ -479,6 +486,11 @@ function TokenListBlock({
         return;
       }
       clearPortfolioSyncFallbackTimer();
+      if (
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
+      ) {
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+      }
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
     },
@@ -493,6 +505,11 @@ function TokenListBlock({
       }
       clearPortfolioSyncFallbackTimer();
       clearPortfolioSyncSuccessTimer();
+      if (
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
+      ) {
+        allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+      }
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
       setPortfolioSyncFeedback('success');
@@ -512,7 +529,9 @@ function TokenListBlock({
       if (request?.id !== requestId) {
         return false;
       }
-      clearPortfolioSyncFallbackTimer();
+      if (phase !== 'settled') {
+        clearPortfolioSyncFallbackTimer();
+      }
       portfolioSyncRequestRef.current = { ...request, phase };
       setPortfolioSyncRequestPhase(phase);
       return true;
@@ -657,17 +676,18 @@ function TokenListBlock({
       try {
         if (!network) return;
 
+        if (network.isAllNetworks) return;
+
+        portfolioSyncRequest = getPortfolioSyncRequestForTarget(
+          portfolioSyncTargetKey,
+        );
+
         if (!mergeDeriveAddressData) {
           if (!account) return;
         } else {
           accountId = indexedAccount?.id ?? '';
         }
 
-        if (network.isAllNetworks) return;
-
-        portfolioSyncRequest = getPortfolioSyncRequestForTarget(
-          portfolioSyncTargetKey,
-        );
         if (portfolioSyncRequest?.phase === 'queued') {
           transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'refreshing');
         }
@@ -1499,7 +1519,8 @@ function TokenListBlock({
           if (currentRequest.phase === 'settled') {
             // All network requests finished; upload the current snapshot
             // even if aggregation is still missing failed accounts.
-            allowEmptyInteractivePortfolioSyncRef.current = true;
+            allowEmptyInteractivePortfolioSyncRequestIdRef.current =
+              currentRequest.id;
             void updateAllNetworksTokenListRef.current();
             return;
           }
@@ -1931,6 +1952,16 @@ function TokenListBlock({
     [ingestLiveRound],
   );
 
+  const handleAllNetworkResultPublished = useCallback(
+    (
+      result: IAllNetworkTokenListResp[] | null | undefined,
+      generation: number,
+    ) => {
+      allNetworksPublishedResultRef.current = { generation, result };
+    },
+    [],
+  );
+
   const {
     run: runAllNetworksRequests,
     result: allNetworksResult,
@@ -1949,8 +1980,26 @@ function TokenListBlock({
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
+    onResultPublished: handleAllNetworkResultPublished,
     shouldAlwaysFetch,
   });
+
+  const getPortfolioSyncRequestForAllNetworksResult = useCallback(() => {
+    const request = getPortfolioSyncRequestForTarget(portfolioSyncTargetKey);
+    const publishedResult = allNetworksPublishedResultRef.current;
+    if (
+      request?.minimumAllNetworksGeneration === undefined ||
+      publishedResult.result !== allNetworksResult ||
+      publishedResult.generation < request.minimumAllNetworksGeneration
+    ) {
+      return undefined;
+    }
+    return request;
+  }, [
+    allNetworksResult,
+    getPortfolioSyncRequestForTarget,
+    portfolioSyncTargetKey,
+  ]);
 
   const updateAllNetworksTokenList = useCallback(async () => {
     if (allNetworksTokenListUpdateInFlightRef.current) {
@@ -1959,9 +2008,8 @@ function TokenListBlock({
     }
     allNetworksTokenListUpdateInFlightRef.current = true;
     try {
-      let portfolioSyncRequest = getPortfolioSyncRequestForTarget(
-        portfolioSyncTargetKey,
-      );
+      const portfolioSyncRequest =
+        getPortfolioSyncRequestForAllNetworksResult();
       if (!allNetworksResult?.length) {
         if (portfolioSyncRequest) {
           finishPortfolioSyncRequest(portfolioSyncRequest.id);
@@ -1998,9 +2046,6 @@ function TokenListBlock({
         }
         return;
       }
-      portfolioSyncRequest = getPortfolioSyncRequestForTarget(
-        portfolioSyncTargetKey,
-      );
       if (portfolioSyncRequest?.phase === 'refreshing') {
         transitionPortfolioSyncRequest(portfolioSyncRequest.id, 'settled');
       }
@@ -2213,14 +2258,22 @@ function TokenListBlock({
             tokens: portfolioTokens,
           });
 
+          const allowEmptyInteractivePortfolioSync = Boolean(
+            portfolioSyncRequest &&
+            allowEmptyInteractivePortfolioSyncRequestIdRef.current ===
+              portfolioSyncRequest.id,
+          );
           const shouldDeferEmptySnapshot =
-            !allowEmptyInteractivePortfolioSyncRef.current &&
+            !allowEmptyInteractivePortfolioSync &&
             shouldDeferEmptyHardwarePortfolioSync({
               aggregationComplete: assetStatusAggregationComplete,
               totalTokenCount: fundedTokenCount,
             });
           if (!shouldDeferEmptySnapshot) {
-            allowEmptyInteractivePortfolioSyncRef.current = false;
+            if (allowEmptyInteractivePortfolioSync) {
+              allowEmptyInteractivePortfolioSyncRequestIdRef.current =
+                undefined;
+            }
             const portfolioSyncPayload = {
               accountAddress: account?.address,
               accountId: account?.id,
@@ -2329,7 +2382,7 @@ function TokenListBlock({
     device?.connectId,
     device?.id,
     finishPortfolioSyncRequest,
-    getPortfolioSyncRequestForTarget,
+    getPortfolioSyncRequestForAllNetworksResult,
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
@@ -2337,7 +2390,6 @@ function TokenListBlock({
     allNetworkAccounts,
     allNetworksResult,
     network?.id,
-    portfolioSyncTargetKey,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
     commitAuthoritativeIngest,
@@ -2346,7 +2398,33 @@ function TokenListBlock({
     transitionPortfolioSyncRequest,
     wallet,
   ]);
-  updateAllNetworksTokenListRef.current = updateAllNetworksTokenList;
+  const runUpdateAllNetworksTokenList = useCallback(async () => {
+    const portfolioSyncRequest = getPortfolioSyncRequestForAllNetworksResult();
+    try {
+      await updateAllNetworksTokenList();
+    } catch (error) {
+      const currentRequest = getPortfolioSyncRequestForTarget(
+        portfolioSyncTargetKey,
+      );
+      if (
+        portfolioSyncRequest &&
+        currentRequest?.id === portfolioSyncRequest.id
+      ) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+        finishPortfolioSyncRequest(portfolioSyncRequest.id);
+        return;
+      }
+      console.error('updateAllNetworksTokenList error:', error);
+    }
+  }, [
+    finishPortfolioSyncRequest,
+    getPortfolioSyncRequestForAllNetworksResult,
+    getPortfolioSyncRequestForTarget,
+    portfolioSyncTargetKey,
+    updateAllNetworksTokenList,
+  ]);
+  updateAllNetworksTokenListRef.current = runUpdateAllNetworksTokenList;
 
   // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED
   // here. Both jobs it did on home are now covered without a whole-map read:
@@ -2702,24 +2780,8 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
-    void updateAllNetworksTokenList().catch((error) => {
-      const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
-        portfolioSyncTargetKey,
-      );
-      if (portfolioSyncRequest) {
-        errorToastUtils.toastIfError(error);
-        errorToastUtils.showToastOfError(error);
-        finishPortfolioSyncRequest(portfolioSyncRequest.id);
-        return;
-      }
-      console.error('updateAllNetworksTokenList error:', error);
-    });
-  }, [
-    finishPortfolioSyncRequest,
-    getPortfolioSyncRequestForTarget,
-    portfolioSyncTargetKey,
-    updateAllNetworksTokenList,
-  ]);
+    void runUpdateAllNetworksTokenList();
+  }, [runUpdateAllNetworksTokenList]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -2851,10 +2913,16 @@ function TokenListBlock({
     }
     clearPortfolioSyncSuccessTimer();
     setPortfolioSyncFeedback('idle');
-    allowEmptyInteractivePortfolioSyncRef.current = false;
+    allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
     portfolioSyncRequestIdRef.current += 1;
     const request: IPortfolioSyncRequest = {
       id: portfolioSyncRequestIdRef.current,
+      ...(network?.isAllNetworks
+        ? {
+            minimumAllNetworksGeneration:
+              allNetworksPublishedResultRef.current.generation + 1,
+          }
+        : {}),
       phase: 'queued',
       targetKey: portfolioSyncTargetKey,
     };
@@ -2865,6 +2933,7 @@ function TokenListBlock({
     clearPortfolioSyncSuccessTimer,
     getCurrentPortfolioSyncRequest,
     hasPortfolioSyncTarget,
+    network?.isAllNetworks,
     portfolioSyncTargetKey,
   ]);
 

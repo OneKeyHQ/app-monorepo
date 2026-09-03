@@ -880,6 +880,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       connectId: 'PRO2_CONNECT_ID',
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
       hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
       params: { scope: 'firmware' },
       silentMode: true,
     });
@@ -1144,6 +1145,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     try {
       const {
+        getDeviceState,
         getCurrentTransportType,
         prepareHardwareTransport,
         serviceInternals,
@@ -1161,7 +1163,14 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         expect.objectContaining({
           connectId: 'PRO2_CONNECT_ID',
           hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          persistTransportType: false,
           requestedTransportType: 'usb',
+        }),
+      );
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
         }),
       );
       expect(uploadPortfolioPackage).toHaveBeenCalledWith(
@@ -1261,6 +1270,99 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
+  test('cancels pending silent debounce before explicit unlock', async () => {
+    jest.useFakeTimers();
+    try {
+      const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.BLE,
+        });
+      const serviceInternals = service as unknown as {
+        advanceSyncGeneration: (targetKey: string) => number;
+        handleAllNetworksTokenListSettled: (
+          eventPayload: IPortfolioSyncSettledPayload,
+        ) => void;
+      };
+      const advanceSyncGeneration = jest.spyOn(
+        serviceInternals,
+        'advanceSyncGeneration',
+      );
+
+      serviceInternals.handleAllNetworksTokenListSettled(
+        buildHardwarePayload(),
+      );
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).resolves.toBe(true);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(2);
+      expect(advanceSyncGeneration.mock.invocationCallOrder[1]).toBeLessThan(
+        getDeviceStateWithUnlock.mock.invocationCallOrder[0],
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('keeps explicit sync current while a silent snapshot arrives during unlock', async () => {
+    jest.useFakeTimers();
+    try {
+      let resolveUnlock: (() => void) | undefined;
+      let notifyUnlockStarted: (() => void) | undefined;
+      const unlockStarted = new Promise<void>((resolve) => {
+        notifyUnlockStarted = resolve;
+      });
+      const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.BLE,
+        });
+      getDeviceStateWithUnlock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveUnlock = () => resolve(undefined);
+            notifyUnlockStarted?.();
+          }),
+      );
+      const serviceInternals = service as unknown as {
+        advanceSyncGeneration: (targetKey: string) => number;
+        handleAllNetworksTokenListSettled: (
+          eventPayload: IPortfolioSyncSettledPayload,
+        ) => void;
+      };
+      const advanceSyncGeneration = jest.spyOn(
+        serviceInternals,
+        'advanceSyncGeneration',
+      );
+
+      const interactiveSync = service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      await unlockStarted;
+      serviceInternals.handleAllNetworksTokenListSettled(
+        buildHardwarePayload(),
+      );
+
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(1);
+      resolveUnlock?.();
+      await expect(interactiveSync).resolves.toBe(true);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(2);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('settles an explicit sync when device unlock is cancelled', async () => {
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
@@ -1300,11 +1402,12 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     );
   });
 
-  test('throws when an explicit upload is not applied by the device', async () => {
-    const { service, uploadPortfolioPackage } = prepareHardwareSync({
-      busyResults: [false],
-      hardwareTransportType: EHardwareTransportType.BLE,
-    });
+  test('does not mark an unapplied explicit upload as transferred', async () => {
+    const { service, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
     uploadPortfolioPackage.mockResolvedValueOnce({ portfolioUpdated: false });
 
     await expect(
@@ -1313,6 +1416,14 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         syncMode: 'interactive',
       }),
     ).rejects.toThrow('Portfolio sync did not complete');
+
+    expect(
+      updateTargetState.mock.calls.some(
+        ([, state]) =>
+          (state as { lastContentHash?: string }).lastContentHash !== undefined,
+      ),
+    ).toBe(false);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
   test('keeps explicit sync successful when upload metadata persistence fails', async () => {
@@ -1495,6 +1606,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         expect.objectContaining({
           connectId: 'PRO2_CONNECT_ID',
           hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
         }),
       );
       expect(
@@ -2120,7 +2232,13 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   });
 
   test.each([
-    ['non-Pro2', { deviceType: EDeviceType.Pro }],
+    ['Classic', { deviceType: EDeviceType.Classic }],
+    ['Classic 1S', { deviceType: EDeviceType.Classic1s }],
+    ['Classic Pure', { deviceType: EDeviceType.ClassicPure }],
+    ['Mini', { deviceType: EDeviceType.Mini }],
+    ['Touch', { deviceType: EDeviceType.Touch }],
+    ['Pro', { deviceType: EDeviceType.Pro }],
+    ['unknown product', { deviceType: EDeviceType.Unknown }],
     ['Protocol V1', { connectProtocol: 'V1' }],
     ['third-party', { vendor: EHardwareVendor.ledger }],
     ['unknown-vendor', { vendor: undefined }],

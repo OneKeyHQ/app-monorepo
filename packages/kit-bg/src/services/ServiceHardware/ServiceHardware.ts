@@ -216,22 +216,13 @@ type IProtocolV2NftCoreApi = CoreApi & {
   ) => ReturnType<CoreApi['deviceUploadResource']>;
 };
 
-type IProtocolV2PortfolioCoreApi = Omit<CoreApi, 'uploadPortfolio'> & {
-  uploadPortfolio: (
-    connectId: string,
-    params: {
-      packageBase64: string;
-      uiMode?: 'silent' | 'progress';
-    },
-  ) => ReturnType<CoreApi['uploadPortfolio']>;
-};
-
 type IGetSDKInstanceOptions = {
   connectId: string | undefined;
   connectProtocol?: HardwareConnectProtocol;
   forceProtocolDetection?: boolean;
   hardwareCallContext?: EHardwareCallContext;
   hardwareTransportType?: EHardwareTransportType;
+  persistTransportType?: boolean;
   forceFirmwareManifestRefresh?: boolean;
 };
 
@@ -264,6 +255,8 @@ export type IDeviceGetStateOptions = Omit<
 > & {
   /** Reuse an existing desktop BLE link without scanning or reconnecting. */
   desktopBleReuseConnectedOnly?: boolean;
+  /** Avoid changing the user's preferred transport for background probes. */
+  persistTransportType?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -1230,7 +1223,11 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Update the connection manager's current transport type AFTER switch logic
-    await this.connectionManager.setCurrentTransportType(hardwareTransportType);
+    if (options.persistTransportType !== false) {
+      await this.connectionManager.setCurrentTransportType(
+        hardwareTransportType,
+      );
+    }
 
     try {
       const instance = await getHardwareSDKInstance({
@@ -3075,6 +3072,7 @@ class ServiceHardware extends ServiceBase {
       silentMode,
       hardwareCallContext,
       hardwareTransportType,
+      persistTransportType,
     } = options;
     const { allowEmptyConnectId, ...sdkParams } = params ?? {};
     serviceHardwareUtils.hardwareLog('call getDeviceState()', connectId);
@@ -3101,6 +3099,7 @@ class ServiceHardware extends ServiceBase {
       connectProtocol: knownProtocol,
       hardwareCallContext,
       hardwareTransportType,
+      persistTransportType,
     });
     const state = await this.runInDesktopBleConnectedOnlyScope({
       connectId,
@@ -3722,16 +3721,16 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
       hardwareCallContext,
+      ...(uiMode === 'silent' ? { persistTransportType: false } : {}),
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
-    const protocolV2PortfolioSDK = hardwareSDK as IProtocolV2PortfolioCoreApi;
     return this.runInDesktopBleConnectedOnlyScope({
       connectId: compatibleConnectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
           () =>
-            protocolV2PortfolioSDK.uploadPortfolio(compatibleConnectId, {
+            hardwareSDK.uploadPortfolio(compatibleConnectId, {
               packageBase64,
               ...(uiMode === 'progress' ? { uiMode } : {}),
             }),
@@ -5020,6 +5019,7 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
     hardwareCallContext: EHardwareCallContext;
+    persistTransportType?: boolean;
     requestedTransportType?: 'usb' | 'ble';
   }): Promise<EHardwareTransportType> {
     const connectProtocol =
@@ -5031,14 +5031,22 @@ class ServiceHardware extends ServiceBase {
           transportType: params.requestedTransportType,
           connectProtocol,
         });
-      await this.connectionManager.setCurrentTransportType(targetType);
+      if (params.persistTransportType !== false) {
+        await this.connectionManager.setCurrentTransportType(targetType);
+      }
       return targetType;
     }
-    const result = await this.connectionManager.resolveTransportType({
+    const transportParams = {
       connectId: params.connectId,
       hardwareCallContext: params.hardwareCallContext,
       connectProtocol,
-    });
+    };
+    const result =
+      params.persistTransportType === false
+        ? await this.connectionManager.shouldSwitchTransportType(
+            transportParams,
+          )
+        : await this.connectionManager.resolveTransportType(transportParams);
     return result.targetType;
   }
 

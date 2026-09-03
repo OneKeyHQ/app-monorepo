@@ -340,6 +340,12 @@ function useAllNetworkRequests<T>(params: {
   // of waiting for the whole fan-out. The monotonic run `generation` lets the
   // consumer's LWW materialized view reject a stale earlier run's settle.
   onRequestSettled?: (result: T, generation: number) => void;
+  // Fires only when a completed fan-out is published to `result`. Consumers
+  // can use this to distinguish a retained result from the next refresh.
+  onResultPublished?: (
+    result: Array<T> | null | undefined,
+    generation: number,
+  ) => void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
@@ -366,6 +372,7 @@ function useAllNetworkRequests<T>(params: {
     onFinished,
     onCacheChecked,
     onRequestSettled,
+    onResultPublished,
     revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
@@ -958,6 +965,9 @@ function useAllNetworkRequests<T>(params: {
         runSignature: currentRunSignature,
       });
       lastPublishedResultRef.current = resolved.nextLastPublished;
+      if (!hasQueuedRerun) {
+        onResultPublished?.(resolved.publishedResult, runGeneration);
+      }
       return resolved.publishedResult;
     },
     [
@@ -978,6 +988,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheData,
       allNetworkRequests,
       onRequestSettled,
+      onResultPublished,
     ],
     {
       revalidateOnFocus,

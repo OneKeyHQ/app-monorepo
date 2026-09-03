@@ -86,7 +86,16 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(source).toContain("setPortfolioSyncFeedback('success')");
     expect(source).toContain('keepPortfolioSyncRequest');
     expect(source).toContain('skipPortfolioSyncRequestFinish');
-    expect(source).toContain('allowEmptyInteractivePortfolioSyncRef');
+    expect(source).not.toContain('allowEmptyInteractivePortfolioSyncRef');
+    expect(source).toMatch(
+      /const allowEmptyInteractivePortfolioSyncRequestIdRef = useRef<\s+number \| undefined\s+>\(undefined\);/,
+    );
+    expect(source).toMatch(
+      /allowEmptyInteractivePortfolioSyncRequestIdRef\.current ===\s+portfolioSyncRequest\.id/,
+    );
+    expect(source).toMatch(
+      /if \(phase !== 'settled'\) \{\s+clearPortfolioSyncFallbackTimer\(\);/,
+    );
     expect(source).toContain(
       'if (portfolioSyncRequest && !skipPortfolioSyncRequestFinish)',
     );
@@ -115,7 +124,7 @@ describe('TokenListBlock portfolio sync producer', () => {
       'const updateAllNetworksTokenList = useCallback',
     );
     const updateEnd = source.indexOf(
-      'updateAllNetworksTokenListRef.current = updateAllNetworksTokenList',
+      'const runUpdateAllNetworksTokenList = useCallback',
       updateStart,
     );
     const updateSource = source.slice(updateStart, updateEnd);
@@ -131,12 +140,31 @@ describe('TokenListBlock portfolio sync producer', () => {
     expect(updateSource).toMatch(
       /allNetworksTokenListUpdateInFlightRef\.current = false;\s+if \(allNetworksTokenListUpdatePendingRef\.current\) \{\s+allNetworksTokenListUpdatePendingRef\.current = false;\s+void updateAllNetworksTokenListRef\.current\(\);/,
     );
-    expect(
-      updateSource.match(
-        /getPortfolioSyncRequestForTarget\(\s+portfolioSyncTargetKey,/g,
-      ),
-    ).toHaveLength(2);
+    expect(source).toContain(
+      'updateAllNetworksTokenListRef.current = runUpdateAllNetworksTokenList',
+    );
+    expect(source).toMatch(
+      /const runUpdateAllNetworksTokenList = useCallback\(async \(\) => \{\s+const portfolioSyncRequest =\s+getPortfolioSyncRequestForAllNetworksResult\(\);\s+try \{\s+await updateAllNetworksTokenList\(\);\s+\} catch \(error\) \{/,
+    );
+    expect(source).toContain('void runUpdateAllNetworksTokenList();');
+    expect(updateSource).toContain(
+      'getPortfolioSyncRequestForAllNetworksResult()',
+    );
+    expect(updateSource).toMatch(
+      /const portfolioSyncRequest =\s+getPortfolioSyncRequestForAllNetworksResult\(\)/,
+    );
     expect(updateSource).not.toContain('getCurrentPortfolioSyncRequest()');
+    expect(source).toContain('minimumAllNetworksGeneration?: number;');
+    expect(source).toContain(
+      'allNetworksPublishedResultRef.current.generation + 1',
+    );
+    expect(source).toContain(
+      'onResultPublished: handleAllNetworkResultPublished',
+    );
+    expect(source).toMatch(
+      /publishedResult\.result !== allNetworksResult \|\|\s+publishedResult\.generation < request\.minimumAllNetworksGeneration/,
+    );
+    expect(source).toMatch(/currentRequest\?\.id === portfolioSyncRequest\.id/);
     expect(source).toContain('if (getCurrentPortfolioSyncRequest()) {');
     expect(source).not.toContain('if (portfolioSyncRequestRef.current) {');
   });
@@ -145,8 +173,19 @@ describe('TokenListBlock portfolio sync producer', () => {
     const source = readFileSync(join(__dirname, 'TokenListBlock.tsx'), 'utf8');
     const rawTotalIndex = source.indexOf('portfolioTotalFiat = resp');
     const mergeIndex = source.indexOf('getMergedDeriveTokenData({');
+    const singleNetworkRunIndex = source.indexOf('const { run }');
+    const captureRequestIndex = source.indexOf(
+      'portfolioSyncRequest = getPortfolioSyncRequestForTarget(',
+      singleNetworkRunIndex,
+    );
+    const missingAccountGuardIndex = source.indexOf(
+      'if (!account) return;',
+      singleNetworkRunIndex,
+    );
 
     expect(source).toContain("let portfolioTotalFiat = '0';");
+    expect(captureRequestIndex).toBeGreaterThan(singleNetworkRunIndex);
+    expect(captureRequestIndex).toBeLessThan(missingAccountGuardIndex);
     expect(rawTotalIndex).toBeGreaterThan(0);
     expect(rawTotalIndex).toBeLessThan(mergeIndex);
     expect(source.slice(rawTotalIndex, mergeIndex)).toContain(

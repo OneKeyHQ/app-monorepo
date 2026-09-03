@@ -2413,6 +2413,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     expect(getSDKInstance).toHaveBeenCalledWith({
       connectId: 'ONEKEY_USB',
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      persistTransportType: false,
     });
     expect(uploadPortfolio).toHaveBeenCalledWith('ONEKEY_USB', {
       packageBase64,
@@ -2499,6 +2500,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         connectId: 'PRO2_BLE_ID',
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        persistTransportType: false,
       });
       expect(beginConnectedOnlyScope).toHaveBeenCalledWith('PRO2_BLE_ID');
       expect(uploadPortfolio).toHaveBeenCalledWith('PRO2_BLE_ID', {
