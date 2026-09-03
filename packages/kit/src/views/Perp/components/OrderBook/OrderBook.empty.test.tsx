@@ -2,9 +2,9 @@
 
 import type { ReactNode } from 'react';
 
-import { OrderBook } from '.';
+import { OrderBook, OrderBookMobile } from '.';
 
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
 
@@ -26,12 +26,23 @@ jest.mock('@tamagui/themes', () => ({
 jest.mock('react-native', () => ({
   Pressable: ({
     children,
+    disabled,
+    onPress,
+    testID,
   }: {
     children?: ReactNode | ((state: { pressed: boolean }) => ReactNode);
+    disabled?: boolean;
+    onPress?: () => void;
+    testID?: string;
   }) => (
-    <div>
+    <button
+      data-testid={testID}
+      disabled={disabled}
+      onClick={onPress}
+      type="button"
+    >
       {typeof children === 'function' ? children({ pressed: false }) : children}
-    </div>
+    </button>
   ),
   StyleSheet: {
     create: <T,>(styles: T) => styles,
@@ -125,5 +136,25 @@ describe('OrderBook empty vertical state', () => {
     expect(getAllByText('--')).toHaveLength(levelsPerSide * 2 * 3 + 1);
     expect(getByText('B 50%')).toBeTruthy();
     expect(getByText('50% S')).toBeTruthy();
+  });
+});
+
+describe('OrderBook mobile mid price', () => {
+  it('selects the raw mid price from the mobile order book', () => {
+    const onSelectMidPrice = jest.fn();
+    const { getByTestId } = render(
+      <OrderBookMobile
+        asks={[{ n: 1, px: '102', sz: '1' }]}
+        bids={[{ n: 1, px: '100', sz: '1' }]}
+        onSelectMidPrice={onSelectMidPrice}
+        showTickSelector={false}
+        variant="mobileVertical"
+      />,
+    );
+
+    fireEvent.click(getByTestId('perp-orderbook-mid-price'));
+
+    expect(onSelectMidPrice).toHaveBeenCalledTimes(1);
+    expect(onSelectMidPrice).toHaveBeenCalledWith('101');
   });
 });
