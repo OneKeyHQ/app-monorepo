@@ -413,6 +413,15 @@ export interface IDeviceStageProps {
    */
   passphraseMode?: 'create' | 'verify';
   /**
+   * Where the create form's Keep-accessible switch starts — the person's
+   * remembered choice, which the driver owns (it lives in a persisted
+   * setting there). Read on each activation of the form, never live: a
+   * background settings sync must not flip the switch under a hand that
+   * is typing. Omitted, the switch starts ON — the first-run default, and
+   * what the gallery shows.
+   */
+  passphraseKeepAccessible?: boolean;
+  /**
    * The passphraseOnApp entry, confirmed — never empty, which the form
    * refuses inline in both modes (on-device entry is the one way to
    * answer with an empty passphrase, and it exits through

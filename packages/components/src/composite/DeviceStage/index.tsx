@@ -486,6 +486,7 @@ export function DeviceStage({
   onPassphraseIntroContinue,
   passphraseIntroKeepShortcut,
   passphraseMode,
+  passphraseKeepAccessible,
   onPassphraseSubmit,
   onPassphraseAttachPin,
   onSwitchToDevice,
@@ -1562,6 +1563,7 @@ export function DeviceStage({
               entry stays: Trezor supports it. */}
           <PassphraseForm
             mode={passphraseMode}
+            initialKeepAccessible={passphraseKeepAccessible}
             onSubmit={onPassphraseSubmit}
             onSwitchToDevice={onSwitchToDevice}
             onAttachPin={vendor ? undefined : onPassphraseAttachPin}
@@ -1579,6 +1581,7 @@ export function DeviceStage({
       panelMeasureHandlers,
       passphraseAnimated,
       passphraseEpoch,
+      passphraseKeepAccessible,
       passphraseMode,
       passphraseText,
       vendor,
