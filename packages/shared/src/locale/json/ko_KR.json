@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "고정 해제됨",
   "explore.unpin": "고정 해제",
   "export_account_not_supported__desc": "이 계정 유형은 아직 내보내기를 지원하지 않습니다. 다른 계정을 선택하세요.",
+  "export_data__action": "데이터 내보내기",
   "export_history__action": "내역 보기",
   "export_history__title": "내보내기 기록",
   "export_history_created__title": "생성 시간",

@@ -321,7 +321,12 @@ function PerpOrderInfoPanel() {
       >
         {/* Scroll instead of clipping when the pane is narrower than the tab
             list (OK-61160). */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal
+          flex={1}
+          minWidth={0}
+          showsHorizontalScrollIndicator={false}
+        >
           {ORDER_INFO_TABS.map((name) => (
             <TabBarItem
               key={name}

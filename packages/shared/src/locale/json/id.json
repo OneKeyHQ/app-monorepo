@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Tidak Dipasang",
   "explore.unpin": "Lepaskan Pin",
   "export_account_not_supported__desc": "Jenis akun ini belum mendukung ekspor. Pilih akun lain.",
+  "export_data__action": "Ekspor Data",
   "export_history__action": "Lihat riwayat",
   "export_history__title": "Riwayat ekspor",
   "export_history_created__title": "Dibuat",

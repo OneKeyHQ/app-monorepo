@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Losgelöst",
   "explore.unpin": "Loslösen",
   "export_account_not_supported__desc": "Dieser Kontotyp unterstützt den Export noch nicht. Wählen Sie ein anderes Konto.",
+  "export_data__action": "Daten exportieren",
   "export_history__action": "Verlauf anzeigen",
   "export_history__title": "Exportverlauf",
   "export_history_created__title": "Erstellt",

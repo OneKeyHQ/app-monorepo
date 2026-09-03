@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Откреплено",
   "explore.unpin": "Открепить",
   "export_account_not_supported__desc": "Этот тип учётной записи пока не поддерживает экспорт. Выберите другую учётную запись.",
+  "export_data__action": "Экспорт данных",
   "export_history__action": "Посмотреть историю",
   "export_history__title": "История экспорта",
   "export_history_created__title": "Создано",

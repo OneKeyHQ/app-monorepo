@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Non fissato",
   "explore.unpin": "Rimuovi dallo schermo",
   "export_account_not_supported__desc": "Questo tipo di account non supporta ancora l’esportazione. Seleziona un altro account.",
+  "export_data__action": "Esporta dati",
   "export_history__action": "Visualizza cronologia",
   "export_history__title": "Cronologia esportazioni",
   "export_history_created__title": "Creato",

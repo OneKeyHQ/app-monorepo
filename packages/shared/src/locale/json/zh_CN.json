@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "已取消固定",
   "explore.unpin": "取消固定",
   "export_account_not_supported__desc": "此账户类型暂不支持导出，请选择其他账户。",
+  "export_data__action": "导出数据",
   "export_history__action": "查看历史记录",
   "export_history__title": "导出历史",
   "export_history_created__title": "创建时间",

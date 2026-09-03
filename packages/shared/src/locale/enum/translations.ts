@@ -1203,6 +1203,7 @@ export enum ETranslations {
   explore_toast_unpinned = 'explore.toast_unpinned',
   explore_unpin = 'explore.unpin',
   export_account_not_supported__desc = 'export_account_not_supported__desc',
+  export_data__action = 'export_data__action',
   export_history__action = 'export_history__action',
   export_history__title = 'export_history__title',
   export_history_created__title = 'export_history_created__title',

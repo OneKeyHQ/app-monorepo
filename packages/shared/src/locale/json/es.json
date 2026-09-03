@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Desanclado",
   "explore.unpin": "Desanclar",
   "export_account_not_supported__desc": "Este tipo de cuenta todavía no admite exportaciones. Selecciona otra cuenta.",
+  "export_data__action": "Exportar datos",
   "export_history__action": "Ver historial",
   "export_history__title": "Historial de exportaciones",
   "export_history_created__title": "Creado",

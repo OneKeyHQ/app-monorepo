@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   type IDebugRenderTrackerProps,
   SizableText,
   Skeleton,
+  Spinner,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -18,6 +25,7 @@ import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import {
+  buildFundingHistoryExportRecords,
   filterFundingHistoryRecords,
   formatFundingHistoryRate,
   getFundingHistoryMarketOptions,
@@ -49,6 +57,154 @@ const valueFormatter = {
     currency: '$',
   },
 };
+
+function FundingHistoryExportAction({
+  isMobile,
+  sideFilter,
+  marketFilter,
+}: {
+  isMobile?: boolean;
+  sideFilter: IFundingHistorySideFilter;
+  marketFilter?: string;
+}) {
+  const intl = useIntl();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const [isExporting, setIsExporting] = useState(false);
+  const isExportingRef = useRef(false);
+  const accountAddress = activeAccount.accountAddress;
+  const actionLabel = intl.formatMessage({
+    id: ETranslations.export_data__action,
+  });
+
+  const handleExport = useCallback(async () => {
+    if (!accountAddress || isExportingRef.current) {
+      return;
+    }
+
+    isExportingRef.current = true;
+    setIsExporting(true);
+    try {
+      const records =
+        await backgroundApiProxy.serviceHyperliquid.getUserFundingHistory({
+          accountAddress,
+        });
+      const exportRecords = buildFundingHistoryExportRecords({
+        records,
+        sideFilter,
+        marketFilter,
+        longLabel: intl.formatMessage({ id: ETranslations.perp_long }),
+        shortLabel: intl.formatMessage({ id: ETranslations.perp_short }),
+      });
+
+      if (exportRecords.length === 0) {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.global_no_data }),
+        });
+        return;
+      }
+
+      const timeLabel = intl.formatMessage({
+        id: ETranslations.global_time,
+      });
+      const marketLabel = intl.formatMessage({
+        id: ETranslations.global_market,
+      });
+      const sizeLabel = intl.formatMessage({
+        id: ETranslations.perp_open_orders_size,
+      });
+      const sideLabel = intl.formatMessage({
+        id: ETranslations.perp_funding_side__label,
+      });
+      const paymentLabel = intl.formatMessage({
+        id: ETranslations.perp_funding_payment__label,
+      });
+      const rateLabel = intl.formatMessage({
+        id: ETranslations.perp_funding_rate__label,
+      });
+      const csvRows = exportRecords.map((record) => ({
+        [timeLabel]: record.time,
+        [marketLabel]: record.market,
+        [sizeLabel]: record.size,
+        [sideLabel]: record.side,
+        [paymentLabel]: record.payment,
+        [rateLabel]: record.rate,
+      }));
+      const filename = `perp_funding_history_${formatTime(new Date(), {
+        formatTemplate: 'yyyyLLdd-HHmmss',
+      })}.csv`;
+      const saved = await csvExporterUtils.exportCSV(csvRows, filename);
+
+      if (saved) {
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
+      } else {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.global_failed }),
+        });
+      }
+    } catch (error) {
+      defaultLogger.app.error.log(
+        `Perp funding history CSV export failed: ${String(error)}`,
+      );
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_failed }),
+      });
+    } finally {
+      isExportingRef.current = false;
+      setIsExporting(false);
+    }
+  }, [accountAddress, intl, marketFilter, sideFilter]);
+
+  if (isMobile) {
+    const isDisabled = !accountAddress || isExporting;
+
+    return (
+      <XStack
+        testID="perp-funding-history-export"
+        alignItems="center"
+        justifyContent="center"
+        cursor={isDisabled ? 'default' : 'pointer'}
+        userSelect="none"
+        hitSlop={8}
+        px="$2"
+        py="$1"
+        borderRadius="$4"
+        bg="$bgActive"
+        opacity={!accountAddress ? 0.5 : 1}
+        hoverStyle={isDisabled ? undefined : { bg: '$bgStrongHover' }}
+        pressStyle={isDisabled ? undefined : { bg: '$bgStrongActive' }}
+        accessibilityLabel={actionLabel}
+        onPress={isDisabled ? undefined : handleExport}
+      >
+        <SizableText
+          size="$bodySmMedium"
+          numberOfLines={1}
+          opacity={isExporting ? 0 : 1}
+        >
+          {actionLabel}
+        </SizableText>
+        {isExporting ? (
+          <Spinner position="absolute" size="small" scale={0.65} />
+        ) : null}
+      </XStack>
+    );
+  }
+
+  return (
+    <Button
+      testID="perp-funding-history-export"
+      variant="tertiary"
+      size="small"
+      accessibilityLabel={actionLabel}
+      loading={isExporting}
+      disabled={!accountAddress}
+      onPress={handleExport}
+    >
+      {actionLabel}
+    </Button>
+  );
+}
 
 function MobileFundingHistoryLoadingSkeleton() {
   return (
@@ -411,6 +567,14 @@ function PerpFundingHistoryList({
         `${record.hash}-${record.time}-${record.delta.coin}`
       }
       listLoading={isLoading}
+      paginationAction={
+        !isMobile ? (
+          <FundingHistoryExportAction
+            sideFilter={sideFilter}
+            marketFilter={marketFilter}
+          />
+        ) : null
+      }
       mobileLoadingComponent={
         isMobile ? <MobileFundingHistoryLoadingSkeleton /> : undefined
       }
@@ -436,4 +600,4 @@ function PerpFundingHistoryList({
   );
 }
 
-export { PerpFundingHistoryList };
+export { FundingHistoryExportAction, PerpFundingHistoryList };

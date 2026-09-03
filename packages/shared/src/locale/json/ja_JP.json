@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "ピン留め解除",
   "explore.unpin": "ピンを外す",
   "export_account_not_supported__desc": "このアカウントタイプはまだエクスポートに対応していません。別のアカウントを選択してください。",
+  "export_data__action": "データをエクスポート",
   "export_history__action": "履歴を見る",
   "export_history__title": "エクスポート履歴",
   "export_history_created__title": "作成日時",

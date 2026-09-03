@@ -2,6 +2,7 @@ import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   type IFundingHistoryMarketOption,
+  buildFundingHistoryExportRecords,
   filterFundingHistoryRecords,
   formatFundingHistoryRate,
   getFundingHistoryMarketOptions,
@@ -138,5 +139,37 @@ describe('fundingHistoryDisplay', () => {
         marketFilter: 'BTC',
       }),
     ).toEqual([btcLong]);
+  });
+
+  it('builds filtered funding records for CSV export', () => {
+    const btcLong = createFundingRecord({
+      coin: 'BTC',
+      signedSize: '1',
+      time: 1,
+    });
+    const usdJpyShort = createFundingRecord({
+      coin: 'xyz:USDJPY',
+      signedSize: '-2',
+      time: 2,
+    });
+
+    expect(
+      buildFundingHistoryExportRecords({
+        records: [btcLong, usdJpyShort],
+        sideFilter: 'short',
+        marketFilter: 'xyz:USDJPY',
+        longLabel: 'Long',
+        shortLabel: 'Short',
+      }),
+    ).toEqual([
+      {
+        time: new Date(2).toISOString(),
+        market: 'USDJPY (xyz)',
+        size: '2',
+        side: 'Short',
+        payment: '1',
+        rate: '0.0100%',
+      },
+    ]);
   });
 });

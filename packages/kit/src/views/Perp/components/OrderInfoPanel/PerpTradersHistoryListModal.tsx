@@ -36,7 +36,10 @@ import {
   reconcileFundingHistoryMarketOptions,
 } from './fundingHistoryDisplay';
 import { PerpAccountList } from './List/PerpAccountList';
-import { PerpFundingHistoryList } from './List/PerpFundingHistoryList';
+import {
+  FundingHistoryExportAction,
+  PerpFundingHistoryList,
+} from './List/PerpFundingHistoryList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
@@ -240,7 +243,13 @@ export function PerpTradersHistoryListModal() {
               display={activeTab === 'Funding' ? 'flex' : 'none'}
               flex={1}
             >
-              <XStack justifyContent="flex-start" px="$5" py="$2">
+              <XStack
+                mt="$2"
+                px="$5"
+                py="$1.5"
+                alignItems="center"
+                justifyContent="space-between"
+              >
                 <FundingHistoryFilterToolbar
                   isMobile
                   sideFilter={fundingHistorySideFilter}
@@ -248,6 +257,11 @@ export function PerpTradersHistoryListModal() {
                   marketOptions={fundingHistoryMarketOptions}
                   onSideFilterChange={setFundingHistorySideFilter}
                   onMarketFilterChange={setFundingHistoryMarketFilter}
+                />
+                <FundingHistoryExportAction
+                  isMobile
+                  sideFilter={fundingHistorySideFilter}
+                  marketFilter={fundingHistoryMarketFilter}
                 />
               </XStack>
               <PerpFundingHistoryList

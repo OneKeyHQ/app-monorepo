@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Đã bỏ ghim",
   "explore.unpin": "Bỏ ghim",
   "export_account_not_supported__desc": "Loại tài khoản này chưa hỗ trợ xuất dữ liệu. Hãy chọn tài khoản khác.",
+  "export_data__action": "Xuất dữ liệu",
   "export_history__action": "Xem lịch sử",
   "export_history__title": "Lịch sử xuất",
   "export_history_created__title": "Đã tạo",

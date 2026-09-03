@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "আনপিন করা হয়েছে",
   "explore.unpin": "আনপিন",
   "export_account_not_supported__desc": "এই ধরনের অ্যাকাউন্ট এখনো রপ্তানি সমর্থন করে না। অন্য একটি অ্যাকাউন্ট বেছে নিন।",
+  "export_data__action": "ডেটা এক্সপোর্ট করুন",
   "export_history__action": "ইতিহাস দেখুন",
   "export_history__title": "রপ্তানির ইতিহাস",
   "export_history_created__title": "তৈরির সময়",

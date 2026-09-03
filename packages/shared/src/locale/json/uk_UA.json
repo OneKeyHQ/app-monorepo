@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "Відкріплено",
   "explore.unpin": "Відкріпити",
   "export_account_not_supported__desc": "Цей тип облікового запису поки не підтримує експорт. Виберіть інший обліковий запис.",
+  "export_data__action": "Експорт даних",
   "export_history__action": "Переглянути історію",
   "export_history__title": "Історія експорту",
   "export_history_created__title": "Створено",

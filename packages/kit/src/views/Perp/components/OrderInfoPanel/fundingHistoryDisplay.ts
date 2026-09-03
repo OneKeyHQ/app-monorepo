@@ -11,6 +11,15 @@ export type IFundingHistoryMarketOption = {
   label: string;
 };
 
+export type IFundingHistoryExportRecord = {
+  time: string;
+  market: string;
+  size: string;
+  side: string;
+  payment: string;
+  rate: string;
+};
+
 export function getFundingHistorySide(signedSize: string): IFundingHistorySide {
   const size = new BigNumber(signedSize);
   if (!size.isFinite() || size.isZero()) {
@@ -125,4 +134,44 @@ export function filterFundingHistoryRecords({
       marketFilter === undefined || record.delta.coin === marketFilter;
     return matchesSide && matchesMarket;
   });
+}
+
+export function buildFundingHistoryExportRecords({
+  records,
+  sideFilter,
+  marketFilter,
+  longLabel,
+  shortLabel,
+}: {
+  records: IUserFunding[];
+  sideFilter: IFundingHistorySideFilter;
+  marketFilter: string | undefined;
+  longLabel: string;
+  shortLabel: string;
+}): IFundingHistoryExportRecord[] {
+  return filterFundingHistoryRecords({ records, sideFilter, marketFilter })
+    .toSorted((a, b) => b.time - a.time || b.hash.localeCompare(a.hash))
+    .map((record) => {
+      const { delta } = record;
+      const { displayName, dexLabel } = parseDexCoin(delta.coin);
+      const market = dexLabel ? `${displayName} (${dexLabel})` : displayName;
+      const size = new BigNumber(delta.szi).abs();
+      const payment = new BigNumber(delta.usdc);
+      const side = getFundingHistorySide(delta.szi);
+      let sideLabel = '--';
+      if (side === 'long') {
+        sideLabel = longLabel;
+      } else if (side === 'short') {
+        sideLabel = shortLabel;
+      }
+
+      return {
+        time: new Date(record.time).toISOString(),
+        market,
+        size: size.isFinite() ? size.toFixed() : delta.szi,
+        side: sideLabel,
+        payment: payment.isFinite() ? payment.toFixed() : delta.usdc,
+        rate: formatFundingHistoryRate(delta.fundingRate),
+      };
+    });
 }

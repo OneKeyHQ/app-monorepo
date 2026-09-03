@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "ยกเลิกการปัก",
   "explore.unpin": "ยกเลิกการปัก",
   "export_account_not_supported__desc": "บัญชีประเภทนี้ยังไม่รองรับการส่งออก โปรดเลือกบัญชีอื่น",
+  "export_data__action": "ส่งออกข้อมูล",
   "export_history__action": "ดูประวัติ",
   "export_history__title": "ประวัติการส่งออก",
   "export_history_created__title": "สร้างเมื่อ",

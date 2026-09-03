@@ -1198,6 +1198,7 @@
   "explore.toast_unpinned": "अनपिन किया गया",
   "explore.unpin": "अनपिन",
   "export_account_not_supported__desc": "इस तरह के खाते से अभी निर्यात नहीं किया जा सकता। कोई दूसरा खाता चुनें।",
+  "export_data__action": "डेटा एक्सपोर्ट करें",
   "export_history__action": "इतिहास देखें",
   "export_history__title": "निर्यात इतिहास",
   "export_history_created__title": "बनाया गया",
