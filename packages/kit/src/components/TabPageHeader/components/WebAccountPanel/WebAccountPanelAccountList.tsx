@@ -75,27 +75,32 @@ export function WebAccountPanelAccountList({
   const handleSelect = useCallback(
     async (item: IDBAccount | IDBIndexedAccount, isOthers: boolean) => {
       try {
+        let confirmed: boolean;
         if (isOthers) {
-          await runAccountSelectorAction('confirmAccountSelect', {
+          confirmed = await runAccountSelectorAction('confirmAccountSelect', {
             num: 0,
             indexedAccount: undefined,
             othersWalletAccount: item as IDBAccount,
             autoChangeToAccountMatchedNetworkId: networkId,
             entry: 'webAccountPanel:othersWallet',
+            throwOnError: true,
           });
         } else {
-          await runAccountSelectorAction('confirmAccountSelect', {
+          confirmed = await runAccountSelectorAction('confirmAccountSelect', {
             num: 0,
             indexedAccount: item as IDBIndexedAccount,
             othersWalletAccount: undefined,
             entry: 'webAccountPanel:indexedAccount',
+            throwOnError: true,
           });
         }
+        if (!confirmed) {
+          // A stale request returns false when a newer selection supersedes
+          // it. Keep the panel open without showing a misleading error.
+          return;
+        }
       } catch {
-        // confirmAccountSelect rejects when persisting the selection fails.
-        // Without this the panel just stayed open with no explanation, because
-        // onRequestClose() below was skipped. Keep it open on purpose so the
-        // user can retry the row, but say why nothing happened.
+        // Keep the panel open so the user can retry after an execution failure.
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,

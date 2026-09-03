@@ -607,14 +607,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         swapType: swapTypeSwitchRef.current,
         toToken: toTokenRef.current,
       };
+      const swapSelectedAccountAtRequest = swapSelectedAccountRef.current;
       // Merge base and others-wallet pair fix are computed before the update
-      // mutex and handed to the builder precomputed - the same pattern as the
-      // Effects path (syncHomeAndSwapSelectedAccount): ordering stays
-      // arbitrated by the compare-if-newer gate inside the mutex. Running the
-      // identical fix here makes this write and the Effects-path write of the
-      // same home change (same revision) carry equal values, so the later one
-      // lands on noop instead of SkipEqualEventConflict keeping an unfixed
-      // account/network pair.
+      // mutex and handed to the builder precomputed. Versioned event writes are
+      // ordered by revision; storage snapshots have no revision, so they also
+      // compare the captured selection before committing after the RPC.
       const preparedSelectedAccount =
         await prepareSwapSelectedAccountSyncedFromHome({
           fixOthersWalletAccountNetworkPair: (fixParams) =>
@@ -622,10 +619,21 @@ export function useSwapInit(params?: ISwapInitParams) {
               fixParams,
             ),
           homeSelectedAccount,
-          swapSelectedAccount: swapSelectedAccountRef.current,
+          swapSelectedAccount: swapSelectedAccountAtRequest,
         });
       const selectionResult = await updateSelectedAccount({
         eventUpdatedAt: homeSelectedAccountUpdatedAt,
+        expectedPartialSelection:
+          homeSelectedAccountUpdatedAt === undefined
+            ? {
+                deriveType: swapSelectedAccountAtRequest.deriveType,
+                indexedAccountId: swapSelectedAccountAtRequest.indexedAccountId,
+                networkId: swapSelectedAccountAtRequest.networkId,
+                othersWalletAccountId:
+                  swapSelectedAccountAtRequest.othersWalletAccountId,
+                walletId: swapSelectedAccountAtRequest.walletId,
+              }
+            : undefined,
         updateMeta: {
           eventEmitDisabled: true,
           sourceRuntimeId,

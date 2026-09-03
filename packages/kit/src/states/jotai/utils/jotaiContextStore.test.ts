@@ -428,6 +428,88 @@ describe('jotaiContextStore reset flow', () => {
     );
   });
 
+  it('builds queued extension snapshots from the latest registrations', async () => {
+    platformEnv.isExtension = true;
+    platformEnv.isExtensionUi = true;
+    let releaseFirstUpdate:
+      | ((result: IJotaiContextStoreRegistrationUpdateResult) => void)
+      | undefined;
+    const firstUpdate = new Promise<IJotaiContextStoreRegistrationUpdateResult>(
+      (resolve) => {
+        releaseFirstUpdate = resolve;
+      },
+    );
+    mockUpdateJotaiContextStoreRegistration
+      .mockImplementationOnce(() => firstUpdate)
+      .mockResolvedValue({
+        map: {},
+        mapChanged: false,
+        registrationCount: 1,
+      });
+    const buildExtensionData = (enabledNum: number[]) => ({
+      storeName: EJotaiContextStoreNames.accountSelector,
+      accountSelectorInfo: {
+        sceneName: EAccountSelectorSceneName.swap,
+        enabledNum,
+      },
+    });
+
+    const { rerender, unmount } = render(
+      createElement(JotaiContextStoreMirrorTracker, buildExtensionData([0])),
+    );
+    await waitFor(() =>
+      expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledTimes(1),
+    );
+
+    rerender(
+      createElement(JotaiContextStoreMirrorTracker, buildExtensionData([0, 1])),
+    );
+    releaseFirstUpdate?.({
+      map: {},
+      mapChanged: true,
+      registrationCount: 1,
+    });
+
+    await waitFor(() =>
+      expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledTimes(3),
+    );
+    expect(
+      mockUpdateJotaiContextStoreRegistration.mock.calls.slice(1, 3),
+    ).toEqual([
+      [
+        expect.objectContaining({
+          registrations: [
+            expect.objectContaining({
+              data: expect.objectContaining({
+                accountSelectorInfo: expect.objectContaining({
+                  enabledNum: [0, 1],
+                }),
+              }),
+            }),
+          ],
+        }),
+      ],
+      [
+        expect.objectContaining({
+          registrations: [
+            expect.objectContaining({
+              data: expect.objectContaining({
+                accountSelectorInfo: expect.objectContaining({
+                  enabledNum: [0, 1],
+                }),
+              }),
+            }),
+          ],
+        }),
+      ],
+    ]);
+
+    unmount();
+    await waitFor(() =>
+      expect(mockUpdateJotaiContextStoreRegistration).toHaveBeenCalledTimes(4),
+    );
+  });
+
   it('drops the per-num effects host once no mounted mirror enables that num', async () => {
     // End-to-end over the registry seam: mirrors feed enabledNum refcounts,
     // JotaiContextRootProvidersAutoMount consumes the registry, and the
