@@ -168,11 +168,12 @@ describe('marketV2 watchlist actions', () => {
       add = result.current.actions.addIntoWatchListV2(btc);
       duplicateAdd = result.current.actions.addIntoWatchListV2(btc);
     });
-    await expect(duplicateAdd).resolves.toBeUndefined();
-    expect(mockAddWatchList).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockAddWatchList).toHaveBeenCalledTimes(1));
+    const addError = new Error('add failed');
     await act(async () => {
-      addRequest.reject(new Error('add failed'));
-      await expect(add).rejects.toThrow('add failed');
+      addRequest.reject(addError);
+      await expect(add).rejects.toBe(addError);
+      await expect(duplicateAdd).rejects.toBe(addError);
     });
     expect(result.current.watchList.data).toEqual([]);
 
@@ -191,12 +192,87 @@ describe('marketV2 watchlist actions', () => {
         btc.contractAddress,
       );
     });
-    await expect(duplicateRemove).resolves.toBeUndefined();
-    expect(mockRemoveWatchList).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockRemoveWatchList).toHaveBeenCalledTimes(1));
+    const removeError = new Error('remove failed');
     await act(async () => {
-      removeRequest.reject(new Error('remove failed'));
-      await expect(remove).rejects.toThrow('remove failed');
+      removeRequest.reject(removeError);
+      await expect(remove).rejects.toBe(removeError);
+      await expect(duplicateRemove).rejects.toBe(removeError);
     });
     expect(result.current.watchList.data).toEqual([btc]);
+  });
+
+  it('queues a remove behind an in-flight add for the same token', async () => {
+    const addRequest = deferred<void>();
+    const removeRequest = deferred<void>();
+    mockAddWatchList.mockImplementationOnce(() => addRequest.promise);
+    mockRemoveWatchList.mockImplementationOnce(() => removeRequest.promise);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(useWatchListTestHook, { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.watchList.isMounted).toBe(true));
+
+    let add!: Promise<void>;
+    let remove!: Promise<void>;
+    act(() => {
+      add = result.current.actions.addIntoWatchListV2(btc);
+      remove = result.current.actions.removeFromWatchListV2(
+        btc.chainId,
+        btc.contractAddress,
+      );
+    });
+    await waitFor(() => expect(mockAddWatchList).toHaveBeenCalledTimes(1));
+    expect(mockRemoveWatchList).not.toHaveBeenCalled();
+
+    await act(async () => {
+      addRequest.resolve();
+      await add;
+    });
+    await waitFor(() => expect(mockRemoveWatchList).toHaveBeenCalledTimes(1));
+    expect(result.current.watchList.data).toEqual([]);
+
+    await act(async () => {
+      removeRequest.resolve();
+      await remove;
+    });
+  });
+
+  it('queues an add behind an in-flight remove for the same token', async () => {
+    const removeRequest = deferred<void>();
+    const addRequest = deferred<void>();
+    mockRemoveWatchList.mockImplementationOnce(() => removeRequest.promise);
+    mockAddWatchList.mockImplementationOnce(() => addRequest.promise);
+    mockGetWatchList.mockResolvedValue({ data: [btc] });
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(useWatchListTestHook, { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.watchList.isMounted).toBe(true));
+    act(() => {
+      store.set(marketWatchListV2Atom(), { data: [btc] });
+    });
+
+    let remove!: Promise<void>;
+    let add!: Promise<void>;
+    act(() => {
+      remove = result.current.actions.removeFromWatchListV2(
+        btc.chainId,
+        btc.contractAddress,
+      );
+      add = result.current.actions.addIntoWatchListV2(btc);
+    });
+    await waitFor(() => expect(mockRemoveWatchList).toHaveBeenCalledTimes(1));
+    expect(mockAddWatchList).not.toHaveBeenCalled();
+
+    await act(async () => {
+      removeRequest.resolve();
+      await remove;
+    });
+    await waitFor(() => expect(mockAddWatchList).toHaveBeenCalledTimes(1));
+    expect(result.current.watchList.data).toEqual([btc]);
+
+    await act(async () => {
+      addRequest.resolve();
+      await add;
+    });
   });
 });
