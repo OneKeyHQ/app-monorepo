@@ -81,11 +81,20 @@ export function FoundDevicesFooter({
   // taps cannot start two connections.
   const connectingRef = useRef(false);
 
-  // Commit the default pick to state: every scan round replaces and re-sorts
-  // the list, so a purely derived "first row" could move the check mark
-  // under the user's finger.
+  // Only an explicit row press may leave the list without a selection (the
+  // picked device dropped out, so Connect disables until the user picks
+  // again). An automatic default is committed to state so scan rounds that
+  // re-sort the list cannot move the check mark, but it follows the first row
+  // again whenever the defaulted device itself drops out.
+  const isExplicitPickRef = useRef(false);
   useEffect(() => {
-    if (!pickedKey && devices.length > 0) {
+    if (devices.length === 0 || isExplicitPickRef.current) {
+      return;
+    }
+    const stillListed =
+      !!pickedKey &&
+      devices.some((item) => getFoundDeviceKey(item) === pickedKey);
+    if (!stillListed) {
       setPickedKey(getFoundDeviceKey(devices[0]));
     }
   }, [devices, pickedKey]);
@@ -127,7 +136,10 @@ export function FoundDevicesFooter({
                   key={key}
                   userSelect="none"
                   disabled={isConnecting}
-                  onPress={() => setPickedKey(key)}
+                  onPress={() => {
+                    isExplicitPickRef.current = true;
+                    setPickedKey(key);
+                  }}
                 >
                   <WalletAvatar
                     wallet={undefined}
