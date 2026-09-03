@@ -45,7 +45,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -70,7 +70,7 @@ jobs:
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
@@ -154,7 +154,7 @@ jobs:
           signer_workflow: OneKeyHQ/app-monorepo/.github/workflows/mobile-dev-shell-ios-simulator.yml
 
       - name: Upload iOS Simulator dev shell
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mobile-dev-shell-ios-simulator-arm64-${{ github.sha }}
           path: |

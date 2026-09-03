@@ -46,6 +46,7 @@ const IOS_BUNDLE_ID = 'so.onekey.wallet';
 const DEV_SESSION_ROOT_NAME = 'onekey-dev-sessions';
 const LOCK_ROOT = path.join(os.tmpdir(), 'onekey-mobile-dev-locks-v1');
 const LOCK_STALE_MS = 30_000;
+const CURRENT_PROCESS_STARTED_AT_MS = Date.now() - process.uptime() * 1000;
 const WORKTREE_ID = crypto
   .createHash('sha256')
   .update(fs.realpathSync(REPO_ROOT))
@@ -933,12 +934,43 @@ function isProcessAlive(pid) {
   }
 }
 
+function getProcessStartedAtMs(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
+  if (pid === process.pid) return CURRENT_PROCESS_STARTED_AT_MS;
+  const result = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+    timeout: 5000,
+  });
+  if (result.status !== 0 || result.error) return undefined;
+  const startedAtMs = Date.parse(result.stdout.trim());
+  return Number.isFinite(startedAtMs) ? startedAtMs : undefined;
+}
+
+function isLockOwnerAlive({
+  getProcessStartedAt,
+  owner,
+  ownerMtimeMs,
+  processIsAlive,
+}) {
+  if (!owner || !processIsAlive(owner.pid)) return false;
+  const currentStartedAtMs = getProcessStartedAt(owner.pid);
+  if (currentStartedAtMs === undefined) return true;
+  if (Number.isFinite(owner.processStartedAtMs)) {
+    return Math.abs(owner.processStartedAtMs - currentStartedAtMs) <= 1000;
+  }
+  return (
+    !Number.isFinite(ownerMtimeMs) || currentStartedAtMs <= ownerMtimeMs + 1000
+  );
+}
+
 function getLockSnapshot({ fileSystem, lockDirectory, ownerPath }) {
   const missingSnapshot = () => ({
     activeOwner: undefined,
     ageMs: undefined,
     identity: undefined,
     missing: true,
+    ownerMtimeMs: undefined,
   });
   let before;
   try {
@@ -962,6 +994,12 @@ function getLockSnapshot({ fileSystem, lockDirectory, ownerPath }) {
   try {
     const middle = fileSystem.statSync(lockDirectory);
     const secondOwner = readOwner();
+    let ownerMtimeMs;
+    try {
+      ownerMtimeMs = fileSystem.statSync(ownerPath).mtimeMs;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
     const after = fileSystem.statSync(lockDirectory);
     if (
       before.dev !== middle.dev ||
@@ -977,6 +1015,7 @@ function getLockSnapshot({ fileSystem, lockDirectory, ownerPath }) {
       ageMs: Date.now() - after.mtimeMs,
       identity: `${String(after.dev)}:${String(after.ino)}`,
       missing: false,
+      ownerMtimeMs,
     };
   } catch (error) {
     if (error?.code === 'ENOENT') return missingSnapshot();
@@ -1024,6 +1063,7 @@ function isMarkerBoundToRoot(marker, root) {
 
 function recoverAbandonedReclaimMarker({
   fileSystem,
+  getProcessStartedAt,
   lockDirectory,
   ownerPath,
   processIsAlive,
@@ -1033,7 +1073,14 @@ function recoverAbandonedReclaimMarker({
   const marker = getReclaimMarkerSnapshot(fileSystem, reclaimMarker);
   if (marker.missing) return true;
   if (!isMarkerBoundToRoot(marker, rootSnapshot)) return false;
-  if (marker.activeOwner && processIsAlive(marker.activeOwner.pid)) {
+  if (
+    isLockOwnerAlive({
+      getProcessStartedAt,
+      owner: marker.activeOwner,
+      ownerMtimeMs: marker.ownerMtimeMs,
+      processIsAlive,
+    })
+  ) {
     return false;
   }
   if (!marker.activeOwner && marker.ageMs < LOCK_STALE_MS) {
@@ -1049,8 +1096,12 @@ function recoverAbandonedReclaimMarker({
     !isSameLockGeneration(rootSnapshot, confirmedRoot) ||
     !isSameMarkerGeneration(marker, confirmedMarker) ||
     !isMarkerBoundToRoot(confirmedMarker, confirmedRoot) ||
-    (confirmedMarker.activeOwner &&
-      processIsAlive(confirmedMarker.activeOwner.pid))
+    isLockOwnerAlive({
+      getProcessStartedAt,
+      owner: confirmedMarker.activeOwner,
+      ownerMtimeMs: confirmedMarker.ownerMtimeMs,
+      processIsAlive,
+    })
   ) {
     return false;
   }
@@ -1091,6 +1142,7 @@ function recoverAbandonedReclaimMarker({
 
 function acquireNamedLock({
   fileSystem = fs,
+  getProcessStartedAt = getProcessStartedAtMs,
   key,
   kind,
   lockRoot = LOCK_ROOT,
@@ -1098,6 +1150,12 @@ function acquireNamedLock({
   processIsAlive = isProcessAlive,
   returnNullWhenBusy = false,
 }) {
+  const lockOwner = {
+    ...owner,
+    processStartedAtMs: Number.isFinite(owner.processStartedAtMs)
+      ? owner.processStartedAtMs
+      : getProcessStartedAt(owner.pid),
+  };
   fileSystem.mkdirSync(lockRoot, { recursive: true });
   const lockKey = crypto
     .createHash('sha256')
@@ -1111,7 +1169,7 @@ function acquireNamedLock({
       fileSystem.mkdirSync(lockDirectory);
       fileSystem.writeFileSync(
         ownerPath,
-        `${JSON.stringify(owner, null, 2)}\n`,
+        `${JSON.stringify(lockOwner, null, 2)}\n`,
         { flag: 'wx' },
       );
       return {
@@ -1124,7 +1182,7 @@ function acquireNamedLock({
           } catch {
             return;
           }
-          if (activeOwner.sessionId === owner.sessionId) {
+          if (activeOwner.sessionId === lockOwner.sessionId) {
             fileSystem.rmSync(lockDirectory, {
               force: true,
               recursive: true,
@@ -1148,7 +1206,14 @@ function acquireNamedLock({
             { cause: error },
           );
         }
-        if (snapshot.activeOwner && processIsAlive(snapshot.activeOwner.pid)) {
+        if (
+          isLockOwnerAlive({
+            getProcessStartedAt,
+            owner: snapshot.activeOwner,
+            ownerMtimeMs: snapshot.ownerMtimeMs,
+            processIsAlive,
+          })
+        ) {
           if (returnNullWhenBusy) return null;
           throw new Error(
             `[nativeDevShell] ${kind} is already owned by worktree=${snapshot.activeOwner.worktreeId || 'unknown'} device=${snapshot.activeOwner.deviceId || 'unknown'} session=${snapshot.activeOwner.sessionId || 'unknown'} pid=${String(snapshot.activeOwner.pid)}.`,
@@ -1165,6 +1230,7 @@ function acquireNamedLock({
             markerOwner = {
               mainOwnerToken: getLockOwnerToken(snapshot),
               pid: process.pid,
+              processStartedAtMs: getProcessStartedAt(process.pid),
               rootIdentity: snapshot.identity,
               token: crypto.randomBytes(16).toString('hex'),
             };
@@ -1178,6 +1244,7 @@ function acquireNamedLock({
             if (markerError?.code === 'EEXIST') {
               const recovered = recoverAbandonedReclaimMarker({
                 fileSystem,
+                getProcessStartedAt,
                 lockDirectory,
                 ownerPath,
                 processIsAlive,
@@ -1212,8 +1279,12 @@ function acquireNamedLock({
               isMarkerBoundToRoot(confirmedMarker, confirmed)
             ) {
               if (
-                confirmed.activeOwner &&
-                processIsAlive(confirmed.activeOwner.pid)
+                isLockOwnerAlive({
+                  getProcessStartedAt,
+                  owner: confirmed.activeOwner,
+                  ownerMtimeMs: confirmed.ownerMtimeMs,
+                  processIsAlive,
+                })
               ) {
                 if (returnNullWhenBusy) return null;
                 throw new Error(

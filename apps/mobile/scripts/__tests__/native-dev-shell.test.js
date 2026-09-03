@@ -1075,6 +1075,41 @@ describe('native-dev-shell', () => {
     acquired.release();
   });
 
+  it('reclaims a stale named lock after its PID is reused', () => {
+    const lockRoot = path.join(temporaryDirectory, 'pid-reuse-locks');
+    const kind = 'test-pid-reuse';
+    const oldProcessStartedAtMs = 1_000;
+    const currentProcessStartedAtMs = 5_000;
+    acquireNamedLock({
+      getProcessStartedAt: () => oldProcessStartedAtMs,
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: process.pid, sessionId: 'stale-owner' },
+    });
+
+    const acquired = acquireNamedLock({
+      getProcessStartedAt: () => currentProcessStartedAtMs,
+      key: 'shared',
+      kind,
+      lockRoot,
+      owner: { pid: process.pid, sessionId: 'replacement-owner' },
+      processIsAlive: () => true,
+    });
+    const lockDirectory = path.join(
+      lockRoot,
+      fs.readdirSync(lockRoot).find((name) => name.startsWith(`${kind}-`)),
+    );
+    expect(
+      JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json'))),
+    ).toMatchObject({
+      pid: process.pid,
+      processStartedAtMs: currentProcessStartedAtMs,
+      sessionId: 'replacement-owner',
+    });
+    acquired.release();
+  });
+
   it('rejects a mixed-generation snapshot when root changes after owner read', () => {
     const lockRoot = path.join(temporaryDirectory, 'snapshot-race-locks');
     const kind = 'test-snapshot-race';
@@ -1280,7 +1315,7 @@ describe('native-dev-shell', () => {
     ).toBeNull();
     expect(
       JSON.parse(fs.readFileSync(path.join(lockDirectory, 'owner.json'))),
-    ).toEqual(firstOwner);
+    ).toMatchObject(firstOwner);
     firstCleanerResult.release();
   });
 
