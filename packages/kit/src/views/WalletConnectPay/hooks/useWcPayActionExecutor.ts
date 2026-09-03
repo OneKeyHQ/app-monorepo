@@ -1047,9 +1047,16 @@ export function useWcPayActionExecutor() {
                 nowMs,
                 resolvedToken,
                 // The fixed validator ceiling is the whole bound (Phase 3
-                // §6): tying it to the order lifetime bought nothing except
-                // a systematic fallback on the multi-week sigDeadlines Pay
-                // SDKs customarily issue — a permit only authorizes, and the
+                // §6), on THIS headless leg included — an explicit product
+                // decision (2026-09-03), not an oversight. Tying it to the
+                // order lifetime bought nothing except a systematic fallback
+                // on the multi-week sigDeadlines Pay SDKs customarily issue,
+                // which would route every permit to the confirm page and
+                // undo the in-sheet flow. What the decision accepts: a
+                // signature produced without a click stays redeemable for up
+                // to 30 days by a spender this validator only shape-checks
+                // (wcPayMessageConsistency). What bounds it: the amount is
+                // pinned to the order, the nonce makes it one-shot, and the
                 // Pay server refuses an expired order whatever the permit
                 // says. Passed explicitly so the intent stays visible here.
                 maxDeadlineS: WC_PAY_PERMIT_MAX_DEADLINE_S,
