@@ -1,8 +1,15 @@
 import type { FC } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
-import { StatusBar } from 'react-native';
+import { readAsStringAsync } from 'expo-file-system/legacy';
+import { Image, StatusBar } from 'react-native';
 
 import {
   Progress,
@@ -14,14 +21,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
 
-// refresh hash: 889263555577754
-// @ts-expect-error
-import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
+
+const injectedNativeAsset = require('./injectedNative.js.txt') as number;
+let injectedNativeCodePromise: Promise<string> | undefined;
+
+function loadInjectedNativeCode() {
+  injectedNativeCodePromise ??= readAsStringAsync(
+    Image.resolveAssetSource(injectedNativeAsset).uri,
+  );
+  return injectedNativeCodePromise;
+}
 
 const desktopUserAgent = platformEnv.isNativeIOS
   ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
@@ -89,6 +103,34 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
     const [progress, setProgress] = useState(5);
     const keyboardHeight = useKeyboardHeight();
     const { webviewRef, setWebViewRef } = useWebViewBridge();
+    const shouldLoadInjectedNativeCode =
+      useInjectedNativeCode && !disableBridge;
+    const [injectedNativeCode, setInjectedNativeCode] = useState<string>();
+    const [injectedNativeCodeError, setInjectedNativeCodeError] =
+      useState<unknown>();
+
+    useEffect(() => {
+      if (!shouldLoadInjectedNativeCode || injectedNativeCode) {
+        return;
+      }
+
+      let isActive = true;
+      void loadInjectedNativeCode().then(
+        (code) => {
+          if (isActive) {
+            setInjectedNativeCode(code);
+          }
+        },
+        (error: unknown) => {
+          if (isActive) {
+            setInjectedNativeCodeError(error);
+          }
+        },
+      );
+      return () => {
+        isActive = false;
+      };
+    }, [injectedNativeCode, shouldLoadInjectedNativeCode]);
 
     useImperativeHandle(
       ref,
@@ -123,8 +165,9 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeInjectedJsCode = useMemo(() => {
-      let code: string =
-        useInjectedNativeCode && !disableBridge ? injectedNativeCode : '';
+      let code: string = shouldLoadInjectedNativeCode
+        ? (injectedNativeCode ?? '')
+        : '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
         code += `
         ;(function() {
@@ -143,10 +186,10 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       }
       return code;
     }, [
-      disableBridge,
+      injectedNativeCode,
       isDesktopMode,
       nativeInjectedJavaScriptBeforeContentLoaded,
-      useInjectedNativeCode,
+      shouldLoadInjectedNativeCode,
     ]);
 
     const progressLoading = useMemo(() => {
@@ -198,6 +241,18 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
         flex: 1,
       };
     }, [keyboardHeight]);
+
+    if (injectedNativeCodeError) {
+      throw injectedNativeCodeError;
+    }
+
+    if (shouldLoadInjectedNativeCode && !injectedNativeCode) {
+      return (
+        <Stack flex={1} alignItems="center" justifyContent="center">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
 
     return (
       <Stack {...containerStyle}>
