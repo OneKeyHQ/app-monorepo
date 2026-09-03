@@ -188,6 +188,7 @@ export function useAddHiddenWallet() {
   const createHwHiddenWallet = useCallback(
     async ({ wallet }: { wallet?: IDBWallet }) => {
       let stageError: unknown;
+      let stageToken: number | undefined;
       try {
         setIsLoading(true);
         // Teach BEFORE the hardware is touched (v6.5.2's order): the
@@ -195,12 +196,16 @@ export function useAddHiddenWallet() {
         // no device contact — and only the card's Continue starts the
         // hardware flow.
         //
-        // The hold is FUNCTION-scoped (the depth join, not the hook's
-        // token API): the menu item that starts this flow unmounts the
-        // moment it is tapped, and a component-held burst dies with it —
-        // the teach card left the stage 600ms after arriving. This
-        // async run is the flow's real lifetime, so it holds the burst
-        // in its own try/finally, the authenticity runner's pattern.
+        // The hold is FUNCTION-scoped: the menu item that starts this
+        // flow unmounts the moment it is tapped, and a component-held
+        // burst dies with it — the teach card left the stage 600ms after
+        // arriving. This async run is the flow's real lifetime, so it
+        // holds the burst in its own try/finally. It holds by TOKEN, not
+        // by the depth join: the release in `finally` must end this hold
+        // and nothing else — not a layer some other call opened after
+        // the person dismissed the teach card, and nothing at all when
+        // the device lookup threw before a hold ever existed. A stale or
+        // absent token is a no-op on the background side.
         const device =
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
             walletId: wallet?.id || '',
@@ -209,11 +214,12 @@ export function useAddHiddenWallet() {
           features: device?.featuresInfo,
           fallbackName: device?.name,
         });
-        await backgroundApiProxy.serviceHardwareUI.deviceStageJoinBurst({
-          connectId: device?.connectId,
-          deviceType: device?.deviceType,
-          deviceName: stageDeviceName,
-        });
+        stageToken =
+          await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
+            connectId: device?.connectId,
+            deviceType: device?.deviceType,
+            deviceName: stageDeviceName,
+          });
         await backgroundApiProxy.serviceHardwareUI.deviceStageShowPassphraseIntro(
           {
             connectId: device?.connectId,
@@ -254,8 +260,8 @@ export function useAddHiddenWallet() {
         });
         if (intro === 'closed') {
           // Dismissed at the teaching: nothing was started, nothing to
-          // land — the stage's own close already dropped the hold, so
-          // the leave below is a no-op.
+          // land — the stage's own close already dropped the hold and
+          // retired its token, so the release below is a no-op.
           return;
         }
         await actions.current.createHWHiddenWallet(
@@ -276,15 +282,16 @@ export function useAddHiddenWallet() {
         stageError = error;
         throw error;
       } finally {
-        // One leave for one join. This hold is the outer burst layer, so
-        // the wrapper's own end could not land a failure — the error rides
-        // out with the leave so the stage speaks it, disconnect probe
-        // included. Leaving once more from the catch would have run a
-        // second end() against whatever layer a concurrent begin() had
-        // opened in between, and closed that stage instead.
-        await backgroundApiProxy.serviceHardwareUI.deviceStageLeaveBurst({
-          error: stageError,
-        });
+        // One release for one hold, addressed by its token. This hold is
+        // the outer burst layer, so the wrapper's own end could not land
+        // a failure — the error rides out with the release so the stage
+        // speaks it, disconnect probe included.
+        if (stageToken !== undefined) {
+          await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
+            token: stageToken,
+            error: stageError,
+          });
+        }
         setIsLoading(false);
         const device =
           await backgroundApiProxy.serviceAccount.getWalletDeviceSafe({
