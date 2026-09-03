@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Tất cả các hàng đều khớp. Hãy cất KeyTag ở nơi an toàn.",
   "keytag_verify_success__title": "Đã xác minh bản sao lưu",
   "keytag_word_editor__title": "Từ {current} trên {total}",
+  "know_more_about_this_transaction__desc": "Tìm hiểu thêm về giao dịch này",
   "kyt_assets_checked__msg": "Đã kiểm tra {count} tài sản",
   "kyt_high_risk__title": "Rủi ro cao",
   "kyt_high_risk_detail__desc": "Khoản nhận này liên quan đến nguồn tiền rủi ro cao",

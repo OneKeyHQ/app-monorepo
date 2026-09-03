@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Todas las filas coinciden. Guarda tu KeyTag en un lugar seguro.",
   "keytag_verify_success__title": "Copia de seguridad verificada",
   "keytag_word_editor__title": "Palabra {current} de {total}",
+  "know_more_about_this_transaction__desc": "Más información sobre esta transacción",
   "kyt_assets_checked__msg": "{count} activos comprobados",
   "kyt_high_risk__title": "Riesgo alto",
   "kyt_high_risk_detail__desc": "Esta transferencia entrante está vinculada a fuentes de fondos de alto riesgo",

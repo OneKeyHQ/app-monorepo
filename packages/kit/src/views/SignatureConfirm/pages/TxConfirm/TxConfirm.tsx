@@ -7,8 +7,6 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -33,7 +31,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
-import { mergeTransactionSecurityResults } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -52,6 +49,7 @@ import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection
 import DeFiActionInfo from '../../components/DeFiActionInfo';
 import {
   SecurityCheckCard,
+  TransactionPreview,
   buildSecurityCheckModel,
 } from '../../components/SecurityCheckCard';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
@@ -69,6 +67,7 @@ import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
+import { useTransactionSecurityCheck } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -83,7 +82,6 @@ function TxConfirm() {
     >();
 
   const intl = useIntl();
-  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
 
   const {
     transferPayload,
@@ -118,7 +116,6 @@ function TxConfirm() {
     reactiveUnsignedTxs?.[0]?.accountId ?? route.params.accountId;
   const networkId =
     reactiveUnsignedTxs?.[0]?.networkId ?? route.params.networkId;
-  const { network: securityCheckNetwork } = useAccountData({ networkId });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -379,7 +376,7 @@ function TxConfirm() {
     [simulationComponents],
   );
 
-  // SecurityCheckCard owns every simulation slot on this page. Empty
+  // TransactionPreview owns every simulation slot on this page. Empty
   // simulations carry no asset information and must not fall back to the old
   // glowing card in TxConfirmDetails.
   const shouldHideSimulationInDetails = simulationComponents.length > 0;
@@ -395,70 +392,18 @@ function TxConfirm() {
     [reactiveUnsignedTxs],
   );
 
-  const unsignedTxsToCheck = useMemo(
-    () =>
-      (reactiveUnsignedTxs ?? []).filter((unsignedTx) =>
-        Boolean(unsignedTx.encodedTx),
-      ),
-    [reactiveUnsignedTxs],
-  );
-  const shouldCheckTransactionSecurity = Boolean(
-    isPrimeSubscriptionActive &&
-    securityCheckNetwork &&
-    !securityCheckNetwork.isCustomNetwork &&
-    sourceInfo?.origin &&
-    accountId &&
-    networkId &&
-    unsignedTxsToCheck.length,
-  );
-
   const {
-    result: transactionSecurityCheck,
-    isLoading: isCheckingTransactionSecurity,
-  } = usePromiseResult(
-    async () => {
-      if (!shouldCheckTransactionSecurity) {
-        return {
-          requestKey: securityCheckRequestKey,
-          result: undefined,
-        };
-      }
-      const results = await Promise.all(
-        unsignedTxsToCheck.map((unsignedTx) =>
-          backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity({
-            accountId: unsignedTx.accountId ?? accountId,
-            networkId: unsignedTx.networkId ?? networkId,
-            encodedTx: unsignedTx.encodedTx,
-          }),
-        ),
-      );
-      return {
-        requestKey: securityCheckRequestKey,
-        result: mergeTransactionSecurityResults(results),
-      };
-    },
-    [
-      accountId,
-      networkId,
-      securityCheckRequestKey,
-      shouldCheckTransactionSecurity,
-      unsignedTxsToCheck,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const isCurrentTransactionSecurityCheck =
-    shouldCheckTransactionSecurity &&
-    transactionSecurityCheck?.requestKey === securityCheckRequestKey;
-  const transactionSecurityInfo = isCurrentTransactionSecurityCheck
-    ? transactionSecurityCheck.result
-    : undefined;
-  const isTransactionSecurityPending =
-    shouldCheckTransactionSecurity &&
-    (!isCurrentTransactionSecurityCheck ||
-      isCheckingTransactionSecurity !== false);
+    result: transactionSecurityInfo,
+    isPending: isTransactionSecurityPending,
+    isPrimeUser,
+    retry: retryTransactionSecurityCheck,
+  } = useTransactionSecurityCheck({
+    requestKey: securityCheckRequestKey,
+    origin: sourceInfo?.origin,
+    accountId,
+    networkId,
+    unsignedTxs: reactiveUnsignedTxs,
+  });
 
   const securityCheckModel = useMemo(
     () =>
@@ -469,11 +414,13 @@ function TxConfirm() {
         decodedTxs,
         transactionSecurityInfo,
         isTransactionSecurityPending,
+        isPrimeUser,
         intl,
       }),
     [
       decodedTxs,
       intl,
+      isPrimeUser,
       isTransactionSecurityPending,
       sourceInfo?.origin,
       transactionSecurityInfo,
@@ -571,11 +518,14 @@ function TxConfirm() {
           />
         ) : null}
         <SecurityCheckCard
-          requestKey={securityCheckRequestKey}
-          requestIdentity={reactiveUnsignedTxs}
-          simulationComponents={visibleSimulationComponents}
           model={securityCheckModel}
+          onRetry={retryTransactionSecurityCheck}
         />
+        {visibleSimulationComponents.length ? (
+          <TransactionPreview
+            simulationComponents={visibleSimulationComponents}
+          />
+        ) : null}
         <TxConfirmDetails
           accountId={accountId}
           networkId={networkId}
@@ -601,10 +551,9 @@ function TxConfirm() {
     gasAccountScenario,
     sourceInfo?.origin,
     urlSecurityInfo,
-    securityCheckRequestKey,
-    reactiveUnsignedTxs,
     visibleSimulationComponents,
     securityCheckModel,
+    retryTransactionSecurityCheck,
     shouldHideSimulationInDetails,
     unsignedTxs,
     swapInfo,

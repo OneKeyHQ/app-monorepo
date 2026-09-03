@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "すべての行が一致しました。KeyTag は安全な場所に保管してください。",
   "keytag_verify_success__title": "バックアップを検証しました",
   "keytag_word_editor__title": "単語 {current}/{total}",
+  "know_more_about_this_transaction__desc": "この取引について詳しく見る",
   "kyt_assets_checked__msg": "{count} 件のアセットをチェック済み",
   "kyt_high_risk__title": "高リスク",
   "kyt_high_risk_detail__desc": "この入金は高リスクの資金源に関連しています",

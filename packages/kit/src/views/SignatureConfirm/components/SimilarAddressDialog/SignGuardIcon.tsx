@@ -4,14 +4,32 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
 import type { SvgProps } from 'react-native-svg';
 
-function SignGuardIcon(props: SvgProps) {
+export const SIGN_GUARD_ICON_WIDTH = 89;
+export const SIGN_GUARD_ICON_HEIGHT = 15;
+
+function getSignGuardFill({
+  sheen,
+  themeVariant,
+}: {
+  sheen?: boolean;
+  themeVariant: string;
+}) {
+  if (sheen) {
+    return themeVariant === 'light' ? 'white' : '#E8F0FF';
+  }
+  return themeVariant === 'light' ? 'black' : 'white';
+}
+
+function SignGuardIcon({ sheen, ...props }: SvgProps & { sheen?: boolean }) {
   const themeVariant = useThemeVariant();
-  const fill = themeVariant === 'light' ? 'black' : 'white';
+  // Sheen is a cooler/brighter duplicate used as a moving clip, so the sweep
+  // lights the glyphs instead of painting a rectangle on the card.
+  const fill = getSignGuardFill({ sheen, themeVariant });
   return (
     <Svg
-      width="89"
-      height="15"
-      viewBox="0 0 89 15"
+      width={SIGN_GUARD_ICON_WIDTH}
+      height={SIGN_GUARD_ICON_HEIGHT}
+      viewBox={`0 0 ${SIGN_GUARD_ICON_WIDTH} ${SIGN_GUARD_ICON_HEIGHT}`}
       fill="none"
       accessibilityRole="image"
       {...props}

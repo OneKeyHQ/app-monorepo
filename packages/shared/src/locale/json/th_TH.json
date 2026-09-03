@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "ทุกแถวตรงกัน เก็บ KeyTag ของคุณไว้ในที่ปลอดภัย",
   "keytag_verify_success__title": "ยืนยันการสำรองข้อมูลแล้ว",
   "keytag_word_editor__title": "คำที่ {current} จาก {total}",
+  "know_more_about_this_transaction__desc": "ดูข้อมูลเพิ่มเติมเกี่ยวกับธุรกรรมนี้",
   "kyt_assets_checked__msg": "ตรวจสอบสินทรัพย์แล้ว {count} รายการ",
   "kyt_high_risk__title": "ความเสี่ยงสูง",
   "kyt_high_risk_detail__desc": "รายการรับเข้านี้เชื่อมโยงกับแหล่งเงินที่มีความเสี่ยงสูง",

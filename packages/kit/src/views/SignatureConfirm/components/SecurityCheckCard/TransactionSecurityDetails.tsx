@@ -77,13 +77,33 @@ function FeatureRow({ feature }: { feature: ITransactionSecurityFeature }) {
   );
 }
 
+export function TransactionSecurityFeatureList({
+  result,
+}: {
+  result: ITransactionSecurityCheckResult;
+}) {
+  const features = sortTransactionSecurityFeatures(result.detail.features);
+  if (!features.length) {
+    return null;
+  }
+  return (
+    <YStack gap="$3.5">
+      {features.map((feature) => (
+        <FeatureRow
+          key={`${feature.code}-${feature.address ?? ''}`}
+          feature={feature}
+        />
+      ))}
+    </YStack>
+  );
+}
+
 function TransactionSecurityDetails({
   result,
 }: {
   result: ITransactionSecurityCheckResult;
 }) {
   const style = getLevelStyle(result.level);
-  const features = sortTransactionSecurityFeatures(result.detail.features);
   return (
     <YStack
       testID={SignatureConfirmTestIDs.TransactionSecurityDetails}
@@ -113,22 +133,7 @@ function TransactionSecurityDetails({
           ) : null}
         </YStack>
       </XStack>
-      {features.length ? (
-        <YStack
-          gap="$3"
-          p="$3"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          {features.map((feature) => (
-            <FeatureRow
-              key={`${feature.code}-${feature.address ?? ''}`}
-              feature={feature}
-            />
-          ))}
-        </YStack>
-      ) : null}
+      <TransactionSecurityFeatureList result={result} />
     </YStack>
   );
 }

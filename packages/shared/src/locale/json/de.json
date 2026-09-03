@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Alle Zeilen stimmen überein. Bewahren Sie Ihr KeyTag an einem sicheren Ort auf.",
   "keytag_verify_success__title": "Sicherung überprüft",
   "keytag_word_editor__title": "Wort {current} von {total}",
+  "know_more_about_this_transaction__desc": "Mehr über diese Transaktion erfahren",
   "kyt_assets_checked__msg": "{count} Assets geprüft",
   "kyt_high_risk__title": "Hohes Risiko",
   "kyt_high_risk_detail__desc": "Dieser eingehende Transfer ist mit hochriskanten Geldquellen verknüpft",

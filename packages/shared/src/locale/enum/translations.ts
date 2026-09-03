@@ -2263,6 +2263,7 @@ export enum ETranslations {
   keytag_verify_success__desc = 'keytag_verify_success__desc',
   keytag_verify_success__title = 'keytag_verify_success__title',
   keytag_word_editor__title = 'keytag_word_editor__title',
+  know_more_about_this_transaction__desc = 'know_more_about_this_transaction__desc',
   kyt_assets_checked__msg = 'kyt_assets_checked__msg',
   kyt_high_risk__title = 'kyt_high_risk__title',
   kyt_high_risk_detail__desc = 'kyt_high_risk_detail__desc',

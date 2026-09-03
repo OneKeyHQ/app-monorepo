@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "প্রতিটি সারি মিলে গেছে। আপনার KeyTag নিরাপদ জায়গায় রাখুন।",
   "keytag_verify_success__title": "ব্যাকআপ যাচাই হয়েছে",
   "keytag_word_editor__title": "শব্দ {current} / {total}",
+  "know_more_about_this_transaction__desc": "এই লেনদেন সম্পর্কে আরও জানুন",
   "kyt_assets_checked__msg": "{count}টি অ্যাসেট পরীক্ষা করা হয়েছে",
   "kyt_high_risk__title": "উচ্চ ঝুঁকি",
   "kyt_high_risk_detail__desc": "এই ইনকামিং ট্রান্সফার উচ্চ ঝুঁকির তহবিল উৎসের সঙ্গে সম্পর্কিত",

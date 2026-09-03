@@ -18,6 +18,7 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -114,15 +115,17 @@ function BatchTxConfirm() {
     showContinueOperate,
     continueOperate,
   });
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
   const securityCheckModel = useMemo(
     () =>
       buildSecurityCheckModel({
         kind: 'transaction',
         origin: sourceInfo?.origin,
         urlSecurityInfo,
+        isPrimeUser: isPrimeSubscriptionActive,
         intl,
       }),
-    [intl, sourceInfo?.origin, urlSecurityInfo],
+    [intl, isPrimeSubscriptionActive, sourceInfo?.origin, urlSecurityInfo],
   );
   // Execution-time recheck for every signing exit: portal Dialogs (the
   // Sign-all confirmation) capture their onConfirm closure at open time and
@@ -860,10 +863,7 @@ function BatchTxConfirm() {
               origin's risk finding (critical for High, warning for Medium) —
               the same split TxConfirm uses. */}
           {sourceInfo?.origin ? (
-            <SecurityCheckCard
-              requestKey={batchId}
-              model={securityCheckModel}
-            />
+            <SecurityCheckCard model={securityCheckModel} />
           ) : null}
 
           <YStack bg="$bgSubdued" borderRadius="$3" overflow="hidden">

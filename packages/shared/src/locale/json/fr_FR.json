@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Toutes les lignes correspondent. Conservez votre KeyTag en lieu sûr.",
   "keytag_verify_success__title": "Sauvegarde vérifiée",
   "keytag_word_editor__title": "Mot {current} sur {total}",
+  "know_more_about_this_transaction__desc": "En savoir plus sur cette transaction",
   "kyt_assets_checked__msg": "{count} actifs vérifiés",
   "kyt_high_risk__title": "Risque élevé",
   "kyt_high_risk_detail__desc": "Ce virement entrant est lié à des sources de fonds à haut risque",

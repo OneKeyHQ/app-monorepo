@@ -1,5 +1,11 @@
 import type { EHostSecurityLevel } from './discovery';
 
+export enum ETransactionSecurityResultCode {
+  UnableToAssess = 'unable_to_assess',
+  NotSupported = 'not_supported',
+  CheckFailed = 'check_failed',
+}
+
 export type ITransactionSecurityFeature = {
   level: EHostSecurityLevel;
   code: string;
@@ -31,6 +37,7 @@ export type ITransactionSecurityFeatureRaw = {
 
 export type ITransactionSecurityCheckResultRaw = {
   level?: string;
+  supported?: boolean;
   detail?: {
     code?: string;
     summaryCode?: string;

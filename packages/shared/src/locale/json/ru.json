@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Все строки совпадают. Храните KeyTag в надёжном месте.",
   "keytag_verify_success__title": "Копия проверена",
   "keytag_word_editor__title": "Слово {current} из {total}",
+  "know_more_about_this_transaction__desc": "Узнать больше об этой транзакции",
   "kyt_assets_checked__msg": "Проверено активов: {count}",
   "kyt_high_risk__title": "Высокий риск",
   "kyt_high_risk_detail__desc": "Этот входящий перевод связан с источниками средств высокого риска",

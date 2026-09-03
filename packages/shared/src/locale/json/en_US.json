@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "Every row matches. Keep your KeyTag somewhere safe.",
   "keytag_verify_success__title": "Backup verified",
   "keytag_word_editor__title": "Word {current} of {total}",
+  "know_more_about_this_transaction__desc": "Know more about this transaction",
   "kyt_assets_checked__msg": "{count} assets checked",
   "kyt_high_risk__title": "High risk",
   "kyt_high_risk_detail__desc": "This incoming transfer is linked to high-risk fund sources",

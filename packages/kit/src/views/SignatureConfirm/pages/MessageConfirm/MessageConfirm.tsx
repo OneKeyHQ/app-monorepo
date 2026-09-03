@@ -5,8 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -50,6 +48,7 @@ import { MessageConfirmExtraInfo } from '../../components/SignatureConfirmExtraI
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SwapInfo from '../../components/SwapInfo';
+import { useTransactionSecurityCheck } from '../../hooks/useTransactionSecurityCheck';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -80,7 +79,6 @@ function MessageConfirm() {
     >();
 
   const intl = useIntl();
-  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
 
   const {
     accountId,
@@ -94,7 +92,6 @@ function MessageConfirm() {
     onFail,
     onCancel,
   } = route.params;
-  const { network: securityCheckNetwork } = useAccountData({ networkId });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -229,79 +226,23 @@ function MessageConfirm() {
 
   const transactionSecurityJsonRpc = useMemo(
     () =>
-      networkUtils.isEvmNetwork({ networkId })
-        ? buildTransactionSecurityJsonRpc({
-            jsonRpcRequest: sourceInfo?.data,
-          })
-        : undefined,
-    [networkId, sourceInfo?.data],
+      buildTransactionSecurityJsonRpc({
+        jsonRpcRequest: sourceInfo?.data,
+      }),
+    [sourceInfo?.data],
   );
-
-  const transactionSecurityCheckParams = useMemo(() => {
-    if (
-      !isPrimeSubscriptionActive ||
-      !securityCheckNetwork ||
-      securityCheckNetwork.isCustomNetwork ||
-      !sourceInfo?.origin ||
-      !accountId ||
-      !networkId ||
-      !transactionSecurityJsonRpc
-    ) {
-      return undefined;
-    }
-    return {
-      accountId,
-      networkId,
-      jsonRpc: transactionSecurityJsonRpc,
-    };
-  }, [
-    accountId,
-    isPrimeSubscriptionActive,
-    networkId,
-    securityCheckNetwork,
-    sourceInfo?.origin,
-    transactionSecurityJsonRpc,
-  ]);
-  const shouldCheckTransactionSecurity = Boolean(
-    transactionSecurityCheckParams,
-  );
-
   const {
-    result: transactionSecurityCheck,
-    isLoading: isCheckingTransactionSecurity,
-  } = usePromiseResult(
-    async () => {
-      if (!transactionSecurityCheckParams) {
-        return {
-          requestKey: securityCheckRequestKey,
-          result: undefined,
-        };
-      }
-      const transactionSecurityResult =
-        await backgroundApiProxy.serviceSignatureConfirm.checkTransactionSecurity(
-          transactionSecurityCheckParams,
-        );
-      return {
-        requestKey: securityCheckRequestKey,
-        result: transactionSecurityResult,
-      };
-    },
-    [securityCheckRequestKey, transactionSecurityCheckParams],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const isCurrentTransactionSecurityCheck =
-    shouldCheckTransactionSecurity &&
-    transactionSecurityCheck?.requestKey === securityCheckRequestKey;
-  const transactionSecurityInfo = isCurrentTransactionSecurityCheck
-    ? transactionSecurityCheck.result
-    : undefined;
-  const isTransactionSecurityPending =
-    shouldCheckTransactionSecurity &&
-    (!isCurrentTransactionSecurityCheck ||
-      isCheckingTransactionSecurity !== false);
+    result: transactionSecurityInfo,
+    isPending: isTransactionSecurityPending,
+    isPrimeUser,
+    retry: retryTransactionSecurityCheck,
+  } = useTransactionSecurityCheck({
+    requestKey: securityCheckRequestKey,
+    origin: sourceInfo?.origin,
+    accountId,
+    networkId,
+    jsonRpc: transactionSecurityJsonRpc,
+  });
 
   const securityCheckModel = useMemo(
     () =>
@@ -316,12 +257,14 @@ function MessageConfirm() {
         isMessageParseFallback,
         transactionSecurityInfo,
         isTransactionSecurityPending,
+        isPrimeUser,
         intl,
       }),
     [
       intl,
       isConfirmationRequired,
       isMessageParseFallback,
+      isPrimeUser,
       isRiskSignMethod,
       isTransactionSecurityPending,
       parsedMessage,
@@ -353,8 +296,8 @@ function MessageConfirm() {
               />
             ) : null}
             <SecurityCheckCard
-              requestKey={securityCheckRequestKey}
               model={securityCheckModel}
+              onRetry={retryTransactionSecurityCheck}
             />
           </>
         ) : null}
@@ -380,13 +323,13 @@ function MessageConfirm() {
     showMessageHeaderInfo,
     sourceInfo?.origin,
     urlSecurityInfo,
-    securityCheckRequestKey,
     unsignedMessage,
     showDAppSiteMark,
     accountId,
     networkId,
     swapInfo,
     securityCheckModel,
+    retryTransactionSecurityCheck,
   ]);
 
   const handleOnClose = useCallback(

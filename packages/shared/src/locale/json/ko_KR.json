@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "모든 행이 일치합니다. KeyTag를 안전한 곳에 보관하세요.",
   "keytag_verify_success__title": "백업이 검증되었습니다",
   "keytag_word_editor__title": "단어 {current}/{total}",
+  "know_more_about_this_transaction__desc": "이 거래에 대해 자세히 알아보기",
   "kyt_assets_checked__msg": "자산 {count}개 확인됨",
   "kyt_high_risk__title": "고위험",
   "kyt_high_risk_detail__desc": "이 입금은 고위험 자금 출처와 연결되어 있습니다",

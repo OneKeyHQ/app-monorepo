@@ -8,7 +8,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { normalizeTransactionSecurityResult } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
+import {
+  canSubmitTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityJsonRpc,
+  createCheckFailedTransactionSecurityResult,
+  resolveTransactionSecurityServerResult,
+} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   checkDecodedTxHasScalingBalanceMultiplier,
   convertAddressToSignatureConfirmAddress,
@@ -17,7 +22,6 @@ import {
   convertNetworkToSignatureConfirmNetwork,
   mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
@@ -690,14 +694,6 @@ class ServiceSignatureConfirm extends ServiceBase {
       return undefined;
     }
 
-    const unableToAssessResult: ITransactionSecurityCheckResult = {
-      level: EHostSecurityLevel.Unknown,
-      detail: {
-        code: 'unable_to_assess',
-        features: [],
-      },
-    };
-
     try {
       const isPrimeSubscriptionActive =
         await this.backgroundApi.servicePrime.isPrimeSubscriptionActive();
@@ -708,6 +704,16 @@ class ServiceSignatureConfirm extends ServiceBase {
       if (
         await this.backgroundApi.serviceNetwork.isCustomNetwork({ networkId })
       ) {
+        return undefined;
+      }
+
+      if (jsonRpc && !canSubmitTransactionSecurityJsonRpc(jsonRpc)) {
+        return undefined;
+      }
+
+      const authHeaders = await this.getOneKeyIdAuthHeaders();
+      const authToken = authHeaders['X-Onekey-Request-Token']?.trim();
+      if (!authToken) {
         return undefined;
       }
 
@@ -744,34 +750,34 @@ class ServiceSignatureConfirm extends ServiceBase {
         body.jsonRpc = jsonRpc;
       }
 
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      let authToken = '';
-      try {
-        authToken =
-          await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
-      } catch {
-        // i18n still works without Prime; token only unlocks extra copy.
+      if (
+        body.encodedTx &&
+        !canSubmitTransactionSecurityEncodedTx(body.encodedTx)
+      ) {
+        return undefined;
       }
       const walletTypeHeaders =
         await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
           accountId,
         });
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
 
-      const resp = await client.post<{
-        data: ITransactionSecurityCheckResultRaw;
-      }>('/utility/v1/transaction/check', body, {
-        timeout: 5000,
-        headers: {
-          ...walletTypeHeaders,
-          ...(authToken ? { 'X-Onekey-Request-Token': authToken } : {}),
-        },
-      });
-      return (
-        normalizeTransactionSecurityResult(resp.data.data) ??
-        unableToAssessResult
-      );
+      try {
+        const resp = await client.post<{
+          data: ITransactionSecurityCheckResultRaw;
+        }>('/utility/v1/transaction/check', body, {
+          timeout: 5000,
+          headers: {
+            ...walletTypeHeaders,
+            'X-Onekey-Request-Token': authToken,
+          },
+        });
+        return resolveTransactionSecurityServerResult(resp.data.data);
+      } catch {
+        return createCheckFailedTransactionSecurityResult();
+      }
     } catch {
-      return unableToAssessResult;
+      return undefined;
     }
   }
 

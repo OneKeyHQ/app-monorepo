@@ -2258,6 +2258,7 @@
   "keytag_verify_success__desc": "每一行都相符。請將你的 KeyTag 妥善保管。",
   "keytag_verify_success__title": "備份已驗證",
   "keytag_word_editor__title": "單字 {current}/{total}",
+  "know_more_about_this_transaction__desc": "了解這筆交易的更多資訊",
   "kyt_assets_checked__msg": "已偵測 {count} 個資產",
   "kyt_high_risk__title": "高風險",
   "kyt_high_risk_detail__desc": "這筆入帳關聯高風險資金來源",

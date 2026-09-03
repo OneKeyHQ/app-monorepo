@@ -4,7 +4,10 @@ import {
   isPrimaryTypeOrderSign,
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
-import { hasTransactionSecurityFeatures } from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
+import {
+  hasTransactionSecurityFeatures,
+  isTransactionSecurityCheckFailed,
+} from '@onekeyhq/shared/src/utils/transactionSecurityUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -38,7 +41,25 @@ export type ISecurityCheckFindingStatus =
 export type ISecurityCheckStatus =
   | ISecurityCheckFindingStatus
   | 'success'
-  | 'loading';
+  | 'loading'
+  | 'check_failed';
+
+export const CHECK_FAILED_FINDING_ID = 'tx-security-check-failed';
+
+export const SECURITY_CHECK_STATUS_WEIGHT: Record<
+  ISecurityCheckStatus,
+  number
+> = {
+  critical: 5,
+  warning: 4,
+  unknown: 3,
+  check_failed: 3,
+  info: 2,
+  success: 1,
+  loading: 0,
+};
+
+const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
 
 export type ISecurityCheckConfirmation =
   | 'none'
@@ -63,7 +84,6 @@ export type ISecurityCheckFinding = {
   status: ISecurityCheckFindingStatus;
   title: string;
   description?: string;
-  isPrimeSecurityCheck?: boolean;
   action?: ISecurityCheckFindingAction;
 };
 
@@ -79,7 +99,9 @@ export type ISecurityCheckViewModel = {
   isPending: boolean;
   hasTransactionSecurityCheck: boolean;
   shouldShowNoIssue: boolean;
+  showTargetedScanGap: boolean;
   defaultExpanded: boolean;
+  isPrimeUser?: boolean;
 };
 
 type IIntl = Pick<IntlShape, 'formatMessage'>;
@@ -96,22 +118,179 @@ type IBuildSecurityCheckModelParams = {
   isMessageParseFallback?: boolean;
   transactionSecurityInfo?: ITransactionSecurityCheckResult;
   isTransactionSecurityPending?: boolean;
+  isPrimeUser?: boolean;
   intl: IIntl;
 };
 
-export const SECURITY_CHECK_STATUS_WEIGHT: Record<
-  ISecurityCheckStatus,
-  number
-> = {
-  critical: 5,
-  warning: 4,
-  unknown: 3,
-  info: 2,
-  success: 1,
-  loading: 0,
-};
+export function shouldShowPrimeCredit({
+  status,
+  isPrimeUser,
+  hasTransactionSecurityCheck = false,
+}: {
+  status?: ISecurityCheckStatus;
+  isPrimeUser?: boolean;
+  hasTransactionSecurityCheck?: boolean;
+}) {
+  if (isPrimeUser !== false || hasTransactionSecurityCheck) {
+    return false;
+  }
+  return status === 'success' || status === 'info';
+}
 
-const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
+export function shouldShowTargetedScanGap({
+  status,
+  hasTransactionSecurityCheck,
+}: {
+  status?: ISecurityCheckStatus;
+  hasTransactionSecurityCheck: boolean;
+}) {
+  return status === 'success' && !hasTransactionSecurityCheck;
+}
+
+export function getTargetedScanGapTitle(intl: IIntl) {
+  return [
+    intl.formatMessage({
+      id: ETranslations.prime_feature_transaction_security_check__title,
+    }),
+    intl.formatMessage({ id: ETranslations.global_not_available }),
+  ].join(' · ');
+}
+
+export function shouldNestSimulationPreview({
+  hasAssets: _hasAssets,
+  status: _status,
+}: {
+  hasAssets: boolean;
+  status?: ISecurityCheckStatus;
+}) {
+  return false;
+}
+
+export function isCheckFailedFinding(finding: ISecurityCheckFinding) {
+  return finding.id === CHECK_FAILED_FINDING_ID;
+}
+
+export function shouldUseCheckFailedStatus(findings: ISecurityCheckFinding[]) {
+  if (!findings.some(isCheckFailedFinding)) {
+    return false;
+  }
+  return !findings.some(
+    (finding) =>
+      !isCheckFailedFinding(finding) &&
+      (finding.status === 'critical' ||
+        finding.status === 'warning' ||
+        finding.status === 'unknown'),
+  );
+}
+
+export function shouldGlowSimulationNest(_status?: ISecurityCheckStatus) {
+  return false;
+}
+
+export function isDecisionSecurityFinding(finding: ISecurityCheckFinding) {
+  return finding.status === 'critical' || finding.status === 'warning';
+}
+
+export function sortSecurityFindings(findings: ISecurityCheckFinding[]) {
+  return findings.toSorted((a, b) => {
+    const weightDiff =
+      SECURITY_CHECK_STATUS_WEIGHT[b.status] -
+      SECURITY_CHECK_STATUS_WEIGHT[a.status];
+    if (weightDiff !== 0) {
+      return weightDiff;
+    }
+    return (
+      CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)
+    );
+  });
+}
+
+const CARD_DECISION_LISTED_LIMIT = 2;
+
+export function getCardSecurityFindings(findings: ISecurityCheckFinding[]) {
+  const decisionFindings = sortSecurityFindings(
+    findings.filter(isDecisionSecurityFinding),
+  );
+  return {
+    featured: decisionFindings[0],
+    listed: decisionFindings.slice(1, CARD_DECISION_LISTED_LIMIT + 1),
+    shownCount: Math.min(
+      decisionFindings.length,
+      CARD_DECISION_LISTED_LIMIT + 1,
+    ),
+    decisionCount: decisionFindings.length,
+  };
+}
+
+export function isRedundantSecurityFinding({
+  finding,
+  statusLabel,
+}: {
+  finding: ISecurityCheckFinding;
+  statusLabel: string;
+}) {
+  if (finding.action || finding.description) {
+    return false;
+  }
+  if (isCheckFailedFinding(finding)) {
+    return true;
+  }
+  return finding.title.trim() === statusLabel.trim();
+}
+
+export function getVisibleSecurityFindings(
+  findings: ISecurityCheckFinding[],
+  statusLabel: string,
+) {
+  return findings.filter(
+    (finding) => !isRedundantSecurityFinding({ finding, statusLabel }),
+  );
+}
+
+export function shouldShowAllSecurityFindings({
+  findings,
+  shownCount,
+  statusLabel,
+}: {
+  findings: ISecurityCheckFinding[];
+  shownCount: number;
+  statusLabel: string;
+}) {
+  return (
+    shownCount > 0 &&
+    getVisibleSecurityFindings(findings, statusLabel).length > shownCount
+  );
+}
+
+export function getCeremonialFindingDescriptions(intl: IIntl) {
+  return [
+    intl.formatMessage({ id: ETranslations.global_an_error_occurred_desc }),
+    intl.formatMessage({
+      id: ETranslations.dapp_connect_security_checks_tx_review_required__desc,
+    }),
+    intl.formatMessage({
+      id: ETranslations.dapp_connect_security_checks_signature_review_required__desc,
+    }),
+  ];
+}
+
+export function omitCeremonialDescription(
+  content: string | undefined,
+  ceremonial: string[],
+) {
+  const text = content?.trim();
+  if (!text || ceremonial.includes(text)) {
+    return undefined;
+  }
+  return text;
+}
+
+export function hasSecurityFindingDetails(
+  finding: ISecurityCheckFinding,
+  description?: string,
+) {
+  return Boolean(description?.trim() || finding.action);
+}
 
 const SITE_RISK_FINDING_CONFIG: Partial<
   Record<
@@ -189,6 +368,27 @@ function getTransactionSecurityFinding({
     return undefined;
   }
 
+  if (isTransactionSecurityCheckFailed(transactionSecurityInfo)) {
+    return {
+      id: CHECK_FAILED_FINDING_ID,
+      category: 'operation',
+      status: 'unknown',
+      title:
+        transactionSecurityInfo.detail.title?.trim() ||
+        intl.formatMessage({
+          id: ETranslations.kyt_risk_check_failed__title,
+        }),
+      description: omitCeremonialDescription(
+        transactionSecurityInfo.detail.content,
+        [
+          intl.formatMessage({
+            id: ETranslations.global_an_error_occurred_desc,
+          }),
+        ],
+      ),
+    };
+  }
+
   const fallbackTitleId =
     transactionSecurityInfo.level === EHostSecurityLevel.Unknown
       ? ETranslations.global_unverified
@@ -196,16 +396,17 @@ function getTransactionSecurityFinding({
   const title =
     transactionSecurityInfo.detail.title?.trim() ||
     intl.formatMessage({ id: fallbackTitleId });
-  const description =
-    transactionSecurityInfo.detail.content?.trim() ||
-    (transactionSecurityInfo.level === EHostSecurityLevel.Unknown
-      ? undefined
-      : intl.formatMessage({
-          id:
-            kind === 'message'
-              ? ETranslations.dapp_connect_security_checks_signature_review_required__desc
-              : ETranslations.dapp_connect_security_checks_tx_review_required__desc,
-        }));
+  const description = omitCeremonialDescription(
+    transactionSecurityInfo.detail.content,
+    [
+      intl.formatMessage({
+        id:
+          kind === 'message'
+            ? ETranslations.dapp_connect_security_checks_signature_review_required__desc
+            : ETranslations.dapp_connect_security_checks_tx_review_required__desc,
+      }),
+    ],
+  );
   let status: ISecurityCheckFindingStatus = 'unknown';
   if (transactionSecurityInfo.level === EHostSecurityLevel.High) {
     status = 'critical';
@@ -219,7 +420,6 @@ function getTransactionSecurityFinding({
     status,
     title,
     description,
-    isPrimeSecurityCheck: true,
     action: hasTransactionSecurityFeatures(transactionSecurityInfo)
       ? {
           type: 'transactionSecurity',
@@ -456,15 +656,11 @@ function dedupeFindings(findings: ISecurityCheckFinding[]) {
 }
 
 function sortFindingsByStatus(findings: ISecurityCheckFinding[]) {
-  return findings.toSorted((a, b) => {
-    if (a.isPrimeSecurityCheck !== b.isPrimeSecurityCheck) {
-      return a.isPrimeSecurityCheck ? -1 : 1;
-    }
-    return (
+  return findings.toSorted(
+    (a, b) =>
       SECURITY_CHECK_STATUS_WEIGHT[b.status] -
-      SECURITY_CHECK_STATUS_WEIGHT[a.status]
-    );
-  });
+      SECURITY_CHECK_STATUS_WEIGHT[a.status],
+  );
 }
 
 function getHighestFindingStatus(findings: ISecurityCheckFinding[]) {
@@ -638,10 +834,18 @@ export function buildSecurityCheckModel(
     confirmation = 'request';
   }
   let status: ISecurityCheckStatus | undefined = highestStatus;
-  if (!status && isTransactionSecurityPending) {
+  if (
+    isTransactionSecurityPending &&
+    (!status || shouldUseCheckFailedStatus(findings))
+  ) {
     status = 'loading';
   } else if ((!status || status === 'info') && shouldShowNoIssue) {
     status = 'success';
+  } else if (
+    shouldUseCheckFailedStatus(findings) &&
+    (!status || status === 'unknown')
+  ) {
+    status = 'check_failed';
   }
   const statusSourceCategories = CATEGORY_ORDER.filter(
     (category) =>
@@ -656,6 +860,11 @@ export function buildSecurityCheckModel(
       : statusSourceCategories
           .map((category) => getCategorySourceLabel({ category, kind, intl }))
           .join(' · ') || coverageTitle;
+  const hasTransactionSecurityCheck = Boolean(
+    (transactionSecurityInfo &&
+      !isTransactionSecurityCheckFailed(transactionSecurityInfo)) ||
+    isTransactionSecurityPending,
+  );
 
   return {
     kind,
@@ -667,17 +876,22 @@ export function buildSecurityCheckModel(
     coverageTitle,
     statusSourceTitle,
     isPending: Boolean(isTransactionSecurityPending),
-    hasTransactionSecurityCheck: Boolean(
-      transactionSecurityInfo || isTransactionSecurityPending,
-    ),
+    hasTransactionSecurityCheck,
     shouldShowNoIssue,
+    showTargetedScanGap: shouldShowTargetedScanGap({
+      status,
+      hasTransactionSecurityCheck,
+    }),
+    isPrimeUser: params.isPrimeUser,
     defaultExpanded:
       hasAddressRisk ||
       findings.some(
         (finding) =>
           finding.status === 'critical' ||
           finding.status === 'warning' ||
-          (finding.status === 'unknown' && finding.category !== 'site'),
+          (finding.status === 'unknown' &&
+            finding.category !== 'site' &&
+            !isCheckFailedFinding(finding)),
       ),
   };
 }

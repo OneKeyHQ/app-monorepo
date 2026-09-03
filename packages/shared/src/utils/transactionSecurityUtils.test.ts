@@ -1,11 +1,20 @@
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import { ETransactionSecurityResultCode } from '@onekeyhq/shared/types/transactionSecurity';
 
 import {
   buildTransactionSecurityJsonRpc,
+  canAttemptTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityEncodedTx,
+  canSubmitTransactionSecurityJsonRpc,
+  createCheckFailedTransactionSecurityResult,
+  createUnableToAssessTransactionSecurityResult,
   hasTransactionSecurityFeatures,
+  isTransactionSecurityCheckFailed,
+  isTransactionSecurityNotApplicable,
   mergeTransactionSecurityResults,
   normalizeTransactionSecurityLevel,
   normalizeTransactionSecurityResult,
+  resolveTransactionSecurityServerResult,
   sortTransactionSecurityFeatures,
 } from './transactionSecurityUtils';
 
@@ -75,6 +84,131 @@ describe('transactionSecurityUtils', () => {
 
     it('returns undefined for an empty payload', () => {
       expect(normalizeTransactionSecurityResult({})).toBeUndefined();
+    });
+
+    it('returns undefined when the server says the check is not applicable', () => {
+      expect(
+        normalizeTransactionSecurityResult({
+          supported: false,
+          detail: { code: ETransactionSecurityResultCode.NotSupported },
+        }),
+      ).toBeUndefined();
+      expect(
+        isTransactionSecurityNotApplicable({
+          detail: { code: 'NOT_SUPPORTED' },
+        }),
+      ).toBe(true);
+      expect(
+        isTransactionSecurityNotApplicable({
+          detail: { code: ETransactionSecurityResultCode.UnableToAssess },
+        }),
+      ).toBe(false);
+      expect(createUnableToAssessTransactionSecurityResult()).toEqual({
+        level: EHostSecurityLevel.Unknown,
+        detail: {
+          code: ETransactionSecurityResultCode.UnableToAssess,
+          features: [],
+        },
+      });
+      expect(createCheckFailedTransactionSecurityResult()).toEqual({
+        level: EHostSecurityLevel.Unknown,
+        detail: {
+          code: ETransactionSecurityResultCode.CheckFailed,
+          features: [],
+        },
+      });
+      expect(
+        isTransactionSecurityCheckFailed(
+          createCheckFailedTransactionSecurityResult(),
+        ),
+      ).toBe(true);
+      expect(
+        isTransactionSecurityCheckFailed(
+          createUnableToAssessTransactionSecurityResult(),
+        ),
+      ).toBe(false);
+      expect(
+        resolveTransactionSecurityServerResult({
+          supported: false,
+          detail: { code: ETransactionSecurityResultCode.NotSupported },
+        }),
+      ).toBeUndefined();
+      expect(resolveTransactionSecurityServerResult({})).toEqual(
+        createUnableToAssessTransactionSecurityResult(),
+      );
+    });
+  });
+
+  describe('canSubmitTransactionSecurity payload', () => {
+    it('accepts EVM-shaped objects and encoded strings', () => {
+      expect(
+        canSubmitTransactionSecurityEncodedTx({
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+        }),
+      ).toBe(true);
+      expect(
+        canSubmitTransactionSecurityEncodedTx({
+          from: '0x2',
+          to: '0x1',
+          data: '0x',
+          value: '0x1',
+        }),
+      ).toBe(true);
+      expect(canSubmitTransactionSecurityEncodedTx('3md7BBV9wFjY')).toBe(true);
+      expect(
+        canAttemptTransactionSecurityEncodedTx({
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+          gas: '0x5208',
+        }),
+      ).toBe(true);
+    });
+
+    it('rejects native objects that the live schema will 422', () => {
+      expect(
+        canSubmitTransactionSecurityEncodedTx({
+          visible: true,
+          raw_data: { contract: [] },
+        }),
+      ).toBe(false);
+      expect(
+        canSubmitTransactionSecurityEncodedTx({
+          inputs: [],
+          outputs: [],
+        }),
+      ).toBe(false);
+      expect(canSubmitTransactionSecurityEncodedTx({})).toBe(false);
+      expect(canSubmitTransactionSecurityEncodedTx('')).toBe(false);
+      expect(
+        canAttemptTransactionSecurityEncodedTx({
+          visible: true,
+          raw_data: { contract: [] },
+        }),
+      ).toBe(false);
+    });
+
+    it('accepts only the live jsonRpc method allowlist', () => {
+      expect(
+        canSubmitTransactionSecurityJsonRpc({
+          method: 'personal_sign',
+          params: ['0x1'],
+        }),
+      ).toBe(true);
+      expect(
+        canSubmitTransactionSecurityJsonRpc({
+          method: 'eth_signTypedData_v4',
+          params: ['0x1', '{}'],
+        }),
+      ).toBe(true);
+      expect(
+        canSubmitTransactionSecurityJsonRpc({
+          method: 'solana_signTransaction',
+          params: ['payload'],
+        }),
+      ).toBe(false);
     });
   });
 
@@ -167,10 +301,15 @@ describe('transactionSecurityUtils', () => {
         level: 'high',
         detail: { code: 'known_malicious_interaction', features: [] },
       });
+      const failed = createCheckFailedTransactionSecurityResult();
       expect(mergeTransactionSecurityResults([undefined, only])?.level).toBe(
         EHostSecurityLevel.High,
       );
+      expect(mergeTransactionSecurityResults([failed, only])?.level).toBe(
+        EHostSecurityLevel.High,
+      );
       expect(mergeTransactionSecurityResults([undefined])).toBeUndefined();
+      expect(mergeTransactionSecurityResults([failed, failed])).toEqual(failed);
     });
 
     it('keeps a secondary risk summary when it has no feature rows', () => {

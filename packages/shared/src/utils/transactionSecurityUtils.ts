@@ -1,10 +1,11 @@
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
-import type {
-  ITransactionSecurityCheckResult,
-  ITransactionSecurityCheckResultRaw,
-  ITransactionSecurityFeature,
-  ITransactionSecurityFeatureRaw,
-  ITransactionSecurityJsonRpc,
+import {
+  ETransactionSecurityResultCode,
+  type ITransactionSecurityCheckResult,
+  type ITransactionSecurityCheckResultRaw,
+  type ITransactionSecurityFeature,
+  type ITransactionSecurityFeatureRaw,
+  type ITransactionSecurityJsonRpc,
 } from '@onekeyhq/shared/types/transactionSecurity';
 
 export function buildTransactionSecurityJsonRpc({
@@ -61,6 +62,127 @@ export function normalizeTransactionSecurityLevel(
   return EHostSecurityLevel.Unknown;
 }
 
+export function getTransactionSecurityResultCode(
+  result?: ITransactionSecurityCheckResultRaw,
+) {
+  return result?.detail?.code?.trim() || result?.detail?.summaryCode?.trim();
+}
+
+function isTransactionSecurityResultCode(
+  result: ITransactionSecurityCheckResultRaw | undefined,
+  code: ETransactionSecurityResultCode,
+) {
+  return getTransactionSecurityResultCode(result)?.toLowerCase() === code;
+}
+
+export function isTransactionSecurityNotApplicable(
+  result?: ITransactionSecurityCheckResultRaw,
+) {
+  return (
+    result?.supported === false ||
+    isTransactionSecurityResultCode(
+      result,
+      ETransactionSecurityResultCode.NotSupported,
+    )
+  );
+}
+
+function createUnknownTransactionSecurityResult(
+  code: ETransactionSecurityResultCode,
+): ITransactionSecurityCheckResult {
+  return {
+    level: EHostSecurityLevel.Unknown,
+    detail: {
+      code,
+      features: [],
+    },
+  };
+}
+
+export function createUnableToAssessTransactionSecurityResult() {
+  return createUnknownTransactionSecurityResult(
+    ETransactionSecurityResultCode.UnableToAssess,
+  );
+}
+
+export function createCheckFailedTransactionSecurityResult() {
+  return createUnknownTransactionSecurityResult(
+    ETransactionSecurityResultCode.CheckFailed,
+  );
+}
+
+export function isTransactionSecurityCheckFailed(
+  result?: ITransactionSecurityCheckResult | ITransactionSecurityCheckResultRaw,
+) {
+  return isTransactionSecurityResultCode(
+    result,
+    ETransactionSecurityResultCode.CheckFailed,
+  );
+}
+
+// Live /utility/v1/transaction/check allowlist. Other methods return 422.
+const TRANSACTION_SECURITY_JSON_RPC_METHODS = new Set([
+  'eth_sendtransaction',
+  'eth_sendrawtransaction',
+  'eth_signtransaction',
+  'eth_sign',
+  'eth_signtypeddata',
+  'eth_signtypeddata_v1',
+  'eth_signtypeddata_v2',
+  'eth_signtypeddata_v3',
+  'eth_signtypeddata_v4',
+  'eth_senduseroperation',
+  'personal_sign',
+  'wallet_sendcalls',
+]);
+
+// After vault normalization: string payloads, or EVM objects with these keys.
+const TRANSACTION_SECURITY_ENCODED_TX_KEYS = new Set([
+  'to',
+  'data',
+  'value',
+  'from',
+]);
+
+export function canSubmitTransactionSecurityJsonRpc(
+  jsonRpc?: ITransactionSecurityJsonRpc,
+) {
+  const method = jsonRpc?.method?.trim().toLowerCase();
+  return Boolean(method && TRANSACTION_SECURITY_JSON_RPC_METHODS.has(method));
+}
+
+function isEncodedTxRecord(
+  encodedTx: unknown,
+): encodedTx is Record<string, unknown> {
+  return Boolean(
+    encodedTx && typeof encodedTx === 'object' && !Array.isArray(encodedTx),
+  );
+}
+
+export function canSubmitTransactionSecurityEncodedTx(encodedTx: unknown) {
+  if (typeof encodedTx === 'string') {
+    return encodedTx.trim().length > 0;
+  }
+  if (!isEncodedTxRecord(encodedTx)) {
+    return false;
+  }
+  const keys = Object.keys(encodedTx);
+  return (
+    keys.length > 0 &&
+    keys.every((key) => TRANSACTION_SECURITY_ENCODED_TX_KEYS.has(key))
+  );
+}
+
+export function canAttemptTransactionSecurityEncodedTx(encodedTx: unknown) {
+  if (canSubmitTransactionSecurityEncodedTx(encodedTx)) {
+    return true;
+  }
+  return (
+    isEncodedTxRecord(encodedTx) &&
+    ['to', 'data', 'value'].some((key) => key in encodedTx)
+  );
+}
+
 function normalizeFeature(
   feature: ITransactionSecurityFeatureRaw,
 ): ITransactionSecurityFeature | undefined {
@@ -83,12 +205,11 @@ function normalizeFeature(
 export function normalizeTransactionSecurityResult(
   result?: ITransactionSecurityCheckResultRaw,
 ): ITransactionSecurityCheckResult | undefined {
-  if (!result) {
+  if (!result || isTransactionSecurityNotApplicable(result)) {
     return undefined;
   }
 
-  const code =
-    result.detail?.code?.trim() || result.detail?.summaryCode?.trim();
+  const code = getTransactionSecurityResultCode(result);
   const title = result.detail?.title?.trim();
   const content = result.detail?.content?.trim();
   const features = (result.detail?.features ?? [])
@@ -104,12 +225,24 @@ export function normalizeTransactionSecurityResult(
   return {
     level: normalizeTransactionSecurityLevel(result.level),
     detail: {
-      code: code || 'unable_to_assess',
+      code: code || ETransactionSecurityResultCode.UnableToAssess,
       title: title || undefined,
       content: content || undefined,
       features,
     },
   };
+}
+
+export function resolveTransactionSecurityServerResult(
+  raw?: ITransactionSecurityCheckResultRaw,
+) {
+  if (isTransactionSecurityNotApplicable(raw)) {
+    return undefined;
+  }
+  return (
+    normalizeTransactionSecurityResult(raw) ??
+    createUnableToAssessTransactionSecurityResult()
+  );
 }
 
 export function sortTransactionSecurityFeatures(
@@ -139,10 +272,13 @@ export function mergeTransactionSecurityResults(
   results: Array<ITransactionSecurityCheckResult | undefined>,
 ): ITransactionSecurityCheckResult | undefined {
   const validResults = results.filter(
-    (result): result is ITransactionSecurityCheckResult => Boolean(result),
+    (result): result is ITransactionSecurityCheckResult =>
+      Boolean(result) && !isTransactionSecurityCheckFailed(result),
   );
   if (!validResults.length) {
-    return undefined;
+    return results.some((result) => isTransactionSecurityCheckFailed(result))
+      ? createCheckFailedTransactionSecurityResult()
+      : undefined;
   }
 
   const primary = validResults.reduce((best, current) =>

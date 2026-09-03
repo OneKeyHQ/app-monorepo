@@ -35,7 +35,7 @@ jest.mock('../vaults/factory', () => ({
 }));
 
 // eslint-disable-next-line import-js/order, import/first
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
@@ -154,11 +154,6 @@ function buildTransactionSecurityService(post: jest.Mock) {
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue(accountAddress),
     },
-    simpleDb: {
-      prime: {
-        getActiveAuthToken: jest.fn().mockResolvedValue('prime-token'),
-      },
-    },
     serviceAccountProfile: {
       _getWalletTypeHeader: jest
         .fn()
@@ -168,6 +163,14 @@ function buildTransactionSecurityService(post: jest.Mock) {
   const service = new ServiceSignatureConfirm({ backgroundApi });
   Object.assign(service, {
     getClient: jest.fn().mockResolvedValue({ post }),
+    getOneKeyIdAuthHeaders: jest.fn().mockResolvedValue({
+      'X-Onekey-Request-Token': 'prime-token',
+    }),
+  });
+  (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+    buildParseTransactionParams: jest.fn(async ({ encodedTx }) => ({
+      encodedTx,
+    })),
   });
   return service;
 }
@@ -295,7 +298,86 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     expect(vaultFactory.getVault).not.toHaveBeenCalled();
   });
 
-  it('returns an unassessed result when the request fails', async () => {
+  it('sends vault-normalized encodedTx and always attaches the Prime token', async () => {
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          level: 'security',
+          detail: {
+            code: 'no_issues_detected',
+            features: [],
+          },
+        },
+      },
+    });
+    const service = buildTransactionSecurityService(post);
+    const encodedTxToCheck = {
+      to: '0x1',
+      data: '0x',
+      value: '0x0',
+    };
+    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+      buildParseTransactionParams: jest.fn(async () => ({
+        encodedTx: encodedTxToCheck,
+      })),
+    });
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        encodedTx: {
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+          gas: '0x5208',
+        } as IEncodedTx,
+      }),
+    ).resolves.toEqual({
+      level: 'security',
+      detail: {
+        code: 'no_issues_detected',
+        features: [],
+      },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/utility/v1/transaction/check',
+      {
+        networkId,
+        accountAddress,
+        encodedTx: encodedTxToCheck,
+      },
+      {
+        timeout: 5000,
+        headers: {
+          'X-Wallet-Type': 'hd',
+          'X-Onekey-Request-Token': 'prime-token',
+        },
+      },
+    );
+  });
+
+  it('does not call the server when reading the Prime token throws', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+    (service.getOneKeyIdAuthHeaders as jest.Mock).mockRejectedValue(
+      new Error('session missing'),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('returns a failed result when the request throws', async () => {
     const service = buildTransactionSecurityService(
       jest.fn().mockRejectedValue(new Error('timeout')),
     );
@@ -312,10 +394,83 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
     ).resolves.toEqual({
       level: 'unknown',
       detail: {
-        code: 'unable_to_assess',
+        code: 'check_failed',
         features: [],
       },
     });
+  });
+
+  it('does not call the server when Prime has no request token', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+    (service.getOneKeyIdAuthHeaders as jest.Mock).mockResolvedValue({});
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('skips when request setup throws before the scan', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+    (vaultFactory.getVault as unknown as jest.Mock).mockRejectedValue(
+      new Error('no vault'),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        encodedTx: {
+          to: '0x1',
+          data: '0x',
+          value: '0x0',
+        } as IEncodedTx,
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('does not call the server for a jsonRpc method the live schema rejects', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId: 'sol--101',
+        accountId,
+        jsonRpc: {
+          method: 'solana_signTransaction',
+          params: ['payload'],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('does not call the server for a native encodedTx the live schema rejects', async () => {
+    const post = jest.fn();
+    const service = buildTransactionSecurityService(post);
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId: 'tron--0x2b6653dc',
+        accountId,
+        encodedTx: {
+          visible: true,
+          raw_data: { contract: [] },
+        } as IEncodedTx,
+      }),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('returns an unassessed result when the response is empty', async () => {
@@ -339,5 +494,29 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
         features: [],
       },
     });
+  });
+
+  it('returns undefined when the server marks the request unsupported', async () => {
+    const service = buildTransactionSecurityService(
+      jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            supported: false,
+            detail: { code: 'not_supported', features: [] },
+          },
+        },
+      }),
+    );
+
+    await expect(
+      service.checkTransactionSecurity({
+        networkId,
+        accountId,
+        jsonRpc: {
+          method: 'personal_sign',
+          params: ['0xmessage', accountAddress],
+        },
+      }),
+    ).resolves.toBeUndefined();
   });
 });
