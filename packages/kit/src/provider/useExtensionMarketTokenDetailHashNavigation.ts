@@ -79,6 +79,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
       searchParams.get('skipMarketDataFetch'),
     );
     const marketTokenId = searchParams.get('marketTokenId') || undefined;
+    const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
     const from = searchParams.get('from');
@@ -116,6 +117,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           network,
           isNative: true,
           ...(marketTokenId ? { marketTokenId } : undefined),
+          ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
           ...(skipMarketDataFetch === undefined
             ? undefined
@@ -135,6 +137,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         network,
         tokenAddress,
         ...(marketTokenId ? { marketTokenId } : undefined),
+        ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
         ...(skipMarketDataFetch === undefined
           ? undefined
@@ -205,6 +208,7 @@ function isCurrentMarketTokenDetailTarget(
 
   if (
     params.marketTokenId !== target.params.marketTokenId ||
+    params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
       normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
