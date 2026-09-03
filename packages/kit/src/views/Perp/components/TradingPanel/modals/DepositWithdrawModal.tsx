@@ -131,6 +131,9 @@ const PERP_NATIVE_DEPOSIT_WITHDRAW_ESTIMATED_CONTENT_HEIGHT = 300;
 const WITHDRAW_QUOTE_REFRESH_INTERVAL_MS = 30_000;
 const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
 
+// No estimate marker on the CCTP fee: a chain read that fails falls back to the
+// same number, and submission re-reads it and refuses on drift, so the marker
+// only ever blinks in and out without telling the user anything new.
 function formatWithdrawFeeComponent(
   component: IUsdcWithdrawFeeQuote['components'][number],
 ) {
@@ -138,7 +141,7 @@ function formatWithdrawFeeComponent(
   if (component.kind === 'hyperEvmGas') {
     return `< $${amount}`;
   }
-  return `${component.isEstimate ? '≈ ' : ''}$${amount}`;
+  return `$${amount}`;
 }
 
 // A destination's fee is known before its quote returns, so the row can skip the
