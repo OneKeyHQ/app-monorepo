@@ -18725,7 +18725,7 @@
     "packages/kit-bg/src/services/ServiceBatchCreateAccount/thirdPartyAllNetworkParams.ts": 2772,
     "packages/kit-bg/src/services/ServiceBatchTxSign.ts": 7960,
     "packages/kit-bg/src/services/ServiceBootstrap.ts": 2773,
-    "packages/kit-bg/src/services/ServiceBulkSend.ts": 7986,
+    "packages/kit-bg/src/services/ServiceBulkSend.ts": 7992,
     "packages/kit-bg/src/services/ServiceCloudBackup/credentialUtils.ts": 2774,
     "packages/kit-bg/src/services/ServiceCloudBackup/index.ts": 2775,
     "packages/kit-bg/src/services/ServiceCloudBackup/utils/BackupUtils.ts": 2776,
