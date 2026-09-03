@@ -2664,11 +2664,8 @@ const blinkMevProtectionProvider: IMevProtectionProviderInfo = {
   logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
 };
 
-// Client-side fallback for the tx-confirm MEV badge. It is only consulted for
-// same-chain swap txs whose server parse result carries no
-// `display.mevProtectionProvider`, so it must mirror the vendor the server
-// actually broadcasts through. Blink is the sole EVM/Solana vendor since the
-// 2026 Blink vs BlockRazor A/B test concluded (OK-61501).
+// Client fallback for the tx-confirm MEV badge; must mirror the vendor the
+// server actually broadcasts through. Blink only since OK-61501.
 export const getNetworksSupportMevProtection = memoFn(
   (): Record<string, IMevProtectionProviderInfo> => ({
     [eth.id]: blinkMevProtectionProvider,
