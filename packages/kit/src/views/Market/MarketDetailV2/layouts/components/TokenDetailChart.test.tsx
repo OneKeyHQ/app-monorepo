@@ -7,9 +7,11 @@ import { fireEvent, render } from '@testing-library/react';
 import { TokenDetailChart } from './TokenDetailChart';
 
 const mockSetChartDisplayMode = jest.fn();
-const mockStockSimpleChart = jest.fn(() => (
-  <div data-testid="market-token-simple-chart" />
-));
+const mockStockSimpleChart = jest.fn(
+  (_props: { marketAssetId?: string; priceMode: 'token'; range: string }) => (
+    <div data-testid="market-token-simple-chart" />
+  ),
+);
 let mockChartDisplayMode: 'simple' | 'pro' = 'simple';
 
 jest.mock('react-intl', () => ({
@@ -56,8 +58,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 
 jest.mock('../../components/StockSimpleChart', () => ({
-  StockSimpleChart: () => mockStockSimpleChart(),
-  TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y'],
+  StockSimpleChart: (props: {
+    marketAssetId?: string;
+    priceMode: 'token';
+    range: string;
+  }) => mockStockSimpleChart(props),
+  TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
 }));
 
 jest.mock('./MarketDetailProChartControls', () => ({
@@ -66,9 +72,10 @@ jest.mock('./MarketDetailProChartControls', () => ({
   ),
 }));
 
-function renderTokenDetailChart() {
+function renderTokenDetailChart(marketAssetId?: string) {
   return render(
     <TokenDetailChart
+      marketAssetId={marketAssetId}
       marketTradingView={<div data-testid="market-token-pro-chart" />}
       isChartFullscreen={false}
       chartMode="native"
@@ -97,6 +104,20 @@ describe('TokenDetailChart', () => {
     expect(secondVisit.getByTestId('market-token-pro-chart')).toBeTruthy();
   });
 
+  it('keeps the complete-history range available in Simple mode', () => {
+    const view = renderTokenDetailChart();
+
+    expect(view.getByTestId('market-token-chart-range-All')).toBeTruthy();
+  });
+
+  it('forwards the Top Coins asset identity to Simple mode', () => {
+    renderTokenDetailChart('doge');
+
+    expect(mockStockSimpleChart).toHaveBeenCalledWith(
+      expect.objectContaining({ marketAssetId: 'doge' }),
+    );
+  });
+
   it('persists a switch to Pro mode', () => {
     const view = renderTokenDetailChart();
 
@@ -112,5 +133,20 @@ describe('TokenDetailChart', () => {
     fireEvent.click(view.getByTestId('market-token-chart-mode-simple'));
 
     expect(mockSetChartDisplayMode).toHaveBeenCalledWith({ mode: 'simple' });
+  });
+
+  it('localizes All and passes it to the simple chart', () => {
+    const view = renderTokenDetailChart();
+    const allRangeButton = view.getByTestId('market-token-chart-range-All');
+
+    expect(allRangeButton.textContent).toBe('global.all');
+    fireEvent.click(allRangeButton);
+
+    expect(mockStockSimpleChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        priceMode: 'token',
+        range: 'All',
+      }),
+    );
   });
 });

@@ -258,6 +258,23 @@ describe('TradingViewNative K-line data state machine', () => {
     jest.restoreAllMocks();
   });
 
+  it('preserves the self-maintained Asset source for history requests', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(0.08, 1_000_000));
+
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: { kind: 'asset', assetId: 'doge' },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(mockCreateTradingViewNativeDataProvider).toHaveBeenCalledWith({
+      kind: 'asset',
+      assetId: 'doge',
+    });
+    expect(mockSubscribeRealtime).not.toHaveBeenCalled();
+  });
+
   it('requests the full provider batch on the initial history load', async () => {
     mockHistoryBatchSize = 3;
     mockHistoryRequestCandleCount = 3;

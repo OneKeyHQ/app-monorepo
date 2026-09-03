@@ -230,7 +230,7 @@ export const TradingFormInput = memo(
               ...(!ifOnDialog
                 ? {
                     fontFamily: platformEnv.isNative
-                      ? 'Roobert-Medium'
+                      ? 'Roobert-Regular'
                       : undefined,
                     fontSize: 14,
                     fontWeight: '500' as const,

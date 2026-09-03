@@ -109,6 +109,8 @@ function MarketDetail({
   const disableTrade = params.disableTrade;
   const marketTokenId =
     'marketTokenId' in params ? params.marketTokenId : undefined;
+  const marketVariantId =
+    'marketVariantId' in params ? params.marketVariantId : undefined;
   const marketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const skipMarketDataFetch = normalizeRouteBooleanParam(
@@ -136,12 +138,16 @@ function MarketDetail({
 
   // Start auto-refresh for token details every 5 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
-  useAutoRefreshTokenDetail({
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch,
-  });
+  const { marketAssetDetail, isMarketAssetDetailLoading } =
+    useAutoRefreshTokenDetail({
+      tokenAddress,
+      networkId,
+      isNative: isNativeBoolean,
+      skipMarketDataFetch,
+      marketTokenId,
+      marketVariantId,
+      marketTokenCategory,
+    });
 
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
@@ -209,6 +215,8 @@ function MarketDetail({
             networkId={networkId}
             tokenAddress={tokenAddress}
             marketTokenId={marketTokenId}
+            marketAssetDetail={marketAssetDetail}
+            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={shouldDisableTrade}

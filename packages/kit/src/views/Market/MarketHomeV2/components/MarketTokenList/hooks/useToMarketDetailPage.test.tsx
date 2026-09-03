@@ -350,6 +350,38 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it('preserves asset and variant identity for Top Coins detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        symbol: 'DOGE',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketVariantId: 'doge-doge--0-1',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'doge',
+      marketVariantId: 'doge-doge--0-1',
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
   it('opens stock detail by stockId from an extension surface', async () => {
     const { result } = renderHook(() =>
       useToDetailPage({ showFavoriteButton: false }),
