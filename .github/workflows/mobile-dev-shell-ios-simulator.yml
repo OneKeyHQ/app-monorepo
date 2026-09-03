@@ -103,7 +103,7 @@ jobs:
         run: |
           cd apps/mobile/ios
           gem install cocoapods -v 1.16.2
-          pod install --deployment
+          pod _1.16.2_ install --deployment
 
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
