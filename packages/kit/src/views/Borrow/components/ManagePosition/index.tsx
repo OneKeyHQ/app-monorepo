@@ -108,11 +108,17 @@ export function ManagePosition(props: IManagePositionProps) {
   const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
 
-    await onConfirm({
+    const started = await onConfirm({
       amount: amountValue,
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });
+
+    // The disclaimer was rejected, so nothing was submitted: keep the amount
+    // the user typed instead of clearing the form.
+    if (started === false) {
+      return;
+    }
 
     setAmountValue('');
   }, [
@@ -125,6 +131,8 @@ export function ManagePosition(props: IManagePositionProps) {
 
   const { needsApproval, approveLoading, onApprove } =
     useBorrowApproveAndSubmit({
+      providerName,
+      tokenSymbol,
       approveTarget,
       currentAllowance,
       amountValue,

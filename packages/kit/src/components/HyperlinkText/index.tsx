@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { createIntl, useIntl } from 'react-intl';
 
@@ -10,7 +10,12 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import useParseQRCodeLazy from '../../views/ScanQrCode/hooks/useParseQRCodeLazy';
@@ -31,6 +36,13 @@ export type IHyperlinkTextProps = {
    * effects immediately, instead of returning parsed data for the caller.
    */
   autoExecuteParsedAction?: boolean;
+  /**
+   * Runs before a `<url>` link opens, and the open waits for it. Lets the host
+   * that owns the overlay this text sits in — a dialog, a sheet — dismiss
+   * itself first, instead of being left stacked behind the page the link
+   * navigates to (OK-61348).
+   */
+  onBeforeOpenUrl?: () => void | Promise<void>;
   urlTextProps?: ISizableTextProps;
   actionTextProps?: ISizableTextProps;
   underlineTextProps?: ISizableTextProps;
@@ -59,6 +71,7 @@ export function HyperlinkText({
   values,
   // HyperlinkText is action-oriented, so auto execution is enabled by default.
   autoExecuteParsedAction = true,
+  onBeforeOpenUrl,
   urlTextProps,
   actionTextProps,
   underlineTextProps,
@@ -93,6 +106,77 @@ export function HyperlinkText({
   // symptom only shows on web and desktop.
   const { numberOfLines, ellipse, ...inlineTextProps } = basicTextProps;
 
+  const renderUrlChunk = useCallback(
+    (
+      params: React.ReactNode[],
+      {
+        openWith = openUrlExternal,
+        showExternalIndicator = true,
+      }: {
+        openWith?: (link: string) => void;
+        showExternalIndicator?: boolean;
+      } = {},
+    ) => {
+      const [link, chunks] = params;
+      const isLinkString = typeof link === 'string';
+      const openUrl = () => {
+        setTimeout(() => {
+          onAction?.(isLinkString ? link : '');
+        }, 0);
+        if (isLinkString) {
+          void parseQRCode.parse(link, {
+            handlers: [
+              EQRCodeHandlerNames.marketDetail,
+              EQRCodeHandlerNames.sendProtection,
+              EQRCodeHandlerNames.rewardCenter,
+              EQRCodeHandlerNames.updatePreview,
+            ],
+            qrWalletScene: false,
+            autoExecuteParsedAction,
+            // OneKey deeplinks still resolve natively above; only a plain
+            // web link reaches this.
+            defaultHandler: openWith,
+          });
+        }
+      };
+      return (
+        <SizableText
+          {...inlineTextProps}
+          textDecorationLine="underline"
+          {...urlTextProps}
+          cursor="pointer"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={() => {
+            // Kept synchronous unless a caller opted in, so the existing press
+            // timing is untouched.
+            if (!onBeforeOpenUrl) {
+              openUrl();
+              return;
+            }
+            // The host (a dialog, a sheet) gets to dismiss itself first
+            // (OK-61348). Its failure must not swallow the link, so the open
+            // runs either way.
+            void Promise.resolve(onBeforeOpenUrl())
+              .catch(() => undefined)
+              .then(openUrl);
+          }}
+        >
+          {isLinkString ? chunks : link}
+          {autoExecuteParsedAction && showExternalIndicator ? ' ↗' : null}
+        </SizableText>
+      );
+    },
+    [
+      inlineTextProps,
+      urlTextProps,
+      onAction,
+      onBeforeOpenUrl,
+      parseQRCode,
+      autoExecuteParsedAction,
+    ],
+  );
+
   const text = useMemo(
     () =>
       translationId || defaultMessage
@@ -123,41 +207,35 @@ export function HyperlinkText({
                   </SizableText>
                 );
               },
-              url: (params: React.ReactNode[]) => {
-                const [link, chunks] = params;
-                const isLinkString = typeof link === 'string';
-                return (
-                  <SizableText
-                    {...inlineTextProps}
-                    textDecorationLine="underline"
-                    {...urlTextProps}
-                    cursor="pointer"
-                    hoverStyle={{ bg: '$bgHover' }}
-                    pressStyle={{ bg: '$bgActive' }}
-                    onPress={() => {
-                      setTimeout(() => {
-                        onAction?.(isLinkString ? link : '');
-                      }, 0);
-                      if (isLinkString) {
-                        void parseQRCode.parse(link, {
-                          handlers: [
-                            EQRCodeHandlerNames.marketDetail,
-                            EQRCodeHandlerNames.sendProtection,
-                            EQRCodeHandlerNames.rewardCenter,
-                            EQRCodeHandlerNames.updatePreview,
-                          ],
-                          qrWalletScene: false,
-                          autoExecuteParsedAction,
-                          defaultHandler: openUrlExternal,
-                        });
-                      }
-                    }}
-                  >
-                    {isLinkString ? chunks : link}
-                    {autoExecuteParsedAction ? ' ↗' : null}
-                  </SizableText>
-                );
-              },
+              url: renderUrlChunk,
+              // Same link, kept inside the app so the page can talk to the
+              // wallet. It opens as a Discovery tab rather than a WebView
+              // overlay, so it joins the user's browser tabs and survives
+              // navigating away instead of being torn down with the screen it
+              // was opened from. <url> keeps handing plain web links to the
+              // system browser.
+              urlInApp: (params: React.ReactNode[]) =>
+                renderUrlChunk(params, {
+                  openWith: (link) => {
+                    // The link comes from remote config, so apply the same
+                    // policy the WebView overlay uses (https, no credentials,
+                    // no local address, no punycode) before hosting it.
+                    if (!isAllowedWebViewUrl(link)) {
+                      openUrlExternal(link);
+                      return;
+                    }
+                    // Discovery only exists on desktop and native; web and the
+                    // extension keep handing the link to the system browser,
+                    // the same fallback openUrlInApp made here before.
+                    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+                      openUrlExternal(link);
+                      return;
+                    }
+                    openUrlInDiscovery({ url: link });
+                  },
+                  // The arrow reads as "leaves the app", which this one does not.
+                  showExternalIndicator: false,
+                }),
               subscripts: ([string]) => (
                 <SizableText
                   {...inlineTextProps}
@@ -245,9 +323,7 @@ export function HyperlinkText({
       inlineTextProps,
       actionTextProps,
       onAction,
-      urlTextProps,
-      parseQRCode,
-      autoExecuteParsedAction,
+      renderUrlChunk,
       scriptFontSize,
       subscriptsTextProps,
       underlineTextProps,

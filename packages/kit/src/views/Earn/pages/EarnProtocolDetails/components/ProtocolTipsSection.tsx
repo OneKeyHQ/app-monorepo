@@ -3,10 +3,22 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Dialog, Divider, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Divider,
+  ScrollView,
+  SizableText,
+  YStack,
+  useDialogInstance,
+} from '@onekeyhq/components';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+
+// Tips are dashboard-authored and can run long: several entries, each with a
+// multi-paragraph description. Without a ceiling the dialog grows past the
+// viewport on both phone and desktop and the end of the copy is unreachable.
+const PROTOCOL_TIPS_DIALOG_MAX_HEIGHT = 512;
 
 type IProtocolTips = NonNullable<IStakeEarnDetail['protocolTips']>;
 type IProtocolTipItem = IProtocolTips['tips'][number];
@@ -18,12 +30,52 @@ function pickInlineTip(tips: IProtocolTipItem[]): IProtocolTipItem {
   return tips.find((tip) => tip.showDefault) ?? tips[0];
 }
 
-function ProtocolTipRow({ tip }: { tip: IProtocolTipItem }) {
+function ProtocolTipRow({
+  tip,
+  onBeforeOpenUrl,
+}: {
+  tip: IProtocolTipItem;
+  onBeforeOpenUrl?: () => Promise<void>;
+}) {
   return (
     <YStack gap="$1">
-      <EarnText text={tip.title} size="$bodyMdMedium" />
-      <EarnText text={tip.description} size="$bodyMd" color="$textSubdued" />
+      <EarnText
+        text={tip.title}
+        size="$bodyMdMedium"
+        onBeforeOpenUrl={onBeforeOpenUrl}
+      />
+      <EarnText
+        text={tip.description}
+        size="$bodyMd"
+        color="$textSubdued"
+        onBeforeOpenUrl={onBeforeOpenUrl}
+      />
     </YStack>
+  );
+}
+
+// A tip link navigates away from this dialog, so the dialog has to go first
+// (OK-61348): it lives in its own overlay while the page is pushed onto the
+// navigation stack, and would otherwise still be sitting there when the user
+// comes back — on native it stays stacked under the page the whole time.
+// Awaited so the dismissal and the push do not animate over each other.
+function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
+  const dialogInstance = useDialogInstance();
+  const handleBeforeOpenUrl = useCallback(async () => {
+    await dialogInstance.close();
+  }, [dialogInstance]);
+
+  return (
+    <ScrollView maxHeight={PROTOCOL_TIPS_DIALOG_MAX_HEIGHT} nestedScrollEnabled>
+      <YStack gap="$4" pb="$2">
+        {tips.map((tip, index) => (
+          <YStack key={index} gap="$4">
+            {index > 0 ? <Divider /> : null}
+            <ProtocolTipRow tip={tip} onBeforeOpenUrl={handleBeforeOpenUrl} />
+          </YStack>
+        ))}
+      </YStack>
+    </ScrollView>
   );
 }
 
@@ -49,16 +101,11 @@ export function ProtocolTipsSection({
     Dialog.show({
       title: protocolTipsHeader,
       showFooter: false,
-      renderContent: (
-        <YStack gap="$4" pb="$2">
-          {tips.map((tip, index) => (
-            <YStack key={index} gap="$4">
-              {index > 0 ? <Divider /> : null}
-              <ProtocolTipRow tip={tip} />
-            </YStack>
-          ))}
-        </YStack>
-      ),
+      // The tips scroll internally, and on phones the sheet's own drag-to-close
+      // competes with that scroll for the same vertical gesture. Overlay press
+      // and the system back button still close it.
+      disableDrag: true,
+      renderContent: <ProtocolTipsDialogContent tips={tips} />,
     });
   }, [protocolTipsHeader, tips]);
 
