@@ -116,6 +116,13 @@ export type IImageV2Props = Omit<
   | 'onError'
   | 'onLoad'
   | 'resizeMode'
+  | 'blurRadius'
+  | 'capInsets'
+  | 'defaultSource'
+  | 'loadingIndicatorSource'
+  | 'onPartialLoad'
+  | 'progressiveRenderingEnabled'
+  | 'resizeMethod'
   | 'tintColor'
   | 'onProgress'
 > &
@@ -138,7 +145,30 @@ export type IImageV2Props = Omit<
     contentFit?: IImageContentFit;
     cachePolicy?: IImageCachePolicy;
     recyclingKey?: string;
-    tintColor?: ImageProps['tintColor'];
+    /** @deprecated ImageV2 does not support blur effects. */
+    blurRadius?: never;
+    /** @deprecated ImageV2 does not support image cap insets. */
+    capInsets?: never;
+    /** @deprecated ImageV2 does not support default image sources. Use placeholder instead. */
+    defaultSource?: never;
+    /** @deprecated ImageV2 does not support loading indicator image sources. Use placeholder instead. */
+    loadingIndicatorSource?: never;
+    /** @deprecated ImageV2 does not emit partial-load events. */
+    onPartialLoad?: never;
+    /** @deprecated ImageV2 does not support progressive rendering. */
+    progressiveRenderingEnabled?: never;
+    /** @deprecated ImageV2 manages resizing internally. */
+    resizeMethod?: never;
+    /** @deprecated ImageV2 does not support image tinting. Use the Icon component for tinted icons. */
+    tintColor?: never;
+    /** Number of retries after the original image request fails.
+     * @default 1
+     */
+    retryTimes?: number;
+    /** Whether failed image requests should be retried.
+     * @default true
+     */
+    canRetry?: boolean;
     /** Whether to autoplay animated images (GIF, WebP).
      * @default false on Android, true on iOS
      */

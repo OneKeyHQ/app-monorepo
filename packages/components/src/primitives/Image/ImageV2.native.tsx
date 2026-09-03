@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   OneKeyImage,
@@ -39,6 +39,8 @@ const CACHE_POLICIES: Record<IImageCachePolicy, OneKeyImageCachePolicy> = {
   'memory-disk': OneKeyImageCachePolicy.MEMORY_DISK,
   none: OneKeyImageCachePolicy.NONE,
 };
+
+const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -216,6 +218,8 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     cachePolicy,
     recyclingKey,
     resizeWidth,
+    retryTimes = 1,
+    canRetry = true,
     blurRadius: _blurRadius,
     capInsets: _capInsets,
     defaultSource: _defaultSource,
@@ -269,6 +273,42 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const activeSource = shouldUseRawSourceFallback
     ? optimizedSourceResult.rawSource
     : optimizedSourceResult.source;
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryLimit = Number.isFinite(retryTimes)
+    ? Math.max(0, Math.floor(retryTimes))
+    : 1;
+  const activeSourceIdentity = `${activeSource?.uri ?? ''}|${JSON.stringify(
+    activeSource?.headers ?? {},
+  )}`;
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    retryCountRef.current = 0;
+    clearRetryTimer();
+  }, [activeSourceIdentity, clearRetryTimer, retryLimit]);
+  useEffect(() => clearRetryTimer, [clearRetryTimer]);
+  const scheduleRetry = useCallback(() => {
+    if (!canRetry || retryCountRef.current >= retryLimit) {
+      return false;
+    }
+    retryCountRef.current += 1;
+    clearRetryTimer();
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryNonce((value) => value + 1);
+    }, getRandomRetryDelay());
+    return true;
+  }, [canRetry, clearRetryTimer, retryLimit]);
+  const effectiveRecyclingKey =
+    retryNonce === 0
+      ? recyclingKey
+      : `${recyclingKey ?? activeSource?.uri ?? 'image'}:retry:${retryNonce}`;
   const placeholderOverlay = useMemo(
     () =>
       placeholder === null || placeholder === undefined ? undefined : (
@@ -306,12 +346,16 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
         setRawSourceFallbackUri(optimizedSourceResult.rawUri);
         return;
       }
+      if (scheduleRetry()) {
+        return;
+      }
       onError?.(event);
     },
     [
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
+      scheduleRetry,
       shouldUseRawSourceFallback,
     ],
   );
@@ -325,7 +369,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       fallback={fallbackOverlay}
       contentFit={getContentFit({ contentFit, resizeMode })}
       cachePolicy={cachePolicy ? CACHE_POLICIES[cachePolicy] : undefined}
-      recyclingKey={recyclingKey}
+      recyclingKey={effectiveRecyclingKey}
       autoplay={autoplay}
       optimizeTos={
         !hasCustomSourceIdentity(rawSource) &&

@@ -34,6 +34,8 @@ const fullSizeStyle = {
 const SHOULD_OPTIMIZE_RELATIVE_URL =
   platformEnv.isWeb || platformEnv.isWebEmbed;
 
+const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
+
 function resolveSource(
   source: IImageV2Props['source'] | undefined,
 ): ImageURISource | null {
@@ -138,11 +140,19 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     contentFit,
     resizeMode,
     recyclingKey,
+    retryTimes = 1,
+    canRetry = true,
+    blurRadius: _blurRadius,
+    defaultSource: _defaultSource,
+    tintColor: _tintColor,
     cachePolicy: _cachePolicy,
     autoplay: _autoplay,
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPlaceholderVisible, setIsPlaceholderVisible] = useState(false);
   const placeholderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -194,6 +204,36 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   ]);
 
   useResetError(resolvedSource, hasError, setHasError);
+
+  const retryLimit = Number.isFinite(retryTimes)
+    ? Math.max(0, Math.floor(retryTimes))
+    : 1;
+  const resolvedSourceIdentity = `${resolvedSource?.uri ?? ''}|${JSON.stringify(
+    resolvedSource?.headers ?? {},
+  )}`;
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    retryCountRef.current = 0;
+    clearRetryTimer();
+  }, [clearRetryTimer, resolvedSourceIdentity, retryLimit]);
+  useEffect(() => clearRetryTimer, [clearRetryTimer]);
+  const scheduleRetry = useCallback(() => {
+    if (!canRetry || retryCountRef.current >= retryLimit) {
+      return false;
+    }
+    retryCountRef.current += 1;
+    clearRetryTimer();
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryNonce((value) => value + 1);
+    }, getRandomRetryDelay());
+    return true;
+  }, [canRetry, clearRetryTimer, retryLimit]);
 
   const clearPlaceholderTimer = useCallback(() => {
     if (placeholderTimerRef.current) {
@@ -265,6 +305,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
         setRawSourceFallbackUri(optimizedSourceResult.rawUri);
         return;
       }
+      if (scheduleRetry()) {
+        return;
+      }
       clearPlaceholderTimer();
       setIsPlaceholderVisible(false);
       setHasError(true);
@@ -275,6 +318,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
+      scheduleRetry,
       shouldUseRawSourceFallback,
     ],
   );
@@ -297,7 +341,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     }
     return (
       <ImageComponent
-        key={recyclingKey}
+        key={`${recyclingKey ?? resolvedSource?.uri ?? 'image'}:${retryNonce}`}
         source={
           shouldLoadImage ? (resolvedSource as ImageSourcePropType) : undefined
         }
@@ -321,6 +365,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     hasError,
     imageProps,
     recyclingKey,
+    retryNonce,
     resizeMode,
     resolvedSource,
     shouldLoadImage,
