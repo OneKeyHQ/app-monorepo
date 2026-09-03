@@ -23,7 +23,9 @@ import {
   SwapRateDifferenceText,
 } from '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText';
 import SwapActionsState from '@onekeyhq/kit/src/views/Swap/pages/components/SwapActionsState';
+import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer';
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
@@ -55,10 +57,7 @@ import {
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
-import {
-  calculateMarketStockEstimatedShares,
-  hasValidMarketStockTokenToAssetRatio,
-} from './utils/marketStockQuoteDisplayUtils';
+import { calculateMarketStockEstimatedShares } from './utils/marketStockQuoteDisplayUtils';
 
 import type { IMarketPresetSettingsState } from './hooks/useMarketPresetSettings';
 
@@ -118,6 +117,27 @@ export type ISwapPanelContentProps = {
   stockDetailDesktopLayout?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
 };
+
+function StockTradePanelSkeleton() {
+  return (
+    <YStack testID="stock-trade-loading" gap="$4">
+      <XStack alignItems="center" justifyContent="space-between">
+        <Skeleton width={176} height={32} />
+        <Skeleton width={32} height={32} borderRadius="$full" />
+      </XStack>
+      <XStack height={44} alignItems="center" justifyContent="space-between">
+        <Skeleton width={128} height={24} />
+        <Skeleton width={88} height={24} />
+      </XStack>
+      <Skeleton width="100%" height={116} borderRadius="$4" />
+      <XStack height={40} alignItems="center" justifyContent="space-between">
+        <Skeleton width={112} height={20} />
+        <Skeleton width={64} height={20} />
+      </XStack>
+      <Skeleton width="100%" height={48} borderRadius="$3" />
+    </YStack>
+  );
+}
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
   const {
@@ -372,12 +392,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     stockTokenAmount: estimatedStockTokenAmount,
     tokenToAssetRatio: stockTokenToAssetRatio,
   });
-  const hasValidStockTokenToAssetRatio = hasValidMarketStockTokenToAssetRatio(
-    stockTokenToAssetRatio,
-  );
-  const shouldShowStockEstimatedShares = Boolean(
-    (quoteLoading && hasValidStockTokenToAssetRatio) || estimatedShares,
-  );
   let stockEstimatedReceiveContent: ReactNode = (
     <SizableText size="$bodyMdMedium">--</SizableText>
   );
@@ -448,6 +462,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }
 
   if (stockDetailDesktopLayout) {
+    if (!hasInitialReady) {
+      return <StockTradePanelSkeleton />;
+    }
+
     const noAccount =
       !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
     const shouldUseSwapFallbackAction = shouldJumpToMarketTradeFallback({
@@ -477,24 +495,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               preventTextWrap
             />
           </YStack>
-          {showMarketPresetSelector && marketPresetSettings ? (
-            <MarketPresetSelector
-              settingsButtonOnly
-              antiMEV={isMEV}
-              estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
-              presetSettings={marketPresetSettings}
-            />
-          ) : (
-            <SlippageSetting
-              variant="header"
-              autoDefaultValue={slippageAutoValue}
-              isMEV={!!isMEV}
-              onSlippageChange={(item) => {
-                setSlippage(item.value);
-                setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
-              }}
-            />
-          )}
+          <SwapStockHeaderRightActionContainer
+            storeName={EJotaiContextStoreNames.marketSwap}
+          />
         </XStack>
 
         {/* Figma 25672:54925: 44 tall, inset 4 on the left so the variant
@@ -572,20 +575,18 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             {stockEstimatedReceiveContent}
           </XStack>
 
-          {shouldShowStockEstimatedShares ? (
-            <XStack
-              testID="stock-trade-estimated-shares"
-              px="$0.5"
-              pt="$0"
-              pb="$2"
-              alignItems="center"
-              justifyContent="space-between"
-              gap="$2"
-            >
-              <SizableText size="$bodyMd">Est. shares</SizableText>
-              {stockEstimatedSharesContent}
-            </XStack>
-          ) : null}
+          <XStack
+            testID="stock-trade-estimated-shares"
+            px="$0.5"
+            pt="$0"
+            pb="$2"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$2"
+          >
+            <SizableText size="$bodyMd">Shares</SizableText>
+            {stockEstimatedSharesContent}
+          </XStack>
         </YStack>
 
         {quoteError ? (

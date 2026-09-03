@@ -51,6 +51,7 @@ import {
   EMarketPresetKey,
   EMarketPresetTradeSide,
   getMarketNonPresetSlippageValue,
+  resolveMarketPresetEnabled,
   resolveMarketQuoteSlippageMode,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
@@ -97,6 +98,7 @@ function SwapPanelWrapContent({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
+  const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
@@ -234,18 +236,24 @@ function SwapPanelWrapContent({
     customValue: swapSlippagePercentageCustomValue,
     defaultSlippage: speedConfig?.slippage,
   });
-  const effectiveSlippage = marketPresetSettings.enabled
+  const marketPresetEnabled = resolveMarketPresetEnabled({
+    enabled: marketPresetSettings.enabled,
+    stockDetailDesktopLayout,
+  });
+  const marketPresetLoading =
+    !stockDetailDesktopLayout && marketPresetSettings.isLoading;
+  const effectiveSlippage = marketPresetEnabled
     ? marketPresetSettings.selectedSlippageValue
     : (nonPresetSlippage ?? slippage);
   const effectiveSlippageMode = resolveMarketQuoteSlippageMode({
-    presetEnabled: marketPresetSettings.enabled,
+    presetEnabled: marketPresetEnabled,
     selectedPresetKey: marketPresetSettings.selectedPresetKey,
     nonPresetMode: swapSlippagePercentageMode,
   });
-  const effectiveNetworkFeeLevel = marketPresetSettings.enabled
+  const effectiveNetworkFeeLevel = marketPresetEnabled
     ? marketPresetSettings.selectedNetworkFeeLevel
     : ESwapNetworkFeeLevel.MEDIUM;
-  const effectiveCustomPriorityFee = marketPresetSettings.enabled
+  const effectiveCustomPriorityFee = marketPresetEnabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
   const shouldUseConvertedMarketPrice =
@@ -272,6 +280,16 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
+  const stockTokenToAssetRatio =
+    selectedTokenVariant?.tokenToAssetRatio ??
+    tokenDetail?.stock?.tokenToAssetRatio;
+  const currentStockInfo =
+    isStockRoute && tokenDetail?.stock
+      ? {
+          ...tokenDetail.stock,
+          tokenToAssetRatio: stockTokenToAssetRatio,
+        }
+      : undefined;
   const currentMarketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
@@ -298,9 +316,7 @@ function SwapPanelWrapContent({
         currency: 'usd',
         isNative: false,
         isStock: isStockRoute,
-        stock: selectedVariantMatchesTokenDetail
-          ? tokenDetail?.stock
-          : undefined,
+        stock: currentStockInfo,
       }
     : {
         networkId: networkId || '',
@@ -313,12 +329,22 @@ function SwapPanelWrapContent({
         currency: marketTokenCurrency,
         isNative: !!tokenDetail?.isNative,
         isStock: isStockRoute,
-        stock: isStockRoute ? tokenDetail?.stock : undefined,
+        stock: currentStockInfo,
       };
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
       : sellAmount.toFixed();
+  const currentMarketTokenKey = currentMarketToken.networkId
+    ? `${currentMarketToken.networkId}:${
+        currentMarketToken.isNative
+          ? 'native'
+          : currentMarketToken.contractAddress
+      }`
+    : undefined;
+  const isCurrentStockTokenReady =
+    Boolean(currentMarketTokenKey) &&
+    readyStockTokenKey === currentMarketTokenKey;
   const useSpeedSwapActionsParams = {
     slippageItem: {
       key: effectiveSlippageMode,
@@ -561,31 +587,31 @@ function SwapPanelWrapContent({
   ]);
 
   useEffect(() => {
-    if (!marketPresetSettings.enabled) {
+    if (!marketPresetEnabled) {
       return;
     }
 
     setSlippage(marketPresetSettings.selectedSlippageValue);
   }, [
-    marketPresetSettings.enabled,
+    marketPresetEnabled,
     marketPresetSettings.selectedSlippageValue,
     setSlippage,
   ]);
 
   useEffect(() => {
-    if (marketPresetSettings.enabled) {
+    if (marketPresetEnabled) {
       return;
     }
 
     if (nonPresetSlippage !== undefined) {
       setSlippage(nonPresetSlippage);
     }
-  }, [marketPresetSettings.enabled, nonPresetSlippage, setSlippage]);
+  }, [marketPresetEnabled, nonPresetSlippage, setSlippage]);
 
   const saveMarketSlippageForFutureOrders = useCallback(
     async (slippagePercentage: number) => {
       setSlippage(slippagePercentage);
-      if (!marketPresetSettings.enabled) {
+      if (!marketPresetEnabled) {
         setSettings((prev) => ({
           ...prev,
           swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
@@ -605,7 +631,7 @@ function SwapPanelWrapContent({
         },
       });
     },
-    [marketPresetSettings, setSettings, setSlippage],
+    [marketPresetEnabled, marketPresetSettings, setSettings, setSlippage],
   );
 
   const reviewAdapter = useMemo<ISwapReviewAdapter>(
@@ -667,11 +693,7 @@ function SwapPanelWrapContent({
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
-      if (
-        isActionLoading ||
-        isReviewOpening ||
-        marketPresetSettings.isLoading
-      ) {
+      if (isActionLoading || isReviewOpening || marketPresetLoading) {
         return;
       }
       if (!isWrap && !quoteReadyForReview) {
@@ -685,6 +707,7 @@ function SwapPanelWrapContent({
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
       const showReviewCustomNetworkFeeOption =
+        marketPresetEnabled &&
         shouldShowMarketPresetReviewCustomNetworkFeeOption(
           marketPresetSettings,
         );
@@ -725,7 +748,7 @@ function SwapPanelWrapContent({
             <MarketSwapReviewDialog
               adapter={reviewAdapter}
               disableSaveSlippageForFutureOrders={
-                marketPresetSettings.enabled &&
+                marketPresetEnabled &&
                 marketPresetSettings.selectedPresetKey === EMarketPresetKey.AUTO
               }
               defaultNetworkFeeLevel={effectiveNetworkFeeLevel}
@@ -772,6 +795,8 @@ function SwapPanelWrapContent({
       isReviewOpening,
       effectiveCustomPriorityFee,
       effectiveNetworkFeeLevel,
+      marketPresetEnabled,
+      marketPresetLoading,
       marketPresetSettings,
       logMarketReviewGasAccountDecision,
       prepareMarketSwapReview,
@@ -835,6 +860,34 @@ function SwapPanelWrapContent({
     speedSwapInitLoading,
   ]);
 
+  useEffect(() => {
+    if (
+      stockDetailDesktopLayout &&
+      !isActionLoading &&
+      isReady &&
+      speedConfigReady &&
+      !speedSwapInitLoading &&
+      originalSupportSpeedSwap !== undefined &&
+      savedPreferenceLoading === false &&
+      currentMarketTokenKey &&
+      selectedTokenVariant &&
+      paymentToken?.networkId
+    ) {
+      setReadyStockTokenKey(currentMarketTokenKey);
+    }
+  }, [
+    currentMarketTokenKey,
+    isActionLoading,
+    isReady,
+    originalSupportSpeedSwap,
+    paymentToken?.networkId,
+    savedPreferenceLoading,
+    selectedTokenVariant,
+    speedConfigReady,
+    speedSwapInitLoading,
+    stockDetailDesktopLayout,
+  ]);
+
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -852,7 +905,7 @@ function SwapPanelWrapContent({
       onCloseDialog={onCloseDialog}
       priceRate={priceRate}
       stockQuoteDisplay={stockQuoteDisplay}
-      stockTokenToAssetRatio={selectedTokenVariant?.tokenToAssetRatio}
+      stockTokenToAssetRatio={stockTokenToAssetRatio}
       stockUnderlyingSymbol={stockId}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
@@ -866,13 +919,15 @@ function SwapPanelWrapContent({
       isActionDisabled={
         (isStockRoute && !selectedVariantTradable) ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
-        marketPresetSettings.isLoading ||
+        marketPresetLoading ||
         (!isWrapped && !quoteReadyForReview && !quoteNeedsRefresh)
       }
       isRefreshQuote={quoteRefreshActionActive}
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
-      hasInitialReady={hasInitialReady}
+      hasInitialReady={
+        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
+      }
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
       slippageAutoValue={speedConfig?.slippage}
@@ -888,7 +943,9 @@ function SwapPanelWrapContent({
       onOpenProviderList={handleOpenProviderList}
       quoteError={quoteError}
       disableNativeToken={disableNativeToken}
-      marketPresetSettings={marketPresetSettings}
+      marketPresetSettings={
+        stockDetailDesktopLayout ? undefined : marketPresetSettings
+      }
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
       stockDetailDesktopLayout={stockDetailDesktopLayout}
       portfolioData={portfolioData}

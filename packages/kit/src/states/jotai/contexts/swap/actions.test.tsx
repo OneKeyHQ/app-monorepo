@@ -135,6 +135,9 @@ const mockSetSwapNetworksSortRawData: jest.MockedFunction<
 const mockSetSwapProSelectToken: jest.MockedFunction<
   (token: ISwapToken) => Promise<void>
 > = jest.fn();
+const mockGetSwapProSelectToken: jest.MockedFunction<
+  () => Promise<ISwapToken | undefined>
+> = jest.fn();
 const mockGetSupportSwapAllAccounts: jest.MockedFunction<
   (params: unknown) => Promise<{
     supportAccountsFetchFailed: boolean;
@@ -171,6 +174,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     simpleDb: {
       swapProSelectToken: {
+        getSwapProSelectToken: () => mockGetSwapProSelectToken(),
         setSwapProSelectToken: (token: ISwapToken) =>
           mockSetSwapProSelectToken(token),
       },
@@ -463,6 +467,7 @@ describe('useSwapActions', () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
+    mockGetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapProSelectToken.mockResolvedValue(undefined);
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
     mockCloseApproving.mockResolvedValue(undefined);
@@ -1922,6 +1927,27 @@ describe('useSwapActions', () => {
 
     expect(store.get(swapProSelectTokenAtom())).toEqual(bnbToken);
     expect(store.get(swapProUserSelectedTokenAtom())).toBeUndefined();
+  });
+
+  it('loads the shared Pro token without overriding a newer selection', async () => {
+    const savedTokenRequest = createDeferred<ISwapToken | undefined>();
+    mockGetSwapProSelectToken.mockReturnValue(savedTokenRequest.promise);
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapProSelectTokenAtom(), usdcToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    let initializePromise: Promise<void> | undefined;
+    await act(async () => {
+      initializePromise = result.current.initializeSwapProSelectToken();
+      await result.current.selectSwapProToken(bnbToken);
+      savedTokenRequest.resolve(uniToken);
+      await initializePromise;
+    });
+
+    expect(store.get(swapProSelectTokenAtom())).toEqual(bnbToken);
   });
 
   it('carries Swap FromToken when ToToken is stable', async () => {

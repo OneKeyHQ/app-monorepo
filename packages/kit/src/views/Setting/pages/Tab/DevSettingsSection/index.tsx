@@ -775,7 +775,7 @@ const BaseDevSettingsSection = () => {
       const next = prev.includes(sectionKey)
         ? prev.filter((k) => k !== sectionKey)
         : [...prev, sectionKey];
-      appStorage.syncStorage.set(
+      void appStorage.syncStorage.set(
         PINNED_STORAGE_KEY as any,
         JSON.stringify(next),
       );
@@ -799,7 +799,7 @@ const BaseDevSettingsSection = () => {
   const devSettingsSearchHistoryRef = useRef(devSettingsSearchHistory);
   const persistDevSettingsSearchHistory = useCallback((next: string[]) => {
     devSettingsSearchHistoryRef.current = next;
-    appStorage.syncStorage.set(
+    void appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_dev_settings_search_history,
       JSON.stringify(next),
     );
@@ -1749,7 +1749,7 @@ const BaseDevSettingsSection = () => {
                               ) ?? false
                             }
                             onChange={(v) => {
-                              appStorage.syncStorage.set(
+                              void appStorage.syncStorage.set(
                                 EAppSyncStorageKeys.onekey_debug_render_tracker,
                                 v,
                               );
@@ -1790,7 +1790,7 @@ const BaseDevSettingsSection = () => {
                               !isBgApiSerializableCheckingDisabled()
                             }
                             onChange={(v) => {
-                              toggleBgApiSerializableChecking(v);
+                              void toggleBgApiSerializableChecking(v);
                             }}
                           />
                         </ListItem>
@@ -2106,6 +2106,7 @@ const BaseDevSettingsSection = () => {
                         icon="LockOutline"
                         title="Clear Cached Password"
                         subtitle="清除缓存密码"
+                        testID="clear-cached-password"
                         onPress={async () => {
                           await backgroundApiProxy.servicePassword.clearCachedPassword();
                           Toast.success({

@@ -1,11 +1,11 @@
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+
 import { createLazyServiceProxy } from '../../../apis/lazyServiceProxy';
 
 import {
   getSimpleDbEntityKey,
   getXpubOrAddressFromAccountKey,
 } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 export class SimpleDb {
   // Lazy load entities using getters

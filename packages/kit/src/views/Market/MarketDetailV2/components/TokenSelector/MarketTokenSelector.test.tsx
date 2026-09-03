@@ -79,8 +79,21 @@ jest.mock('@onekeyhq/components', () => {
         onChange={(event) => onChangeText(event.currentTarget.value)}
       />
     ),
-    SizableText: ({ children }: { children?: ReactNode }) => (
-      <span>{children}</span>
+    SizableText: ({
+      children,
+      letterSpacing,
+      textTransform,
+    }: {
+      children?: ReactNode;
+      letterSpacing?: number;
+      textTransform?: string;
+    }) => (
+      <span
+        data-letter-spacing={letterSpacing}
+        data-text-transform={textTransform}
+      >
+        {children}
+      </span>
     ),
     XStack: StackComponent,
     YStack: StackComponent,
@@ -125,15 +138,15 @@ jest.mock(
     useMarketTopCoins: () => ({
       data: [
         {
-          coingeckoId: 'bitcoin',
-          name: 'Bitcoin',
-          symbol: 'btc',
-          price: 100,
-          priceChangePercentage24H: 1,
-          marketCap: 1000,
-          totalVolume: 500,
-          image: 'bitcoin.png',
-          iconUrl: '',
+          assetId: 'btc',
+          symbol: 'BTC',
+          price: '100',
+          priceChange24hPercent: '1',
+          priceChange7dPercent: '2',
+          marketCap: '1000',
+          volume24h: '500',
+          logoUrl: 'bitcoin.png',
+          sparkline24h: [],
         },
       ],
       handleItemPress: mockTopCoinPress,
@@ -187,7 +200,7 @@ jest.mock('./MarketTokenSelectorList', () => ({
     searchResults,
     selectedCategory,
   }: {
-    dataOverride?: IMarketToken[];
+    dataOverride?: (IMarketToken & { marketAssetId?: string })[];
     isWatchlistMode: boolean;
     onItemPress: (item: IMarketToken) => void;
     searchResults?: IMarketToken[];
@@ -200,6 +213,15 @@ jest.mock('./MarketTokenSelectorList', () => ({
         data-testid="token-list"
         data-watchlist={String(isWatchlistMode)}
       />
+      {dataOverride?.[0] ? (
+        <button
+          data-testid="market-token-selector-top-coin"
+          type="button"
+          onClick={() => onItemPress(dataOverride[0])}
+        >
+          Select Top Coin
+        </button>
+      ) : null}
       {searchResults?.[0] ? (
         <button
           data-testid="market-token-selector-search-result"
@@ -255,6 +277,20 @@ describe('MarketTokenSelector stock default category', () => {
         screen.getByTestId('token-list').getAttribute('data-override-count'),
       ).toBe('1');
     });
+
+    fireEvent.click(screen.getByTestId('market-token-selector-top-coin'));
+    expect(mockTopCoinPress).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'btc' }),
+    );
+    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it('preserves category label casing', () => {
+    renderOpenStockSelector();
+
+    const topCoinsLabel = screen.getByText('Top Coins');
+    expect(topCoinsLabel.getAttribute('data-text-transform')).toBe('none');
+    expect(topCoinsLabel.getAttribute('data-letter-spacing')).toBe('0');
   });
 
   function renderOpenStockSelector() {

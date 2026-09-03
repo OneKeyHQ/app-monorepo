@@ -67,42 +67,132 @@ describe('build-dev-vendor', () => {
       })
       .mockImplementationOnce(() => {});
     const build = jest.fn().mockResolvedValue(undefined);
+    const restore = jest.fn().mockRejectedValue(new Error('release missing'));
 
-    await expect(preparePlatform('android', { build, check })).resolves.toEqual(
-      { rebuilt: true },
-    );
+    await expect(
+      preparePlatform('android', { build, check, restore }),
+    ).resolves.toEqual({
+      fallback: true,
+      fallbackReason: 'release missing',
+      localCacheReason: 'fingerprint mismatch',
+      source: 'local-build',
+    });
     expect(build).toHaveBeenCalledTimes(1);
     expect(build).toHaveBeenCalledWith('android');
+    expect(restore).toHaveBeenCalledWith('android');
     expect(check).toHaveBeenCalledTimes(2);
   });
 
   it('skips a valid platform during prepare', async () => {
     const check = jest.fn();
     const build = jest.fn();
+    const restore = jest.fn();
 
-    await expect(preparePlatform('ios', { build, check })).resolves.toEqual({
-      rebuilt: false,
+    await expect(
+      preparePlatform('ios', { build, check, restore }),
+    ).resolves.toEqual({ fallback: false, source: 'local-cache' });
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(build).not.toHaveBeenCalled();
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it('restores a compatible public release before rebuilding locally', async () => {
+    const check = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new TypeError('cache missing');
+      })
+      .mockImplementationOnce(() => {});
+    const build = jest.fn();
+    const restore = jest
+      .fn()
+      .mockResolvedValue({ tagName: 'metro-dev-prebundle-v1-test' });
+
+    await expect(
+      preparePlatform('ios', { build, check, restore }),
+    ).resolves.toEqual({
+      fallback: false,
+      source: 'remote',
+      tag: 'metro-dev-prebundle-v1-test',
     });
+    expect(restore).toHaveBeenCalledWith('ios');
+    expect(check).toHaveBeenCalledTimes(2);
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it('does not silently rebuild an explicitly remote vendor', async () => {
+    const check = jest.fn(() => {
+      throw new TypeError('cache missing');
+    });
+    const build = jest.fn();
+    const restoreError = new Error('remote missing');
+    const restore = jest.fn().mockRejectedValue(restoreError);
+
+    await expect(
+      preparePlatform('android', {
+        build,
+        check,
+        restore,
+        source: 'remote',
+      }),
+    ).rejects.toBe(restoreError);
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it('restores an explicitly remote vendor even when the local cache is valid', async () => {
+    const check = jest.fn();
+    const build = jest.fn();
+    const restore = jest
+      .fn()
+      .mockResolvedValue({ tagName: 'metro-dev-prebundle-v2-exact' });
+
+    await expect(
+      preparePlatform('android', {
+        build,
+        check,
+        restore,
+        source: 'remote',
+      }),
+    ).resolves.toEqual({
+      fallback: false,
+      source: 'remote',
+      tag: 'metro-dev-prebundle-v2-exact',
+    });
+    expect(restore).toHaveBeenCalledWith('android');
     expect(check).toHaveBeenCalledTimes(1);
     expect(build).not.toHaveBeenCalled();
   });
 
-  it('reports the legacy Metro fallback when prepare cannot rebuild', async () => {
+  it('builds directly when the local vendor is explicitly requested', async () => {
+    const check = jest.fn();
+    const build = jest.fn();
+    const restore = jest.fn();
+
+    await expect(
+      preparePlatform('ios', { build, check, restore, source: 'local' }),
+    ).resolves.toEqual({ fallback: false, source: 'local-build' });
+    expect(build).toHaveBeenCalledWith('ios');
+    expect(check).toHaveBeenCalledWith('ios');
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it('reports the failed target when prepare cannot rebuild', async () => {
     const error = new TypeError('module registry is stale');
     const check = jest.fn(() => {
       throw error;
     });
     const build = jest.fn().mockRejectedValue(error);
+    const restore = jest.fn().mockRejectedValue(new Error('release missing'));
     const consoleError = jest
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
     try {
-      await expect(preparePlatform('ios', { build, check })).rejects.toBe(
-        error,
-      );
+      await expect(
+        preparePlatform('ios', { build, check, restore }),
+      ).rejects.toBe(error);
       expect(consoleError).toHaveBeenCalledWith(
-        expect.stringContaining('yarn app:native-bundle:legacy'),
+        expect.stringContaining('Prepare failed for platform=ios'),
       );
     } finally {
       consoleError.mockRestore();

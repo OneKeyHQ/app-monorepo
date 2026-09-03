@@ -10,6 +10,7 @@ import type { ITradingViewNativeChartInterval } from './tradingViewNativeInterva
 import type { ITradingViewNativeSource } from '../types';
 
 export type ITradingViewNativeIntervalStorageNamespace =
+  | 'asset'
   | 'market-hyperliquid'
   | 'native'
   | 'stock'
@@ -32,6 +33,9 @@ export function getTradingViewNativeIntervalStorageNamespace(
   }
   if (source.kind === 'stock') {
     return 'stock';
+  }
+  if (source.kind === 'asset') {
+    return 'asset';
   }
   return source.isNative || !source.tokenAddress.trim() ? 'native' : 'token';
 }
@@ -59,7 +63,7 @@ export function readTradingViewNativeActiveInterval(
   }
 }
 
-export function saveTradingViewNativeActiveInterval({
+export async function saveTradingViewNativeActiveInterval({
   interval,
   namespace,
 }: {
@@ -80,7 +84,7 @@ export function saveTradingViewNativeActiveInterval({
       timestamp: Date.now(),
       version: 1,
     };
-    appStorage.syncStorage.setObject(STORAGE_KEY, {
+    await appStorage.syncStorage.setObject(STORAGE_KEY, {
       ...storedIntervals,
       [namespace]: storedInterval,
     });

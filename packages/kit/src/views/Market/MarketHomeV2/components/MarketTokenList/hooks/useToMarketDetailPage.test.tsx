@@ -2,12 +2,21 @@
 import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useToDetailPage } from './useToMarketDetailPage';
 
 const mockNavigationPush = jest.fn();
+const mockNavigationReplace = jest.fn();
+let mockCurrentRouteName = 'MarketDetailV2';
+let mockSplitViewType = 'UNKNOWN';
+
+jest.mock('@react-navigation/native', () => ({
+  useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -36,6 +45,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
+  () => ({
+    preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
+  }),
+);
+
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: {
     UNKNOWN: 'UNKNOWN',
@@ -46,13 +62,14 @@ jest.mock('@onekeyhq/components', () => ({
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
-  useSplitViewType: jest.fn(() => 'UNKNOWN'),
+  useSplitViewType: jest.fn(() => mockSplitViewType),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     push: mockNavigationPush,
+    replace: mockNavigationReplace,
     switchTab: jest.fn(),
   })),
 }));
@@ -92,6 +109,13 @@ describe('useToDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockCurrentRouteName = 'MarketDetailV2';
+    mockSplitViewType = 'UNKNOWN';
+    (
+      platformEnv as typeof platformEnv & {
+        isExtensionUiPopup: boolean;
+      }
+    ).isExtensionUiPopup = true;
     openExtensionMarketTokenDetailMock = jest.spyOn(
       backgroundApiProxy.serviceApp,
       'openExtensionMarketTokenDetail',
@@ -147,7 +171,113 @@ describe('useToDetailPage', () => {
       disableTrade: true,
       showFavoriteButton: false,
     });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: true,
+      layout: 'mobile',
+    });
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('replaces the current detail route for a stock selected from detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      });
+    });
+
+    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+    });
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('updates the current V2 detail route without replacing it', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        marketTokenCategory: 'top_coins',
+        replaceCurrentDetail: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+        marketTokenId: 'ethereum',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'ethereum',
+      marketTokenCategory: 'top_coins',
+    });
+    expect(mockNavigationReplace).not.toHaveBeenCalled();
+  });
+
+  it('keeps the current split-view detail route before replacing it', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    mockCurrentRouteName = 'MarketNativeDetail';
+    mockSplitViewType = 'SUB';
+    const appEventBusEmitSpy = jest.spyOn(appEventBus, 'emit');
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        marketTokenCategory: 'top_coins',
+        replaceCurrentDetail: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      });
+    });
+
+    expect(appEventBusEmitSpy).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenCategory: 'top_coins',
+    });
   });
 
   it('preserves the originating market category for normal token detail', async () => {
@@ -174,6 +304,12 @@ describe('useToDetailPage', () => {
       isNative: true,
       from: undefined,
       marketTokenCategory: 'top_coins',
+    });
+    expect(preloadMarketDetailV2Page).toHaveBeenLastCalledWith({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: false,
+      layout: 'mobile',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
@@ -209,6 +345,38 @@ describe('useToDetailPage', () => {
       skipMarketDataFetch: true,
       disableTrade: true,
       showFavoriteButton: false,
+      marketTokenCategory: 'top_coins',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('preserves asset and variant identity for Top Coins detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ marketTokenCategory: 'top_coins' }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'doge--0',
+        symbol: 'DOGE',
+        isNative: true,
+        marketTokenId: 'doge',
+        marketVariantId: 'doge-doge--0-1',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'doge',
+      marketVariantId: 'doge-doge--0-1',
       marketTokenCategory: 'top_coins',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;

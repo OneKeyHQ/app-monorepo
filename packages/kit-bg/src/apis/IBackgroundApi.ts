@@ -2,6 +2,7 @@
 
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAsyncStorageWriteRequest } from '@onekeyhq/shared/src/storage/asyncStorageWriteForwarderTypes';
+import type { INativeStorageRequest } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import type { ILazyServiceProxy } from './lazyServiceProxy';
 import type { LocalDbBase } from '../dbs/local/LocalDbBase';
@@ -21,6 +22,7 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
@@ -143,6 +145,7 @@ export interface IBackgroundApiBridge {
     originNodeId?: string,
   ): Promise<boolean>;
   writeAsyncStorage(request: IAsyncStorageWriteRequest): Promise<void>;
+  nativeStorage(request: INativeStorageRequest): Promise<unknown>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
@@ -185,6 +188,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAccount: ServiceAccount;
   serviceAccountSelector: ServiceAccountSelector;
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
+  serviceBatchTxSign: ServiceBatchTxSign;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
   serviceTokenViewModel: ServiceTokenViewModel;

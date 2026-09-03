@@ -111,6 +111,12 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  // Review-only: hide the confirm action entirely (batch psbt drill-down
+  // for an already-signed item — re-signing must not be offered).
+  readOnly?: boolean;
+  // Label the cancel button "Back" when the page was pushed onto a stack
+  // that cancel simply returns to.
+  cancelAsBack?: boolean;
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
@@ -142,6 +148,8 @@ function TxConfirmActions(props: IProps) {
     useFeeInTx,
     feeInfoEditable,
     popStack = true,
+    readOnly,
+    cancelAsBack,
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
@@ -906,7 +914,11 @@ function TxConfirmActions(props: IProps) {
       abortPendingGasAccountSubmit();
 
       dappApprove.reject();
-      if (!sourceInfo) {
+      // A page pushed onto an existing stack (popStack: false — batch psbt
+      // drill-down, BulkSend/Swap sequential confirms) must pop back to that
+      // stack on cancel, matching the success path above, instead of tearing
+      // the whole modal down.
+      if (!sourceInfo && popStack) {
         closePageStack();
       } else {
         close();
@@ -918,6 +930,7 @@ function TxConfirmActions(props: IProps) {
       dappApprove,
       isQueueMode,
       onCancelOnce,
+      popStack,
       sourceInfo,
       unsignedTxQueue,
       updateUnsignedTxs,
@@ -1164,11 +1177,18 @@ function TxConfirmActions(props: IProps) {
     >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.TxConfirmActions}
-        confirmButtonProps={{
-          disabled: isSubmitDisabled,
-          loading: sendTxStatus.isSubmitting || isConfirmInitializing,
-          variant: showTakeRiskAlert ? 'destructive' : 'primary',
-        }}
+        // readOnly: omit both confirm props so FooterActions renders no
+        // confirm button at all (an already-signed batch item must not offer
+        // signing again).
+        confirmButtonProps={
+          readOnly
+            ? undefined
+            : {
+                disabled: isSubmitDisabled,
+                loading: sendTxStatus.isSubmitting || isConfirmInitializing,
+                variant: showTakeRiskAlert ? 'destructive' : 'primary',
+              }
+        }
         cancelButtonProps={{
           // Keep Cancel enabled during the 90212 retry wait so the user can
           // abandon the flow instead of being parked on a disabled screen for
@@ -1178,7 +1198,12 @@ function TxConfirmActions(props: IProps) {
           disabled: sendTxStatus.isSubmitting && gasAccountRetryState === null,
         }}
         onConfirmText={confirmText}
-        onConfirm={handleOnConfirm}
+        onConfirm={readOnly ? undefined : handleOnConfirm}
+        onCancelText={
+          cancelAsBack
+            ? intl.formatMessage({ id: ETranslations.global_back })
+            : undefined
+        }
         onCancel={handleOnCancel}
         $gtMd={{
           flexDirection: 'row',
@@ -1203,7 +1228,9 @@ function TxConfirmActions(props: IProps) {
             transferPayload={transferPayload}
             gasAccountScenario={gasAccountScenario}
           />
-          {showTakeRiskAlert ? (
+          {/* The checkbox only gates the confirm action, which readOnly
+              removes entirely. */}
+          {showTakeRiskAlert && !readOnly ? (
             <Checkbox
               testID={SignatureConfirmTestIDs.TxConfirmRiskCheckbox}
               label={intl.formatMessage({

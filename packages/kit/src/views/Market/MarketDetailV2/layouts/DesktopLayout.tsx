@@ -6,6 +6,7 @@ import {
   type ITradingViewNativeSource,
   TradingViewNative,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -18,6 +19,7 @@ import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/market
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
@@ -30,7 +32,6 @@ import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
-import { buildCoinGeckoKLineFallback } from '../utils/fetchCoinGeckoKLineFallback';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
@@ -131,6 +132,8 @@ export interface IDesktopLayoutProps {
   networkId: string;
   tokenAddress: string;
   marketTokenId?: string;
+  marketAssetDetail?: IMarketAssetDetailData;
+  isMarketAssetDetailLoading?: boolean;
   marketTokenCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
@@ -145,6 +148,8 @@ export function DesktopLayout({
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
   marketTokenId,
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
   marketTokenCategory,
   disableTrade,
   showFavoriteButton = true,
@@ -164,24 +169,31 @@ export function DesktopLayout({
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const legacyCoinGeckoChartId =
-    shouldUseTopCoinsDesktopLayout &&
-    marketTokenId &&
-    routeNetworkId === 'coingecko'
-      ? marketTokenId
-      : undefined;
+  const marketAssetId = shouldUseTopCoinsDesktopLayout
+    ? marketTokenId?.trim()
+    : undefined;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
-  const networkId =
-    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
-  const tokenAddress =
-    selectedTokenVariant?.contractAddress ||
-    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
-  const isNative =
-    networkId === routeNetworkId && tokenAddress === routeTokenAddress
+  const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
+  const stockTokenAddress =
+    selectedTokenVariant?.contractAddress || routeTokenAddress;
+  const tokenDetailNetworkId = storeNetworkId || routeNetworkId;
+  const tokenDetailAddress = storeNetworkId
+    ? storeTokenAddress
+    : routeTokenAddress;
+  const networkId = shouldUseStockDesktopLayout
+    ? stockNetworkId
+    : tokenDetailNetworkId;
+  const tokenAddress = shouldUseStockDesktopLayout
+    ? stockTokenAddress
+    : tokenDetailAddress;
+  const tokenDetailIsNative =
+    tokenDetailNetworkId === routeNetworkId &&
+    tokenDetailAddress === routeTokenAddress
       ? routeIsNative
       : storeIsNative;
+  const isNative = shouldUseStockDesktopLayout ? false : tokenDetailIsNative;
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
@@ -189,8 +201,8 @@ export function DesktopLayout({
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
-    xpub,
+    accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
+    xpub: shouldUseStockDesktopLayout ? undefined : xpub,
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
@@ -206,7 +218,7 @@ export function DesktopLayout({
         selectedTokenVariant?.contractAddress ||
         '',
       symbol: displayTokenDetail?.symbol || selectedTokenVariant?.symbol || '',
-      decimals: displayTokenDetail?.decimals || 0,
+      decimals: displayTokenDetail?.decimals ?? 0,
       logoURI: displayTokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
       price: displayTokenDetail?.price || selectedTokenVariant?.price,
       isNative,
@@ -222,6 +234,12 @@ export function DesktopLayout({
       isNative,
     ],
   );
+  const isSwapTokenReady =
+    displayTokenDetail?.decimalsResolved !== false &&
+    typeof displayTokenDetail?.decimals === 'number' &&
+    Number.isInteger(displayTokenDetail.decimals) &&
+    displayTokenDetail.decimals >= 0;
+  const shouldDisableTrade = disableTrade || !isSwapTokenReady;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -253,49 +271,28 @@ export function DesktopLayout({
     isNative,
     websocketConfig,
   });
-  const effectiveMarketTradingViewParams = useMemo(
-    () =>
-      marketTradingViewParams ??
-      (legacyCoinGeckoChartId
-        ? {
-            tokenAddress: legacyCoinGeckoChartId,
-            networkId: 'coingecko',
-            tokenSymbol:
-              displayTokenDetail?.symbol ??
-              legacyCoinGeckoChartId.toUpperCase(),
-            isNative: false,
-            dataSource: 'polling' as const,
-          }
-        : undefined),
-    [
-      displayTokenDetail?.symbol,
-      legacyCoinGeckoChartId,
-      marketTradingViewParams,
-    ],
-  );
+  const effectiveMarketTradingViewParams = marketTradingViewParams;
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
     }
+    if (marketAssetId) {
+      return { kind: 'asset', assetId: marketAssetId };
+    }
     return getMarketDetailTradingViewNativeSource({
-      fallbackCoinGeckoId: legacyCoinGeckoChartId,
       hyperliquidCoin: nativeHyperliquidCoin,
-      isNative: legacyCoinGeckoChartId ? false : isNative,
+      isNative,
       marketDataSource: marketTradingViewParams?.dataSource,
-      networkId: legacyCoinGeckoChartId ? '' : networkId,
-      symbol:
-        tokenDetail?.symbol ??
-        displayTokenDetail?.symbol ??
-        legacyCoinGeckoChartId?.toUpperCase() ??
-        '',
-      tokenAddress: legacyCoinGeckoChartId ? '' : tokenAddress,
+      networkId,
+      symbol: tokenDetail?.symbol ?? displayTokenDetail?.symbol ?? '',
+      tokenAddress,
     });
   }, [
     isStockSharePrice,
+    marketAssetId,
     marketTradingViewParams?.dataSource,
     nativeHyperliquidCoin,
     isNative,
-    legacyCoinGeckoChartId,
     networkId,
     stockId,
     tokenAddress,
@@ -315,12 +312,18 @@ export function DesktopLayout({
         : undefined,
     [stockId],
   );
-  const legacyKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
+  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
     () =>
-      legacyCoinGeckoChartId
-        ? buildCoinGeckoKLineFallback(legacyCoinGeckoChartId)
+      marketAssetId
+        ? ({ interval, timeFrom, timeTo }) =>
+            fetchMarketAssetKLineData({
+              assetId: marketAssetId,
+              interval,
+              timeFrom,
+              timeTo,
+            })
         : undefined,
-    [legacyCoinGeckoChartId],
+    [marketAssetId],
   );
   // Redesigned desktop detail pages lay their Simple/Pro switch over the
   // trailing edge of the Pro widget's control row. Drop the row's own trailing
@@ -344,10 +347,19 @@ export function DesktopLayout({
     () => handleChartFullscreenChange(true),
     [handleChartFullscreenChange],
   );
+  let marketTradingViewKey = 'token';
+  if (isStockSharePrice) {
+    marketTradingViewKey = `stock-share:${stockId ?? ''}`;
+  } else if (marketAssetId) {
+    marketTradingViewKey = `asset:${marketAssetId}`;
+  }
+  const proKLineDataFallback = isStockSharePrice
+    ? stockKLineDataFallback
+    : assetKLineDataFallback;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
       return networkId ||
-        legacyCoinGeckoChartId ||
+        tradingViewNativeSource.kind === 'asset' ||
         tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           testID={MarketTestIDs.detailChart}
@@ -376,20 +388,28 @@ export function DesktopLayout({
 
     return (
       <LazyDesktopMarketTradingView
-        key={
+        key={marketTradingViewKey}
+        tokenAddress={
           isStockSharePrice
-            ? `stock-share:${stockId ?? ''}`
-            : `token:${legacyCoinGeckoChartId ?? ''}`
+            ? ''
+            : (effectiveMarketTradingViewParams?.tokenAddress ?? '')
         }
-        tokenAddress={effectiveMarketTradingViewParams?.tokenAddress ?? ''}
-        networkId={effectiveMarketTradingViewParams?.networkId ?? ''}
+        networkId={
+          isStockSharePrice
+            ? ''
+            : (effectiveMarketTradingViewParams?.networkId ?? '')
+        }
         tokenSymbol={
           isStockSharePrice
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
-        isNative={effectiveMarketTradingViewParams?.isNative}
-        decimal={marketTradingViewParams?.decimal}
+        isNative={
+          isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
+        }
+        decimal={
+          isStockSharePrice ? undefined : marketTradingViewParams?.decimal
+        }
         dataSource={
           isStockSharePrice
             ? 'polling'
@@ -404,11 +424,9 @@ export function DesktopLayout({
         isNativeChartFullscreen={isChartFullscreen}
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
-        kLineDataFallback={
-          isStockSharePrice ? stockKLineDataFallback : legacyKLineDataFallback
-        }
+        kLineDataFallback={proKLineDataFallback}
         primaryKLineDataUnavailable={
-          isStockSharePrice || Boolean(legacyCoinGeckoChartId)
+          isStockSharePrice || Boolean(marketAssetId)
         }
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
@@ -421,16 +439,16 @@ export function DesktopLayout({
     isChartFullscreen,
     isTradingViewNative,
     isStockSharePrice,
+    marketTradingViewKey,
+    marketAssetId,
     shouldUseStockDesktopLayout,
     effectiveMarketTradingViewParams,
-    legacyCoinGeckoChartId,
-    legacyKLineDataFallback,
     marketTradingViewParams?.decimal,
     networkId,
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,
-    stockKLineDataFallback,
+    proKLineDataFallback,
     tradingViewNativeSource,
   ]);
 
@@ -444,12 +462,11 @@ export function DesktopLayout({
         <StockDesktopLayout
           marketTradingView={marketTradingView}
           swapToken={swapToken}
-          portfolioData={portfolioData}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
           isChartSwitchDisabled={
             !effectiveMarketTradingViewParams && !isStockSharePrice
           }
-          disableTrade={disableTrade}
+          disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
@@ -475,7 +492,9 @@ export function DesktopLayout({
           isRefreshing={isRefreshing}
           tokenLogoUrl={displayTokenDetail?.logoUrl}
           marketTokenId={marketTokenId}
-          disableTrade={disableTrade}
+          assetDetail={marketAssetDetail}
+          isAssetDetailLoading={isMarketAssetDetailLoading}
+          disableTrade={shouldDisableTrade}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
@@ -507,6 +526,7 @@ export function DesktopLayout({
         chartFullscreenZIndex={chartFullscreenZIndex}
         chartMode={isTradingViewNative ? 'native' : 'tradingView'}
         isChartSwitchDisabled={!effectiveMarketTradingViewParams}
+        disableTrade={shouldDisableTrade}
         onChartSwitch={onChartSwitch}
         onEnterChartFullscreen={handleEnterChartFullscreen}
         InformationTabsComponent={LazyDesktopInformationTabs}

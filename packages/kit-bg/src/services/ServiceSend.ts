@@ -50,6 +50,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isSamePrimeInfiniNetworkAddress,
+  isValidPrimeInfiniPaymentContract,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -87,6 +88,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ISignTransactionPrefetchedCredentials,
   ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -332,15 +334,19 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   public async signTransaction(
-    params: ISendTxBaseParams & ISignTransactionParamsBase,
+    params: ISendTxBaseParams &
+      ISignTransactionParamsBase & {
+        prefetchedCredentials?: ISignTransactionPrefetchedCredentials;
+      },
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+      params.prefetchedCredentials ??
+      (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
-      });
+      }));
     // signTransaction
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -544,7 +550,19 @@ class ServiceSend extends ServiceBase {
         infiniPaymentExpiresAt = latestPayment.expiresAt;
         const action = decodedTx.actions[0];
         const transfer = action?.assetTransfer?.sends[0];
-        const isExpectedSingleTokenTransfer =
+        const isExpectedTransferAsset =
+          isValidPrimeInfiniPaymentContract({
+            chain: latestPayment.chain,
+            networkId,
+            token: latestPayment.token,
+            contractAddress: paymentCacheKey.contractAddress,
+          }) &&
+          typeof transfer?.tokenIdOnNetwork === 'string' &&
+          (paymentCacheKey.contractAddress === ''
+            ? transfer.isNative === true && transfer.tokenIdOnNetwork === ''
+            : transfer.isNative !== true &&
+              Boolean(transfer.tokenIdOnNetwork.trim()));
+        const isExpectedSingleAssetTransfer =
           decodedTx.networkId === networkId &&
           decodedTx.accountId === accountId &&
           isSamePrimeInfiniNetworkAddress({
@@ -562,10 +580,9 @@ class ServiceSend extends ServiceBase {
           Boolean(transfer) &&
           Boolean(transfer?.from.trim()) &&
           Boolean(transfer?.to.trim()) &&
-          Boolean(transfer?.tokenIdOnNetwork.trim()) &&
+          isExpectedTransferAsset &&
           new BigNumber(transfer?.amount ?? '').isFinite() &&
           new BigNumber(transfer?.amount ?? '').gt(0) &&
-          transfer?.isNative !== true &&
           transfer?.isNFT !== true &&
           (!transfer?.networkId || transfer.networkId === networkId) &&
           isSamePrimeInfiniNetworkAddress({
@@ -578,7 +595,7 @@ class ServiceSend extends ServiceBase {
             first: action.assetTransfer?.to ?? '',
             second: transfer?.to ?? '',
           });
-        if (!isExpectedSingleTokenTransfer || !transfer) {
+        if (!isExpectedSingleAssetTransfer || !transfer) {
           throw new OneKeyLocalError({
             message: 'Infini payment transaction cannot be verified',
             autoToast: false,

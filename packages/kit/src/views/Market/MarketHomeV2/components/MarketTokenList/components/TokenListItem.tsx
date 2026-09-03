@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -79,6 +80,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
     void preloadMarketDetailV2Page({
       includeBodyModules: true,
       includeHeavyModules: true,
+      isStockRoute: Boolean(resolveMarketStockId(item)),
       layout: preloadLayout,
     });
     prewarmMarketTokenImages(item);

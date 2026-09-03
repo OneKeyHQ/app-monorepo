@@ -745,6 +745,16 @@ export interface ISignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
+// Credentials collected once by a caller that signs several transactions in a
+// row (batch psbt signing): passing them into signTransaction skips its
+// per-call password prompt, so the no-re-prompt window stays bounded by that
+// caller's own loop instead of a global password security session that
+// unrelated transactions could piggyback on.
+export type ISignTransactionPrefetchedCredentials = {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
+
 export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;

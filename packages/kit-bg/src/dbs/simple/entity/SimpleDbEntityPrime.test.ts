@@ -1284,6 +1284,111 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     return { entity, read: () => stored };
   }
 
+  function createNativePaymentSession() {
+    const asset = { ...session.asset, token: 'ETH', contractAddress: '' };
+    asset.key = getPrimeInfiniPaymentAssetKey(asset);
+    return {
+      ...session,
+      asset,
+      paymentCacheKey: { ...session.paymentCacheKey, contractAddress: '' },
+      payment: {
+        ...session.payment,
+        token: 'ETH',
+        amountDue: '0.01',
+        expiresAt: Date.now() + 60_000,
+      },
+    };
+  }
+
+  test('persists, restores, and claims a native payment without permitting replacement after sending', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    const saved = await entity.setInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+      session: nativeSession,
+    });
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toEqual(saved);
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: saved.paymentCacheKey,
+        transferClaim: {
+          ...transferClaim,
+          contractAddress: '',
+          amount: '0.01',
+        },
+        latestPayment: nativeSession.payment,
+        purchaseStatusSnapshot,
+      }),
+    ).resolves.toMatchObject({ sendStarted: true });
+    await expect(
+      entity.discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: saved.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  test('discards an unsent native payment and prevents a stale writer from restoring it', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    const saved = await entity.setInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+      session: nativeSession,
+    });
+    await expect(
+      entity.discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: saved.paymentCacheKey,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('does not treat a token with a missing contract as a native payment', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    nativeSession.asset.token = 'USDC';
+    nativeSession.asset.key = getPrimeInfiniPaymentAssetKey(
+      nativeSession.asset,
+    );
+    nativeSession.payment.token = 'USDC';
+
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('rejects a native payment whose chain conflicts with its network', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    nativeSession.asset.chain = 'BSC';
+    nativeSession.asset.key = getPrimeInfiniPaymentAssetKey(
+      nativeSession.asset,
+    );
+    nativeSession.payment.chain = 'BSC';
+
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
   test('anchors legacy lifecycle fields before a validation refresh and never renews retention', async () => {
     const createdAt = Date.now();
     const { entity, read } = createSessionStore({

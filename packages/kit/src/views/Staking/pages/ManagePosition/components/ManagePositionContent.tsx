@@ -144,26 +144,22 @@ const ManageSectionShell = ({
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
   const tabLabels = [primaryLabel, secondaryLabel];
   const activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
-  const hideTypeSwitch = [
-    EManagePositionType.Withdraw,
-    EManagePositionType.Repay,
-  ].includes(type);
   const borrowAction = useMemo(() => {
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
-      return hideTypeSwitch || activeIndex === 1 ? 'withdraw' : 'supply';
+      return activeIndex === 1 ? 'withdraw' : 'supply';
     }
     if (
       [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
     ) {
-      return hideTypeSwitch || activeIndex === 1 ? 'repay' : 'borrow';
+      return activeIndex === 1 ? 'repay' : 'borrow';
     }
     return undefined;
-  }, [activeIndex, hideTypeSwitch, type]);
+  }, [activeIndex, type]);
 
-  // When the type switcher is visible, the loaded layout has gap $1.5 between
-  // it and the content: in the details panel that comes from
+  // The loaded layout has gap $1.5 between the type switcher and the content:
+  // in the details panel that comes from
   // ManagePositionPart's <YStack gap="$1.5"> wrapping the (fragment)
   // NormalManageContent; in the modal there is no such wrapper. Reproduce that
   // gap deterministically here (a single wrapping YStack means the parent gap
@@ -173,32 +169,30 @@ const ManageSectionShell = ({
 
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      {hideTypeSwitch ? null : (
-        <XStack px="$5">
-          {tabLabels.map((label, index) => {
-            const isFocused = index === activeIndex;
-            return (
-              <XStack
-                key={label}
-                px="$2"
-                py="$1.5"
-                mr="$1"
-                bg={isFocused ? '$bgActive' : '$bg'}
-                borderRadius="$2"
-                borderCurve="continuous"
+      <XStack px="$5">
+        {tabLabels.map((label, index) => {
+          const isFocused = index === activeIndex;
+          return (
+            <XStack
+              key={label}
+              px="$2"
+              py="$1.5"
+              mr="$1"
+              bg={isFocused ? '$bgActive' : '$bg'}
+              borderRadius="$2"
+              borderCurve="continuous"
+            >
+              <SizableText
+                size="$headingMd"
+                color={isFocused ? '$text' : '$textSubdued'}
+                letterSpacing={-0.15}
               >
-                <SizableText
-                  size="$headingMd"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                  letterSpacing={-0.15}
-                >
-                  {label}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </XStack>
-      )}
+                {label}
+              </SizableText>
+            </XStack>
+          );
+        })}
+      </XStack>
 
       {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
           the layout is identical when real data lands. */}

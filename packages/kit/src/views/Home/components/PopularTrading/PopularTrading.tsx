@@ -20,6 +20,7 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -48,6 +49,7 @@ import {
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
+import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -58,7 +60,6 @@ import {
   FAVORITES_CATEGORY_ID,
   HOME_PERPS_HOT_CATEGORY_ID,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
-  HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
@@ -68,6 +69,7 @@ import {
 } from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
 import {
+  buildHomeMarketCategories,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
@@ -187,6 +189,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
+  const resolveMarketTopCoin = useMarketTopCoinResolver();
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.PopularTrading,
   );
@@ -262,34 +265,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   }, [intl, perpsCategories]);
 
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
-    const buildWithPerpsHotCategory = (categories: IMarketCategoryItem[]) => {
-      if (!homePerpsHotCategory) {
-        return categories;
-      }
+    const topCoinsFallbackName =
+      marketCategories.find(
+        (category) => category.id === MARKET_TOP_COINS_CATEGORY_ID,
+      )?.name ?? 'Top Coins';
 
-      return [...categories, homePerpsHotCategory];
-    };
-
-    if (apiHomeTabs.length > 0) {
-      const categories = apiHomeTabs.map((tab) => {
-        if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
-          return {
-            ...favoritesCategory,
-            name: tab.name,
-          };
-        }
-
-        return {
-          id: tab.type,
-          name: tab.name,
-          icon: tab.icon,
-        };
-      });
-
-      return buildWithPerpsHotCategory(categories);
-    }
-
-    return buildWithPerpsHotCategory([favoritesCategory, ...marketCategories]);
+    return buildHomeMarketCategories({
+      apiHomeTabs,
+      favoritesCategory,
+      marketCategories,
+      homePerpsHotCategory,
+      topCoinsFallbackName,
+    });
   }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
@@ -312,6 +299,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      if (record.marketAsset) {
+        return false;
+      }
+
       if (record.perpsCoin) {
         return watchListItems.some(
           (item) => item.perpsCoin === record.perpsCoin,
@@ -336,6 +327,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
+      if (record.marketAsset) {
+        return;
+      }
+
       const checked = isTokenInWatchList(record);
 
       try {
@@ -828,16 +823,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 
-  // Navigate to Market Detail page or Perps trading page
-  const handleTokenPress = useCallback(
+  const navigateToMarketTokenDetail = useCallback(
     (record: IFavoriteTokenDisplay) => {
-      if (record.perpsCoin) {
-        // Mirror Home > Perps tab: switchTab(Perp) makes ExtPerp open the expand
-        // tab in the extension popup/side panel, so no ext-only branch is needed.
-        navigateToPerps(record.perpsCoin);
-        return;
-      }
-
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: record.chainId,
       });
@@ -850,6 +837,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           tokenAddress: record.contractAddress,
           network: shortCode || record.chainId,
           isNative: record.isNative,
+          marketTokenId: record.marketTokenId,
+          marketVariantId: record.marketVariantId,
           marketTokenCategory: selectedMarketCategoryId,
         });
         return;
@@ -864,6 +853,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               tokenAddress: record.contractAddress,
               network: shortCode || record.chainId,
               isNative: record.isNative,
+              marketTokenId: record.marketTokenId,
+              marketVariantId: record.marketVariantId,
               marketTokenCategory: selectedMarketCategoryId,
             },
           },
@@ -887,11 +878,48 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [
       marketTab,
       navigateToMarketTab,
-      navigateToPerps,
       navigation,
       resolvedSelectedCategoryId,
       selectedMarketCategoryId,
     ],
+  );
+
+  // Navigate to Market Detail page or Perps trading page
+  const handleTokenPress = useCallback(
+    (record: IFavoriteTokenDisplay) => {
+      if (record.marketAsset) {
+        void resolveMarketTopCoin(record.marketAsset).then((token) => {
+          if (!token) {
+            return;
+          }
+          navigateToMarketTokenDetail({
+            chainId: token.networkId,
+            contractAddress: token.tokenAddress,
+            isNative: Boolean(token.isNative),
+            symbol: token.symbol,
+            name: token.name ?? token.symbol,
+            logoUrl: token.tokenImageUri ?? '',
+            price: token.price ?? 0,
+            priceChange24h: token.change24h ?? 0,
+            marketCap: token.marketCap ?? 0,
+            volume24h: token.turnover ?? 0,
+            marketTokenId: token.marketTokenId,
+            marketVariantId: token.marketVariantId,
+          });
+        });
+        return;
+      }
+
+      if (record.perpsCoin) {
+        // Mirror Home > Perps tab: switchTab(Perp) makes ExtPerp open the expand
+        // tab in the extension popup/side panel, so no ext-only branch is needed.
+        navigateToPerps(record.perpsCoin);
+        return;
+      }
+
+      navigateToMarketTokenDetail(record);
+    },
+    [navigateToMarketTokenDetail, navigateToPerps, resolveMarketTopCoin],
   );
 
   const renderEmptyStateCards = useCallback(() => {

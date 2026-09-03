@@ -34,7 +34,6 @@ export interface IResolveSponsorPayerStateParams {
    * fall back to user-paid.
    */
   sponsorDisabledForExternalAccount: boolean;
-  megafuelDisabledForPrivateSend: boolean;
   gasAccountDisabledByScenario: boolean;
   gasAccountTemporarilyDisabled: boolean;
 }
@@ -52,9 +51,9 @@ export interface ISponsorPayerState {
  *
  * Megafuel wins over a coexisting gas account quote when it is actually
  * available: it sponsors at the chain level (zeroed gas price), so the quote
- * must not be attached on top of it. When megafuel is suppressed for the
- * scenario (Private Send), the server's megafuel preference falls through to
- * an eligible gas account quote instead of silently degrading to user-paid.
+ * must not be attached on top of it. Private Send follows the same rules as a
+ * normal send: it broadcasts through the same send-transaction endpoint, so
+ * sponsor eligibility returned for its deposit tx is honored as-is.
  */
 export function resolveSponsorPayerState({
   serverPayer,
@@ -63,7 +62,6 @@ export function resolveSponsorPayerState({
   isCustomRpcEnabled,
   sponsorDisabledForBatch,
   sponsorDisabledForExternalAccount,
-  megafuelDisabledForPrivateSend,
   gasAccountDisabledByScenario,
   gasAccountTemporarilyDisabled,
 }: IResolveSponsorPayerStateParams): ISponsorPayerState {
@@ -76,20 +74,15 @@ export function resolveSponsorPayerState({
   const megafuelSuppressed =
     isCustomRpcEnabled ||
     sponsorDisabledForBatch ||
-    sponsorDisabledForExternalAccount ||
-    megafuelDisabledForPrivateSend;
+    sponsorDisabledForExternalAccount;
 
   const megafuelAvailable = !megafuelSuppressed && megafuelSponsorable;
-  const payerPreference =
-    megafuelDisabledForPrivateSend && serverPayer === 'megafuel'
-      ? 'gasAccount'
-      : serverPayer;
 
   const selectedPayer: 'user' | 'gasAccount' =
     gasAccountQuoteEligible &&
     !gasAccountSuppressed &&
     !megafuelAvailable &&
-    payerPreference === 'gasAccount'
+    serverPayer === 'gasAccount'
       ? 'gasAccount'
       : 'user';
 
@@ -103,8 +96,6 @@ export function resolveSponsorPayerState({
     (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
   ) {
     effectiveFeePayer = 'user';
-  } else if (megafuelDisabledForPrivateSend && serverPayer === 'megafuel') {
-    effectiveFeePayer = selectedPayer === 'gasAccount' ? 'gasAccount' : 'user';
   }
 
   return { effectiveFeePayer, selectedPayer };

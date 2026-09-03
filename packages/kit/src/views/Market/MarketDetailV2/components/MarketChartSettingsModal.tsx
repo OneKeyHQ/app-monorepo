@@ -70,6 +70,7 @@ export default function MarketChartSettingsModal() {
           value={settingsValue}
           usePageFooter={!md}
           mobileLayout={md}
+          showChartType={md}
           hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
           hiddenOptionIds={
             platformEnv.isNative

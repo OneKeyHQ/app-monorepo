@@ -2795,7 +2795,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleUpdate (3.0.95):
+  - ReactNativeBundleUpdate (3.0.96):
     - hermes-engine
     - MMKV (= 2.4.0)
     - NitroModules
@@ -4419,7 +4419,7 @@ SPEC CHECKSUMS:
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: 63fb0a96dd0a73a204e4927223e41101a2b5f45e
+  hermes-engine: c346385598caadc9fe6d3be566c569035457995c
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
@@ -4529,7 +4529,7 @@ SPEC CHECKSUMS:
   ReactCommon: df0928b8d2064de53c42645dcf684c6e7bdea48c
   ReactNativeAppUpdate: 242775af0fd041adc0aa4b1a92db97e942d0dbbc
   ReactNativeBundleCrypto: ccbdba0275cd34e791e5521cddc1d48e2679e96e
-  ReactNativeBundleUpdate: 0401a362ef9ae4b11b7a38041d9bffe7a4276752
+  ReactNativeBundleUpdate: 18dbeb3776e29494b889d9aa29d0262e6b781077
   ReactNativeCameraKit: 21f6c85397cfcb494dfa453a6fb4c9933a7c1bef
   ReactNativeCheckBiometricAuthChanged: c26b1ae572be2a5d4b3410ea3912a0afcdee80ec
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf
