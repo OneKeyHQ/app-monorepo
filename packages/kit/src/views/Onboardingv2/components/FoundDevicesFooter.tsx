@@ -27,19 +27,6 @@ import {
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-// TODO(OK-61522): replace with Lokalise keys once the copy is accepted. The
-// zh/en placeholders keep this change off the translation critical path.
-const FOUND_DEVICES_COPY = {
-  en: {
-    one: 'Device found',
-    many: 'Multiple devices found. Select the one to connect.',
-  },
-  zh: {
-    one: '已找到设备',
-    many: '已找到多台设备，请选择要连接的设备',
-  },
-};
-
 function FoundDevicesStatus({
   count,
   isScanning,
@@ -63,12 +50,14 @@ function FoundDevicesStatus({
     );
   }
 
-  const copy = intl.locale.toLowerCase().startsWith('zh')
-    ? FOUND_DEVICES_COPY.zh
-    : FOUND_DEVICES_COPY.en;
   return (
     <SizableText px="$5" color="$textSubdued">
-      {count === 1 ? copy.one : copy.many}
+      {intl.formatMessage({
+        id:
+          count === 1
+            ? ETranslations.device_found__desc
+            : ETranslations.multiple_devices_found__desc,
+      })}
     </SizableText>
   );
 }
