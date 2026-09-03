@@ -10027,7 +10027,6 @@ __metadata:
     date-fns: "npm:2.30.0"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
-    electron-taskbar-badge: "npm:1.1.2"
     eslint: "npm:8.57.1"
     eslint-config-airbnb: "npm:^19.0.4"
     eslint-config-airbnb-typescript: "npm:^17.0.0"
@@ -10524,6 +10523,7 @@ __metadata:
     "@onekeyhq/shared": "npm:*"
     cross-env: "npm:7.0.3"
     rimraf: "npm:3.0.2"
+    tar: "npm:7.5.22"
   languageName: unknown
   linkType: soft
 
@@ -28684,13 +28684,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-taskbar-badge@npm:1.1.2":
-  version: 1.1.2
-  resolution: "electron-taskbar-badge@npm:1.1.2"
-  checksum: 10/97caafc8d7d7089471c111818a33dfc7d9d772feec6f9c5f1ac02f309f96ce18dded931f3a40e2932b1571183d99b3807a5b6c93e433279bc437ba76512719ec
-  languageName: node
-  linkType: hard
-
 "electron-to-chromium@npm:^1.4.601":
   version: 1.4.616
   resolution: "electron-to-chromium@npm:1.4.616"
@@ -38500,6 +38493,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"minizlib@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "minizlib@npm:3.1.0"
+  dependencies:
+    minipass: "npm:^7.1.2"
+  checksum: 10/f47365cc2cb7f078cbe7e046eb52655e2e7e97f8c0a9a674f4da60d94fb0624edfcec9b5db32e8ba5a99a5f036f595680ae6fe02a262beaa73026e505cc52f99
+  languageName: node
+  linkType: hard
+
 "mipd@npm:0.0.7, mipd@npm:^0.0.7":
   version: 0.0.7
   resolution: "mipd@npm:0.0.7"
@@ -47027,6 +47029,19 @@ __metadata:
     inherits: "npm:^2.0.3"
     readable-stream: "npm:^3.1.1"
   checksum: 10/1a52a51d240c118cbcd30f7368ea5e5baef1eac3e6b793fb1a41e6cd7319296c79c0264ccc5859f5294aa80f8f00b9239d519e627b9aade80038de6f966fec6a
+  languageName: node
+  linkType: hard
+
+"tar@npm:7.5.22":
+  version: 7.5.22
+  resolution: "tar@npm:7.5.22"
+  dependencies:
+    "@isaacs/fs-minipass": "npm:^4.0.0"
+    chownr: "npm:^3.0.0"
+    minipass: "npm:^7.1.2"
+    minizlib: "npm:^3.1.0"
+    yallist: "npm:^5.0.0"
+  checksum: 10/129606384b3c895f422aaca48bf316357be6dc7aa35c1066c3f06c28acfff0be5b356e1b0a0be7c53a7a8945534ac06cec6d8e296d170d8a09c8bff67b29300e
   languageName: node
   linkType: hard
 
