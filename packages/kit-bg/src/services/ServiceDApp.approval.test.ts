@@ -361,6 +361,36 @@ describe('ServiceDApp connection approval transaction', () => {
     );
   });
 
+  it('releases primary alignment processing after account lookup rejects', async () => {
+    const origin = 'https://primary-alignment-retry.test';
+    const harness = createHarness({
+      alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+    });
+    const connectedAccountInfo = buildConnectionAccount('connected');
+    jest
+      .spyOn(harness.service, 'findInjectedAccountByOrigin')
+      .mockRejectedValueOnce(new Error('account lookup failed'));
+
+    await expect(
+      harness.service.syncDappAccountIfPrimaryMode({ origin }),
+    ).rejects.toThrow('account lookup failed');
+
+    await expect(
+      harness.service.getAlignPrimaryAccountProcessing(),
+    ).resolves.toBe(false);
+    const compareSpy = jest
+      .spyOn(harness.service, 'isSameConnectedAccount')
+      .mockResolvedValue(true);
+    await expect(
+      harness.service.alignPrimaryAccountToHomeAccount({
+        connectedAccountInfo,
+        origin,
+        storageType: 'injectedProvider',
+      }),
+    ).resolves.toEqual(connectedAccountInfo);
+    expect(compareSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects an older renderer snapshot when a newer cross-runtime selection intent arrived first', async () => {
     const origin = 'https://cross-renderer-order.test';
     const harness = createHarness();
@@ -754,6 +784,9 @@ describe('ServiceDApp connection approval transaction', () => {
       }),
     ).rejects.toThrow('home preparation failed');
 
+    await expect(
+      harness.service.getAlignPrimaryAccountProcessing(),
+    ).resolves.toBe(false);
     await expect(harness.dappConnection.getRawData()).resolves.toBeNull();
     expectNoApprovalSideEffects({ ...harness, emitSpy });
   });
