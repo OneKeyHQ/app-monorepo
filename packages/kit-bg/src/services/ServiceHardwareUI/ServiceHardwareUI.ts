@@ -55,7 +55,10 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { DeviceStageBurstScope } from './DeviceStageBurst';
+import {
+  DeviceStageBurstScope,
+  createLatestStateFeed,
+} from './DeviceStageBurst';
 import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
@@ -160,17 +163,17 @@ class ServiceHardwareUI extends ServiceBase {
     // OK-59934: one choke point feeds the third-party rail into the
     // DeviceStage burst scope — the adapters' many atom write sites stay
     // untouched. The combined read keeps install state and ui state from
-    // racing each other.
-    const feedThirdPartyStage = () => {
-      void (async () => {
-        const [ui, install, batch] = await Promise.all([
-          thirdPartyHardwareUiStateAtom.get(),
-          thirdPartyAppInstallAtom.get(),
-          thirdPartyBatchInstallAtom.get(),
-        ]);
-        await this.deviceStageBurst.onThirdPartyState({ ui, install, batch });
-      })();
-    };
+    // racing each other, and the feed runs one read at a time (latest
+    // state wins) so the three subscriptions below cannot interleave a
+    // stale prompt over the clear that followed it.
+    const feedThirdPartyStage = createLatestStateFeed(async () => {
+      const [ui, install, batch] = await Promise.all([
+        thirdPartyHardwareUiStateAtom.get(),
+        thirdPartyAppInstallAtom.get(),
+        thirdPartyBatchInstallAtom.get(),
+      ]);
+      await this.deviceStageBurst.onThirdPartyState({ ui, install, batch });
+    });
     thirdPartyHardwareUiStateAtom.sub(feedThirdPartyStage);
     thirdPartyAppInstallAtom.sub(feedThirdPartyStage);
     thirdPartyBatchInstallAtom.sub(feedThirdPartyStage);

@@ -325,6 +325,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           tryRunExclusiveOneKeyOperation,
         },
       } as unknown as IBackgroundApi,
@@ -369,6 +370,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -430,6 +432,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -532,6 +535,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId: jest.fn().mockResolvedValue('ONEKEY_USB_ID'),
         },
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           tryRunExclusiveOneKeyOperation: jest.fn(
             async (operation: () => Promise<unknown>) => ({
               acquired: true as const,
@@ -608,6 +612,7 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
           },
         },
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           closeHardwareUiStateDialog: jest.fn(),
         },
       } as unknown as IBackgroundApi,
@@ -1617,6 +1622,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           withHardwareProcessing,
         },
       } as unknown as IBackgroundApi,
@@ -1652,6 +1658,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           withHardwareProcessing,
         },
         serviceHardware: {
@@ -1699,6 +1706,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           withHardwareProcessing: jest.fn(
             async (callback: () => Promise<void>) => callback(),
           ),
@@ -1787,6 +1795,7 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           withHardwareProcessing: jest.fn(
             async (callback: () => Promise<void>) => callback(),
           ),
@@ -1858,7 +1867,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
   it('clears stale transfer samples before starting a V2 workflow', async () => {
     const service = new ServiceFirmwareUpdate({
-      backgroundApi: {} as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+        },
+      } as unknown as IBackgroundApi,
     });
     jest
       .spyOn(service, 'runUpdateWorkflowV2')
@@ -2058,7 +2071,11 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
   it('increments retryCount only when retryUpdateTask starts', async () => {
     const service = new ServiceFirmwareUpdate({
-      backgroundApi: {} as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
+        },
+      } as unknown as IBackgroundApi,
     });
     const workflowId = service.resetUpdateWorkflowTracking({
       updateFlow: 'v1',
@@ -2095,6 +2112,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          deviceStageBurst: { silenceForFirmwareWorkflow: jest.fn() },
           closeHardwareUiStateDialog: jest.fn(),
         },
       } as unknown as IBackgroundApi,
