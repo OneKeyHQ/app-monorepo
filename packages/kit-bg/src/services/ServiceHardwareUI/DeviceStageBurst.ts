@@ -334,6 +334,12 @@ export class DeviceStageBurstScope {
 
   private explicitSeq = 0;
 
+  /** Whether the live explicit token's burst actually opened. A token
+   * minted while the firmware workflow silenced the stage holds nothing
+   * yet; a later ensureBurst presenting it must open the burst then, not
+   * merge identity into a stage that is not there. */
+  private explicitOpened = false;
+
   /**
    * The registered confirm content (OK-59934 confirm channel): business
    * code registers what the confirm card must show — before the wrapper
@@ -533,11 +539,17 @@ export class DeviceStageBurstScope {
   async beginExplicit(
     params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
   ) {
-    // Still holding: nothing to open. Refresh who is on stage at most.
+    // Still holding: nothing to open. Refresh who is on stage at most —
+    // unless the hold was minted while the stage was silenced and never
+    // opened; the flow resuming after the firmware page gets its stage now.
     if (
       params.reuseToken !== undefined &&
       params.reuseToken === this.explicitToken
     ) {
+      if (!this.explicitOpened) {
+        this.explicitOpened = await this.begin(params);
+        return params.reuseToken;
+      }
       await this.mergeDeviceIdentity(params);
       return params.reuseToken;
     }
@@ -555,7 +567,7 @@ export class DeviceStageBurstScope {
     this.explicitSeq += 1;
     const token = this.explicitSeq;
     this.explicitToken = token;
-    await this.begin(params);
+    this.explicitOpened = await this.begin(params);
     return token;
   }
 
@@ -565,6 +577,7 @@ export class DeviceStageBurstScope {
       return;
     }
     this.explicitToken = undefined;
+    this.explicitOpened = false;
     await this.end({ error: params.error });
   }
 
@@ -1214,6 +1227,7 @@ export class DeviceStageBurstScope {
     this.depth = 0;
     setDeviceStageBurstActive(false);
     this.explicitToken = undefined;
+    this.explicitOpened = false;
     this.confirmContent = undefined;
     this.activeVendor = undefined;
     this.authoredAuthStep = undefined;
@@ -1233,6 +1247,23 @@ export class DeviceStageBurstScope {
     this.clearPendingOpen();
     this.dismissSeq += 1;
     await this.forceOff({ force: true });
+  }
+
+  /** A flow abandoned before any burst began — the checking beat a connect
+   * painted, then a bootloader hand-off or a failed connect — has nothing
+   * to land its exit: no burst, so no end(). The legacy checking dialog is
+   * cleared by cleanHardwareUiState at those sites; this is the stage's
+   * half, and deliberately NOT part of that method: withHardwareProcessing
+   * clears the legacy state right before its begin(), and taking the stage
+   * down there would flash the connecting scene off and on at exactly the
+   * seam the stage exists to smooth. Never touches a stage a burst owns
+   * (its own end lands the exit), nor an outcome (it owns its exit). */
+  async dismissUnowned() {
+    if (this.depth > 0) {
+      return;
+    }
+    this.clearPendingOpen();
+    await this.forceOff();
   }
 
   /** Refreshes who is on stage without touching the step or the beat —

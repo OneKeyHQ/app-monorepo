@@ -865,6 +865,9 @@ export function useDeviceConnect({
         if (!platformEnv.isNativeIOS || !bootloaderDialogShown) {
           void backgroundApiProxy.serviceHardwareUI.cleanHardwareUiState();
         }
+        // The stage's half: the checking beat painted with no burst behind
+        // it has nothing to land its exit (see dismissUnowned).
+        void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
         if (!connectionFailureTracked) {
           // Fire-and-forget; an analytics rejection must not mask the original error
