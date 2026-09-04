@@ -84,6 +84,7 @@ import type {
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -3537,7 +3538,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         userAccountId: string;
         amount: string;
-        destination: `0x${string}`;
+        destinationId: IUsdcWithdrawDestinationId;
+        expectedRoute?: 'bridge' | 'cctp';
+        expectedCctpFee?: string;
       },
     ) => {
       return withToast({
@@ -3545,7 +3548,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
             userAccountId: params.userAccountId,
             amount: params.amount,
-            destination: params.destination,
+            destinationId: params.destinationId,
+            expectedRoute: params.expectedRoute,
+            expectedCctpFee: params.expectedCctpFee,
           });
         },
         actionType: EActionType.WITHDRAW,

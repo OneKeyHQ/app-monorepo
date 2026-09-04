@@ -3,6 +3,7 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
+  sumPerpsNetDeposits,
 } from './portfolioStats';
 
 const NOW = 1_700_000_000_000;
@@ -227,5 +228,161 @@ describe('buildPortfolioChartData', () => {
       [1_700_000_060, 5],
     ]);
     expect(chartData?.vlm).toBe('100');
+  });
+});
+
+describe('sumPerpsNetDeposits', () => {
+  const SYSTEM = '0x2000000000000000000000000000000000000000';
+  const ME = '0x4ef880525383ab4e3d94b7689e3146bf899a296e';
+
+  const ledger = (deltas: Record<string, unknown>[]) =>
+    deltas.map((delta, index) => ({
+      time: NOW + index,
+      hash: `0x${index}`,
+      delta,
+    })) as unknown as Parameters<typeof sumPerpsNetDeposits>[0];
+
+  it('counts bridge deposits and legacy withdrawals', () => {
+    expect(
+      sumPerpsNetDeposits(
+        ledger([
+          { type: 'deposit', usdc: '100' },
+          { type: 'withdraw', usdc: '30', fee: '1.0' },
+        ]),
+      ),
+    ).toBe(70);
+  });
+
+  // A CCTP withdrawal is a `send` to the system address, not a `withdraw`.
+  it('counts a CCTP withdrawal as an outflow', () => {
+    expect(
+      sumPerpsNetDeposits(
+        ledger([
+          { type: 'deposit', usdc: '100' },
+          {
+            type: 'send',
+            user: ME,
+            destination: SYSTEM,
+            sourceDex: 'spot',
+            destinationDex: 'spot',
+            token: 'USDC',
+            amount: '40',
+          },
+        ]),
+      ),
+    ).toBe(60);
+  });
+
+  // Unified accounts withdraw from spot, so filtering on source would hide
+  // every withdrawal the app itself makes.
+  it('counts a withdrawal whichever balance it is sourced from', () => {
+    const fromSpot = sumPerpsNetDeposits(
+      ledger([
+        {
+          type: 'send',
+          user: ME,
+          destination: SYSTEM,
+          sourceDex: 'spot',
+          destinationDex: 'spot',
+          token: 'USDC',
+          amount: '10',
+        },
+      ]),
+    );
+    const fromPerp = sumPerpsNetDeposits(
+      ledger([
+        {
+          type: 'send',
+          user: ME,
+          destination: SYSTEM,
+          sourceDex: '',
+          destinationDex: 'spot',
+          token: 'USDC',
+          amount: '10',
+        },
+      ]),
+    );
+    expect(fromSpot).toBe(-10);
+    expect(fromPerp).toBe(-10);
+  });
+
+  // HyperEVM credits come back as a `spotTransfer` sent by the system address.
+  it('nets a Core/HyperEVM round trip to zero', () => {
+    expect(
+      sumPerpsNetDeposits(
+        ledger([
+          {
+            type: 'send',
+            user: ME,
+            destination: SYSTEM,
+            sourceDex: 'spot',
+            destinationDex: 'spot',
+            token: 'USDC',
+            amount: '25',
+          },
+          {
+            type: 'spotTransfer',
+            user: SYSTEM,
+            destination: ME,
+            token: 'USDC',
+            amount: '25',
+            usdcValue: '25',
+          },
+        ]),
+      ),
+    ).toBe(0);
+  });
+
+  // Neither a deposit nor a withdrawal, and counting it double-subtracted
+  // spot-sourced withdrawals.
+  it('ignores transfers between the account own balances', () => {
+    expect(
+      sumPerpsNetDeposits(
+        ledger([
+          { type: 'deposit', usdc: '100' },
+          { type: 'accountClassTransfer', usdc: '100', toPerp: false },
+          {
+            type: 'send',
+            user: ME,
+            destination: ME,
+            sourceDex: '',
+            destinationDex: 'spot',
+            token: 'USDC',
+            amount: '100',
+          },
+          {
+            type: 'send',
+            user: ME,
+            destination: SYSTEM,
+            sourceDex: 'spot',
+            destinationDex: 'spot',
+            token: 'USDC',
+            amount: '100',
+          },
+        ]),
+      ),
+    ).toBe(0);
+  });
+
+  it('ignores tokens other than USDC', () => {
+    expect(
+      sumPerpsNetDeposits(
+        ledger([
+          {
+            type: 'send',
+            user: ME,
+            destination: SYSTEM,
+            sourceDex: 'spot',
+            destinationDex: 'spot',
+            token: 'HYPE',
+            amount: '5',
+          },
+        ]),
+      ),
+    ).toBe(0);
+  });
+
+  it('returns null before the ledger loads', () => {
+    expect(sumPerpsNetDeposits(undefined)).toBeNull();
   });
 });
