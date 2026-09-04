@@ -64,6 +64,7 @@ import {
   shouldShowDeFiEmptyState,
 } from './deFiListLoadingReducer';
 import { DeFiListSkeleton } from './DeFiListSkeleton';
+import { planDeFiOverviewInit } from './deFiOverviewInitPlan';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
@@ -281,6 +282,8 @@ function DeFiListBlock({
     cacheKey?: string;
     hasCache: boolean;
   }>({ hasCache: false });
+  // Owner the init effect last ran for; see planDeFiOverviewInit.
+  const initDeFiOwnerKeyRef = useRef<string | undefined>(undefined);
 
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const overviewCols = useMemo(
@@ -955,6 +958,11 @@ function DeFiListBlock({
     clearAllNetworkData: handleClearAllNetworkData,
     isDeFiRequests: true,
     disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
+    // The cache-only instance is the sole writer of the header's DeFi
+    // readiness and only reads local caches. usePromiseResult skips
+    // deps-triggered runs while the route is unfocused, which left readiness
+    // unset for entire sessions; let this instance run regardless of focus.
+    shouldAlwaysFetch: refreshCacheOnly,
   });
 
   const handleRefreshAllNetworkData = useCallback(() => {
@@ -1036,17 +1044,26 @@ function DeFiListBlock({
         cacheKey,
         hasCache: false,
       };
-      updateOverviewDeFiDataState({
+      const initPlan = planDeFiOverviewInit({
         accountId,
         networkId,
-        isReady: undefined,
+        accountAddress: account?.address,
+        lastInitOwnerKey: initDeFiOwnerKeyRef.current,
       });
+      initDeFiOwnerKeyRef.current = initPlan.ownerKey;
+      if (initPlan.shouldResetReadiness) {
+        updateOverviewDeFiDataState({
+          accountId,
+          networkId,
+          isReady: undefined,
+        });
+      }
       void backgroundApiProxy.serviceDeFi.updateCurrentAccount({
         networkId,
         accountId,
       });
 
-      if (networkUtils.isAllNetwork({ networkId })) {
+      if (!initPlan.shouldHydrateSingleNetworkCache) {
         return;
       }
 

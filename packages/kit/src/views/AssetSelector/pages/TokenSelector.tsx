@@ -1586,7 +1586,10 @@ function TokenSelector() {
             valueAccountId = activeAccountId;
           }
         }
-        if (valueAccountId && activeNetworkId) {
+        // A filtered selector response is only a token subset (wallet-only or
+        // dApp-only). It must not be persisted as the canonical network total;
+        // otherwise opening the selector can overwrite Home with a partial sum.
+        if (valueAccountId && activeNetworkId && !showTokenSelectorFilter) {
           const valueKey = accountUtils.buildAccountValueKey({
             accountId: activeAccountId,
             networkId: activeNetworkId,
@@ -1631,6 +1634,7 @@ function TokenSelector() {
     networkId,
     showActiveAccountTokenList,
     showLpTokensOnly,
+    showTokenSelectorFilter,
     showFetchTokenListErrorToast,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,

@@ -1641,6 +1641,7 @@ function TokenListBlock({
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
     shouldAlwaysFetch,
+    clearRetainedResultOnAcceptedRun: true,
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
@@ -1693,120 +1694,6 @@ function TokenListBlock({
         result: allNetworksResult,
       });
     const assetStatusCurrency = getWalletAssetStatusCurrency(allNetworksResult);
-    if (
-      assetStatusAggregationComplete &&
-      assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
-    ) {
-      const reportNow = Date.now();
-      const assetStatusAnalytics =
-        await backgroundApiProxy.simpleDb.appStatus.getWalletAssetStatusAnalytics();
-      const { wallets: eligibleWallets } =
-        await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
-          includingAccounts: true,
-        });
-      if (isStaleOwnerRequest()) {
-        return;
-      }
-      const eligibleAccountIds = Array.from(
-        new Set(
-          eligibleWallets.flatMap((eligibleWallet) =>
-            (eligibleWallet.dbIndexedAccounts ?? []).map(
-              (indexedAccountItem) => indexedAccountItem.id,
-            ),
-          ),
-        ),
-      );
-
-      if (eligibleAccountIds.length) {
-        const accountValues =
-          await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
-            {
-              accounts: eligibleAccountIds.map((accountId) => ({
-                accountId,
-              })),
-            },
-          );
-        if (isStaleOwnerRequest()) {
-          return;
-        }
-        const currentAccountValueId =
-          indexedAccount?.id ?? account?.indexedAccountId;
-        const currentAccountValue =
-          currentAccountValueId &&
-          eligibleAccountIds.includes(currentAccountValueId)
-            ? {
-                accountId: currentAccountValueId,
-                value: snapshot.accountsWorth,
-                currency: USD_CURRENCY_ID,
-              }
-            : undefined;
-        const assetStatusEvaluation = evaluateWalletAssetStatus({
-          accountValues,
-          currentAccountValue,
-          eligibleWalletCount: eligibleWallets.length,
-        });
-
-        if (
-          assetStatusEvaluation.assetStatus &&
-          assetStatusEvaluation.balanceBucket &&
-          assetStatusEvaluation.changeReason
-        ) {
-          const baseParams = {
-            source: WALLET_ASSET_STATUS_SOURCE,
-            scope: WALLET_ASSET_STATUS_SCOPE,
-            assetStatus: assetStatusEvaluation.assetStatus,
-            balanceBucket: assetStatusEvaluation.balanceBucket,
-            thresholdUsd: WALLET_ASSET_STATUS_THRESHOLD_USD,
-            thresholdCurrency: WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
-            assetBasis: WALLET_ASSET_STATUS_BASIS,
-            eligibleWalletTypes: WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
-            eligibleWalletCount: assetStatusEvaluation.eligibleWalletCount,
-            eligibleAccountCount: assetStatusEvaluation.eligibleAccountCount,
-            knownAccountCount: assetStatusEvaluation.knownAccountCount,
-            unknownAccountCount: assetStatusEvaluation.unknownAccountCount,
-          } as const;
-          const shouldReportSnapshot = shouldReportWalletAssetStatusSnapshot({
-            lastReportedAt: assetStatusAnalytics?.lastSnapshotReportedAt,
-            now: reportNow,
-          });
-          const shouldReportChange = shouldReportWalletAssetStatusChange({
-            previousStatus: assetStatusAnalytics?.assetStatus,
-            currentStatus: assetStatusEvaluation.assetStatus,
-          });
-
-          if (shouldReportSnapshot) {
-            defaultLogger.wallet.balance.walletAssetStatusEvaluated(baseParams);
-          }
-          if (shouldReportChange) {
-            defaultLogger.wallet.balance.walletAssetStatusChanged({
-              ...baseParams,
-              previousStatus: assetStatusAnalytics?.assetStatus ?? 'unknown',
-              currentStatus: assetStatusEvaluation.assetStatus,
-              changeReason: assetStatusEvaluation.changeReason,
-            });
-          }
-
-          if (
-            shouldReportSnapshot ||
-            shouldReportChange ||
-            assetStatusAnalytics?.assetStatus !==
-              assetStatusEvaluation.assetStatus
-          ) {
-            await backgroundApiProxy.simpleDb.appStatus.setWalletAssetStatusAnalytics(
-              {
-                assetStatus: assetStatusEvaluation.assetStatus,
-                lastSnapshotReportedAt: shouldReportSnapshot
-                  ? reportNow
-                  : assetStatusAnalytics?.lastSnapshotReportedAt,
-                lastStatusChangedAt: shouldReportChange
-                  ? reportNow
-                  : assetStatusAnalytics?.lastStatusChangedAt,
-              },
-            );
-          }
-        }
-      }
-    }
 
     if (isStaleOwnerRequest()) {
       return;
@@ -1924,6 +1811,124 @@ function TokenListBlock({
       initialized: true,
       isRefreshing: false,
     });
+
+    // Asset status analytics is non-critical for the Home refresh. Keep it
+    // after the authoritative snapshot has reached the UI so a slow background
+    // RPC cannot hold the refreshed balance/token list in a loading state.
+    if (
+      assetStatusAggregationComplete &&
+      assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
+    ) {
+      const reportNow = Date.now();
+      const assetStatusAnalytics =
+        await backgroundApiProxy.simpleDb.appStatus.getWalletAssetStatusAnalytics();
+      const { wallets: eligibleWallets } =
+        await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
+          includingAccounts: true,
+        });
+      if (isStaleOwnerRequest()) {
+        return;
+      }
+      const eligibleAccountIds = Array.from(
+        new Set(
+          eligibleWallets.flatMap((eligibleWallet) =>
+            (eligibleWallet.dbIndexedAccounts ?? []).map(
+              (indexedAccountItem) => indexedAccountItem.id,
+            ),
+          ),
+        ),
+      );
+
+      if (eligibleAccountIds.length) {
+        const accountValues =
+          await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
+            {
+              accounts: eligibleAccountIds.map((accountId) => ({
+                accountId,
+              })),
+            },
+          );
+        if (isStaleOwnerRequest()) {
+          return;
+        }
+        const currentAccountValueId =
+          indexedAccount?.id ?? account?.indexedAccountId;
+        const currentAccountValue =
+          currentAccountValueId &&
+          eligibleAccountIds.includes(currentAccountValueId)
+            ? {
+                accountId: currentAccountValueId,
+                value: snapshot.accountsWorth,
+                currency: USD_CURRENCY_ID,
+              }
+            : undefined;
+        const assetStatusEvaluation = evaluateWalletAssetStatus({
+          accountValues,
+          currentAccountValue,
+          eligibleWalletCount: eligibleWallets.length,
+        });
+
+        if (
+          assetStatusEvaluation.assetStatus &&
+          assetStatusEvaluation.balanceBucket &&
+          assetStatusEvaluation.changeReason
+        ) {
+          const baseParams = {
+            source: WALLET_ASSET_STATUS_SOURCE,
+            scope: WALLET_ASSET_STATUS_SCOPE,
+            assetStatus: assetStatusEvaluation.assetStatus,
+            balanceBucket: assetStatusEvaluation.balanceBucket,
+            thresholdUsd: WALLET_ASSET_STATUS_THRESHOLD_USD,
+            thresholdCurrency: WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
+            assetBasis: WALLET_ASSET_STATUS_BASIS,
+            eligibleWalletTypes: WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
+            eligibleWalletCount: assetStatusEvaluation.eligibleWalletCount,
+            eligibleAccountCount: assetStatusEvaluation.eligibleAccountCount,
+            knownAccountCount: assetStatusEvaluation.knownAccountCount,
+            unknownAccountCount: assetStatusEvaluation.unknownAccountCount,
+          } as const;
+          const shouldReportSnapshot = shouldReportWalletAssetStatusSnapshot({
+            lastReportedAt: assetStatusAnalytics?.lastSnapshotReportedAt,
+            now: reportNow,
+          });
+          const shouldReportChange = shouldReportWalletAssetStatusChange({
+            previousStatus: assetStatusAnalytics?.assetStatus,
+            currentStatus: assetStatusEvaluation.assetStatus,
+          });
+
+          if (shouldReportSnapshot) {
+            defaultLogger.wallet.balance.walletAssetStatusEvaluated(baseParams);
+          }
+          if (shouldReportChange) {
+            defaultLogger.wallet.balance.walletAssetStatusChanged({
+              ...baseParams,
+              previousStatus: assetStatusAnalytics?.assetStatus ?? 'unknown',
+              currentStatus: assetStatusEvaluation.assetStatus,
+              changeReason: assetStatusEvaluation.changeReason,
+            });
+          }
+
+          if (
+            shouldReportSnapshot ||
+            shouldReportChange ||
+            assetStatusAnalytics?.assetStatus !==
+              assetStatusEvaluation.assetStatus
+          ) {
+            await backgroundApiProxy.simpleDb.appStatus.setWalletAssetStatusAnalytics(
+              {
+                assetStatus: assetStatusEvaluation.assetStatus,
+                lastSnapshotReportedAt: shouldReportSnapshot
+                  ? reportNow
+                  : assetStatusAnalytics?.lastSnapshotReportedAt,
+                lastStatusChangedAt: shouldReportChange
+                  ? reportNow
+                  : assetStatusAnalytics?.lastStatusChangedAt,
+              },
+            );
+          }
+        }
+      }
+    }
   }, [
     account?.address,
     account?.id,
@@ -2463,7 +2468,11 @@ function TokenListBlock({
   useEffect(() => {
     const fn = () => {
       if (network?.isAllNetworks) {
-        void runAllNetworksRequests({ alwaysSetState: true });
+        // The all-network token refresh for this event is handled inside
+        // useAllNetworkRequests (its wallet-scoped listener also bypasses the
+        // accounts cache). Kicking it again here queued a second forced
+        // fan-out per hardware-account batch; only the LP token list still
+        // needs a dedicated trigger.
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
@@ -2473,12 +2482,7 @@ function TokenListBlock({
     return () => {
       appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
     };
-  }, [
-    network?.isAllNetworks,
-    runAllNetworksRequests,
-    runLpTokenList,
-    showLpTokensOnly,
-  ]);
+  }, [network?.isAllNetworks, runLpTokenList, showLpTokensOnly]);
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
