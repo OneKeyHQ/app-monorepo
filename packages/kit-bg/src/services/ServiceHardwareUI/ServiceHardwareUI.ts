@@ -756,9 +756,15 @@ class ServiceHardwareUI extends ServiceBase {
     // call to cancel, and a connectId-less sdk.cancel is a GLOBAL one —
     // it would cold-boot the SDK and interrupt every queued call on
     // every connected device (the legacy toast close touched nothing).
+    // The same goes for a stage that never learned its device — a UI hold
+    // closed before the search resolved, the opening beat of a scan: with
+    // no connectId there is nothing to cancel BY, so the device half is
+    // skipped rather than let the missing id fall through to that global
+    // cancel.
     await this.closeHardwareUiStateDialogFn({
       connectId,
-      skipDeviceCancel: qrStepAtClose ? true : (skipDeviceCancel ?? false),
+      skipDeviceCancel:
+        qrStepAtClose || !connectId ? true : (skipDeviceCancel ?? false),
       immediateDeviceCancel: true,
       reason: 'DeviceStage userClose',
     });

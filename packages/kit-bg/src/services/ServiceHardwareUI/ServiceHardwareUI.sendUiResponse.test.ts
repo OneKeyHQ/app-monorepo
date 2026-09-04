@@ -11,7 +11,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
+import {
+  deviceStageAtom,
+  firmwareUpdateWorkflowRunningAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
@@ -870,5 +873,57 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     ).rejects.toThrow('outer failed');
 
     expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI.deviceStageUserClose', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    jest.spyOn(service.deviceStageBurst, 'userClose').mockResolvedValue();
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+    return { service, close };
+  };
+
+  beforeEach(() => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 1 } as never);
+  });
+
+  it('skips the device half of the close when the stage never learned its device', async () => {
+    // A connectId-less sdk.cancel is the GLOBAL cancel: it cold-boots the
+    // SDK and interrupts every queued call on every connected device. A
+    // stage closed before the search resolved has nothing to cancel by.
+    const { service, close } = createService();
+
+    await service.deviceStageUserClose({ connectId: undefined });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: undefined,
+      skipDeviceCancel: true,
+    });
+  });
+
+  it('still cancels on the device the stage names', async () => {
+    const { service, close } = createService();
+
+    await service.deviceStageUserClose({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: false,
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: false,
+      immediateDeviceCancel: true,
+    });
   });
 });
