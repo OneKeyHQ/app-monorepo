@@ -5,6 +5,19 @@ on:
   push:
     branches:
       - x
+    paths:
+      - '.env.version'
+      - '.github/workflows/web-embed-prebundle.yml'
+      - 'apps/web-embed/**'
+      - 'development/**'
+      - 'package.json'
+      - 'packages/components/**'
+      - 'packages/core/**'
+      - 'packages/kit/**'
+      - 'packages/kit-bg/**'
+      - 'packages/shared/**'
+      - 'patches/**'
+      - 'yarn.lock'
   schedule:
     - cron: '30 18 * * 0'
   workflow_dispatch:
@@ -59,6 +72,15 @@ jobs:
         with:
           version: 1.3.1
 
+      - name: Log in to GHCR for bootstrap lookup
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          printf '%s' "$GHCR_TOKEN" |
+          oras login "$OCI_REGISTRY"
+          --username "$GITHUB_ACTOR"
+          --password-stdin
+
       - name: Resolve immutable OCI tag
         id: artifact
         run: |
@@ -67,6 +89,12 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           reference="$OCI_REGISTRY/$OCI_REPOSITORY:$tag"
           if descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+            oras logout "$OCI_REGISTRY" >/dev/null
+            if ! public_descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+              printf '%s\n' "$public_descriptor" >&2
+              echo "::error::The web-embed prebundle exists but is not publicly readable. Set the GHCR package visibility to public."
+              exit 1
+            fi
             echo "exists=true" >> "$GITHUB_OUTPUT"
           elif grep -Eiq 'manifest unknown|not found' <<< "$descriptor"; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -216,6 +244,19 @@ jobs:
             --arg artifact_type "$OCI_ARTIFACT_TYPE" \
             --arg revision "$GITHUB_SHA" \
             '.artifactType == $artifact_type and .annotations["org.opencontainers.image.revision"] == $revision'
+
+      - name: Verify public anonymous access
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          reference="$OCI_REGISTRY/$OCI_REPOSITORY:$RELEASE_TAG"
+          oras logout "$OCI_REGISTRY" >/dev/null
+          if ! descriptor="$(oras manifest fetch --descriptor "$reference" 2>&1)"; then
+            printf '%s\n' "$descriptor" >&2
+            echo "::error::The published web-embed prebundle is not publicly readable. Set the GHCR package visibility to public."
+            exit 1
+          fi
 
       - name: Write summary
         env:

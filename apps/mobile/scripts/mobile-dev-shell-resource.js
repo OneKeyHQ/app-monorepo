@@ -412,6 +412,13 @@ async function verifyArtifactManifest({
     'onekey-mobile-dev-shell-artifact-v3',
     [manifest.shellInputKey, artifactSha256, stat.size],
   );
+  const hasRemoteWebEmbed = /^sha256:[0-9a-f]{64}$/.test(
+    manifest.webEmbed?.ociDigest || '',
+  );
+  const hasLocalWebEmbed =
+    manifest.webEmbed?.source === 'local-build' &&
+    manifest.webEmbed.ociDigest === undefined &&
+    manifest.webEmbed.reference === undefined;
   if (
     manifest?.schemaVersion !== 3 ||
     manifest.platform !== compatibility.platform ||
@@ -424,7 +431,7 @@ async function verifyArtifactManifest({
     manifest.shellArtifactKey !== expectedArtifactKey ||
     manifest.webEmbed?.inputKey !== compatibility.webEmbedInputKey ||
     !/^[0-9a-f]{64}$/.test(manifest.webEmbed?.outputTreeDigest || '') ||
-    !/^sha256:[0-9a-f]{64}$/.test(manifest.webEmbed?.ociDigest || '') ||
+    (!hasRemoteWebEmbed && !hasLocalWebEmbed) ||
     manifest.artifact?.file !== compatibility.artifactFile ||
     manifest.artifact?.bytes !== stat.size ||
     manifest.artifact?.sha256 !== artifactSha256
