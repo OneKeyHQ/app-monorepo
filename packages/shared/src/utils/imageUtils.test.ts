@@ -214,7 +214,7 @@ describe('probeImageMimeType', () => {
     );
   });
 
-  it('does not download unbounded native media without range support', async () => {
+  it('uses the file-backed range probe when HEAD omits range support', async () => {
     Object.assign(platformEnv, { isNative: true });
     const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
     downloadAsyncMock.mockClear();
@@ -225,8 +225,22 @@ describe('probeImageMimeType', () => {
       }),
     } as unknown as Response);
 
-    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
-    expect(downloadAsyncMock).not.toHaveBeenCalled();
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(downloadAsyncMock).toHaveBeenCalledWith(
+      uri,
+      expect.stringContaining('temp-image-probe-'),
+      { headers: { Range: 'bytes=0-65535' } },
+    );
+  });
+
+  it('uses the file-backed range probe when the server rejects HEAD', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+    downloadAsyncMock.mockClear();
+    fetchMock.mockRejectedValueOnce(new Error('HEAD not allowed'));
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(downloadAsyncMock).toHaveBeenCalledTimes(1);
   });
 });
 

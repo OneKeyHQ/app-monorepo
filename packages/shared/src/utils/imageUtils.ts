@@ -817,9 +817,15 @@ async function readResponsePrefix(response: Response) {
 }
 
 async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
-  const headResponse = await fetch(uri, { method: 'HEAD', signal });
+  let headResponse: Response | undefined;
+  try {
+    headResponse = await fetch(uri, { method: 'HEAD', signal });
+  } catch {
+    // Some NFT media servers reject HEAD; the file-backed range probe below
+    // remains bounded in JavaScript memory and works without HEAD metadata.
+  }
   const declaredMimeType = normalizeMimeType(
-    headResponse.headers.get('content-type'),
+    headResponse?.headers.get('content-type'),
   );
   const potentiallySupportedMimeTypes = [
     'application/octet-stream',
@@ -835,18 +841,6 @@ async function probeImageMimeTypeNative(uri: string, signal?: AbortSignal) {
     return declaredMimeType;
   }
 
-  const contentLengthHeader = headResponse.headers.get('content-length');
-  const contentLength = contentLengthHeader
-    ? Number(contentLengthHeader)
-    : Number.NaN;
-  const acceptsRanges = headResponse.headers
-    .get('accept-ranges')
-    ?.toLowerCase()
-    .includes('bytes');
-  const hasBoundedContentLength =
-    Number.isFinite(contentLength) &&
-    contentLength <= IMAGE_MIME_PROBE_MAX_BYTES;
-  if (!acceptsRanges && !hasBoundedContentLength) return undefined;
   if (signal?.aborted) return undefined;
 
   const cacheDir = await getNativeCacheDirectory();
