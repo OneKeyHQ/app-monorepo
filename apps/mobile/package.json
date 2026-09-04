@@ -34,6 +34,7 @@
     "module-id:update": "node scripts/module-id-registry.js update",
     "module-id:check": "node scripts/module-id-registry.js check",
     "module-id:reconcile": "node scripts/module-id-registry.js reconcile",
+    "module-id:resolve-collisions": "node scripts/module-id-registry.js resolve-collisions",
     "dev-vendor:build": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js",
     "dev-vendor:check": "node scripts/build-dev-vendor.js --check",
     "dev-vendor:prepare": "node --expose-gc --max-old-space-size=8192 scripts/build-dev-vendor.js --prepare --platform all",
