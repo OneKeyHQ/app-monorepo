@@ -17,8 +17,10 @@ const {
   createSessionId,
   createRunReport,
   getAndroidPrivateSessionInstallArgs,
+  getAndroidLocalBuildEnvironment,
   getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
+  getNativeRuntimeBundleUrl,
   getShellArtifactTag,
   getShellCompatibility,
   launchNativeApp,
@@ -27,6 +29,7 @@ const {
   parseIosSimulators,
   parseMetroBaseUrl,
   parseMetroPort,
+  prewarmNativeRuntimeBundles,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,
@@ -416,6 +419,114 @@ describe('native-dev-shell', () => {
     expect(wait).toHaveBeenNthCalledWith(1, 500);
     expect(wait).toHaveBeenNthCalledWith(2, 500);
     expect(wait).toHaveBeenNthCalledWith(3, 1500);
+  });
+
+  it('prewarms the version-bound main and background runtime bundles', async () => {
+    const fingerprint = 'a'.repeat(64);
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const fetchImpl = jest.fn(async (input) => {
+      const url = new URL(input);
+      return new Response(url.searchParams.get('resolver.runtimeTarget'), {
+        status: 200,
+      });
+    });
+
+    await expect(
+      prewarmNativeRuntimeBundles({
+        fetchImpl,
+        fingerprint,
+        metroPort: 8081,
+        platform: 'android',
+        sessionId,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const urls = fetchImpl.mock.calls.map(([input]) => new URL(input));
+    expect(urls.map((url) => url.pathname)).toEqual([
+      '/.expo/.virtual-metro-entry.bundle',
+      '/background.bundle',
+    ]);
+    expect(
+      urls.map((url) => url.searchParams.get('resolver.runtimeTarget')),
+    ).toEqual(['main', 'background']);
+    for (const url of urls) {
+      expect(url.searchParams.get('resolver.devVendorFingerprint')).toBe(
+        fingerprint,
+      );
+      expect(url.searchParams.get('resolver.devSessionId')).toBe(sessionId);
+      expect(url.searchParams.get('modulesOnly')).toBe('true');
+    }
+  });
+
+  it('matches the native runtime bundle URL contract', () => {
+    const url = getNativeRuntimeBundleUrl({
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+      sessionId: 'wk-111111111111-dev-222222222222-3333333333333333',
+    });
+
+    expect(url.origin).toBe('http://127.0.0.1:8082');
+    expect(url.pathname).toBe('/background.bundle');
+    expect(url.searchParams.get('platform')).toBe('ios');
+    expect(url.searchParams.get('resolver.devVendorNative')).toBe('true');
+    expect(url.searchParams.get('unstable_transformProfile')).toBe(
+      'hermes-stable',
+    );
+  });
+
+  it('selects a Java 17 JDK for Android local shell builds', () => {
+    const androidSdkRoot = path.join(temporaryDirectory, 'android-sdk');
+    fs.mkdirSync(path.join(androidSdkRoot, 'platform-tools'), {
+      recursive: true,
+    });
+    const spawnCommand = jest.fn((command) => {
+      if (command === '/usr/libexec/java_home') {
+        return { status: 0, stderr: '', stdout: '/jdk-17\n' };
+      }
+      if (command === '/jdk-24/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "24.0.2"',
+          stdout: '',
+        };
+      }
+      if (command === '/jdk-17/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "17.0.16"',
+          stdout: '',
+        };
+      }
+      if (command === 'which') {
+        return { status: 1, stderr: '', stdout: '' };
+      }
+      return {
+        error: { message: `Unexpected command: ${command}` },
+        status: null,
+        stderr: '',
+        stdout: '',
+      };
+    });
+
+    expect(
+      getAndroidLocalBuildEnvironment({
+        env: {
+          ANDROID_HOME: androidSdkRoot,
+          JAVA_HOME: '/jdk-24',
+          PATH: '/usr/bin',
+        },
+        hostPlatform: 'darwin',
+        spawnCommand,
+      }),
+    ).toMatchObject({
+      ANDROID_HOME: androidSdkRoot,
+      ANDROID_SDK_ROOT: androidSdkRoot,
+      JAVA_HOME: '/jdk-17',
+      PATH: `/jdk-17/bin${path.delimiter}/usr/bin`,
+    });
   });
 
   it('checks that an iOS app survives its startup grace period', async () => {
@@ -1662,10 +1773,16 @@ describe('native-dev-shell', () => {
     expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
       nativeDevShell.indexOf('preparationLock.release();'),
     );
+    expect(nativeDevShell.indexOf('preparationLock.release();')).toBeLessThan(
+      nativeDevShell.indexOf('await prewarmNativeRuntimeBundles({'),
+    );
     const launchSource = nativeDevShell.slice(
       nativeDevShell.indexOf('async function launchDevShell('),
       nativeDevShell.indexOf('\nasync function main()'),
     );
+    expect(
+      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
+    ).toBeLessThan(launchSource.indexOf('launchNativeApp('));
     expect(launchSource).toContain(
       'await waitForMetroCompletionWithSessionRenewal({',
     );
