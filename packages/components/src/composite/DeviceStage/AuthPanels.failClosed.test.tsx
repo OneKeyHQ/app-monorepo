@@ -60,6 +60,14 @@ describe('AuthFailureCard fail-closed actions', () => {
     expect(
       screen.getByText(ETranslations.send_verification_failure),
     ).toBeTruthy();
+    expect(
+      screen.getByText(ETranslations.global_unknown_error_retry_message),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        ETranslations.device_auth_unofficial_device_detected_help_text,
+      ),
+    ).toBeNull();
     expect(screen.getByTestId('device-stage-auth-retry')).toBeTruthy();
     expect(screen.getByTestId('device-stage-auth-support')).toBeTruthy();
     expect(screen.queryByTestId('device-stage-auth-note-open')).toBeNull();

@@ -107,7 +107,7 @@ export const AUTH_FAILURE_TEXT: Record<
   },
   unknown: {
     title: ETranslations.send_verification_failure,
-    sub: ETranslations.device_auth_unofficial_device_detected_help_text,
+    sub: ETranslations.global_unknown_error_retry_message,
     icon: 'ErrorSolid',
     action: 'retry',
   },

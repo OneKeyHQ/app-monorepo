@@ -184,7 +184,9 @@ function useFirmwareVerifyBase({
         EOneKeyErrorClassNames.OneKeyServerApiError
       ) {
         const { code, message } = error as OneKeyError;
-        setContentType(EFirmwareAuthenticationDialogContentType.error_fallback);
+        setContentType(
+          EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+        );
         setErrorObj({ code, message });
         return;
       }
@@ -661,7 +663,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Title>
               <Dialog.Description>
                 {intl.formatMessage({
-                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                  id: ETranslations.global_unknown_error_retry_message,
                 })}
               </Dialog.Description>
             </Dialog.Header>

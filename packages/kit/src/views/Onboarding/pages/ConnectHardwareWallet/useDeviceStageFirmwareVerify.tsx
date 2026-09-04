@@ -286,7 +286,7 @@ export function useDeviceStageFirmwareVerify() {
             if (
               err?.className === EOneKeyErrorClassNames.OneKeyServerApiError
             ) {
-              reason = 'unknown';
+              reason = 'unavailable';
             } else if (
               err?.code === HardwareErrorCode.NetworkError ||
               err?.code === HardwareErrorCode.BridgeNetworkError ||
