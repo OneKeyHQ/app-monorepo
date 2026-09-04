@@ -44,6 +44,7 @@ const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 const THIRTY_DAYS_MS = 30 * ONE_DAY_MS;
 const ONE_YEAR_MS = 365 * ONE_DAY_MS;
+const APY_CHART_HEIGHT = 200;
 
 function normalizeHistory(history?: IApyHistoryItem[] | null) {
   if (!history?.length) {
@@ -348,10 +349,7 @@ const ApyChartComponent = ({
 
       {isLoading && !chartData ? (
         <Stack
-          $gtMd={{ height: 200 }}
-          $md={{ height: 180 }}
-          $sm={{ height: 160 }}
-          height={160}
+          height={APY_CHART_HEIGHT}
           position="relative"
           overflow="hidden"
           transition="quick"
@@ -446,7 +444,7 @@ const ApyChartComponent = ({
             }
             secondaryLineColor="#0177E5"
             secondaryLineWidth={2}
-            height={200}
+            height={APY_CHART_HEIGHT}
             onHover={handleHover}
             lineColor="#008347D6"
             topColor="#00834726"
