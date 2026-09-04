@@ -478,6 +478,7 @@ export class DeviceStageBurstScope {
     if (!(await this.isEnabled())) {
       return false;
     }
+    const dismissal = this.dismissSeq;
     this.clearOffTimer();
     this.depth += 1;
     setDeviceStageBurstActive(true);
@@ -494,6 +495,19 @@ export class DeviceStageBurstScope {
       // (depth >= 2) is not a new narrative and must not disarm it.
       this.clearAuthHold();
       const prev = await deviceStageAtom.get();
+      const stillEnabled = await this.isEnabled();
+      // Re-checked after the awaits: the firmware workflow can take the
+      // stage meanwhile (or the person can close it) — its silence found no
+      // pendingOpen to clear yet, so the opening timer below would have
+      // painted connecting over the update page, and the caller would have
+      // been told a burst it does not have is open. Roll this claim back.
+      if (dismissal !== this.dismissSeq || !stillEnabled) {
+        this.depth = Math.max(this.depth - 1, 0);
+        if (this.depth === 0) {
+          setDeviceStageBurstActive(false);
+        }
+        return false;
+      }
       const stageStillOn = prev && prev.step !== 'off';
       // A follow-up wrapper inside the grace window rejoins the visible
       // stage: keep the burstId so the container's close grant stays armed.

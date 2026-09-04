@@ -336,6 +336,43 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('error');
   });
 
+  it('does not open when the firmware workflow takes the stage while begin is reading', async () => {
+    // begin() passed the gate, then parked on its atom read; the workflow
+    // raised the guard and silenced the stage meanwhile. The silence found
+    // no pendingOpen yet, so the opening timer used to paint connecting
+    // over the update page — and the caller was told the burst opened.
+    const scope = new DeviceStageBurstScope();
+    let releaseRead: (() => void) | undefined;
+    stageAtom.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseRead = () => resolve(stage);
+        }),
+    );
+    const opening = scope.begin({ connectId: CONNECT_ID });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(releaseRead).toBeDefined();
+
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    await scope.silenceForFirmwareWorkflow();
+
+    releaseRead?.();
+    await expect(opening).resolves.toBe(false);
+    await paintOpeningBeat();
+    expect(stage).toBeUndefined();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+
+    // The rolled-back claim leaves nothing behind: the next burst after
+    // the update page behaves like any other.
+    firmwareWorkflowAtom.get.mockResolvedValue(false);
+    await expect(scope.begin({ connectId: CONNECT_ID })).resolves.toBe(true);
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
   it('answers whether the stage is behind the caller', async () => {
     // The air-gap flow paints its beats past the gate and must decide on this
     // answer, not on a gate read taken before begin(): the flag can flip in
