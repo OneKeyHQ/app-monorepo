@@ -246,6 +246,7 @@ export function UniversalSearchV2MarketTokenItem({
           networkId: network,
           symbol,
           isNative,
+          stock,
           tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
         });
 
@@ -274,6 +275,7 @@ export function UniversalSearchV2MarketTokenItem({
     network,
     symbol,
     isNative,
+    stock,
     universalSearchActions,
     item.type,
     item.payload,

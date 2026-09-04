@@ -4,8 +4,11 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import type { IMarketAssetVariant } from '@onekeyhq/shared/types/market';
 
 export type IMarketAssetRouteIdentity = {
+  isNative: boolean;
   marketTokenId: string;
   marketVariantId: string;
+  networkId: string;
+  tokenAddress: string;
 };
 
 type IResolveMarketAssetRouteIdentityParams = {
@@ -87,8 +90,11 @@ export async function resolveMarketAssetRouteIdentity({
 
         if (matchedVariant) {
           return {
+            isNative: matchedVariant.isNative,
             marketTokenId: detail.asset.assetId,
             marketVariantId: matchedVariant.variantId,
+            networkId: matchedVariant.networkId,
+            tokenAddress: matchedVariant.tokenAddress,
           };
         }
       } catch {

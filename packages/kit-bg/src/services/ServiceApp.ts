@@ -31,6 +31,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../dbs/local/localDb';
 import {
@@ -416,6 +417,7 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
       tokenAddress,
@@ -428,6 +430,7 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
 
@@ -454,6 +457,9 @@ class ServiceApp extends ServiceBase {
     }
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;
+    }
+    if (tokenDetailPreview) {
+      routeParams.legacyTokenPreview = JSON.stringify(tokenDetailPreview);
     }
 
     return extUtils.openExpandTab({

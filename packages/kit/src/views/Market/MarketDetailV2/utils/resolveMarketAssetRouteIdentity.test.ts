@@ -106,8 +106,11 @@ describe('resolveMarketAssetRouteIdentity', () => {
         isNative: false,
       }),
     ).resolves.toEqual({
+      isNative: false,
       marketTokenId: 'bitcoin',
       marketVariantId: 'bitcoin-evm--1-0xbtc',
+      networkId: 'evm--1',
+      tokenAddress: '0xBtc',
     });
 
     expect(serviceMarket.fetchMarketAssetList.mock.calls).toContainEqual([
@@ -140,8 +143,11 @@ describe('resolveMarketAssetRouteIdentity', () => {
         isNative: true,
       }),
     ).resolves.toEqual({
+      isNative: true,
       marketTokenId: 'bitcoin',
       marketVariantId: 'bitcoin-btc--0-native',
+      networkId: 'btc--0',
+      tokenAddress: '',
     });
   });
 

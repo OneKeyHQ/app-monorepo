@@ -21614,6 +21614,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/utils/marketTradingViewBootstrap.ts": 18570,
     "packages/kit/src/views/Market/MarketDetailV2/utils/marketTradingViewSubIndicatorCount.ts": 13989,
     "packages/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken.ts": 10931,
+    "packages/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity.ts": 11968,
     "packages/kit/src/views/Market/MarketDetailV2/utils/statValue.ts": 6980,
     "packages/kit/src/views/Market/MarketDetailV2/utils/stockPublicDataUtils.ts": 23889,
     "packages/kit/src/views/Market/MarketHome.tsx": 23704,

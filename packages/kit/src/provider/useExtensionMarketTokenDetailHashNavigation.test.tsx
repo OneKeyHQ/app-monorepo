@@ -122,6 +122,49 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('restores a serialized token preview in the expand-tab runtime', () => {
+    const legacyTokenPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      price: 1,
+      selectedAt: 1,
+    };
+    const query = new URLSearchParams({
+      legacyTokenPreview: JSON.stringify(legacyTokenPreview),
+    });
+
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        `#/market/token/eth/0xabc?${query.toString()}`,
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        legacyTokenPreview,
+      },
+    });
+  });
+
+  it('ignores a malformed serialized token preview', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token/eth/0xabc?legacyTokenPreview=%7B%22name%22%3A1%7D',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+      },
+    });
+  });
+
   it('parses native market detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(

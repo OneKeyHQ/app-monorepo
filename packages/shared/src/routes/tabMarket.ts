@@ -51,6 +51,7 @@ export type ITabMarketParamList = {
     marketVariantId?: string;
     marketTokenCategory?: string;
     skipMarketDataFetch?: boolean;
+    legacyTokenPreview?: IMarketTokenDetailPreview;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

@@ -162,7 +162,9 @@ describe('useToDetailPage', () => {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -194,6 +196,7 @@ describe('useToDetailPage', () => {
       isStockRoute: true,
       layout: 'mobile',
     });
+    expect(resolveMarketAssetRouteIdentity).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -409,8 +412,11 @@ describe('useToDetailPage', () => {
         typeof resolveMarketAssetRouteIdentity
       >
     ).mockResolvedValue({
+      isNative: false,
       marketTokenId: 'bitcoin',
       marketVariantId: 'bitcoin-evm--1-0xbtc',
+      networkId: 'evm--1',
+      tokenAddress: '0xBtc',
     });
     const { result } = renderHook(() =>
       useToDetailPage({ resolveMarketAsset: true }),
@@ -432,7 +438,7 @@ describe('useToDetailPage', () => {
       isNative: false,
     });
     expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
-      tokenAddress: '0xbtc',
+      tokenAddress: '0xBtc',
       network: 'eth',
       isNative: false,
       from: undefined,
@@ -440,6 +446,134 @@ describe('useToDetailPage', () => {
       marketVariantId: 'bitcoin-evm--1-0xbtc',
       marketTokenCategory: 'top_coins',
     });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('uses the canonical native address for the resolved route and preview', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    (
+      resolveMarketAssetRouteIdentity as jest.MockedFunction<
+        typeof resolveMarketAssetRouteIdentity
+      >
+    ).mockResolvedValue({
+      isNative: true,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-btc--0-native',
+      networkId: 'btc--0',
+      tokenAddress: '',
+    });
+    const tokenDetailPreview = {
+      address: 'native',
+      networkId: 'btc--0',
+      isNative: true,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      decimals: 8,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: 'native',
+        networkId: 'btc--0',
+        symbol: 'BTC',
+        isNative: true,
+        tokenDetailPreview,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-btc--0-native',
+      marketTokenCategory: 'top_coins',
+    });
+    expect(mockPrepareTokenDetailPreview).toHaveBeenLastCalledWith({
+      ...tokenDetailPreview,
+      address: '',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('discards an older Asset resolution after a newer navigation starts', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    let resolveFirst:
+      | ((
+          value: Awaited<ReturnType<typeof resolveMarketAssetRouteIdentity>>,
+        ) => void)
+      | undefined;
+    let resolveSecond:
+      | ((
+          value: Awaited<ReturnType<typeof resolveMarketAssetRouteIdentity>>,
+        ) => void)
+      | undefined;
+    (
+      resolveMarketAssetRouteIdentity as jest.MockedFunction<
+        typeof resolveMarketAssetRouteIdentity
+      >
+    )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    const firstNavigation = result.current({
+      tokenAddress: '0xfirst',
+      networkId: 'evm--1',
+      symbol: 'FIRST',
+      isNative: false,
+    });
+    const secondNavigation = result.current({
+      tokenAddress: '0xsecond',
+      networkId: 'evm--1',
+      symbol: 'SECOND',
+      isNative: false,
+    });
+
+    await act(async () => {
+      resolveSecond?.(undefined);
+      await secondNavigation;
+    });
+    expect(mockNavigationPush).toHaveBeenCalledTimes(1);
+    expect(mockNavigationPush).toHaveBeenLastCalledWith(
+      'MarketDetailV2',
+      expect.objectContaining({ tokenAddress: '0xsecond' }),
+    );
+
+    await act(async () => {
+      resolveFirst?.({
+        isNative: false,
+        marketTokenId: 'first',
+        marketVariantId: 'first-variant',
+        networkId: 'evm--1',
+        tokenAddress: '0xfirst',
+      });
+      await firstNavigation;
+    });
+    expect(mockNavigationPush).toHaveBeenCalledTimes(1);
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
@@ -543,12 +677,23 @@ describe('useToDetailPage', () => {
       }),
     );
 
+    const tokenDetailPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+
     await act(async () => {
       await result.current({
         tokenAddress: '0xabc',
         networkId: 'evm--1',
         symbol: 'ABC',
         isNative: false,
+        tokenDetailPreview,
       });
     });
 
@@ -558,6 +703,7 @@ describe('useToDetailPage', () => {
       isNative: false,
       from: EEnterWay.Search,
       showFavoriteButton: false,
+      tokenDetailPreview,
     });
     expect(globalThis.close).not.toHaveBeenCalled();
 
