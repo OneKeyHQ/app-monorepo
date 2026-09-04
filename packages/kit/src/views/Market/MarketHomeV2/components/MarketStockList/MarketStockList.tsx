@@ -35,6 +35,7 @@ import {
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
@@ -301,6 +302,10 @@ function MarketStockListImpl({
                 onPress: () => void toMarketStockDetailPage(item.stockId),
                 rowProps: {
                   testID: MarketTestIDs.stockRow(item.stockId),
+                  // Data rows only: the company cell swaps its subtitle for the
+                  // variant summary while the row is hovered. The header row
+                  // shares `rowProps` above and must not become a group.
+                  group: MARKET_TOKEN_ROW_GROUP_NAME,
                 },
               })}
             />

@@ -45,6 +45,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import {
@@ -547,10 +548,16 @@ function MarketTokenListBase({
     sort: trendingSort,
     onSort: handleTrendingSort,
   });
-  const marketTokenColumns =
-    desktopColumnVariant === 'trending' && !md
-      ? trendingColumnsDesktop
-      : defaultMarketTokenColumns;
+  const useTrendingDesktopColumns = desktopColumnVariant === 'trending' && !md;
+  const marketTokenColumns = useTrendingDesktopColumns
+    ? trendingColumnsDesktop
+    : defaultMarketTokenColumns;
+  // Trending desktop rows expose a hover group so the name cell can swap the
+  // token age for the contract address. Only data rows opt in: `rowProps` below
+  // is shared with the header row, which must not become a hover group.
+  const rowHoverGroupName = useTrendingDesktopColumns
+    ? MARKET_TOKEN_ROW_GROUP_NAME
+    : undefined;
 
   const data = useMemo(() => {
     if (!liveTokenOverride) {
@@ -751,6 +758,7 @@ function MarketTokenListBase({
           : undefined,
         rowProps: {
           testID: MarketTestIDs.tokenRow(item.symbol),
+          ...(rowHoverGroupName ? { group: rowHoverGroupName } : undefined),
           ...(showWebSocketDebugRows &&
           !item.perpsCoin &&
           !!item.networkId &&
@@ -766,6 +774,7 @@ function MarketTokenListBase({
       debugSubscriptionRangeEnd,
       debugSubscriptionRangeStart,
       navigateToPerps,
+      rowHoverGroupName,
       showWebSocketDebugRows,
       toMarketDetailPage,
     ],

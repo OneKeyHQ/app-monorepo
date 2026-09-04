@@ -14,7 +14,6 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
@@ -23,6 +22,7 @@ import {
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
+import { MarketHoverRevealLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import {
   MARKET_CELL_LINE_GAP,
   MARKET_CELL_SECONDARY_LINE_HEIGHT,
@@ -42,7 +42,6 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -53,17 +52,6 @@ import type { IMarketToken } from '../../MarketTokenData';
 import type { GestureResponderEvent } from 'react-native';
 
 const EMPTY_MARKET_VALUE = '--';
-
-/**
- * Tamagui group set on Trending data rows so the name cell can react to a hover
- * anywhere on that row. Tamagui only accepts a group name as a literal style
- * prop key, so this constant and the `$group-marketTokenRow-hover` prop below
- * must be kept in sync by hand.
- *
- * `as const` keeps the literal type from widening to `string` when the name is
- * carried through a variable into an untyped row-props object.
- */
-export const MARKET_TOKEN_ROW_GROUP_NAME = 'marketTokenRow' as const;
 
 // The token age and the contract address share one line-height window and the
 // pair slides up on hover, so the age is pushed out by the address rather than
@@ -200,30 +188,18 @@ function TrendingTokenSecondaryLine({
     return ageLine;
   }
 
-  // Hover never fires on native, and there is no age to slide away from when
-  // `firstTradeTime` is missing. Both cases show the address up front so the
-  // copy button stays reachable, the same fallback the stock list uses.
-  // Touch-capable desktop browsers are deliberately not excluded: they still
-  // have a pointer, and treating them as touch-only would hide the age from
-  // every touchscreen laptop.
-  const canSwapOnHover = Boolean(ageLabel) && !platformEnv.isNative;
-
-  if (!canSwapOnHover) {
+  // With no age there is nothing to slide away from, so the address stands on
+  // its own and its copy button stays reachable.
+  if (!ageLabel) {
     return <TokenContractAddressLine address={address} />;
   }
 
   return (
-    <Stack height={TOKEN_SECONDARY_LINE_HEIGHT} overflow="hidden" minWidth={0}>
-      <Stack
-        transition="quick"
-        animateOnly={ANIMATE_ONLY_TRANSFORM}
-        y={0}
-        $group-marketTokenRow-hover={{ y: -TOKEN_SECONDARY_LINE_HEIGHT }}
-      >
-        {ageLine}
-        <TokenContractAddressLine address={address} />
-      </Stack>
-    </Stack>
+    <MarketHoverRevealLine
+      lineHeight={TOKEN_SECONDARY_LINE_HEIGHT}
+      resting={ageLine}
+      revealed={<TokenContractAddressLine address={address} />}
+    />
   );
 }
 

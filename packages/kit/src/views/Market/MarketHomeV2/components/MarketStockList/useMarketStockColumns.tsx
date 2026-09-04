@@ -28,12 +28,18 @@ import {
   MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
+import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
 import { MARKET_CELL_SUBTITLE_SIZE } from '../MarketListCell';
+import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
 
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
+
+// `$bodyMd`'s line box: the company name and the variant summary share it so
+// the hover slide lands cleanly on the second line.
+const STOCK_SUBTITLE_LINE_HEIGHT = 20;
 const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
 
 const COMPACT_METRIC_COLUMN_PROPS: IStackProps = {
@@ -157,14 +163,43 @@ export function useMarketStockColumns({
                 >
                   {record.symbol}
                 </SizableText>
-                <SizableText
-                  size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {record.name}
-                </SizableText>
+                <MarketHoverRevealLine
+                  lineHeight={STOCK_SUBTITLE_LINE_HEIGHT}
+                  resting={
+                    <SizableText
+                      height={STOCK_SUBTITLE_LINE_HEIGHT}
+                      size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {record.name}
+                    </SizableText>
+                  }
+                  revealed={
+                    record.variants?.length && !compact ? (
+                      <XStack
+                        height={STOCK_SUBTITLE_LINE_HEIGHT}
+                        alignItems="center"
+                        gap="$1"
+                        minWidth={0}
+                      >
+                        <SizableText
+                          size={MARKET_CELL_SUBTITLE_SIZE}
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {/* No Lokalise key for this yet; the design's copy
+                              is English, like the rest of these headers. */}
+                          {`${record.variants.length} ${
+                            record.variants.length === 1 ? 'token' : 'tokens'
+                          }`}
+                        </SizableText>
+                        <MarketVariantLogoGroup variants={record.variants} />
+                      </XStack>
+                    ) : undefined
+                  }
+                />
               </YStack>
             </XStack>
           </XStack>
