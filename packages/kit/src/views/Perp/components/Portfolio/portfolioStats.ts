@@ -1,10 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { HYPEREVM_SYSTEM_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IFill,
   IPortfolio,
   IPortfolioMetrics,
+  IUserNonFundingLedgerUpdatesResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPortfolioTimePeriod = 'day' | 'week' | 'month' | 'allTime';
@@ -236,4 +238,42 @@ export function buildPerpPortfolioFillsStats({
     spotRealizedPnl,
     totalTrades: filteredFills.length,
   };
+}
+
+// Per its own tooltip this is deposits minus withdrawals, so internal perp/spot
+// moves must not count. USDC leaves HyperCore as a `send` to the system address
+// and returns as a `spotTransfer` from it; both legs or a round trip drifts.
+export function sumPerpsNetDeposits(
+  updates: IUserNonFundingLedgerUpdatesResponse | undefined | null,
+): number | null {
+  if (!updates) {
+    return null;
+  }
+  const systemAddress = HYPEREVM_SYSTEM_ADDRESS.toLowerCase();
+  return updates
+    .reduce((sum, update) => {
+      const { delta } = update;
+      if (delta.type === 'deposit' && delta.usdc) {
+        return sum.plus(delta.usdc);
+      }
+      if (delta.type === 'withdraw' && delta.usdc) {
+        return sum.minus(delta.usdc);
+      }
+      if (delta.type === 'send' && delta.token === 'USDC' && delta.amount) {
+        if (delta.destination?.toLowerCase() === systemAddress) {
+          return sum.minus(delta.amount);
+        }
+        return sum;
+      }
+      if (
+        delta.type === 'spotTransfer' &&
+        delta.token === 'USDC' &&
+        delta.user?.toLowerCase() === systemAddress &&
+        delta.amount
+      ) {
+        return sum.plus(delta.amount);
+      }
+      return sum;
+    }, new BigNumber(0))
+    .toNumber();
 }
